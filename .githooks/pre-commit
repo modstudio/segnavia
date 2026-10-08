@@ -1,0 +1,3 @@
+#!/bin/sh
+# The local gate is the only proof a commit has, so no commit is made without it.
+exec bun run check

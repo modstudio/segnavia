@@ -1,0 +1,33 @@
+{
+  "name": "@segnavia/html",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modstudio/segnavia.git",
+    "directory": "packages/html"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "@segnavia/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "htmlparser2": "^10.0.0",
+    "domhandler": "^5.0.3",
+    "dom-serializer": "^2.0.0"
+  }
+}

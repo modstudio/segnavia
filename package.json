@@ -1,0 +1,37 @@
+{
+  "name": "segnavia",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "setup": "git config core.hooksPath .githooks",
+    "build": "bun scripts/build.ts",
+    "check": "bun --conditions=@segnavia/source scripts/check.ts",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "bun --conditions=@segnavia/source test packages scripts",
+    "typecheck": "tsc --noEmit -p .",
+    "demo": "bun --conditions=@segnavia/source scripts/build-demo.ts && bun --conditions=@segnavia/source scripts/verify-demo.ts && bun --conditions=@segnavia/source scripts/verify-render.ts && node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts && php fixtures/php-host/validate.php out",
+    "setup:php": "composer install --working-dir=fixtures/php-host --no-interaction"
+  },
+  "dependencies": {
+    "playwright-core": "1.55.1",
+    "zod": "^4.1.0",
+    "@segnavia/format": "workspace:*",
+    "@segnavia/capture": "workspace:*",
+    "@segnavia/voice": "workspace:*",
+    "@segnavia/render": "workspace:*",
+    "@segnavia/frame": "workspace:*",
+    "@segnavia/html": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "2",
+    "@types/bun": "latest",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.0",
+    "typescript": "^5.9.0"
+  }
+}

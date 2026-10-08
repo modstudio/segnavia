@@ -1,0 +1,13 @@
+{
+  "worktree": {
+    "create": [
+      {
+        "name": "install dependencies",
+        "run": {
+          "command": "bun",
+          "args": ["install", "--frozen-lockfile"]
+        }
+      }
+    ]
+  }
+}

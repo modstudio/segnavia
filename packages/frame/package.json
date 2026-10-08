@@ -1,0 +1,83 @@
+{
+  "name": "@segnavia/frame",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modstudio/segnavia.git",
+    "directory": "packages/frame"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "unpkg": "./dist/browser/player.js",
+  "jsdelivr": "./dist/browser/player.js",
+  "exports": {
+    ".": {
+      "@segnavia/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./svg": {
+      "@segnavia/source": "./src/svg.ts",
+      "types": "./dist/svg.d.ts",
+      "default": "./dist/svg.js"
+    },
+    "./timeline": {
+      "@segnavia/source": "./src/timeline.ts",
+      "types": "./dist/timeline.d.ts",
+      "default": "./dist/timeline.js"
+    },
+    "./bridge": {
+      "@segnavia/source": "./src/bridge.ts",
+      "types": "./dist/bridge.d.ts",
+      "default": "./dist/bridge.js"
+    },
+    "./print-document": {
+      "@segnavia/source": "./src/print-document.ts",
+      "types": "./dist/print-document.d.ts",
+      "default": "./dist/print-document.js"
+    },
+    "./styled-elements": {
+      "@segnavia/source": "./src/styled-elements.ts",
+      "types": "./dist/styled-elements.d.ts",
+      "default": "./dist/styled-elements.js"
+    },
+    "./player": {
+      "@segnavia/source": "./src/player-entry.ts",
+      "types": "./dist/player-entry.d.ts",
+      "default": "./dist/player-entry.js"
+    },
+    "./controls": {
+      "@segnavia/source": "./src/controls-entry.ts",
+      "types": "./dist/controls-entry.d.ts",
+      "default": "./dist/controls-entry.js"
+    },
+    "./browser/headless": {
+      "@segnavia/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/browser/headless.js"
+    },
+    "./browser/controls": {
+      "@segnavia/source": "./src/controls-entry.ts",
+      "types": "./dist/controls-entry.d.ts",
+      "default": "./dist/browser/controls.js"
+    },
+    "./browser/player": {
+      "@segnavia/source": "./src/player-entry.ts",
+      "types": "./dist/player-entry.d.ts",
+      "default": "./dist/browser/player.js"
+    }
+  },
+  "dependencies": {
+    "@segnavia/format": "workspace:*"
+  }
+}

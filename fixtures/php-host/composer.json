@@ -1,0 +1,6 @@
+{
+  "name": "segnavia/php-host-fixture",
+  "description": "A PHP host reading what the library writes, through its JSON Schemas.",
+  "require": { "php": ">=8.2", "opis/json-schema": "^2.3" },
+  "config": { "sort-packages": true }
+}

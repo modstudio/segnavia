@@ -1,0 +1,31 @@
+#!/bin/sh
+# A subject states the change in the imperative and carries the project's task
+# key; a message carries no AI attribution. The key prefix is the one the
+# project register assigned, written to .githooks/key-prefix at registration.
+subject=$(head -n 1 "$1")
+case "$subject" in
+  Merge\ *) exit 0 ;;
+esac
+prefix_file="$(git rev-parse --show-toplevel)/.githooks/key-prefix"
+if [ -f "$prefix_file" ]; then
+  prefix=$(tr -d '[:space:]' < "$prefix_file")
+  if ! printf '%s' "$subject" | grep -Eq "^${prefix}-[0-9]+ [A-Z]"; then
+    echo "commit-msg: the subject must start with a ${prefix} task key and a capital, as in \"${prefix}-12 Add a page viewer\"." >&2
+    exit 1
+  fi
+  rest=$(printf '%s' "$subject" | sed -E "s/^${prefix}-[0-9]+ //")
+else
+  rest="$subject"
+fi
+if ! printf '%s' "$rest" | grep -Eq '^[A-Z]'; then
+  echo "commit-msg: the subject is a sentence in the imperative, starting with a capital." >&2
+  exit 1
+fi
+if printf '%s' "$rest" | grep -Eiq '^(feat|fix|chore|docs|refactor|test|style)(\(|:)'; then
+  echo "commit-msg: no type prefix; the tracker carries the kind of change." >&2
+  exit 1
+fi
+if grep -Eiq 'co-authored-by:.*(claude|anthropic|openai|copilot|gpt)|generated (with|by) .*(claude|ai)|claude-session:|🤖' "$1"; then
+  echo "commit-msg: AI attribution is refused; the message describes the change, not who typed it." >&2
+  exit 1
+fi

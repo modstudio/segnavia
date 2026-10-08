@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>כיתות (אפליקציית הדגמה)</title>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1c1c1c; background: #f6f6f4; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: #fff; border-bottom: 1px solid #ddd; }
+  header h1 { font-size: 20px; margin: 0; }
+  .profile { margin-inline-start: auto; padding: 4px 12px; border-radius: 999px; background: #e8e3ff; }
+  main { padding: 28px; max-width: 960px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #eee; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  button { font: inherit; padding: 8px 16px; border-radius: 6px; border: 1px solid #2b59c3; background: #2b59c3; color: #fff; cursor: pointer; }
+  button.secondary { background: #fff; color: #2b59c3; }
+  dialog { border: 1px solid #ccc; border-radius: 10px; padding: 24px; width: 420px; }
+  dialog::backdrop { background: rgba(0,0,0,.25); }
+  label { display: block; margin: 12px 0 4px; }
+  input, select { font: inherit; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #bbb; border-radius: 6px; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<header><h1>כיתות</h1><nav>כיתות · תלמידים · דוחות</nav><span class="profile">מחובר בתור מורה לדוגמה</span></header>
+<main>
+  <div class="toolbar"><h2>הכיתות שלך</h2><button type="button" id="new">כיתה חדשה</button></div>
+  <table><thead><tr><th>כיתה</th><th>שכבה</th><th>תלמידים</th></tr></thead>
+    <tbody><tr><td>קריאת בוקר</td><td>2</td><td>18</td></tr><tr><td>חשבון</td><td>3</td><td>22</td></tr></tbody></table>
+</main>
+<dialog id="dialog" aria-labelledby="dialog-title">
+  <form method="dialog">
+    <h3 id="dialog-title">כיתה חדשה</h3>
+    <label for="name">שם הכיתה</label><input id="name" name="name">
+    <label for="grade">שכבה</label><select id="grade"><option>1</option><option selected>2</option><option>3</option></select>
+    <div class="actions"><button type="submit" class="secondary" value="cancel">ביטול</button><button type="submit" value="create">יצירה</button></div>
+  </form>
+</dialog>
+<script>
+  document.getElementById('new').addEventListener('click', () => document.getElementById('dialog').showModal())
+</script>
+</body>
+</html>
