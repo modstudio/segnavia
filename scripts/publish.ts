@@ -33,8 +33,8 @@ interface ReleasePlan {
   decision: 'publish' | 'skip'
 }
 
-async function run(command: string[], cwd = ROOT): Promise<void> {
-  const process = Bun.spawn(command, { cwd, stdout: 'inherit', stderr: 'inherit' })
+async function run(command: string[], cwd = ROOT, inheritStdin = false): Promise<void> {
+  const process = Bun.spawn(command, { cwd, stdout: 'inherit', stderr: 'inherit', ...(inheritStdin ? { stdin: 'inherit' as const } : {}) })
   if ((await process.exited) !== 0) throw new Error(`${command.join(' ')} failed.`)
 }
 
@@ -137,5 +137,5 @@ for (const plan of plans) {
   console.log(
     `${item.manifest.name}@${item.manifest.version} ${item.size} bytes — ${plan.decision === 'skip' ? 'skip (already published)' : dryRun ? 'would publish' : 'publish'}`,
   )
-  if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'])
+  if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'], ROOT, true)
 }
