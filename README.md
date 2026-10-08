@@ -118,6 +118,7 @@ attribution and a subject without the project's task key, whose prefix is in
 - [`docs/decisions.md`](docs/decisions.md): what was decided and why
 - [`docs/research.md`](docs/research.md): what exists elsewhere, including negative results
 - [`docs/roadmap.md`](docs/roadmap.md): what is next, and what is designed but not built
+- [`docs/releasing.md`](docs/releasing.md): record versions, cut a release and configure npm publishing
 
 ## Licence
 

@@ -45,6 +45,7 @@ for (const name of Object.keys(PACKAGES)) {
   const directory = path.join(HOST, 'node_modules', '@segnavia', name)
   mkdirSync(directory, { recursive: true })
   await run(['tar', '-xzf', tarball, '-C', directory, '--strip-components=1'])
+  if (!existsSync(path.join(directory, 'LICENSE'))) throw new Error(`${tarball} does not contain LICENSE.`)
   const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8')) as Manifest
   installed.push({ name, directory, manifest })
 }

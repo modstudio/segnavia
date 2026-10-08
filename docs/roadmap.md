@@ -2,8 +2,7 @@
 
 ## To make it a project
 
-1. Claim the npm scope.
-2. Add releases (Changesets) and publishing.
+1. Claim the npm scope and complete the one-time npm setup for each package.
 
 ## To make it complete for the current hosts
 
