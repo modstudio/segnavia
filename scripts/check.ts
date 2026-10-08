@@ -110,6 +110,7 @@ const results = [
   await run('typecheck', ['bunx', 'tsc', '--noEmit', '-p', '.']),
   await run('unit tests', ['bun', '--conditions=@segnavia/source', 'test', 'packages', 'scripts']),
   await run('package shape', ['bun', '--conditions=@segnavia/source', 'scripts/check-packages.ts']),
+  await run('release dry run', ['bun', 'run', 'release', '--dry-run', '--offline']),
 ]
 
 const hooks = Bun.spawnSync(['git', 'config', 'core.hooksPath'], { cwd: ROOT }).stdout.toString().trim()
