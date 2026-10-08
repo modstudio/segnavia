@@ -124,15 +124,52 @@ A maintainer does these steps once.
 
 ## When it stops
 
-- `npm publish … failed.` — A publish failed partway through. Run the release
-  again:
+After setup, a release is always published by the workflow.
+
+- `npm publish … failed.` — A publish failed partway through. Start the workflow
+  again on `main`:
 
   ```sh
-  bun run release
+  gh workflow run release.yml --ref main
+  gh run watch
   ```
 
-  Success: the release continues; it is safely resumable because versions
-  already published are skipped.
+  Success: the workflow continues the release; versions already published are
+  skipped.
+
+- `<package> still contains workspace: for <dependency>.` — The packed manifest
+  contains a leftover workspace range. Refresh `bun.lock`:
+
+  ```sh
+  bun install
+  ```
+
+  Success: the packed manifest contains a publishable dependency range. Commit
+  the refreshed lockfile, open a pull request and merge it, then start the
+  workflow on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow passes the packed-manifest check and publishes the
+  release.
+
+- `Could not establish package dependency order; the workspace dependencies
+  contain a cycle.` — Remove the cyclic workspace dependency.
+
+  Success: the package dependency graph has no cycle, so the release script can
+  establish a publishing order. Commit the change, open a pull request and
+  merge it, then start the workflow on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow establishes a publishing order and publishes the
+  release.
 
 - `<package>@<version> depends on workspace package … instead of …` — An
   internal dependency is not at the version shared by all six packages. Run:
@@ -148,39 +185,96 @@ A maintainer does these steps once.
   ```
 
   Success: the internal dependency and `bun.lock` use the shared version.
+  Commit the changes, open a pull request and merge it, then start the workflow
+  on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow passes the dependency-version check and publishes the
+  release.
 
 - `<package>@<version> does not match …, the version shared by the other
-  packages.` — A package version differs from the others. Run:
+  packages.` — A package version differs from the others. If changesets are
+  pending, run:
 
   ```sh
   bun run version
   ```
 
-  Success: all six package manifests have the same version.
-
-- `<package>@<version> does not contain LICENSE.` — The packed package is
-  missing its licence. Restore `LICENSE` to the package tarball contents, then
-  run:
+  If no changesets are pending, set the `version` field in all six package
+  manifests to the same value, then run:
 
   ```sh
-  bun run release
+  bun install
+  ```
+
+  Success: all six package manifests have the same version and `bun.lock` is
+  refreshed. Commit the changes, open a pull request and merge it, then start
+  the workflow on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow passes the shared-version check and publishes the
+  release.
+
+- `<package>@<version> does not contain LICENSE.` — The packed package is
+  missing its licence. Restore `LICENSE` to the package tarball contents,
+  commit the change, open a pull request and merge it, then start the workflow
+  on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
   ```
 
   Success: packing passes the licence check.
 
 - `Could not reach the npm registry or establish whether the package exists.` —
-  The registry could not be reached. Restore npm registry access, then run:
+  The registry could not be reached. Restore npm registry access, then start
+  the workflow on `main`:
 
   ```sh
-  bun run release
+  gh workflow run release.yml --ref main
+  gh run watch
   ```
 
   Success: the script can establish whether every version is already published.
 
+- `Could not establish npm's integrity for <package>@<version>.` — The registry
+  answered without an integrity value. Check the value directly:
+
+  ```sh
+  npm view <package>@<version> dist.integrity
+  ```
+
+  Success: npm prints an integrity value. Start the workflow on `main` again:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow establishes the published package's integrity.
+
 - `<package>@<version> has local integrity … but npm has …` — A published
   version differs from the local tarball. Release a new version; published
-  package contents cannot be replaced. Success: the new version is absent from
-  npm and can be published.
+  package contents cannot be replaced. Follow the version steps under **Every
+  release**, commit the changes, open a pull request and merge it, then start
+  the workflow on `main`:
+
+  ```sh
+  gh workflow run release.yml --ref main
+  gh run watch
+  ```
+
+  Success: the workflow publishes the new version, whose contents do not
+  conflict with an existing npm package.
 
 - `release — Skipped` — The workflow run was not started on `main`. Start it on
   `main`:
