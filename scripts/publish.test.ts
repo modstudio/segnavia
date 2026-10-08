@@ -40,6 +40,7 @@ describe('packedPackageRefusal', () => {
 
 describe('registry and release decisions', () => {
   test('distinguishes a missing version from a registry failure', () => {
+    expect(registryState(0, '', '')).toBe('missing')
     expect(registryState(1, '', 'npm error code E404')).toBe('missing')
     expect(() => registryState(1, '', 'npm error code EAI_AGAIN')).toThrow('Could not reach the npm registry')
   })

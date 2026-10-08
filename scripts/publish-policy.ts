@@ -43,6 +43,7 @@ export function packedPackageRefusal(manifest: PackedManifest, sharedVersion: st
 
 export function registryState(exitCode: number, stdout: string, stderr: string): RegistryState {
   if (exitCode === 0 && stdout.trim().length > 0) return 'published'
+  if (exitCode === 0) return 'missing'
   if (exitCode !== 0 && /\bE404\b/.test(stderr)) return 'missing'
   const detail = (stderr || stdout).trim()
   throw new Error(`Could not reach the npm registry or establish whether the package exists.${detail ? ` ${detail}` : ''}`)

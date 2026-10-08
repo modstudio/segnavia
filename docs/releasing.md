@@ -26,14 +26,16 @@ published without publishing it.
 
 ## One-time npm setup
 
-A maintainer performs these steps by hand for each of the six packages, in this
-order:
+A maintainer first publishes every package from a logged-in machine:
 
-1. On a logged-in machine, make the package's first publication with
-   `bun run release`.
-2. In that package's npm settings, register a trusted publisher with owner
+1. Run `bun run release` once. It makes the first publication of all six
+   packages.
+
+Then, for each package in turn:
+
+1. In the package's npm settings, register a trusted publisher with owner
    `modstudio`, repository `segnavia` and workflow file `release.yml`.
-3. Set publishing access to require two-factor authentication and disallow
+2. Set publishing access to require two-factor authentication and disallow
    tokens.
 
 After every package has this setup, releases use GitHub trusted publishing. The
