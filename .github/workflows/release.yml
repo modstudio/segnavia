@@ -8,7 +8,12 @@ permissions:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
+    environment: npm
     runs-on: ubuntu-latest
+    concurrency:
+      group: npm-release
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write

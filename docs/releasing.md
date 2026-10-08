@@ -31,10 +31,14 @@ A maintainer first publishes every package from a logged-in machine:
 1. Run `bun run release` once. It makes the first publication of all six
    packages.
 
+Next, create a GitHub environment named `npm` whose deployment branches are
+limited to `main`.
+
 Then, for each package in turn:
 
 1. In the package's npm settings, register a trusted publisher with owner
-   `modstudio`, repository `segnavia` and workflow file `release.yml`.
+   `modstudio`, repository `segnavia`, workflow file `release.yml` and
+   environment `npm`.
 2. Set publishing access to require two-factor authentication and disallow
    tokens.
 

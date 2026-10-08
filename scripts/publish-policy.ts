@@ -29,11 +29,18 @@ export function dependencyOrder(packages: PackageDependencies[]): string[] {
   return ordered
 }
 
-export function packedPackageRefusal(manifest: PackedManifest, sharedVersion: string, hasLicense: boolean): string | undefined {
+export function packedPackageRefusal(
+  manifest: PackedManifest,
+  sharedVersion: string,
+  hasLicense: boolean,
+  workspaceNames: ReadonlySet<string>,
+): string | undefined {
   const dependencyKinds = [manifest.dependencies, manifest.devDependencies, manifest.optionalDependencies, manifest.peerDependencies]
   for (const dependencies of dependencyKinds) {
     for (const [name, range] of Object.entries(dependencies ?? {})) {
       if (range.startsWith('workspace:')) return `${manifest.name} still contains workspace: for ${name}. Pack it with Bun before publishing.`
+      if (workspaceNames.has(name) && range !== sharedVersion)
+        return `${manifest.name}@${manifest.version} depends on workspace package ${name} at ${range} instead of ${sharedVersion}. Run bun run version, or bun install, to refresh bun.lock.`
     }
   }
   if (manifest.version !== sharedVersion)
@@ -51,4 +58,9 @@ export function registryState(exitCode: number, stdout: string, stderr: string):
 
 export function releaseDecision(state: RegistryState): ReleaseDecision {
   return state === 'published' ? 'skip' : 'publish'
+}
+
+export function publishedPackageRefusal(name: string, version: string, localIntegrity: string, registryIntegrity: string): string | undefined {
+  if (localIntegrity !== registryIntegrity)
+    return `${name}@${version} has local integrity ${localIntegrity} but npm has ${registryIntegrity}. Release a new version.`
 }

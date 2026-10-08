@@ -1,9 +1,10 @@
 // Packs and publishes the six packages, safely resumable after a partial release.
 
+import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES } from '../architecture.ts'
-import { dependencyOrder, type PackedManifest, packedPackageRefusal, registryState, releaseDecision } from './publish-policy.ts'
+import { dependencyOrder, type PackedManifest, packedPackageRefusal, publishedPackageRefusal, registryState, releaseDecision } from './publish-policy.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const OUTPUT = path.join(ROOT, 'out', 'release')
@@ -24,6 +25,12 @@ interface PackedPackage {
   tarball: string
   size: number
   hasLicense: boolean
+  integrity: string
+}
+
+interface ReleasePlan {
+  package: PackedPackage
+  decision: 'publish' | 'skip'
 }
 
 async function run(command: string[], cwd = ROOT): Promise<void> {
@@ -62,7 +69,20 @@ async function pack(workspace: WorkspacePackage): Promise<PackedPackage> {
   const result = await output(['bun', 'pm', 'pack', '--filename', tarball, '--ignore-scripts'], workspace.directory)
   if (result.exitCode !== 0) throw new Error(`Could not pack ${workspace.manifest.name}. ${(result.stderr || result.stdout).trim()}`)
   const inspected = await inspectTarball(tarball)
-  return { ...inspected, tarball, size: statSync(tarball).size }
+  return {
+    ...inspected,
+    tarball,
+    size: statSync(tarball).size,
+    integrity: `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`,
+  }
+}
+
+function integrityFromRegistry(stdout: string, name: string, version: string): string {
+  try {
+    const integrity = JSON.parse(stdout) as unknown
+    if (typeof integrity === 'string' && integrity.length > 0) return integrity
+  } catch {}
+  throw new Error(`Could not establish npm's integrity for ${name}@${version}.`)
 }
 
 const workspacePackages = workspaces()
@@ -89,16 +109,33 @@ for (const name of order) {
 const sharedVersion = packed[0]?.manifest.version
 if (!sharedVersion) throw new Error('No packages were found to release.')
 for (const item of packed) {
-  const refusal = packedPackageRefusal(item.manifest, sharedVersion, item.hasLicense)
+  const refusal = packedPackageRefusal(item.manifest, sharedVersion, item.hasLicense, workspaceNames)
   if (refusal) throw new Error(refusal)
 }
 
-for (const item of packed) {
-  const lookup = offline ? undefined : await output(['npm', 'view', `${item.manifest.name}@${item.manifest.version}`, 'version', '--json'])
+const registryFacts = await Promise.all(
+  packed.map(async (item) => ({
+    item,
+    lookup: offline ? undefined : await output(['npm', 'view', `${item.manifest.name}@${item.manifest.version}`, 'dist.integrity', '--json']),
+  })),
+)
+
+const plans: ReleasePlan[] = []
+for (const { item, lookup } of registryFacts) {
   const state = lookup ? registryState(lookup.exitCode, lookup.stdout, lookup.stderr) : 'missing'
   const decision = releaseDecision(state)
+  if (decision === 'skip' && lookup) {
+    const registryIntegrity = integrityFromRegistry(lookup.stdout, item.manifest.name, item.manifest.version)
+    const refusal = publishedPackageRefusal(item.manifest.name, item.manifest.version, item.integrity, registryIntegrity)
+    if (refusal) throw new Error(refusal)
+  }
+  plans.push({ package: item, decision })
+}
+
+for (const plan of plans) {
+  const item = plan.package
   console.log(
-    `${item.manifest.name}@${item.manifest.version} ${item.size} bytes — ${decision === 'skip' ? 'skip (already published)' : dryRun ? 'would publish' : 'publish'}`,
+    `${item.manifest.name}@${item.manifest.version} ${item.size} bytes — ${plan.decision === 'skip' ? 'skip (already published)' : dryRun ? 'would publish' : 'publish'}`,
   )
-  if (decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'])
+  if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'])
 }
