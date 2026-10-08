@@ -29,7 +29,7 @@ published without publishing it.
 A maintainer first publishes every package from a logged-in machine:
 
 1. Run `bun run release` once. It makes the first publication of all six
-   packages.
+   packages. npm asks for two-factor approval in the browser during that run.
 
 Next, create a GitHub environment named `npm` whose deployment branches are
 limited to `main`.
