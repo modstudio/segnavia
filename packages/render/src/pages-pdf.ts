@@ -41,7 +41,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       const page = pages[group.page]
       const first = group.placements[0]
       if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
-      const geometry = pieceGeometry(page, first)
+      const geometry = pieceGeometry(first)
       const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${hostCss}`
       try {
         return { group, bytes: await services.piecePdf(page, geometry, css, opts) }
@@ -62,11 +62,9 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
     for (const piece of rendered) {
       const image = embedded.get(piece.group.key)
       if (!image) throw new Error(`The rendered piece for page ${piece.group.page} was not embedded.`)
-      const pageValue = pages[piece.group.page]
-      if (!pageValue) throw new Error(`The rendered piece names missing page ${piece.group.page}.`)
-      for (const { placement, fit } of piece.group.placements) {
+      for (const { placement, layout } of piece.group.placements) {
         if (placement.paper !== paperIndex) continue
-        const { draw, clip: clipBox } = placementPdfGeometry(placement, fit, imposed.paper.height, pageValue.size)
+        const { draw, clip: clipBox } = placementPdfGeometry(placement, layout, imposed.paper.height)
         paper.pushOperators(pushGraphicsState(), rectangle(clipBox.x, clipBox.y, clipBox.width, clipBox.height), clip(), endPath())
         paper.drawPage(image, draw)
         paper.pushOperators(popGraphicsState())

@@ -1,9 +1,9 @@
-import { fitPage, type Imposed, type Page, type PageFit, type Placement, PX_PER_MM } from '@segnavia/format'
+import { fitPage, type Imposed, type Page, type PagePlacementLayout, type Placement, pagePlacementLayout } from '@segnavia/format'
 import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
   placement: Placement
-  fit: PageFit
+  layout: PagePlacementLayout
 }
 
 export interface PieceGroup {
@@ -37,38 +37,37 @@ export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | '
     const page = pages[placement.page]
     if (!page) throw new RangeError(`The placement names missing page ${placement.page}.`)
     const fit = fitPage(page, placement, mode)
+    const layout = pagePlacementLayout(page.size, placement, fit)
     const key = geometryKey(placement.page, page, placement)
     const group = groups.get(key) ?? { key, page: placement.page, placements: [] }
-    group.placements.push({ placement, fit })
+    group.placements.push({ placement, layout })
     groups.set(key, group)
   }
   return [...groups.values()]
 }
 
-export function pieceGeometry(page: Page, item: PiecePlacement): PieceGeometry {
-  const { placement, fit } = item
-  if (page.size === 'fluid') {
+export function pieceGeometry(item: PiecePlacement): PieceGeometry {
+  const { placement, layout } = item
+  if (layout.kind === 'fluid') {
     return {
-      viewport: { width: Math.round(fit.width), height: Math.round(placement.bleedBox.height * PX_PER_MM) },
-      pdf: { width: `${placement.bleedBox.width}mm`, height: `${placement.bleedBox.height}mm` },
-      padding: placement.bleed,
+      viewport: { width: Math.round(layout.piece.width), height: Math.round(layout.piece.height) },
+      pdf: { width: `${layout.paper.width}mm`, height: `${layout.paper.height}mm` },
+      padding: layout.inset ? placement.bleed : undefined,
     }
   }
-  const height = page.size.height === 'auto' ? (placement.trim.height * PX_PER_MM) / fit.scale : page.size.height
-  return { viewport: { width: page.size.width, height: Math.round(height) }, pdf: { width: `${page.size.width}px`, height: `${height}px` } }
+  return {
+    viewport: { width: layout.piece.width, height: Math.round(layout.piece.height) },
+    pdf: { width: `${layout.piece.width}px`, height: `${layout.piece.height}px` },
+  }
 }
 
 export function placementPdfGeometry(
   placement: Placement,
-  fit: PageFit,
+  layout: PagePlacementLayout,
   paperHeight: number,
-  pageSize: Page['size'],
 ): { draw: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } } {
-  const fluid = pageSize === 'fluid'
-  const widthMm = fluid ? placement.bleedBox.width : (fit.width * fit.scale) / PX_PER_MM
-  const heightMm = fluid ? placement.bleedBox.height : fit.height === null ? placement.trim.height : (fit.height * fit.scale) / PX_PER_MM
   return {
-    draw: pdfBox({ x: fit.x, y: fit.y, width: widthMm, height: heightMm }, paperHeight),
+    draw: pdfBox(layout.paper, paperHeight),
     clip: pdfBox(placement.bleedBox, paperHeight),
   }
 }

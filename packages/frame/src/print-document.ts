@@ -12,6 +12,7 @@ import {
   Print,
   type PrintInput,
   PX_PER_MM,
+  pagePlacementLayout,
   printPadding,
   printProperties,
   resolveDirection,
@@ -84,8 +85,9 @@ const mm = (value: number) => `${value}mm`
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit)
+  const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
-  const padding = fit.flow && page.size === 'fluid' ? printPadding(placement.bleed) : ''
+  const padding = layout.inset ? printPadding(placement.bleed) : ''
   const srcdoc = frameDocument(page.html, {
     scripts: page.scripts,
     nonce: options.nonce ?? newNonce(),
@@ -95,11 +97,11 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     reportHeight: false,
     relayKeys: false,
   })
-  const position = `left:${mm(fit.x - placement.bleedBox.x)};top:${mm(fit.y - placement.bleedBox.y)}`
+  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
   const dimensions =
-    page.size === 'fluid'
+    layout.kind === 'fluid'
       ? 'width:100%;height:100%'
-      : `width:${fit.width}px;height:${fit.height ?? (placement.trim.height * PX_PER_MM) / fit.scale}px;${position};transform:scale(${fit.scale});transform-origin:0 0`
+      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${fit.scale});transform-origin:0 0`
   return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe></div>`
 }
 

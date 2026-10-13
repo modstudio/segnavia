@@ -6,7 +6,17 @@ import { z } from 'zod'
 import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
-export { fitPage, type Imposed, impose, type MillimeterEdges, type PageFit, type Placement } from './imposition.ts'
+export {
+  fitPage,
+  type Imposed,
+  impose,
+  type MillimeterEdges,
+  type PageFit,
+  type PagePlacementKind,
+  type PagePlacementLayout,
+  type Placement,
+  pagePlacementLayout,
+} from './imposition.ts'
 export {
   MARK_GAP_MM,
   MARK_LENGTH_MM,

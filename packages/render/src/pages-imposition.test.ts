@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, Page } from '@segnavia/format'
+import { fitPage, Imposition, impose, Page, pagePlacementLayout } from '@segnavia/format'
 import { groupPieces, placementPdfGeometry } from './pages-imposition.ts'
 
 const repeat = Imposition.parse({
@@ -43,7 +43,7 @@ describe('imposed PDF pieces', () => {
     const placement = imposed.placements[0]
     if (!placement) throw new Error('Expected a placement.')
     const fit = fitPage(page, placement, imposition.fit)
-    const geometry = placementPdfGeometry(placement, fit, imposed.paper.height, page.size)
+    const geometry = placementPdfGeometry(placement, pagePlacementLayout(page.size, placement, fit), imposed.paper.height)
     expect(geometry.clip).toEqual({ x: 5 / (25.4 / 72), y: 10 / (25.4 / 72), width: 107 / (25.4 / 72), height: 77 / (25.4 / 72) })
     expect(geometry.draw.x).toBeCloseTo(fit.x / (25.4 / 72))
     expect(geometry.draw.y).toBeCloseTo((imposed.paper.height - fit.y - (400 * fit.scale) / (96 / 25.4)) / (25.4 / 72))
@@ -68,7 +68,7 @@ describe('imposed PDF pieces', () => {
     expect(placement.bleed.left).toBe(0)
     expect(placement.bleed.right).toBeGreaterThan(0)
     const fit = fitPage(page, placement, imposition.fit)
-    const geometry = placementPdfGeometry(placement, fit, imposed.paper.height, page.size)
+    const geometry = placementPdfGeometry(placement, pagePlacementLayout(page.size, placement, fit), imposed.paper.height)
     expect(geometry.draw.width).toBeCloseTo(placement.trim.width / (25.4 / 72))
   })
 })

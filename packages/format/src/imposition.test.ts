@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, type Placement, PX_PER_MM } from './index.ts'
+import { fitPage, Imposition, impose, type Placement, PX_PER_MM, pagePlacementLayout } from './index.ts'
 
 const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
@@ -213,5 +213,48 @@ describe('fitPage', () => {
     expect(result.x + width).toBeGreaterThanOrEqual(place.bleedBox.x + place.bleedBox.width)
     expect(result.y + height).toBeGreaterThanOrEqual(place.bleedBox.y + place.bleedBox.height)
     expect(result.crop).toEqual({ top: 2, right: 4, bottom: 0, left: 2 })
+  })
+})
+
+describe('pagePlacementLayout', () => {
+  test('a fluid piece fills the bleed box and insets its layout', () => {
+    const place = placement({ bleed: { top: 1, right: 2, bottom: 3, left: 4 }, bleedBox: { x: 6, y: 19, width: 106, height: 54 } })
+    const size = 'fluid' as const
+    const layout = pagePlacementLayout(size, place, fitPage({ size }, place, 'contain'))
+    expect(layout).toEqual({
+      kind: 'fluid',
+      piece: { width: 106 * PX_PER_MM, height: 54 * PX_PER_MM },
+      inset: true,
+      paper: place.bleedBox,
+    })
+  })
+
+  test('a growing piece uses its own width and occupies the trim even with no left bleed', () => {
+    const place = placement({ bleed: { top: 3, right: 4, bottom: 3, left: 0 }, bleedBox: { x: 10, y: 17, width: 104, height: 56 } })
+    const size = { width: 400, height: 'auto' } as const
+    const fit = fitPage({ size }, place, 'contain')
+    expect(pagePlacementLayout(size, place, fit)).toEqual({
+      kind: 'growing',
+      piece: { width: 400, height: (place.trim.height * PX_PER_MM) / fit.scale },
+      inset: false,
+      paper: place.trim,
+    })
+  })
+
+  test('a fixed piece keeps its CSS size and occupies its scaled fit rectangle', () => {
+    const size = { width: 400, height: 100 } as const
+    const place = placement()
+    const fit = fitPage({ size }, place, 'contain')
+    expect(pagePlacementLayout(size, place, fit)).toEqual({
+      kind: 'fixed',
+      piece: size,
+      inset: false,
+      paper: {
+        x: fit.x,
+        y: fit.y,
+        width: (size.width * fit.scale) / PX_PER_MM,
+        height: (size.height * fit.scale) / PX_PER_MM,
+      },
+    })
   })
 })
