@@ -1,16 +1,13 @@
-import { MM_PER_PT, type Print, PX_PER_MM, printBoxes, sheetMm } from '@segnavia/format'
+import { MM_PER_PT, type Print, PX_PER_MM, printBoxes, printProperties, sheetMm } from '@segnavia/format'
 import { PDFDocument, PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
-
-export class PrintRefusedError extends Error {
-  override name = 'RenderRefusedError'
-}
+import { RenderRefusedError } from './errors.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 const pt = (mm: number) => mm / MM_PER_PT
 
 export function printCss(print: Print): string {
-  const properties = `:root{--segnavia-bleed:${print.bleed}mm;--segnavia-safe:${print.safe}mm}`
+  const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
   const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
   // Padding uses physical sides because the edges of paper do not change with text direction.
@@ -25,7 +22,7 @@ export function printViewport(print: Print, pressLayout: boolean): { width: numb
 
 export function assertPrintOptions(print: Print, preferCssPageSize: boolean | undefined): void {
   if (usesPressLayout(print) && preferCssPageSize) {
-    throw new PrintRefusedError(
+    throw new RenderRefusedError(
       'A page with bleed or marks takes its size from its print setting. Remove preferCssPageSize, or remove the bleed and marks, to clear this refusal.',
     )
   }
@@ -38,10 +35,17 @@ function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: nu
 async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
   const boxes = printBoxes(print)
   const document = await PDFDocument.load(pdf)
-  const page = document.getPage(0)
-  page.setMediaBox(0, 0, pt(boxes.media.width), pt(boxes.media.height))
+  const source = document.getPage(0)
+  const content = await document.embedPage(source)
+  const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
+  page.drawPage(content, {
+    x: pt(boxes.bleedBox.x),
+    y: pt(boxes.media.height - boxes.bleedBox.y - boxes.bleedBox.height),
+    width: source.getWidth(),
+    height: source.getHeight(),
+  })
+  document.removePage(0)
   page.node.delete(PDFName.of('CropBox'))
-  page.translateContent(pt(boxes.bleedBox.x), pt(boxes.media.height - boxes.bleedBox.y - boxes.bleedBox.height))
   const bleedBottomLeft = pdfPoint(boxes.bleedBox.x, boxes.bleedBox.y + boxes.bleedBox.height, boxes.media.height)
   const trimBottomLeft = pdfPoint(boxes.trim.x, boxes.trim.y + boxes.trim.height, boxes.media.height)
   page.setBleedBox(bleedBottomLeft.x, bleedBottomLeft.y, pt(boxes.bleedBox.width), pt(boxes.bleedBox.height))
@@ -80,7 +84,7 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
   })
   const papers = (await PDFDocument.load(pdf)).getPageCount()
   if (papers > 1) {
-    throw new PrintRefusedError(
+    throw new RenderRefusedError(
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
     )
   }

@@ -5,12 +5,15 @@
 // so a render cannot fetch, beacon or depend on the network. Everything a
 // page shows (faces, images, styles) arrives inside it.
 
-import { type Deck, Page, type PageInput } from '@segnavia/format'
+import { type Deck, Page, type PageInput, Print, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
-import { assertPrintOptions, PrintRefusedError, printCss, printPage, printViewport } from './page-paper.ts'
+import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
+
+export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 
 export const RENDER_BOUND_MS = 60_000
 // How long a page that runs its own code gets to call window.pageReady().
@@ -21,18 +24,9 @@ const FLUID_WIDTH = 1024
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
-export class RendererUnavailableError extends Error {
-  override name = 'RendererUnavailableError'
-}
 export class RenderTimeoutError extends Error {
   override name = 'RenderTimeoutError'
 }
-// A render that produced something the host's limits refuse, or a page that
-// never said it was ready. The message names which.
-export class RenderRefusedError extends Error {
-  override name = 'RenderRefusedError'
-}
-
 export interface Font {
   family: string
   data: Uint8Array
@@ -235,7 +229,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   function pageDocument(page: Page, options: RenderOptions, printing = false): string {
-    const css = `${printing && page.print ? printCss(page.print) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
+    const css = `${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
 
@@ -252,14 +246,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   return {
     async pagePdf(input, opts = {}) {
       const page = Page.parse(input)
-      if (page.print) {
-        try {
-          assertPrintOptions(page.print, opts.preferCssPageSize)
-        } catch (error) {
-          if (error instanceof PrintRefusedError) throw new RenderRefusedError(error.message)
-          throw error
-        }
-      }
+      if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
       const viewport = pageViewport(page, undefined, true)
       const pdf = await withTab(
         {
@@ -271,14 +258,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           beforeOutput: opts.beforeOutput,
         },
         async (tab) => {
-          if (page.print) {
-            try {
-              return await printPage(tab, page.print, opts.preferCssPageSize)
-            } catch (error) {
-              if (error instanceof PrintRefusedError) throw new RenderRefusedError(error.message)
-              throw error
-            }
-          }
+          if (page.print) return printPage(tab, page.print, opts.preferCssPageSize)
           const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
           const height = fixedHeight ?? (await contentHeight(tab))
           return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
@@ -317,7 +297,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             html: '',
             size: 'fluid',
             scripts: 'refuse',
-            print: opts.notesPaper ?? { paper: 'letter', orientation: 'portrait', bleed: 0, safe: 0, marks: false },
+            print: Print.parse(opts.notesPaper ?? { paper: 'letter', orientation: 'portrait' }),
           })
         : deck.size
       const pdf = await withTab(

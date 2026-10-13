@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { sheetMm } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
-export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, PX_PER_MM, printBoxes, sheetMm } from './paper.ts'
+export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, PX_PER_MM, printBoxes, printProperties, sheetMm } from './paper.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -64,6 +64,7 @@ export const Print = z
     }
   })
 export type Print = z.infer<typeof Print>
+export type PrintInput = z.input<typeof Print>
 
 // A page is designed for the screen at whatever size it needs: fluid (the
 // viewer's width, as tall as its content), a fixed sheet, or a fixed width

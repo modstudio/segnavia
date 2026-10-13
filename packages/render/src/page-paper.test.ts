@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Print } from '@segnavia/format'
-import { assertPrintOptions, PrintRefusedError, printCss, printViewport } from './page-paper.ts'
+import { RenderRefusedError } from './errors.ts'
+import { assertPrintOptions, printCss, printViewport } from './page-paper.ts'
 
 describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
@@ -22,7 +23,7 @@ describe('printed page setup', () => {
   })
 
   test('a CSS page size is refused for bleed or marks', () => {
-    expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow(PrintRefusedError)
+    expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow(RenderRefusedError)
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow('Remove preferCssPageSize, or remove the bleed and marks')
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4' }), true)).not.toThrow()
   })

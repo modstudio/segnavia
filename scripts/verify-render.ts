@@ -30,6 +30,42 @@ const refusal = (work: Promise<unknown>) =>
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
 
+function readPgm(file: string): { width: number; height: number; pixels: Uint8Array } {
+  const bytes = readFileSync(file)
+  let offset = 0
+  const token = () => {
+    while (offset < bytes.length) {
+      if (bytes[offset] === 35) while (offset < bytes.length && bytes[offset] !== 10) offset++
+      else if ((bytes[offset] ?? 0) <= 32) offset++
+      else break
+    }
+    const start = offset
+    while (offset < bytes.length && (bytes[offset] ?? 0) > 32) offset++
+    return bytes.subarray(start, offset).toString()
+  }
+  if (token() !== 'P5') throw new Error(`The raster at ${file} is not a raw PGM.`)
+  const width = Number(token())
+  const height = Number(token())
+  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit grayscale.`)
+  while ((bytes[offset] ?? 0) <= 32) offset++
+  return { width, height, pixels: bytes.subarray(offset) }
+}
+
+function rasterValue(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
+  const x = Math.round(xMm / MM_PER_PT)
+  const y = Math.round(yMm / MM_PER_PT)
+  if (x < 0 || y < 0 || x >= raster.width || y >= raster.height) return 255
+  return raster.pixels[y * raster.width + x] ?? 255
+}
+
+function darkestNear(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
+  let darkest = 255
+  for (const dx of [-1, 0, 1]) {
+    for (const dy of [-1, 0, 1]) darkest = Math.min(darkest, rasterValue(raster, xMm + dx * MM_PER_PT, yMm + dy * MM_PER_PT))
+  }
+  return darkest
+}
+
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
 const server = createServer((request, response) => {
@@ -180,6 +216,42 @@ try {
       .filter((line) => /^(Pages|MediaBox|BleedBox|TrimBox):/.test(line))
       .join(', '),
   )
+
+  const postcardRaster = path.join(work, 'postcard')
+  execFileSync('pdftoppm', ['-r', '72', '-gray', '-singlefile', postcardFile, postcardRaster])
+  const raster = readPgm(`${postcardRaster}.pgm`)
+  const marks = boxes.marks.map((mark) => {
+    const dx = mark.x2 - mark.x1
+    const dy = mark.y2 - mark.y1
+    const length = Math.hypot(dx, dy)
+    const ux = dx / length
+    const uy = dy / length
+    return {
+      midpoint: darkestNear(raster, (mark.x1 + mark.x2) / 2, (mark.y1 + mark.y2) / 2) < 220,
+      before: rasterValue(raster, mark.x1 - ux * 0.5, mark.y1 - uy * 0.5) > 245,
+      after: rasterValue(raster, mark.x2 + ux * 0.5, mark.y2 + uy * 0.5) > 245,
+    }
+  })
+  const darkMidpoints = marks.filter((mark) => mark.midpoint).length
+  const lightEnds = marks.reduce((count, mark) => count + Number(mark.before) + Number(mark.after), 0)
+  const bleedBackground = rasterValue(raster, boxes.bleedBox.x + (boxes.trim.x - boxes.bleedBox.x) / 2, boxes.bleedBox.y + boxes.bleedBox.height / 2)
+  const mediaBackground = rasterValue(raster, boxes.bleedBox.x / 2, boxes.bleedBox.y + boxes.bleedBox.height / 2)
+  check(
+    'a postcard PDF draws every crop mark at its print position and paints only through the bleed',
+    darkMidpoints === 8 && lightEnds === 16 && bleedBackground < 245 && mediaBackground > 245,
+    `marks=${darkMidpoints}/8, light endpoints=${lightEnds}/16, bleed gray=${bleedBackground}, media gray=${mediaBackground}`,
+  )
+
+  let imageProperties = ''
+  await renderer.pageImage(postcardPage, {
+    beforeOutput: async (tab) => {
+      imageProperties = await tab.evaluate(() => {
+        const root = getComputedStyle(document.documentElement)
+        return `${root.getPropertyValue('--segnavia-bleed')} ${root.getPropertyValue('--segnavia-safe')}`
+      })
+    },
+  })
+  check('a page image exposes its print bleed and safe area', imageProperties === '3mm 5mm', imageProperties)
 
   const tooTall = await refusal(
     renderer.pagePdf({

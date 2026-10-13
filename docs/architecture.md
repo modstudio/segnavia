@@ -127,10 +127,11 @@ the trim. Its root background continues through the bleed, and
 a picture can run off the edge and text can stay clear of the cut. `marks`
 draws crop marks outside the bleed. The PDF page grows by the bleed and the
 marks and carries the trim and bleed boxes, so a print shop's software finds
-the cut. Viewport units measure the bleed box. With bleed or marks, a page is
-one printed piece; content that needs a second paper is refused. Without them,
-a page prints as before. A postcard face is one such page. Putting several
-pages in one PDF belongs to imposition.
+the cut. The two properties are set wherever the page is shown; the bleed is
+painted only in a PDF. Viewport units measure the bleed box. With bleed or
+marks, a page is one printed piece; content that needs a second paper is
+refused. Without them, a page prints as before. A postcard face is one such
+page. Putting several pages in one PDF belongs to imposition.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and

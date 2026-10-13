@@ -33,6 +33,10 @@ export function sheetMm(print: Print): { width: number; height: number } {
 // CSS pixels per millimetre at the 96 dpi every browser lays out at.
 export const PX_PER_MM = 96 / 25.4
 
+export function printProperties(print: Print): string {
+  return `:root{--segnavia-bleed:${print.bleed}mm;--segnavia-safe:${print.safe}mm}`
+}
+
 export interface PaperBox {
   x: number
   y: number

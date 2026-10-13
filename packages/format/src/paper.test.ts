@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page, Print } from './index.ts'
-import { printBoxes, sheetMm } from './paper.ts'
+import { printBoxes, printProperties, sheetMm } from './paper.ts'
 
 describe('paper', () => {
   test('orientation swaps the sides of a named and a custom paper', () => {
@@ -52,6 +52,10 @@ describe('paper', () => {
 
   test('a custom paper accepts points', () => {
     expect(sheetMm(Print.parse({ paper: { width: 288, height: 432, unit: 'pt' } }))).toEqual({ width: 101.6, height: 152.4 })
+  })
+
+  test('print properties expose bleed and safe area to author CSS', () => {
+    expect(printProperties(Print.parse({ paper: 'a4', bleed: 3, safe: 5 }))).toBe(':root{--segnavia-bleed:3mm;--segnavia-safe:5mm}')
   })
 
   test('safe must leave area inside both trim dimensions', () => {

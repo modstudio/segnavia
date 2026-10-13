@@ -216,6 +216,7 @@ writeFileSync(path.join(SITE, 'page.json'), JSON.stringify(fluidPage))
 writeFileSync(path.join(SITE, 'page-rtl.json'), JSON.stringify(hebrewPage))
 writeFileSync(path.join(SITE, 'page-rtl-div.json'), JSON.stringify(rightToLeftDivPage))
 writeFileSync(path.join(SITE, 'page-fixed.json'), JSON.stringify(fixedPage))
+writeFileSync(path.join(SITE, 'page-postcard.json'), JSON.stringify(postcardPage))
 // Each browser bundle contains its layer and every layer beneath it, so a
 // page loads exactly one of the files the package ships.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
@@ -303,7 +304,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 writeFileSync(
   path.join(SITE, 'page.html'),
   shell(
-    '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page></div>',
+    '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page><segnavia-page id="postcard" src="page-postcard.json"></segnavia-page></div>',
   ),
 )
 const schemas = path.join(OUT, 'schema')
@@ -354,7 +355,7 @@ try {
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))
   writeFileSync(
     path.join(OUT, 'deck-notes.pdf'),
-    await renderer.deckPdf(printable, { inline, layout: 'notes', notesPaper: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false } }),
+    await renderer.deckPdf(printable, { inline, layout: 'notes', notesPaper: { paper: 'a4', orientation: 'portrait' } }),
   )
   writeFileSync(path.join(OUT, 'slide-3.png'), await renderer.slideImage(printable, 2, { inline }))
   writeFileSync(path.join(OUT, 'page.webp'), await renderer.pageImage(fluidPage, { format: 'webp', width: 1024 }))
