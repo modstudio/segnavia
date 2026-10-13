@@ -204,7 +204,8 @@ reports what it left in RGB, so a host can tell its user.
 Two more things come from the same profile. A proof is the page as an image
 with every pixel taken to the press's colour and back, so a host can show a
 page as it will print beside the page as designed; it is a guide, not a
-contract proof. A gamut report lists the colours the press cannot reach. A
+contract proof. It is rendered on request, not kept live while a page is
+edited, because a frame's pixels never leave the frame. A gamut report lists the colours the press cannot reach. A
 host that owns a full converter passes it as `convert`, and it runs on the
 finished PDF.
 
