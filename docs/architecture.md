@@ -51,6 +51,7 @@ library names a host.
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
+| `Imposition` (designed, not built) | print and render options | The paper and grid of the host's label stock, card or folded piece. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 
@@ -108,6 +109,60 @@ direction:
 5. Only a flow that finishes moves its shots out of staging. `manifest.json`
    keeps the latest shot per key, and `report.json` records every flow,
    including where a failure screenshot was saved.
+
+## How pages are printed on paper
+
+A page stays a page: it is laid out as on screen, and everything about paper
+is in its print setting or in an imposition. Two parts are built. A page with
+a print setting exports on its paper (`pagePdf`), and a deck prints one slide
+to each sheet of paper (`printableDeck`). The rest of this section is designed
+and not yet built, in the order it will be built.
+
+**Trim, bleed and safe area.** `Print` gains `bleed`, `safe` and `marks`. Its
+`paper` is the trim, the finished size after cutting. The page still lays out
+inside the trim. Its root background continues through the bleed, and
+`--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
+a picture can run off the edge and text can stay clear of the cut. `marks`
+draws crop marks outside the bleed. The PDF page grows by the bleed and the
+marks and carries the trim and bleed boxes, so a print shop's software finds
+the cut. This alone makes a postcard: two pages, front and back, in one PDF.
+
+**Imposition.** An `Imposition` places many pages on one paper. It holds a
+paper, an orientation, margins, a grid of cells (columns, rows, cell size and
+gaps), a bleed for every cell, and how the cells fill: `sequence` puts one
+page in each cell in reading order, and `repeat` puts one page in every cell.
+`impose` is a pure function in `format`. From an imposition and a number of
+pages it returns each page's placement: which paper, which side, and where in
+millimetres. It refuses a grid that does not fit its paper, naming the side
+that overflows and by how much. A page in a cell is shown at the cell's size
+by the rule the stage uses for a slide: a fixed page is scaled to fit, and a
+fluid page is laid out at the cell's width. The cell's bleed and safe area
+come from the imposition; the page's own print setting is not consulted.
+
+A label template is an imposition: label stock is a grid. The host supplies
+the grid of the stock it sells or uses, and the library ships no catalogue of
+stock numbers. Filling labels from records is the host's use of bindings,
+one page per record.
+
+**Sides.** An imposition may have two sides, flipped on the long or the short
+edge. `impose` mirrors the back's placements across the flip, so each back
+lands behind its front.
+
+**Folds.** A folded piece is an imposition whose cells are panels: one row,
+columns that may differ in width, two sides, and a fold line between columns.
+This part is provisional. Its shape is settled once the first three are in
+use, and it is done when a letter-fold brochure prints with every panel in
+its place on both sides.
+
+One print document serves a browser and a server, as it does for a deck.
+`printablePages` builds it from pages and an imposition in `frame`'s
+server-safe print entry, `printPages` prints it in a browser, and `pagesPdf`
+renders it. The host's `limits` count papers as they count a deck's.
+
+The grid fills in the imposition's reading direction: from the top
+inline-start corner, so the first cell of a right-to-left imposition is at
+the top right. Each page keeps its own direction inside its cell. Marks carry
+no text.
 
 ## How a render stays safe
 

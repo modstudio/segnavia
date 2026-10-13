@@ -8,6 +8,14 @@ something else.
 |---|---|
 | **Page** | Self-contained HTML at any size, designed for viewing on screen: fluid (the viewer's width, as tall as its content), a fixed width and height, or a fixed width that grows with its content. |
 | **Print** | An optional setting on a page: a paper (named or custom, in mm or inches), an orientation and margins. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
+| **Trim** | The finished size of a printed page after cutting. It is the print setting's paper. |
+| **Bleed** | The distance a page's background continues past the trim, so a cut that drifts leaves no white edge. |
+| **Safe area** | The distance inside the trim that text keeps clear of. |
+| **Marks** | Crop marks drawn outside the bleed, showing where to cut. |
+| **Imposition** | How many pages are placed on one paper: the paper, a grid of cells, how the cells fill, and whether there are two sides. A label template is an imposition. |
+| **Cell** | One place in an imposition's grid. It holds one page, shown at the cell's size. |
+| **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
+| **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |
 | **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and optional narration. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set). |
 | **Static slide** | A slide without narration. You page through it. |
