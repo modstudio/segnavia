@@ -142,7 +142,21 @@ test('refusals identify every unsupported profile property', () => {
   const channels = models[0].bytes.slice()
   channels[firstOffset + 8] = 3
   expect(() => readProfile(channels)).toThrow(/A2B0 channel count 3->3/)
-  const precision = models[0].bytes.slice()
+  const precision = models[0].bytes.slice(),
+    precisionView = new DataView(precision.buffer)
   precision.set(new TextEncoder().encode('mAB '), firstOffset)
-  expect(() => readProfile(precision)).toThrow(/truncated|precision|channel count|curve tag type/)
+  for (const relativeOffset of [12, 16, 20, 28]) precisionView.setUint32(firstOffset + relativeOffset, 0, false)
+  precisionView.setUint32(firstOffset + 24, 32, false)
+  precision[firstOffset + 8] = 4
+  precision[firstOffset + 9] = 3
+  precision.fill(2, firstOffset + 32, firstOffset + 36)
+  precision[firstOffset + 48] = 3
+  expect(() => readProfile(precision)).toThrow(/mAB {2}CLUT precision 3/)
+
+  const curveType = precision.slice(),
+    curveView = new DataView(curveType.buffer)
+  curveView.setUint32(firstOffset + 12, 32, false)
+  curveView.setUint32(firstOffset + 24, 0, false)
+  curveType.set(new TextEncoder().encode('xxxx'), firstOffset + 32)
+  expect(() => readProfile(curveType)).toThrow(/curve tag type "xxxx"/)
 })
