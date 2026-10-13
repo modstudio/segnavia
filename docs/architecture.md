@@ -51,6 +51,8 @@ library names a host.
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
+| `Imposition` (designed, not built) | print and render options | The paper and grid of the host's label stock, card or folded piece. |
+| press profile, `convert` (designed, not built) | render options | The ICC profile of the press, as bytes, and optionally a full converter to run on the finished PDF. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 
@@ -108,6 +110,112 @@ direction:
 5. Only a flow that finishes moves its shots out of staging. `manifest.json`
    keeps the latest shot per key, and `report.json` records every flow,
    including where a failure screenshot was saved.
+
+## How pages are printed on paper
+
+A page stays a page: it is laid out as on screen, and everything about paper
+is in its print setting or in an imposition. Two parts are built. A page with
+a print setting exports on its paper (`pagePdf`), and a deck prints one slide
+to each sheet of paper (`printableDeck`). The rest of this section is designed
+and not yet built, in the order it will be built.
+
+**Trim, bleed and safe area.** `Print` gains `bleed`, `safe` and `marks`. Its
+`paper` is the trim, the finished size after cutting. The page still lays out
+inside the trim. Its root background continues through the bleed, and
+`--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
+a picture can run off the edge and text can stay clear of the cut. `marks`
+draws crop marks outside the bleed. The PDF page grows by the bleed and the
+marks and carries the trim and bleed boxes, so a print shop's software finds
+the cut. This alone makes a postcard: two pages, front and back, in one PDF.
+
+**Imposition.** An `Imposition` places many pages on one paper. It holds a
+paper, an orientation, margins, a grid of cells (columns, rows, cell size and
+gaps), a bleed for every cell, and how the cells fill: `sequence` puts one
+page in each cell in reading order, and `repeat` puts one page in every cell.
+Its lengths are in one unit named once: millimetres, inches or points (72 to
+the inch), so a host writes its stock's numbers as the maker gives them. A
+custom paper on `Print` takes the same three units. Placements are always in
+millimetres.
+`skip` leaves that many cells empty at the start of the first paper, for
+label stock that is partly used.
+`impose` is a pure function in `format`. From an imposition and a number of
+pages it returns each page's placement: which paper, which side, and where in
+millimetres. It refuses a grid that does not fit its paper, naming the side
+that overflows and by how much. A page in a cell is shown at the cell's size
+by the rule the stage uses for a slide: a fixed page is scaled to fit, and a
+fluid page is laid out at the cell's width. The cell's bleed and safe area
+come from the imposition; the page's own print setting is not consulted,
+because the cell is the finished product. Each placement carries the scale
+the page is shown at and whether the cell differs from the page's own trim,
+so a host can tell its user that a page was scaled and by how much.
+
+When a fixed page and its cell differ in shape, the imposition's `fit`
+decides. `contain`, the default, shows the whole page centred and leaves
+bands on two sides. `cover` fills the cell and its bleed and crops two edges
+of the page. A page is never stretched. The placement reports the bands or
+the crop in millimetres.
+
+A cell's bleed never reaches its neighbour: it stops halfway across the gap,
+so cells that touch have no bleed on the edges they share. A placement names
+the edges where its bleed was cut short, so a host can warn that a drifting
+cut may show the neighbour there.
+
+A host shows a page alone with `<segnavia-page>`, as today, and shows it in
+its cells with `<segnavia-paper>`: a headless element that shows one paper of
+an imposition, scaled to the box the host gives it, from the same print
+document a render uses. Switching between the two is the host's control.
+
+A label template is an imposition: label stock is a grid. The host supplies
+the grid of the stock it sells or uses, and the library ships no catalogue of
+stock numbers. Filling labels from records is the host's use of bindings,
+one page per record.
+
+**Sides.** An imposition may have two sides, flipped on the long or the short
+edge. `impose` mirrors the back's placements across the flip, so each back
+lands behind its front.
+
+**Folds.** A folded piece is an imposition whose cells are panels: one row,
+columns that may differ in width, two sides, and a fold line between columns.
+This part is provisional. Its shape is settled once the first three are in
+use, and it is done when a letter-fold brochure prints with every panel in
+its place on both sides. A stapled booklet, whose pages are reordered across
+several papers, is not covered.
+
+One print document serves a browser and a server, as it does for a deck.
+`printablePages` builds it from pages and an imposition in `frame`'s
+server-safe print entry, `printPages` prints it in a browser, and `pagesPdf`
+renders it. The host's `limits` count papers as they count a deck's.
+
+A slide is a page, so a deck prints through an imposition too:
+`printableDeck` takes one, and a grid of two columns and three rows is a
+handout of six slides to a paper.
+
+**Colour for a press.** A browser draws in RGB, so a render is RGB unless the
+host names a press profile: the ICC profile of the press, passed as bytes the
+way `fonts` are. The library ships none. With a profile, the render writes
+CMYK as far as it can. Every solid colour in the PDF (text, fills and
+strokes) and every gradient stop is converted through the profile, and a
+black or neutral grey becomes black ink alone, so text prints sharp. A
+gradient's stops are then exact and the blend between them is the press's. A
+shadow is treated as a gradient is: its colour is converted and its fade is
+not guaranteed. A raster image stays as the author supplied it. The render
+reports what it left in RGB, so a host can tell its user.
+
+Two more things come from the same profile. A proof is the page as an image
+with every pixel taken to the press's colour and back, so a host can show a
+page as it will print beside the page as designed; it is a guide, not a
+contract proof. It is rendered on request, not kept live while a page is
+edited, because a frame's pixels never leave the frame. A gamut report lists the colours the press cannot reach. A
+host that owns a full converter passes it as `convert`, and it runs on the
+finished PDF.
+
+This part is done when a page with text, a solid fill and a gradient renders
+to a PDF in which a preflight tool finds no RGB outside its images.
+
+The grid fills in the imposition's reading direction: from the top
+inline-start corner, so the first cell of a right-to-left imposition is at
+the top right. Each page keeps its own direction inside its cell. Marks carry
+no text.
 
 ## How a render stays safe
 
