@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { Page, Print } from './index.ts'
-import { printBoxes, printProperties, sheetMm } from './paper.ts'
+import { printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
 
 describe('paper', () => {
+  test('converts supported length units to millimeters', () => {
+    expect(toMillimeters(12, 'mm')).toBe(12)
+    expect(toMillimeters(1, 'in')).toBe(25.4)
+    expect(toMillimeters(72, 'pt')).toBe(25.4)
+  })
+
   test('orientation swaps the sides of a named and a custom paper', () => {
     expect(sheetMm(Print.parse({ paper: 'a4', orientation: 'landscape' }))).toEqual({ width: 297, height: 210 })
     expect(sheetMm(Print.parse({ paper: { width: 6, height: 4, unit: 'in' }, orientation: 'portrait' }))).toEqual({ width: 101.6, height: 152.4 })

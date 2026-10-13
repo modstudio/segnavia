@@ -14,20 +14,22 @@ export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: n
   a5: { width: 148, height: 210 },
 }
 
-const round = (mm: number) => Math.round(mm * 100) / 100
+export const roundMillimeters = (mm: number) => Math.round(mm * 100) / 100
+
+export function toMillimeters(value: number, unit: 'mm' | 'in' | 'pt'): number {
+  return value * (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
+}
 
 // The sheet a print setting describes, in millimeters, with orientation applied.
-export function sheetMm(print: Print): { width: number; height: number } {
+export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: number; height: number } {
   const portrait =
     typeof print.paper === 'string'
       ? PAPER_MM[print.paper]
-      : print.paper.unit === 'in'
-        ? { width: print.paper.width * 25.4, height: print.paper.height * 25.4 }
-        : print.paper.unit === 'pt'
-          ? { width: print.paper.width * MM_PER_PT, height: print.paper.height * MM_PER_PT }
-          : { width: print.paper.width, height: print.paper.height }
+      : { width: toMillimeters(print.paper.width, print.paper.unit), height: toMillimeters(print.paper.height, print.paper.unit) }
   const [short, long] = [Math.min(portrait.width, portrait.height), Math.max(portrait.width, portrait.height)]
-  return print.orientation === 'landscape' ? { width: round(long), height: round(short) } : { width: round(short), height: round(long) }
+  return print.orientation === 'landscape'
+    ? { width: roundMillimeters(long), height: roundMillimeters(short) }
+    : { width: roundMillimeters(short), height: roundMillimeters(long) }
 }
 
 // CSS pixels per millimeter at the 96 dpi every browser lays out at.
@@ -65,38 +67,38 @@ export function printBoxes(print: Print): PrintBoxes {
   const bleedBox = {
     x: outside,
     y: outside,
-    width: round(sheet.width + print.bleed * 2),
-    height: round(sheet.height + print.bleed * 2),
+    width: roundMillimeters(sheet.width + print.bleed * 2),
+    height: roundMillimeters(sheet.height + print.bleed * 2),
   }
   const trim = {
-    x: round(outside + print.bleed),
-    y: round(outside + print.bleed),
+    x: roundMillimeters(outside + print.bleed),
+    y: roundMillimeters(outside + print.bleed),
     width: sheet.width,
     height: sheet.height,
   }
   const safeBox = {
-    x: round(trim.x + print.safe),
-    y: round(trim.y + print.safe),
-    width: round(trim.width - print.safe * 2),
-    height: round(trim.height - print.safe * 2),
+    x: roundMillimeters(trim.x + print.safe),
+    y: roundMillimeters(trim.y + print.safe),
+    width: roundMillimeters(trim.width - print.safe * 2),
+    height: roundMillimeters(trim.height - print.safe * 2),
   }
-  const media = { width: round(bleedBox.width + outside * 2), height: round(bleedBox.height + outside * 2) }
+  const media = { width: roundMillimeters(bleedBox.width + outside * 2), height: roundMillimeters(bleedBox.height + outside * 2) }
   if (!print.marks) return { media, bleedBox, trim, safeBox, marks: [] }
 
-  const leftStart = round(bleedBox.x - MARK_GAP_MM)
-  const rightStart = round(bleedBox.x + bleedBox.width + MARK_GAP_MM)
-  const topStart = round(bleedBox.y - MARK_GAP_MM)
-  const bottomStart = round(bleedBox.y + bleedBox.height + MARK_GAP_MM)
-  const right = round(rightStart + MARK_LENGTH_MM)
-  const bottom = round(bottomStart + MARK_LENGTH_MM)
-  const trimRight = round(trim.x + trim.width)
-  const trimBottom = round(trim.y + trim.height)
+  const leftStart = roundMillimeters(bleedBox.x - MARK_GAP_MM)
+  const rightStart = roundMillimeters(bleedBox.x + bleedBox.width + MARK_GAP_MM)
+  const topStart = roundMillimeters(bleedBox.y - MARK_GAP_MM)
+  const bottomStart = roundMillimeters(bleedBox.y + bleedBox.height + MARK_GAP_MM)
+  const right = roundMillimeters(rightStart + MARK_LENGTH_MM)
+  const bottom = roundMillimeters(bottomStart + MARK_LENGTH_MM)
+  const trimRight = roundMillimeters(trim.x + trim.width)
+  const trimBottom = roundMillimeters(trim.y + trim.height)
   const marks = [
-    { x1: round(leftStart - MARK_LENGTH_MM), y1: trim.y, x2: leftStart, y2: trim.y },
-    { x1: trim.x, y1: round(topStart - MARK_LENGTH_MM), x2: trim.x, y2: topStart },
+    { x1: roundMillimeters(leftStart - MARK_LENGTH_MM), y1: trim.y, x2: leftStart, y2: trim.y },
+    { x1: trim.x, y1: roundMillimeters(topStart - MARK_LENGTH_MM), x2: trim.x, y2: topStart },
     { x1: rightStart, y1: trim.y, x2: right, y2: trim.y },
-    { x1: trimRight, y1: round(topStart - MARK_LENGTH_MM), x2: trimRight, y2: topStart },
-    { x1: round(leftStart - MARK_LENGTH_MM), y1: trimBottom, x2: leftStart, y2: trimBottom },
+    { x1: trimRight, y1: roundMillimeters(topStart - MARK_LENGTH_MM), x2: trimRight, y2: topStart },
+    { x1: roundMillimeters(leftStart - MARK_LENGTH_MM), y1: trimBottom, x2: leftStart, y2: trimBottom },
     { x1: trim.x, y1: bottomStart, x2: trim.x, y2: bottom },
     { x1: rightStart, y1: trimBottom, x2: right, y2: trimBottom },
     { x1: trimRight, y1: bottomStart, x2: trimRight, y2: bottom },

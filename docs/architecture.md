@@ -51,7 +51,7 @@ library names a host.
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
-| `Imposition` (designed, not built) | print and render options | The paper and grid of the host's label stock, card or folded piece. |
+| `Imposition` (partly built) | print and render options | The paper and grid of the host's label stock, card or folded piece. |
 | press profile, `convert` (designed, not built) | render options | The ICC profile of the press, as bytes, and optionally a full converter to run on the finished PDF. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
@@ -114,11 +114,12 @@ direction:
 ## How pages are printed on paper
 
 A page stays a page: it is laid out as on screen, and everything about paper
-is in its print setting or in an imposition. Three parts are built. A page with
-a print setting exports on its paper (`pagePdf`), its trim, bleed, safe area and
-crop marks are carried into that PDF, and a deck prints one slide to each sheet
-of paper (`printableDeck`). The rest of this section is designed and not yet
-built, in the order it will be built.
+is in its print setting or in an imposition. A page with a print setting exports
+on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
+into that PDF, and a deck prints one slide to each sheet of paper
+(`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
+`fitPage`) are built in `format`. The print document, render and on-screen paper
+for an imposition are not yet built. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -145,25 +146,28 @@ millimeters.
 label stock that is partly used.
 `impose` is a pure function in `format`. From an imposition and a number of
 pages it returns each page's placement: which paper, which side, and where in
-millimeters. It refuses a grid that does not fit its paper, naming the side
-that overflows and by how much. A page in a cell is shown at the cell's size
-by the rule the stage uses for a slide: a fixed page is scaled to fit, and a
-fluid page is laid out at the cell's width. The cell's bleed and safe area
-come from the imposition; the page's own print setting is not consulted,
-because the cell is the finished product. Each placement carries the scale
-the page is shown at and whether the cell differs from the page's own trim,
-so a host can tell its user that a page was scaled and by how much.
+millimeters. A grid that does not fit its paper is refused when the
+`Imposition` is parsed, naming the overflow in millimeters; `impose` returns
+placements only. The cell's bleed and safe area come from the imposition,
+because the cell is the finished product. `fitPage` reports the scale, bands
+`{ inline, block }` and crop `{ top, right, bottom, left }` in millimeters, and
+whether the cell differs from the page's own trim. The page's print setting is
+used only for that comparison, not to set the cell's geometry.
 
 When a fixed page and its cell differ in shape, the imposition's `fit`
 decides. `contain`, the default, shows the whole page centered and leaves
-bands on two sides. `cover` fills the cell and its bleed and crops two edges
-of the page. A page is never stretched. The placement reports the bands or
-the crop in millimeters.
+bands on two sides. `cover` fills the cell and its bleed and may crop any of
+the four sides; a side with less bleed has more crop. A page is never
+stretched. A fluid page is laid out at the width of its cell's bleed box and
+inset to the trim by the print document.
 
 A cell's bleed never reaches its neighbor: it stops halfway across the gap,
 so cells that touch have no bleed on the edges they share. A placement names
 the edges where its bleed was cut short, so a host can warn that a drifting
-cut may show the neighbor there.
+cut may show the neighbor there. An outer cell's bleed is limited by the
+distance from the cell to the paper's edge. A fixed page shown with `contain`
+gets no bleed, so a fixed design that must bleed uses `cover`. A page with no
+fixed height is clipped at its cell's bleed box if it is taller.
 
 A host shows a page alone with `<segnavia-page>`, as today, and shows it in
 its cells with `<segnavia-paper>`: a headless element that shows one paper of
