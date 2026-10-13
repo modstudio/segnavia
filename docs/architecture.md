@@ -17,9 +17,9 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 
 | Layer | What it is | Appearance |
 |---|---|---|
-| `DeckController` | All behaviour: slides, play, clocks, cues, keys in reading direction, `#slide-N`, prefetch, `resolveSlide`. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>` | Light DOM elements that show one slide or page in a sandboxed frame, scaled to the box the host gives them. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colours are custom properties with plain defaults. |
-| Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. | Their own, each in a shadow root. Every colour reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
+| `DeckController` | All behavior: slides, play, clocks, cues, keys in reading direction, `#slide-N`, prefetch, `resolveSlide`. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it. | None: it renders nothing. |
+| `<segnavia-stage>`, `<segnavia-page>` | Light DOM elements that show one slide or page in a sandboxed frame, scaled to the box the host gives them. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a layout of the styled components around a stage, with notes, full screen and translatable labels. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
 `unstyled` on the stage or page drops even the geometry, for a host that lays them out itself.
@@ -47,7 +47,7 @@ library names a host.
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
 | `labels` | `<segnavia-player>` | The skin's words, in the host's language. |
-| `--segnavia-*` custom properties | stage, page and player | Colours, radius, type, annotation colour, cue fade. |
+| `--segnavia-*` custom properties | stage, page and player | Colors, radius, type, annotation color, cue fade. |
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
@@ -137,15 +137,15 @@ page. Putting several pages in one PDF belongs to imposition.
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
 gaps), a bleed for every cell, and how the cells fill: `sequence` puts one
 page in each cell in reading order, and `repeat` puts one page in every cell.
-Its lengths are in one unit named once: millimetres, inches or points (72 to
+Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
 custom paper on `Print` takes the same three units. Placements are always in
-millimetres.
+millimeters.
 `skip` leaves that many cells empty at the start of the first paper, for
 label stock that is partly used.
 `impose` is a pure function in `format`. From an imposition and a number of
 pages it returns each page's placement: which paper, which side, and where in
-millimetres. It refuses a grid that does not fit its paper, naming the side
+millimeters. It refuses a grid that does not fit its paper, naming the side
 that overflows and by how much. A page in a cell is shown at the cell's size
 by the rule the stage uses for a slide: a fixed page is scaled to fit, and a
 fluid page is laid out at the cell's width. The cell's bleed and safe area
@@ -155,15 +155,15 @@ the page is shown at and whether the cell differs from the page's own trim,
 so a host can tell its user that a page was scaled and by how much.
 
 When a fixed page and its cell differ in shape, the imposition's `fit`
-decides. `contain`, the default, shows the whole page centred and leaves
+decides. `contain`, the default, shows the whole page centered and leaves
 bands on two sides. `cover` fills the cell and its bleed and crops two edges
 of the page. A page is never stretched. The placement reports the bands or
-the crop in millimetres.
+the crop in millimeters.
 
-A cell's bleed never reaches its neighbour: it stops halfway across the gap,
+A cell's bleed never reaches its neighbor: it stops halfway across the gap,
 so cells that touch have no bleed on the edges they share. A placement names
 the edges where its bleed was cut short, so a host can warn that a drifting
-cut may show the neighbour there.
+cut may show the neighbor there.
 
 A host shows a page alone with `<segnavia-page>`, as today, and shows it in
 its cells with `<segnavia-paper>`: a headless element that shows one paper of
@@ -195,22 +195,22 @@ A slide is a page, so a deck prints through an imposition too:
 `printableDeck` takes one, and a grid of two columns and three rows is a
 handout of six slides to a paper.
 
-**Colour for a press.** A browser draws in RGB, so a render is RGB unless the
+**Color for a press.** A browser draws in RGB, so a render is RGB unless the
 host names a press profile: the ICC profile of the press, passed as bytes the
 way `fonts` are. The library ships none. With a profile, the render writes
-CMYK as far as it can. Every solid colour in the PDF (text, fills and
+CMYK as far as it can. Every solid color in the PDF (text, fills and
 strokes) and every gradient stop is converted through the profile, and a
 black or neutral grey becomes black ink alone, so text prints sharp. A
 gradient's stops are then exact and the blend between them is the press's. A
-shadow is treated as a gradient is: its colour is converted and its fade is
+shadow is treated as a gradient is: its color is converted and its fade is
 not guaranteed. A raster image stays as the author supplied it. The render
 reports what it left in RGB, so a host can tell its user.
 
 Two more things come from the same profile. A proof is the page as an image
-with every pixel taken to the press's colour and back, so a host can show a
+with every pixel taken to the press's color and back, so a host can show a
 page as it will print beside the page as designed; it is a guide, not a
 contract proof. It is rendered on request, not kept live while a page is
-edited, because a frame's pixels never leave the frame. A gamut report lists the colours the press cannot reach. A
+edited, because a frame's pixels never leave the frame. A gamut report lists the colors the press cannot reach. A
 host that owns a full converter passes it as `convert`, and it runs on the
 finished PDF.
 

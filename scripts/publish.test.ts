@@ -48,7 +48,7 @@ describe('packedPackageRefusal', () => {
     expect(packedPackageRefusal({ name: '@segnavia/frame', version: '0.2.0' }, '0.1.0', true, workspaceNames)).toContain('does not match 0.1.0')
   })
 
-  test('refuses a tarball without the licence', () => {
+  test('refuses a tarball without the license', () => {
     expect(packedPackageRefusal({ name: '@segnavia/frame', version: '0.1.0' }, '0.1.0', false, workspaceNames)).toContain('does not contain LICENSE')
   })
 })

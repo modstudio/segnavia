@@ -1,6 +1,6 @@
 // The only styles the headless elements bring: the geometry a slide or page
 // needs to display at all. Every selector sits inside :where(), so it has no
-// specificity and any rule a host writes wins over it. Appearance (colours,
+// specificity and any rule a host writes wins over it. Appearance (colors,
 // borders, radius, type) is left entirely to the host; the few values that
 // do appear are custom properties with plain defaults.
 //

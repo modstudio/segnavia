@@ -98,11 +98,11 @@ export async function verifyMedia(h: Harness) {
     await player.controller.go(0)
   })
   await page.waitForTimeout(300)
-  const colour = await page
+  const color = await page
     .frameLocator(`${PLAYER} iframe`)
     .locator('h1')
     .evaluate((h1) => getComputedStyle(h1).color)
-  check("the host's style reaches inside a slide", colour === 'rgb(1, 2, 3)', colour)
+  check("the host's style reaches inside a slide", color === 'rgb(1, 2, 3)', color)
   await page.addStyleTag({ content: 'segnavia-player::part(bar){background:rgb(4, 5, 6)} segnavia-player{--segnavia-accent:rgb(200, 0, 100)}' })
   await page.mouse.move(0, 0)
   const part = await page.evaluate(() => {

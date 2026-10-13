@@ -18,7 +18,7 @@ export interface Harness {
   // The test runs in the page, so it can use only its own arguments: pass
   // anything it needs as `arg`.
   waitFor<A = undefined>(selector: string, test: (data: DOMStringMap, arg: A) => boolean, options?: { arg?: A; timeout?: number }): Promise<void>
-  // A real click at the centre of a frame, as a presenter makes. Playwright's
+  // A real click at the center of a frame, as a presenter makes. Playwright's
   // element click misplaces a target inside a scaled, sandboxed frame.
   clickFrame(selector: string): Promise<void>
   evidence(name: string): Promise<void>

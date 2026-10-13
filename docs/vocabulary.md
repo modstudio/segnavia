@@ -26,7 +26,7 @@ something else.
 | **Narration** | A slide's voice track: text, words with timings, optional audio, cues. It can be live, meaning the browser speaks it and learns the timings as it goes. |
 | **Cue** | An annotation shown from a spoken word until the slide ends, or until a later word. |
 | **Shot** | A captured screen of a real app: a clean image, optionally an annotated rendition, and the annotations measured on that same image. |
-| **Annotation** | A ring, numbered badge or labelled arrow, measured on one element at capture time, in the shot's CSS pixels. |
+| **Annotation** | A ring, numbered badge or labeled arrow, measured on one element at capture time, in the shot's CSS pixels. |
 | **Published shot** | What a host serves at a shot's permanent address: one version's image and its geometry together, so they never disagree. |
 | **Flow** | A host's scripted path through its app, in named steps, taking shots. |
 | **Host** | An app that uses the library, through the seams the library declares. |
