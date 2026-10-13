@@ -146,21 +146,20 @@ millimeters.
 label stock that is partly used.
 `impose` is a pure function in `format`. From an imposition and a number of
 pages it returns each page's placement: which paper, which side, and where in
-millimeters. It refuses a grid that does not fit its paper, naming the side
-that overflows and by how much. A page in a cell is shown at the cell's size
-by the rule the stage uses for a slide: a fixed page is scaled to fit, and a
-fluid page is laid out at the cell's width. The cell's bleed and safe area come
-from the imposition, because the cell is the finished product. `fitPage`
-reports the scale the page is shown at and whether the cell differs from the
-page's own trim, so a host can tell its user that a page was scaled and by how
-much. The page's print setting is used only for that comparison, not to set the
-cell's geometry.
+millimeters. A grid that does not fit its paper is refused when the
+`Imposition` is parsed, naming the overflow in millimeters; `impose` returns
+placements only. The cell's bleed and safe area come from the imposition,
+because the cell is the finished product. `fitPage` reports the scale, bands
+`{ inline, block }` and crop `{ top, right, bottom, left }` in millimeters, and
+whether the cell differs from the page's own trim. The page's print setting is
+used only for that comparison, not to set the cell's geometry.
 
 When a fixed page and its cell differ in shape, the imposition's `fit`
 decides. `contain`, the default, shows the whole page centered and leaves
-bands on two sides. `cover` fills the cell and its bleed and crops two edges
-of the page. A page is never stretched. The placement reports the bands or
-the crop in millimeters.
+bands on two sides. `cover` fills the cell and its bleed and may crop any of
+the four sides; a side with less bleed has more crop. A page is never
+stretched. A fluid page is laid out at the width of its cell's bleed box and
+inset to the trim by the print document.
 
 A cell's bleed never reaches its neighbor: it stops halfway across the gap,
 so cells that touch have no bleed on the edges they share. A placement names

@@ -1,5 +1,12 @@
 import type { Imposition, Page, Print } from './index.ts'
-import { type PaperBox, PX_PER_MM, sheetMm, toMillimeters } from './paper.ts'
+import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+
+export interface MillimeterEdges {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
 
 export interface Placement {
   page: number
@@ -8,7 +15,7 @@ export interface Placement {
   column: number
   row: number
   trim: PaperBox
-  bleed: { top: number; right: number; bottom: number; left: number }
+  bleed: MillimeterEdges
   bleedBox: PaperBox
   safeBox: PaperBox
   clipped: Array<'top' | 'right' | 'bottom' | 'left'>
@@ -29,11 +36,10 @@ export interface PageFit {
   y: number
   // Inline is horizontal and block is vertical in this physical paper geometry.
   bands: { inline: number; block: number }
-  crop: { top: number; right: number; bottom: number; left: number }
+  crop: MillimeterEdges
   differs: boolean
 }
 
-const round = (value: number) => Math.round(value * 100) / 100
 const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
 
 function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
@@ -58,12 +64,17 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
     left: Math.min(requested, physicalColumn > 0 ? columnGap / 2 : Math.max(0, x)),
   }
   const clipped = (['top', 'right', 'bottom', 'left'] as const).filter((side) => bleed[side] < requested)
-  const trim = { x: round(x), y: round(y), width: round(cellWidth), height: round(cellHeight) }
+  const trim = {
+    x: roundMillimeters(x),
+    y: roundMillimeters(y),
+    width: roundMillimeters(cellWidth),
+    height: roundMillimeters(cellHeight),
+  }
   const roundedBleed = {
-    top: round(bleed.top),
-    right: round(bleed.right),
-    bottom: round(bleed.bottom),
-    left: round(bleed.left),
+    top: roundMillimeters(bleed.top),
+    right: roundMillimeters(bleed.right),
+    bottom: roundMillimeters(bleed.bottom),
+    left: roundMillimeters(bleed.left),
   }
   const safe = mm(imposition.safe)
   return {
@@ -75,12 +86,17 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
     trim,
     bleed: roundedBleed,
     bleedBox: {
-      x: round(x - bleed.left),
-      y: round(y - bleed.top),
-      width: round(cellWidth + bleed.left + bleed.right),
-      height: round(cellHeight + bleed.top + bleed.bottom),
+      x: roundMillimeters(x - bleed.left),
+      y: roundMillimeters(y - bleed.top),
+      width: roundMillimeters(cellWidth + bleed.left + bleed.right),
+      height: roundMillimeters(cellHeight + bleed.top + bleed.bottom),
     },
-    safeBox: { x: round(x + safe), y: round(y + safe), width: round(cellWidth - safe * 2), height: round(cellHeight - safe * 2) },
+    safeBox: {
+      x: roundMillimeters(x + safe),
+      y: roundMillimeters(y + safe),
+      width: roundMillimeters(cellWidth - safe * 2),
+      height: roundMillimeters(cellHeight - safe * 2),
+    },
     clipped,
   }
 }
@@ -164,9 +180,9 @@ export function fitPage(page: { size: Page['size']; print?: Print }, placement: 
       width: page.size.width,
       height: page.size.height,
       scale,
-      x: round(placement.trim.x + inline),
-      y: round(placement.trim.y + block),
-      bands: { inline: round(inline), block: round(block) },
+      x: roundMillimeters(placement.trim.x + inline),
+      y: roundMillimeters(placement.trim.y + block),
+      bands: { inline: roundMillimeters(inline), block: roundMillimeters(block) },
       crop: zeroCrop(),
       differs,
     }
@@ -186,14 +202,14 @@ export function fitPage(page: { size: Page['size']; print?: Print }, placement: 
     width: page.size.width,
     height: page.size.height,
     scale,
-    x: round(x),
-    y: round(y),
+    x: roundMillimeters(x),
+    y: roundMillimeters(y),
     bands: { inline: 0, block: 0 },
     crop: {
-      top: round(Math.max(0, placement.bleedBox.y - y)),
-      right: round(Math.max(0, x + width - placement.bleedBox.x - placement.bleedBox.width)),
-      bottom: round(Math.max(0, y + height - placement.bleedBox.y - placement.bleedBox.height)),
-      left: round(Math.max(0, placement.bleedBox.x - x)),
+      top: roundMillimeters(Math.max(0, placement.bleedBox.y - y)),
+      right: roundMillimeters(Math.max(0, x + width - placement.bleedBox.x - placement.bleedBox.width)),
+      bottom: roundMillimeters(Math.max(0, y + height - placement.bleedBox.y - placement.bleedBox.height)),
+      left: roundMillimeters(Math.max(0, placement.bleedBox.x - x)),
     },
     differs,
   }

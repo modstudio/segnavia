@@ -3,11 +3,23 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { sheetMm, toMillimeters } from './paper.ts'
+import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
-export { fitPage, type Imposed, impose, type PageFit, type Placement } from './imposition.ts'
-export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, type PaperBox, PX_PER_MM, printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
+export { fitPage, type Imposed, impose, type MillimeterEdges, type PageFit, type Placement } from './imposition.ts'
+export {
+  MARK_GAP_MM,
+  MARK_LENGTH_MM,
+  MM_PER_PT,
+  PAPER_MM,
+  type PaperBox,
+  PX_PER_MM,
+  printBoxes,
+  printProperties,
+  roundMillimeters,
+  sheetMm,
+  toMillimeters,
+} from './paper.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -67,26 +79,17 @@ export const Print = z
 export type Print = z.infer<typeof Print>
 export type PrintInput = z.input<typeof Print>
 
-const ImpositionEdges = z.object({
-  top: z.number().nonnegative().default(0),
-  right: z.number().nonnegative().default(0),
-  bottom: z.number().nonnegative().default(0),
-  left: z.number().nonnegative().default(0),
-})
-
 const ImpositionGap = z.object({
   column: z.number().nonnegative().default(0),
   row: z.number().nonnegative().default(0),
 })
-
-const shownMm = (value: number) => Math.round(value * 100) / 100
 
 export const Imposition = z
   .object({
     paper: Paper,
     orientation: z.enum(['portrait', 'landscape']).default('portrait'),
     unit: z.enum(['mm', 'in', 'pt']).default('mm'),
-    margin: ImpositionEdges.default({ top: 0, right: 0, bottom: 0, left: 0 }),
+    margin: Margin.default({ top: 0, right: 0, bottom: 0, left: 0 }),
     columns: z.number().int().positive(),
     rows: z.number().int().positive(),
     cell: z.object({ width: z.number().positive(), height: z.number().positive() }),
@@ -111,14 +114,14 @@ export const Imposition = z
       ctx.addIssue({
         code: 'custom',
         path: ['columns'],
-        message: `the grid is ${shownMm(gridWidth)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${shownMm(gridWidth - paper.width)}mm; reduce the horizontal margins, columns, cell width or column gap`,
+        message: `the grid is ${roundMillimeters(gridWidth)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${roundMillimeters(gridWidth - paper.width)}mm; reduce the horizontal margins, columns, cell width or column gap`,
       })
     }
     if (gridHeight - paper.height > 0.01) {
       ctx.addIssue({
         code: 'custom',
         path: ['rows'],
-        message: `the grid is ${shownMm(gridHeight)}mm high and the paper is ${paper.height}mm high, an overflow of ${shownMm(gridHeight - paper.height)}mm; reduce the vertical margins, rows, cell height or row gap`,
+        message: `the grid is ${roundMillimeters(gridHeight)}mm high and the paper is ${paper.height}mm high, an overflow of ${roundMillimeters(gridHeight - paper.height)}mm; reduce the vertical margins, rows, cell height or row gap`,
       })
     }
     const safe = mm(imposition.safe)
@@ -128,14 +131,14 @@ export const Imposition = z
       ctx.addIssue({
         code: 'custom',
         path: ['safe'],
-        message: `safe is ${shownMm(safe)}mm on the left and right, but the cell is ${shownMm(cellWidth)}mm wide; safe must leave area inside the cell`,
+        message: `safe is ${roundMillimeters(safe)}mm on the left and right, but the cell is ${roundMillimeters(cellWidth)}mm wide; safe must leave area inside the cell`,
       })
     }
     if (safe * 2 >= cellHeight) {
       ctx.addIssue({
         code: 'custom',
         path: ['safe'],
-        message: `safe is ${shownMm(safe)}mm on the top and bottom, but the cell is ${shownMm(cellHeight)}mm high; safe must leave area inside the cell`,
+        message: `safe is ${roundMillimeters(safe)}mm on the top and bottom, but the cell is ${roundMillimeters(cellHeight)}mm high; safe must leave area inside the cell`,
       })
     }
     const cells = imposition.columns * imposition.rows
