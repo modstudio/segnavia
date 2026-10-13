@@ -6,13 +6,22 @@ import { RenderRefusedError } from './errors.ts'
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 const pt = (mm: number) => mm / MM_PER_PT
 
+export function physicalPaddingCss(edges: { top: number; right: number; bottom: number; left: number }): string {
+  // Padding uses physical sides because these are edges on paper, independent
+  // of the page's reading direction.
+  return `:where(html){padding:${[edges.top, edges.right, edges.bottom, edges.left].map((value) => `${value}mm`).join(' ')}}`
+}
+
 export function printCss(print: Print): string {
   const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
   const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
-  // Padding uses physical sides because the edges of paper do not change with text direction.
-  const padding = [margin.top, margin.right, margin.bottom, margin.left].map((value) => `${value + print.bleed}mm`).join(' ')
-  return `${properties}:where(html){padding:${padding}}`
+  return `${properties}${physicalPaddingCss({
+    top: margin.top + print.bleed,
+    right: margin.right + print.bleed,
+    bottom: margin.bottom + print.bleed,
+    left: margin.left + print.bleed,
+  })}`
 }
 
 export function printViewport(print: Print, pressLayout: boolean): { width: number; height: number } {
@@ -32,7 +41,7 @@ function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: nu
   return { x: pt(x), y: pt(mediaHeight - y) }
 }
 
-function pdfBox(box: { x: number; y: number; width: number; height: number }, mediaHeight: number): { x: number; y: number; width: number; height: number } {
+export function pdfBox(box: { x: number; y: number; width: number; height: number }, mediaHeight: number): { x: number; y: number; width: number; height: number } {
   const bottomLeft = pdfPoint(box.x, box.y + box.height, mediaHeight)
   return { ...bottomLeft, width: pt(box.width), height: pt(box.height) }
 }

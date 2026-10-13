@@ -1,26 +1,16 @@
-import { Imposition, type ImpositionInput, impose, Page, type PageInput, PX_PER_MM } from '@segnavia/format'
-import { printablePages } from '@segnavia/frame/print-document'
-import { PDFDocument } from 'pdf-lib'
-import type { Page as Tab } from 'playwright-core'
+import { Imposition, type ImpositionInput, impose, MM_PER_PT, Page, type PageInput, printProperties } from '@segnavia/format'
+import { clip, endPath, PDFDocument, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import { groupPieces, type PieceGeometry, pieceGeometry, placementPdfGeometry } from './pages-imposition.ts'
+import { physicalPaddingCss } from './page-paper.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
   pagePdf(page: Page, options: RenderOptions): Promise<Uint8Array>
+  piecePdf(page: Page, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
-  withTab<T>(
-    setup: {
-      viewport: { width: number; height: number }
-      scripts: boolean
-      html: string
-      waitForReady: boolean
-      boundMs?: number
-      beforeOutput?: (tab: Tab) => Promise<void>
-    },
-    body: (tab: Tab) => Promise<T>,
-  ): Promise<T>
   enforce(pdf: Uint8Array, limits: RenderOptions['limits']): Promise<Uint8Array>
 }
 
@@ -32,6 +22,57 @@ async function joinPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
     for (const page of pages) joined.addPage(page)
   }
   return joined.save()
+}
+
+function namePageError(error: unknown, page: number): never {
+  if (error instanceof Error) {
+    error.message = `Page at index ${page} could not be rendered: ${error.message}`
+    throw error
+  }
+  throw new Error(`Page at index ${page} could not be rendered: ${String(error)}`)
+}
+
+async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+  const imposed = impose(imposition, pages.length)
+  const groups = groupPieces(pages, imposed, imposition.fit)
+  const properties = printProperties(imposition, imposition.unit)
+  const hostCss = `${services.fontFaces(opts)}${opts.css ?? ''}`
+  const rendered = await Promise.all(
+    groups.map(async (group) => {
+      const page = pages[group.page]
+      const first = group.placements[0]
+      if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
+      const geometry = pieceGeometry(page, first)
+      const css = `${properties}${geometry.padding ? physicalPaddingCss(geometry.padding) : ''}${hostCss}`
+      try {
+        return { group, bytes: await services.piecePdf(page, geometry, css, opts) }
+      } catch (error) {
+        namePageError(error, group.page)
+      }
+    }),
+  )
+  const output = await PDFDocument.create()
+  const embedded = new Map<string, Awaited<ReturnType<PDFDocument['embedPdf']>>[number]>()
+  for (const piece of rendered) {
+    const [page] = await output.embedPdf(piece.bytes, [0])
+    if (!page) throw new Error(`The rendered piece for page ${piece.group.page} has no PDF page.`)
+    embedded.set(piece.group.key, page)
+  }
+  for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
+    const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
+    for (const piece of rendered) {
+      const image = embedded.get(piece.group.key)
+      if (!image) throw new Error(`The rendered piece for page ${piece.group.page} was not embedded.`)
+      for (const { placement, fit } of piece.group.placements) {
+        if (placement.paper !== paperIndex) continue
+        const { draw, clip: clipBox } = placementPdfGeometry(placement, fit, imposed.paper.height)
+        paper.pushOperators(pushGraphicsState(), rectangle(clipBox.x, clipBox.y, clipBox.width, clipBox.height), clip(), endPath())
+        paper.drawPage(image, draw)
+        paper.pushOperators(popGraphicsState())
+      }
+    }
+  }
+  return output.save()
 }
 
 export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
@@ -47,19 +88,5 @@ export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions,
     )
   }
   const imposition = Imposition.parse(opts.imposition)
-  const imposed = impose(imposition, pages.length)
-  const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
-  const html = printablePages(pages, imposition, { css })
-  const pdf = await services.withTab(
-    {
-      viewport: { width: Math.round(imposed.paper.width * PX_PER_MM), height: Math.round(imposed.paper.height * PX_PER_MM) },
-      scripts: pages.some((page) => page.scripts === 'sandboxed'),
-      html,
-      waitForReady: false,
-      boundMs: opts.boundMs,
-      beforeOutput: opts.beforeOutput,
-    },
-    (tab) => tab.pdf({ preferCSSPageSize: true, printBackground: true }),
-  )
-  return services.enforce(pdf, opts.limits)
+  return services.enforce(await composedPdf(pages, imposition, opts, services), opts.limits)
 }

@@ -12,6 +12,7 @@ import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
+import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -267,6 +268,37 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return enforce(pdf, opts.limits)
   }
 
+  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions): Promise<Uint8Array> {
+    const html = frameDocument(page.html, {
+      scripts: page.scripts,
+      nonce: newNonce(),
+      dir: page.dir,
+      lang: page.lang,
+      css,
+      relayKeys: false,
+      reportHeight: false,
+    })
+    return withTab(
+      {
+        viewport: geometry.viewport,
+        scripts: page.scripts === 'sandboxed',
+        html,
+        waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+        boundMs: opts.boundMs,
+        beforeOutput: opts.beforeOutput,
+      },
+      (tab) =>
+        tab.pdf({
+          width: geometry.pdf.width,
+          height: geometry.pdf.height,
+          printBackground: true,
+          preferCSSPageSize: false,
+          pageRanges: '1',
+          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        }),
+    )
+  }
+
   const renderer: Renderer = {
     async pagePdf(input, opts = {}) {
       return renderPagePdf(Page.parse(input), opts)
@@ -296,8 +328,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     pagesPdf(inputs, opts = {}) {
       return renderPagesPdf(inputs, opts, {
         pagePdf: renderPagePdf,
+        piecePdf: renderPiecePdf,
         fontFaces: (options) => fontFaces(options.fonts),
-        withTab,
         enforce,
       })
     },
