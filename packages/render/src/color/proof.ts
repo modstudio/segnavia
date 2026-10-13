@@ -1,7 +1,6 @@
-// @ts-nocheck -- Proof tables establish their indexed dimensions when built.
 import { proofLinear } from './engine.ts'
 import { linearToSrgb } from './spaces.ts'
-import { type Color, clamp, type Profile, type ProofTable, refuse } from './types.ts'
+import { type Color3, clamp, type Profile, type ProofTable, refuse } from './types.ts'
 
 export function buildProofTable(profile: Profile, size = 65): ProofTable {
   if (!Number.isInteger(size) || size < 2 || size > 256) refuse(`proof table grid size ${size}`, 'an integer from 2 through 256')
@@ -20,67 +19,53 @@ export function buildProofTable(profile: Profile, size = 65): ProofTable {
 }
 
 function tetrahedral(data: Float32Array, base: number, gs: number, rs: number, r: number, g: number, b: number, channel: number): number {
-  const c = data[base + channel]
+  const last = base + rs + gs + 3 + channel
+  if (base < 0 || channel < 0 || channel > 2 || last >= data.length) throw new Error(`proof table interpolation index ${last} is outside length ${data.length}`)
+  // The range check above establishes every corner index; fallbacks keep the hot interpolation loop compatible with noUncheckedIndexedAccess.
+  const c = data[base + channel] ?? 0,
+    cr = data[base + rs + channel] ?? 0,
+    cg = data[base + gs + channel] ?? 0,
+    cb = data[base + 3 + channel] ?? 0,
+    crg = data[base + rs + gs + channel] ?? 0,
+    crb = data[base + rs + 3 + channel] ?? 0,
+    cgb = data[base + gs + 3 + channel] ?? 0,
+    crgb = data[last] ?? 0
   if (r >= g) {
-    if (g >= b)
-      return (
-        c +
-        r * (data[base + rs + channel] - c) +
-        g * (data[base + rs + gs + channel] - data[base + rs + channel]) +
-        b * (data[base + rs + gs + 3 + channel] - data[base + rs + gs + channel])
-      )
-    if (r >= b)
-      return (
-        c +
-        r * (data[base + rs + channel] - c) +
-        b * (data[base + rs + 3 + channel] - data[base + rs + channel]) +
-        g * (data[base + rs + gs + 3 + channel] - data[base + rs + 3 + channel])
-      )
-    return (
-      c +
-      b * (data[base + 3 + channel] - c) +
-      r * (data[base + rs + 3 + channel] - data[base + 3 + channel]) +
-      g * (data[base + rs + gs + 3 + channel] - data[base + rs + 3 + channel])
-    )
+    if (g >= b) return c + r * (cr - c) + g * (crg - cr) + b * (crgb - crg)
+    if (r >= b) return c + r * (cr - c) + b * (crb - cr) + g * (crgb - crb)
+    return c + b * (cb - c) + r * (crb - cb) + g * (crgb - crb)
   }
-  if (r >= b)
-    return (
-      c +
-      g * (data[base + gs + channel] - c) +
-      r * (data[base + rs + gs + channel] - data[base + gs + channel]) +
-      b * (data[base + rs + gs + 3 + channel] - data[base + rs + gs + channel])
-    )
-  if (g >= b)
-    return (
-      c +
-      g * (data[base + gs + channel] - c) +
-      b * (data[base + gs + 3 + channel] - data[base + gs + channel]) +
-      r * (data[base + rs + gs + 3 + channel] - data[base + gs + 3 + channel])
-    )
-  return (
-    c +
-    b * (data[base + 3 + channel] - c) +
-    g * (data[base + gs + 3 + channel] - data[base + 3 + channel]) +
-    r * (data[base + rs + gs + 3 + channel] - data[base + gs + 3 + channel])
-  )
+  if (r >= b) return c + g * (cg - c) + r * (crg - cg) + b * (crgb - crg)
+  if (g >= b) return c + g * (cg - c) + b * (cgb - cg) + r * (crgb - cgb)
+  return c + b * (cb - c) + g * (cgb - cb) + r * (crgb - cgb)
 }
 
-function coordinates(table: ProofTable, rgb: Color) {
-  const values = rgb.map((value) => clamp(value) * (table.size - 1))
-  const indices = values.map((value) => Math.min(table.size - 2, Math.floor(value)))
+function coordinates(table: ProofTable, rgb: Color3) {
+  const [red, green, blue] = rgb
+  const scale = table.size - 1
+  const rValue = clamp(red) * scale,
+    gValue = clamp(green) * scale,
+    bValue = clamp(blue) * scale
+  const ri = Math.min(table.size - 2, Math.floor(rValue)),
+    gi = Math.min(table.size - 2, Math.floor(gValue)),
+    bi = Math.min(table.size - 2, Math.floor(bValue))
   return {
-    base: ((indices[0] * table.size + indices[1]) * table.size + indices[2]) * 3,
-    r: values[0] - indices[0],
-    g: values[1] - indices[1],
-    b: values[2] - indices[2],
+    base: ((ri * table.size + gi) * table.size + bi) * 3,
+    r: rValue - ri,
+    g: gValue - gi,
+    b: bValue - bi,
   }
 }
 
-export function fastProof(table: ProofTable, rgb: Color): number[] {
+export function fastProof(table: ProofTable, rgb: Color3): Color3 {
   const { base, r, g, b } = coordinates(table, rgb),
     gs = table.size * 3,
     rs = table.size * gs
-  return [0, 1, 2].map((channel) => linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, channel)))
+  return [
+    linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 0)),
+    linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 1)),
+    linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 2)),
+  ]
 }
 
 export function proofPixels(table: ProofTable, source: Uint8Array, destination = new Uint8ClampedArray(source.length)): Uint8ClampedArray {
@@ -89,9 +74,10 @@ export function proofPixels(table: ProofTable, source: Uint8Array, destination =
   const gs = table.size * 3,
     rs = table.size * gs
   for (let offset = 0; offset < source.length; offset += 3) {
-    const red = table.byteCoordinates[source[offset]],
-      green = table.byteCoordinates[source[offset + 1]],
-      blue = table.byteCoordinates[source[offset + 2]]
+    // Divisibility and loop bounds above establish all three source indices; byte coordinates always contain 256 entries.
+    const red = table.byteCoordinates[source[offset] ?? 0] ?? 0,
+      green = table.byteCoordinates[source[offset + 1] ?? 0] ?? 0,
+      blue = table.byteCoordinates[source[offset + 2] ?? 0] ?? 0
     const ri = Math.min(table.size - 2, Math.floor(red)),
       gi = Math.min(table.size - 2, Math.floor(green)),
       bi = Math.min(table.size - 2, Math.floor(blue))

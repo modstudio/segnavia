@@ -1,10 +1,9 @@
-// @ts-nocheck -- Comparison grids have fixed dimensions set by their constructors.
-
 import type { Dirent, Stats } from 'node:fs'
 import { lstatSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import * as reference from 'lcms-wasm'
 import { buildProofTable, fastProof, fromPress, readProfile, toPress } from '../packages/render/src/color/index.ts'
+import { checked, color3, color4 } from '../packages/render/src/color/types.ts'
 
 const roots = [
   '/System/Library/ColorSync/Profiles',
@@ -41,10 +40,10 @@ function discover(candidate: string, explicit: boolean, found: Set<string>): voi
 
 function grid(dimensions: number, divisions: number, maximum = 1): number[][] {
   const result: number[][] = []
-  const visit = (values: number[]) =>
-    values.length === dimensions
-      ? result.push(values)
-      : Array.from({ length: divisions }, (_, index) => visit([...values, (index * maximum) / (divisions - 1)]))
+  const visit = (values: number[]): void => {
+    if (values.length === dimensions) result.push(values)
+    else for (let index = 0; index < divisions; index++) visit([...values, (index * maximum) / (divisions - 1)])
+  }
   visit([])
   return result
 }
@@ -53,16 +52,21 @@ interface Metrics {
   maximum: number[]
   p99: number[]
 }
-function metrics(ours: number[][], oracle: ArrayLike<number>, channels: number, scale: number): Metrics {
+function metrics(ours: readonly (readonly number[])[], oracle: ArrayLike<number>, channels: number, scale: number): Metrics {
   const differences = Array.from({ length: channels }, (_, channel) =>
-    ours.map((values, index) => Math.abs(values[channel] * 255 - oracle[index * channels + channel] * scale)).sort((a, b) => a - b),
+    ours
+      .map((values, index) =>
+        Math.abs(checked(values, channel, 'engine result') * 255 - checked(oracle, index * channels + channel, 'LittleCMS result') * scale),
+      )
+      .sort((a, b) => a - b),
   )
   return { maximum: differences.map((values) => values.at(-1) ?? 0), p99: differences.map((values) => values[Math.ceil(values.length * 0.99) - 1] ?? 0) }
 }
 
 const passes = (value: Metrics) => value.maximum.every((maximum) => maximum <= 3) && value.p99.every((p99) => p99 <= 1)
 const passesFast = (value: Metrics, oracle: Metrics) =>
-  value.maximum.every((maximum, index) => maximum <= oracle.maximum[index] + 0.5) && value.p99.every((p99, index) => p99 <= oracle.p99[index] + 0.5)
+  value.maximum.every((maximum, index) => maximum <= checked(oracle.maximum, index, 'oracle maximums') + 0.5) &&
+  value.p99.every((p99, index) => p99 <= checked(oracle.p99, index, 'oracle percentiles') + 0.5)
 
 const lcms = await reference.instantiate()
 const found = new Set<string>()
@@ -94,13 +98,13 @@ for (const pathname of [...found].sort()) {
       cmyk.length,
     )
     const toResult = metrics(
-      rgb.map((value) => toPress(profile, value)),
+      rgb.map((value) => toPress(profile, color3(value, 'RGB grid point'))),
       oracleTo,
       4,
       2.55,
     )
     const fromResult = metrics(
-      cmyk.map((value) => fromPress(profile, value)),
+      cmyk.map((value) => fromPress(profile, color4(value, 'CMYK grid point'))),
       Float32Array.from(oracleFrom, (value) => Math.max(0, Math.min(1, value))),
       3,
       255,
@@ -126,7 +130,7 @@ for (const pathname of [...found].sort()) {
     )
     const table = buildProofTable(profile)
     const oursFast = metrics(
-      sample.map((value) => fastProof(table, value)),
+      sample.map((value) => fastProof(table, color3(value, 'RGB sample'))),
       exactProof,
       3,
       255,

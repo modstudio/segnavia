@@ -1,4 +1,5 @@
-// @ts-nocheck -- The test builder writes fixed-dimension ICC structures.
+import { type Color3, type Color4, checked, color3, color4 } from './types.ts'
+
 type Encoding = 'mft1' | 'mft2'
 
 const align4 = (value: number) => (value + 3) & ~3
@@ -18,22 +19,24 @@ function xyzTag(): Uint8Array {
   return bytes
 }
 
-function deviceToLab(device: number[], floor: number): number[] {
+function deviceToLab(device: Color4, floor: number): Color3 {
   const [c, m, y, k] = device
   const ink = 1 - (1 - k) * (1 - (0.08 * (c + m + y)) / 3)
   return [(floor + (1 - floor) * (1 - ink)) * 100, 0, 0]
 }
 
-function labToDevice(lab: number[], floor: number): number[] {
+function labToDevice(lab: Color3, floor: number): Color4 {
   return [0, 0, 0, 1 - (lab[0] / 100 - floor) / (1 - floor)]
 }
 
-function decodeLab(values: number[]): number[] {
+function decodeLab(values: Color3): Color3 {
   return [values[0] * 100, values[1] * 255 - 128, values[2] * 255 - 128]
 }
 
-function encodeLab(values: number[]): number[] {
-  return [values[0] / 100, (values[1] + 128) / 255, (values[2] + 128) / 255].map((value) => Math.max(0, Math.min(1, value)))
+function encodeLab(values: Color3): Color3 {
+  const [lightness, a, b] = values
+  const clip = (value: number) => Math.max(0, Math.min(1, value))
+  return [clip(lightness / 100), clip((a + 128) / 255), clip((b + 128) / 255)]
 }
 
 function lut(encoding: Encoding, inputs: number, outputs: number, points: number, transform: (input: number[]) => number[]): Uint8Array {
@@ -96,17 +99,27 @@ function profile(tags: Array<[string, Uint8Array]>): Uint8Array {
   tags.forEach(([name, data], index) => {
     const at = 132 + index * 12
     signature(bytes, at, name)
-    view.setUint32(at + 4, offsets[index], false)
+    view.setUint32(at + 4, checked(offsets, index, 'profile tag offsets'), false)
     view.setUint32(at + 8, data.length, false)
-    bytes.set(data, offsets[index])
+    bytes.set(data, checked(offsets, index, 'profile tag offsets'))
   })
   return bytes
 }
 
 export function buildPressProfile(encoding: Encoding, floor = 0): Uint8Array {
   const legacy = encoding === 'mft2' ? 65_280 / 65_535 : 1
-  const a2b = lut(encoding, 4, 3, 9, (device) => encodeLab(deviceToLab(device, floor)).map((value) => value * legacy))
-  const b2a = lut(encoding, 3, 4, 17, (encoded) => labToDevice(decodeLab(encoded.map((value) => value / legacy)), floor))
+  const a2b = lut(encoding, 4, 3, 9, (device) => encodeLab(deviceToLab(color4(device, 'fixture CMYK input'), floor)).map((value) => value * legacy))
+  const b2a = lut(encoding, 3, 4, 17, (encoded) =>
+    labToDevice(
+      decodeLab(
+        color3(
+          encoded.map((value) => value / legacy),
+          'fixture Lab input',
+        ),
+      ),
+      floor,
+    ),
+  )
   const gamut = lut(encoding, 3, 1, 5, () => [0])
   return profile([
     ['A2B0', a2b],

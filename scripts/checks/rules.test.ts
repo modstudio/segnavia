@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { PACKAGES, SOURCE_CONDITION } from '../../architecture.ts'
-import { checkComments, checkHostNames, checkImports, checkManifest, checkSourceResolution, type ResolutionInputs, type Workspace } from './rules.ts'
+import {
+  checkComments,
+  checkHostNames,
+  checkImports,
+  checkManifest,
+  checkSourceResolution,
+  checkTypeScriptSuppressions,
+  type ResolutionInputs,
+  type Workspace,
+} from './rules.ts'
 
 const workspace = (name: string, exports = ['.']): Workspace => ({
   name: `@segnavia/${name}`,
@@ -76,6 +85,15 @@ describe('writing rules', () => {
 
   test('a tracker key in a comment is caught', () => {
     expect(checkComments({ path: 'x.ts', text: '// see AB-2954', imports: [] })).toHaveLength(1)
+  })
+
+  test('TypeScript suppression directives are caught in packages and scripts', () => {
+    for (const path of ['packages/render/src/example.ts', 'scripts/example.ts'])
+      for (const name of ['nocheck', 'ignore', 'expect-error']) {
+        const file = { path, text: `// @ts-${name}`, imports: [] }
+        expect(checkTypeScriptSuppressions(file).map((finding) => finding.rule)).toEqual(['type-suppression'])
+      }
+    expect(checkTypeScriptSuppressions({ path: 'docs/example.ts', text: `// @ts-${'ignore'}`, imports: [] })).toEqual([])
   })
 
   test('code never names a host', () => {

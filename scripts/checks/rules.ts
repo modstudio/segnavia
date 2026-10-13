@@ -243,6 +243,14 @@ export function checkComments(file: SourceFile): Finding[] {
   return findings
 }
 
+const TYPE_SCRIPT_SUPPRESSIONS = ['nocheck', 'ignore', 'expect-error']
+
+export function checkTypeScriptSuppressions(file: SourceFile): Finding[] {
+  if (!/^(?:packages|scripts)\//.test(file.path)) return []
+  const directive = TYPE_SCRIPT_SUPPRESSIONS.map((name) => `@ts-${name}`).find((candidate) => file.text.includes(candidate))
+  return directive ? [{ rule: 'type-suppression', path: file.path, message: `${directive} disables type safety; fix the types instead.` }] : []
+}
+
 export function checkCeiling(file: SourceFile): Finding[] {
   const lines = file.text.split('\n').length
   return lines > FILE_CEILING_LINES

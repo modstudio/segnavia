@@ -1,4 +1,3 @@
-// @ts-nocheck -- Test grids have fixed dimensions set by their constructors.
 import { describe, expect, test } from 'bun:test'
 import * as reference from 'lcms-wasm'
 import { fromPress, proof, toPress } from './engine.ts'
@@ -6,6 +5,7 @@ import { outOfGamut } from './gamut.ts'
 import { readProfile } from './profile.ts'
 import { buildPressProfile } from './profile-fixture.test-helper.ts'
 import { buildProofTable, fastProof, proofPixels } from './proof.ts'
+import { checked, color3, color4 } from './types.ts'
 
 const lcms = await reference.instantiate()
 const models = [
@@ -16,15 +16,21 @@ const models = [
 
 function grid(dimensions: number, divisions: number): number[][] {
   const result: number[][] = []
-  const visit = (values: number[]) =>
-    values.length === dimensions ? result.push(values) : Array.from({ length: divisions }, (_, index) => visit([...values, index / (divisions - 1)]))
+  const visit = (values: number[]): void => {
+    if (values.length === dimensions) result.push(values)
+    else for (let index = 0; index < divisions; index++) visit([...values, index / (divisions - 1)])
+  }
   visit([])
   return result
 }
 
-function errors(ours: number[][], oracle: ArrayLike<number>, channels: number, oracleScale: number): number[][] {
+function errors(ours: readonly (readonly number[])[], oracle: ArrayLike<number>, channels: number, oracleScale: number): number[][] {
   return Array.from({ length: channels }, (_, channel) =>
-    ours.map((values, index) => Math.abs(values[channel] * 255 - oracle[index * channels + channel] * oracleScale)).sort((a, b) => a - b),
+    ours
+      .map((values, index) =>
+        Math.abs(checked(values, channel, 'engine result') * 255 - checked(oracle, index * channels + channel, 'LittleCMS result') * oracleScale),
+      )
+      .sort((a, b) => a - b),
   )
 }
 
@@ -69,7 +75,7 @@ describe('press color against LittleCMS', () => {
       )
       expectWithinBar(
         errors(
-          rgb.map((value) => toPress(profile, value)),
+          rgb.map((value) => toPress(profile, color3(value, 'RGB grid point'))),
           oracleTo,
           4,
           2.55,
@@ -77,7 +83,7 @@ describe('press color against LittleCMS', () => {
       )
       expectWithinBar(
         errors(
-          cmyk.map((value) => fromPress(profile, value)),
+          cmyk.map((value) => fromPress(profile, color4(value, 'CMYK grid point'))),
           oracleFrom,
           3,
           255,
@@ -91,30 +97,34 @@ describe('press color against LittleCMS', () => {
 })
 
 test('the light-black model exercises black point compensation', () => {
-  const profile = readProfile(models[2].bytes)
+  const profile = readProfile(checked(models, 2, 'profile models').bytes)
   expect(profile.destinationBlackPoint[0]).toBeGreaterThan(5)
   expect(toPress(profile, [0, 0, 0]).every(Number.isFinite)).toBe(true)
 })
 
 test('fast proof stays close to exact proof', () => {
-  const profile = readProfile(models[1].bytes),
+  const profile = readProfile(checked(models, 1, 'profile models').bytes),
     table = buildProofTable(profile)
   let seed = 0x5e6e61
   for (let index = 0; index < 400; index++) {
-    const rgb = Array.from({ length: 3 }, () => {
-      seed ^= seed << 13
-      seed ^= seed >>> 17
-      seed ^= seed << 5
-      return (seed >>> 0) / 4_294_967_295
-    })
+    const rgb = color3(
+      Array.from({ length: 3 }, () => {
+        seed ^= seed << 13
+        seed ^= seed >>> 17
+        seed ^= seed << 5
+        return (seed >>> 0) / 4_294_967_295
+      }),
+      'random RGB sample',
+    )
     // A 65-point table measured below 2.3 bytes on this fixed sample; three bytes include float and platform variation.
-    expect(Math.max(...fastProof(table, rgb).map((value, channel) => Math.abs(value - proof(profile, rgb)[channel]) * 255))).toBeLessThanOrEqual(3)
+    const exact = proof(profile, rgb)
+    expect(Math.max(...fastProof(table, rgb).map((value, channel) => Math.abs(value - checked(exact, channel, 'exact proof')) * 255))).toBeLessThanOrEqual(3)
   }
   expect(proofPixels(table, Uint8Array.from([0, 127, 255]))).toHaveLength(3)
 })
 
 test('gamut tolerance is caller-supplied', () => {
-  expect(typeof outOfGamut(readProfile(models[0].bytes), [1, 0, 0], 2)).toBe('boolean')
+  expect(typeof outOfGamut(readProfile(checked(models, 0, 'profile models').bytes), [1, 0, 0], 2)).toBe('boolean')
 })
 
 test('refusals identify every unsupported profile property', () => {
@@ -125,13 +135,13 @@ test('refusals identify every unsupported profile property', () => {
     [20, 'Luv ', /PCS "Luv "/],
   ]
   for (const [offset, replacement, message] of cases) {
-    const bytes = models[0].bytes.slice()
+    const bytes = checked(models, 0, 'profile models').bytes.slice()
     bytes.set(typeof replacement === 'string' ? new TextEncoder().encode(replacement) : replacement, offset)
     expect(() => readProfile(bytes)).toThrow(message)
   }
-  const truncated = models[0].bytes.slice(0, 140)
+  const truncated = checked(models, 0, 'profile models').bytes.slice(0, 140)
   expect(() => readProfile(truncated)).toThrow(/truncated tag table/)
-  const tagType = models[0].bytes.slice(),
+  const tagType = checked(models, 0, 'profile models').bytes.slice(),
     view = new DataView(tagType.buffer),
     firstOffset = view.getUint32(136, false)
   tagType.set(new TextEncoder().encode('xxxx'), firstOffset)
@@ -139,10 +149,10 @@ test('refusals identify every unsupported profile property', () => {
   const curve = tagType.slice()
   curve.set(new TextEncoder().encode('para'), firstOffset)
   expect(() => readProfile(curve)).toThrow(/A2B0 tag type "para"/)
-  const channels = models[0].bytes.slice()
+  const channels = checked(models, 0, 'profile models').bytes.slice()
   channels[firstOffset + 8] = 3
   expect(() => readProfile(channels)).toThrow(/A2B0 channel count 3->3/)
-  const precision = models[0].bytes.slice(),
+  const precision = checked(models, 0, 'profile models').bytes.slice(),
     precisionView = new DataView(precision.buffer)
   precision.set(new TextEncoder().encode('mAB '), firstOffset)
   for (const relativeOffset of [12, 16, 20, 28]) precisionView.setUint32(firstOffset + relativeOffset, 0, false)

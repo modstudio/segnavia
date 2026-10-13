@@ -1,13 +1,12 @@
-// @ts-nocheck -- Lab vectors have three channels at internal call sites.
 import { proof } from './engine.ts'
 import { srgbToLab } from './spaces.ts'
-import type { Color, Profile } from './types.ts'
+import type { Color3, Profile } from './types.ts'
 
-export function outOfGamut(profile: Profile, rgb: Color, tolerance: number): boolean {
+export function outOfGamut(profile: Profile, rgb: Color3, tolerance: number): boolean {
   return deltaE2000(srgbToLab(rgb), srgbToLab(proof(profile, rgb))) > tolerance
 }
 
-export function deltaE2000(a: Color, b: Color): number {
+export function deltaE2000(a: Color3, b: Color3): number {
   const [l1, a1, b1] = a,
     [l2, a2, b2] = b
   const c1 = Math.hypot(a1, b1),

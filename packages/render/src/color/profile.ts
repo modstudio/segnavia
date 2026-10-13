@@ -1,15 +1,15 @@
-// @ts-nocheck -- The parser checks byte and tag bounds before indexed reads.
 import { destinationBlackPoint, detectSourceBlackPoint } from './black-point.ts'
 import { fixed, matrixTables, parseMab, parseMft, signature, u32 } from './tables.ts'
-import { type ColorTable, type Profile, REVERSE_LUT, refuse } from './types.ts'
+import { type ColorTable, checked, type Profile, REVERSE_LUT, refuse } from './types.ts'
 
 type Records = Record<string, { offset: number; size: number; type: string }>
 
 function header(bytes: Uint8Array): Pick<Profile, 'majorVersion' | 'profileClass' | 'colorSpace' | 'pcs'> {
   if (bytes.length < 132) refuse(`profile length ${bytes.length}`, 'an ICC profile with a complete 128-byte header and tag table')
   if (signature(bytes, 36) !== 'acsp') refuse(`header signature ${JSON.stringify(signature(bytes, 36))}`, '"acsp"')
-  const major = bytes[8]
-  if (major !== 2 && major !== 4) refuse(`ICC version ${major}.${bytes[9] >> 4}`, 'ICC version 2 or 4')
+  const major = checked(bytes, 8, 'ICC header'),
+    minor = checked(bytes, 9, 'ICC header')
+  if (major !== 2 && major !== 4) refuse(`ICC version ${major}.${minor >> 4}`, 'ICC version 2 or 4')
   const profileClass = signature(bytes, 12)
   if (profileClass !== 'prtr' && profileClass !== 'mntr') refuse(`profile class ${JSON.stringify(profileClass)}`, 'prtr or mntr')
   const colorSpace = signature(bytes, 16)
@@ -38,6 +38,7 @@ function table(bytes: Uint8Array, view: DataView, all: Records, names: string[],
   const name = names.find((candidate) => all[candidate])
   if (!name) refuse(`missing ${names.join('/')} tag`, names.join(' or '))
   const record = all[name]
+  if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
   let result: ColorTable
   if (record.type === 'mft1' || record.type === 'mft2') result = parseMft(bytes, view, record.offset, record.type)
   else if (record.type === 'mAB ' || record.type === REVERSE_LUT) result = parseMab(bytes, view, record.offset, record.type)
@@ -65,12 +66,18 @@ export function readProfile(bytes: Uint8Array): Profile {
     else if (gamutRecord.type === 'mAB ' || gamutRecord.type === REVERSE_LUT) gamut = parseMab(bytes, view, gamutRecord.offset, gamutRecord.type)
     else refuse(`gamt tag type ${JSON.stringify(gamutRecord.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
   }
-  const whitePoint = [fixed(view, all.wtpt.offset + 8), fixed(view, all.wtpt.offset + 12), fixed(view, all.wtpt.offset + 16)]
+  const whitePointRecord = all.wtpt
+  if (!whitePointRecord) throw new Error('ICC profile is missing wtpt after its tag set was validated')
+  const whitePoint: [number, number, number] = [
+    fixed(view, whitePointRecord.offset + 8),
+    fixed(view, whitePointRecord.offset + 12),
+    fixed(view, whitePointRecord.offset + 16),
+  ]
   const sourceBlackPoint = detectSourceBlackPoint(parsed.colorSpace, parsed.pcs, parsed.majorVersion, a2b, perceptualB2a)
   const detectedDestination = destinationBlackPoint(parsed.colorSpace, parsed.pcs, parsed.majorVersion, a2b, b2a, sourceBlackPoint)
   return {
     ...parsed,
-    version: `${parsed.majorVersion}.${bytes[9] >> 4}.${bytes[9] & 15}`,
+    version: `${parsed.majorVersion}.${checked(bytes, 9, 'ICC header') >> 4}.${checked(bytes, 9, 'ICC header') & 15}`,
     whitePoint,
     tags: Object.fromEntries(Object.entries(all).map(([name, record]) => [name, record.type])),
     a2b,
