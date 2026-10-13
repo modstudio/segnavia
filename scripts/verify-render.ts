@@ -14,6 +14,7 @@ import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 
@@ -154,7 +155,7 @@ try {
       beforeOutput: async (tab) => {
         overflow = await tab.evaluate(() => {
           const box = (document.querySelector('.slide') as HTMLElement).getBoundingClientRect()
-          const inner = (document.querySelector('.slide iframe') as HTMLElement).getBoundingClientRect()
+          const inner = (document.querySelector('.slide > div') as HTMLElement).getBoundingClientRect()
           return Math.max(box.left - inner.left, inner.right - box.right)
         })
       },
@@ -245,6 +246,7 @@ try {
   )
 
   verifyPagesRender(output, work, check)
+  verifyDeckRender(output, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {

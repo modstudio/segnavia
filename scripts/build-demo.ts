@@ -14,6 +14,7 @@ import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
+import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
@@ -363,6 +364,7 @@ try {
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))
   writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
+  await buildDeckPdfs(renderer, OUT, `shots/${listShot.file}`, inline)
   await buildPagePdfs(renderer, OUT)
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))
   let measured = 0

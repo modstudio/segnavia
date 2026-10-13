@@ -116,8 +116,8 @@ direction:
 A page stays a page: it is laid out as on screen, and everything about paper
 is in its print setting or in an imposition. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
-into that PDF, and a deck prints one slide to each sheet of paper
-(`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
+into that PDF, and a deck lays out one slide on each sheet of its frame-based
+print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
 papers. The on-screen paper, browser print path for pages, a deck through an
@@ -194,14 +194,16 @@ use, and it is done when a letter-fold brochure prints with every panel in
 its place on both sides. A stapled booklet, whose pages are reordered across
 several papers, is not covered.
 
-`printablePages`, in `frame`'s server-safe print entry, is the document a
-browser shows and prints. Chromium paints no background inside a sandboxed
-frame when it prints to PDF, and the sandbox is never removed, so that browser
-path loses page backgrounds. The renderer does not print that document:
-`pagesPdf` renders each page on its own as a top-level document and places the
-results on the papers. Backgrounds and bleed therefore print, and the composed
-output stays vector. A page that runs its own code is waited for exactly as it
-is by `pagePdf`, including its `window.pageReady` signal. Without an
+`printableDeck` and `printablePages`, in `frame`'s server-safe print entry, are
+the frame-based documents a browser shows and prints. Chromium paints no
+background inside a sandboxed frame when it prints to PDF, and the sandbox is
+never removed, so a browser's own print dialog loses slide and page
+backgrounds. The renderer does not print those documents: it renders each
+slide or page on its own as a top-level document and places the result using
+the same geometry functions as the frame-based layout. Backgrounds and bleed
+therefore print, the composed output stays vector, and the two paths cannot
+place content differently. A page that runs its own code is waited for exactly
+as it is by `pagePdf`, including its `window.pageReady` signal. Without an
 imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
 front and back share one file. The host's `limits` count papers as they count a
 deck's.

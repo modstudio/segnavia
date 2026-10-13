@@ -150,16 +150,11 @@ playing slide reveals them on cue.
 
 ## Rendering
 
-**One print document serves both browser and server.** `printableDeck` is
-used by `printDeck` (the browser dialog, after every slide reports ready or
-the deadline passes) and by `deckPdf` (headless). Two layouts would drift.
-
-**A PDF of imposed pages is composed, not printed from frames.** Chromium
-paints no background inside a sandboxed frame when it prints to PDF, and the
-sandbox is never removed. So the renderer prints each page on its own, as a
-top-level document, and places the results on the papers. The frame-based
-document is for the screen and for a browser's own print dialog, where
-backgrounds inside frames are lost.
+**Rendered PDFs are composed from top-level documents.** `printableDeck` and
+`printablePages` are frame-based documents for a browser to show and print;
+its print dialog loses backgrounds because Chromium does not paint them in a
+sandboxed frame, whose sandbox is never removed. The renderer instead renders
+each slide or page at top level and places it with the same geometry functions.
 
 **Bleed is root padding on a page with no browser margin.** Chromium paints
 no background in its page margins and clips content placed there, so a margin

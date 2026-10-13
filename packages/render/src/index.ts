@@ -5,11 +5,12 @@
 // so a render cannot fetch, beacon or depend on the network. Everything a
 // page shows (faces, images, styles) arrives inside it.
 
-import { type Deck, type ImpositionInput, Page, type PageInput, Print, printProperties } from '@segnavia/format'
+import { type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
+import { renderDeckPdf } from './deck-pdf.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -55,6 +56,8 @@ export interface RenderOptions {
   preferCssPageSize?: boolean
   // Runs in the loaded page before it is printed or captured, for a host that
   // measures and lays out inside the browser (a scale that fits, a page count).
+  // For a deck PDF it runs once on the frame-based print document, not on each
+  // top-level HTML slide render.
   beforeOutput?: (tab: Tab) => Promise<void>
 }
 
@@ -334,23 +337,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
 
-    async deckPdf(deck, opts = {}) {
-      const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-      const html = printableDeck(deck, { ...opts, css })
-      const notes = opts.layout === 'notes'
-      const viewport = notes
-        ? pageViewport({
-            html: '',
-            size: 'fluid',
-            scripts: 'refuse',
-            print: Print.parse(opts.notesPaper ?? { paper: 'letter', orientation: 'portrait' }),
-          })
-        : deck.size
-      const pdf = await withTab(
-        { viewport, scripts: deck.scripts === 'sandboxed', html, waitForReady: false, boundMs: opts.boundMs, beforeOutput: opts.beforeOutput },
-        (tab) => tab.pdf({ preferCSSPageSize: true, printBackground: true }),
-      )
-      return enforce(pdf, opts.limits)
+    deckPdf(deck, opts = {}) {
+      return renderDeckPdf(deck, opts, {
+        renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false }, (tab) => tab.pdf(pdf)),
+        fontFaces: (options) => fontFaces(options.fonts),
+        enforce,
+      })
     },
 
     async slideImage(deck, index, opts = {}) {
