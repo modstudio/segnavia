@@ -74,6 +74,33 @@ export const labelsImposition: ImpositionInput = {
   gap: { column: 0.125, row: 0 },
 }
 
+export const twoSidedCardImposition: ImpositionInput = {
+  paper: { width: 120, height: 160, unit: 'mm' },
+  columns: 2,
+  rows: 2,
+  cell: { width: 40, height: 50 },
+  margin: { top: 15, right: 25, bottom: 40, left: 10 },
+  gap: { column: 5, row: 5 },
+  sides: 'two',
+  flip: 'long',
+}
+
+export const twoSidedCardPages: PageInput[] = Array.from({ length: 8 }, (_, index) => {
+  const face = index % 2 === 0 ? 'Front' : 'Back'
+  const piece = Math.floor(index / 2) + 1
+  const shade = face === 'Front' ? 220 : 170
+  return {
+    html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0;font:14px sans-serif"><p>${face} ${piece}</p></body></html>`,
+    size: 'fluid',
+  }
+})
+
+export const twoSidedSequenceImposition: ImpositionInput = {
+  ...twoSidedCardImposition,
+  rows: 1,
+  margin: { top: 15, right: 25, bottom: 95, left: 10 },
+}
+
 export const fixedImposedPage: PageInput = {
   html: '<!doctype html><html style="margin:0;background:rgb(80,80,80)"><body style="margin:0"></body></html>',
   size: { width: 600, height: 400 },

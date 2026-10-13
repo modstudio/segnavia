@@ -29,20 +29,33 @@ export interface ImposedPdfPiece {
   placements: PiecePlacement[]
 }
 
+function drawImposedSide(
+  output: PDFDocument,
+  imposed: Imposed,
+  embedded: Map<string, PDFEmbeddedPage>,
+  pieces: ImposedPdfPiece[],
+  paperIndex: number,
+  side: 'front' | 'back',
+): void {
+  const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
+  for (const piece of pieces) {
+    const image = embedded.get(piece.key)
+    if (!image) throw new Error(`${piece.name} was not embedded.`)
+    for (const { placement, layout } of piece.placements) {
+      if (placement.paper !== paperIndex || placement.side !== side) continue
+      const { draw, clip: clipBox } = placementPdfGeometry(placement, layout, imposed.paper.height)
+      drawClippedPage(paper, image, draw, clipBox)
+    }
+  }
+}
+
 export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[]): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
-    const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
-    for (const piece of pieces) {
-      const image = embedded.get(piece.key)
-      if (!image) throw new Error(`${piece.name} was not embedded.`)
-      for (const { placement, layout } of piece.placements) {
-        if (placement.paper !== paperIndex) continue
-        const { draw, clip: clipBox } = placementPdfGeometry(placement, layout, imposed.paper.height)
-        drawClippedPage(paper, image, draw, clipBox)
-      }
+    for (const side of (['front', 'back'] as const).slice(0, imposed.sides)) {
+      drawImposedSide(output, imposed, embedded, pieces, paperIndex, side)
     }
   }
   return output.save()

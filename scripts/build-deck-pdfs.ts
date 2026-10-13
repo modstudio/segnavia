@@ -14,6 +14,10 @@ export async function buildDeckPdfs(renderer: Renderer, output: string, image: s
   const handout = handoutDeck('refuse', image, shot)
   writeFileSync(path.join(output, 'deck-handout.pdf'), await renderer.deckPdf(handout, { imposition: handoutImposition, inline }))
   writeFileSync(
+    path.join(output, 'deck-handout-two-sided.pdf'),
+    await renderer.deckPdf(handout, { imposition: { ...handoutImposition, sides: 'two' }, inline }),
+  )
+  writeFileSync(
     path.join(output, 'deck-handout-cover.pdf'),
     await renderer.deckPdf(handout, { imposition: { ...handoutImposition, fit: 'cover', bleed: 3 }, inline }),
   )

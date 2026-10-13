@@ -3,7 +3,7 @@
 
 import { inflateSync } from 'node:zlib'
 import { Imposition, impose, PX_PER_MM } from '@segnavia/format'
-import { labelPages, labelsImposition } from '../demo-page-fixtures.ts'
+import { labelPages, labelsImposition, twoSidedCardImposition } from '../demo-page-fixtures.ts'
 import type { Harness } from './harness.ts'
 
 function screenshotPixel(png: Uint8Array): [number, number, number] {
@@ -64,6 +64,51 @@ export async function verifyPapers(h: Harness) {
     'a 31-label paper reports two papers and shows the one placement on paper 1',
     second.papers === 2 && second.reflected === '2' && second.frames === 1,
     JSON.stringify(second),
+  )
+
+  const cardsImposed = impose(Imposition.parse(twoSidedCardImposition), 8)
+  const cards = await page.locator('#cards-front,#cards-back').evaluateAll((papers) =>
+    papers.map((paper) => {
+      const root = paper.querySelector('.segnavia-paper__paper') as HTMLElement
+      const origin = root.getBoundingClientRect()
+      return {
+        side: paper.getAttribute('side'),
+        sides: (paper as HTMLElement).dataset.sides,
+        scale: origin.width / Number.parseFloat(root.style.width),
+        origin: { x: origin.x, y: origin.y },
+        frames: [...paper.querySelectorAll('iframe')].map((frame) => {
+          const rect = frame.getBoundingClientRect()
+          return { x: rect.x, y: rect.y }
+        }),
+      }
+    }),
+  )
+  const cardsMatch = cards.every((shown) => {
+    const placements = cardsImposed.placements.filter((placement) => placement.side === shown.side)
+    return shown.frames.every((frame, index) => {
+      const placement = placements[index]
+      return (
+        placement !== undefined &&
+        Math.abs(frame.x - (shown.origin.x + placement.bleedBox.x * PX_PER_MM * shown.scale)) <= 1 &&
+        Math.abs(frame.y - (shown.origin.y + placement.bleedBox.y * PX_PER_MM * shown.scale)) <= 1
+      )
+    })
+  })
+  check(
+    'a two-sided paper shows four front or mirrored back frames and reflects its side count',
+    cards.length === 2 && cards.every((shown) => shown.frames.length === 4 && shown.sides === '2') && cardsMatch,
+    JSON.stringify(cards),
+  )
+
+  const oneSidedBack = await page.locator('#one-sided-back').evaluate((paper: HTMLElement & { side: string }) => ({
+    side: paper.side,
+    reflected: paper.getAttribute('side'),
+    sides: paper.dataset.sides,
+  }))
+  check(
+    'a back side requested on a one-sided paper falls back to front and reflects it',
+    oneSidedBack.side === 'front' && oneSidedBack.reflected === 'front' && oneSidedBack.sides === '1',
+    JSON.stringify(oneSidedBack),
   )
 
   const rtlPlacement = impose(Imposition.parse({ ...labelsImposition, dir: 'rtl' }), 1).placements[0]

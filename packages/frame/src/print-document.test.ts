@@ -87,7 +87,7 @@ describe('printableDeck', () => {
     const html = printableDeck(seven, { imposition: handout, nonce: 'known' })
     expect(printable.html).toBe(html)
     expect(printable.imposed).toEqual(imposed)
-    expect(html.match(/<section class="paper">/g)).toHaveLength(2)
+    expect(html.match(/<section class="paper"/g)).toHaveLength(2)
     expect(html.match(/<div class="placement"/g)).toHaveLength(7)
     for (const placement of imposed.placements) {
       expect(html).toContain(
@@ -147,7 +147,7 @@ describe('printablePages', () => {
     const imposed = impose(grid, pages.length)
     const content = Array.from({ length: imposed.papers }, (_, paper) => printablePaper(pages, grid, imposed, paper, { nonce: 'test' })).join('')
     const printable = printablePagesDocument(pages, grid, { nonce: 'test' })
-    const wrapped = printable.html.match(/<body>([\s\S]*)<\/body>/)?.[1]?.replace(/<\/?section(?: class="paper")?>/g, '')
+    const wrapped = printable.html.match(/<body>([\s\S]*)<\/body>/)?.[1]?.replace(/<\/?section(?: class="paper" data-side="front")?>/g, '')
     expect(wrapped).toBe(content)
     expect(printable.imposed).toEqual(imposed)
     expect(printablePages(pages, grid, { nonce: 'test' })).toBe(printable.html)
@@ -156,7 +156,7 @@ describe('printablePages', () => {
   test('builds papers with every placement clipped to its bleed box', () => {
     const html = printablePages([fluid, fluid, fluid, fluid, fluid], grid, { nonce: 'test' })
     expect(html).toContain('@page{size:26mm 26mm;margin:0}')
-    expect(html.match(/<section class="paper">/g)).toHaveLength(2)
+    expect(html.match(/<section class="paper"/g)).toHaveLength(2)
     for (const box of [
       { x: 1, y: 1 },
       { x: 13, y: 1 },
@@ -181,6 +181,37 @@ describe('printablePages', () => {
     expect(html).toContain(':where(html){padding:2mm 0mm 1mm 2mm}')
     expect(html.indexOf('--segnavia-safe:1mm')).toBeLessThan(html.indexOf(':where(html){padding:'))
     expect(html.indexOf(':where(html){padding:')).toBeLessThan(html.indexOf(':root{color:red}'))
+  })
+
+  test('builds front and back blocks with the back at its mirrored position', () => {
+    const twoSided = Imposition.parse({
+      paper: { width: 100, height: 150, unit: 'mm' },
+      columns: 1,
+      rows: 1,
+      cell: { width: 30, height: 40 },
+      margin: { top: 20, right: 60, bottom: 90, left: 10 },
+      sides: 'two',
+      flip: 'long',
+    })
+    const pages = [Page.parse({ html: '<p>front</p>' }), Page.parse({ html: '<p>back</p>' })]
+    const imposed = impose(twoSided, pages.length)
+    const front = imposed.placements.find((placement) => placement.side === 'front')
+    const back = imposed.placements.find((placement) => placement.side === 'back')
+    if (!front || !back) throw new Error('Expected front and back placements.')
+    const printable = printablePagesDocument(pages, twoSided, { nonce: 'test' }).html
+    const blocks = [...printable.matchAll(/<section class="paper" data-side="(front|back)">([\s\S]*?)<\/section>/g)]
+    expect(blocks.map((match) => match[1])).toEqual(['front', 'back'])
+    expect(blocks[0]?.[2]).toContain(`left:${front.bleedBox.x}mm;top:${front.bleedBox.y}mm`)
+    expect(blocks[1]?.[2]).toContain(`left:${back.bleedBox.x}mm;top:${back.bleedBox.y}mm`)
+
+    const twoSlides = Deck.parse({
+      ...deck,
+      slides: [
+        { id: 'front', content: { kind: 'html', html: '<p>front</p>' } },
+        { id: 'back', content: { kind: 'html', html: '<p>back</p>' } },
+      ],
+    })
+    expect(printableDeckDocument(twoSlides, { imposition: twoSided, nonce: 'test' }).html.match(/<section class="paper"/g)).toHaveLength(2)
   })
 
   test.each(['contain', 'cover'] as const)('places and scales a fixed page with %s', (mode) => {

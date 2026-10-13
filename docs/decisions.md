@@ -28,6 +28,11 @@ are placed on live in the print setting and the imposition. A page designed
 for the screen then prints without being redesigned, and a printed piece
 shows on screen as it is.
 
+**On two sides, pages come in pairs.** A front and then its back, so a host
+lists a piece's two faces together and the library puts the back behind the
+front. A printer's duplex setting must match the imposition's flip, or the
+backs land mirrored.
+
 **Where a page lands on paper is a pure function.** Imposition is arithmetic
 over plain values, so it is tested without a browser, and a browser and a
 server place every page identically.

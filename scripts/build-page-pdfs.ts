@@ -14,6 +14,9 @@ import {
   labelsImposition,
   postcardBackPage,
   postcardPage,
+  twoSidedCardImposition,
+  twoSidedCardPages,
+  twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
 
 export async function buildPagePdfs(renderer: Renderer, output: string): Promise<void> {
@@ -29,6 +32,15 @@ export async function buildPagePdfs(renderer: Renderer, output: string): Promise
   writeFileSync(path.join(output, 'pages-bleed-grid.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: bleedGridImposition }))
   writeFileSync(path.join(output, 'pages-bleed-grid-clipped.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: clippedBleedGridImposition }))
   writeFileSync(path.join(output, 'pages-growing-fixed.pdf'), await renderer.pagesPdf(growingFixedPages, { imposition: growingFixedImposition }))
+  writeFileSync(path.join(output, 'pages-two-sided-long.pdf'), await renderer.pagesPdf(twoSidedCardPages, { imposition: twoSidedCardImposition }))
+  writeFileSync(
+    path.join(output, 'pages-two-sided-short.pdf'),
+    await renderer.pagesPdf(twoSidedCardPages, { imposition: { ...twoSidedCardImposition, flip: 'short' } }),
+  )
+  writeFileSync(
+    path.join(output, 'pages-two-sided-odd.pdf'),
+    await renderer.pagesPdf(twoSidedCardPages.slice(0, 5), { imposition: twoSidedSequenceImposition }),
+  )
   const refusal = await renderer.pagesPdf(labelPages, { imposition: labelsImposition, limits: { maxSheets: 1 } }).then(
     () => 'rendered',
     (error) => (error instanceof Error ? error.message : `unexpected ${error}`),

@@ -39,6 +39,7 @@ export interface Font {
 }
 
 export interface RenderLimits {
+  // Counts PDF pages; a two-sided imposition uses two for each physical paper.
   maxSheets?: number
   maxBytes?: number
 }
