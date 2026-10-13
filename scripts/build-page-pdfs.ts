@@ -8,6 +8,8 @@ import {
   containedImposition,
   coveringImposition,
   fixedImposedPage,
+  growingFixedImposition,
+  growingFixedPages,
   labelPages,
   labelsImposition,
   postcardBackPage,
@@ -26,6 +28,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string): Promise
   writeFileSync(path.join(output, 'pages-contain.pdf'), await renderer.pagesPdf([fixedImposedPage], { imposition: containedImposition }))
   writeFileSync(path.join(output, 'pages-bleed-grid.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: bleedGridImposition }))
   writeFileSync(path.join(output, 'pages-bleed-grid-clipped.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: clippedBleedGridImposition }))
+  writeFileSync(path.join(output, 'pages-growing-fixed.pdf'), await renderer.pagesPdf(growingFixedPages, { imposition: growingFixedImposition }))
   const refusal = await renderer.pagesPdf(labelPages, { imposition: labelsImposition, limits: { maxSheets: 1 } }).then(
     () => 'rendered',
     (error) => (error instanceof Error ? error.message : `unexpected ${error}`),

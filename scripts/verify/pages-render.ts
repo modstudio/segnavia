@@ -10,6 +10,8 @@ import {
   containedImposition,
   coveringImposition,
   fixedImposedPage,
+  growingFixedImposition,
+  growingFixedPages,
   labelsImposition,
   postcardBackPage,
   postcardPage,
@@ -182,6 +184,20 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     })
   }
   check('bleed clipped by a 2mm gap changes to the neighboring shade at the gap midline', verifyClippedBleedGrid())
+
+  const growingImposition = Imposition.parse(growingFixedImposition)
+  const growingPlacements = impose(growingImposition, growingFixedPages.length).placements
+  const growingRaster = rasterPdf(output, work, 'pages-growing-fixed')
+  const [growingNeighbor, growingTarget] = growingPlacements
+  const growingFixedOk =
+    growingNeighbor !== undefined &&
+    growingTarget !== undefined &&
+    growingTarget.bleed.left === 0 &&
+    growingTarget.bleed.right > 0 &&
+    Math.abs(rasterValue(growingRaster, growingTarget.trim.x + growingTarget.trim.width - 1, growingTarget.trim.y + growingTarget.trim.height / 2) - 170) <=
+      3 &&
+    Math.abs(rasterValue(growingRaster, growingNeighbor.trim.x + 1, growingNeighbor.trim.y + growingNeighbor.trim.height / 2) - 70) <= 3
+  check('a fixed-width growing page with no left bleed fills its trim without repainting its neighbor', growingFixedOk)
 
   const info = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '2', path.join(output, 'pages-postcard.pdf')], { encoding: 'utf8' })
   const boxesMatch = [Page.parse(postcardPage), Page.parse(postcardBackPage)].every((page, index) => {

@@ -43,10 +43,32 @@ describe('imposed PDF pieces', () => {
     const placement = imposed.placements[0]
     if (!placement) throw new Error('Expected a placement.')
     const fit = fitPage(page, placement, imposition.fit)
-    const geometry = placementPdfGeometry(placement, fit, imposed.paper.height)
+    const geometry = placementPdfGeometry(placement, fit, imposed.paper.height, page.size)
     expect(geometry.clip).toEqual({ x: 5 / (25.4 / 72), y: 10 / (25.4 / 72), width: 107 / (25.4 / 72), height: 77 / (25.4 / 72) })
     expect(geometry.draw.x).toBeCloseTo(fit.x / (25.4 / 72))
     expect(geometry.draw.y).toBeCloseTo((imposed.paper.height - fit.y - (400 * fit.scale) / (96 / 25.4)) / (25.4 / 72))
     expect(geometry.draw.width).toBeCloseTo((600 * fit.scale) / (96 / 25.4) / (25.4 / 72))
+  })
+
+  test('draws a fixed-width growing page at the trim width when its left bleed is zero', () => {
+    const imposition = Imposition.parse({
+      paper: { width: 44, height: 24, unit: 'mm' },
+      orientation: 'landscape',
+      columns: 2,
+      rows: 1,
+      cell: { width: 20, height: 20 },
+      margin: { top: 2, right: 2, bottom: 2, left: 2 },
+      gap: { column: 0, row: 0 },
+      bleed: 2,
+    })
+    const page = Page.parse({ html: '', size: { width: 200, height: 'auto' } })
+    const imposed = impose(imposition, 2)
+    const placement = imposed.placements[1]
+    if (!placement) throw new Error('Expected the right-hand placement.')
+    expect(placement.bleed.left).toBe(0)
+    expect(placement.bleed.right).toBeGreaterThan(0)
+    const fit = fitPage(page, placement, imposition.fit)
+    const geometry = placementPdfGeometry(placement, fit, imposed.paper.height, page.size)
+    expect(geometry.draw.width).toBeCloseTo(placement.trim.width / (25.4 / 72))
   })
 })

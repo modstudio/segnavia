@@ -62,9 +62,11 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
     for (const piece of rendered) {
       const image = embedded.get(piece.group.key)
       if (!image) throw new Error(`The rendered piece for page ${piece.group.page} was not embedded.`)
+      const pageValue = pages[piece.group.page]
+      if (!pageValue) throw new Error(`The rendered piece names missing page ${piece.group.page}.`)
       for (const { placement, fit } of piece.group.placements) {
         if (placement.paper !== paperIndex) continue
-        const { draw, clip: clipBox } = placementPdfGeometry(placement, fit, imposed.paper.height)
+        const { draw, clip: clipBox } = placementPdfGeometry(placement, fit, imposed.paper.height, pageValue.size)
         paper.pushOperators(pushGraphicsState(), rectangle(clipBox.x, clipBox.y, clipBox.width, clipBox.height), clip(), endPath())
         paper.drawPage(image, draw)
         paper.pushOperators(popGraphicsState())
@@ -75,7 +77,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
 }
 
 export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
-  if (inputs.length === 0) throw new RenderRefusedError('There is nothing to render.')
+  if (inputs.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   const pages = inputs.map((input) => Page.parse(input))
   if (!opts.imposition) {
     const rendered = await Promise.all(pages.map((page) => services.pagePdf(page, { ...opts, limits: undefined })))

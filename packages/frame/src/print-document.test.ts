@@ -86,6 +86,6 @@ describe('printablePages', () => {
   })
 
   test('refuses an empty collection', () => {
-    expect(() => printablePages([], grid)).toThrow(new RangeError('There is nothing to print.'))
+    expect(() => printablePages([], grid)).toThrow(new RangeError('There is nothing to print. Pass at least one page to clear this refusal.'))
   })
 })

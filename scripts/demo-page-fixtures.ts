@@ -114,3 +114,19 @@ export const clippedBleedGridImposition: ImpositionInput = {
   paper: { width: 52, height: 52, unit: 'mm' },
   gap: { column: 2, row: 2 },
 }
+
+export const growingFixedPages: PageInput[] = [70, 170].map((shade) => ({
+  html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>`,
+  size: { width: 200, height: 'auto' },
+}))
+
+export const growingFixedImposition: ImpositionInput = {
+  paper: { width: 44, height: 24, unit: 'mm' },
+  orientation: 'landscape',
+  columns: 2,
+  rows: 1,
+  cell: { width: 20, height: 20 },
+  margin: { top: 2, right: 2, bottom: 2, left: 2 },
+  gap: { column: 0, row: 0 },
+  bleed: 2,
+}

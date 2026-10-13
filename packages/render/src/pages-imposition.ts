@@ -1,4 +1,5 @@
-import { fitPage, type Imposed, MM_PER_PT, type Page, type PageFit, type Placement, PX_PER_MM } from '@segnavia/format'
+import { fitPage, type Imposed, type Page, type PageFit, type Placement, PX_PER_MM } from '@segnavia/format'
+import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
   placement: Placement
@@ -57,23 +58,17 @@ export function pieceGeometry(page: Page, item: PiecePlacement): PieceGeometry {
   return { viewport: { width: page.size.width, height: Math.round(height) }, pdf: { width: `${page.size.width}px`, height: `${height}px` } }
 }
 
-const pt = (millimeters: number) => millimeters / MM_PER_PT
-
 export function placementPdfGeometry(
   placement: Placement,
   fit: PageFit,
   paperHeight: number,
+  pageSize: Page['size'],
 ): { draw: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } } {
-  const fluid = fit.flow && Math.abs(fit.x - placement.bleedBox.x) < 0.001
+  const fluid = pageSize === 'fluid'
   const widthMm = fluid ? placement.bleedBox.width : (fit.width * fit.scale) / PX_PER_MM
   const heightMm = fluid ? placement.bleedBox.height : fit.height === null ? placement.trim.height : (fit.height * fit.scale) / PX_PER_MM
   return {
-    draw: { x: pt(fit.x), y: pt(paperHeight - fit.y - heightMm), width: pt(widthMm), height: pt(heightMm) },
-    clip: {
-      x: pt(placement.bleedBox.x),
-      y: pt(paperHeight - placement.bleedBox.y - placement.bleedBox.height),
-      width: pt(placement.bleedBox.width),
-      height: pt(placement.bleedBox.height),
-    },
+    draw: pdfBox({ x: fit.x, y: fit.y, width: widthMm, height: heightMm }, paperHeight),
+    clip: pdfBox(placement.bleedBox, paperHeight),
   }
 }

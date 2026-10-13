@@ -107,7 +107,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
 // backgrounds inside sandboxed frames when producing a PDF, so the server
 // renderer composes top-level page renders instead of printing this document.
 export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  if (pages.length === 0) throw new RangeError('There is nothing to print.')
+  if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)
   const papers = Array.from({ length: imposed.papers }, (_, paper) => {
     const frames = imposed.placements
