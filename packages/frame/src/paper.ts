@@ -1,9 +1,9 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, PX_PER_MM } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { clampPaper, paperScale } from './paper-geometry.ts'
+import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 
 export class SegnaviaPaper extends HTMLElement {
@@ -89,8 +89,9 @@ export class SegnaviaPaper extends HTMLElement {
     // Positions on paper are physical and therefore left to right. This box
     // writes no text; each page keeps its own direction inside its frame.
     box.dir = 'ltr'
-    box.style.width = `${imposed.paper.width * PX_PER_MM}px`
-    box.style.height = `${imposed.paper.height * PX_PER_MM}px`
+    const paper = paperBoxSize(imposed.paper)
+    box.style.width = `${paper.width}px`
+    box.style.height = `${paper.height}px`
     // Author HTML occurs only in escaped srcdoc attributes produced by the
     // builder, so assigning its trusted placement markup here cannot parse it
     // as part of the host document.
@@ -107,7 +108,7 @@ export class SegnaviaPaper extends HTMLElement {
     const box = this.querySelector<HTMLElement>('.segnavia-paper__paper')
     const imposed = this.imposed
     if (!box || !imposed) return
-    const scale = paperScale(this.clientWidth, imposed.paper.width * PX_PER_MM)
+    const scale = paperScale(this.clientWidth, paperBoxSize(imposed.paper).width)
     box.style.transform = scale === 1 ? '' : `scale(${scale})`
   }
 }

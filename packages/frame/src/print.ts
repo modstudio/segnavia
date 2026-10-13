@@ -4,25 +4,26 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, Imposition, type ImpositionInput, impose, Page, type PageInput, PX_PER_MM } from '@segnavia/format'
-import { type PrintablePagesOptions, type PrintOptions, printableDeck, printablePages } from './print-document.ts'
+import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { paperBoxSize } from './paper-geometry.ts'
+import { type PrintablePagesOptions, type PrintOptions, printableDeck, printablePagesDocument } from './print-document.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
 
-export interface BrowserPrintOptions extends PrintOptions {
+export interface PrintDialogOptions {
   deadlineMs?: number
   // Replaces the print dialog, for a host with its own print path; it is
   // handed the print document's window once every slide is ready.
   print?: (win: Window) => void | Promise<void>
 }
 
-interface PrintFrameOptions {
+export interface BrowserPrintOptions extends PrintOptions, PrintDialogOptions {}
+
+interface PrintFrameOptions extends PrintDialogOptions {
   width: number
   height: number
   html: string
-  deadlineMs?: number
-  print?: (win: Window) => void | Promise<void>
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -62,17 +63,14 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
   return printFrame({ width: deck.size.width, height: deck.size.height, html: printableDeck(deck, options), ...options })
 }
 
-export interface BrowserPagesPrintOptions extends PrintablePagesOptions {
-  deadlineMs?: number
-  print?: (win: Window) => void | Promise<void>
-}
+export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}
 
 // A browser print dialog loses backgrounds inside frames. A host that needs
 // those backgrounds uses the renderer's pagesPdf instead.
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
-  const imposed = printablePages(pages, imposition, options)
-  const paper = impose(imposition, pages.length).paper
-  return printFrame({ width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM, html: imposed, ...options })
+  const printable = printablePagesDocument(pages, imposition, options)
+  const paper = paperBoxSize(printable.imposed.paper)
+  return printFrame({ ...paper, html: printable.html, ...options })
 }

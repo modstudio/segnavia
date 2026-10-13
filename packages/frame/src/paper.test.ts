@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { clampPaper, paperScale } from './paper-geometry.ts'
+import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 
 describe('paper geometry', () => {
   test('clamps a paper index to an available paper', () => {
@@ -13,5 +13,9 @@ describe('paper geometry', () => {
   test('scales a paper down and up to its container width', () => {
     expect(paperScale(200, 400)).toBe(0.5)
     expect(paperScale(800, 400)).toBe(2)
+  })
+
+  test('converts a physical paper box to CSS pixels', () => {
+    expect(paperBoxSize({ width: 25.4, height: 50.8 })).toEqual({ width: 96, height: 192 })
   })
 })

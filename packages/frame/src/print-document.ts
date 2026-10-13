@@ -111,6 +111,11 @@ export interface PrintablePagesOptions {
   cspExtra?: string
 }
 
+export interface PrintablePagesDocument {
+  html: string
+  imposed: Imposed
+}
+
 const mm = (value: number) => `${value}mm`
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
@@ -148,7 +153,7 @@ export function printablePaper(pages: Page[], imposition: Imposition, imposed: I
 // This frame-based document is for a browser to show and print. Chromium loses
 // backgrounds inside sandboxed frames when producing a PDF, so the server
 // renderer composes top-level page renders instead of printing this document.
-export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)
   const papers = Array.from(
@@ -157,5 +162,10 @@ export function printablePages(pages: Page[], imposition: Imposition, options: P
   ).join('')
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
-  return `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+  const html = `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+  return { html, imposed }
+}
+
+export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  return printablePagesDocument(pages, imposition, options).html
 }

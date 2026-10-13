@@ -130,6 +130,46 @@ export async function verifyPapers(h: Harness) {
     sandboxes.length > 0 && sandboxes.every((sandbox) => sandbox === 'allow-scripts'),
   )
 
+  const hostileHtml =
+    `"><img id="segnavia-hostile-html" src="x" onerror="window.__segnaviaHostile=true"></iframe>` +
+    '<script>window.__segnaviaHostile=true;document.body.insertAdjacentHTML("beforeend","<i id=segnavia-hostile-script></i>")</script>'
+  const hostileLang = '"><img id="segnavia-hostile-lang" src="x" onerror="window.__segnaviaHostile=true">'
+  const hostilePaper = await page.evaluate(
+    async ({ html, lang, imposition }) => {
+      const host = window as Window & { __segnaviaHostile?: boolean }
+      delete host.__segnaviaHostile
+      const paper = document.createElement('segnavia-paper') as HTMLElement & {
+        load: (pages: unknown[], imposition: unknown) => void
+      }
+      document.body.append(paper)
+      paper.load([{ html, lang, scripts: 'sandboxed' }], imposition)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      let dirRefused = false
+      try {
+        paper.load([{ html: '<p>refused</p>', dir: lang }], imposition)
+      } catch {
+        dirRefused = true
+      }
+      return {
+        dirRefused,
+        frames: paper.querySelectorAll('iframe').length,
+        sandbox: paper.querySelector('iframe')?.getAttribute('sandbox'),
+        hostNodes: document.querySelectorAll('#segnavia-hostile-html,#segnavia-hostile-script,#segnavia-hostile-lang').length,
+        hostMarker: host.__segnaviaHostile === true,
+      }
+    },
+    { html: hostileHtml, lang: hostileLang, imposition: labelsImposition },
+  )
+  check(
+    'a paper keeps hostile page HTML and language inside its one sandboxed frame and refuses an invalid direction',
+    hostilePaper.dirRefused &&
+      hostilePaper.frames === 1 &&
+      hostilePaper.sandbox === 'allow-scripts' &&
+      hostilePaper.hostNodes === 0 &&
+      !hostilePaper.hostMarker,
+    JSON.stringify(hostilePaper),
+  )
+
   const printed = await page.evaluate(
     async ({ pages, imposition }) => {
       const bundle = '/segnavia.js'
@@ -151,6 +191,33 @@ export async function verifyPapers(h: Harness) {
     'printPages settles a paper block per paper and a frame per placement before its deadline',
     printed.papers === 2 && printed.frames === 31 && printed.ms < 3500,
     JSON.stringify(printed),
+  )
+
+  const hostilePrinted = await page.evaluate(
+    async ({ html, lang, imposition }) => {
+      const bundle = '/segnavia.js'
+      const lib = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
+      let result = { frames: 0, sandbox: null as string | null, hostNodes: 0, hostMarker: false }
+      await lib.printPages([{ html, lang, scripts: 'sandboxed' }], imposition, {
+        print: (win: Window) => {
+          const host = win as Window & { __segnaviaHostile?: boolean }
+          const frames = [...win.document.querySelectorAll('iframe')]
+          result = {
+            frames: frames.length,
+            sandbox: frames[0]?.getAttribute('sandbox') ?? null,
+            hostNodes: win.document.querySelectorAll('#segnavia-hostile-html,#segnavia-hostile-script,#segnavia-hostile-lang').length,
+            hostMarker: host.__segnaviaHostile === true,
+          }
+        },
+      })
+      return result
+    },
+    { html: hostileHtml, lang: hostileLang, imposition: labelsImposition },
+  )
+  check(
+    'printPages keeps hostile page HTML and language inside its one sandboxed frame',
+    hostilePrinted.frames === 1 && hostilePrinted.sandbox === 'allow-scripts' && hostilePrinted.hostNodes === 0 && !hostilePrinted.hostMarker,
+    JSON.stringify(hostilePrinted),
   )
   await h.evidence('10-papers.png')
 }

@@ -14,7 +14,7 @@ export { type ControllerOptions, DeckController, type DeckState } from './contro
 export { type DeckAction, keyAction } from './keys.ts'
 export { SegnaviaPage } from './page.ts'
 export { SegnaviaPaper } from './paper.ts'
-export { printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
+export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
 export { SegnaviaStage } from './stage.ts'
 export { momentAt, wordAt, wordIndex } from './timeline.ts'
