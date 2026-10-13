@@ -57,7 +57,8 @@ export interface RenderOptions {
   // Runs in the loaded page before it is printed or captured, for a host that
   // measures and lays out inside the browser (a scale that fits, a page count).
   // For a deck PDF it runs once on the frame-based print document, not on each
-  // top-level HTML slide render.
+  // top-level HTML slide render. It is not called for an imposed deck because
+  // that path has no single frame-based document.
   beforeOutput?: (tab: Tab) => Promise<void>
 }
 

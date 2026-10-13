@@ -6,7 +6,8 @@ import {
   type Deck,
   fitPage,
   type Imposed,
-  type Imposition,
+  Imposition,
+  type ImpositionInput,
   impose,
   type Page,
   Print,
@@ -27,6 +28,7 @@ export interface PrintOptions {
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
+  imposition?: ImpositionInput
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -87,6 +89,9 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 
 export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   const { width, height } = deck.size
+  if (options.imposition) {
+    return printableDeckDocument(deck, { ...options, imposition: options.imposition }).html
+  }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
     return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
@@ -118,6 +123,58 @@ export interface PrintablePagesDocument {
 
 const mm = (value: number) => `${value}mm`
 
+function imposedPaperDocument(imposed: Imposed, rootAttributes: string, placementBody: (paper: number) => string): string {
+  const papers = Array.from({ length: imposed.papers }, (_, paper) => `<section class="paper">${placementBody(paper)}</section>`).join('')
+  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+}
+
+function placementBox(
+  inner: (dimensions: string) => string,
+  placement: ReturnType<typeof impose>['placements'][number],
+  layout: ReturnType<typeof pagePlacementLayout>,
+  scale: number,
+): string {
+  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
+  const dimensions =
+    layout.kind === 'fluid'
+      ? 'width:100%;height:100%'
+      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${scale});transform-origin:0 0`
+  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden">${inner(dimensions)}</div>`
+}
+
+export interface PrintableDeckDocument {
+  html: string
+  imposed: Imposed
+}
+
+export function printableDeckDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+  if (options.layout === 'notes') {
+    throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
+  }
+  const imposition = Imposition.parse(options.imposition)
+  const imposed = impose(imposition, deck.slides.length)
+  const placementBody = (paper: number) =>
+    imposed.placements
+      .filter((placement) => placement.paper === paper)
+      .map((placement) => {
+        const fit = fitPage({ size: deck.size }, placement, imposition.fit)
+        const layout = pagePlacementLayout(deck.size, placement, fit)
+        const slide = deck.slides[placement.page]
+        if (!slide) throw new RangeError(`The placement names missing slide ${placement.page}.`)
+        return placementBox(
+          (dimensions) => `<div style="position:absolute;${dimensions}">${slideBody(deck, slide, options)}</div>`,
+          placement,
+          layout,
+          fit.scale,
+        )
+      })
+      .join('')
+  // Papers and placement boxes use physical coordinates; each slide frame
+  // keeps its own direction while the document keeps the deck's direction.
+  const rootAttributes = ` dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
+  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody), imposed }
+}
+
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit)
   const layout = pagePlacementLayout(page.size, placement, fit)
@@ -133,12 +190,12 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     reportHeight: false,
     relayKeys: false,
   })
-  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
-  const dimensions =
-    layout.kind === 'fluid'
-      ? 'width:100%;height:100%'
-      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${fit.scale});transform-origin:0 0`
-  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe></div>`
+  return placementBox(
+    (dimensions) => `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
+    placement,
+    layout,
+    fit.scale,
+  )
 }
 
 // Builds only the positioned placement boxes for one physical paper, so the
@@ -156,13 +213,9 @@ export function printablePaper(pages: Page[], imposition: Imposition, imposed: I
 export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)
-  const papers = Array.from(
-    { length: imposed.papers },
-    (_, paper) => `<section class="paper">${printablePaper(pages, imposition, imposed, paper, options)}</section>`,
-  ).join('')
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
-  const html = `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+  const html = imposedPaperDocument(imposed, ' dir="ltr"', (paper) => printablePaper(pages, imposition, imposed, paper, options))
   return { html, imposed }
 }
 

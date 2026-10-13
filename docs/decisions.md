@@ -54,6 +54,10 @@ MIT library cannot bundle, so a full converter is the host's to pass in.
 maker and country and change. A grid in millimeters describes any of them, so
 a host supplies the stock it uses as a value.
 
+**An imposition has at most ten thousand cells on a paper.** A placement is
+made for every cell before any render limit applies, so the bound is enforced
+at the edge. A host that wants a lower one enforces it.
+
 ## Shape of the library
 
 **It is a library with seams it owns.** No host's specifics live in it. Each

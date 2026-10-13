@@ -1,9 +1,9 @@
-import { Imposition, type ImpositionInput, impose, MM_PER_PT, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { groupPieces, type PieceGeometry, pieceGeometry, placementPdfGeometry } from './pages-imposition.ts'
-import { drawClippedPage, embedOnePage } from './pdf-compose.ts'
+import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
+import { composeImposedPdf } from './pdf-compose.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -51,25 +51,15 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       }
     }),
   )
-  const output = await PDFDocument.create()
-  const embedded = new Map<string, Awaited<ReturnType<PDFDocument['embedPdf']>>[number]>()
-  for (const piece of rendered) {
-    const page = await embedOnePage(output, piece.bytes, `The rendered piece for page ${piece.group.page}`)
-    embedded.set(piece.group.key, page)
-  }
-  for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
-    const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
-    for (const piece of rendered) {
-      const image = embedded.get(piece.group.key)
-      if (!image) throw new Error(`The rendered piece for page ${piece.group.page} was not embedded.`)
-      for (const { placement, layout } of piece.group.placements) {
-        if (placement.paper !== paperIndex) continue
-        const { draw, clip: clipBox } = placementPdfGeometry(placement, layout, imposed.paper.height)
-        drawClippedPage(paper, image, draw, clipBox)
-      }
-    }
-  }
-  return output.save()
+  return composeImposedPdf(
+    imposed,
+    rendered.map(({ group, bytes }) => ({
+      key: group.key,
+      name: `The rendered piece for page ${group.page}`,
+      bytes,
+      placements: group.placements,
+    })),
+  )
 }
 
 export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {

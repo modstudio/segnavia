@@ -95,6 +95,8 @@ const ImpositionGap = z.object({
   row: z.number().nonnegative().default(0),
 })
 
+export const MAX_IMPOSITION_CELLS = 10_000
+
 export const Imposition = z
   .object({
     paper: Paper,
@@ -113,6 +115,15 @@ export const Imposition = z
     dir: z.enum(['ltr', 'rtl']).default('ltr'),
   })
   .superRefine((imposition, ctx) => {
+    const cellCount = BigInt(imposition.columns) * BigInt(imposition.rows)
+    if (imposition.columns > MAX_IMPOSITION_CELLS || imposition.rows > MAX_IMPOSITION_CELLS || cellCount > BigInt(MAX_IMPOSITION_CELLS)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['columns'],
+        message: `the grid has ${cellCount} cells and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer columns or rows clears this refusal`,
+      })
+      return
+    }
     const mm = (value: number) => toMillimeters(value, imposition.unit)
     const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
     const gridWidth = mm(

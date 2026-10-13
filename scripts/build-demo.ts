@@ -366,7 +366,7 @@ try {
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))
   writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
-  await buildDeckPdfs(renderer, OUT, `shots/${listShot.file}`, inline)
+  await buildDeckPdfs(renderer, OUT, `shots/${listShot.file}`, listShot, inline)
   await buildPagePdfs(renderer, OUT)
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))
   let measured = 0

@@ -52,7 +52,7 @@ library names a host.
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
-| `Imposition` (partly built) | print and render options | The paper and grid of the host's label stock, card or folded piece. |
+| `Imposition` | print and render options | The paper and grid of the host's label stock, card or folded piece; marks and two sides are not built. |
 | press profile, `convert` (designed, not built) | render options | The ICC profile of the press, as bytes, and optionally a full converter to run on the finished PDF. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
@@ -125,9 +125,8 @@ print document (`printableDeck`). The `Imposition` value and its arithmetic (`im
 document for a browser, and `pagesPdf` renders and composes pages onto its
 papers. `printPages` prints the imposed papers from the browser, with the known
 limit that its print dialog loses backgrounds inside frames; a host that needs
-them uses the renderer's `pagesPdf`. A deck through an imposition, marks on an
-imposed paper and two sides are not built. The rest of this section remains
-designed.
+them uses the renderer's `pagesPdf`. Marks on an imposed paper and two sides
+are not built. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -150,7 +149,7 @@ page in each cell in reading order, and `repeat` puts one page in every cell.
 Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
 custom paper on `Print` takes the same three units. Placements are always in
-millimeters.
+millimeters. An imposition has at most ten thousand cells on a paper.
 `skip` leaves that many cells empty at the start of the first paper, for
 label stock that is partly used.
 `impose` is a pure function in `format`. From an imposition and a number of
@@ -211,9 +210,13 @@ imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
 front and back share one file. The host's `limits` count papers as they count a
 deck's.
 
-A slide is a page, so a deck prints through an imposition too:
-`printableDeck` takes one, and a grid of two columns and three rows is a
-handout of six slides to a paper.
+A slide is a fixed page at the deck's size, so a deck prints through an
+imposition too. `printableDeck` builds the frame-based papers for browser
+printing, and `deckPdf` renders every slide at top level before composing the
+same placements, preserving backgrounds. A grid of two columns and three rows
+is a handout of six slides to a paper. The notes layout and an imposition do not
+combine, and `beforeOutput` is not called for an imposed deck because there is
+no single frame-based document on which to run it.
 
 **Color for a press.** A browser draws in RGB, so a render is RGB unless the
 host names a press profile: the ICC profile of the press, passed as bytes the

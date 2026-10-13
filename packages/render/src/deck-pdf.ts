@@ -1,10 +1,11 @@
-import type { Deck } from '@segnavia/format'
+import { type Deck, fitPage, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
 import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
+import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { drawClippedPage, embedOnePage } from './pdf-compose.ts'
+import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
@@ -32,7 +33,7 @@ function nameSlideError(error: unknown, id: string): never {
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
 
-export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
@@ -83,4 +84,60 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
     drawClippedPage(sheet, embedded, geometry, geometry)
   }
   return services.enforce(await output.save(), opts.limits)
+}
+
+async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+  const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
+  const imposed = impose(imposition, deck.slides.length)
+  const rendered = await Promise.all(
+    deck.slides.map(async (slide, index) => {
+      const single: Deck = { ...deck, slides: [slide] }
+      try {
+        const html =
+          slide.content.kind === 'html'
+            ? htmlSlideDocument(deck, slide.content.html, { nonce: newNonce(), css })
+            : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css })
+        const bytes = await services.renderPdf(
+          {
+            viewport: deck.size,
+            scripts: deck.scripts === 'sandboxed',
+            html,
+            boundMs: opts.boundMs,
+          },
+          {
+            width: `${deck.size.width}px`,
+            height: `${deck.size.height}px`,
+            printBackground: true,
+            pageRanges: '1',
+            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+          },
+        )
+        return { index, bytes }
+      } catch (error) {
+        nameSlideError(error, slide.id)
+      }
+    }),
+  )
+  const placements = new Map<number, Array<{ placement: (typeof imposed.placements)[number]; layout: ReturnType<typeof pagePlacementLayout> }>>()
+  for (const placement of imposed.placements) {
+    const fit = fitPage({ size: deck.size }, placement, imposition.fit)
+    const group = placements.get(placement.page) ?? []
+    group.push({ placement, layout: pagePlacementLayout(deck.size, placement, fit) })
+    placements.set(placement.page, group)
+  }
+  const pieces = rendered.map((item) => ({
+    key: String(item.index),
+    name: `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`,
+    bytes: item.bytes,
+    placements: placements.get(item.index) ?? [],
+  }))
+  return services.enforce(await composeImposedPdf(imposed, pieces), opts.limits)
+}
+
+export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+  if (!opts.imposition) return regularDeckPdf(deck, opts, services)
+  if (opts.layout === 'notes') {
+    throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
+  }
+  return imposedDeckPdf(deck, Imposition.parse(opts.imposition), opts, services)
 }
