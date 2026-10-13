@@ -36,7 +36,7 @@ export const Margin = z.object({
 })
 
 // Paper exists only to export a page at a standard printed size. A page
-// without it exports at its own size. Margins are in millimetres.
+// without it exports at its own size. Margins are in millimeters.
 export const Print = z
   .object({
     paper: Paper,

@@ -53,7 +53,7 @@ it, including that `package.json` and the manifest agree. Its rules:
 ## Headless first
 
 The controller, stage and page elements bring no appearance. A style they
-need is geometry, in `BASE_CSS`, inside `:where()`; colours are
+need is geometry, in `BASE_CSS`, inside `:where()`; colors are
 `--segnavia-*` custom properties with plain defaults
 (`base-style.test.ts`). Appearance belongs in the styled components
 (`@segnavia/frame/controls`) and the player built from them, never in the

@@ -275,7 +275,7 @@ writeFileSync(
   ),
 )
 // A host mixing its own controls with the styled components, which find the
-// stage by id and follow the host's colour scheme and accent.
+// stage by id and follow the host's color scheme and accent.
 writeFileSync(
   path.join(SITE, 'components.html'),
   shell(

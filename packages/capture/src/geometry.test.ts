@@ -36,8 +36,8 @@ describe('right to left', () => {
   })
 
   test('ties between sides go to the reading-order side', () => {
-    const centred = { x: 590, y: 340, width: 100, height: 40 }
-    expect(chooseArrowSide(centred, viewport, 'auto', 'ltr')).toBe('left')
-    expect(chooseArrowSide(centred, viewport, 'auto', 'rtl')).toBe('right')
+    const centered = { x: 590, y: 340, width: 100, height: 40 }
+    expect(chooseArrowSide(centered, viewport, 'auto', 'ltr')).toBe('left')
+    expect(chooseArrowSide(centered, viewport, 'auto', 'rtl')).toBe('right')
   })
 })

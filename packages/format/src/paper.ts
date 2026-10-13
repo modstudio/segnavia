@@ -4,7 +4,7 @@ export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
 export const MARK_GAP_MM = 1
 
-// Millimetres per named paper, portrait.
+// Millimeters per named paper, portrait.
 export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: number }> = {
   letter: { width: 215.9, height: 279.4 },
   legal: { width: 215.9, height: 355.6 },
@@ -16,7 +16,7 @@ export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: n
 
 const round = (mm: number) => Math.round(mm * 100) / 100
 
-// The sheet a print setting describes, in millimetres, with orientation applied.
+// The sheet a print setting describes, in millimeters, with orientation applied.
 export function sheetMm(print: Print): { width: number; height: number } {
   const portrait =
     typeof print.paper === 'string'
@@ -30,7 +30,7 @@ export function sheetMm(print: Print): { width: number; height: number } {
   return print.orientation === 'landscape' ? { width: round(long), height: round(short) } : { width: round(short), height: round(long) }
 }
 
-// CSS pixels per millimetre at the 96 dpi every browser lays out at.
+// CSS pixels per millimeter at the 96 dpi every browser lays out at.
 export const PX_PER_MM = 96 / 25.4
 
 export function printProperties(print: Print): string {

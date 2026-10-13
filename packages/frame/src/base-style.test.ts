@@ -20,8 +20,8 @@ describe('headless base styles', () => {
   })
 
   test('appearance arrives only as custom properties with plain defaults', () => {
-    for (const colour of BASE_CSS.match(/#[0-9a-f]{3,8}\b|rgb\(/gi) ?? []) {
-      expect(BASE_CSS).toMatch(new RegExp(`var\\(--segnavia-[a-z-]+,${colour.replace('(', '\\(')}`))
+    for (const color of BASE_CSS.match(/#[0-9a-f]{3,8}\b|rgb\(/gi) ?? []) {
+      expect(BASE_CSS).toMatch(new RegExp(`var\\(--segnavia-[a-z-]+,${color.replace('(', '\\(')}`))
     }
   })
 })

@@ -37,15 +37,15 @@ bleed and safe area replace the page's own print setting. The placement
 reports the scale, so the host can tell its user instead of the page being
 shrunk silently.
 
-**Press colour is as close as a browser allows, and says where it stops.**
-Solid colours, gradient stops and shadow colours are converted to the press's
+**Press color is as close as a browser allows, and says where it stops.**
+Solid colors, gradient stops and shadow colors are converted to the press's
 inks; supplied images and the blend inside a gradient or a shadow are not
 guaranteed. The render names
-what it left in RGB. The engines that convert a whole PDF carry licences an
+what it left in RGB. The engines that convert a whole PDF carry licenses an
 MIT library cannot bundle, so a full converter is the host's to pass in.
 
 **The library ships no catalogue of label stock.** Stock numbers differ by
-maker and country and change. A grid in millimetres describes any of them, so
+maker and country and change. A grid in millimeters describes any of them, so
 a host supplies the stock it uses as a value.
 
 ## Shape of the library
@@ -90,7 +90,7 @@ silently could point it at something the narration does not describe.
 **There is one frame model for every host.** It is sandboxed with
 `allow-scripts` and never `allow-same-origin`. Under `scripts: 'refuse'` a
 nonce CSP blocks author scripts while the library's bridge runs. This keeps
-one host's rule (no author scripts) and another host's behaviour (keys pressed
+one host's rule (no author scripts) and another host's behavior (keys pressed
 inside a slide still page the deck) at once. The first host's key relay never
 worked under refused scripts; this design closes that gap.
 
@@ -124,7 +124,7 @@ caption or track but its own buttons. Each control is its own element,
 connected to a stage by `for`, and the player is only a layout of them, so
 the player and the components cannot look or behave differently.
 
-**Light and dark follow `color-scheme`.** Every colour falls back to
+**Light and dark follow `color-scheme`.** Every color falls back to
 `light-dark()`, so a host's own theme switch reaches the components with no
 wiring, and the player's `theme` only sets its `color-scheme`.
 
@@ -188,7 +188,7 @@ uses, and it runs in both runtimes.
 
 **The library has no Remotion dependency.** Remotion's Player can play a
 composition live, but a company of more than three people embedding it in a
-product needs the paid automation licence. The player here is a few hundred
+product needs the paid automation license. The player here is a few hundred
 lines over an audio clock, which is all the job needs.
 
-**The licence is MIT and the repository is public.**
+**The license is MIT and the repository is public.**

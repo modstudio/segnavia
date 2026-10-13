@@ -117,6 +117,6 @@ attribution and a subject without the project's task key, whose prefix is in
 - [`docs/architecture.md`](docs/architecture.md): packages, runtimes, seams and data flow
 - [`docs/decisions.md`](docs/decisions.md): what was decided and why
 
-## Licence
+## License
 
 MIT. See [`LICENSE`](LICENSE).

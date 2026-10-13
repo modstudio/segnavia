@@ -1,5 +1,5 @@
 // Styled components placed by a host beside its own controls, connected to a
-// stage by id and themed by the host's colour scheme and accent; and the
+// stage by id and themed by the host's color scheme and accent; and the
 // completely headless stage, which brings no styles at all.
 
 import type { Harness } from './harness.ts'
@@ -22,7 +22,7 @@ export async function verifyComponents(h: Harness) {
   const pause = await page.locator('segnavia-play button').getAttribute('aria-label')
   check('the play control reflects playing', pause === 'Pause', pause ?? '')
 
-  // Off the button, so its hover colour does not stand in for the accent.
+  // Off the button, so its hover color does not stand in for the accent.
   await page.mouse.move(0, 0)
   await page.waitForTimeout(200)
   const theme = await page.evaluate(() => {
@@ -31,7 +31,7 @@ export async function verifyComponents(h: Harness) {
     return { accent: getComputedStyle(play).backgroundColor, ink: getComputedStyle(counter).color }
   })
   check("the host's accent reaches the components", theme.accent === 'rgb(230, 120, 40)', theme.accent)
-  check("the host's dark colour scheme reaches the components", theme.ink === 'rgb(156, 157, 166)', theme.ink)
+  check("the host's dark color scheme reaches the components", theme.ink === 'rgb(156, 157, 166)', theme.ink)
   await h.evidence('9-components.png')
 
   await page.click('#mine')
