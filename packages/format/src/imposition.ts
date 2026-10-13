@@ -24,6 +24,7 @@ export interface Placement {
 export interface Imposed {
   paper: { width: number; height: number }
   papers: number
+  sides: 1 | 2
   placements: Placement[]
 }
 
@@ -110,38 +111,94 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
   }
 }
 
-function repeatPlacements(imposition: Imposition, papers: number, paper: Imposed['paper']): Placement[] {
-  const cells = imposition.columns * imposition.rows
-  const placements: Placement[] = []
-  for (let paperIndex = 0; paperIndex < papers; paperIndex += 1) {
-    const firstCell = paperIndex === 0 ? imposition.skip : 0
-    for (let cell = firstCell; cell < cells; cell += 1) placements.push(placementAt(imposition, paperIndex, cell, paperIndex, paper))
-  }
-  return placements
+const mirrorBox = (box: PaperBox, paper: Imposed['paper'], axis: 'x' | 'y'): PaperBox =>
+  axis === 'x' ? { ...box, x: roundMillimeters(paper.width - box.x - box.width) } : { ...box, y: roundMillimeters(paper.height - box.y - box.height) }
+
+const EDGE_ORDER = ['top', 'right', 'bottom', 'left'] as const
+
+function mirrorEdge(edge: (typeof EDGE_ORDER)[number], axis: 'x' | 'y'): (typeof EDGE_ORDER)[number] {
+  if (axis === 'x') return edge === 'left' ? 'right' : edge === 'right' ? 'left' : edge
+  return edge === 'top' ? 'bottom' : edge === 'bottom' ? 'top' : edge
 }
 
-function sequencePlacements(imposition: Imposition, pageCount: number, papers: number, paper: Imposed['paper']): Placement[] {
+function mirrorEdges(edges: MillimeterEdges, axis: 'x' | 'y'): MillimeterEdges {
+  const mirrored = { ...edges }
+  for (const edge of EDGE_ORDER) mirrored[mirrorEdge(edge, axis)] = edges[edge]
+  return mirrored
+}
+
+export function mirrorPlacement(front: Placement, paper: Imposed['paper'], flip: Imposition['flip'], page = front.page): Placement {
+  const portrait = paper.width <= paper.height
+  const axis = (flip === 'long') === portrait ? 'x' : 'y'
+  const mirroredClipped = new Set(front.clipped.map((edge) => mirrorEdge(edge, axis)))
+  return {
+    ...front,
+    page,
+    side: 'back',
+    trim: mirrorBox(front.trim, paper, axis),
+    bleed: mirrorEdges(front.bleed, axis),
+    bleedBox: mirrorBox(front.bleedBox, paper, axis),
+    safeBox: mirrorBox(front.safeBox, paper, axis),
+    clipped: EDGE_ORDER.filter((edge) => mirroredClipped.has(edge)),
+  }
+}
+
+interface PieceAssignment {
+  paper: number
+  cell: number
+  piece: number
+}
+
+function assignPieces(imposition: Imposition, pieces: number, papers: number): PieceAssignment[] {
   const cells = imposition.columns * imposition.rows
-  const placements: Placement[] = []
-  let page = 0
+  const assignments: PieceAssignment[] = []
+  let piece = 0
   for (let paperIndex = 0; paperIndex < papers; paperIndex += 1) {
     const firstCell = paperIndex === 0 ? imposition.skip : 0
-    for (let cell = firstCell; cell < cells && page < pageCount; cell += 1) {
-      placements.push(placementAt(imposition, paperIndex, cell, page, paper))
-      page += 1
+    for (let cell = firstCell; cell < cells; cell += 1) {
+      const assignedPiece = imposition.fill === 'repeat' ? paperIndex : piece
+      if (assignedPiece >= pieces) break
+      assignments.push({ paper: paperIndex, cell, piece: assignedPiece })
+      if (imposition.fill === 'sequence') piece += 1
     }
   }
+  return assignments
+}
+
+function expandAssignments(imposition: Imposition, assignments: PieceAssignment[], pageCount: number, paper: Imposed['paper']): Placement[] {
+  const placements: Placement[] = []
+  let currentPaper = -1
+  let fronts: Placement[] = []
+  let backs: Placement[] = []
+  const flush = () => {
+    placements.push(...fronts, ...backs)
+    fronts = []
+    backs = []
+  }
+  for (const assignment of assignments) {
+    if (assignment.paper !== currentPaper) {
+      flush()
+      currentPaper = assignment.paper
+    }
+    const frontPage = imposition.sides === 'two' ? assignment.piece * 2 : assignment.piece
+    const front = placementAt(imposition, assignment.paper, assignment.cell, frontPage, paper)
+    fronts.push(front)
+    if (imposition.sides === 'two' && frontPage + 1 < pageCount) backs.push(mirrorPlacement(front, paper, imposition.flip, frontPage + 1))
+  }
+  flush()
   return placements
 }
 
 export function impose(imposition: Imposition, pageCount: number): Imposed {
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
-  if (pageCount === 0) return { paper, papers: 0, placements: [] }
+  const sides = imposition.sides === 'two' ? 2 : 1
+  if (pageCount === 0) return { paper, papers: 0, sides, placements: [] }
   const cells = imposition.columns * imposition.rows
-  const papers = imposition.fill === 'repeat' ? pageCount : Math.ceil((pageCount + imposition.skip) / cells)
-  const placements = imposition.fill === 'repeat' ? repeatPlacements(imposition, papers, paper) : sequencePlacements(imposition, pageCount, papers, paper)
-  return { paper, papers, placements }
+  const pieces = imposition.sides === 'two' ? Math.ceil(pageCount / 2) : pageCount
+  const papers = imposition.fill === 'repeat' ? pieces : Math.ceil((pieces + imposition.skip) / cells)
+  const placements = expandAssignments(imposition, assignPieces(imposition, pieces, papers), pageCount, paper)
+  return { paper, papers, sides, placements }
 }
 
 function trimDiffers(page: { print?: Print }, placement: Placement): boolean {

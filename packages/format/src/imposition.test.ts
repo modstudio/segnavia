@@ -5,6 +5,20 @@ const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
 
 describe('imposition', () => {
+  test('one-sided defaults preserve the existing placement shape and order', () => {
+    const value = parse({ columns: 2, rows: 1, cell: { width: 80, height: 120 }, skip: 1 })
+    expect(value).toMatchObject({ sides: 'one', flip: 'long' })
+    expect(impose(value, 2)).toEqual({
+      paper: { width: 210, height: 297 },
+      papers: 2,
+      sides: 1,
+      placements: [
+        expect.objectContaining({ paper: 0, page: 0, side: 'front', column: 1, row: 0 }),
+        expect.objectContaining({ paper: 1, page: 1, side: 'front', column: 0, row: 0 }),
+      ],
+    })
+  })
+
   test('a letter grid in inches fills in reading order and carries onto another paper', () => {
     const value = Imposition.parse({
       paper: 'letter',
@@ -96,6 +110,41 @@ describe('imposition', () => {
       { paper: 1, page: 1, column: 1, row: 0 },
       { paper: 1, page: 1, column: 0, row: 1 },
       { paper: 1, page: 1, column: 1, row: 1 },
+    ])
+  })
+
+  test('two-sided sequence pairs pages in cells and leaves the last back empty', () => {
+    const imposed = impose(parse({ columns: 2, rows: 1, cell: { width: 80, height: 120 }, sides: 'two' }), 5)
+    expect(imposed).toMatchObject({ papers: 2, sides: 2 })
+    expect(imposed.placements.map(({ paper, side, page, column }) => ({ paper, side, page, column }))).toEqual([
+      { paper: 0, side: 'front', page: 0, column: 0 },
+      { paper: 0, side: 'front', page: 2, column: 1 },
+      { paper: 0, side: 'back', page: 1, column: 0 },
+      { paper: 0, side: 'back', page: 3, column: 1 },
+      { paper: 1, side: 'front', page: 4, column: 0 },
+    ])
+  })
+
+  test('two-sided repeat gives each pair a paper and leaves an odd pair back empty', () => {
+    const imposed = impose(parse({ columns: 2, rows: 1, cell: { width: 80, height: 120 }, fill: 'repeat', sides: 'two' }), 3)
+    expect(imposed).toMatchObject({ papers: 2, sides: 2 })
+    expect(imposed.placements.map(({ paper, side, page }) => ({ paper, side, page }))).toEqual([
+      { paper: 0, side: 'front', page: 0 },
+      { paper: 0, side: 'front', page: 0 },
+      { paper: 0, side: 'back', page: 1 },
+      { paper: 0, side: 'back', page: 1 },
+      { paper: 1, side: 'front', page: 2 },
+      { paper: 1, side: 'front', page: 2 },
+    ])
+  })
+
+  test('two-sided skip leaves the same physical cells empty on both sides', () => {
+    const placements = impose(parse({ columns: 2, rows: 2, cell: { width: 80, height: 120 }, sides: 'two', skip: 2 }), 4).placements
+    expect(placements.map(({ side, page, column, row }) => ({ side, page, column, row }))).toEqual([
+      { side: 'front', page: 0, column: 0, row: 1 },
+      { side: 'front', page: 2, column: 1, row: 1 },
+      { side: 'back', page: 1, column: 0, row: 1 },
+      { side: 'back', page: 3, column: 1, row: 1 },
     ])
   })
 

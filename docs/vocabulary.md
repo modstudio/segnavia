@@ -45,7 +45,7 @@ something else.
 | Avoided | Why |
 |---|---|
 | document, doc | Most apps already use it, and in one host it is the kernel record. |
-| sheet | One host's design system uses it for the side-panel component. "Printed sheet" appears only in render limits (`maxSheets`), where it means a sheet of paper. |
+| sheet | One host's design system uses it for the side-panel component. The legacy render limit name `maxSheets` counts PDF pages; a two-sided paper counts as two. |
 | surface | One host uses it for which app you are in. |
 | tutorial, video | A deck that plays is still a deck. A tutorial is not a separate thing. |
 | paper, as a property of a page | A page has no paper. Paper belongs only to its print setting. |

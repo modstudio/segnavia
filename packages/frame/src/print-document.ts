@@ -123,8 +123,13 @@ export interface PrintablePagesDocument {
 
 const mm = (value: number) => `${value}mm`
 
-function imposedPaperDocument(imposed: Imposed, rootAttributes: string, placementBody: (paper: number) => string): string {
-  const papers = Array.from({ length: imposed.papers }, (_, paper) => `<section class="paper">${placementBody(paper)}</section>`).join('')
+function imposedPaperDocument(imposed: Imposed, rootAttributes: string, placementBody: (paper: number, side: 'front' | 'back') => string): string {
+  const papers = Array.from({ length: imposed.papers }, (_, paper) =>
+    (['front', 'back'] as const)
+      .slice(0, imposed.sides)
+      .map((side) => `<section class="paper" data-side="${side}">${placementBody(paper, side)}</section>`)
+      .join(''),
+  ).join('')
   return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
 }
 
@@ -153,9 +158,9 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   }
   const imposition = Imposition.parse(options.imposition)
   const imposed = impose(imposition, deck.slides.length)
-  const placementBody = (paper: number) =>
+  const placementBody = (paper: number, side: 'front' | 'back') =>
     imposed.placements
-      .filter((placement) => placement.paper === paper)
+      .filter((placement) => placement.paper === paper && placement.side === side)
       .map((placement) => {
         const fit = fitPage({ size: deck.size }, placement, imposition.fit)
         const layout = pagePlacementLayout(deck.size, placement, fit)
@@ -200,9 +205,16 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
 
 // Builds only the positioned placement boxes for one physical paper, so the
 // browser element and the print document use exactly the same frame markup.
-export function printablePaper(pages: Page[], imposition: Imposition, imposed: Imposed, paper: number, options: PrintablePagesOptions = {}): string {
+export function printablePaper(
+  pages: Page[],
+  imposition: Imposition,
+  imposed: Imposed,
+  paper: number,
+  options: PrintablePagesOptions = {},
+  side: 'front' | 'back' = 'front',
+): string {
   return imposed.placements
-    .filter((placement) => placement.paper === paper)
+    .filter((placement) => placement.paper === paper && placement.side === side)
     .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
     .join('')
 }
@@ -215,7 +227,7 @@ export function printablePagesDocument(pages: Page[], imposition: Imposition, op
   const imposed = impose(imposition, pages.length)
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
-  const html = imposedPaperDocument(imposed, ' dir="ltr"', (paper) => printablePaper(pages, imposition, imposed, paper, options))
+  const html = imposedPaperDocument(imposed, ' dir="ltr"', (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))
   return { html, imposed }
 }
 

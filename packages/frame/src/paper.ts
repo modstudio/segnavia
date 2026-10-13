@@ -7,13 +7,14 @@ import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 
 export class SegnaviaPaper extends HTMLElement {
-  static observedAttributes = ['paper']
+  static observedAttributes = ['paper', 'side']
   css = ''
   cspExtra = ''
   private pages: Page[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
   private paperIndex = 0
+  private shownSide: 'front' | 'back' = 'front'
   private resize = new ResizeObserver(() => this.fit())
 
   get paper(): number {
@@ -28,6 +29,18 @@ export class SegnaviaPaper extends HTMLElement {
     return this.imposed?.papers ?? 0
   }
 
+  get side(): 'front' | 'back' {
+    return this.shownSide
+  }
+
+  set side(value: 'front' | 'back') {
+    this.showSide(value)
+  }
+
+  get sides(): 1 | 2 {
+    return this.imposed?.sides ?? 1
+  }
+
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     this.reflectState()
@@ -39,8 +52,9 @@ export class SegnaviaPaper extends HTMLElement {
     this.resize.disconnect()
   }
 
-  attributeChangedCallback(_: string, __: string | null, value: string | null) {
-    this.showPaper(Number(value ?? 0))
+  attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'paper') this.showPaper(Number(value ?? 0))
+    else this.showSide(value === 'back' ? 'back' : 'front')
   }
 
   load(pageInputs: PageInput[], impositionInput: ImpositionInput): void {
@@ -52,13 +66,15 @@ export class SegnaviaPaper extends HTMLElement {
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     const previousPapers = this.papers
     const previousPaper = this.paperIndex
+    const previousSide = this.shownSide
     this.pages = pages
     this.imposition = imposition
     this.imposed = imposed
     this.paperIndex = clampPaper(this.paperIndex, imposed.papers)
+    if (imposed.sides === 1) this.shownSide = 'front'
     this.reflectState()
     this.paint()
-    if (previousPapers !== this.papers || previousPaper !== this.paperIndex) this.dispatchEvent(new Event('change'))
+    if (previousPapers !== this.papers || previousPaper !== this.paperIndex || previousSide !== this.shownSide) this.dispatchEvent(new Event('change'))
   }
 
   private showPaper(value: number) {
@@ -74,10 +90,21 @@ export class SegnaviaPaper extends HTMLElement {
     if (changed) this.dispatchEvent(new Event('change'))
   }
 
+  private showSide(value: 'front' | 'back') {
+    const next = value === 'back' && (!this.imposed || this.sides === 2) ? 'back' : 'front'
+    const changed = next !== this.shownSide
+    this.shownSide = next
+    this.reflectState()
+    if (this.imposed) this.paint()
+    if (changed) this.dispatchEvent(new Event('change'))
+  }
+
   private reflectState() {
     const value = String(this.paperIndex)
     if (this.getAttribute('paper') !== value) this.setAttribute('paper', value)
+    if (this.getAttribute('side') !== this.shownSide) this.setAttribute('side', this.shownSide)
     this.dataset.papers = String(this.papers)
+    this.dataset.sides = String(this.sides)
   }
 
   private paint() {
@@ -95,10 +122,17 @@ export class SegnaviaPaper extends HTMLElement {
     // Author HTML occurs only in escaped srcdoc attributes produced by the
     // builder, so assigning its trusted placement markup here cannot parse it
     // as part of the host document.
-    box.innerHTML = printablePaper(this.pages, imposition, imposed, this.paperIndex, {
-      css: this.css,
-      cspExtra: this.cspExtra,
-    })
+    box.innerHTML = printablePaper(
+      this.pages,
+      imposition,
+      imposed,
+      this.paperIndex,
+      {
+        css: this.css,
+        cspExtra: this.cspExtra,
+      },
+      this.shownSide,
+    )
     this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
     this.replaceChildren(box)
     this.fit()

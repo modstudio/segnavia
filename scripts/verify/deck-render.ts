@@ -86,6 +86,14 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
   const imposed = impose(imposition, deck.slides.length)
   const info = execFileSync('pdfinfo', [path.join(output, 'deck-handout.pdf')], { encoding: 'utf8' })
   check('an imposed seven-slide deck prints on two papers', /Pages:\s+2\b/.test(info), info.match(/Pages:\s+\d+/)?.[0])
+  const duplexImposition = Imposition.parse({ ...handoutImposition, sides: 'two' })
+  const duplexImposed = impose(duplexImposition, deck.slides.length)
+  const duplexInfo = execFileSync('pdfinfo', [path.join(output, 'deck-handout-two-sided.pdf')], { encoding: 'utf8' })
+  check(
+    'a two-sided seven-slide handout emits two PDF pages per physical paper',
+    new RegExp(`Pages:\\s+${duplexImposed.papers * 2}\\b`).test(duplexInfo),
+    duplexInfo.match(/Pages:\s+\d+/)?.[0],
+  )
 
   const xml = execFileSync('pdftotext', ['-bbox', path.join(output, 'deck-handout.pdf'), '-'], { encoding: 'utf8' })
   const pdfPages = [...xml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
@@ -148,7 +156,7 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
   )
 
   const limits = readFileSync(path.join(output, 'deck-handout-limits.txt'), 'utf8')
-  check('an imposed deck maxSheets limit counts papers and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  check('an imposed deck maxSheets limit counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
   const notes = readFileSync(path.join(output, 'deck-handout-notes.txt'), 'utf8')
   check(
     'an imposed deck refuses notes while naming both conflicting options and both ways to clear it',

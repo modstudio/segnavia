@@ -15,6 +15,9 @@ import {
   labelsImposition,
   postcardBackPage,
   postcardPage,
+  twoSidedCardImposition,
+  twoSidedCardPages,
+  twoSidedSequenceImposition,
 } from '../demo-page-fixtures.ts'
 import { rasterPdf, rasterMillimeters as rasterValue } from './pdf-raster.ts'
 
@@ -185,6 +188,69 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   })
   check('postcard front and back keep both pages and each page’s print boxes', /Pages:\s+2\b/.test(info) && boxesMatch)
 
+  const twoSidedTextCheck = (file: string, flip: 'long' | 'short') => {
+    const parsed = Imposition.parse({ ...twoSidedCardImposition, flip })
+    const imposed = impose(parsed, twoSidedCardPages.length)
+    const xml = execFileSync('pdftotext', ['-bbox', path.join(output, `${file}.pdf`), '-'], { encoding: 'utf8' })
+    const pdfPages = [...xml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
+    const textBox = (pdfPage: number, face: 'Front' | 'Back', piece: number) => {
+      const words = [...(pdfPages[pdfPage] ?? '').matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]+)<\/word>/g)]
+      const at = words.findIndex((word, index) => word[5] === face && words[index + 1]?.[5] === String(piece))
+      const pair = [words[at], words[at + 1]]
+      if (at < 0 || pair.some((word) => !word)) return undefined
+      return {
+        xMin: Math.min(...pair.map((word) => Number(word?.[1]))),
+        yMin: Math.min(...pair.map((word) => Number(word?.[2]))),
+        xMax: Math.max(...pair.map((word) => Number(word?.[3]))),
+        yMax: Math.max(...pair.map((word) => Number(word?.[4]))),
+      }
+    }
+    const inside = (box: ReturnType<typeof textBox>, trim: { x: number; y: number; width: number; height: number }) =>
+      Boolean(
+        box &&
+          box.xMin >= trim.x / MM_PER_PT - 1 &&
+          box.yMin >= trim.y / MM_PER_PT - 1 &&
+          box.xMax <= (trim.x + trim.width) / MM_PER_PT + 1 &&
+          box.yMax <= (trim.y + trim.height) / MM_PER_PT + 1,
+      )
+    const front1 = imposed.placements.find((placement) => placement.page === 0)
+    const back1 = imposed.placements.find((placement) => placement.page === 1)
+    const front4 = imposed.placements.find((placement) => placement.page === 6)
+    const back4 = imposed.placements.find((placement) => placement.page === 7)
+    if (!front1 || !back1 || !front4 || !back4) throw new Error(`The ${flip}-flip card fixture is missing a placement.`)
+    const back1Box = textBox(1, 'Back', 1)
+    return {
+      pages: pdfPages.length,
+      paired:
+        inside(textBox(0, 'Front', 1), front1.trim) &&
+        inside(back1Box, back1.trim) &&
+        inside(textBox(0, 'Front', 4), front4.trim) &&
+        inside(textBox(1, 'Back', 4), back4.trim),
+      moved: !inside(back1Box, front1.trim),
+    }
+  }
+  const longCards = twoSidedTextCheck('pages-two-sided-long', 'long')
+  check(
+    'long-flip two-sided cards put front and back text in paired trims and not the unmirrored trim',
+    longCards.pages === 2 && longCards.paired && longCards.moved,
+    JSON.stringify(longCards),
+  )
+  const shortCards = twoSidedTextCheck('pages-two-sided-short', 'short')
+  check(
+    'short-flip two-sided cards put back text in the y-mirrored trim',
+    shortCards.pages === 2 && shortCards.paired && shortCards.moved,
+    JSON.stringify(shortCards),
+  )
+
+  const oddImposed = impose(Imposition.parse(twoSidedSequenceImposition), 5)
+  const oddInfo = imposedInfo('pages-two-sided-odd.pdf')
+  const blankBack = rasterPdf(output, work, 'pages-two-sided-odd', oddImposed.papers * 2)
+  check(
+    'five pages on a two-cell two-sided grid make four PDF pages with a blank last back',
+    new RegExp(`Pages:\\s+${oddImposed.papers * 2}\\b`).test(oddInfo) && blankBack.pixels.every((value) => value >= 254),
+    oddInfo.match(/Pages:\s+\d+/)?.[0],
+  )
+
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
-  check('the imposed maxSheets ceiling counts papers and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  check('the imposed maxSheets ceiling counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
 }

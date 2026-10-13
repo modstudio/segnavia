@@ -51,8 +51,8 @@ library names a host.
 | `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade. |
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
-| `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
-| `Imposition` | print and render options | The paper and grid of the host's label stock, card or folded piece; marks and two sides are not built. |
+| `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
+| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card; marks and folds are not built. |
 | press profile, `convert` (designed, not built) | render options | The ICC profile of the press, as bytes, and optionally a full converter to run on the finished PDF. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
@@ -125,8 +125,8 @@ print document (`printableDeck`). The `Imposition` value and its arithmetic (`im
 document for a browser, and `pagesPdf` renders and composes pages onto its
 papers. `printPages` prints the imposed papers from the browser, with the known
 limit that its print dialog loses backgrounds inside frames; a host that needs
-them uses the renderer's `pagesPdf`. Marks on an imposed paper and two sides
-are not built. The rest of this section remains designed.
+them uses the renderer's `pagesPdf`. Two-sided imposition is built; marks on
+an imposed paper and folds are not. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -185,9 +185,15 @@ the grid of the stock it sells or uses, and the library ships no catalogue of
 stock numbers. Filling labels from records is the host's use of bindings,
 one page per record.
 
-**Sides.** An imposition may have two sides, flipped on the long or the short
-edge. `impose` mirrors the back's placements across the flip, so each back
-lands behind its front.
+**Sides.** An imposition's `sides` is `one` by default or `two`, and its `flip`
+is `long` by default or `short`. With two sides, pages are a front followed by
+its back, and an odd last page has a blank back. `impose` mirrors a back across
+the named flip: on portrait paper a long flip mirrors x and a short flip y,
+while landscape paper swaps those axes. A composed PDF and the browser print
+document emit front then back for each physical paper, including a blank back,
+so duplex pairing never shifts. `<segnavia-paper>` selects the shown face with
+its `side` property and attribute. `maxSheets` counts those PDF pages, so a
+two-sided imposition uses two per physical paper.
 
 **Folds.** A folded piece is an imposition whose cells are panels: one row,
 columns that may differ in width, two sides, and a fold line between columns.
@@ -207,8 +213,8 @@ therefore print, the composed output stays vector, and the two paths cannot
 place content differently. A page that runs its own code is waited for exactly
 as it is by `pagePdf`, including its `window.pageReady` signal. Without an
 imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
-front and back share one file. The host's `limits` count papers as they count a
-deck's.
+front and back share one file. The host's `maxSheets` limit counts PDF pages,
+including both sides of an imposed physical paper.
 
 A slide is a fixed page at the deck's size, so a deck prints through an
 imposition too. `printableDeck` builds the frame-based papers for browser

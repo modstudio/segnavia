@@ -11,6 +11,7 @@ export {
   type Imposed,
   impose,
   type MillimeterEdges,
+  mirrorPlacement,
   type PageFit,
   type PagePlacementKind,
   type PagePlacementLayout,
@@ -111,6 +112,8 @@ export const Imposition = z
     safe: z.number().nonnegative().default(0),
     fit: z.enum(['contain', 'cover']).default('contain'),
     fill: z.enum(['sequence', 'repeat']).default('sequence'),
+    sides: z.enum(['one', 'two']).default('one'),
+    flip: z.enum(['long', 'short']).default('long'),
     skip: z.number().int().nonnegative().default(0),
     dir: z.enum(['ltr', 'rtl']).default('ltr'),
   })

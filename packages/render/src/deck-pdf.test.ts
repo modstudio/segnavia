@@ -119,6 +119,19 @@ test('an imposed repeat deck embeds one rendered slide across each paper', async
   expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
 })
 
+test('a two-sided imposed deck emits front and back PDF pages for one physical paper', async () => {
+  const output = await renderDeckPdf(
+    deck,
+    { imposition: { ...imposition, sides: 'two' } },
+    {
+      renderPdf: async () => onePage(400, 200),
+      fontFaces: () => '',
+      enforce: async (pdf) => pdf,
+    },
+  )
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(2)
+})
+
 test('an imposed deck refuses notes before rendering', async () => {
   let renders = 0
   const rendering = renderDeckPdf(
