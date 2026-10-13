@@ -1,6 +1,6 @@
 // @ts-nocheck -- Table dimensions are validated before indexed interpolation.
 import { invert3, matrix3 } from './spaces.ts'
-import { type Color, type ColorTable, type Curve, clamp, M_BA, refuse } from './types.ts'
+import { type Color, type ColorTable, type Curve, clamp, REVERSE_LUT, refuse } from './types.ts'
 
 export const signature = (bytes: Uint8Array, offset: number): string => String.fromCharCode(...bytes.subarray(offset, offset + 4))
 export const u16 = (view: DataView, offset: number): number => view.getUint16(offset, false)
@@ -138,7 +138,7 @@ export function parseMft(bytes: Uint8Array, view: DataView, offset: number, type
   }
 }
 
-export function parseMab(bytes: Uint8Array, view: DataView, offset: number, type: 'mAB ' | typeof M_BA): ColorTable {
+export function parseMab(bytes: Uint8Array, view: DataView, offset: number, type: 'mAB ' | typeof REVERSE_LUT): ColorTable {
   need(bytes, offset, 32, type)
   const inputs = bytes[offset + 8]
   const outputs = bytes[offset + 9]
@@ -230,7 +230,7 @@ export function matrixTables(
     b2a: {
       inputChannels: 3,
       outputChannels: 3,
-      encoding: M_BA,
+      encoding: REVERSE_LUT,
       run: (input) => matrix3(inverse, input).map((value, index) => invertCurve(curves[index], value)),
     },
   }

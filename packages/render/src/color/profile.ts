@@ -1,7 +1,7 @@
 // @ts-nocheck -- The parser checks byte and tag bounds before indexed reads.
 import { destinationBlackPoint, detectSourceBlackPoint } from './black-point.ts'
 import { fixed, matrixTables, parseMab, parseMft, signature, u32 } from './tables.ts'
-import { type ColorTable, M_BA, type Profile, refuse } from './types.ts'
+import { type ColorTable, type Profile, REVERSE_LUT, refuse } from './types.ts'
 
 type Records = Record<string, { offset: number; size: number; type: string }>
 
@@ -40,8 +40,8 @@ function table(bytes: Uint8Array, view: DataView, all: Records, names: string[],
   const record = all[name]
   let result: ColorTable
   if (record.type === 'mft1' || record.type === 'mft2') result = parseMft(bytes, view, record.offset, record.type)
-  else if (record.type === 'mAB ' || record.type === M_BA) result = parseMab(bytes, view, record.offset, record.type)
-  else return refuse(`${name} tag type ${JSON.stringify(record.type)}`, `mft1, mft2, mAB , or ${M_BA}`)
+  else if (record.type === 'mAB ' || record.type === REVERSE_LUT) result = parseMab(bytes, view, record.offset, record.type)
+  else return refuse(`${name} tag type ${JSON.stringify(record.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
   if (result.inputChannels !== inputs || result.outputChannels !== outputs)
     refuse(`${name} channel count ${result.inputChannels}->${result.outputChannels}`, `${inputs}->${outputs}`)
   return result
@@ -62,8 +62,8 @@ export function readProfile(bytes: Uint8Array): Profile {
   let gamut: ColorTable | undefined
   if (gamutRecord) {
     if (gamutRecord.type === 'mft1' || gamutRecord.type === 'mft2') gamut = parseMft(bytes, view, gamutRecord.offset, gamutRecord.type)
-    else if (gamutRecord.type === 'mAB ' || gamutRecord.type === M_BA) gamut = parseMab(bytes, view, gamutRecord.offset, gamutRecord.type)
-    else refuse(`gamt tag type ${JSON.stringify(gamutRecord.type)}`, `mft1, mft2, mAB , or ${M_BA}`)
+    else if (gamutRecord.type === 'mAB ' || gamutRecord.type === REVERSE_LUT) gamut = parseMab(bytes, view, gamutRecord.offset, gamutRecord.type)
+    else refuse(`gamt tag type ${JSON.stringify(gamutRecord.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
   }
   const whitePoint = [fixed(view, all.wtpt.offset + 8), fixed(view, all.wtpt.offset + 12), fixed(view, all.wtpt.offset + 16)]
   const sourceBlackPoint = detectSourceBlackPoint(parsed.colorSpace, parsed.pcs, parsed.majorVersion, a2b, perceptualB2a)

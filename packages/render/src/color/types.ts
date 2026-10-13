@@ -1,12 +1,12 @@
 // @ts-nocheck -- ICC vectors are validated at the parser boundary.
 export type Color = readonly number[]
 export type Curve = (value: number) => number
-export const M_BA = 'mB' + 'A '
+export const REVERSE_LUT = 'mB' + 'A '
 
 export interface ColorTable {
   inputChannels: number
   outputChannels: number
-  encoding: 'mft1' | 'mft2' | 'mAB ' | typeof M_BA
+  encoding: 'mft1' | 'mft2' | 'mAB ' | typeof REVERSE_LUT
   run(input: Color): number[]
 }
 
