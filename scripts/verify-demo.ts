@@ -9,6 +9,7 @@ import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
+import { verifyPapers } from './verify/papers.ts'
 import { verifyPlayer } from './verify/player.ts'
 import { verifyRtl } from './verify/rtl.ts'
 
@@ -17,6 +18,7 @@ try {
   verifyCapture(h)
   await verifyPlayer(h)
   await verifyPages(h)
+  await verifyPapers(h)
   await verifyRtl(h)
   await verifyHeadless(h)
   await verifyComponents(h)

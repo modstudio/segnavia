@@ -5,6 +5,7 @@
 import {
   type Deck,
   fitPage,
+  type Imposed,
   type Imposition,
   impose,
   type Page,
@@ -107,6 +108,7 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
 export interface PrintablePagesOptions {
   css?: string
   nonce?: string
+  cspExtra?: string
 }
 
 const mm = (value: number) => `${value}mm`
@@ -122,6 +124,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     dir: page.dir,
     lang: page.lang,
     css: `${properties}${padding}${options.css ?? ''}`,
+    csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,
   })
@@ -133,19 +136,25 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
   return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe></div>`
 }
 
+// Builds only the positioned placement boxes for one physical paper, so the
+// browser element and the print document use exactly the same frame markup.
+export function printablePaper(pages: Page[], imposition: Imposition, imposed: Imposed, paper: number, options: PrintablePagesOptions = {}): string {
+  return imposed.placements
+    .filter((placement) => placement.paper === paper)
+    .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
+    .join('')
+}
+
 // This frame-based document is for a browser to show and print. Chromium loses
 // backgrounds inside sandboxed frames when producing a PDF, so the server
 // renderer composes top-level page renders instead of printing this document.
 export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)
-  const papers = Array.from({ length: imposed.papers }, (_, paper) => {
-    const frames = imposed.placements
-      .filter((placement) => placement.paper === paper)
-      .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
-      .join('')
-    return `<section class="paper">${frames}</section>`
-  }).join('')
+  const papers = Array.from(
+    { length: imposed.papers },
+    (_, paper) => `<section class="paper">${printablePaper(pages, imposition, imposed, paper, options)}</section>`,
+  ).join('')
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
   return `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`

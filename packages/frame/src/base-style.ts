@@ -1,4 +1,4 @@
-// The only styles the headless elements bring: the geometry a slide or page
+// The only styles the headless elements bring: the geometry a slide, page or paper
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
 // borders, radius, type) is left entirely to the host; the few values that
@@ -8,6 +8,7 @@
 //   --segnavia-canvas            the slide canvas behind its content
 //   --segnavia-annotation-color  rings, badges and arrows
 //   --segnavia-cue-fade          how long an annotation takes to appear
+//   --segnavia-paper             the paper behind its placements
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
@@ -21,6 +22,8 @@ export const BASE_CSS = `
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
+:where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
+:where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
 `
 
 // Adds the base styles once to the document, or to the shadow root an

@@ -1,11 +1,11 @@
-// Printing a deck from the browser through its frame-based print document.
+// Printing decks and imposed pages from the browser through frame-based print documents.
 // The server instead composes top-level slide renders because Chromium loses
 // frame backgrounds in PDFs. The browser's print dialog opens once every slide
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import type { Deck } from '@segnavia/format'
-import { type PrintOptions, printableDeck } from './print-document.ts'
+import { type Deck, Imposition, type ImpositionInput, impose, Page, type PageInput, PX_PER_MM } from '@segnavia/format'
+import { type PrintablePagesOptions, type PrintOptions, printableDeck, printablePages } from './print-document.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
@@ -17,16 +17,24 @@ export interface BrowserPrintOptions extends PrintOptions {
   print?: (win: Window) => void | Promise<void>
 }
 
-export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+interface PrintFrameOptions {
+  width: number
+  height: number
+  html: string
+  deadlineMs?: number
+  print?: (win: Window) => void | Promise<void>
+}
+
+async function printFrame(options: PrintFrameOptions): Promise<void> {
   const host = document.createElement('iframe')
   // Rendered at full size off screen: a hidden or empty frame may never be
   // laid out, and its slides would then never report themselves painted.
-  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${deck.size.width}px;height:${deck.size.height}px;border:0;opacity:0;pointer-events:none`
+  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${options.width}px;height:${options.height}px;border:0;opacity:0;pointer-events:none`
   document.body.append(host)
   try {
     const win = host.contentWindow as Window
     win.document.open()
-    win.document.write(printableDeck(deck, options))
+    win.document.write(options.html)
     win.document.close()
     const frames = [...win.document.querySelectorAll('iframe')]
     const images = [...win.document.querySelectorAll('img')]
@@ -48,4 +56,23 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
     // document has been handed to the printer.
     host.remove()
   }
+}
+
+export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+  return printFrame({ width: deck.size.width, height: deck.size.height, html: printableDeck(deck, options), ...options })
+}
+
+export interface BrowserPagesPrintOptions extends PrintablePagesOptions {
+  deadlineMs?: number
+  print?: (win: Window) => void | Promise<void>
+}
+
+// A browser print dialog loses backgrounds inside frames. A host that needs
+// those backgrounds uses the renderer's pagesPdf instead.
+export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+  const pages = pagesInput.map((page) => Page.parse(page))
+  const imposition = Imposition.parse(impositionInput)
+  const imposed = printablePages(pages, imposition, options)
+  const paper = impose(imposition, pages.length).paper
+  return printFrame({ width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM, html: imposed, ...options })
 }

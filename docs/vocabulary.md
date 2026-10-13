@@ -33,6 +33,7 @@ something else.
 | **Frame** | The sandboxed iframe that shows a page's or a slide's HTML. |
 | **Controller** | `DeckController`: the headless deck. It holds the state (slide, playing, word, annotations shown, progress, direction) and answers keys. It renders nothing. |
 | **Stage** | `<segnavia-stage>`: shows the controller's current slide, scaled to fit, and brings no appearance of its own. |
+| **Paper** | `<segnavia-paper>`: shows one paper of imposed pages, scaled to fit, and brings no appearance of its own. |
 | **Styled component** | One finished control (`<segnavia-play>`, `-step`, `-track`, `-counter`, `-caption`, `-notes`, `-fullscreen`). It finds its deck by `for`, by its `controller` property, or from the nearest ancestor that has one. |
 | **Player** | `<segnavia-player>`: the finished player, a layout of the styled components around a stage. |
 | **Reading direction** | The deck's direction, from its `dir`, else its `lang`, else its title's first strong letter. Paging keys and the skin follow it. |

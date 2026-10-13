@@ -16,6 +16,7 @@ import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
+import { buildPaperDemo } from './build-paper-demo.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -309,6 +310,7 @@ writeFileSync(
     '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page><segnavia-page id="postcard" src="page-postcard.json"></segnavia-page></div>',
   ),
 )
+buildPaperDemo(SITE)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })
 for (const [name, schema] of Object.entries(jsonSchemas())) writeFileSync(path.join(schemas, `${name}.schema.json`), JSON.stringify(schema, null, 2))

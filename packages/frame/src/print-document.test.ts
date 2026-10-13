@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, fitPage, Imposition, impose, Page } from '@segnavia/format'
-import { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePages } from './print-document.ts'
+import { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePages, printablePaper } from './print-document.ts'
 import { escapeHtml } from './svg.ts'
 
 const grid = Imposition.parse({
@@ -57,6 +57,16 @@ describe('printableDeck', () => {
 })
 
 describe('printablePages', () => {
+  test('wraps the concatenated per-paper placement boxes', () => {
+    const pages = [fluid, fluid, fluid, fluid, fluid]
+    const imposed = impose(grid, pages.length)
+    const content = Array.from({ length: imposed.papers }, (_, paper) => printablePaper(pages, grid, imposed, paper, { nonce: 'test' })).join('')
+    const wrapped = printablePages(pages, grid, { nonce: 'test' })
+      .match(/<body>([\s\S]*)<\/body>/)?.[1]
+      ?.replace(/<\/?section(?: class="paper")?>/g, '')
+    expect(wrapped).toBe(content)
+  })
+
   test('builds papers with every placement clipped to its bleed box', () => {
     const html = printablePages([fluid, fluid, fluid, fluid, fluid], grid, { nonce: 'test' })
     expect(html).toContain('@page{size:26mm 26mm;margin:0}')
@@ -125,6 +135,11 @@ describe('printablePages', () => {
     expect(refused).not.toContain('allow-same-origin')
     expect(refused).toContain("script-src 'nonce-known'")
     expect(sandboxed).not.toContain('script-src')
+  })
+
+  test('adds extra content security policy directives when supplied', () => {
+    const html = printablePages([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
+    expect(html).toContain('img-src data:')
   })
 
   test('refuses an empty collection', () => {
