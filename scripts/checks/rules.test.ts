@@ -31,6 +31,15 @@ describe('architecture rules', () => {
     expect(checkImports(file, workspace('voice'), all)[0]?.message).toContain('declare it in architecture.ts')
   })
 
+  test('the LittleCMS reference cannot enter package source', () => {
+    const source = { path: 'packages/render/src/color/reference.ts', text: '', imports: ['lcms-wasm'] }
+    expect(checkImports(source, workspace('render'), all).map((finding) => finding.message)).toContain(
+      'lcms-wasm is a development-only reference and may be imported only by tests and scripts.',
+    )
+    const testFile = { ...source, path: 'packages/render/src/color/reference.test.ts' }
+    expect(checkImports(testFile, workspace('render'), all)).toEqual([])
+  })
+
   test('a server-safe entry point may not reach a browser-only file', () => {
     const file = { path: 'packages/frame/src/bridge.ts', text: '', imports: ['./deck.ts', './svg.ts'] }
     expect(checkImports(file, workspace('frame'), all).map((f) => f.message)).toEqual(['a server-safe entry point imports "./deck.ts", which is browser-only.'])

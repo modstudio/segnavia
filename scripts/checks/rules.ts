@@ -62,6 +62,7 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
 
 function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>, specifier: string): Finding[] {
   if (specifier === 'bun:test') return []
+  if (specifier === 'lcms-wasm' && file.path.endsWith('.test.ts')) return []
   if (specifier.startsWith('node:')) {
     return workspace.rule.runtime === 'server'
       ? []
@@ -83,6 +84,13 @@ export function checkImports(file: SourceFile, workspace: Workspace, all: Map<st
   const findings = file.imports.flatMap((specifier) =>
     specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
   )
+  if (!file.path.endsWith('.test.ts') && file.imports.includes('lcms-wasm')) {
+    findings.push({
+      rule: 'architecture',
+      path: file.path,
+      message: 'lcms-wasm is a development-only reference and may be imported only by tests and scripts.',
+    })
+  }
   if (workspace.rule.runtime !== 'server' && !file.path.endsWith('.test.ts') && NODE_GLOBALS.test(stripComments(file.text))) {
     findings.push({ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package uses a Node global.` })
   }
