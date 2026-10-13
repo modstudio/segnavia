@@ -1,18 +1,21 @@
-import { MM_PER_PT, type Print, PX_PER_MM, printBoxes, printProperties, sheetMm } from '@segnavia/format'
+import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheetMm } from '@segnavia/format'
 import { PDFDocument, PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
+import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
-const pt = (mm: number) => mm / MM_PER_PT
 
 export function printCss(print: Print): string {
   const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
   const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
-  // Padding uses physical sides because the edges of paper do not change with text direction.
-  const padding = [margin.top, margin.right, margin.bottom, margin.left].map((value) => `${value + print.bleed}mm`).join(' ')
-  return `${properties}:where(html){padding:${padding}}`
+  return `${properties}${printPadding({
+    top: margin.top + print.bleed,
+    right: margin.right + print.bleed,
+    bottom: margin.bottom + print.bleed,
+    left: margin.left + print.bleed,
+  })}`
 }
 
 export function printViewport(print: Print, pressLayout: boolean): { width: number; height: number } {
@@ -26,15 +29,6 @@ export function assertPrintOptions(print: Print, preferCssPageSize: boolean | un
       'A page with bleed or marks takes its size from its print setting. Remove preferCssPageSize, or remove the bleed and marks, to clear this refusal.',
     )
   }
-}
-
-function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: number } {
-  return { x: pt(x), y: pt(mediaHeight - y) }
-}
-
-function pdfBox(box: { x: number; y: number; width: number; height: number }, mediaHeight: number): { x: number; y: number; width: number; height: number } {
-  const bottomLeft = pdfPoint(box.x, box.y + box.height, mediaHeight)
-  return { ...bottomLeft, width: pt(box.width), height: pt(box.height) }
 }
 
 async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {

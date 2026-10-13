@@ -118,8 +118,11 @@ is in its print setting or in an imposition. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
 into that PDF, and a deck prints one slide to each sheet of paper
 (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
-`fitPage`) are built in `format`. The print document, render and on-screen paper
-for an imposition are not yet built. The rest of this section remains designed.
+`fitPage`) are built in `format`; `printablePages` builds an imposition's print
+document for a browser, and `pagesPdf` renders and composes pages onto its
+papers. The on-screen paper, browser print path for pages, a deck through an
+imposition, marks on an imposed paper and two sides are not built. The rest of
+this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -132,7 +135,8 @@ the cut. The two properties are set wherever the page is shown; the bleed is
 painted only in a PDF. Viewport units measure the bleed box. With bleed or
 marks, a page is one printed piece; content that needs a second paper is
 refused. Without them, a page prints as before. A postcard face is one such
-page. Putting several pages in one PDF belongs to imposition.
+page. `pagesPdf` can join several pieces in one PDF without putting them on the
+same paper; putting several pages on one paper belongs to imposition.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
@@ -169,10 +173,10 @@ distance from the cell to the paper's edge. A fixed page shown with `contain`
 gets no bleed, so a fixed design that must bleed uses `cover`. A page with no
 fixed height is clipped at its cell's bleed box if it is taller.
 
-A host shows a page alone with `<segnavia-page>`, as today, and shows it in
+A host shows a page alone with `<segnavia-page>`, as today, and will show it in
 its cells with `<segnavia-paper>`: a headless element that shows one paper of
-an imposition, scaled to the box the host gives it, from the same print
-document a render uses. Switching between the two is the host's control.
+an imposition, scaled to the box the host gives it. Switching between the two
+is the host's control.
 
 A label template is an imposition: label stock is a grid. The host supplies
 the grid of the stock it sells or uses, and the library ships no catalogue of
@@ -190,10 +194,17 @@ use, and it is done when a letter-fold brochure prints with every panel in
 its place on both sides. A stapled booklet, whose pages are reordered across
 several papers, is not covered.
 
-One print document serves a browser and a server, as it does for a deck.
-`printablePages` builds it from pages and an imposition in `frame`'s
-server-safe print entry, `printPages` prints it in a browser, and `pagesPdf`
-renders it. The host's `limits` count papers as they count a deck's.
+`printablePages`, in `frame`'s server-safe print entry, is the document a
+browser shows and prints. Chromium paints no background inside a sandboxed
+frame when it prints to PDF, and the sandbox is never removed, so that browser
+path loses page backgrounds. The renderer does not print that document:
+`pagesPdf` renders each page on its own as a top-level document and places the
+results on the papers. Backgrounds and bleed therefore print, and the composed
+output stays vector. A page that runs its own code is waited for exactly as it
+is by `pagePdf`, including its `window.pageReady` signal. Without an
+imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
+front and back share one file. The host's `limits` count papers as they count a
+deck's.
 
 A slide is a page, so a deck prints through an imposition too:
 `printableDeck` takes one, and a grid of two columns and three rows is a

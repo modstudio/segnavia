@@ -5,13 +5,15 @@
 // so a render cannot fetch, beacon or depend on the network. Everything a
 // page shows (faces, images, styles) arrives inside it.
 
-import { type Deck, Page, type PageInput, Print, printProperties } from '@segnavia/format'
+import { type Deck, type ImpositionInput, Page, type PageInput, Print, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
+import type { PieceGeometry } from './pages-imposition.ts'
+import { renderPagesPdf } from './pages-pdf.ts'
 
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 
@@ -75,6 +77,7 @@ export interface RendererOptions {
 
 export interface Renderer {
   pagePdf(page: PageInput, options?: RenderOptions): Promise<Uint8Array>
+  pagesPdf(pages: PageInput[], options?: RenderOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
@@ -243,28 +246,62 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const image = captureImage
 
-  return {
+  async function renderPagePdf(page: Page, opts: RenderOptions): Promise<Uint8Array> {
+    if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
+    const viewport = pageViewport(page, undefined, true)
+    const pdf = await withTab(
+      {
+        viewport,
+        scripts: page.scripts === 'sandboxed',
+        html: pageDocument(page, opts, true),
+        waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+        boundMs: opts.boundMs,
+        beforeOutput: opts.beforeOutput,
+      },
+      async (tab) => {
+        if (page.print) return printPage(tab, page.print, opts.preferCssPageSize)
+        const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
+        const height = fixedHeight ?? (await contentHeight(tab))
+        return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
+      },
+    )
+    return enforce(pdf, opts.limits)
+  }
+
+  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions): Promise<Uint8Array> {
+    const html = frameDocument(page.html, {
+      scripts: page.scripts,
+      nonce: newNonce(),
+      dir: page.dir,
+      lang: page.lang,
+      css,
+      relayKeys: false,
+      reportHeight: false,
+    })
+    return withTab(
+      {
+        viewport: geometry.viewport,
+        scripts: page.scripts === 'sandboxed',
+        html,
+        waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+        boundMs: opts.boundMs,
+        beforeOutput: opts.beforeOutput,
+      },
+      (tab) =>
+        tab.pdf({
+          width: geometry.pdf.width,
+          height: geometry.pdf.height,
+          printBackground: true,
+          preferCSSPageSize: false,
+          pageRanges: '1',
+          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        }),
+    )
+  }
+
+  const renderer: Renderer = {
     async pagePdf(input, opts = {}) {
-      const page = Page.parse(input)
-      if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-      const viewport = pageViewport(page, undefined, true)
-      const pdf = await withTab(
-        {
-          viewport,
-          scripts: page.scripts === 'sandboxed',
-          html: pageDocument(page, opts, true),
-          waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
-          boundMs: opts.boundMs,
-          beforeOutput: opts.beforeOutput,
-        },
-        async (tab) => {
-          if (page.print) return printPage(tab, page.print, opts.preferCssPageSize)
-          const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
-          const height = fixedHeight ?? (await contentHeight(tab))
-          return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
-        },
-      )
-      return enforce(pdf, opts.limits)
+      return renderPagePdf(Page.parse(input), opts)
     },
 
     async pageImage(input, opts = {}) {
@@ -286,6 +323,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           return image(tab, opts, false)
         },
       )
+    },
+
+    pagesPdf(inputs, opts = {}) {
+      return renderPagesPdf(inputs, opts, {
+        pagePdf: renderPagePdf,
+        piecePdf: renderPiecePdf,
+        fontFaces: (options) => fontFaces(options.fonts),
+        enforce,
+      })
     },
 
     async deckPdf(deck, opts = {}) {
@@ -329,4 +375,5 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     close: () => browser.close(),
   }
+  return renderer
 }

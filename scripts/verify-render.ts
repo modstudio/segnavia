@@ -13,8 +13,9 @@ import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
-import { postcardPage } from './demo-page-fixtures.ts'
+import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { imageSize } from './verify/image-size.ts'
+import { verifyPagesRender } from './verify/pages-render.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const FACE = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
@@ -99,6 +100,7 @@ try {
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
   await renderer.pageImage({ html })
+  await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
   check('a render reaches no server, whatever the page asks for', hits === 0, `requests=${hits}`)
 
   if (existsSync(FACE)) {
@@ -241,6 +243,8 @@ try {
     darkMidpoints === 8 && lightEnds === 16 && bleedBackground < 245 && mediaBackground > 245,
     `marks=${darkMidpoints}/8, light endpoints=${lightEnds}/16, bleed gray=${bleedBackground}, media gray=${mediaBackground}`,
   )
+
+  verifyPagesRender(output, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {

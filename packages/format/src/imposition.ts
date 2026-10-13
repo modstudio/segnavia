@@ -40,6 +40,15 @@ export interface PageFit {
   differs: boolean
 }
 
+export type PagePlacementKind = 'fluid' | 'growing' | 'fixed'
+
+export interface PagePlacementLayout {
+  kind: PagePlacementKind
+  piece: { width: number; height: number }
+  inset: boolean
+  paper: PaperBox
+}
+
 const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
 
 function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
@@ -212,5 +221,35 @@ export function fitPage(page: { size: Page['size']; print?: Print }, placement: 
       left: roundMillimeters(Math.max(0, placement.bleedBox.x - x)),
     },
     differs,
+  }
+}
+
+export function pagePlacementLayout(size: Page['size'], placement: Placement, fit: PageFit): PagePlacementLayout {
+  if (size === 'fluid') {
+    return {
+      kind: 'fluid',
+      piece: { width: placement.bleedBox.width * PX_PER_MM, height: placement.bleedBox.height * PX_PER_MM },
+      inset: true,
+      paper: placement.bleedBox,
+    }
+  }
+  if (size.height === 'auto') {
+    return {
+      kind: 'growing',
+      piece: { width: size.width, height: (placement.trim.height * PX_PER_MM) / fit.scale },
+      inset: false,
+      paper: { x: fit.x, y: fit.y, width: placement.trim.width, height: placement.trim.height },
+    }
+  }
+  return {
+    kind: 'fixed',
+    piece: { width: size.width, height: size.height },
+    inset: false,
+    paper: {
+      x: fit.x,
+      y: fit.y,
+      width: (size.width * fit.scale) / PX_PER_MM,
+      height: (size.height * fit.scale) / PX_PER_MM,
+    },
   }
 }

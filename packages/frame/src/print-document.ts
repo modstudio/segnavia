@@ -3,7 +3,22 @@
 // One sheet per slide: a playing slide prints its picture with every
 // annotation shown, and its narration prints as its notes.
 
-import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import {
+  type Deck,
+  fitPage,
+  type Imposition,
+  impose,
+  type Page,
+  Print,
+  type PrintInput,
+  PX_PER_MM,
+  pagePlacementLayout,
+  printPadding,
+  printProperties,
+  resolveDirection,
+  type Slide,
+  sheetMm,
+} from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
@@ -59,4 +74,51 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     return `<section class="sheet"><div class="slide" dir="ltr" style="width:${width * scale}px;height:${height * scale}px"><div style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0">${slideBody(deck, slide, options)}</div></div><p class="number">${index + 1}</p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
   })
   return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${margin}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:1px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style></head><body>${sheets.join('')}</body></html>`
+}
+
+export interface PrintablePagesOptions {
+  css?: string
+  nonce?: string
+}
+
+const mm = (value: number) => `${value}mm`
+
+function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
+  const fit = fitPage(page, placement, imposition.fit)
+  const layout = pagePlacementLayout(page.size, placement, fit)
+  const properties = printProperties(imposition, imposition.unit)
+  const padding = layout.inset ? printPadding(placement.bleed) : ''
+  const srcdoc = frameDocument(page.html, {
+    scripts: page.scripts,
+    nonce: options.nonce ?? newNonce(),
+    dir: page.dir,
+    lang: page.lang,
+    css: `${properties}${padding}${options.css ?? ''}`,
+    reportHeight: false,
+    relayKeys: false,
+  })
+  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
+  const dimensions =
+    layout.kind === 'fluid'
+      ? 'width:100%;height:100%'
+      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${fit.scale});transform-origin:0 0`
+  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe></div>`
+}
+
+// This frame-based document is for a browser to show and print. Chromium loses
+// backgrounds inside sandboxed frames when producing a PDF, so the server
+// renderer composes top-level page renders instead of printing this document.
+export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
+  const imposed = impose(imposition, pages.length)
+  const papers = Array.from({ length: imposed.papers }, (_, paper) => {
+    const frames = imposed.placements
+      .filter((placement) => placement.paper === paper)
+      .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
+      .join('')
+    return `<section class="paper">${frames}</section>`
+  }).join('')
+  // The document writes no text and uses physical paper positions, so its
+  // direction is left to right; each page keeps its own direction in its frame.
+  return `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
 }
