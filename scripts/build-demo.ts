@@ -14,7 +14,7 @@ import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
-import { fixedPage, fluidPage, hebrewPage, marginPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
+import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -216,6 +216,7 @@ writeFileSync(path.join(SITE, 'page.json'), JSON.stringify(fluidPage))
 writeFileSync(path.join(SITE, 'page-rtl.json'), JSON.stringify(hebrewPage))
 writeFileSync(path.join(SITE, 'page-rtl-div.json'), JSON.stringify(rightToLeftDivPage))
 writeFileSync(path.join(SITE, 'page-fixed.json'), JSON.stringify(fixedPage))
+writeFileSync(path.join(SITE, 'page-postcard.json'), JSON.stringify(postcardPage))
 // Each browser bundle contains its layer and every layer beneath it, so a
 // page loads exactly one of the files the package ships.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
@@ -303,7 +304,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 writeFileSync(
   path.join(SITE, 'page.html'),
   shell(
-    '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page></div>',
+    '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page><segnavia-page id="postcard" src="page-postcard.json"></segnavia-page></div>',
   ),
 )
 const schemas = path.join(OUT, 'schema')
@@ -360,6 +361,7 @@ try {
   writeFileSync(path.join(OUT, 'page.webp'), await renderer.pageImage(fluidPage, { format: 'webp', width: 1024 }))
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))
+  writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))
   let measured = 0
   await renderer.pagePdf(fluidPage, {

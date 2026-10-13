@@ -5,11 +5,15 @@
 // so a render cannot fetch, beacon or depend on the network. Everything a
 // page shows (faces, images, styles) arrives inside it.
 
-import { type Deck, Page, type PageInput, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Deck, Page, type PageInput, Print, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
+import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
+
+export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 
 export const RENDER_BOUND_MS = 60_000
 // How long a page that runs its own code gets to call window.pageReady().
@@ -20,18 +24,9 @@ const FLUID_WIDTH = 1024
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
-export class RendererUnavailableError extends Error {
-  override name = 'RendererUnavailableError'
-}
 export class RenderTimeoutError extends Error {
   override name = 'RenderTimeoutError'
 }
-// A render that produced something the host's limits refuse, or a page that
-// never said it was ready. The message names which.
-export class RenderRefusedError extends Error {
-  override name = 'RenderRefusedError'
-}
-
 export interface Font {
   family: string
   data: Uint8Array
@@ -233,15 +228,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     }
   }
 
-  function pageDocument(page: Page, options: RenderOptions): string {
-    const css = `${fontFaces(options.fonts)}${options.css ?? ''}`
+  function pageDocument(page: Page, options: RenderOptions, printing = false): string {
+    const css = `${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
 
-  function pageViewport(page: Page, width?: number) {
+  function pageViewport(page: Page, width?: number, printing = false) {
     if (page.print) {
-      const mm = sheetMm(page.print)
-      return { width: Math.round(mm.width * PX_PER_MM), height: Math.round(mm.height * PX_PER_MM) }
+      return printViewport(page.print, printing)
     }
     if (page.size === 'fluid') return { width: width ?? FLUID_WIDTH, height: 800 }
     return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
@@ -252,28 +246,19 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   return {
     async pagePdf(input, opts = {}) {
       const page = Page.parse(input)
-      const viewport = pageViewport(page)
+      if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
+      const viewport = pageViewport(page, undefined, true)
       const pdf = await withTab(
         {
           viewport,
           scripts: page.scripts === 'sandboxed',
-          html: pageDocument(page, opts),
+          html: pageDocument(page, opts, true),
           waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
           boundMs: opts.boundMs,
           beforeOutput: opts.beforeOutput,
         },
         async (tab) => {
-          if (page.print) {
-            const mm = sheetMm(page.print)
-            const margin = page.print.margin
-            return tab.pdf({
-              width: `${mm.width}mm`,
-              height: `${mm.height}mm`,
-              printBackground: true,
-              preferCSSPageSize: opts.preferCssPageSize ?? false,
-              margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
-            })
-          }
+          if (page.print) return printPage(tab, page.print, opts.preferCssPageSize)
           const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
           const height = fixedHeight ?? (await contentHeight(tab))
           return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
@@ -308,7 +293,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const html = printableDeck(deck, { ...opts, css })
       const notes = opts.layout === 'notes'
       const viewport = notes
-        ? pageViewport({ html: '', size: 'fluid', scripts: 'refuse', print: opts.notesPaper ?? { paper: 'letter', orientation: 'portrait' } })
+        ? pageViewport({
+            html: '',
+            size: 'fluid',
+            scripts: 'refuse',
+            print: Print.parse(opts.notesPaper ?? { paper: 'letter', orientation: 'portrait' }),
+          })
         : deck.size
       const pdf = await withTab(
         { viewport, scripts: deck.scripts === 'sandboxed', html, waitForReady: false, boundMs: opts.boundMs, beforeOutput: opts.beforeOutput },

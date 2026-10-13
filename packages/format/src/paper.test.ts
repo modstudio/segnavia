@@ -1,0 +1,67 @@
+import { describe, expect, test } from 'bun:test'
+import { Page, Print } from './index.ts'
+import { printBoxes, printProperties, sheetMm } from './paper.ts'
+
+describe('paper', () => {
+  test('orientation swaps the sides of a named and a custom paper', () => {
+    expect(sheetMm(Print.parse({ paper: 'a4', orientation: 'landscape' }))).toEqual({ width: 297, height: 210 })
+    expect(sheetMm(Print.parse({ paper: { width: 6, height: 4, unit: 'in' }, orientation: 'portrait' }))).toEqual({ width: 101.6, height: 152.4 })
+  })
+
+  test('no bleed and no marks makes the media equal the trim', () => {
+    expect(printBoxes(Print.parse({ paper: { width: 148, height: 105, unit: 'mm' } }))).toEqual({
+      media: { width: 105, height: 148 },
+      bleedBox: { x: 0, y: 0, width: 105, height: 148 },
+      trim: { x: 0, y: 0, width: 105, height: 148 },
+      safeBox: { x: 0, y: 0, width: 105, height: 148 },
+      marks: [],
+    })
+  })
+
+  test('bleed grows the media around the trim', () => {
+    expect(printBoxes(Print.parse({ paper: { width: 100, height: 150, unit: 'mm' }, bleed: 3 }))).toMatchObject({
+      media: { width: 106, height: 156 },
+      bleedBox: { x: 0, y: 0, width: 106, height: 156 },
+      trim: { x: 3, y: 3, width: 100, height: 150 },
+    })
+  })
+
+  test('marks surround a trim without bleed', () => {
+    const boxes = printBoxes(Print.parse({ paper: { width: 100, height: 150, unit: 'mm' }, marks: true }))
+    expect(boxes.media).toEqual({ width: 112, height: 162 })
+    expect(boxes.bleedBox).toEqual({ x: 6, y: 6, width: 100, height: 150 })
+    expect(boxes.trim).toEqual(boxes.bleedBox)
+    expect(boxes.marks).toHaveLength(8)
+    expect(boxes.marks[0]).toEqual({ x1: 0, y1: 6, x2: 5, y2: 6 })
+  })
+
+  test('bleed, safe area and marks use the same media origin', () => {
+    const boxes = printBoxes(Print.parse({ paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3, safe: 5, marks: true }))
+    expect(boxes).toMatchObject({
+      media: { width: 166, height: 123 },
+      bleedBox: { x: 6, y: 6, width: 154, height: 111 },
+      trim: { x: 9, y: 9, width: 148, height: 105 },
+      safeBox: { x: 14, y: 14, width: 138, height: 95 },
+    })
+    expect(boxes.marks).toHaveLength(8)
+  })
+
+  test('landscape applies before boxes are placed', () => {
+    expect(printBoxes(Print.parse({ paper: 'a4', orientation: 'landscape', bleed: 2 })).trim).toEqual({ x: 2, y: 2, width: 297, height: 210 })
+  })
+
+  test('a custom paper accepts points', () => {
+    expect(sheetMm(Print.parse({ paper: { width: 288, height: 432, unit: 'pt' } }))).toEqual({ width: 101.6, height: 152.4 })
+  })
+
+  test('print properties expose bleed and safe area to author CSS', () => {
+    expect(printProperties(Print.parse({ paper: 'a4', bleed: 3, safe: 5 }))).toBe(':root{--segnavia-bleed:3mm;--segnavia-safe:5mm}')
+  })
+
+  test('safe must leave area inside both trim dimensions', () => {
+    const result = Page.safeParse({ html: '', print: { paper: { width: 148, height: 105, unit: 'mm' }, safe: 52.5 } })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toContain('52.5mm on the left and right')
+    expect(result.error?.issues[0]?.message).toContain('105mm wide')
+  })
+})

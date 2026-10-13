@@ -3,8 +3,10 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
+import { sheetMm } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
+export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, PX_PER_MM, printBoxes, printProperties, sheetMm } from './paper.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -20,7 +22,10 @@ export type Scripts = z.infer<typeof Scripts>
 export const Direction = z.enum(['ltr', 'rtl', 'auto'])
 
 export const NAMED_PAPERS = ['letter', 'legal', 'tabloid', 'a3', 'a4', 'a5'] as const
-export const Paper = z.union([z.enum(NAMED_PAPERS), z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in']) })])
+export const Paper = z.union([
+  z.enum(NAMED_PAPERS),
+  z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in', 'pt']) }),
+])
 export type Paper = z.infer<typeof Paper>
 
 export const Margin = z.object({
@@ -32,12 +37,34 @@ export const Margin = z.object({
 
 // Paper exists only to export a page at a standard printed size. A page
 // without it exports at its own size. Margins are in millimetres.
-export const Print = z.object({
-  paper: Paper,
-  orientation: z.enum(['portrait', 'landscape']).default('portrait'),
-  margin: Margin.optional(),
-})
+export const Print = z
+  .object({
+    paper: Paper,
+    orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+    margin: Margin.optional(),
+    bleed: z.number().nonnegative().default(0),
+    safe: z.number().nonnegative().default(0),
+    marks: z.boolean().default(false),
+  })
+  .superRefine((print, ctx) => {
+    const trim = sheetMm(print)
+    if (print.safe * 2 >= trim.width) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['safe'],
+        message: `safe is ${print.safe}mm on the left and right, but the trim is ${trim.width}mm wide; safe must leave area inside the trim`,
+      })
+    }
+    if (print.safe * 2 >= trim.height) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['safe'],
+        message: `safe is ${print.safe}mm on the top and bottom, but the trim is ${trim.height}mm high; safe must leave area inside the trim`,
+      })
+    }
+  })
 export type Print = z.infer<typeof Print>
+export type PrintInput = z.input<typeof Print>
 
 // A page is designed for the screen at whatever size it needs: fluid (the
 // viewer's width, as tall as its content), a fixed sheet, or a fixed width
@@ -255,29 +282,3 @@ export function jsonSchemas() {
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
   }
 }
-
-// Millimetres per named paper, portrait.
-export const PAPER_MM: Record<(typeof NAMED_PAPERS)[number], { width: number; height: number }> = {
-  letter: { width: 215.9, height: 279.4 },
-  legal: { width: 215.9, height: 355.6 },
-  tabloid: { width: 279.4, height: 431.8 },
-  a3: { width: 297, height: 420 },
-  a4: { width: 210, height: 297 },
-  a5: { width: 148, height: 210 },
-}
-
-// The sheet a print setting describes, in millimetres, with orientation applied.
-export function sheetMm(print: Print): { width: number; height: number } {
-  const portrait =
-    typeof print.paper === 'string'
-      ? PAPER_MM[print.paper]
-      : print.paper.unit === 'in'
-        ? { width: print.paper.width * 25.4, height: print.paper.height * 25.4 }
-        : { width: print.paper.width, height: print.paper.height }
-  const [short, long] = [Math.min(portrait.width, portrait.height), Math.max(portrait.width, portrait.height)]
-  const round = (mm: number) => Math.round(mm * 100) / 100
-  return print.orientation === 'landscape' ? { width: round(long), height: round(short) } : { width: round(short), height: round(long) }
-}
-
-// CSS pixels per millimetre at the 96 dpi every browser lays out at.
-export const PX_PER_MM = 96 / 25.4

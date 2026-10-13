@@ -11,7 +11,9 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
+import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
+import { postcardPage } from './demo-page-fixtures.ts'
 import { imageSize } from './verify/image-size.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
@@ -27,6 +29,42 @@ const refusal = (work: Promise<unknown>) =>
     () => 'rendered',
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
+
+function readPgm(file: string): { width: number; height: number; pixels: Uint8Array } {
+  const bytes = readFileSync(file)
+  let offset = 0
+  const token = () => {
+    while (offset < bytes.length) {
+      if (bytes[offset] === 35) while (offset < bytes.length && bytes[offset] !== 10) offset++
+      else if ((bytes[offset] ?? 0) <= 32) offset++
+      else break
+    }
+    const start = offset
+    while (offset < bytes.length && (bytes[offset] ?? 0) > 32) offset++
+    return bytes.subarray(start, offset).toString()
+  }
+  if (token() !== 'P5') throw new Error(`The raster at ${file} is not a raw PGM.`)
+  const width = Number(token())
+  const height = Number(token())
+  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit grayscale.`)
+  while ((bytes[offset] ?? 0) <= 32) offset++
+  return { width, height, pixels: bytes.subarray(offset) }
+}
+
+function rasterValue(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
+  const x = Math.round(xMm / MM_PER_PT)
+  const y = Math.round(yMm / MM_PER_PT)
+  if (x < 0 || y < 0 || x >= raster.width || y >= raster.height) return 255
+  return raster.pixels[y * raster.width + x] ?? 255
+}
+
+function darkestNear(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
+  let darkest = 255
+  for (const dx of [-1, 0, 1]) {
+    for (const dy of [-1, 0, 1]) darkest = Math.min(darkest, rasterValue(raster, xMm + dx * MM_PER_PT, yMm + dy * MM_PER_PT))
+  }
+  return darkest
+}
 
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
@@ -151,6 +189,80 @@ try {
     "with preferCssPageSize, the page's own @page size wins over its paper",
     Math.round(Number(size?.[1])) === 283 && Math.round(Number(size?.[2])) === 283,
     size?.[0],
+  )
+
+  const postcardFile = path.join(output, 'page-postcard.pdf')
+  const postcardInfo = execFileSync('pdfinfo', ['-box', postcardFile], { encoding: 'utf8' })
+  const postcard = Page.parse(postcardPage)
+  if (!postcard.print) throw new Error('The postcard fixture has no print setting.')
+  const boxes = printBoxes(postcard.print)
+  const expectedBox = (box: { x: number; y: number; width: number; height: number }) =>
+    [box.x, boxes.media.height - box.y - box.height, box.x + box.width, boxes.media.height - box.y].map((mm) => mm / MM_PER_PT)
+  const actualBox = (name: string) =>
+    postcardInfo
+      .match(new RegExp(`${name}:\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)`))
+      ?.slice(1)
+      .map(Number)
+  const closeBox = (actual: number[] | undefined, expected: number[]) =>
+    actual?.every((value, index) => Math.abs(value - (expected[index] ?? Number.NaN)) <= 0.5) ?? false
+  check(
+    'a postcard PDF has the media, bleed and trim boxes from its print setting',
+    /Pages:\s+1\b/.test(postcardInfo) &&
+      closeBox(actualBox('MediaBox'), [0, 0, boxes.media.width / MM_PER_PT, boxes.media.height / MM_PER_PT]) &&
+      closeBox(actualBox('BleedBox'), expectedBox(boxes.bleedBox)) &&
+      closeBox(actualBox('TrimBox'), expectedBox(boxes.trim)),
+    postcardInfo
+      .split('\n')
+      .filter((line) => /^(Pages|MediaBox|BleedBox|TrimBox):/.test(line))
+      .join(', '),
+  )
+
+  const postcardRaster = path.join(work, 'postcard')
+  execFileSync('pdftoppm', ['-r', '72', '-gray', '-singlefile', postcardFile, postcardRaster])
+  const raster = readPgm(`${postcardRaster}.pgm`)
+  const marks = boxes.marks.map((mark) => {
+    const dx = mark.x2 - mark.x1
+    const dy = mark.y2 - mark.y1
+    const length = Math.hypot(dx, dy)
+    const ux = dx / length
+    const uy = dy / length
+    return {
+      midpoint: darkestNear(raster, (mark.x1 + mark.x2) / 2, (mark.y1 + mark.y2) / 2) < 220,
+      before: rasterValue(raster, mark.x1 - ux * 0.5, mark.y1 - uy * 0.5) > 245,
+      after: rasterValue(raster, mark.x2 + ux * 0.5, mark.y2 + uy * 0.5) > 245,
+    }
+  })
+  const darkMidpoints = marks.filter((mark) => mark.midpoint).length
+  const lightEnds = marks.reduce((count, mark) => count + Number(mark.before) + Number(mark.after), 0)
+  const bleedBackground = rasterValue(raster, boxes.bleedBox.x + (boxes.trim.x - boxes.bleedBox.x) / 2, boxes.bleedBox.y + boxes.bleedBox.height / 2)
+  const mediaBackground = rasterValue(raster, boxes.bleedBox.x / 2, boxes.bleedBox.y + boxes.bleedBox.height / 2)
+  check(
+    'a postcard PDF draws every crop mark at its print position and paints only through the bleed',
+    darkMidpoints === 8 && lightEnds === 16 && bleedBackground < 245 && mediaBackground > 245,
+    `marks=${darkMidpoints}/8, light endpoints=${lightEnds}/16, bleed gray=${bleedBackground}, media gray=${mediaBackground}`,
+  )
+
+  let imageProperties = ''
+  await renderer.pageImage(postcardPage, {
+    beforeOutput: async (tab) => {
+      imageProperties = await tab.evaluate(() => {
+        const root = getComputedStyle(document.documentElement)
+        return `${root.getPropertyValue('--segnavia-bleed')} ${root.getPropertyValue('--segnavia-safe')}`
+      })
+    },
+  })
+  check('a page image exposes its print bleed and safe area', imageProperties === '3mm 5mm', imageProperties)
+
+  const tooTall = await refusal(
+    renderer.pagePdf({
+      html: '<div style="height:400mm">Too tall for one printed piece.</div>',
+      print: { paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
+    }),
+  )
+  check(
+    'a page with bleed whose content needs another paper is refused',
+    /^refused: A page with bleed or marks is one printed piece, but the content needs \d+ papers\./.test(tooTall),
+    tooTall,
   )
 
   const slide = await renderer.slideImage(

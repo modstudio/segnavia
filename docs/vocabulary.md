@@ -7,7 +7,7 @@ something else.
 | Term | Meaning |
 |---|---|
 | **Page** | Self-contained HTML at any size, designed for viewing on screen: fluid (the viewer's width, as tall as its content), a fixed width and height, or a fixed width that grows with its content. |
-| **Print** | An optional setting on a page: a paper (named or custom, in mm or inches), an orientation and margins. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
+| **Print** | An optional setting on a page: a paper (named or custom, in mm, inches or points), an orientation, margins, bleed, safe area and marks. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
 | **Trim** | The finished size of a printed page after cutting. It is the print setting's paper. |
 | **Bleed** | The distance a page's background continues past the trim, so a cut that drifts leaves no white edge. |
 | **Safe area** | The distance inside the trim that text keeps clear of. |

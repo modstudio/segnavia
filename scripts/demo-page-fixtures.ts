@@ -39,3 +39,15 @@ export const marginPage: PageInput = {
   size: 'fluid',
   print: { paper: 'letter', orientation: 'portrait', margin: { top: 15, right: 15, bottom: 15, left: 15 } },
 }
+
+export const postcardPage: PageInput = {
+  html: '<!doctype html><html style="margin:0;background:#b9e6df"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">Greetings from Segnavia.</body></html>',
+  size: 'fluid',
+  print: {
+    paper: { width: 148, height: 105, unit: 'mm' },
+    orientation: 'landscape',
+    bleed: 3,
+    safe: 5,
+    marks: true,
+  },
+}

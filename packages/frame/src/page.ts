@@ -9,7 +9,7 @@
 // (`bridgeForHost`) to report its height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Page, type PageInput } from '@segnavia/format'
+import { Page, type PageInput, printProperties } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 
@@ -49,7 +49,7 @@ export class SegnaviaPage extends HTMLElement {
       nonce: newNonce(),
       dir: page.dir,
       lang: page.lang,
-      css: this.css,
+      css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
       csp: this.cspExtra || undefined,
       relayKeys: false,
     })

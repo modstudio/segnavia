@@ -3,7 +3,7 @@
 // One sheet per slide: a playing slide prints its picture with every
 // annotation shown, and its narration prints as its notes.
 
-import { type Deck, type Print, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
@@ -11,7 +11,7 @@ export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
-  notesPaper?: Print
+  notesPaper?: PrintInput
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -19,7 +19,7 @@ export interface PrintOptions {
   nonce?: string
 }
 
-export const NOTES_PAPER: Print = { paper: 'letter', orientation: 'portrait' }
+export const NOTES_PAPER: PrintInput = { paper: 'letter', orientation: 'portrait' }
 
 function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
@@ -47,7 +47,7 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
     return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
   }
-  const paper = sheetMm(options.notesPaper ?? NOTES_PAPER)
+  const paper = sheetMm(Print.parse(options.notesPaper ?? NOTES_PAPER))
   const sheetWidth = paper.width * PX_PER_MM
   const sheetHeight = paper.height * PX_PER_MM
   const margin = 48

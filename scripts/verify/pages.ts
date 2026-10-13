@@ -8,7 +8,7 @@ export async function verifyPages(h: Harness) {
   await page.goto(h.url('page.html'))
   await page
     .waitForFunction(
-      () => ['#fluid', '#rtl', '#rtl-div', '#fixed'].every((id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined),
+      () => ['#fluid', '#rtl', '#rtl-div', '#fixed', '#postcard'].every((id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined),
       null,
       {
         timeout: 10000,
@@ -74,6 +74,11 @@ export async function verifyPages(h: Harness) {
     return { width: box.width, height: box.height }
   })
   check('a page with a fixed width and fixed height is shown at that size', fixed.width === 420 && fixed.height === 240, JSON.stringify(fixed))
+  const printProperties = await page
+    .frameLocator('#postcard iframe')
+    .locator('html')
+    .evaluate((root) => `${getComputedStyle(root).getPropertyValue('--segnavia-bleed')} ${getComputedStyle(root).getPropertyValue('--segnavia-safe')}`)
+  check('a shown page exposes its print bleed and safe area', printProperties === '3mm 5mm', printProperties)
   await page.screenshot({ path: `${process.cwd()}/out/evidence/5-pages.png`, fullPage: true })
 
   await page.goto(h.url('ticket.html'))
