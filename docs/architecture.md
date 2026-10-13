@@ -18,11 +18,11 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 | Layer | What it is | Appearance |
 |---|---|---|
 | `DeckController` | All behavior: slides, play, clocks, cues, keys in reading direction, `#slide-N`, prefetch, `resolveSlide`. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>` | Light DOM elements that show one slide or page in a sandboxed frame, scaled to the box the host gives them. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>` | Light DOM elements that show one slide, one page, or one paper of imposed pages in sandboxed frames, scaled to the box the host gives them. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a layout of the styled components around a stage, with notes, full screen and translatable labels. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
-`unstyled` on the stage or page drops even the geometry, for a host that lays them out itself.
+`unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
@@ -46,9 +46,9 @@ library names a host.
 |---|---|---|
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
-| `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
+| `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
 | `labels` | `<segnavia-player>` | The skin's words, in the host's language. |
-| `--segnavia-*` custom properties | stage, page and player | Colors, radius, type, annotation color, cue fade. |
+| `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade. |
 | `inline` | print options | A way to turn a slide's image path into a data URL for offline rendering. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: sheets, bytes, slides, slide size, notes size. |
@@ -115,15 +115,19 @@ direction:
 ## How pages are printed on paper
 
 A page stays a page: it is laid out as on screen, and everything about paper
-is in its print setting or in an imposition. A page with a print setting exports
+is in its print setting or in an imposition. A host shows a page alone with
+`<segnavia-page>` and in an imposition's cells with `<segnavia-paper>`; switching
+between them is the host's control. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
 into that PDF, and a deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
-papers. The on-screen paper, browser print path for pages, a deck through an
-imposition, marks on an imposed paper and two sides are not built. The rest of
-this section remains designed.
+papers. `printPages` prints the imposed papers from the browser, with the known
+limit that its print dialog loses backgrounds inside frames; a host that needs
+them uses the renderer's `pagesPdf`. A deck through an imposition, marks on an
+imposed paper and two sides are not built. The rest of this section remains
+designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -174,10 +178,8 @@ distance from the cell to the paper's edge. A fixed page shown with `contain`
 gets no bleed, so a fixed design that must bleed uses `cover`. A page with no
 fixed height is clipped at its cell's bleed box if it is taller.
 
-A host shows a page alone with `<segnavia-page>`, as today, and will show it in
-its cells with `<segnavia-paper>`: a headless element that shows one paper of
-an imposition, scaled to the box the host gives it. Switching between the two
-is the host's control.
+A host shows one paper of an imposition with `<segnavia-paper>`, a headless
+element that scales the paper and all of its cells to the box the host gives it.
 
 A label template is an imposition: label stock is a grid. The host supplies
 the grid of the stock it sells or uses, and the library ships no catalogue of
