@@ -32,6 +32,18 @@ shows on screen as it is.
 over plain values, so it is tested without a browser, and a browser and a
 server place every page identically.
 
+**In a cell, the cell decides.** A cell is the finished product, so its size,
+bleed and safe area replace the page's own print setting. The placement
+reports the scale, so the host can tell its user instead of the page being
+shrunk silently.
+
+**Press colour is as close as a browser allows, and says where it stops.**
+Solid colours, gradient stops and shadow colours are converted to the press's
+inks; supplied images and the blend inside a gradient or a shadow are not
+guaranteed. The render names
+what it left in RGB. The engines that convert a whole PDF carry licences an
+MIT library cannot bundle, so a full converter is the host's to pass in.
+
 **The library ships no catalogue of label stock.** Stock numbers differ by
 maker and country and change. A grid in millimetres describes any of them, so
 a host supplies the stock it uses as a value.
