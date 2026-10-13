@@ -252,5 +252,5 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   )
 
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
-  check('the imposed maxSheets ceiling counts papers and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  check('the imposed maxSheets ceiling counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
 }

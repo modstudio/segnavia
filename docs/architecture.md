@@ -213,8 +213,8 @@ therefore print, the composed output stays vector, and the two paths cannot
 place content differently. A page that runs its own code is waited for exactly
 as it is by `pagePdf`, including its `window.pageReady` signal. Without an
 imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
-front and back share one file. The host's `limits` count papers as they count a
-deck's.
+front and back share one file. The host's `maxSheets` limit counts PDF pages,
+including both sides of an imposed physical paper.
 
 A slide is a fixed page at the deck's size, so a deck prints through an
 imposition too. `printableDeck` builds the frame-based papers for browser
