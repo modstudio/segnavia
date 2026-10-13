@@ -37,6 +37,12 @@ bleed and safe area replace the page's own print setting. The placement
 reports the scale, so the host can tell its user instead of the page being
 shrunk silently.
 
+**A page in a cell is centered on the cut.** A covering page is centered on
+its trim, never on its bleed box, so the cut piece shows the design centered
+even where the bleed is uneven; it is scaled to cover the wider bleed and the
+crop is reported for each side. A fixed page shown whole sits inside its
+trim and so has no bleed: a fixed design that must bleed is shown covering.
+
 **Press color is as close as a browser allows, and says where it stops.**
 Solid colors, gradient stops and shadow colors are converted to the press's
 inks; supplied images and the blend inside a gradient or a shadow are not
