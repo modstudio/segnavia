@@ -13,7 +13,7 @@ export { type ControllerOptions, DeckController, type DeckState } from './contro
 export { type DeckAction, keyAction } from './keys.ts'
 export { SegnaviaPage } from './page.ts'
 export { printDeck, SLIDES_READY_DEADLINE_MS } from './print.ts'
-export { printableDeck } from './print-document.ts'
+export { htmlSlideDocument, notesLayoutGeometry, printableDeck } from './print-document.ts'
 export { SegnaviaStage } from './stage.ts'
 export { momentAt, wordAt, wordIndex } from './timeline.ts'
 

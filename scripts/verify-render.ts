@@ -14,6 +14,7 @@ import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 
@@ -101,7 +102,14 @@ try {
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
   await renderer.pageImage({ html })
   await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
-  check('a render reaches no server, whatever the page asks for', hits === 0, `requests=${hits}`)
+  const deck = {
+    title: 'Offline deck',
+    scripts: 'sandboxed' as const,
+    size: { width: 400, height: 200 },
+    slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
+  }
+  const deckPdfs = await Promise.all([renderer.deckPdf(deck), renderer.deckPdf(deck, { layout: 'notes' })])
+  check('renders reach no server, including top-level deck slides in both layouts', hits === 0 && deckPdfs.every((pdf) => pdf.length > 0), `requests=${hits}`)
 
   if (existsSync(FACE)) {
     const pdf = await renderer.pagePdf(
@@ -154,7 +162,7 @@ try {
       beforeOutput: async (tab) => {
         overflow = await tab.evaluate(() => {
           const box = (document.querySelector('.slide') as HTMLElement).getBoundingClientRect()
-          const inner = (document.querySelector('.slide iframe') as HTMLElement).getBoundingClientRect()
+          const inner = (document.querySelector('.slide > div') as HTMLElement).getBoundingClientRect()
           return Math.max(box.left - inner.left, inner.right - box.right)
         })
       },
@@ -245,6 +253,7 @@ try {
   )
 
   verifyPagesRender(output, work, check)
+  verifyDeckRender(output, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {

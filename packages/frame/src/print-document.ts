@@ -1,5 +1,4 @@
-// One print document for a deck, used by a browser printing it and by a
-// server rendering it to PDF, so the two can never lay a deck out differently.
+// The frame-based print document a browser shows and prints.
 // One sheet per slide: a playing slide prints its picture with every
 // annotation shown, and its narration prints as its notes.
 
@@ -32,19 +31,48 @@ export interface PrintOptions {
   inline?: (src: string) => string
   css?: string
   nonce?: string
+  // Keeps every HTML slide's layout box but leaves its frame out.
+  omitHtmlSlideFrames?: boolean
 }
 
 export const NOTES_PAPER: PrintInput = { paper: 'letter', orientation: 'portrait' }
+
+export interface NotesLayoutGeometry {
+  sheet: { width: number; height: number }
+  border: number
+  slide: { x: number; y: number; width: number; height: number; scale: number }
+}
+
+export function notesLayoutGeometry(size: Deck['size'], notesPaper: PrintInput = NOTES_PAPER): NotesLayoutGeometry {
+  const paper = sheetMm(Print.parse(notesPaper))
+  const sheet = { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM }
+  const margin = 48
+  const border = 1
+  const scale = (sheet.width - margin * 2) / size.width
+  return { sheet, border, slide: { x: margin + border, y: margin + border, width: size.width * scale, height: size.height * scale, scale } }
+}
+
+export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, html: string, options: { css?: string; nonce: string }): string {
+  return frameDocument(html, {
+    scripts: deck.scripts,
+    nonce: options.nonce,
+    dir: deck.dir,
+    lang: deck.lang,
+    css: options.css,
+    reportHeight: false,
+    relayKeys: false,
+  })
+}
 
 function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
   const frame = (html: string) =>
-    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(frameDocument(html, { scripts: deck.scripts, nonce: options.nonce ?? newNonce(), dir: deck.dir, lang: deck.lang, css: options.css, reportHeight: false, relayKeys: false }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
-      return frame(content.html)
+      return options.omitHtmlSlideFrames ? '' : frame(content.html)
     case 'url':
       return `<iframe sandbox="allow-scripts" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
     case 'image':
@@ -63,17 +91,17 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
   }
   const paper = sheetMm(Print.parse(options.notesPaper ?? NOTES_PAPER))
-  const sheetWidth = paper.width * PX_PER_MM
-  const sheetHeight = paper.height * PX_PER_MM
-  const margin = 48
-  const scale = (sheetWidth - margin * 2) / width
+  const geometry = notesLayoutGeometry(deck.size, options.notesPaper)
+  const { width: sheetWidth, height: sheetHeight } = geometry.sheet
+  const { x, width: slideWidth, height: slideHeight, scale } = geometry.slide
+  const padding = x - geometry.border
   // The thumbnail is laid out left to right whatever the deck's direction: it
   // is scaled from its top-left corner, and the slide inside keeps its own.
   const sheets = deck.slides.map((slide, index) => {
     const notes = slide.narration?.text ?? slide.notes ?? ''
-    return `<section class="sheet"><div class="slide" dir="ltr" style="width:${width * scale}px;height:${height * scale}px"><div style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0">${slideBody(deck, slide, options)}</div></div><p class="number">${index + 1}</p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
+    return `<section class="sheet"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0">${slideBody(deck, slide, options)}</div></div><p class="number">${index + 1}</p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
   })
-  return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${margin}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:1px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style></head><body>${sheets.join('')}</body></html>`
+  return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style></head><body>${sheets.join('')}</body></html>`
 }
 
 export interface PrintablePagesOptions {

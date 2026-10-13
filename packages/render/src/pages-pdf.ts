@@ -1,8 +1,9 @@
 import { Imposition, type ImpositionInput, impose, MM_PER_PT, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
-import { clip, endPath, PDFDocument, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry, placementPdfGeometry } from './pages-imposition.ts'
+import { drawClippedPage, embedOnePage } from './pdf-compose.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -53,8 +54,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
   const output = await PDFDocument.create()
   const embedded = new Map<string, Awaited<ReturnType<PDFDocument['embedPdf']>>[number]>()
   for (const piece of rendered) {
-    const [page] = await output.embedPdf(piece.bytes, [0])
-    if (!page) throw new Error(`The rendered piece for page ${piece.group.page} has no PDF page.`)
+    const page = await embedOnePage(output, piece.bytes, `The rendered piece for page ${piece.group.page}`)
     embedded.set(piece.group.key, page)
   }
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
@@ -65,9 +65,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       for (const { placement, layout } of piece.group.placements) {
         if (placement.paper !== paperIndex) continue
         const { draw, clip: clipBox } = placementPdfGeometry(placement, layout, imposed.paper.height)
-        paper.pushOperators(pushGraphicsState(), rectangle(clipBox.x, clipBox.y, clipBox.width, clipBox.height), clip(), endPath())
-        paper.drawPage(image, draw)
-        paper.pushOperators(popGraphicsState())
+        drawClippedPage(paper, image, draw, clipBox)
       }
     }
   }

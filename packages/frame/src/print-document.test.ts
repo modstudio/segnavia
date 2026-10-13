@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, Page } from '@segnavia/format'
-import { printablePages } from './print-document.ts'
+import { Deck, fitPage, Imposition, impose, Page } from '@segnavia/format'
+import { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePages } from './print-document.ts'
+import { escapeHtml } from './svg.ts'
 
 const grid = Imposition.parse({
   paper: { width: 26, height: 26, unit: 'mm' },
@@ -13,6 +14,47 @@ const grid = Imposition.parse({
   safe: 0.5,
 })
 const fluid = Page.parse({ html: '<p>page</p>' })
+const deck = Deck.parse({
+  title: 'Print',
+  size: { width: 1280, height: 720 },
+  slides: [{ id: 'html', content: { kind: 'html', html: '<h1>Slide</h1>' }, notes: 'Notes' }],
+})
+
+describe('printableDeck', () => {
+  test('reports the notes sheet and thumbnail geometry in CSS pixels', () => {
+    const geometry = notesLayoutGeometry(deck.size)
+    expect(geometry.sheet.width).toBeCloseTo(816)
+    expect(geometry.sheet.height).toBeCloseTo(1056)
+    expect(geometry.border).toBe(1)
+    expect(geometry.slide.x).toBe(49)
+    expect(geometry.slide.y).toBe(49)
+    expect(geometry.slide.width).toBeCloseTo(720)
+    expect(geometry.slide.height).toBeCloseTo(405)
+    expect(geometry.slide.scale).toBeCloseTo(0.5625)
+    const printable = printableDeck(deck, { layout: 'notes' })
+    expect(printable).toContain('box-sizing:border-box;padding:48px;')
+    expect(printable).toContain('.slide{border:1px solid #ccc;')
+  })
+
+  test('builds the same top-level HTML slide document used by its frame', () => {
+    const document = htmlSlideDocument(deck, '<h1>Slide</h1>', { nonce: 'known', css: 'h1{color:red}' })
+    const printable = printableDeck(deck, { nonce: 'known', css: 'h1{color:red}' })
+    expect(printable).toContain(`srcdoc="${escapeHtml(document)}"`)
+    expect(document).not.toContain('segnavia:height')
+    expect(document).toContain('var keys=[]')
+  })
+
+  test('leaves an HTML slide box empty without changing any surrounding layout', () => {
+    const shown = printableDeck(deck, { nonce: 'known' })
+    const empty = printableDeck(deck, { nonce: 'known', omitHtmlSlideFrames: true })
+    expect(shown.replace(/<iframe[\s\S]*?<\/iframe>/, '')).toBe(empty)
+    expect(empty).toContain('<section class="sheet"></section>')
+  })
+
+  test('keeps every output byte unchanged when frame omission is off', () => {
+    expect(printableDeck(deck, { nonce: 'known', omitHtmlSlideFrames: false })).toBe(printableDeck(deck, { nonce: 'known' }))
+  })
+})
 
 describe('printablePages', () => {
   test('builds papers with every placement clipped to its bleed box', () => {
