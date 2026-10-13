@@ -148,6 +148,13 @@ playing slide reveals them on cue.
 used by `printDeck` (the browser dialog, after every slide reports ready or
 the deadline passes) and by `deckPdf` (headless). Two layouts would drift.
 
+**Bleed is root padding on a page with no browser margin.** Chromium paints
+no background in its page margins and clips content placed there, so a margin
+cannot hold bleed. The PDF page is printed at the bleed box, and the trim and
+bleed boxes and the crop marks are added afterwards. Padding insets only the
+first paper, so a page with bleed or marks is one printed piece, and content
+that needs a second paper is refused.
+
 **Rendering is offline by construction.** Everything a document shows
 arrives inside it.
 
