@@ -3,11 +3,11 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { sheetMm } from './paper.ts'
+import { sheetMm, toMillimeters } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export { fitPage, type Imposed, impose, type PageFit, type Placement } from './imposition.ts'
-export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, PX_PER_MM, printBoxes, printProperties, sheetMm } from './paper.ts'
+export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, type PaperBox, PX_PER_MM, printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -79,7 +79,6 @@ const ImpositionGap = z.object({
   row: z.number().nonnegative().default(0),
 })
 
-const impositionMm = (value: number, unit: 'mm' | 'in' | 'pt') => value * (unit === 'in' ? 25.4 : unit === 'pt' ? 25.4 / 72 : 1)
 const shownMm = (value: number) => Math.round(value * 100) / 100
 
 export const Imposition = z
@@ -100,8 +99,8 @@ export const Imposition = z
     dir: z.enum(['ltr', 'rtl']).default('ltr'),
   })
   .superRefine((imposition, ctx) => {
-    const mm = (value: number) => impositionMm(value, imposition.unit)
-    const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation, bleed: 0, safe: 0, marks: false })
+    const mm = (value: number) => toMillimeters(value, imposition.unit)
+    const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
     const gridWidth = mm(
       imposition.margin.left + imposition.columns * imposition.cell.width + (imposition.columns - 1) * imposition.gap.column + imposition.margin.right,
     )

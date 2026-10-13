@@ -1,12 +1,5 @@
 import type { Imposition, Page, Print } from './index.ts'
-import { MM_PER_PT, PX_PER_MM, sheetMm } from './paper.ts'
-
-export interface PaperBox {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import { type PaperBox, PX_PER_MM, sheetMm, toMillimeters } from './paper.ts'
 
 export interface Placement {
   page: number
@@ -43,22 +36,21 @@ export interface PageFit {
 const round = (value: number) => Math.round(value * 100) / 100
 const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
 
-function factor(unit: Imposition['unit']): number {
-  return unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1
-}
-
 function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
-  const mm = factor(imposition.unit)
+  const mm = (value: number) => toMillimeters(value, imposition.unit)
   const column = cell % imposition.columns
   const row = Math.floor(cell / imposition.columns)
   const physicalColumn = imposition.dir === 'rtl' ? imposition.columns - column - 1 : column
-  const cellWidth = imposition.cell.width * mm
-  const cellHeight = imposition.cell.height * mm
-  const columnGap = imposition.gap.column * mm
-  const rowGap = imposition.gap.row * mm
-  const x = imposition.margin.left * mm + physicalColumn * (cellWidth + columnGap)
-  const y = imposition.margin.top * mm + row * (cellHeight + rowGap)
-  const requested = imposition.bleed * mm
+  const cellWidth = mm(imposition.cell.width)
+  const cellHeight = mm(imposition.cell.height)
+  const columnGap = mm(imposition.gap.column)
+  const rowGap = mm(imposition.gap.row)
+  const x =
+    imposition.dir === 'rtl'
+      ? paperSize.width - mm(imposition.margin.right) - cellWidth - column * (cellWidth + columnGap)
+      : mm(imposition.margin.left) + column * (cellWidth + columnGap)
+  const y = mm(imposition.margin.top) + row * (cellHeight + rowGap)
+  const requested = mm(imposition.bleed)
   const bleed = {
     top: Math.min(requested, row > 0 ? rowGap / 2 : y),
     right: Math.min(requested, physicalColumn < imposition.columns - 1 ? columnGap / 2 : Math.max(0, paperSize.width - x - cellWidth)),
@@ -73,7 +65,7 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
     bottom: round(bleed.bottom),
     left: round(bleed.left),
   }
-  const safe = imposition.safe * mm
+  const safe = mm(imposition.safe)
   return {
     page,
     paper,
@@ -119,7 +111,7 @@ function sequencePlacements(imposition: Imposition, pageCount: number, papers: n
 
 export function impose(imposition: Imposition, pageCount: number): Imposed {
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
-  const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation, bleed: 0, safe: 0, marks: false })
+  const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   if (pageCount === 0) return { paper, papers: 0, placements: [] }
   const cells = imposition.columns * imposition.rows
   const papers = imposition.fill === 'repeat' ? pageCount : Math.ceil((pageCount + imposition.skip) / cells)

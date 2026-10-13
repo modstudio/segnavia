@@ -28,10 +28,28 @@ describe('imposition', () => {
   test('right-to-left direction mirrors column order while x stays physical', () => {
     const placements = impose(parse({ columns: 3, rows: 1, cell: { width: 50, height: 100 }, margin: { left: 10, right: 10 }, dir: 'rtl' }), 3).placements
     expect(placements.map(({ column, trim }) => ({ column, x: trim.x }))).toEqual([
-      { column: 0, x: 110 },
-      { column: 1, x: 60 },
-      { column: 2, x: 10 },
+      { column: 0, x: 150 },
+      { column: 1, x: 100 },
+      { column: 2, x: 50 },
     ])
+  })
+
+  test('right-to-left direction anchors a narrow grid at the right margin', () => {
+    const placements = impose(
+      parse({
+        paper: { width: 100, height: 200, unit: 'mm' },
+        columns: 3,
+        rows: 1,
+        cell: { width: 20, height: 100 },
+        margin: { left: 7, right: 11 },
+        gap: { column: 5 },
+        bleed: 20,
+        dir: 'rtl',
+      }),
+      3,
+    ).placements
+    expect(placements[0]).toMatchObject({ column: 0, trim: { x: 69 }, bleed: { right: 11, left: 2.5 } })
+    expect(placements[2]).toMatchObject({ column: 2, trim: { x: 19 }, bleed: { right: 2.5, left: 19 } })
   })
 
   test('bleed stops halfway through gaps, at touching rows and at paper edges', () => {

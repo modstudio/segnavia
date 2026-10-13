@@ -16,16 +16,16 @@ export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: n
 
 const round = (mm: number) => Math.round(mm * 100) / 100
 
+export function toMillimeters(value: number, unit: 'mm' | 'in' | 'pt'): number {
+  return value * (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
+}
+
 // The sheet a print setting describes, in millimeters, with orientation applied.
-export function sheetMm(print: Print): { width: number; height: number } {
+export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: number; height: number } {
   const portrait =
     typeof print.paper === 'string'
       ? PAPER_MM[print.paper]
-      : print.paper.unit === 'in'
-        ? { width: print.paper.width * 25.4, height: print.paper.height * 25.4 }
-        : print.paper.unit === 'pt'
-          ? { width: print.paper.width * MM_PER_PT, height: print.paper.height * MM_PER_PT }
-          : { width: print.paper.width, height: print.paper.height }
+      : { width: toMillimeters(print.paper.width, print.paper.unit), height: toMillimeters(print.paper.height, print.paper.unit) }
   const [short, long] = [Math.min(portrait.width, portrait.height), Math.max(portrait.width, portrait.height)]
   return print.orientation === 'landscape' ? { width: round(long), height: round(short) } : { width: round(short), height: round(long) }
 }
