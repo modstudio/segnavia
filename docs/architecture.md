@@ -118,8 +118,10 @@ is in its print setting or in an imposition. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
 into that PDF, and a deck prints one slide to each sheet of paper
 (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
-`fitPage`) are built in `format`. The print document, render and on-screen paper
-for an imposition are not yet built. The rest of this section remains designed.
+`fitPage`) are built in `format`; `printablePages` builds an imposition's print
+document and `pagesPdf` renders it. The on-screen paper, browser print path for
+pages, a deck through an imposition, marks on an imposed paper and two sides are
+not built. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -132,7 +134,8 @@ the cut. The two properties are set wherever the page is shown; the bleed is
 painted only in a PDF. Viewport units measure the bleed box. With bleed or
 marks, a page is one printed piece; content that needs a second paper is
 refused. Without them, a page prints as before. A postcard face is one such
-page. Putting several pages in one PDF belongs to imposition.
+page. `pagesPdf` can join several pieces in one PDF without putting them on the
+same paper; putting several pages on one paper belongs to imposition.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
@@ -190,10 +193,13 @@ use, and it is done when a letter-fold brochure prints with every panel in
 its place on both sides. A stapled booklet, whose pages are reordered across
 several papers, is not covered.
 
-One print document serves a browser and a server, as it does for a deck.
-`printablePages` builds it from pages and an imposition in `frame`'s
-server-safe print entry, `printPages` prints it in a browser, and `pagesPdf`
-renders it. The host's `limits` count papers as they count a deck's.
+One print document serves the render and the future browser path, as it does
+for a deck. `printablePages` builds it from pages and an imposition in
+`frame`'s server-safe print entry, and `pagesPdf` renders it. Without an
+imposition, `pagesPdf` joins each page's own PDF, which is how a postcard's
+front and back share one file. With an imposition, a page that runs its own
+code is not waited for: `window.pageReady` is not consulted, as for a deck.
+The host's `limits` count papers as they count a deck's.
 
 A slide is a page, so a deck prints through an imposition too:
 `printableDeck` takes one, and a grid of two columns and three rows is a

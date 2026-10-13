@@ -1,5 +1,5 @@
 import './source-guard.ts'
-import type { PageInput } from '@segnavia/format'
+import type { ImpositionInput, PageInput } from '@segnavia/format'
 
 export const fluidPage: PageInput = {
   html:
@@ -51,3 +51,43 @@ export const postcardPage: PageInput = {
     marks: true,
   },
 }
+
+export const postcardBackPage: PageInput = {
+  ...postcardPage,
+  html: '<!doctype html><html style="margin:0;background:#f7c8a8"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">The other side of the postcard.</body></html>',
+}
+
+const labelColors = ['#fef3c7', '#dbeafe', '#dcfce7', '#fce7f3', '#ede9fe', '#ffedd5']
+export const labelPages: PageInput[] = Array.from({ length: 31 }, (_, index) => ({
+  html: `<html style="background:${labelColors[index % labelColors.length]};font:10px sans-serif"><body><p>Label ${index + 1}</p></body></html>`,
+  size: 'fluid',
+}))
+
+export const labelsImposition: ImpositionInput = {
+  paper: 'letter',
+  orientation: 'portrait',
+  unit: 'in',
+  columns: 3,
+  rows: 10,
+  cell: { width: 2.625, height: 1 },
+  margin: { top: 0.5, right: 0, bottom: 0, left: 0.1875 },
+  gap: { column: 0.125, row: 0 },
+}
+
+export const fixedImposedPage: PageInput = {
+  html: '<!doctype html><html style="margin:0;background:rgb(80,80,80)"><body style="margin:0"></body></html>',
+  size: { width: 600, height: 400 },
+}
+
+const fixedImposition: ImpositionInput = {
+  paper: { width: 120, height: 90, unit: 'mm' },
+  orientation: 'landscape',
+  columns: 1,
+  rows: 1,
+  cell: { width: 100, height: 70 },
+  margin: { top: 10, right: 10, bottom: 10, left: 10 },
+  bleed: 3,
+}
+
+export const coveringImposition: ImpositionInput = { ...fixedImposition, fit: 'cover' }
+export const containedImposition: ImpositionInput = { ...fixedImposition, fit: 'contain' }

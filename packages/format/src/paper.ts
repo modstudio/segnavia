@@ -35,8 +35,8 @@ export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: n
 // CSS pixels per millimeter at the 96 dpi every browser lays out at.
 export const PX_PER_MM = 96 / 25.4
 
-export function printProperties(print: Print): string {
-  return `:root{--segnavia-bleed:${print.bleed}mm;--segnavia-safe:${print.safe}mm}`
+export function printProperties(print: Pick<Print, 'bleed' | 'safe'>, unit: 'mm' | 'in' | 'pt' = 'mm'): string {
+  return `:root{--segnavia-bleed:${roundMillimeters(toMillimeters(print.bleed, unit))}mm;--segnavia-safe:${roundMillimeters(toMillimeters(print.safe, unit))}mm}`
 }
 
 export interface PaperBox {
