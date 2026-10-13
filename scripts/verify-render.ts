@@ -102,7 +102,14 @@ try {
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
   await renderer.pageImage({ html })
   await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
-  check('a render reaches no server, whatever the page asks for', hits === 0, `requests=${hits}`)
+  const deck = {
+    title: 'Offline deck',
+    scripts: 'sandboxed' as const,
+    size: { width: 400, height: 200 },
+    slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
+  }
+  const deckPdfs = await Promise.all([renderer.deckPdf(deck), renderer.deckPdf(deck, { layout: 'notes' })])
+  check('renders reach no server, including top-level deck slides in both layouts', hits === 0 && deckPdfs.every((pdf) => pdf.length > 0), `requests=${hits}`)
 
   if (existsSync(FACE)) {
     const pdf = await renderer.pagePdf(

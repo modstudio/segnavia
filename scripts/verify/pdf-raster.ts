@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { MM_PER_PT } from '@segnavia/format'
+import { MM_PER_PT, PX_PER_MM } from '@segnavia/format'
 
 export interface Raster {
   width: number
@@ -39,6 +39,10 @@ export function rasterPoint(raster: Raster, x: number, y: number): number {
 
 export function rasterMillimeters(raster: Raster, x: number, y: number): number {
   return rasterPoint(raster, x / MM_PER_PT, y / MM_PER_PT)
+}
+
+export function rasterCssPixels(raster: Raster, x: number, y: number): number {
+  return rasterPoint(raster, x / PX_PER_MM / MM_PER_PT, y / PX_PER_MM / MM_PER_PT)
 }
 
 export function rasterPdf(output: string, work: string, file: string, page = 1): Raster {

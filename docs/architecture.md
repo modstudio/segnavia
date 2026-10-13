@@ -28,7 +28,8 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
 the custom elements, but its server-safe entry points are the single source
 of the frame document, the annotation drawing, the timeline and the print
-document. That way a browser and a server produce the same bytes.
+document. The browser uses that frame-based print layout; the server uses its
+geometry while composing top-level renders.
 
 The six packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.

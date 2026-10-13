@@ -1,7 +1,7 @@
-import { MM_PER_PT } from '@segnavia/format'
+import { MM_PER_PT, PX_PER_MM } from '@segnavia/format'
 
 const pt = (millimeters: number) => millimeters / MM_PER_PT
-const pixelPt = (pixels: number) => (pixels * 72) / 96
+const pixelPt = (pixels: number) => pt(pixels / PX_PER_MM)
 
 function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: number } {
   return { x: pt(x), y: pt(mediaHeight - y) }

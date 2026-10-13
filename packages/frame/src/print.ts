@@ -1,7 +1,8 @@
-// Printing a deck from the browser, through the same print document a server
-// renders to PDF. The browser's print dialog opens once every slide has
-// reported itself painted, or once the deadline passes so a slide that never
-// reports cannot hold the dialog closed for ever.
+// Printing a deck from the browser through its frame-based print document.
+// The server instead composes top-level slide renders because Chromium loses
+// frame backgrounds in PDFs. The browser's print dialog opens once every slide
+// has reported itself painted, or once the deadline passes so a slide that
+// never reports cannot hold the dialog closed for ever.
 
 import type { Deck } from '@segnavia/format'
 import { type PrintOptions, printableDeck } from './print-document.ts'

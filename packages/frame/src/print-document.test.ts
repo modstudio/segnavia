@@ -25,11 +25,15 @@ describe('printableDeck', () => {
     const geometry = notesLayoutGeometry(deck.size)
     expect(geometry.sheet.width).toBeCloseTo(816)
     expect(geometry.sheet.height).toBeCloseTo(1056)
-    expect(geometry.slide.x).toBe(48)
-    expect(geometry.slide.y).toBe(48)
+    expect(geometry.border).toBe(1)
+    expect(geometry.slide.x).toBe(49)
+    expect(geometry.slide.y).toBe(49)
     expect(geometry.slide.width).toBeCloseTo(720)
     expect(geometry.slide.height).toBeCloseTo(405)
     expect(geometry.slide.scale).toBeCloseTo(0.5625)
+    const printable = printableDeck(deck, { layout: 'notes' })
+    expect(printable).toContain('box-sizing:border-box;padding:48px;')
+    expect(printable).toContain('.slide{border:1px solid #ccc;')
   })
 
   test('builds the same top-level HTML slide document used by its frame', () => {
