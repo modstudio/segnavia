@@ -4,9 +4,9 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, Imposition, type ImpositionInput, impose, Page, type PageInput } from '@segnavia/format'
+import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { paperBoxSize } from './paper-geometry.ts'
-import { type PrintablePagesOptions, type PrintOptions, printableDeck, printablePagesDocument } from './print-document.ts'
+import { type PrintablePagesOptions, type PrintOptions, printableDeck, printableDeckDocument, printablePagesDocument } from './print-document.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
@@ -60,8 +60,11 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
-  const box = options.imposition ? paperBoxSize(impose(Imposition.parse(options.imposition), deck.slides.length).paper) : deck.size
-  return printFrame({ ...box, html: printableDeck(deck, options), ...options })
+  if (options.imposition) {
+    const printable = printableDeckDocument(deck, { ...options, imposition: options.imposition })
+    return printFrame({ ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options })
+  }
+  return printFrame({ ...deck.size, html: printableDeck(deck, options), ...options })
 }
 
 export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}

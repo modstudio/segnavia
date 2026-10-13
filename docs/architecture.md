@@ -149,7 +149,7 @@ page in each cell in reading order, and `repeat` puts one page in every cell.
 Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
 custom paper on `Print` takes the same three units. Placements are always in
-millimeters.
+millimeters. An imposition has at most ten thousand cells on a paper.
 `skip` leaves that many cells empty at the start of the first paper, for
 label stock that is partly used.
 `impose` is a pure function in `format`. From an imposition and a number of

@@ -1,12 +1,12 @@
-import { type Deck, fitPage, Imposition, impose, MM_PER_PT, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
+import { type Deck, fitPage, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
 import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { drawClippedPage, embedOnePage } from './pdf-compose.ts'
-import { pdfBox, pdfPixelBox } from './pdf-geometry.ts'
+import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
+import { pdfPixelBox } from './pdf-geometry.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
 
@@ -118,22 +118,20 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
       }
     }),
   )
-  const output = await PDFDocument.create()
-  const embedded = new Map<number, Awaited<ReturnType<typeof embedOnePage>>>()
-  for (const item of rendered)
-    embedded.set(item.index, await embedOnePage(output, item.bytes, `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`))
-  for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
-    const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
-    for (const placement of imposed.placements) {
-      if (placement.paper !== paperIndex) continue
-      const slide = embedded.get(placement.page)
-      if (!slide) throw new Error(`The rendered slide at index ${placement.page} was not embedded.`)
-      const fit = fitPage({ size: deck.size }, placement, imposition.fit)
-      const layout = pagePlacementLayout(deck.size, placement, fit)
-      drawClippedPage(paper, slide, pdfBox(layout.paper, imposed.paper.height), pdfBox(placement.bleedBox, imposed.paper.height))
-    }
+  const placements = new Map<number, Array<{ placement: (typeof imposed.placements)[number]; layout: ReturnType<typeof pagePlacementLayout> }>>()
+  for (const placement of imposed.placements) {
+    const fit = fitPage({ size: deck.size }, placement, imposition.fit)
+    const group = placements.get(placement.page) ?? []
+    group.push({ placement, layout: pagePlacementLayout(deck.size, placement, fit) })
+    placements.set(placement.page, group)
   }
-  return services.enforce(await output.save(), opts.limits)
+  const pieces = rendered.map((item) => ({
+    key: String(item.index),
+    name: `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`,
+    bytes: item.bytes,
+    placements: placements.get(item.index) ?? [],
+  }))
+  return services.enforce(await composeImposedPdf(imposed, pieces), opts.limits)
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {

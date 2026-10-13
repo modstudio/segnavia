@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, type Placement, PX_PER_MM, pagePlacementLayout } from './index.ts'
+import { fitPage, Imposition, impose, MAX_IMPOSITION_CELLS, type Placement, PX_PER_MM, pagePlacementLayout } from './index.ts'
 
 const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
@@ -101,6 +101,43 @@ describe('imposition', () => {
 
   test('zero pages needs no paper or placements', () => {
     expect(impose(parse(), 0)).toMatchObject({ papers: 0, placements: [] })
+  })
+
+  test('accepts exactly the cell ceiling', () => {
+    expect(
+      Imposition.parse({
+        paper: { width: 10, height: 1, unit: 'mm' },
+        orientation: 'landscape',
+        columns: MAX_IMPOSITION_CELLS,
+        rows: 1,
+        cell: { width: 0.001, height: 1 },
+      }),
+    ).toMatchObject({ columns: 10_000, rows: 1 })
+  })
+
+  test('refuses a grid over the cell ceiling with both counts', () => {
+    const result = Imposition.safeParse({
+      paper: { width: 10.001, height: 1, unit: 'mm' },
+      columns: MAX_IMPOSITION_CELLS + 1,
+      rows: 1,
+      cell: { width: 0.001, height: 1 },
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.message).join(' ')).toContain('10001 cells')
+    expect(result.error?.issues.map((issue) => issue.message).join(' ')).toContain('ceiling is 10000')
+  })
+
+  test('refuses a huge factor before impose can allocate placements', () => {
+    const result = Imposition.safeParse({
+      paper: { width: Number.MAX_SAFE_INTEGER, height: 1, unit: 'mm' },
+      columns: Number.MAX_SAFE_INTEGER,
+      rows: 1,
+      cell: { width: 1, height: 1 },
+      fill: 'repeat',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]?.message).toContain(`${Number.MAX_SAFE_INTEGER} cells`)
   })
 
   test.each([

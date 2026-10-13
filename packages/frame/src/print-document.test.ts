@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, fitPage, Imposition, impose, Page } from '@segnavia/format'
-import { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePages, printablePagesDocument, printablePaper } from './print-document.ts'
+import {
+  htmlSlideDocument,
+  notesLayoutGeometry,
+  printableDeck,
+  printableDeckDocument,
+  printablePages,
+  printablePagesDocument,
+  printablePaper,
+} from './print-document.ts'
 import { escapeHtml } from './svg.ts'
 
 const grid = Imposition.parse({
@@ -75,7 +83,10 @@ describe('printableDeck', () => {
       slides: Array.from({ length: 7 }, (_, index) => ({ id: `s${index}`, content: { kind: 'html' as const, html: `${index}` } })),
     })
     const imposed = impose(handout, seven.slides.length)
+    const printable = printableDeckDocument(seven, { imposition: handout, nonce: 'known' })
     const html = printableDeck(seven, { imposition: handout, nonce: 'known' })
+    expect(printable.html).toBe(html)
+    expect(printable.imposed).toEqual(imposed)
     expect(html.match(/<section class="paper">/g)).toHaveLength(2)
     expect(html.match(/<div class="placement"/g)).toHaveLength(7)
     for (const placement of imposed.placements) {
