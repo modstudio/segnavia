@@ -32,24 +32,29 @@ function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: nu
   return { x: pt(x), y: pt(mediaHeight - y) }
 }
 
+function pdfBox(box: { x: number; y: number; width: number; height: number }, mediaHeight: number): { x: number; y: number; width: number; height: number } {
+  const bottomLeft = pdfPoint(box.x, box.y + box.height, mediaHeight)
+  return { ...bottomLeft, width: pt(box.width), height: pt(box.height) }
+}
+
 async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
   const boxes = printBoxes(print)
   const document = await PDFDocument.load(pdf)
   const source = document.getPage(0)
   const content = await document.embedPage(source)
   const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
+  const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
+  const trimBox = pdfBox(boxes.trim, boxes.media.height)
   page.drawPage(content, {
-    x: pt(boxes.bleedBox.x),
-    y: pt(boxes.media.height - boxes.bleedBox.y - boxes.bleedBox.height),
+    x: bleedBox.x,
+    y: bleedBox.y,
     width: source.getWidth(),
     height: source.getHeight(),
   })
   document.removePage(0)
   page.node.delete(PDFName.of('CropBox'))
-  const bleedBottomLeft = pdfPoint(boxes.bleedBox.x, boxes.bleedBox.y + boxes.bleedBox.height, boxes.media.height)
-  const trimBottomLeft = pdfPoint(boxes.trim.x, boxes.trim.y + boxes.trim.height, boxes.media.height)
-  page.setBleedBox(bleedBottomLeft.x, bleedBottomLeft.y, pt(boxes.bleedBox.width), pt(boxes.bleedBox.height))
-  page.setTrimBox(trimBottomLeft.x, trimBottomLeft.y, pt(boxes.trim.width), pt(boxes.trim.height))
+  page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
+  page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
   for (const mark of boxes.marks) {
     page.drawLine({
       start: pdfPoint(mark.x1, mark.y1, boxes.media.height),
