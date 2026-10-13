@@ -6,7 +6,8 @@ import {
   type Deck,
   fitPage,
   type Imposed,
-  type Imposition,
+  Imposition,
+  type ImpositionInput,
   impose,
   type Page,
   Print,
@@ -27,6 +28,7 @@ export interface PrintOptions {
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
+  imposition?: ImpositionInput
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -87,6 +89,34 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 
 export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   const { width, height } = deck.size
+  if (options.imposition) {
+    if (options.layout === 'notes') {
+      throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
+    }
+    const imposition = Imposition.parse(options.imposition)
+    const imposed = impose(imposition, deck.slides.length)
+    const papers = Array.from({ length: imposed.papers }, (_, paper) => {
+      const boxes = imposed.placements
+        .filter((placement) => placement.paper === paper)
+        .map((placement) => {
+          const fit = fitPage({ size: deck.size }, placement, imposition.fit)
+          const layout = pagePlacementLayout(deck.size, placement, fit)
+          const slide = deck.slides[placement.page]
+          if (!slide) throw new RangeError(`The placement names missing slide ${placement.page}.`)
+          return placementBox(
+            (dimensions) => `<div style="position:absolute;${dimensions}">${slideBody(deck, slide, options)}</div>`,
+            placement,
+            layout,
+            fit.scale,
+          )
+        })
+        .join('')
+      return `<section class="paper">${boxes}</section>`
+    }).join('')
+    // Papers and placement boxes use physical coordinates; each slide frame
+    // keeps its own direction while the document keeps the deck's direction.
+    return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+  }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
     return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
@@ -118,6 +148,20 @@ export interface PrintablePagesDocument {
 
 const mm = (value: number) => `${value}mm`
 
+function placementBox(
+  inner: (dimensions: string) => string,
+  placement: ReturnType<typeof impose>['placements'][number],
+  layout: ReturnType<typeof pagePlacementLayout>,
+  scale: number,
+): string {
+  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
+  const dimensions =
+    layout.kind === 'fluid'
+      ? 'width:100%;height:100%'
+      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${scale});transform-origin:0 0`
+  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden">${inner(dimensions)}</div>`
+}
+
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit)
   const layout = pagePlacementLayout(page.size, placement, fit)
@@ -133,12 +177,12 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     reportHeight: false,
     relayKeys: false,
   })
-  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
-  const dimensions =
-    layout.kind === 'fluid'
-      ? 'width:100%;height:100%'
-      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${fit.scale});transform-origin:0 0`
-  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe></div>`
+  return placementBox(
+    (dimensions) => `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
+    placement,
+    layout,
+    fit.scale,
+  )
 }
 
 // Builds only the positioned placement boxes for one physical paper, so the

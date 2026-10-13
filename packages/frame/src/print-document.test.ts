@@ -21,6 +21,16 @@ const deck = Deck.parse({
 })
 
 describe('printableDeck', () => {
+  const handout = Imposition.parse({
+    paper: { width: 230, height: 320, unit: 'mm' },
+    columns: 2,
+    rows: 3,
+    cell: { width: 100, height: 80 },
+    margin: { top: 20, right: 10, bottom: 20, left: 10 },
+    gap: { column: 10, row: 20 },
+    bleed: 3,
+  })
+
   test('reports the notes sheet and thumbnail geometry in CSS pixels', () => {
     const geometry = notesLayoutGeometry(deck.size)
     expect(geometry.sheet.width).toBeCloseTo(816)
@@ -53,6 +63,70 @@ describe('printableDeck', () => {
 
   test('keeps every output byte unchanged when frame omission is off', () => {
     expect(printableDeck(deck, { nonce: 'known', omitHtmlSlideFrames: false })).toBe(printableDeck(deck, { nonce: 'known' }))
+  })
+
+  test('keeps every output byte unchanged when imposition is off', () => {
+    expect(printableDeck(deck, { nonce: 'known', imposition: undefined })).toBe(printableDeck(deck, { nonce: 'known' }))
+  })
+
+  test('builds two papers and every bleed box for seven slides on a two by three grid', () => {
+    const seven = Deck.parse({
+      ...deck,
+      slides: Array.from({ length: 7 }, (_, index) => ({ id: `s${index}`, content: { kind: 'html' as const, html: `${index}` } })),
+    })
+    const imposed = impose(handout, seven.slides.length)
+    const html = printableDeck(seven, { imposition: handout, nonce: 'known' })
+    expect(html.match(/<section class="paper">/g)).toHaveLength(2)
+    expect(html.match(/<div class="placement"/g)).toHaveLength(7)
+    for (const placement of imposed.placements) {
+      expect(html).toContain(
+        `left:${placement.bleedBox.x}mm;top:${placement.bleedBox.y}mm;width:${placement.bleedBox.width}mm;height:${placement.bleedBox.height}mm;overflow:hidden`,
+      )
+    }
+  })
+
+  test.each(['contain', 'cover'] as const)('places and scales a %s slide from the shared page geometry', (mode) => {
+    const imposition = Imposition.parse({ ...handout, fit: mode })
+    const placement = impose(imposition, 1).placements[0]
+    if (!placement) throw new Error('Expected one placement.')
+    const fit = fitPage({ size: deck.size }, placement, mode)
+    const html = printableDeck(deck, { imposition, nonce: 'known' })
+    expect(html).toContain(
+      `width:${deck.size.width}px;height:${deck.size.height}px;left:${fit.x - placement.bleedBox.x}mm;top:${fit.y - placement.bleedBox.y}mm;transform:scale(${fit.scale})`,
+    )
+  })
+
+  test('keeps image and shot slides inside their placement boxes', () => {
+    const mixed = Deck.parse({
+      ...deck,
+      slides: [
+        { id: 'image', content: { kind: 'image', src: 'image.png', alt: 'Image slide' } },
+        {
+          id: 'shot',
+          content: {
+            kind: 'shot',
+            src: 'shot.png',
+            shot: { key: 'shot', title: 'Shot slide', file: 'shot.png', size: deck.size, scale: 1, capturedAt: 'now', annotations: [] },
+          },
+        },
+      ],
+    })
+    const html = printableDeck(mixed, { imposition: handout })
+    expect(html).toContain('alt="Image slide"')
+    expect(html).toContain('alt="Shot slide"')
+    expect(html.match(/<div class="placement"/g)).toHaveLength(2)
+  })
+
+  test('leaves an imposed HTML slide box in place when its frame is omitted', () => {
+    const html = printableDeck(deck, { imposition: handout, omitHtmlSlideFrames: true })
+    expect(html).toContain('<div class="placement"')
+    expect(html).not.toContain('<iframe')
+  })
+
+  test('refuses notes together with an imposition', () => {
+    expect(() => printableDeck(deck, { layout: 'notes', imposition: handout })).toThrow(
+      new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal."),
+    )
   })
 })
 

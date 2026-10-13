@@ -1,8 +1,10 @@
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { notesLayoutGeometry } from '@segnavia/frame/print-document'
-import { backgroundDeck, deckPdfShades } from '../demo-deck-pdf-fixtures.ts'
-import { type Raster, rasterCssPixels, rasterPdf } from './pdf-raster.ts'
+import { backgroundDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
+import { type Raster, rasterCssPixels, rasterMillimeters, rasterPdf } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -65,4 +67,92 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
     refusedImage.pixels.every((value, index) => value === sandboxedImage.pixels[index]) &&
     refusedImage.pixels.some((value) => value < 245)
   check('the image slide is unchanged between deck script settings and is not blank', sameImage)
+
+  const imposition = Imposition.parse(handoutImposition)
+  const deck = handoutDeck('refuse', 'image', {
+    key: 'fixture',
+    title: 'Fixture',
+    file: 'image',
+    size: { width: 1280, height: 720 },
+    scale: 1,
+    capturedAt: 'now',
+    annotations: [],
+    description: null,
+    tags: [],
+    annotatedFile: null,
+    dir: 'ltr',
+    meta: {},
+  })
+  const imposed = impose(imposition, deck.slides.length)
+  const info = execFileSync('pdfinfo', [path.join(output, 'deck-handout.pdf')], { encoding: 'utf8' })
+  check('an imposed seven-slide deck prints on two papers', /Pages:\s+2\b/.test(info), info.match(/Pages:\s+\d+/)?.[0])
+
+  const xml = execFileSync('pdftotext', ['-bbox', path.join(output, 'deck-handout.pdf'), '-'], { encoding: 'utf8' })
+  const pdfPages = [...xml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
+  const textInside = (number: number) => {
+    const placement = imposed.placements[number - 1]
+    if (!placement) return false
+    const words = [...(pdfPages[placement.paper] ?? '').matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]+)<\/word>/g)]
+    const at = words.findIndex((word, index) => word[5] === 'Slide' && words[index + 1]?.[5] === String(number))
+    const pair = [words[at], words[at + 1]]
+    if (at < 0 || pair.some((word) => !word)) return false
+    return (
+      Math.min(...pair.map((word) => Number(word?.[1]))) >= placement.trim.x / MM_PER_PT - 1 &&
+      Math.min(...pair.map((word) => Number(word?.[2]))) >= placement.trim.y / MM_PER_PT - 1 &&
+      Math.max(...pair.map((word) => Number(word?.[3]))) <= (placement.trim.x + placement.trim.width) / MM_PER_PT + 1 &&
+      Math.max(...pair.map((word) => Number(word?.[4]))) <= (placement.trim.y + placement.trim.height) / MM_PER_PT + 1
+    )
+  }
+  check('handout text on slides 1, 2, 6 and 7 lies inside its trim, including slide 7 on paper two', [1, 2, 6, 7].every(textInside))
+
+  const raster = rasterPdf(output, work, 'deck-handout')
+  const localShade = (slide: number, x: number, y: number) => {
+    const placement = imposed.placements[slide - 1]
+    if (!placement) return 255
+    const fit = fitPage({ size: deck.size }, placement, imposition.fit)
+    const layout = pagePlacementLayout(deck.size, placement, fit)
+    return rasterMillimeters(raster, layout.paper.x + (x * fit.scale) / PX_PER_MM, layout.paper.y + (y * fit.scale) / PX_PER_MM)
+  }
+  const backgroundValues = [localShade(1, 1000, 600), localShade(2, 1000, 600), localShade(3, 300, 200)]
+  const first = imposed.placements[0]
+  const second = imposed.placements[1]
+  const fourth = imposed.placements[3]
+  if (!first || !second || !fourth) throw new Error('The handout fixture is missing a placement.')
+  const firstFit = fitPage({ size: deck.size }, first, imposition.fit)
+  const band = rasterMillimeters(raster, first.trim.x + first.trim.width / 2, first.trim.y + firstFit.bands.block / 2)
+  const gap = rasterMillimeters(raster, (first.trim.x + first.trim.width + second.trim.x) / 2, first.trim.y + first.trim.height / 2)
+  let imageDark = false
+  for (let x = fourth.trim.x + 5; x < fourth.trim.x + fourth.trim.width - 5; x += 5) {
+    for (let y = fourth.trim.y + 5; y < fourth.trim.y + fourth.trim.height - 5; y += 5) imageDark ||= rasterMillimeters(raster, x, y) < 245
+  }
+  check(
+    'an imposed handout paints three slide backgrounds, leaves the contain band and grid gap white, and paints the image cell',
+    backgroundValues.every((value, index) => near(value, [deckPdfShades.root, deckPdfShades.body, deckPdfShades.div][index] ?? -1)) &&
+      band > 250 &&
+      gap > 250 &&
+      imageDark,
+    `backgrounds=${backgroundValues.join(',')}, band=${band}, gap=${gap}, image=${imageDark}`,
+  )
+
+  const coverInput = { ...handoutImposition, fit: 'cover' as const, bleed: 3 }
+  const cover = Imposition.parse(coverInput)
+  const coverPlacement = impose(cover, deck.slides.length).placements[0]
+  if (!coverPlacement) throw new Error('The covering handout fixture is missing its first placement.')
+  const coverRaster = rasterPdf(output, work, 'deck-handout-cover')
+  const bleedShade = rasterMillimeters(coverRaster, coverPlacement.bleedBox.x + 1, coverPlacement.trim.y + coverPlacement.trim.height / 2)
+  const outsideBleed = rasterMillimeters(coverRaster, coverPlacement.bleedBox.x - 2, coverPlacement.trim.y + coverPlacement.trim.height / 2)
+  check(
+    'a covering handout paints the first slide through its bleed and leaves paper outside the bleed white',
+    near(bleedShade, deckPdfShades.root) && outsideBleed > 250,
+    `bleed=${bleedShade}, outside=${outsideBleed}`,
+  )
+
+  const limits = readFileSync(path.join(output, 'deck-handout-limits.txt'), 'utf8')
+  check('an imposed deck maxSheets limit counts papers and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  const notes = readFileSync(path.join(output, 'deck-handout-notes.txt'), 'utf8')
+  check(
+    'an imposed deck refuses notes while naming both conflicting options and both ways to clear it',
+    notes === "layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.",
+    notes,
+  )
 }

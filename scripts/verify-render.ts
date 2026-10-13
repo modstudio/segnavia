@@ -13,6 +13,7 @@ import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
+import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
@@ -108,8 +109,16 @@ try {
     size: { width: 400, height: 200 },
     slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
   }
-  const deckPdfs = await Promise.all([renderer.deckPdf(deck), renderer.deckPdf(deck, { layout: 'notes' })])
-  check('renders reach no server, including top-level deck slides in both layouts', hits === 0 && deckPdfs.every((pdf) => pdf.length > 0), `requests=${hits}`)
+  const deckPdfs = await Promise.all([
+    renderer.deckPdf(deck),
+    renderer.deckPdf(deck, { layout: 'notes' }),
+    renderer.deckPdf(deck, { imposition: handoutImposition }),
+  ])
+  check(
+    'renders reach no server, including top-level deck slides in slides, notes and handout layouts',
+    hits === 0 && deckPdfs.every((pdf) => pdf.length > 0),
+    `requests=${hits}`,
+  )
 
   if (existsSync(FACE)) {
     const pdf = await renderer.pagePdf(

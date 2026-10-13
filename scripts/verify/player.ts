@@ -154,11 +154,45 @@ async function verifyPrint(h: Harness) {
         frames = win.document.querySelectorAll('iframe').length
       },
     })
-    return { sheets, frames, ms: Math.round(performance.now() - started) }
+    const ms = Math.round(performance.now() - started)
+    const slides = Array.from({ length: 7 }, (_, index) => ({
+      ...deck.slides[index % deck.slides.length],
+      id: `handout-${index}`,
+    }))
+    let papers = 0
+    let placements = 0
+    const handoutStarted = performance.now()
+    await lib.printDeck(
+      { ...deck, slides },
+      {
+        imposition: {
+          paper: 'letter',
+          orientation: 'portrait',
+          unit: 'mm',
+          columns: 2,
+          rows: 3,
+          cell: { width: 90, height: 70 },
+          margin: { top: 12, right: 12, bottom: 12, left: 12 },
+          gap: { column: 8, row: 8 },
+          bleed: 0,
+          fit: 'contain',
+        },
+        print: (win: Window) => {
+          papers = win.document.querySelectorAll('.paper').length
+          placements = win.document.querySelectorAll('.placement').length
+        },
+      },
+    )
+    return { sheets, frames, ms, papers, placements, handoutMs: Math.round(performance.now() - handoutStarted) }
   })
   check(
     'printing from the browser waits for every slide to report ready, not for the deadline',
     printed.sheets === 4 && printed.frames === 2 && printed.ms < 3500,
+    JSON.stringify(printed),
+  )
+  check(
+    'browser handout printing exposes two papers and seven placement boxes before the deadline',
+    printed.papers === 2 && printed.placements === 7 && printed.handoutMs < 3500,
     JSON.stringify(printed),
   )
 }
