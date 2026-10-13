@@ -15,8 +15,8 @@ export function buildPaperDemo(site: string): void {
     <div class="paper-container"><segnavia-paper id="rtl"></segnavia-paper></div>
     <div class="paper-container"><segnavia-paper id="bare" unstyled></segnavia-paper></div>
     <div class="paper-container"><segnavia-paper id="cards-front"></segnavia-paper></div>
-    <div class="paper-container"><segnavia-paper id="cards-back"></segnavia-paper></div>
-    <div class="paper-container"><segnavia-paper id="one-sided-back"></segnavia-paper></div>
+    <div class="paper-container"><segnavia-paper id="declared-back" side="back"></segnavia-paper></div>
+    <div class="paper-container"><segnavia-paper id="property-back"></segnavia-paper></div>
     <script type="module" src="segnavia.js"></script><script type="module">
       await customElements.whenDefined('segnavia-paper')
       const pages = await (await fetch('label-pages.json')).json()
@@ -27,10 +27,9 @@ export function buildPaperDemo(site: string): void {
       document.getElementById('rtl').load(pages.slice(0, 1), { ...imposition, dir: 'rtl' })
       document.getElementById('bare').load(pages.slice(0, 1), imposition)
       document.getElementById('cards-front').load(cards, ${JSON.stringify(twoSidedCardImposition)})
-      document.getElementById('cards-back').load(cards, ${JSON.stringify(twoSidedCardImposition)})
-      document.getElementById('cards-back').side = 'back'
-      document.getElementById('one-sided-back').load(pages.slice(0, 1), imposition)
-      document.getElementById('one-sided-back').setAttribute('side', 'back')
+      document.getElementById('declared-back').load(cards, ${JSON.stringify(twoSidedCardImposition)})
+      document.getElementById('property-back').side = 'back'
+      document.getElementById('property-back').load(cards, ${JSON.stringify(twoSidedCardImposition)})
     </script></body></html>`,
   )
 }

@@ -91,7 +91,7 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private showSide(value: 'front' | 'back') {
-    const next = value === 'back' && this.sides === 2 ? 'back' : 'front'
+    const next = value === 'back' && (!this.imposed || this.sides === 2) ? 'back' : 'front'
     const changed = next !== this.shownSide
     this.shownSide = next
     this.reflectState()

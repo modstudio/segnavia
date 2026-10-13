@@ -67,7 +67,7 @@ export async function verifyPapers(h: Harness) {
   )
 
   const cardsImposed = impose(Imposition.parse(twoSidedCardImposition), 8)
-  const cards = await page.locator('#cards-front,#cards-back').evaluateAll((papers) =>
+  const cards = await page.locator('#cards-front,#declared-back,#property-back').evaluateAll((papers) =>
     papers.map((paper) => {
       const root = paper.querySelector('.segnavia-paper__paper') as HTMLElement
       const origin = root.getBoundingClientRect()
@@ -95,19 +95,23 @@ export async function verifyPapers(h: Harness) {
     })
   })
   check(
-    'a two-sided paper shows four front or mirrored back frames and reflects its side count',
-    cards.length === 2 && cards.every((shown) => shown.frames.length === 4 && shown.sides === '2') && cardsMatch,
+    'declarative and property back sides requested before load survive a two-sided load',
+    cards.length === 3 && cards.every((shown) => shown.frames.length === 4 && shown.sides === '2') && cardsMatch,
     JSON.stringify(cards),
   )
 
-  const oneSidedBack = await page.locator('#one-sided-back').evaluate((paper: HTMLElement & { side: string }) => ({
-    side: paper.side,
-    reflected: paper.getAttribute('side'),
-    sides: paper.dataset.sides,
-  }))
+  const oneSidedBack = await page.locator('#declared-back,#property-back').evaluateAll(
+    (papers, { pages, imposition }) =>
+      papers.map((paper) => {
+        const element = paper as HTMLElement & { load: (pages: unknown[], imposition: unknown) => void; side: string }
+        element.load(pages, imposition)
+        return { side: element.side, reflected: element.getAttribute('side'), sides: element.dataset.sides }
+      }),
+    { pages: labelPages.slice(0, 1), imposition: labelsImposition },
+  )
   check(
-    'a back side requested on a one-sided paper falls back to front and reflects it',
-    oneSidedBack.side === 'front' && oneSidedBack.reflected === 'front' && oneSidedBack.sides === '1',
+    'declarative and property back sides requested before load fall back to front on a one-sided load',
+    oneSidedBack.length === 2 && oneSidedBack.every((shown) => shown.side === 'front' && shown.reflected === 'front' && shown.sides === '1'),
     JSON.stringify(oneSidedBack),
   )
 
