@@ -197,9 +197,9 @@ CMYK as far as it can. Every solid colour in the PDF (text, fills and
 strokes) and every gradient stop is converted through the profile, and a
 black or neutral grey becomes black ink alone, so text prints sharp. A
 gradient's stops are then exact and the blend between them is the press's. A
-raster image stays as the author supplied it, and so does anything the
-browser drew as an image, such as a shadow. The render reports what it left
-in RGB, so a host can tell its user.
+shadow is treated as a gradient is: its colour is converted and its fade is
+not guaranteed. A raster image stays as the author supplied it. The render
+reports what it left in RGB, so a host can tell its user.
 
 Two more things come from the same profile. A proof is the page as an image
 with every pixel taken to the press's colour and back, so a host can show a
