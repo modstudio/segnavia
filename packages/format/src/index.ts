@@ -15,6 +15,7 @@ export {
   type PaperBox,
   PX_PER_MM,
   printBoxes,
+  printPadding,
   printProperties,
   roundMillimeters,
   sheetMm,

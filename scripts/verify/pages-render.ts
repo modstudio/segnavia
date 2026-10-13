@@ -2,7 +2,18 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fitPage, Imposition, impose, MM_PER_PT, Page, printBoxes } from '@segnavia/format'
-import { containedImposition, coveringImposition, fixedImposedPage, labelsImposition, postcardBackPage, postcardPage } from '../demo-page-fixtures.ts'
+import {
+  bleedGridImposition,
+  bleedGridPages,
+  bleedGridShades,
+  clippedBleedGridImposition,
+  containedImposition,
+  coveringImposition,
+  fixedImposedPage,
+  labelsImposition,
+  postcardBackPage,
+  postcardPage,
+} from '../demo-page-fixtures.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -38,6 +49,12 @@ function closeBox(actual: number[] | undefined, expected: number[]): boolean {
   return actual?.every((value, index) => Math.abs(value - (expected[index] ?? Number.NaN)) <= 0.5) ?? false
 }
 
+function rasterPdf(output: string, work: string, file: string): ReturnType<typeof readPgm> {
+  const prefix = path.join(work, file)
+  execFileSync('pdftoppm', ['-r', '72', '-gray', '-singlefile', path.join(output, `${file}.pdf`), prefix])
+  return readPgm(`${prefix}.pgm`)
+}
+
 export function verifyPagesRender(output: string, work: string, check: Check): void {
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
   check(
@@ -71,6 +88,12 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     )
   }
   check('labels 1, 3, 4 and 30 lie inside their imposed trims', [1, 3, 4, 30].every(labelInside))
+  const labelRaster = rasterPdf(output, work, 'pages-labels')
+  const firstLabel = labelPlacements[0]
+  const labelBackground = firstLabel
+    ? rasterValue(labelRaster, firstLabel.trim.x + firstLabel.trim.width - 3, firstLabel.trim.y + firstLabel.trim.height - 3)
+    : 255
+  check('the first imposed label paints its root background', Math.abs(labelBackground - 242) <= 5, `gray=${labelBackground}`)
 
   const rtlWords = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-labels-rtl.pdf'), '-'], { encoding: 'utf8' })
   const firstRtl = rtlWords.match(/<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>Label<\/word>\s*<word[^>]*>1<\/word>/)
@@ -88,9 +111,7 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     const placement = impose(parsed, 1).placements[0]
     if (!placement) throw new Error('The fixed-page imposition has no placement.')
     const fit = fitPage(Page.parse(fixedImposedPage), placement, parsed.fit)
-    const prefix = path.join(work, file)
-    execFileSync('pdftoppm', ['-r', '72', '-gray', '-singlefile', path.join(output, `${file}.pdf`), prefix])
-    const raster = readPgm(`${prefix}.pgm`)
+    const raster = rasterPdf(output, work, file)
     if (cover) {
       return {
         ok:
@@ -111,6 +132,56 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   check('a covering fixed page paints through its bleed but not beyond its bleed box', covered.ok, covered.detail)
   const contained = verifyFixed('pages-contain', containedImposition, false)
   check('a contained fixed page leaves its reported band white', contained.ok, contained.detail)
+
+  const verifyBleedGrid = () => {
+    const parsed = Imposition.parse(bleedGridImposition)
+    const placements = impose(parsed, bleedGridPages.length).placements
+    const raster = rasterPdf(output, work, 'pages-bleed-grid')
+    const painted = placements.every((placement, index) => {
+      const shade = bleedGridShades[index]
+      if (shade === undefined) return false
+      const points = [
+        [placement.trim.x - 1, placement.trim.y + placement.trim.height / 2],
+        [placement.trim.x + placement.trim.width + 1, placement.trim.y + placement.trim.height / 2],
+        [placement.trim.x + placement.trim.width / 2, placement.trim.y - 1],
+        [placement.trim.x + placement.trim.width / 2, placement.trim.y + placement.trim.height + 1],
+      ]
+      return points.every(([x, y]) => Math.abs(rasterValue(raster, x ?? 0, y ?? 0) - shade) <= 3)
+    })
+    const [topLeft, topRight, bottomLeft] = placements
+    if (!topLeft || !topRight || !bottomLeft) return { painted: false, gaps: false }
+    const columnMiddle = (topLeft.trim.x + topLeft.trim.width + topRight.trim.x) / 2
+    const rowMiddle = (topLeft.trim.y + topLeft.trim.height + bottomLeft.trim.y) / 2
+    const gaps =
+      [topLeft, bottomLeft].every((placement) => rasterValue(raster, columnMiddle, placement.trim.y + placement.trim.height / 2) > 250) &&
+      [topLeft, topRight].every((placement) => rasterValue(raster, placement.trim.x + placement.trim.width / 2, rowMiddle) > 250)
+    return { painted, gaps }
+  }
+  const bleedGrid = verifyBleedGrid()
+  check('fluid imposed pages paint 2mm bleed on every side of every cell', bleedGrid.painted)
+  check('a 6mm grid gap stays white between neighboring 2mm bleeds', bleedGrid.gaps)
+
+  const verifyClippedBleedGrid = () => {
+    const parsed = Imposition.parse(clippedBleedGridImposition)
+    const placements = impose(parsed, bleedGridPages.length).placements
+    const raster = rasterPdf(output, work, 'pages-bleed-grid-clipped')
+    const [topLeft, topRight, bottomLeft, bottomRight] = placements
+    if (!topLeft || !topRight || !bottomLeft || !bottomRight) return false
+    const boundaries = [
+      { first: topLeft, second: topRight, firstShade: 60, secondShade: 100, axis: 'x' },
+      { first: bottomLeft, second: bottomRight, firstShade: 140, secondShade: 180, axis: 'x' },
+      { first: topLeft, second: bottomLeft, firstShade: 60, secondShade: 140, axis: 'y' },
+      { first: topRight, second: bottomRight, firstShade: 100, secondShade: 180, axis: 'y' },
+    ] as const
+    return boundaries.every(({ first, second, firstShade, secondShade, axis }) => {
+      const middle = axis === 'x' ? (first.trim.x + first.trim.width + second.trim.x) / 2 : (first.trim.y + first.trim.height + second.trim.y) / 2
+      const across = axis === 'x' ? first.trim.y + first.trim.height / 2 : first.trim.x + first.trim.width / 2
+      const own = axis === 'x' ? rasterValue(raster, middle - 0.5, across) : rasterValue(raster, across, middle - 0.5)
+      const neighbor = axis === 'x' ? rasterValue(raster, middle + 0.5, across) : rasterValue(raster, across, middle + 0.5)
+      return Math.abs(own - firstShade) <= 3 && Math.abs(neighbor - secondShade) <= 3
+    })
+  }
+  check('bleed clipped by a 2mm gap changes to the neighboring shade at the gap midline', verifyClippedBleedGrid())
 
   const info = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '2', path.join(output, 'pages-postcard.pdf')], { encoding: 'utf8' })
   const boxesMatch = [Page.parse(postcardPage), Page.parse(postcardBackPage)].every((page, index) => {

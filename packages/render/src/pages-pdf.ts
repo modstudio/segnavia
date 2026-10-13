@@ -1,9 +1,8 @@
-import { Imposition, type ImpositionInput, impose, MM_PER_PT, Page, type PageInput, printProperties } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, MM_PER_PT, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
 import { clip, endPath, PDFDocument, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry, placementPdfGeometry } from './pages-imposition.ts'
-import { physicalPaddingCss } from './page-paper.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -43,7 +42,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       const first = group.placements[0]
       if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(page, first)
-      const css = `${properties}${geometry.padding ? physicalPaddingCss(geometry.padding) : ''}${hostCss}`
+      const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${hostCss}`
       try {
         return { group, bytes: await services.piecePdf(page, geometry, css, opts) }
       } catch (error) {
@@ -82,11 +81,11 @@ export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions,
     const rendered = await Promise.all(pages.map((page) => services.pagePdf(page, { ...opts, limits: undefined })))
     return services.enforce(await joinPdfs(rendered), opts.limits)
   }
+  const imposition = Imposition.parse(opts.imposition)
   if (opts.preferCssPageSize) {
     throw new RenderRefusedError(
       'Pages in an imposition take their size from its paper. Remove preferCssPageSize, or remove the imposition, to clear this refusal.',
     )
   }
-  const imposition = Imposition.parse(opts.imposition)
   return services.enforce(await composedPdf(pages, imposition, opts, services), opts.limits)
 }

@@ -12,6 +12,7 @@ import {
   Print,
   type PrintInput,
   PX_PER_MM,
+  printPadding,
   printProperties,
   resolveDirection,
   type Slide,
@@ -84,12 +85,7 @@ const mm = (value: number) => `${value}mm`
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit)
   const properties = printProperties(imposition, imposition.unit)
-  // Padding uses physical sides because these are the cut edges on paper,
-  // independent of the page's reading direction.
-  const padding =
-    fit.flow && page.size === 'fluid'
-      ? `:where(html){padding:${[placement.bleed.top, placement.bleed.right, placement.bleed.bottom, placement.bleed.left].map(mm).join(' ')}}`
-      : ''
+  const padding = fit.flow && page.size === 'fluid' ? printPadding(placement.bleed) : ''
   const srcdoc = frameDocument(page.html, {
     scripts: page.scripts,
     nonce: options.nonce ?? newNonce(),

@@ -2,6 +2,9 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import {
+  bleedGridImposition,
+  bleedGridPages,
+  clippedBleedGridImposition,
   containedImposition,
   coveringImposition,
   fixedImposedPage,
@@ -21,6 +24,8 @@ export async function buildPagePdfs(renderer: Renderer, output: string): Promise
   )
   writeFileSync(path.join(output, 'pages-cover.pdf'), await renderer.pagesPdf([fixedImposedPage], { imposition: coveringImposition }))
   writeFileSync(path.join(output, 'pages-contain.pdf'), await renderer.pagesPdf([fixedImposedPage], { imposition: containedImposition }))
+  writeFileSync(path.join(output, 'pages-bleed-grid.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: bleedGridImposition }))
+  writeFileSync(path.join(output, 'pages-bleed-grid-clipped.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: clippedBleedGridImposition }))
   const refusal = await renderer.pagesPdf(labelPages, { imposition: labelsImposition, limits: { maxSheets: 1 } }).then(
     () => 'rendered',
     (error) => (error instanceof Error ? error.message : `unexpected ${error}`),

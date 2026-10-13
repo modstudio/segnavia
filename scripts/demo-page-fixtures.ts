@@ -91,3 +91,26 @@ const fixedImposition: ImpositionInput = {
 
 export const coveringImposition: ImpositionInput = { ...fixedImposition, fit: 'cover' }
 export const containedImposition: ImpositionInput = { ...fixedImposition, fit: 'contain' }
+
+export const bleedGridShades = [60, 100, 140, 180]
+export const bleedGridPages: PageInput[] = bleedGridShades.map((shade) => ({
+  html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>`,
+  size: 'fluid',
+}))
+
+const bleedGrid: ImpositionInput = {
+  paper: { width: 56, height: 56, unit: 'mm' },
+  columns: 2,
+  rows: 2,
+  cell: { width: 20, height: 20 },
+  margin: { top: 5, right: 5, bottom: 5, left: 5 },
+  gap: { column: 6, row: 6 },
+  bleed: 2,
+}
+
+export const bleedGridImposition = bleedGrid
+export const clippedBleedGridImposition: ImpositionInput = {
+  ...bleedGrid,
+  paper: { width: 52, height: 52, unit: 'mm' },
+  gap: { column: 2, row: 2 },
+}

@@ -19,7 +19,15 @@ export interface PieceGeometry {
 
 const geometryKey = (page: number, pageValue: Page, placement: Placement) =>
   pageValue.size === 'fluid'
-    ? JSON.stringify([page, placement.bleedBox.width, placement.bleedBox.height, placement.bleed.top, placement.bleed.right, placement.bleed.bottom, placement.bleed.left])
+    ? JSON.stringify([
+        page,
+        placement.bleedBox.width,
+        placement.bleedBox.height,
+        placement.bleed.top,
+        placement.bleed.right,
+        placement.bleed.bottom,
+        placement.bleed.left,
+      ])
     : String(page)
 
 export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover'): PieceGroup[] {
@@ -58,11 +66,7 @@ export function placementPdfGeometry(
 ): { draw: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } } {
   const fluid = fit.flow && Math.abs(fit.x - placement.bleedBox.x) < 0.001
   const widthMm = fluid ? placement.bleedBox.width : (fit.width * fit.scale) / PX_PER_MM
-  const heightMm = fluid
-    ? placement.bleedBox.height
-    : fit.height === null
-      ? placement.trim.height
-      : (fit.height * fit.scale) / PX_PER_MM
+  const heightMm = fluid ? placement.bleedBox.height : fit.height === null ? placement.trim.height : (fit.height * fit.scale) / PX_PER_MM
   return {
     draw: { x: pt(fit.x), y: pt(paperHeight - fit.y - heightMm), width: pt(widthMm), height: pt(heightMm) },
     clip: {

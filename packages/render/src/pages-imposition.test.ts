@@ -47,6 +47,6 @@ describe('imposed PDF pieces', () => {
     expect(geometry.clip).toEqual({ x: 5 / (25.4 / 72), y: 10 / (25.4 / 72), width: 107 / (25.4 / 72), height: 77 / (25.4 / 72) })
     expect(geometry.draw.x).toBeCloseTo(fit.x / (25.4 / 72))
     expect(geometry.draw.y).toBeCloseTo((imposed.paper.height - fit.y - (400 * fit.scale) / (96 / 25.4)) / (25.4 / 72))
-    expect(geometry.draw.width).toBeCloseTo(((600 * fit.scale) / (96 / 25.4)) / (25.4 / 72))
+    expect(geometry.draw.width).toBeCloseTo((600 * fit.scale) / (96 / 25.4) / (25.4 / 72))
   })
 })

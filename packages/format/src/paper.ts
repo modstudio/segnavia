@@ -39,6 +39,12 @@ export function printProperties(print: Pick<Print, 'bleed' | 'safe'>, unit: 'mm'
   return `:root{--segnavia-bleed:${roundMillimeters(toMillimeters(print.bleed, unit))}mm;--segnavia-safe:${roundMillimeters(toMillimeters(print.safe, unit))}mm}`
 }
 
+export function printPadding(edges: { top: number; right: number; bottom: number; left: number }): string {
+  // Padding uses physical sides because these are edges on paper, independent
+  // of the page's reading direction.
+  return `:where(html){padding:${[edges.top, edges.right, edges.bottom, edges.left].map((value) => `${value}mm`).join(' ')}}`
+}
+
 export interface PaperBox {
   x: number
   y: number
