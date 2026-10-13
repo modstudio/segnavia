@@ -14,7 +14,7 @@ import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
-import { fixedPage, fluidPage, hebrewPage, marginPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
+import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -354,12 +354,13 @@ try {
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))
   writeFileSync(
     path.join(OUT, 'deck-notes.pdf'),
-    await renderer.deckPdf(printable, { inline, layout: 'notes', notesPaper: { paper: 'a4', orientation: 'portrait' } }),
+    await renderer.deckPdf(printable, { inline, layout: 'notes', notesPaper: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false } }),
   )
   writeFileSync(path.join(OUT, 'slide-3.png'), await renderer.slideImage(printable, 2, { inline }))
   writeFileSync(path.join(OUT, 'page.webp'), await renderer.pageImage(fluidPage, { format: 'webp', width: 1024 }))
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))
+  writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))
   let measured = 0
   await renderer.pagePdf(fluidPage, {

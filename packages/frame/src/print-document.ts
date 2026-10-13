@@ -19,7 +19,7 @@ export interface PrintOptions {
   nonce?: string
 }
 
-export const NOTES_PAPER: Print = { paper: 'letter', orientation: 'portrait' }
+export const NOTES_PAPER: Print = { paper: 'letter', orientation: 'portrait', bleed: 0, safe: 0, marks: false }
 
 function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size

@@ -5,11 +5,12 @@
 // so a render cannot fetch, beacon or depend on the network. Everything a
 // page shows (faces, images, styles) arrives inside it.
 
-import { type Deck, Page, type PageInput, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Deck, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
+import { assertPrintOptions, PrintRefusedError, printCss, printPage, printViewport } from './page-paper.ts'
 
 export const RENDER_BOUND_MS = 60_000
 // How long a page that runs its own code gets to call window.pageReady().
@@ -233,15 +234,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     }
   }
 
-  function pageDocument(page: Page, options: RenderOptions): string {
-    const css = `${fontFaces(options.fonts)}${options.css ?? ''}`
+  function pageDocument(page: Page, options: RenderOptions, printing = false): string {
+    const css = `${printing && page.print ? printCss(page.print) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
 
-  function pageViewport(page: Page, width?: number) {
+  function pageViewport(page: Page, width?: number, printing = false) {
     if (page.print) {
-      const mm = sheetMm(page.print)
-      return { width: Math.round(mm.width * PX_PER_MM), height: Math.round(mm.height * PX_PER_MM) }
+      return printViewport(page.print, printing)
     }
     if (page.size === 'fluid') return { width: width ?? FLUID_WIDTH, height: 800 }
     return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
@@ -252,27 +252,32 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   return {
     async pagePdf(input, opts = {}) {
       const page = Page.parse(input)
-      const viewport = pageViewport(page)
+      if (page.print) {
+        try {
+          assertPrintOptions(page.print, opts.preferCssPageSize)
+        } catch (error) {
+          if (error instanceof PrintRefusedError) throw new RenderRefusedError(error.message)
+          throw error
+        }
+      }
+      const viewport = pageViewport(page, undefined, true)
       const pdf = await withTab(
         {
           viewport,
           scripts: page.scripts === 'sandboxed',
-          html: pageDocument(page, opts),
+          html: pageDocument(page, opts, true),
           waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
           boundMs: opts.boundMs,
           beforeOutput: opts.beforeOutput,
         },
         async (tab) => {
           if (page.print) {
-            const mm = sheetMm(page.print)
-            const margin = page.print.margin
-            return tab.pdf({
-              width: `${mm.width}mm`,
-              height: `${mm.height}mm`,
-              printBackground: true,
-              preferCSSPageSize: opts.preferCssPageSize ?? false,
-              margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
-            })
+            try {
+              return await printPage(tab, page.print, opts.preferCssPageSize)
+            } catch (error) {
+              if (error instanceof PrintRefusedError) throw new RenderRefusedError(error.message)
+              throw error
+            }
           }
           const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
           const height = fixedHeight ?? (await contentHeight(tab))
@@ -308,7 +313,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const html = printableDeck(deck, { ...opts, css })
       const notes = opts.layout === 'notes'
       const viewport = notes
-        ? pageViewport({ html: '', size: 'fluid', scripts: 'refuse', print: opts.notesPaper ?? { paper: 'letter', orientation: 'portrait' } })
+        ? pageViewport({
+            html: '',
+            size: 'fluid',
+            scripts: 'refuse',
+            print: opts.notesPaper ?? { paper: 'letter', orientation: 'portrait', bleed: 0, safe: 0, marks: false },
+          })
         : deck.size
       const pdf = await withTab(
         { viewport, scripts: deck.scripts === 'sandboxed', html, waitForReady: false, boundMs: opts.boundMs, beforeOutput: opts.beforeOutput },

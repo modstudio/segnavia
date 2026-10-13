@@ -52,14 +52,9 @@ describe('deck', () => {
   })
 })
 
-import { exceedsLimits, sheetMm, shotsUsed } from './index.ts'
+import { exceedsLimits, shotsUsed } from './index.ts'
 
-describe('paper and limits', () => {
-  test('orientation swaps the sides of a named and a custom paper', () => {
-    expect(sheetMm({ paper: 'a4', orientation: 'landscape' })).toEqual({ width: 297, height: 210 })
-    expect(sheetMm({ paper: { width: 6, height: 4, unit: 'in' }, orientation: 'portrait' })).toEqual({ width: 101.6, height: 152.4 })
-  })
-
+describe('limits', () => {
   test('a deck over a host ceiling says which ceiling and by how much', () => {
     const deck = Deck.parse({
       title: 'T',

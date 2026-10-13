@@ -11,7 +11,9 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
+import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
+import { postcardPage } from './demo-page-fixtures.ts'
 import { imageSize } from './verify/image-size.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
@@ -151,6 +153,44 @@ try {
     "with preferCssPageSize, the page's own @page size wins over its paper",
     Math.round(Number(size?.[1])) === 283 && Math.round(Number(size?.[2])) === 283,
     size?.[0],
+  )
+
+  const postcardFile = path.join(output, 'page-postcard.pdf')
+  const postcardInfo = execFileSync('pdfinfo', ['-box', postcardFile], { encoding: 'utf8' })
+  const postcard = Page.parse(postcardPage)
+  if (!postcard.print) throw new Error('The postcard fixture has no print setting.')
+  const boxes = printBoxes(postcard.print)
+  const expectedBox = (box: { x: number; y: number; width: number; height: number }) =>
+    [box.x, boxes.media.height - box.y - box.height, box.x + box.width, boxes.media.height - box.y].map((mm) => mm / MM_PER_PT)
+  const actualBox = (name: string) =>
+    postcardInfo
+      .match(new RegExp(`${name}:\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)`))
+      ?.slice(1)
+      .map(Number)
+  const closeBox = (actual: number[] | undefined, expected: number[]) =>
+    actual?.every((value, index) => Math.abs(value - (expected[index] ?? Number.NaN)) <= 0.5) ?? false
+  check(
+    'a postcard PDF has the media, bleed and trim boxes from its print setting',
+    /Pages:\s+1\b/.test(postcardInfo) &&
+      closeBox(actualBox('MediaBox'), [0, 0, boxes.media.width / MM_PER_PT, boxes.media.height / MM_PER_PT]) &&
+      closeBox(actualBox('BleedBox'), expectedBox(boxes.bleedBox)) &&
+      closeBox(actualBox('TrimBox'), expectedBox(boxes.trim)),
+    postcardInfo
+      .split('\n')
+      .filter((line) => /^(Pages|MediaBox|BleedBox|TrimBox):/.test(line))
+      .join(', '),
+  )
+
+  const tooTall = await refusal(
+    renderer.pagePdf({
+      html: '<div style="height:400mm">Too tall for one printed piece.</div>',
+      print: { paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
+    }),
+  )
+  check(
+    'a page with bleed whose content needs another paper is refused',
+    /^refused: A page with bleed or marks is one printed piece, but the content needs \d+ papers\./.test(tooTall),
+    tooTall,
   )
 
   const slide = await renderer.slideImage(

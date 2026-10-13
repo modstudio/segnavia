@@ -114,19 +114,23 @@ direction:
 ## How pages are printed on paper
 
 A page stays a page: it is laid out as on screen, and everything about paper
-is in its print setting or in an imposition. Two parts are built. A page with
-a print setting exports on its paper (`pagePdf`), and a deck prints one slide
-to each sheet of paper (`printableDeck`). The rest of this section is designed
-and not yet built, in the order it will be built.
+is in its print setting or in an imposition. Three parts are built. A page with
+a print setting exports on its paper (`pagePdf`), its trim, bleed, safe area and
+crop marks are carried into that PDF, and a deck prints one slide to each sheet
+of paper (`printableDeck`). The rest of this section is designed and not yet
+built, in the order it will be built.
 
-**Trim, bleed and safe area.** `Print` gains `bleed`, `safe` and `marks`. Its
-`paper` is the trim, the finished size after cutting. The page still lays out
-inside the trim. Its root background continues through the bleed, and
+**Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
+`paper` is the trim, the finished size after cutting. The page lays out inside
+the trim. Its root background continues through the bleed, and
 `--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
 a picture can run off the edge and text can stay clear of the cut. `marks`
 draws crop marks outside the bleed. The PDF page grows by the bleed and the
 marks and carries the trim and bleed boxes, so a print shop's software finds
-the cut. This alone makes a postcard: two pages, front and back, in one PDF.
+the cut. Viewport units measure the bleed box. With bleed or marks, a page is
+one printed piece; content that needs a second paper is refused. Without them,
+a page prints as before. A postcard face is one such page. Putting several
+pages in one PDF belongs to imposition.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
