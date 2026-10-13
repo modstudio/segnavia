@@ -8,8 +8,8 @@ replacement, and record the new ruling here.
 **Layers stay separate and uncompiled.** Images, narration text, audio and
 timings are separate files tied together by a deck. Swapping a slide,
 re-voicing a line or recapturing a screen changes only that piece. Every
-comparable tool surveyed (`docs/research.md`) compiles to a video file, which
-is the gap this fills.
+comparable tool surveyed compiles to a video file, which is the gap this
+fills.
 
 **Narration drives the pace.** A slide's length comes from its narration's
 word timings, and cues are bound to words. Fixed durations drift from the
@@ -145,7 +145,7 @@ varies by engine. A deck that ships uses recorded narration.
 **Bun workspaces, TypeScript, Zod 4, Biome, `playwright-core`.** These match
 multiple hosts. `playwright-core` runs under Bun in one host's production and
 in this repository's demo. Another host runs Node, so capture and render must
-also be proven under Node (`docs/roadmap.md`).
+also be proven under Node.
 
 **Zod schemas are the source of the JSON Schema.** A PHP host reads the
 generated schema; it cannot import TypeScript types.
