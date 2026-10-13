@@ -1,0 +1,208 @@
+import type { Imposition, Page, Print } from './index.ts'
+import { MM_PER_PT, PX_PER_MM, sheetMm } from './paper.ts'
+
+export interface PaperBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface Placement {
+  page: number
+  paper: number
+  side: 'front' | 'back'
+  column: number
+  row: number
+  trim: PaperBox
+  bleed: { top: number; right: number; bottom: number; left: number }
+  bleedBox: PaperBox
+  safeBox: PaperBox
+  clipped: Array<'top' | 'right' | 'bottom' | 'left'>
+}
+
+export interface Imposed {
+  paper: { width: number; height: number }
+  papers: number
+  placements: Placement[]
+}
+
+export interface PageFit {
+  flow: boolean
+  width: number
+  height: number | null
+  scale: number
+  x: number
+  y: number
+  // Inline is horizontal and block is vertical in this physical paper geometry.
+  bands: { inline: number; block: number }
+  crop: { top: number; right: number; bottom: number; left: number }
+  differs: boolean
+}
+
+const round = (value: number) => Math.round(value * 100) / 100
+const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
+
+function factor(unit: Imposition['unit']): number {
+  return unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1
+}
+
+function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
+  const mm = factor(imposition.unit)
+  const column = cell % imposition.columns
+  const row = Math.floor(cell / imposition.columns)
+  const physicalColumn = imposition.dir === 'rtl' ? imposition.columns - column - 1 : column
+  const cellWidth = imposition.cell.width * mm
+  const cellHeight = imposition.cell.height * mm
+  const columnGap = imposition.gap.column * mm
+  const rowGap = imposition.gap.row * mm
+  const x = imposition.margin.left * mm + physicalColumn * (cellWidth + columnGap)
+  const y = imposition.margin.top * mm + row * (cellHeight + rowGap)
+  const requested = imposition.bleed * mm
+  const bleed = {
+    top: Math.min(requested, row > 0 ? rowGap / 2 : y),
+    right: Math.min(requested, physicalColumn < imposition.columns - 1 ? columnGap / 2 : Math.max(0, paperSize.width - x - cellWidth)),
+    bottom: Math.min(requested, row < imposition.rows - 1 ? rowGap / 2 : Math.max(0, paperSize.height - y - cellHeight)),
+    left: Math.min(requested, physicalColumn > 0 ? columnGap / 2 : Math.max(0, x)),
+  }
+  const clipped = (['top', 'right', 'bottom', 'left'] as const).filter((side) => bleed[side] < requested)
+  const trim = { x: round(x), y: round(y), width: round(cellWidth), height: round(cellHeight) }
+  const roundedBleed = {
+    top: round(bleed.top),
+    right: round(bleed.right),
+    bottom: round(bleed.bottom),
+    left: round(bleed.left),
+  }
+  const safe = imposition.safe * mm
+  return {
+    page,
+    paper,
+    side: 'front',
+    column,
+    row,
+    trim,
+    bleed: roundedBleed,
+    bleedBox: {
+      x: round(x - bleed.left),
+      y: round(y - bleed.top),
+      width: round(cellWidth + bleed.left + bleed.right),
+      height: round(cellHeight + bleed.top + bleed.bottom),
+    },
+    safeBox: { x: round(x + safe), y: round(y + safe), width: round(cellWidth - safe * 2), height: round(cellHeight - safe * 2) },
+    clipped,
+  }
+}
+
+function repeatPlacements(imposition: Imposition, papers: number, paper: Imposed['paper']): Placement[] {
+  const cells = imposition.columns * imposition.rows
+  const placements: Placement[] = []
+  for (let paperIndex = 0; paperIndex < papers; paperIndex += 1) {
+    const firstCell = paperIndex === 0 ? imposition.skip : 0
+    for (let cell = firstCell; cell < cells; cell += 1) placements.push(placementAt(imposition, paperIndex, cell, paperIndex, paper))
+  }
+  return placements
+}
+
+function sequencePlacements(imposition: Imposition, pageCount: number, papers: number, paper: Imposed['paper']): Placement[] {
+  const cells = imposition.columns * imposition.rows
+  const placements: Placement[] = []
+  let page = 0
+  for (let paperIndex = 0; paperIndex < papers; paperIndex += 1) {
+    const firstCell = paperIndex === 0 ? imposition.skip : 0
+    for (let cell = firstCell; cell < cells && page < pageCount; cell += 1) {
+      placements.push(placementAt(imposition, paperIndex, cell, page, paper))
+      page += 1
+    }
+  }
+  return placements
+}
+
+export function impose(imposition: Imposition, pageCount: number): Imposed {
+  if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
+  const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation, bleed: 0, safe: 0, marks: false })
+  if (pageCount === 0) return { paper, papers: 0, placements: [] }
+  const cells = imposition.columns * imposition.rows
+  const papers = imposition.fill === 'repeat' ? pageCount : Math.ceil((pageCount + imposition.skip) / cells)
+  const placements = imposition.fill === 'repeat' ? repeatPlacements(imposition, papers, paper) : sequencePlacements(imposition, pageCount, papers, paper)
+  return { paper, papers, placements }
+}
+
+function trimDiffers(page: { print?: Print }, placement: Placement): boolean {
+  if (!page.print) return false
+  const trim = sheetMm(page.print)
+  return Math.abs(trim.width - placement.trim.width) > 0.01 || Math.abs(trim.height - placement.trim.height) > 0.01
+}
+
+export function fitPage(page: { size: Page['size']; print?: Print }, placement: Placement, fit: 'contain' | 'cover'): PageFit {
+  const differs = trimDiffers(page, placement)
+  if (page.size === 'fluid') {
+    return {
+      flow: true,
+      width: placement.bleedBox.width * PX_PER_MM,
+      height: null,
+      scale: 1,
+      x: placement.bleedBox.x,
+      y: placement.bleedBox.y,
+      bands: { inline: 0, block: 0 },
+      crop: zeroCrop(),
+      differs,
+    }
+  }
+  if (page.size.height === 'auto') {
+    return {
+      flow: true,
+      width: page.size.width,
+      height: null,
+      scale: (placement.trim.width * PX_PER_MM) / page.size.width,
+      x: placement.trim.x,
+      y: placement.trim.y,
+      bands: { inline: 0, block: 0 },
+      crop: zeroCrop(),
+      differs,
+    }
+  }
+  if (fit === 'contain') {
+    const scale = Math.min((placement.trim.width * PX_PER_MM) / page.size.width, (placement.trim.height * PX_PER_MM) / page.size.height)
+    const width = (page.size.width * scale) / PX_PER_MM
+    const height = (page.size.height * scale) / PX_PER_MM
+    const inline = (placement.trim.width - width) / 2
+    const block = (placement.trim.height - height) / 2
+    return {
+      flow: false,
+      width: page.size.width,
+      height: page.size.height,
+      scale,
+      x: round(placement.trim.x + inline),
+      y: round(placement.trim.y + block),
+      bands: { inline: round(inline), block: round(block) },
+      crop: zeroCrop(),
+      differs,
+    }
+  }
+  const horizontalBleed = Math.max(placement.bleed.left, placement.bleed.right)
+  const verticalBleed = Math.max(placement.bleed.top, placement.bleed.bottom)
+  const scale = Math.max(
+    ((placement.trim.width + horizontalBleed * 2) * PX_PER_MM) / page.size.width,
+    ((placement.trim.height + verticalBleed * 2) * PX_PER_MM) / page.size.height,
+  )
+  const width = (page.size.width * scale) / PX_PER_MM
+  const height = (page.size.height * scale) / PX_PER_MM
+  const x = placement.trim.x + (placement.trim.width - width) / 2
+  const y = placement.trim.y + (placement.trim.height - height) / 2
+  return {
+    flow: false,
+    width: page.size.width,
+    height: page.size.height,
+    scale,
+    x: round(x),
+    y: round(y),
+    bands: { inline: 0, block: 0 },
+    crop: {
+      top: round(Math.max(0, placement.bleedBox.y - y)),
+      right: round(Math.max(0, x + width - placement.bleedBox.x - placement.bleedBox.width)),
+      bottom: round(Math.max(0, y + height - placement.bleedBox.y - placement.bleedBox.height)),
+      left: round(Math.max(0, placement.bleedBox.x - x)),
+    },
+    differs,
+  }
+}

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { sheetMm } from './paper.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
+export { fitPage, type Imposed, impose, type PageFit, type Placement } from './imposition.ts'
 export { MARK_GAP_MM, MARK_LENGTH_MM, MM_PER_PT, PAPER_MM, PX_PER_MM, printBoxes, printProperties, sheetMm } from './paper.ts'
 
 export const Size = z.object({
@@ -65,6 +66,86 @@ export const Print = z
   })
 export type Print = z.infer<typeof Print>
 export type PrintInput = z.input<typeof Print>
+
+const ImpositionEdges = z.object({
+  top: z.number().nonnegative().default(0),
+  right: z.number().nonnegative().default(0),
+  bottom: z.number().nonnegative().default(0),
+  left: z.number().nonnegative().default(0),
+})
+
+const ImpositionGap = z.object({
+  column: z.number().nonnegative().default(0),
+  row: z.number().nonnegative().default(0),
+})
+
+const impositionMm = (value: number, unit: 'mm' | 'in' | 'pt') => value * (unit === 'in' ? 25.4 : unit === 'pt' ? 25.4 / 72 : 1)
+const shownMm = (value: number) => Math.round(value * 100) / 100
+
+export const Imposition = z
+  .object({
+    paper: Paper,
+    orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+    unit: z.enum(['mm', 'in', 'pt']).default('mm'),
+    margin: ImpositionEdges.default({ top: 0, right: 0, bottom: 0, left: 0 }),
+    columns: z.number().int().positive(),
+    rows: z.number().int().positive(),
+    cell: z.object({ width: z.number().positive(), height: z.number().positive() }),
+    gap: ImpositionGap.default({ column: 0, row: 0 }),
+    bleed: z.number().nonnegative().default(0),
+    safe: z.number().nonnegative().default(0),
+    fit: z.enum(['contain', 'cover']).default('contain'),
+    fill: z.enum(['sequence', 'repeat']).default('sequence'),
+    skip: z.number().int().nonnegative().default(0),
+    dir: z.enum(['ltr', 'rtl']).default('ltr'),
+  })
+  .superRefine((imposition, ctx) => {
+    const mm = (value: number) => impositionMm(value, imposition.unit)
+    const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation, bleed: 0, safe: 0, marks: false })
+    const gridWidth = mm(
+      imposition.margin.left + imposition.columns * imposition.cell.width + (imposition.columns - 1) * imposition.gap.column + imposition.margin.right,
+    )
+    const gridHeight = mm(
+      imposition.margin.top + imposition.rows * imposition.cell.height + (imposition.rows - 1) * imposition.gap.row + imposition.margin.bottom,
+    )
+    if (gridWidth - paper.width > 0.01) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['columns'],
+        message: `the grid is ${shownMm(gridWidth)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${shownMm(gridWidth - paper.width)}mm; reduce the horizontal margins, columns, cell width or column gap`,
+      })
+    }
+    if (gridHeight - paper.height > 0.01) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['rows'],
+        message: `the grid is ${shownMm(gridHeight)}mm high and the paper is ${paper.height}mm high, an overflow of ${shownMm(gridHeight - paper.height)}mm; reduce the vertical margins, rows, cell height or row gap`,
+      })
+    }
+    const safe = mm(imposition.safe)
+    const cellWidth = mm(imposition.cell.width)
+    const cellHeight = mm(imposition.cell.height)
+    if (safe * 2 >= cellWidth) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['safe'],
+        message: `safe is ${shownMm(safe)}mm on the left and right, but the cell is ${shownMm(cellWidth)}mm wide; safe must leave area inside the cell`,
+      })
+    }
+    if (safe * 2 >= cellHeight) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['safe'],
+        message: `safe is ${shownMm(safe)}mm on the top and bottom, but the cell is ${shownMm(cellHeight)}mm high; safe must leave area inside the cell`,
+      })
+    }
+    const cells = imposition.columns * imposition.rows
+    if (imposition.skip >= cells) {
+      ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })
+    }
+  })
+export type Imposition = z.infer<typeof Imposition>
+export type ImpositionInput = z.input<typeof Imposition>
 
 // A page is designed for the screen at whatever size it needs: fluid (the
 // viewer's width, as tall as its content), a fixed sheet, or a fixed width
@@ -277,6 +358,7 @@ export function shotsUsed(deck: Deck): ShotUse[] {
 export function jsonSchemas() {
   return {
     page: z.toJSONSchema(Page, { io: 'input' }),
+    imposition: z.toJSONSchema(Imposition, { io: 'input' }),
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
