@@ -14,7 +14,7 @@ export const PDF_BYTES_THRESHOLD = 2_500_000
 export const ALIGNMENT_TOLERANCE = 16
 
 export const MEASUREMENT_CSS =
-  'html{overflow:hidden!important}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
+  'html{overflow:clip!important}html[dir=rtl]{direction:ltr!important}html[dir=rtl] body{direction:rtl}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
 
 export interface Fixture {
   id: string

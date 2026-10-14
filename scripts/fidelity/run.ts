@@ -33,18 +33,27 @@ const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
 
-async function placeAlignmentMarker(tab: Tab): Promise<void> {
-  await tab
-    .locator('[data-fidelity]')
-    .first()
-    .evaluate((region) => {
-      const box = region.getBoundingClientRect()
-      const marker = document.createElement('i')
-      marker.className = 'fidelity-alignment-marker'
-      marker.style.left = `${box.x}px`
-      marker.style.top = `${box.y}px`
-      document.body.append(marker)
-    })
+async function placeAlignmentMarker(tab: Tab): Promise<Box> {
+  await tab.evaluate(() => {
+    if (document.documentElement.dir !== 'rtl') return
+    document.documentElement.dir = 'ltr'
+    document.body.dir = 'rtl'
+  })
+  return tab.locator('[data-fidelity]').evaluateAll((regions) => {
+    const region =
+      regions.find((candidate) => {
+        const candidateBox = candidate.getBoundingClientRect()
+        return candidateBox.x >= 0 && candidateBox.y >= 0 && candidateBox.right <= innerWidth && candidateBox.bottom <= innerHeight
+      }) ?? regions[0]
+    if (!region) throw new Error('The document has no marked effect regions.')
+    const box = region.getBoundingClientRect()
+    const marker = document.createElement('i')
+    marker.className = 'fidelity-alignment-marker'
+    marker.style.left = `${box.x}px`
+    marker.style.top = `${box.y}px`
+    document.body.append(marker)
+    return { x: box.x, y: box.y, width: box.width, height: box.height }
+  })
 }
 
 try {
@@ -59,10 +68,12 @@ try {
     const pdf = path.join(documentDirectory, `${fixture.id}.pdf`)
     const comparisonPdf = path.join(documentDirectory, 'comparison.pdf')
     const regions: Array<{ name: string; box: Box }> = []
+    let alignmentBox: Box | undefined
     const screenBytes = await renderer.pageImage(fixture.page, {
       scale: SCALE,
       css: MEASUREMENT_CSS,
       beforeOutput: async (tab) => {
+        alignmentBox = await placeAlignmentMarker(tab)
         regions.push(
           ...(await tab.locator('[data-fidelity]').evaluateAll((elements) =>
             elements.map((element) => {
@@ -71,10 +82,14 @@ try {
             }),
           )),
         )
+      },
+    })
+    const pdfBytes = await renderer.pagePdf(fixture.page, {
+      css: MEASUREMENT_CSS,
+      beforeOutput: async (tab) => {
         await placeAlignmentMarker(tab)
       },
     })
-    const pdfBytes = await renderer.pagePdf(fixture.page, { css: MEASUREMENT_CSS, beforeOutput: placeAlignmentMarker })
     await Bun.write(screen, screenBytes)
     await Bun.write(pdf, pdfBytes)
     await trimPdf(pdf, comparisonPdf)
@@ -86,7 +101,7 @@ try {
     ])
     for (const reader of readers) {
       if (!reader.worked || !reader.image) continue
-      const marker = regions[0]?.box
+      const marker = alignmentBox
       if (!marker) throw new Error(`${fixture.id} has no marked effect regions.`)
       const croppedBleed = (fixture.page.print?.bleed ?? 0) * (96 / 25.4) * SCALE
       reader.alignment = alignmentOffset(
@@ -132,7 +147,13 @@ try {
       try {
         await Bun.write(
           pressPdf,
-          await renderer.pagesPdf([fixture.page], { css: MEASUREMENT_CSS, beforeOutput: placeAlignmentMarker, press: { profile: profileBytes } }),
+          await renderer.pagesPdf([fixture.page], {
+            css: MEASUREMENT_CSS,
+            beforeOutput: async (tab) => {
+              await placeAlignmentMarker(tab)
+            },
+            press: { profile: profileBytes },
+          }),
         )
         await trimPdf(pressPdf, pressComparisonPdf)
         proofImage(screen, pressProof, size.width, size.height, table)
