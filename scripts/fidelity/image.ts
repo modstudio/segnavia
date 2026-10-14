@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
-import { ALIGNMENT_TOLERANCE, SCALE } from './config.ts'
+import { ALIGNMENT_SEARCH_RADIUS, ALIGNMENT_TOLERANCE, SCALE } from './config.ts'
 import type { Box, Difference } from './types.ts'
 
 function command(args: string[]): Uint8Array {
@@ -46,14 +46,17 @@ export function proofImage(reference: string, destination: string, width: number
   if (result.exitCode !== 0) throw new Error(`Could not make ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
 }
 
-export function alignmentOffset(
-  actual: string,
-  width: number,
-  height: number,
-  expectedX: number,
-  expectedY: number,
-): { offsetX: number; offsetY: number; passed: boolean } {
-  const pixels = rgb(actual, width, height)
+export function cropImage(source: string, destination: string, box: Box): void {
+  const crop = `crop=${Math.round(box.width)}:${Math.round(box.height)}:${Math.round(box.x)}:${Math.round(box.y)}`
+  const result = Bun.spawnSync(['ffmpeg', '-loglevel', 'error', '-i', source, '-vf', crop, '-frames:v', '1', '-y', destination], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+  if (result.exitCode !== 0) throw new Error(`Could not crop ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
+}
+
+function markerPosition(image: string, width: number, height: number, expectedX: number, expectedY: number): { x: number; y: number } {
+  const pixels = rgb(image, width, height)
   const size = 12 * SCALE
   const samples = [
     { x: SCALE, y: SCALE, color: [254, 1, 253] },
@@ -63,8 +66,8 @@ export function alignmentOffset(
     { x: size / 2, y: size / 2, color: [1, 254, 2] },
   ]
   let best = { x: expectedX, y: expectedY, score: Number.POSITIVE_INFINITY }
-  for (let y = Math.max(0, expectedY - 96); y <= Math.min(height - size, expectedY + 96); y++) {
-    for (let x = Math.max(0, expectedX - 96); x <= Math.min(width - size, expectedX + 96); x++) {
+  for (let y = Math.max(0, expectedY - ALIGNMENT_SEARCH_RADIUS); y <= Math.min(height - size, expectedY + ALIGNMENT_SEARCH_RADIUS); y++) {
+    for (let x = Math.max(0, expectedX - ALIGNMENT_SEARCH_RADIUS); x <= Math.min(width - size, expectedX + ALIGNMENT_SEARCH_RADIUS); x++) {
       let score = 0
       for (const sample of samples) {
         const offset = ((y + sample.y) * width + x + sample.x) * 3
@@ -73,8 +76,21 @@ export function alignmentOffset(
       if (score < best.score) best = { x, y, score }
     }
   }
-  const offsetX = best.x - expectedX
-  const offsetY = best.y - expectedY
+  return best
+}
+
+export function alignmentOffset(
+  reference: string,
+  actual: string,
+  width: number,
+  height: number,
+  expectedX: number,
+  expectedY: number,
+): { offsetX: number; offsetY: number; passed: boolean } {
+  const expected = markerPosition(reference, width, height, expectedX, expectedY)
+  const measured = markerPosition(actual, width, height, expectedX, expectedY)
+  const offsetX = measured.x - expected.x
+  const offsetY = measured.y - expected.y
   return {
     offsetX,
     offsetY,

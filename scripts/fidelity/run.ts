@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { type PageInput, Print, PX_PER_MM, printBoxes, printPadding, printProperties } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import {
@@ -15,7 +16,7 @@ import {
   ROOT,
   SCALE,
 } from './config.ts'
-import { alignmentOffset, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
+import { alignmentOffset, cropImage, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { adobePdfEngine, chromiumViewer, coreGraphics, ghostscript, poppler, readerPath, validateReaderProfile } from './readers.ts'
 import { writeSummary } from './report.ts'
@@ -32,6 +33,40 @@ const documents: DocumentResult[] = []
 const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
+
+interface ScreenReference {
+  page: PageInput
+  css: string
+  crop?: Box
+  description: string
+}
+
+function screenReference(page: PageInput): ScreenReference {
+  if (!page.print) return { page, css: MEASUREMENT_CSS, description: 'screen viewport (the PDF TrimBox)' }
+  const print = Print.parse(page.print)
+  const boxes = printBoxes(print)
+  const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
+  const padding = printPadding({
+    top: margin.top + print.bleed,
+    right: margin.right + print.bleed,
+    bottom: margin.bottom + print.bleed,
+    left: margin.left + print.bleed,
+  })
+  const width = Math.round(boxes.bleedBox.width * PX_PER_MM)
+  const height = Math.round(boxes.bleedBox.height * PX_PER_MM)
+  const crop = {
+    x: (boxes.trim.x - boxes.bleedBox.x) * PX_PER_MM * SCALE,
+    y: (boxes.trim.y - boxes.bleedBox.y) * PX_PER_MM * SCALE,
+    width: Math.round(boxes.trim.width * PX_PER_MM) * SCALE,
+    height: Math.round(boxes.trim.height * PX_PER_MM) * SCALE,
+  }
+  return {
+    page: { ...page, print: undefined, size: { width, height } },
+    css: `${printProperties(print)}${padding}${MEASUREMENT_CSS}`,
+    crop,
+    description: `TrimBox crop of a ${boxes.bleedBox.width}×${boxes.bleedBox.height} mm BleedBox layout`,
+  }
+}
 
 async function prepareEffectless(tab: Tab): Promise<void> {
   await tab.evaluate((effectlessCss) => {
@@ -80,11 +115,14 @@ try {
     const pdf = path.join(documentDirectory, `${fixture.id}.pdf`)
     const effectlessPdf = path.join(documentDirectory, `${fixture.id}-effectless.pdf`)
     const comparisonPdf = path.join(documentDirectory, 'comparison.pdf')
+    const fullScreen = path.join(documentDirectory, 'screen-full.png')
     const regions: Array<{ name: string; box: Box }> = []
-    const screenBytes = await renderer.pageImage(fixture.page, {
+    const reference = screenReference(fixture.page)
+    const screenBytes = await renderer.pageImage(reference.page, {
       scale: SCALE,
-      css: MEASUREMENT_CSS,
+      css: reference.css,
       beforeOutput: async (tab) => {
+        if (reference.crop) await tab.emulateMedia({ media: 'print' })
         regions.push(
           ...(await tab.locator('[data-fidelity]').evaluateAll((elements) =>
             elements.map((element) => {
@@ -100,7 +138,14 @@ try {
       css: MEASUREMENT_CSS,
       beforeOutput: prepareEffectless,
     })
-    await Bun.write(screen, screenBytes)
+    if (reference.crop) {
+      await Bun.write(fullScreen, screenBytes)
+      cropImage(fullScreen, screen, reference.crop)
+      for (const region of regions) {
+        region.box.x -= reference.crop.x / SCALE
+        region.box.y -= reference.crop.y / SCALE
+      }
+    } else await Bun.write(screen, screenBytes)
     await Bun.write(pdf, pdfBytes)
     await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
@@ -115,8 +160,9 @@ try {
     for (const reader of readers) validateReaderProfile(reader)
     for (const reader of readers) {
       if (!reader.worked || !reader.image) continue
-      const croppedBleed = (fixture.page.print?.bleed ?? 0) * (96 / 25.4) * SCALE
-      reader.alignment = alignmentOffset(reader.image, size.width, size.height, Math.round(16 * SCALE - croppedBleed), Math.round(16 * SCALE - croppedBleed))
+      const croppedBleed = reference.crop?.x ?? 0
+      const expectedMarker = Math.round(16 * SCALE - croppedBleed)
+      reader.alignment = alignmentOffset(screen, reader.image, size.width, size.height, expectedMarker, expectedMarker)
       if (!reader.alignment.passed) {
         throw new Error(
           `${fixture.id}/${reader.reader} is misaligned by ${reader.alignment.offsetX}px horizontally and ${reader.alignment.offsetY}px vertically.`,
@@ -193,6 +239,10 @@ try {
       screen,
       width: size.width,
       height: size.height,
+      comparisonBox: {
+        screen: reference.description,
+        readers: 'PDF TrimBox',
+      },
       analysis: await analyzePdf(pdf),
       readers,
       pressPdf,

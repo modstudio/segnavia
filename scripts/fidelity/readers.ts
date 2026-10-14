@@ -179,7 +179,7 @@ document.close(SaveOptions.DONOTSAVECHANGES);`
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
     adobeFailure = detail.includes('ETIMEDOUT')
-      ? 'Photoshop ExtendScript timed out after 120 seconds. Photoshop must be open and allow osascript automation.'
+      ? `Photoshop ExtendScript timed out after 120 seconds. This session must be allowed to control Photoshop through osascript (System Settings → Privacy & Security → Automation). Check with: osascript -e 'tell application "Adobe Photoshop 2026" to do javascript "1+1"' (it must print 2).`
       : `Photoshop ExtendScript failed: ${detail}`
     return { reader: 'adobe', engine, worked: false, error: adobeFailure }
   } finally {

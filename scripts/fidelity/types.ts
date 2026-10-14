@@ -78,6 +78,10 @@ export interface DocumentResult {
   screen: string
   width: number
   height: number
+  comparisonBox: {
+    screen: string
+    readers: string
+  }
   analysis: PdfAnalysis
   readers: ReaderResult[]
   pressPdf?: string

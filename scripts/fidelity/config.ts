@@ -9,7 +9,8 @@ export const SCALE = 4
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
-export const ALIGNMENT_TOLERANCE = 16
+export const ALIGNMENT_SEARCH_RADIUS = 16
+export const ALIGNMENT_TOLERANCE = 8
 
 export const MEASUREMENT_CSS =
   'html{overflow:clip!important}html::after{content:"";position:fixed;left:16px;top:16px;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
