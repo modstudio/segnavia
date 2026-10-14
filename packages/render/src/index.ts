@@ -64,12 +64,12 @@ export interface RenderOptions {
   // top-level HTML slide render. It is not called for an imposed deck because
   // that path has no single frame-based document.
   beforeOutput?: (tab: Tab) => Promise<void>
-  // Converts a finished PDF through the supplied press profile and reports
-  // authored RGB images. Image renders ignore this option.
+  // Converts a finished PDF through the supplied press profile. Image renders
+  // ignore this option.
   press?: {
     /** The ICC profile of the press, as bytes. The library ships none. */
     profile: Uint8Array
-    /** Called once per render with what the PDF still holds in RGB. */
+    /** Called with authored RGB images left unchanged and counts read back from the output. */
     report?: (report: PressReport) => void
   }
 }
@@ -138,6 +138,8 @@ async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promi
 
 async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array> {
   if (!options.press) return enforce(pdf, options.limits)
+  if (options.limits?.maxBytes !== undefined && pdf.byteLength > options.limits.maxBytes)
+    throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${options.limits.maxBytes}.`)
   const converted = await rewritePressPdf(pdf, options.press.profile)
   options.press.report?.(converted.report)
   return enforce(converted.bytes, options.limits)

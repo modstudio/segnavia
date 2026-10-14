@@ -53,7 +53,8 @@ library names a host.
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card; marks and folds are not built. |
-| press profile; `convert` (designed, not built) | render options | The ICC profile of the press, as bytes. A future `convert` hook may supply a full converter for the finished PDF. |
+| press profile | render options | The ICC profile of the press, as bytes, and a report callback for authored RGB images left unchanged and conversion counts read back from the output. |
+| `convert`, proof image, gamut report (designed, not built) | render options | A future hook may supply a full converter for the finished PDF, with a proof and out-of-gamut colors for a host to show. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 
@@ -228,20 +229,24 @@ no single frame-based document on which to run it.
 the host passes `press.profile`: the ICC profile of the press, as bytes. The
 library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed
 forms, rewrite the finished PDF once; `pageImage` and `slideImage` ignore the
-option. Solid fills and strokes, including text and shadow colors, and every
-axial or radial gradient stop are converted through the profile. A black or
-neutral gray becomes black ink alone, so text prints sharp. Non-mask
-transparency groups use DeviceCMYK, while a DeviceGray luminosity mask stays
-gray. Raster images stay byte-for-byte as the author supplied them and are the
-only RGB the result may retain. `press.report` receives their pixel dimensions
-and color-space kinds, plus counts of converted fills, strokes, gradient stops
-and groups. An unfamiliar color operator, shading, function, group or stream
-filter is refused by name rather than left in RGB. The catalog's output intent
+option. Solid fills and strokes, including text and shadow colors and colors
+inside Type 3 glyphs, and every axial or radial gradient stop are converted
+through the profile. A black or neutral gray becomes black ink alone, so text
+prints sharp. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
+group stays gray and a mask source keeps its declared space. Raster images,
+including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
+as the author supplied them and are the only RGB the result may retain.
+`press.report` receives their pixel dimensions and color-space kinds, plus
+counts of converted fills, strokes, gradient stops and groups read back from
+the finished PDF. An unfamiliar color operator, function, group or stream
+filter is refused by name rather than left in RGB. Function-based shadings are
+refused for now; axial and radial shadings are converted. The catalog's output intent
 embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
-through the profile that made them. The finished rewrite happens before the
-existing sheet and byte limit enforcement, so the limits continue to measure
-the bytes and pages actually returned. Profile reads are bounded by
-`MAX_PROFILE_BYTES` (32 MiB) and `MAX_PROFILE_TAGS` (256).
+through the profile that made them. The input byte ceiling is checked before
+the rewrite, and the existing sheet and byte limit enforcement runs afterward,
+so limits also measure the bytes and pages actually returned. Profile reads are bounded by
+`MAX_PROFILE_BYTES` (32 MiB) and `MAX_PROFILE_TAGS` (256). Every inflated
+content stream is bounded by `MAX_CONTENT_BYTES` (32 MiB) before tokenization.
 
 A proof image, a gamut report and a `convert` hook for a host-owned full
 converter remain designed, not built.

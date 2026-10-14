@@ -1,14 +1,18 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
-import { pressPdfContainsBlackInk } from '../../packages/render/src/press/report.ts'
+import { contentHasBlackInk } from '../../packages/render/src/press/content.ts'
+import { decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const genericProfile = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
+const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
+const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
 
 const html = `<!doctype html><style>
 @page{size:1200px 800px;margin:0}*{box-sizing:border-box}html,body{margin:0;width:1200px;height:800px}
@@ -67,6 +71,39 @@ function meanDifference(first: Ppm, second: Ppm): number {
   return difference / first.pixels.length
 }
 
+async function pageHasBlackInk(bytes: Uint8Array): Promise<boolean> {
+  const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  for (const page of document.getPages()) {
+    const contents = page.node.Contents()
+    const objects = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+    for (const object of objects) {
+      const stream = rawStreamOf(document.context.lookup(object))
+      if (stream && contentHasBlackInk(decodeContent(stream))) return true
+    }
+  }
+  return false
+}
+
+async function largestContentStream(bytes: Uint8Array): Promise<number> {
+  const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  let largest = 0
+  for (const [, object] of document.context.enumerateIndirectObjects()) {
+    const stream = rawStreamOf(object)
+    if (!stream || nameOf(stream.dict.get(PDFName.of('Subtype'))) === 'Image') continue
+    const content = nameOf(stream.dict.get(PDFName.of('Subtype'))) === 'Form' || numberOf(stream.dict, 'PatternType') === 1
+    if (content) largest = Math.max(largest, decodeContent(stream).byteLength)
+  }
+  for (const page of document.getPages()) {
+    const contents = page.node.Contents()
+    const objects = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+    for (const object of objects) {
+      const stream = rawStreamOf(document.context.lookup(object))
+      if (stream) largest = Math.max(largest, decodeContent(stream).byteLength)
+    }
+  }
+  return largest
+}
+
 export async function verifyPressRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   const profile = existsSync(genericProfile) ? new Uint8Array(readFileSync(genericProfile)) : buildPressProfile('mft1')
   const profileName = existsSync(genericProfile) ? 'macOS Generic CMYK' : 'synthetic CMYK'
@@ -83,7 +120,10 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     report !== undefined && report.images.length === 2 && report.fills > 0 && report.strokes > 0 && report.gradientStops > 0 && report.groups > 0,
     report ? `${JSON.stringify(report)}, rewrite=${elapsed.toFixed(1)}ms` : 'report not called',
   )
-  check('press page writes black text as black ink alone', await pressPdfContainsBlackInk(converted))
+  check('press page writes black text as black ink alone', await pageHasBlackInk(converted))
+  console.log(
+    `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: demo page largest stream=${await largestContentStream(unconverted)} bytes`,
+  )
   const originalRaster = raster(work, 'press-original', unconverted)
   const convertedRaster = raster(work, 'press-converted', converted)
   const difference = meanDifference(originalRaster, convertedRaster)
@@ -111,4 +151,29 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     reportOption(profile, (report) => (deckReport = report)),
   )
   check('press conversion runs on deckPdf', deckReport?.images.length === 2, deckReport ? JSON.stringify(deckReport) : 'report not called')
+
+  let emojiReport: PressReport | undefined
+  await renderer.pagePdf(
+    { html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>', size: { width: 600, height: 200 } },
+    reportOption(profile, (report) => (emojiReport = report)),
+  )
+  check(
+    'press conversion reports the RGB image drawn by a Type 3 color emoji glyph',
+    (emojiReport?.images.length ?? 0) > 0,
+    emojiReport ? JSON.stringify(emojiReport) : 'report not called',
+  )
+
+  const longDeck: Deck = {
+    title: 'Press content bound',
+    size: { width: 1200, height: 800 },
+    scripts: 'refuse',
+    slides: Array.from({ length: 24 }, (_, index) => ({
+      id: `press-${index}`,
+      content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },
+    })),
+  }
+  const longPdf = await renderer.deckPdf(longDeck)
+  console.log(
+    `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,
+  )
 }

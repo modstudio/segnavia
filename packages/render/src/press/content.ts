@@ -9,12 +9,15 @@ interface Token {
   raw: string
   start: number
 }
-
+interface Replacement {
+  end: number
+  start: number
+  text: string
+}
 export interface ContentCounts {
   fills: number
   strokes: number
 }
-
 export interface ContentRewrite {
   bytes: Uint8Array
   counts: ContentCounts
@@ -25,7 +28,6 @@ const encoder = new TextEncoder()
 const numberPattern = /^[+-]?(?:\d+\.?\d*|\.\d+)$/
 const whitespace = (character: string | undefined): boolean => character !== undefined && /[\0\t\n\f\r ]/.test(character)
 const delimiter = (character: string | undefined): boolean => character !== undefined && /[()<>{}[\]/%]/.test(character)
-
 function refusal(found: string, supported: string): never {
   throw new Error(`PDF content has unsupported ${found}; supported: ${supported}`)
 }
@@ -35,7 +37,6 @@ function skipComment(source: string, at: number): number {
   while (cursor < source.length && source[cursor] !== '\r' && source[cursor] !== '\n') cursor++
   return cursor
 }
-
 function skipLiteral(source: string, at: number): number {
   let cursor = at + 1
   let depth = 1
@@ -52,13 +53,11 @@ function skipLiteral(source: string, at: number): number {
   }
   return refusal('truncated literal string', 'a closing parenthesis')
 }
-
 function skipHex(source: string, at: number): number {
   const end = source.indexOf('>', at + 1)
   if (end < 0) return refusal('truncated hex string', 'a closing >')
   return end + 1
 }
-
 function skipComposite(source: string, at: number, dictionary: boolean, depth = 1): number {
   if (depth > MAX_CONTENT_NESTING) refusal(`dictionary or array nesting over ${MAX_CONTENT_NESTING}`, `at most ${MAX_CONTENT_NESTING} levels`)
   let cursor = at + (dictionary ? 2 : 1)
@@ -70,12 +69,11 @@ function skipComposite(source: string, at: number, dictionary: boolean, depth = 
       continue
     }
     if (dictionary && character === '>' && source[cursor + 1] === '>') return cursor + 2
-    else if (!dictionary && character === ']') return cursor + 1
-    else cursor++
+    if (!dictionary && character === ']') return cursor + 1
+    cursor++
   }
   return refusal(`truncated ${dictionary ? 'dictionary' : 'array'}`, dictionary ? 'a closing >>' : 'a closing ]')
 }
-
 function skipCompositeConstruct(source: string, cursor: number, depth: number): number | undefined {
   const character = source[cursor]
   if (whitespace(character)) return cursor + 1
@@ -85,41 +83,6 @@ function skipCompositeConstruct(source: string, cursor: number, depth: number): 
   if (character === '[') return skipComposite(source, cursor, false, depth + 1)
   return undefined
 }
-
-function inlineImageEnd(source: string, at: number): number {
-  let cursor = at
-  let id = -1
-  while (cursor < source.length) {
-    while (whitespace(source[cursor])) cursor++
-    const start = cursor
-    while (cursor < source.length && !whitespace(source[cursor]) && !delimiter(source[cursor])) cursor++
-    const word = source.slice(start, cursor)
-    if (word === 'ID') {
-      id = cursor
-      break
-    }
-    if (cursor === start) cursor++
-  }
-  if (id < 0) return refusal('truncated BI operator', 'an ID and EI pair')
-  const header = source.slice(at, id)
-  if (/\/(?:CS|ColorSpace)\s+\/(?:RGB|DeviceRGB)\b/.test(header)) refusal('BI operator with RGB color space', 'a non-RGB inline image')
-  const match = /[\0\t\n\f\r ]EI(?=[\0\t\n\f\r ()<>[\]{}/%]|$)/g
-  match.lastIndex = id
-  const end = match.exec(source)
-  if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
-  return end.index + end[0].length
-}
-
-function skippedConstruct(source: string, cursor: number): number | undefined {
-  const character = source[cursor]
-  if (whitespace(character)) return cursor + 1
-  if (character === '%') return skipComment(source, cursor)
-  if (character === '(') return skipLiteral(source, cursor)
-  if (character === '<') return source[cursor + 1] === '<' ? skipComposite(source, cursor, true) : skipHex(source, cursor)
-  if (character === '[') return skipComposite(source, cursor, false)
-  return undefined
-}
-
 function readToken(source: string, cursor: number): Token | undefined {
   const start = cursor
   if (source[cursor] === '/') {
@@ -133,8 +96,111 @@ function readToken(source: string, cursor: number): Token | undefined {
   return { start, end: cursor, raw, kind: numberPattern.test(raw) ? 'number' : 'operator' }
 }
 
-function tokens(source: string): Token[] {
-  const result: Token[] = []
+function inlineHeaderToken(source: string, at: number): { end: number; raw: string } {
+  let cursor = at
+  while (whitespace(source[cursor])) cursor++
+  if (source[cursor] === '[') {
+    const end = skipComposite(source, cursor, false)
+    return { end, raw: source.slice(cursor, end) }
+  }
+  const token = readToken(source, cursor)
+  return token ? { end: token.end, raw: token.raw } : { end: cursor + 1, raw: '' }
+}
+function inlineHeader(source: string, at: number): { colorSpace?: string; id: number; imageMask: boolean } {
+  let cursor = at
+  let name = ''
+  const values = new Map<string, string>()
+  while (cursor < source.length) {
+    const token = inlineHeaderToken(source, cursor)
+    cursor = token.end
+    if (token.raw === 'ID')
+      return {
+        colorSpace: values.get('/CS') ?? values.get('/ColorSpace'),
+        id: cursor,
+        imageMask: values.get('/IM') === 'true' || values.get('/ImageMask') === 'true',
+      }
+    if (!token.raw) continue
+    if (!name) name = token.raw
+    else {
+      values.set(name, token.raw)
+      name = ''
+    }
+  }
+  return refusal('truncated BI operator', 'an ID and EI pair')
+}
+function inlineImageEnd(source: string, at: number): number {
+  const { colorSpace, id, imageMask } = inlineHeader(source, at)
+  const match = /[\0\t\n\f\r ]EI(?=[\0\t\n\f\r ()<>[\]{}/%]|$)/g
+  match.lastIndex = id
+  const end = match.exec(source)
+  if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
+  if (!imageMask && !['/G', '/DeviceGray', '/CMYK', '/DeviceCMYK'].includes(colorSpace ?? 'missing'))
+    refusal(`BI operator with color space ${colorSpace ?? 'missing'}`, 'an image mask, DeviceGray, or DeviceCMYK')
+  return end.index + end[0].length
+}
+function skippedConstruct(source: string, cursor: number): number | undefined {
+  const character = source[cursor]
+  if (whitespace(character)) return cursor + 1
+  if (character === '%') return skipComment(source, cursor)
+  if (character === '(') return skipLiteral(source, cursor)
+  if (character === '<') return source[cursor + 1] === '<' ? skipComposite(source, cursor, true) : skipHex(source, cursor)
+  if (character === '[') return skipComposite(source, cursor, false)
+  return undefined
+}
+function numeric(operands: Token[], count: number, operator: string): number[] {
+  if (operands.length !== count || operands.some((token) => token.kind !== 'number')) refusal(`${operator} operator operands`, `${count} numeric operands`)
+  return operands.map((token) => Number(token.raw))
+}
+function replacement(token: Token, operands: Token[], values: Color4): Replacement {
+  const operator = token.raw === 'rg' || token.raw === 'g' ? 'k' : 'K'
+  return { start: operands[0]?.start ?? token.start, end: token.end, text: `${values.map(formatPdfNumber).join(' ')} ${operator}` }
+}
+function replaceRgb(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts): Replacement {
+  const [red = 0, green = 0, blue = 0] = numeric(operands, 3, token.raw)
+  counts[token.raw === 'rg' ? 'fills' : 'strokes']++
+  return replacement(token, operands, convert([red, green, blue]))
+}
+function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts): Replacement {
+  const [gray = 0] = numeric(operands, 1, token.raw)
+  counts[token.raw === 'g' ? 'fills' : 'strokes']++
+  return replacement(token, operands, convert([gray, gray, gray]))
+}
+function validateSpace(token: Token, operands: Token[]): void {
+  if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
+  if (!['/Pattern', '/DeviceCMYK'].includes(operands[0].raw)) refusal(`${token.raw} operator selecting ${operands[0].raw}`, '/Pattern or /DeviceCMYK')
+}
+function validateSetColor(token: Token, operands: Token[]): void {
+  const pattern = (token.raw === 'scn' || token.raw === 'SCN') && operands.length === 1 && operands[0]?.kind === 'name'
+  if (!pattern) refusal(`${token.raw} operator with numeric operands`, 'a pattern name with scn or SCN')
+}
+function colorOperator(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts, inspect: boolean): Replacement | undefined {
+  const operator = token.raw
+  if (operator === 'rg' || operator === 'RG') {
+    if (inspect) refusal(`RGB color operator ${operator} after conversion`, 'CMYK operators')
+    return replaceRgb(token, operands, convert, counts)
+  }
+  if (operator === 'g' || operator === 'G') {
+    if (inspect) refusal(`gray color operator ${operator} after conversion`, 'CMYK operators')
+    return replaceGray(token, operands, convert, counts)
+  }
+  if (operator === 'cs' || operator === 'CS') validateSpace(token, operands)
+  else if (['sc', 'SC', 'scn', 'SCN'].includes(operator)) validateSetColor(token, operands)
+  else if (operator === 'k' || operator === 'K') {
+    numeric(operands, 4, operator)
+    counts[operator === 'k' ? 'fills' : 'strokes']++
+  }
+  return undefined
+}
+
+function scan(
+  source: string,
+  convert: (rgb: Color3) => Color4,
+  inspect: boolean,
+  visit?: (found: Replacement) => void,
+  operatorVisit?: (operator: Token, operands: Token[]) => void,
+): ContentCounts {
+  const counts = { fills: 0, strokes: 0 }
+  let operands: Token[] = []
   let cursor = 0
   while (cursor < source.length) {
     const skipped = skippedConstruct(source, cursor)
@@ -147,108 +213,58 @@ function tokens(source: string): Token[] {
       cursor++
       continue
     }
-    result.push(token)
     cursor = token.end
-    if (token.raw === 'BI') cursor = inlineImageEnd(source, cursor)
+    if (token.raw === 'BI') {
+      cursor = inlineImageEnd(source, cursor)
+      operands = []
+    } else if (token.kind === 'operator') {
+      operatorVisit?.(token, operands)
+      const found = colorOperator(token, operands, convert, counts, inspect)
+      if (found) visit?.(found)
+      operands = []
+    } else operands.push(token)
   }
-  return result
+  return counts
 }
 
-function numeric(operands: Token[], count: number, operator: string): number[] {
-  if (operands.length !== count || operands.some((token) => token.kind !== 'number')) refusal(`${operator} operator operands`, `${count} numeric operands`)
-  return operands.map((token) => Number(token.raw))
+export function contentHasBlackInk(bytes: Uint8Array): boolean {
+  let found = false
+  scan(
+    decoder.decode(bytes),
+    () => [0, 0, 0, 0],
+    false,
+    undefined,
+    (operator, operands) => {
+      if (operator.raw === 'k' && numeric(operands, 4, 'k').every((value, index) => value === [0, 0, 0, 1][index])) found = true
+    },
+  )
+  return found
 }
 
+export function inspectContent(bytes: Uint8Array): ContentCounts {
+  return scan(decoder.decode(bytes), () => refusal('RGB color operator after conversion', 'CMYK operators'), true)
+}
 export function rewriteContent(bytes: Uint8Array, convert: (rgb: Color3) => Color4): ContentRewrite {
   const source = decoder.decode(bytes)
-  const replacements: Array<{ start: number; end: number; text: string }> = []
-  const counts = { fills: 0, strokes: 0 }
-  let operands: Token[] = []
-  for (const token of tokens(source)) {
-    if (token.kind !== 'operator') {
-      operands.push(token)
-      continue
-    }
-    applyColorOperator(token, operands, convert, replacements, counts)
-    operands = []
-  }
-  if (replacements.length === 0) return { bytes, counts }
-  const parts: Uint8Array[] = []
-  let cursor = 0
-  for (const replacement of replacements) {
-    parts.push(bytes.subarray(cursor, replacement.start), encoder.encode(replacement.text))
-    cursor = replacement.end
-  }
-  parts.push(bytes.subarray(cursor))
-  const length = parts.reduce((sum, part) => sum + part.length, 0)
-  const rewritten = new Uint8Array(length)
-  let offset = 0
-  for (const part of parts) {
-    rewritten.set(part, offset)
-    offset += part.length
-  }
-  return { bytes: rewritten, counts }
-}
-
-function applyColorOperator(
-  token: Token,
-  operands: Token[],
-  convert: (rgb: Color3) => Color4,
-  replacements: Array<{ start: number; end: number; text: string }>,
-  counts: ContentCounts,
-): void {
-  const operator = token.raw
-  if (operator === 'rg' || operator === 'RG') {
-    replaceRgb(token, operands, convert, replacements, counts)
-    return
-  }
-  if (operator === 'g' || operator === 'G') {
-    replaceGray(token, operands, replacements, counts)
-    return
-  }
-  if (operator === 'cs' || operator === 'CS') {
-    validateSpace(operator, operands)
-    return
-  }
-  if (['sc', 'SC', 'scn', 'SCN'].includes(operator)) {
-    validateSetColor(operator, operands)
-    return
-  }
-  if (operator !== 'k' && operator !== 'K') return
-  numeric(operands, 4, operator)
-  counts[operator === 'k' ? 'fills' : 'strokes']++
-}
-
-function replaceRgb(
-  token: Token,
-  operands: Token[],
-  convert: (rgb: Color3) => Color4,
-  replacements: Array<{ start: number; end: number; text: string }>,
-  counts: ContentCounts,
-): void {
-  const [red = 0, green = 0, blue = 0] = numeric(operands, 3, token.raw)
-  const values = convert([red, green, blue]).map(formatPdfNumber)
-  replacements.push({ start: operands[0]?.start ?? token.start, end: token.end, text: `${values.join(' ')} ${token.raw === 'rg' ? 'k' : 'K'}` })
-  counts[token.raw === 'rg' ? 'fills' : 'strokes']++
-}
-
-function replaceGray(token: Token, operands: Token[], replacements: Array<{ start: number; end: number; text: string }>, counts: ContentCounts): void {
-  const [gray = 0] = numeric(operands, 1, token.raw)
-  replacements.push({
-    start: operands[0]?.start ?? token.start,
-    end: token.end,
-    text: `0 0 0 ${formatPdfNumber(1 - gray)} ${token.raw === 'g' ? 'k' : 'K'}`,
+  let outputLength = bytes.length
+  let changed = false
+  const counts = scan(source, convert, false, (found) => {
+    changed = true
+    outputLength += encoder.encode(found.text).length - (found.end - found.start)
   })
-  counts[token.raw === 'g' ? 'fills' : 'strokes']++
-}
-
-function validateSpace(operator: string, operands: Token[]): void {
-  if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${operator} operator operands`, 'one color space name')
-  if (!['/Pattern', '/DeviceGray', '/DeviceCMYK'].includes(operands[0].raw))
-    refusal(`${operator} operator selecting ${operands[0].raw}`, '/Pattern, /DeviceGray, or /DeviceCMYK')
-}
-
-function validateSetColor(operator: string, operands: Token[]): void {
-  const pattern = (operator === 'scn' || operator === 'SCN') && operands.length === 1 && operands[0]?.kind === 'name'
-  if (!pattern) refusal(`${operator} operator with numeric operands`, 'a pattern name with scn or SCN')
+  if (!changed) return { bytes, counts }
+  const output = new Uint8Array(outputLength)
+  let inputAt = 0
+  let outputAt = 0
+  scan(source, convert, false, (found) => {
+    const untouched = bytes.subarray(inputAt, found.start)
+    output.set(untouched, outputAt)
+    outputAt += untouched.length
+    const inserted = encoder.encode(found.text)
+    output.set(inserted, outputAt)
+    outputAt += inserted.length
+    inputAt = found.end
+  })
+  output.set(bytes.subarray(inputAt), outputAt)
+  return { bytes: output, counts }
 }

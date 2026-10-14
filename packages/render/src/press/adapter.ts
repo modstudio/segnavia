@@ -1,19 +1,19 @@
-import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { arrayNumbers, dictionaryOf, nameOf, numberOf, rawStreamOf, replaceArray } from './pdf-objects.ts'
+import { arrayNumbers, decodeContent, dictionaryOf, nameOf, numberOf, rawStreamOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { inspectPressPdf } from './report.ts'
-import type { PressImage, PressReport } from './types.ts'
+import type { PressReport } from './types.ts'
 
 export { inspectPressPdf } from './report.ts'
 
 interface RewriteState {
   convert: ReturnType<typeof cachedPressColor>
   document: PDFDocument
-  luminosity: WeakSet<PDFRawStream>
+  maskSources: WeakSet<PDFRawStream>
   profile: Profile
   seenFunctions: WeakSet<PDFDict>
   seenGroups: WeakSet<PDFDict>
@@ -40,23 +40,6 @@ function dictResolved(state: RewriteState, object: PDFObject | undefined): PDFDi
   return dictionaryOf(resolved(state, object))
 }
 
-function colorSpaceKind(state: RewriteState, object: PDFObject | undefined): PressImage['colorSpace'] | 'DeviceGray' | 'DeviceCMYK' | undefined {
-  const value = resolved(state, object)
-  const name = nameOf(value)
-  if (name === 'DeviceRGB' || name === 'CalRGB' || name === 'DeviceGray' || name === 'DeviceCMYK') return name
-  if (!(value instanceof PDFArray)) return undefined
-  const family = nameOf(resolved(state, value.get(0)))
-  if (family === 'ICCBased') {
-    const profile = rawResolved(state, value.get(1))
-    return profile?.dict.lookupMaybe(key('N'), PDFNumber)?.asNumber() === 3 ? 'ICCBased' : undefined
-  }
-  if (family === 'Indexed') {
-    const base = colorSpaceKind(state, value.get(1))
-    return base === 'DeviceRGB' || base === 'CalRGB' || base === 'ICCBased' || base === 'Indexed' ? 'Indexed' : undefined
-  }
-  return undefined
-}
-
 function convertFunction(state: RewriteState, object: PDFObject | undefined): number {
   const fn = dictResolved(state, object)
   if (!fn) return refusal('shading function that is not a dictionary or stream', 'FunctionType 2 or 3')
@@ -70,6 +53,7 @@ function convertFunction(state: RewriteState, object: PDFObject | undefined): nu
       replaceArray(fn, name, state.convert(rgb))
       stops++
     }
+    if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
     return stops
   }
   if (type !== 3) return refusal(`shading FunctionType ${type ?? 'missing'}`, 'FunctionType 2 or 3')
@@ -77,6 +61,7 @@ function convertFunction(state: RewriteState, object: PDFObject | undefined): nu
   if (!functions) return refusal('FunctionType 3 without Functions', 'a Functions array of FunctionType 2 or 3 functions')
   let stops = 0
   for (let index = 0; index < functions.size(); index++) stops += convertFunction(state, functions.get(index))
+  if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
   return stops
 }
 
@@ -87,10 +72,11 @@ function convertShading(state: RewriteState, object: PDFObject | undefined): num
   state.seenShadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
   if (type !== 2 && type !== 3) return refusal(`ShadingType ${type ?? 'missing'}`, 'ShadingType 2 or 3')
-  const space = colorSpaceKind(state, shading.get(key('ColorSpace')))
-  if (space === 'DeviceCMYK') return 0
-  if (space !== 'DeviceRGB') return refusal(`shading color space ${space ?? shading.get(key('ColorSpace'))?.toString() ?? 'missing'}`, 'DeviceRGB')
+  const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
+  if (space.kind === 'cmyk') return 0
+  if (space.kind !== 'rgb') return refusal(`shading color space ${space.label}`, 'DeviceRGB')
   const stops = convertFunction(state, shading.get(key('Function')))
+  if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
   return stops
 }
@@ -104,45 +90,34 @@ function copyStreamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
   return dictionary
 }
 
-function decodedContent(stream: PDFRawStream): Uint8Array {
-  const filter = stream.dict.get(key('Filter'))
-  if (filter && nameOf(filter) !== 'Fl' + 'ateDecode') refusal(`content stream filter ${filter.toString()}`, 'Fl' + 'ateDecode or no filter')
-  try {
-    return filter ? decodePDFRawStream(stream).decode() : stream.contents
-  } catch (error) {
-    return refusal(`content stream that could not be decoded (${(error as Error).message})`, 'a valid Fl' + 'ateDecode or unfiltered stream')
-  }
-}
-
 function replaceTarget(state: RewriteState, original: PDFObject, replacement: PDFRawStream, setDirect: (stream: PDFRawStream) => void): void {
   const reference = original instanceof PDFRef ? original : state.document.context.getObjectRef(original)
   if (reference) state.document.context.assign(reference, replacement)
   else setDirect(replacement)
 }
 
-function convertGroup(state: RewriteState, stream: PDFRawStream): number {
-  const group = stream.dict.lookupMaybe(key('Group'), PDFDict)
+function convertGroup(state: RewriteState, owner: PDFDict, stream?: PDFRawStream): number {
+  const group = owner.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || state.seenGroups.has(group)) return 0
   state.seenGroups.add(group)
-  const space = colorSpaceKind(state, group.get(key('CS')))
-  if (state.luminosity.has(stream)) {
-    if (space !== 'DeviceGray') refusal(`luminosity mask group color space ${space ?? 'missing'}`, 'DeviceGray')
-    return 0
-  }
-  if (space && space !== 'DeviceRGB' && space !== 'DeviceCMYK')
-    refusal(`transparency group color space ${space}`, 'DeviceRGB, DeviceCMYK, or no declared space')
-  if (space === 'DeviceCMYK') return 0
+  const space = resolvedColorSpace(state.document, resolved(state, group.get(key('CS'))))
+  if (space.kind === 'gray' || (stream && state.maskSources.has(stream) && (space.label === 'DeviceRGB' || space.label === 'missing'))) return 0
+  if (space.kind === 'rgb' && space.label !== 'DeviceRGB')
+    refusal(`transparency group color space ${space.label}`, 'DeviceRGB, DeviceCMYK, DeviceGray, or no declared space')
+  if (space.kind === 'other' && space.label !== 'missing')
+    refusal(`transparency group color space ${space.label}`, 'DeviceRGB, DeviceCMYK, DeviceGray, or no declared space')
+  if (space.kind === 'cmyk') return 0
   group.set(key('CS'), key('DeviceCMYK'))
   return 1
 }
 
-function markLuminosityMasks(state: RewriteState): void {
+function markMaskSources(state: RewriteState): void {
   for (const [, object] of state.document.context.enumerateIndirectObjects()) {
     const dictionary = dictionaryOf(object)
     const mask = dictionary ? dictResolved(state, dictionary.get(key('SMask'))) : undefined
-    if (!mask || nameOf(mask.get(key('S'))) !== 'Luminosity') continue
+    if (!mask) continue
     const source = rawResolved(state, mask.get(key('G')))
-    if (source) state.luminosity.add(source)
+    if (source) state.maskSources.add(source)
   }
 }
 
@@ -150,8 +125,8 @@ function convertStream(state: RewriteState, object: PDFObject, setDirect: (strea
   const stream = rawResolved(state, object)
   if (!stream || state.seenStreams.has(stream)) return { fills: 0, strokes: 0, groups: 0 }
   state.seenStreams.add(stream)
-  const groups = convertGroup(state, stream)
-  const rewritten = rewriteContent(decodedContent(stream), state.convert)
+  const groups = convertGroup(state, stream.dict, stream)
+  const rewritten = rewriteContent(decodeContent(stream), state.convert)
   const replacement = state.document.context.stream(rewritten.bytes, copyStreamDictionary(stream))
   state.seenStreams.add(replacement)
   replaceTarget(state, object, replacement, setDirect)
@@ -180,14 +155,32 @@ function walkResources(state: RewriteState, resources: PDFDict | undefined, tota
   walkPatterns(state, resources.lookupMaybe(key('Pattern'), PDFDict), totals)
   walkXObjects(state, resources.lookupMaybe(key('XObject'), PDFDict), totals)
   walkSoftMasks(state, graphicsStates, totals)
+  walkFonts(state, resources.lookupMaybe(key('Font'), PDFDict), totals)
 }
 
 function markResourceLuminosityMasks(state: RewriteState, states: PDFDict | undefined): void {
   for (const [, stateObject] of states?.entries() ?? []) {
     const mask = dictResolved(state, dictResolved(state, stateObject)?.get(key('SMask')))
-    if (!mask || nameOf(mask.get(key('S'))) !== 'Luminosity') continue
+    if (!mask) continue
     const source = rawResolved(state, mask.get(key('G')))
-    if (source) state.luminosity.add(source)
+    if (source) state.maskSources.add(source)
+  }
+}
+
+function walkFonts(state: RewriteState, fonts: PDFDict | undefined, totals: PressRewriteCounts): void {
+  for (const [, fontObject] of fonts?.entries() ?? []) {
+    const font = dictResolved(state, fontObject)
+    if (!font || nameOf(font.get(key('Subtype'))) !== 'Type3') continue
+    const charProcs = font.lookupMaybe(key('CharProcs'), PDFDict)
+    for (const [name, charObject] of charProcs?.entries() ?? []) {
+      add(
+        totals,
+        convertStream(state, charObject, (replacement) => charProcs?.set(name, replacement)),
+      )
+      const glyph = rawResolved(state, charObject)
+      walkResources(state, glyph?.dict.lookupMaybe(key('Resources'), PDFDict), totals)
+    }
+    walkResources(state, font.lookupMaybe(key('Resources'), PDFDict), totals)
   }
 }
 
@@ -234,8 +227,9 @@ function walkSoftMasks(state: RewriteState, states: PDFDict | undefined, totals:
 
 function rewriteDocument(state: RewriteState): PressRewriteCounts {
   const totals = emptyTotals()
-  markLuminosityMasks(state)
+  markMaskSources(state)
   for (const page of state.document.getPages()) {
+    totals.groups += convertGroup(state, page.node)
     const contents = page.node.Contents()
     if (contents instanceof PDFArray) {
       for (let index = 0; index < contents.size(); index++) {
@@ -277,7 +271,7 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
     document,
     profile,
     convert: cachedPressColor(profile),
-    luminosity: new WeakSet(),
+    maskSources: new WeakSet(),
     seenFunctions: new WeakSet(),
     seenGroups: new WeakSet(),
     seenResources: new WeakSet(),

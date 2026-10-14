@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { deflateSync } from 'node:zlib'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, rgb } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
@@ -60,7 +61,7 @@ test('a form XObject shared by two pages is represented once in the read-back re
 })
 
 function type2(document: PDFDocument, from: number[], to: number[]) {
-  return document.context.register(document.context.obj({ FunctionType: 2, Domain: [0, 1], C0: from, C1: to, N: 1 }))
+  return document.context.register(document.context.obj({ FunctionType: 2, Domain: [0, 1], Range: [0, 1, 0, 1, 0, 1], C0: from, C1: to, N: 1 }))
 }
 
 test('converts axial and radial shadings through type 2 and stitching functions', async () => {
@@ -69,10 +70,17 @@ test('converts axial and radial shadings through type 2 and stitching functions'
   const first = type2(document, [0, 1, 0], [1, 0, 1])
   const second = type2(document, [1, 0, 1], [0, 1, 1])
   const stitching = document.context.register(
-    document.context.obj({ FunctionType: 3, Domain: [0, 1], Functions: [first, second], Bounds: [0.5], Encode: [0, 1, 0, 1] }),
+    document.context.obj({ FunctionType: 3, Domain: [0, 1], Range: [0, 1, 0, 1, 0, 1], Functions: [first, second], Bounds: [0.5], Encode: [0, 1, 0, 1] }),
   )
   const axial = document.context.register(
-    document.context.obj({ ShadingType: 2, ColorSpace: 'DeviceRGB', Coords: [0, 0, 10, 0], Function: axialFunction, Extend: [true, true] }),
+    document.context.obj({
+      ShadingType: 2,
+      ColorSpace: 'DeviceRGB',
+      Background: [0.5, 0.25, 0],
+      Coords: [0, 0, 10, 0],
+      Function: axialFunction,
+      Extend: [true, true],
+    }),
   )
   const radial = document.context.register(
     document.context.obj({ ShadingType: 3, ColorSpace: 'DeviceRGB', Coords: [5, 5, 0, 5, 5, 10], Function: stitching, Extend: [true, true] }),
@@ -81,6 +89,20 @@ test('converts axial and radial shadings through type 2 and stitching functions'
   setResources(document, page, { Shading: { Axial: axial, Radial: radial } }, '/Axial sh /Radial sh')
   const converted = await rewritePressPdf(await document.save(), profile)
   expect(converted.report.gradientStops).toBe(6)
+  const output = await PDFDocument.load(converted.bytes)
+  const dictionaries = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .filter((object): object is PDFDict => object instanceof PDFDict)
+  const functions = dictionaries.filter((dictionary) => dictionary.has(PDFName.of('FunctionType')))
+  const shadings = dictionaries.filter((dictionary) => dictionary.has(PDFName.of('ShadingType')))
+  expect(functions.every((fn) => fn.lookup(PDFName.of('Range'), PDFArray).size() === 8)).toBe(true)
+  expect(
+    shadings
+      .find((shading) => shading.has(PDFName.of('Background')))
+      ?.lookup(PDFName.of('Background'), PDFArray)
+      .size(),
+  ).toBe(4)
 })
 
 test('sets ordinary transparency groups to CMYK and preserves a gray luminosity mask group', async () => {
@@ -111,6 +133,64 @@ test('sets ordinary transparency groups to CMYK and preserves a gray luminosity 
   setResources(document, page, { XObject: { Inherited: inherited, Rgb: rgbGroup }, ExtGState: { Mask: { SMask: mask } } }, '/Inherited Do /Rgb Do /Mask gs')
   const converted = await rewritePressPdf(await document.save(), profile)
   expect(converted.report.groups).toBe(2)
+})
+
+test('converts page groups while leaving ordinary and mask DeviceGray groups alone', async () => {
+  const document = await PDFDocument.create()
+  for (const space of [undefined, 'DeviceRGB', 'DeviceGray']) {
+    const page = document.addPage([10, 10])
+    page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('0 g')))
+    page.node.set(PDFName.of('Group'), document.context.obj({ S: 'Transparency', ...(space ? { CS: space } : {}) }))
+  }
+  const grayForm = document.context.register(
+    document.context.stream('', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 1, 1], Group: { S: 'Transparency', CS: 'DeviceGray' } }),
+  )
+  const alphaMask = document.context.register(document.context.obj({ S: 'Alpha', G: grayForm }))
+  document.getPage(2).node.set(PDFName.of('Resources'), document.context.obj({ ExtGState: { Mask: { SMask: alphaMask } } }))
+  const converted = await rewritePressPdf(await document.save(), profile)
+  expect(converted.report.groups).toBe(2)
+})
+
+test('rewrites Type 3 glyph color and reports an RGB image drawn by a glyph', async () => {
+  const document = await PDFDocument.create()
+  const image = document.context.register(
+    document.context.stream(Uint8Array.of(255, 0, 0), {
+      Type: 'XObject',
+      Subtype: 'Image',
+      Width: 1,
+      Height: 1,
+      ColorSpace: 'DeviceRGB',
+      BitsPerComponent: 8,
+    }),
+  )
+  const glyph = document.context.register(document.context.stream('1 0 0 rg /Emoji Do', { Resources: { XObject: { Emoji: image } } }))
+  const font = document.context.register(
+    document.context.obj({
+      Type: 'Font',
+      Subtype: 'Type3',
+      FontBBox: [0, 0, 10, 10],
+      FontMatrix: [0.1, 0, 0, 0.1, 0, 0],
+      CharProcs: { A: glyph },
+      Encoding: { Type: 'Encoding', Differences: [65, 'A'] },
+      FirstChar: 65,
+      LastChar: 65,
+      Widths: [10],
+      Resources: {},
+    }),
+  )
+  setResources(document, document.addPage([20, 20]), { Font: { F1: font } }, '/F1 10 Tf (A) Tj')
+  const converted = await rewritePressPdf(await document.save(), profile)
+  expect(converted.report.fills).toBe(1)
+  expect(converted.report.images).toEqual([{ width: 1, height: 1, colorSpace: 'DeviceRGB' }])
+})
+
+test('accepts the compression filter expressed as a one-element filter array', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  const content = document.context.stream(deflateSync(new TextEncoder().encode('1 0 0 rg')), { Filter: ['Fl' + 'ateDecode'] })
+  page.node.set(PDFName.of('Contents'), document.context.register(content))
+  const converted = await rewritePressPdf(await document.save(), profile)
+  expect(converted.report.fills).toBe(1)
 })
 
 function imageBytes(document: PDFDocument): Uint8Array[] {

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { rewriteContent } from './content.ts'
+import { inspectContent, rewriteContent } from './content.ts'
 
 const bytes = (value: string) => new TextEncoder().encode(value)
 const text = (value: Uint8Array) => new TextDecoder().decode(value)
@@ -8,7 +8,7 @@ const convert = ([red, green, blue]: [number, number, number]): [number, number,
 test('rewrites RGB and gray fills and strokes in every PDF numeric form', () => {
   const source = '.5 -0 1. rg +1 .5 0 RG 0.2 g 1. G'
   const result = rewriteContent(bytes(source), convert)
-  expect(text(result.bytes)).toBe('0.25 0 0.5 0.25 k 0.5 0.25 0 0.25 K 0 0 0 0.8 k 0 0 0 0 K')
+  expect(text(result.bytes)).toBe('0.25 0 0.5 0.25 k 0.5 0.25 0 0.25 K 0.1 0.1 0.1 0.25 k 0.5 0.5 0.5 0.25 K')
   expect(result.counts).toEqual({ fills: 2, strokes: 2 })
 })
 
@@ -34,4 +34,18 @@ test.each([
 
 test.each(['(unfinished', '<123', '<< /A 1', '[1 2', 'BI /W 1 ID data'])('refuses a truncated stream: %s', (source) => {
   expect(() => rewriteContent(bytes(source), convert)).toThrow(/truncated/)
+})
+
+test.each(['BI /CS/RGB ID x EI', 'BI /CS /CalRGB ID x EI', 'BI /CS /CS0 ID x EI', 'BI /CS [/Indexed /DeviceRGB 1 <00>] ID x EI'])(
+  'refuses every unsupported inline image space: %s',
+  (source) => expect(() => rewriteContent(bytes(source), convert)).toThrow(/BI operator with color space/),
+)
+
+test.each(['BI /IM true ID x EI', 'BI /ImageMask true ID x EI', 'BI /CS/G ID x EI', 'BI /CS/DeviceCMYK ID x EI'])(
+  'accepts an inline mask, gray image, or CMYK image: %s',
+  (source) => expect(text(rewriteContent(bytes(source), convert).bytes)).toBe(source),
+)
+
+test('the read-back operator policy refuses gray as well as RGB', () => {
+  expect(() => inspectContent(bytes('0.5 g'))).toThrow(/gray color operator g/)
 })
