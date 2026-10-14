@@ -3,19 +3,29 @@ import type { DeckController, DeckState, ResolvedContent } from './controller.ts
 import { frameWindow } from './deck-window.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { stageCanvas } from './stage-content.ts'
+import { type HostTransition, type TurnTransition, transitionFor } from './transition.ts'
 
 interface PoolOptions {
   neighbors: boolean
   css: string
   csp: string
   frameTitle: FrameTitle
+  transition?: HostTransition
+  reducedMotion: boolean
+}
+
+interface PendingTurn {
+  id: string
+  visibleId: string
+  running: boolean
+  cancel: () => void
 }
 
 export class FramePool {
   private entries = new Map<string, { canvas: HTMLElement; value: ContentValue }>()
   private turn = 0
   private deck: DeckState['deck'] = null
-  private pending: { id: string; visibleId: string; cancel: () => void } | null = null
+  private pending: PendingTurn | null = null
 
   constructor(
     private host: HTMLElement,
@@ -35,7 +45,7 @@ export class FramePool {
     if (!deck || !state.slide || !state.content) return
     const reloaded = deck !== this.deck
     this.deck = deck
-    if (deck.scripts === 'sandboxed' && this.updateSandboxed(state, controller, options)) {
+    if (this.updateTurn(state, controller, options)) {
       this.changed()
       return
     }
@@ -50,21 +60,7 @@ export class FramePool {
     }
     this.add(state.index, state.content, state, controller, options)
     this.sync(state, options.frameTitle)
-    const turn = ++this.turn
-    for (const index of indexes) {
-      if (index === state.index) continue
-      const slide = deck.slides[index]
-      if (!slide || (!reloaded && this.entries.has(slide.id))) continue
-      void controller
-        .contentFor(index)
-        .then((content) => {
-          if (turn !== this.turn || controller.state.deck !== deck) return
-          this.add(index, content, state, controller, options)
-          this.sync(controller.state, options.frameTitle)
-          this.changed()
-        })
-        .catch(() => {})
-    }
+    this.mountWindow(state, controller, options, reloaded)
     this.changed()
   }
 
@@ -81,6 +77,39 @@ export class FramePool {
     this.pending = null
   }
 
+  private updateTurn(state: DeckState, controller: DeckController, options: PoolOptions): boolean {
+    const deck = state.deck
+    const slide = state.slide
+    if (!deck || !slide || !state.content) return false
+    if (this.pending?.id === slide.id) {
+      const pending = this.entries.get(slide.id)
+      const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
+      if (pending && sameContent(pending.value, value)) return true
+    }
+    this.cancelPending()
+    const active = this.host.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
+    const activeId = active?.dataset.slideId
+    if (!activeId || activeId === slide.id) return deck.scripts === 'sandboxed' && this.updateSandboxed(state, controller, options)
+    const fromIndex = deck.slides.findIndex((candidate) => candidate.id === activeId)
+    const from = deck.slides[fromIndex]
+    if (!from) return false
+    const transition = transitionFor({
+      deck,
+      from,
+      to: slide,
+      direction: state.index >= fromIndex ? 'forward' : 'back',
+      hostOverride: options.transition,
+      reducedMotion: options.reducedMotion,
+    })
+    if (transition.kind === 'none') return deck.scripts === 'sandboxed' && this.updateSandboxed(state, controller, options)
+
+    const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
+    const existing = this.entries.get(slide.id)
+    const ready = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
+    this.startSwap(state, controller, options, activeId, fromIndex, transition, ready)
+    return true
+  }
+
   private updateSandboxed(state: DeckState, controller: DeckController, options: PoolOptions): boolean {
     const deck = state.deck
     const slide = state.slide
@@ -92,16 +121,15 @@ export class FramePool {
       const pending = this.entries.get(slide.id)
       if (this.pending?.id === slide.id && pending && sameContent(pending.value, value)) return true
       this.cancelPending()
-      const incoming = this.add(state.index, state.content, state, controller, options, false)
-      if (!incoming) return true
-      this.beginSwap(slide.id, activeId, incoming, controller, options.frameTitle)
-      this.retain(
+      this.startSwap(
         state,
+        controller,
+        options,
+        activeId,
         deck.slides.findIndex((candidate) => candidate.id === activeId),
-        options.neighbors,
+        null,
+        false,
       )
-      this.sync(state, options.frameTitle)
-      this.host.append(incoming)
       return true
     }
     this.cancelPending()
@@ -111,24 +139,71 @@ export class FramePool {
     return true
   }
 
-  private beginSwap(id: string, visibleId: string, incoming: HTMLElement, controller: DeckController, frameTitle: FrameTitle) {
+  private startSwap(
+    state: DeckState,
+    controller: DeckController,
+    options: PoolOptions,
+    activeId: string,
+    fromIndex: number,
+    transition: TurnTransition | null,
+    ready: boolean,
+  ) {
+    const slide = state.slide
+    if (!slide || !state.content) return
+    this.turn++
+    const incoming = this.add(state.index, state.content, state, controller, options, false)
+    if (!incoming) return
+    this.beginSwap(slide.id, activeId, incoming, controller, options, transition, ready)
+    this.retain(state, fromIndex, options.neighbors)
+    this.sync(state, options.frameTitle)
+    if (!incoming.isConnected) this.host.append(incoming)
+  }
+
+  private beginSwap(
+    id: string,
+    visibleId: string,
+    incoming: HTMLElement,
+    controller: DeckController,
+    options: PoolOptions,
+    transition: TurnTransition | null,
+    ready: boolean,
+  ) {
     const media = incoming.querySelector('iframe, img')
     let firstFrame = 0
     let secondFrame = 0
     let timeout = 0
     let settled = false
+    let animationTimeout = 0
+    let animationFrame = 0
     const finish = () => {
       if (settled || this.pending?.id !== id) return
       settled = true
       cleanup()
       this.pending = null
-      this.retain(controller.state, controller.state.index, false)
-      this.sync(controller.state, frameTitle)
+      this.clearTransitionAttributes()
+      this.retain(controller.state, controller.state.index, options.neighbors)
+      this.sync(controller.state, options.frameTitle)
+      this.mountWindow(controller.state, controller, options)
       this.changed()
+    }
+    const animate = () => {
+      if (!transition || transition.duration === 0) return finish()
+      const outgoing = this.entries.get(visibleId)?.canvas
+      if (!outgoing) return finish()
+      this.setTransitionAttributes(outgoing, incoming, transition)
+      // Commit the entering position before the next frame starts motion.
+      incoming.getBoundingClientRect()
+      ;(this.pending as PendingTurn).running = true
+      animationFrame = requestAnimationFrame(() => {
+        if (settled || this.pending?.id !== id) return
+        outgoing.dataset.running = ''
+        incoming.dataset.running = ''
+        animationTimeout = window.setTimeout(finish, transition.duration + 50)
+      })
     }
     const painted = () => {
       firstFrame = requestAnimationFrame(() => {
-        secondFrame = requestAnimationFrame(finish)
+        secondFrame = requestAnimationFrame(animate)
       })
     }
     const cleanup = () => {
@@ -136,20 +211,84 @@ export class FramePool {
       if (firstFrame) cancelAnimationFrame(firstFrame)
       if (secondFrame) cancelAnimationFrame(secondFrame)
       if (timeout) clearTimeout(timeout)
+      if (animationTimeout) clearTimeout(animationTimeout)
+      if (animationFrame) cancelAnimationFrame(animationFrame)
     }
-    media?.addEventListener('load', painted, { once: true })
+    if (ready) painted()
+    else media?.addEventListener('load', painted, { once: true })
     // Measured complete turns in local Chromium stay below 100 ms; 250 ms leaves
     // more than twice that headroom without letting a broken frame stall a turn.
-    timeout = window.setTimeout(finish, TURN_SWAP_TIMEOUT_MS)
+    if (!ready) timeout = window.setTimeout(transition ? animate : finish, TURN_SWAP_TIMEOUT_MS)
     this.pending = {
       id,
       visibleId,
+      running: false,
       cancel: () => {
-        settled = true
-        cleanup()
-        incoming.remove()
-        this.entries.delete(id)
+        if (this.pending?.running) {
+          settled = true
+          cleanup()
+          this.clearTransitionAttributes()
+          const outgoing = this.entries.get(visibleId)?.canvas
+          outgoing?.removeAttribute('data-active')
+          if (outgoing) {
+            outgoing.setAttribute('aria-hidden', 'true')
+            outgoing.inert = true
+          }
+          incoming.dataset.active = ''
+          incoming.setAttribute('aria-hidden', 'false')
+          incoming.inert = false
+          this.mountWindow(controller.state, controller, options)
+          this.changed()
+        } else if (!ready) {
+          settled = true
+          cleanup()
+          incoming.remove()
+          this.entries.delete(id)
+        } else {
+          settled = true
+          cleanup()
+          this.clearTransitionAttributes()
+          incoming.removeAttribute('data-incoming')
+        }
       },
+    }
+  }
+
+  private setTransitionAttributes(outgoing: HTMLElement, incoming: HTMLElement, transition: TurnTransition) {
+    const duration = `${transition.duration}ms`
+    for (const canvas of [outgoing, incoming]) {
+      canvas.dataset.transition = transition.kind
+      canvas.dataset.axis = transition.axis
+      canvas.style.setProperty('--segnavia-transition-duration', duration)
+    }
+    outgoing.dataset.leaving = ''
+    incoming.dataset.entering = ''
+  }
+
+  private clearTransitionAttributes() {
+    for (const canvas of this.entries.values()) {
+      for (const name of ['data-transition', 'data-axis', 'data-entering', 'data-leaving', 'data-running']) canvas.canvas.removeAttribute(name)
+      canvas.canvas.style.removeProperty('--segnavia-transition-duration')
+    }
+  }
+
+  private mountWindow(state: DeckState, controller: DeckController, options: PoolOptions, reload = false) {
+    const deck = state.deck
+    if (!deck) return
+    const turn = ++this.turn
+    for (const index of frameWindow(state.index, deck.slides.length, options.neighbors, deck.scripts)) {
+      if (index === state.index) continue
+      const slide = deck.slides[index]
+      if (!slide || (!reload && this.entries.has(slide.id))) continue
+      void controller
+        .contentFor(index)
+        .then((content) => {
+          if (turn !== this.turn || controller.state.deck !== deck) return
+          this.add(index, content, state, controller, options)
+          this.sync(controller.state, options.frameTitle)
+          this.changed()
+        })
+        .catch(() => {})
     }
   }
 

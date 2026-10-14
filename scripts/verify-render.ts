@@ -313,7 +313,12 @@ try {
   )
 
   const slide = await renderer.slideImage(
-    { title: 'T', size: { width: 1280, height: 720 }, scripts: 'refuse', slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }] },
+    {
+      title: 'T',
+      size: { width: 1280, height: 720 },
+      scripts: 'refuse',
+      slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
+    },
     0,
     { scale: 1 },
   )

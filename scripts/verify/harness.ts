@@ -91,7 +91,7 @@ export async function openHarness(): Promise<Harness> {
         .catch(() => {})
     },
     async clickFrame(selector) {
-      const box = await page.locator(selector).boundingBox()
+      const box = await page.locator(selector).boundingBox({ timeout: 20000 })
       if (!box) throw new Error(`${selector} has no box to click.`)
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
     },

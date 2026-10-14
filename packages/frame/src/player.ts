@@ -4,11 +4,13 @@
 // none of it uses the headless stage and controller.
 //
 // Attributes: src · theme (auto | light | dark; auto by default) · notes
-// (open the notes) · hash ("off" to leave the address alone) · prefetch.
-// Properties: controller, resolveSlide, css, labels. Data attributes mirror
+// (open the notes) · hash ("off" to leave the address alone) · prefetch ·
+// transition · transition-duration. Properties: controller, resolveSlide,
+// css, labels, transition. Data attributes mirror
 // the state for styling: data-slide, data-playing, data-word, data-shown,
 // data-direction.
 
+import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
@@ -16,6 +18,7 @@ import { ICONS } from './controls-style.ts'
 import { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaStage } from './stage.ts'
+import type { HostTransition } from './transition.ts'
 
 const LAYOUT = `<div class="player" part="player">
   <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage></div><segnavia-notes part="notes"></segnavia-notes></div>
@@ -29,7 +32,7 @@ const LAYOUT = `<div class="player" part="player">
 const COMPONENTS = 'segnavia-play,segnavia-step,segnavia-track,segnavia-counter,segnavia-fullscreen,segnavia-caption,segnavia-notes'
 
 export class SegnaviaPlayer extends HTMLElement {
-  static observedAttributes = ['src', 'notes']
+  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -71,14 +74,32 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.css = css
   }
 
+  get transition(): HostTransition | undefined {
+    return this.stage.transition
+  }
+
+  set transition(value: TransitionInput | 'none') {
+    this.stage.transition = value
+  }
+
   connectedCallback() {
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
+    this.passTransitionAttributes()
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
     if (name === 'src' && value) void this.controller.loadUrl(value)
     if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
+    if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
+  }
+
+  private passTransitionAttributes() {
+    for (const name of ['transition', 'transition-duration']) {
+      const value = this.getAttribute(name)
+      if (value === null) this.stage.removeAttribute(name)
+      else this.stage.setAttribute(name, value)
+    }
   }
 
   private controls(): SegnaviaControl[] {

@@ -7,15 +7,19 @@
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
 // State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction. A visible canvas has data-active; a
-// sandboxed canvas waiting to replace it has data-incoming.
+// data-word, data-shown, data-direction. A visible canvas has data-active, and
+// a pending incoming canvas on any swap has data-incoming. Motion uses
+// data-transition, data-entering, data-leaving, data-running and data-axis.
 
+import type { TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { type FittedSize, fitSheet } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import type { HostTransition } from './transition.ts'
+import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
 export interface StageReserve {
   blockStart?: number
@@ -23,7 +27,7 @@ export interface StageReserve {
 }
 
 export class SegnaviaStage extends HTMLElement {
-  static observedAttributes = ['src', 'neighbors', 'fit']
+  static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
   // Styles applied inside every slide, such as a host's house style.
   css = ''
   cspExtra = ''
@@ -34,6 +38,16 @@ export class SegnaviaStage extends HTMLElement {
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
   private pool = new FramePool(this, () => this.measure())
+  private transitionProperty: HostTransition | undefined
+
+  get transition(): HostTransition | undefined {
+    return this.transitionProperty ?? transitionFromAttributes(this.getAttribute('transition'), this.getAttribute('transition-duration'))
+  }
+
+  set transition(value: TransitionInput | 'none') {
+    this.transitionProperty = parseTransitionProperty(value)
+    if (this.attached?.state.deck) this.update(this.attached.state)
+  }
 
   // Neighbor frames mount only when author scripts are refused. A sandboxed
   // deck keeps one frame because a hidden running script could take page focus.
@@ -146,6 +160,8 @@ export class SegnaviaStage extends HTMLElement {
       css: this.css,
       csp: this.cspExtra,
       frameTitle: this.frameTitle,
+      transition: this.transition,
+      reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
     })
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
@@ -184,7 +200,10 @@ export class SegnaviaStage extends HTMLElement {
       fitted = { scale, width: deck.size.width * scale, height: deck.size.height * scale }
       this.style.removeProperty('block-size')
     }
-    for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) item.style.transform = `scale(${fitted.scale})`
+    for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) {
+      item.style.transform = `scale(${fitted.scale})`
+      item.style.setProperty('--segnavia-transition-scale', String(fitted.scale))
+    }
     if (this.measured?.scale === fitted.scale && this.measured.width === fitted.width && this.measured.height === fitted.height) return
     this.measured = fitted
     this.dispatchEvent(new CustomEvent('segnavia-fit', { detail: fitted }))

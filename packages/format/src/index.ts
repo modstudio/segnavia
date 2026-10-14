@@ -4,6 +4,7 @@
 
 import { z } from 'zod'
 import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { Transition } from './transition.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export {
@@ -32,6 +33,7 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export * from './transition.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -294,6 +296,7 @@ const DeckShape = z.object({
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
+  transition: Transition.optional(),
   slides: z.array(Slide).min(1),
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationCueIssues, Deck, type Narration } from './index.ts'
+import { annotationCueIssues, DEFAULT_TRANSITION_DURATION_MS, Deck, MAX_TRANSITION_DURATION_MS, type Narration } from './index.ts'
 
 const shot = {
   key: 'a.b',
@@ -47,8 +47,25 @@ describe('deck', () => {
 
   test('a deck defaults to a 1280 by 720 canvas with scripts refused', () => {
     const deck = Deck.parse({ title: 'T', slides: [{ id: 's', content: { kind: 'html', html: '<p>x</p>' } }] })
-    expect(deck.size).toEqual({ width: 1280, height: 720 })
-    expect(deck.scripts).toBe('refuse')
+    expect(deck).toEqual({
+      title: 'T',
+      size: { width: 1280, height: 720 },
+      scripts: 'refuse',
+      slides: [{ id: 's', content: { kind: 'html', html: '<p>x</p>' } }],
+    })
+  })
+
+  test('a transition defaults its duration and validates the millisecond bounds', () => {
+    const input = { title: 'T', slides: [{ id: 's', content: { kind: 'html', html: '' } }] }
+    expect(Deck.parse({ ...input, transition: { kind: 'fade' } }).transition).toEqual({ kind: 'fade', duration: DEFAULT_TRANSITION_DURATION_MS })
+    expect(Deck.parse({ ...input, transition: { kind: 'slide', duration: 0 } }).transition).toEqual({ kind: 'slide', duration: 0 })
+    expect(Deck.parse({ ...input, transition: { kind: 'slide', duration: MAX_TRANSITION_DURATION_MS } }).transition).toEqual({
+      kind: 'slide',
+      duration: MAX_TRANSITION_DURATION_MS,
+    })
+    expect(Deck.safeParse({ ...input, transition: { kind: 'fade', duration: -1 } }).success).toBe(false)
+    expect(Deck.safeParse({ ...input, transition: { kind: 'fade', duration: MAX_TRANSITION_DURATION_MS + 1 } }).success).toBe(false)
+    expect(Deck.safeParse({ ...input, transition: { kind: 'fade', duration: 1.5 } }).success).toBe(false)
   })
 })
 

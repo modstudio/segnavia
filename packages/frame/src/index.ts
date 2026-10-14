@@ -20,6 +20,7 @@ export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDial
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
 export { SegnaviaStage, type StageReserve } from './stage.ts'
 export { momentAt, wordAt, wordIndex } from './timeline.ts'
+export { type HostTransition, type TransitionAxis, type TurnDirection, type TurnTransition, transitionFor } from './transition.ts'
 
 if (!customElements.get('segnavia-stage')) customElements.define('segnavia-stage', SegnaviaStage)
 if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
