@@ -88,7 +88,14 @@ try {
       if (!reader.worked || !reader.image) continue
       const marker = regions[0]?.box
       if (!marker) throw new Error(`${fixture.id} has no marked effect regions.`)
-      reader.alignment = alignmentOffset(reader.image, size.width, size.height, Math.round(marker.x * SCALE), Math.round(marker.y * SCALE))
+      const croppedBleed = (fixture.page.print?.bleed ?? 0) * (96 / 25.4) * SCALE
+      reader.alignment = alignmentOffset(
+        reader.image,
+        size.width,
+        size.height,
+        Math.round(marker.x * SCALE - croppedBleed),
+        Math.round(marker.y * SCALE - croppedBleed),
+      )
       if (!reader.alignment.passed) {
         throw new Error(
           `${fixture.id}/${reader.reader} is misaligned by ${reader.alignment.offsetX}px horizontally and ${reader.alignment.offsetY}px vertically.`,

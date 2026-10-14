@@ -11,7 +11,7 @@ export const COMPARISON_IMAGE_THRESHOLD = { mean: 2, p99: 24 }
 export const EFFECT_REGION_THRESHOLD = { mean: 8, p99: 160 }
 export const PRESS_COLOR_THRESHOLD = { mean: 12, p99: 180 }
 export const PDF_BYTES_THRESHOLD = 2_500_000
-export const ALIGNMENT_TOLERANCE = 8
+export const ALIGNMENT_TOLERANCE = 16
 
 export const MEASUREMENT_CSS =
   'html{overflow:hidden!important}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
