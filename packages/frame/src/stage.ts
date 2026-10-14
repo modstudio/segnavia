@@ -7,7 +7,8 @@
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
 // State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction.
+// data-word, data-shown, data-direction. A visible canvas has data-active; a
+// sandboxed canvas waiting to replace it has data-incoming.
 
 import { ensureBaseStyle } from './base-style.ts'
 import { MESSAGE, messageFrom } from './bridge.ts'

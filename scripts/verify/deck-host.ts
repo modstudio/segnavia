@@ -193,20 +193,28 @@ export async function verifyDeckHost(h: Harness) {
     JSON.stringify({ ranBefore, ranRefused, ranAgain, ...refusedFacts }),
   )
 
-  const frameBeforeCss = await page.locator(`${STAGE} [data-active] iframe`).elementHandle()
-  await page.evaluate(async () => {
-    const host = (window as unknown as { __deckHost: { setCss(css: string): Promise<void> } }).__deckHost
-    await host.setCss('h1{background:rgb(250, 204, 21)}')
+  const pendingCss = await page.evaluate(async () => {
+    const host = (
+      window as unknown as {
+        __deckHost: { controller: { go(index: number): Promise<void> }; setCss(css: string): Promise<void> }
+      }
+    ).__deckHost
+    await host.controller.go(1)
+    const firstIncoming = document.querySelector<HTMLElement>('#deck [data-incoming]')
+    await host.setCss('h1{background:rgb(34, 197, 94)}')
+    const replacement = document.querySelector<HTMLElement>('#deck [data-incoming]')
+    return { firstRemoved: Boolean(firstIncoming) && !firstIncoming?.isConnected, replaced: Boolean(replacement) && replacement !== firstIncoming }
   })
-  await page.waitForFunction((frame) => document.querySelector('#deck [data-active] iframe') !== frame, frameBeforeCss)
-  const cssFacts = {
-    replaced: (await page.locator(`${STAGE} [data-active] iframe`).elementHandle()) !== frameBeforeCss,
-    background: await page
-      .frameLocator(`${STAGE} [data-active] iframe`)
-      .locator('h1')
-      .evaluate((heading) => getComputedStyle(heading).backgroundColor),
-  }
-  check('deck host: changed host css rebuilds the current frame', cssFacts.replaced && cssFacts.background === 'rgb(250, 204, 21)', JSON.stringify(cssFacts))
+  await page.waitForFunction(() => document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'sandboxed-2')
+  const pendingBackground = await page
+    .frameLocator(`${STAGE} [data-active] iframe`)
+    .locator('h1')
+    .evaluate((heading) => getComputedStyle(heading).backgroundColor)
+  check(
+    'deck host: changed css rebuilds an incoming frame during a pending swap',
+    pendingCss.firstRemoved && pendingCss.replaced && pendingBackground === 'rgb(34, 197, 94)',
+    JSON.stringify({ ...pendingCss, background: pendingBackground }),
+  )
 
   const turnDurations: number[] = []
   const pixels: Array<[number, number, number]> = []
