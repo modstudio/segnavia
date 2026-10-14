@@ -7,7 +7,7 @@ export interface PressGraphActions {
   function: (fn: PDFDict | undefined, decision: FunctionDecision) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, maskSource: boolean) => void
   image: (stream: PDFRawStream) => void
-  shading: (shading: PDFDict) => boolean
+  shading: (shading: PDFDict, pattern?: PDFDict) => boolean
 }
 
 interface WalkState {
@@ -78,8 +78,8 @@ function visitFunction(state: WalkState, object: PDFObject | undefined): void {
   for (let index = 0; index < (functions?.size() ?? 0); index++) visitFunction(state, functions?.get(index))
 }
 
-function visitShading(state: WalkState, shading: PDFDict): void {
-  if (state.actions?.shading(shading)) visitFunction(state, shading.get(key('Function')))
+function visitShading(state: WalkState, shading: PDFDict, pattern?: PDFDict): void {
+  if (state.actions?.shading(shading, pattern)) visitFunction(state, shading.get(key('Function')))
 }
 
 function visitShadings(state: WalkState, resources: PDFDict): void {
@@ -97,7 +97,7 @@ function visitPatterns(state: WalkState, resources: PDFDict): void {
     if (!found) continue
     if (numberOf(found, 'PatternType') === 2) {
       const shading = dictionary(state, found.get(key('Shading')))
-      if (shading) visitShading(state, shading)
+      if (shading) visitShading(state, shading, found)
     } else visitContent(state, object, (replacement) => patterns?.set(name, replacement))
     visitResources(state, found.lookupMaybe(key('Resources'), PDFDict))
   }

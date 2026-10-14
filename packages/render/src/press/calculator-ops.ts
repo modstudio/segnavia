@@ -3,10 +3,7 @@ import { RenderRefusedError } from '../errors.ts'
 // Chromium programs keep a handful of values; 32 is enough for copy/index/roll without unbounded stack growth.
 export const MAX_CALCULATOR_STACK = 32
 
-export type CalculatorOp =
-  | { kind: 'number'; int: boolean; value: number }
-  | { kind: 'operator'; name: string }
-  | { kind: 'procedure'; body: CalculatorOp[] }
+export type CalculatorOp = { kind: 'number'; int: boolean; value: number } | { kind: 'operator'; name: string } | { kind: 'procedure'; body: CalculatorOp[] }
 
 export type StackValue = { kind: 'n'; int: boolean; value: number } | { kind: 'b'; value: boolean } | { kind: 'p'; body: readonly CalculatorOp[] }
 
@@ -30,8 +27,7 @@ function pop(state: EvalState, operator: string): StackValue {
 
 function push(state: EvalState, value: StackValue): void {
   state.stack.push(value)
-  if (state.stack.length > MAX_CALCULATOR_STACK)
-    calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
+  if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
 }
 
 function popNumber(state: EvalState, operator: string): { int: boolean; value: number } {
@@ -92,14 +88,6 @@ function compare(operator: string, apply: (left: number, right: number) => boole
   }
 }
 
-function bitwise(operator: string, apply: (left: number, right: number) => number): Handler {
-  return (state) => {
-    const right = popInt(state, operator)
-    const left = popInt(state, operator)
-    pushNumber(state, apply(left, right) | 0, true)
-  }
-}
-
 function equal(state: EvalState, operator: string, negate: boolean): void {
   const right = pop(state, operator)
   const left = pop(state, operator)
@@ -114,7 +102,12 @@ function psRound(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value)
 }
 
-function logicalOrBitwise(state: EvalState, operator: string, bools: (left: boolean, right: boolean) => boolean, ints: (left: number, right: number) => number): void {
+function logicalOrBitwise(
+  state: EvalState,
+  operator: string,
+  bools: (left: boolean, right: boolean) => boolean,
+  ints: (left: number, right: number) => number,
+): void {
   const right = pop(state, operator)
   const left = pop(state, operator)
   if (left.kind === 'b' && right.kind === 'b') {
@@ -165,7 +158,13 @@ const operators: Record<string, Handler> = {
   sqrt: unary('sqrt', (value) => ({ value: Math.sqrt(value), int: false })),
   sub: binary('sub', (left, right, ints) => ({ value: left - right, int: ints })),
   truncate: unary('truncate', (value, int) => ({ value: Math.trunc(value), int })),
-  and: (state) => logicalOrBitwise(state, 'and', (left, right) => left && right, (left, right) => left & right),
+  and: (state) =>
+    logicalOrBitwise(
+      state,
+      'and',
+      (left, right) => left && right,
+      (left, right) => left & right,
+    ),
   bitshift: (state) => {
     const shift = popInt(state, 'bitshift')
     const value = popInt(state, 'bitshift')
@@ -191,9 +190,21 @@ const operators: Record<string, Handler> = {
     }
     calculatorRefuse('calculator not operand type', 'a boolean or an integer')
   },
-  or: (state) => logicalOrBitwise(state, 'or', (left, right) => left || right, (left, right) => left | right),
+  or: (state) =>
+    logicalOrBitwise(
+      state,
+      'or',
+      (left, right) => left || right,
+      (left, right) => left | right,
+    ),
   true: (state) => pushBool(state, true),
-  xor: (state) => logicalOrBitwise(state, 'xor', (left, right) => left !== right, (left, right) => left ^ right),
+  xor: (state) =>
+    logicalOrBitwise(
+      state,
+      'xor',
+      (left, right) => left !== right,
+      (left, right) => left ^ right,
+    ),
   if: (state, exec) => {
     const body = popProc(state, 'if')
     if (popBool(state, 'if')) exec(body)

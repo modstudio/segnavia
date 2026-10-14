@@ -1,7 +1,10 @@
 import { expect, test } from 'bun:test'
+import { deflateSync } from 'node:zlib'
+import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 import { parseCalculator } from './calculator.ts'
 import { pressColor } from './color-policy.ts'
 import {
@@ -9,13 +12,19 @@ import {
   MAX_SHADING_SAMPLES,
   multiplyAffine,
   readSampleCmyk,
-  sampleShadingToCmyk,
   SHADING_SAMPLE_SPACING_PT,
+  sampleShadingToCmyk,
   shadingSampleGrid,
 } from './sample-shading.ts'
 
-const profile = readProfile(buildPressProfile('mft1'))
+const profileBytes = buildPressProfile('mft1')
+const profile = readProfile(profileBytes)
 const convert = (rgb: [number, number, number]) => pressColor(profile, rgb)
+
+function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
+  page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
+}
 
 const REPEATING_LINEAR = `{pop
 dup truncate sub
@@ -55,10 +64,13 @@ test('sample grid stores x varying fastest so a swapped n/m layout fails', () =>
   const left = readSampleCmyk(samples, size.n, 0, 0)
   const right = readSampleCmyk(samples, size.n, size.n - 1, 0)
   const top = readSampleCmyk(samples, size.n, 0, size.m - 1)
-  expect(right[3]).toBeCloseTo(0, 5)
-  expect(left[3]).toBeCloseTo(1, 5)
-  expect(top[3]).toBeCloseTo(1, 5)
-  expect(Math.abs((right[3] ?? 0) - (left[3] ?? 0))).toBeGreaterThan(0.5)
+  const close = (found: number[], expected: number[]) => {
+    for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 4)
+  }
+  close(left, pressColor(profile, [0, 0, 0]))
+  close(right, pressColor(profile, [1, 0, 0]))
+  close(top, pressColor(profile, [0, 0, 0]))
+  expect(right[1]).not.toBeCloseTo(left[1] ?? 0, 2)
 })
 
 test('sampling a neutral uses black ink alone, not the color engine', () => {
@@ -94,4 +106,77 @@ test('sampled color at each repeating-linear stop equals pressColor of that stop
 
 test('pattern matrix maps domain axes into device space', () => {
   expect(multiplyAffine([2, 0, 0, 3, 4, 5], [1, 0, 0, 1, 0, 0])).toEqual([2, 0, 0, 3, 4, 5])
+})
+
+test('converts a function-based RGB shading into a DeviceCMYK sampled function', async () => {
+  const document = await PDFDocument.create()
+  const domain = [0, 1, 0, 1]
+  const fn = document.context.register(
+    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 0.4 0.4 0.4 }')), {
+      FunctionType: 4,
+      Domain: domain,
+      Range: [0, 1, 0, 1, 0, 1],
+      Filter: 'Fl' + 'ateDecode',
+    }),
+  )
+  const shading = document.context.register(
+    document.context.obj({
+      ShadingType: 1,
+      ColorSpace: 'DeviceRGB',
+      Domain: domain,
+      Function: fn,
+      Background: [0.4, 0.4, 0.4],
+      Extend: [true, true],
+      BBox: [0, 0, 1, 1],
+    }),
+  )
+  const pattern = document.context.register(document.context.obj({ Type: 'Pattern', PatternType: 2, Matrix: [10, 0, 0, 10, 0, 0], Shading: shading }))
+  setResources(document, document.addPage([20, 20]), { Pattern: { P1: pattern } }, '/Pattern cs /P1 scn')
+  const converted = await rewritePressPdf(await document.save(), profileBytes)
+  expect(converted.report.sampledShadings).toBe(1)
+  const output = await PDFDocument.load(converted.bytes)
+  const convertedShading = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .find((object): object is PDFDict => object instanceof PDFDict && object.has(PDFName.of('ShadingType')))
+  expect(convertedShading?.get(PDFName.of('ColorSpace'))?.toString()).toBe('/DeviceCMYK')
+  expect(convertedShading?.lookup(PDFName.of('Background'), PDFArray).size()).toBe(4)
+  expect(convertedShading?.lookup(PDFName.of('Extend'), PDFArray).size()).toBe(2)
+  expect(convertedShading?.lookup(PDFName.of('BBox'), PDFArray).size()).toBe(4)
+  const sampled = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('BitsPerSample')))
+  expect(sampled).toBeDefined()
+  expect(sampled?.dict.lookup(PDFName.of('Size'), PDFArray).lookup(0)?.toString()).toBe('20')
+  expect(sampled?.dict.lookup(PDFName.of('BitsPerSample'))?.toString()).toBe('16')
+  expect(sampled?.dict.lookup(PDFName.of('Order'))?.toString()).toBe('1')
+  expect(sampled?.dict.lookup(PDFName.of('Range'), PDFArray).size()).toBe(8)
+  expect(readSampleCmyk(decodePDFRawStream(sampled as PDFRawStream).decode(), 20, 0, 0)).toEqual(pressColor(profile, [0.4, 0.4, 0.4]))
+})
+
+test('the read-back inspection refuses a function-based shading still in RGB', async () => {
+  const document = await PDFDocument.create()
+  const fn = document.context.register(
+    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 1 0 0 }')), {
+      FunctionType: 4,
+      Domain: [0, 1, 0, 1],
+      Range: [0, 1, 0, 1, 0, 1],
+      Filter: 'Fl' + 'ateDecode',
+    }),
+  )
+  const shading = document.context.register(document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 1, 0, 1], Function: fn }))
+  setResources(document, document.addPage([10, 10]), { Shading: { Bad: shading } }, '/Bad sh')
+  await expect(inspectPressPdf(await document.save())).rejects.toThrow(/ShadingType 1 FunctionType 4 color space DeviceRGB/)
+})
+
+test.each([2, 0])('refuses a type 1 shading whose function is type %p', async (functionType) => {
+  const document = await PDFDocument.create()
+  const fn =
+    functionType === 2
+      ? document.context.register(document.context.obj({ FunctionType: 2, C0: [1, 0, 0], C1: [0, 0, 1] }))
+      : document.context.register(document.context.stream(Uint8Array.of(0), { FunctionType: functionType }))
+  const shading = document.context.register(document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Function: fn }))
+  setResources(document, document.addPage([10, 10]), { Shading: { Bad: shading } }, '/Bad sh')
+  await expect(rewritePressPdf(await document.save(), profileBytes)).rejects.toThrow(`ShadingType 1 FunctionType ${functionType}`)
 })

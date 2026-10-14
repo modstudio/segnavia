@@ -1,10 +1,5 @@
 import { expect, test } from 'bun:test'
-import {
-  evaluateCalculator,
-  MAX_CALCULATOR_PROGRAM_BYTES,
-  MAX_CALCULATOR_STACK,
-  parseCalculator,
-} from './calculator.ts'
+import { evaluateCalculator, MAX_CALCULATOR_PROGRAM_BYTES, MAX_CALCULATOR_STACK, parseCalculator } from './calculator.ts'
 
 const run = (source: string, inputs: number[] = []) => evaluateCalculator(parseCalculator(source), inputs)
 

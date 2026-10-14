@@ -85,8 +85,7 @@ export function parseCalculator(source: string): CalculatorOp[] {
 
 function push(state: EvalState, value: StackValue): void {
   state.stack.push(value)
-  if (state.stack.length > MAX_CALCULATOR_STACK)
-    calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
+  if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
 }
 
 function exec(body: readonly CalculatorOp[], state: EvalState): void {
@@ -111,8 +110,7 @@ export function evaluateCalculator(program: readonly CalculatorOp[], inputs: rea
     count: 0,
     stack: inputs.map((value) => ({ kind: 'n' as const, value, int: Number.isInteger(value) })),
   }
-  if (state.stack.length > MAX_CALCULATOR_STACK)
-    calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
+  if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
   exec(program, state)
   return state.stack.map((value) => {
     if (value.kind !== 'n') return calculatorRefuse('calculator output type', 'numbers')

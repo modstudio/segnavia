@@ -60,6 +60,8 @@ left in RGB besides an authored image would print in a color nobody chose, so
 content the rewrite does not know is a refusal that names it, not a line in a
 report.
 
+**A gradient the browser computes is sampled into the press's inks.** A conic or repeating gradient has no list of stops in the PDF, only a program; the render evaluates it and writes the samples in CMYK, so its stops and its blend print in press colors.
+
 **The library ships no catalogue of label stock.** Stock numbers differ by
 maker and country and change. A grid in millimeters describes any of them, so
 a host supplies the stock it uses as a value.

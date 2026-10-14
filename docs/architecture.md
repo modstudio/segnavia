@@ -247,10 +247,16 @@ group stays gray and a mask source keeps its declared space. Raster images,
 including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
 as the author supplied them and are the only RGB the result may retain.
 `press.report` receives their pixel dimensions and color-space kinds, plus
-counts of converted fills, strokes, gradient stops and groups read back from
+counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
-refused for now; axial and radial shadings are converted. The catalog's output intent
+converted by sampling their calculator program onto a DeviceCMYK type 0 function:
+one sample per 0.5 pt of the shading's domain in device space (the pattern
+`/Matrix` and the domain), capped at `MAX_SHADING_SAMPLES` (1 048 576). The
+interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES` (8192),
+`MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled data
+counts against `MAX_DOCUMENT_CONTENT_BYTES`. Axial and radial shadings are
+converted by their stops. The catalog's output intent
 embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
 through the profile that made them. The input byte ceiling is checked before
 the rewrite, and the existing sheet and byte limit enforcement runs afterward,

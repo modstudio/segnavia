@@ -5,9 +5,10 @@ import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { arrayNumbers, type ContentBudget, decodeContent, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
+import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
+import { replaceType1Function } from './sample-shading.ts'
 import type { PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
 
@@ -49,16 +50,29 @@ function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: F
   if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
 }
 
-function convertShading(state: RewriteState, shading: PDFDict): boolean {
+function functionTypeOf(state: RewriteState, shading: PDFDict): number | undefined {
+  const fn = dictionaryOf(resolved(state, shading.get(key('Function'))))
+  return fn ? numberOf(fn, 'FunctionType') : undefined
+}
+
+function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
   if (state.seenShadings.has(shading)) return false
   state.seenShadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
+  const functionType = functionTypeOf(state, shading)
   const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
-  const policy = shadingAction(space.kind, type)
-  if (policy.action === 'refuse') refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
+  const policy = shadingAction(space.kind, type, functionType)
+  if (policy.action === 'refuse') {
+    if (type === 1) refuse(`ShadingType 1 FunctionType ${functionType ?? 'missing'}`, policy.supported)
+    refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
+  }
   if (policy.action === 'keep') return false
   if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
+  if (type === 1) {
+    replaceType1Function(state.document, shading, pattern, state.convert, state.budget)
+    return false
+  }
   return true
 }
 
@@ -112,7 +126,7 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile): P
     function: (fn, decision) => convertFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
     image: () => undefined,
-    shading: (shading) => convertShading(state, shading),
+    shading: (shading, pattern) => convertShading(state, shading, pattern),
   })
   return state.totals
 }

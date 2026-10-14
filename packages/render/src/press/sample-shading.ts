@@ -1,5 +1,5 @@
 import { deflateSync } from 'node:zlib'
-import { PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 'pdf-lib'
+import { type PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 'pdf-lib'
 import type { Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { evaluateCalculator, parseCalculator } from './calculator.ts'
@@ -27,17 +27,24 @@ function axisSamples(span: number, columnA: number, columnB: number): number {
   return Math.max(1, Math.ceil((Math.hypot(columnA, columnB) * Math.abs(span)) / SHADING_SAMPLE_SPACING_PT))
 }
 
+function affineComponent(values: readonly number[], index: number): number {
+  return values[index] ?? 0
+}
+
 export function multiplyAffine(left: readonly number[], right: readonly number[]): number[] {
-  const [a0, b0, c0, d0, e0, f0] = left
-  const [a1, b1, c1, d1, e1, f1] = right
-  return [
-    (a0 ?? 0) * (a1 ?? 0) + (c0 ?? 0) * (b1 ?? 0),
-    (b0 ?? 0) * (a1 ?? 0) + (d0 ?? 0) * (b1 ?? 0),
-    (a0 ?? 0) * (c1 ?? 0) + (c0 ?? 0) * (d1 ?? 0),
-    (b0 ?? 0) * (c1 ?? 0) + (d0 ?? 0) * (d1 ?? 0),
-    (a0 ?? 0) * (e1 ?? 0) + (c0 ?? 0) * (f1 ?? 0) + (e0 ?? 0),
-    (b0 ?? 0) * (e1 ?? 0) + (d0 ?? 0) * (f1 ?? 0) + (f0 ?? 0),
-  ]
+  const a0 = affineComponent(left, 0)
+  const b0 = affineComponent(left, 1)
+  const c0 = affineComponent(left, 2)
+  const d0 = affineComponent(left, 3)
+  const e0 = affineComponent(left, 4)
+  const f0 = affineComponent(left, 5)
+  const a1 = affineComponent(right, 0)
+  const b1 = affineComponent(right, 1)
+  const c1 = affineComponent(right, 2)
+  const d1 = affineComponent(right, 3)
+  const e1 = affineComponent(right, 4)
+  const f1 = affineComponent(right, 5)
+  return [a0 * a1 + c0 * b1, b0 * a1 + d0 * b1, a0 * c1 + c0 * d1, b0 * c1 + d0 * d1, a0 * e1 + c0 * f1 + e0, b0 * e1 + d0 * f1 + f0]
 }
 
 export function matrixOf(dictionary: PDFDict | undefined): number[] {
