@@ -19,7 +19,7 @@ export const MARKER_SIZE = 12
 export const MARKER_BORDER = 3
 export const MARKER_FILL = [1, 254, 2] as const
 export const MARKER_BORDER_COLOR = [254, 1, 253] as const
-// True-marker five-sample scores were Poppler 3, CoreGraphics 9, Chromium 32, Adobe 18, and Ghostscript 6.
+// A full five-reader run measured scores of 0 for Poppler, 1 for CoreGraphics, 0–17 for Chromium, 0 for Adobe, and 0 for Ghostscript.
 export const MARKER_MATCH_MAX_SCORE = 50
 export const EXPECTED_MARKER_POSITION = MARKER_INSET * SCALE
 

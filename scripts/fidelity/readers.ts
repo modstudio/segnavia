@@ -4,7 +4,7 @@ import { rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { type Browser, chromium } from 'playwright-core'
-import { MARKER_BORDER_COLOR, MARKER_INSET, MARKER_SIZE, READER_RASTER_DPI, SCALE } from './config.ts'
+import { MARKER_BORDER_COLOR, MARKER_INSET, READER_RASTER_DPI, SCALE } from './config.ts'
 import type { ReaderResult } from './types.ts'
 
 const SRGB_PROFILE = '/System/Library/ColorSync/Profiles/sRGB Profile.icc'
@@ -52,6 +52,7 @@ export function viewerPageBoxFromPixels(
   screenshotHeight: number,
   pageWidth: number,
   pageHeight: number,
+  markerInset = MARKER_INSET * SCALE,
 ): { x: number; y: number; width: number; height: number } {
   let markerLeft = screenshotWidth
   let markerTop = screenshotHeight
@@ -69,14 +70,12 @@ export function viewerPageBoxFromPixels(
     }
   }
   if (markerRight < markerLeft || markerBottom < markerTop) throw new Error('Chromium PDF viewer marker was not found in the screenshot.')
-  const markerWidth = markerRight - markerLeft + 1
-  const markerHeight = markerBottom - markerTop + 1
-  const scale = (markerWidth + markerHeight) / (2 * MARKER_SIZE * SCALE)
-  const x = markerLeft - MARKER_INSET * SCALE * scale
-  const y = markerTop - MARKER_INSET * SCALE * scale
+  const scaleX = (markerLeft - screenshotWidth / 2) / (markerInset - pageWidth / 2)
+  const scaleY = (markerTop - screenshotHeight / 2) / (markerInset - pageHeight / 2)
+  const scale = (scaleX + scaleY) / 2
   return {
-    x: Math.round(x),
-    y: Math.round(y),
+    x: Math.round((screenshotWidth - pageWidth * scale) / 2),
+    y: Math.round((screenshotHeight - pageHeight * scale) / 2),
     width: Math.round(pageWidth * scale),
     height: Math.round(pageHeight * scale),
   }
@@ -88,14 +87,16 @@ function viewerPageBox(
   height: number,
   pageWidth: number,
   pageHeight: number,
+  markerInset: number,
 ): { x: number; y: number; width: number; height: number } {
   const decoded = Bun.spawnSync(['ffmpeg', '-loglevel', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdout: 'pipe', stderr: 'pipe' })
   if (decoded.exitCode !== 0) throw new Error(`ffmpeg failed: ${decoded.stderr.toString().trim()}`)
-  return viewerPageBoxFromPixels(decoded.stdout, width, height, pageWidth, pageHeight)
+  return viewerPageBoxFromPixels(decoded.stdout, width, height, pageWidth, pageHeight, markerInset)
 }
 
 export interface ReaderContext {
   executablePath: string
+  markerInset: number
 }
 
 export type ReaderRender = (pdf: string, output: string, width: number, height: number, context: ReaderContext) => Promise<ReaderResult>
@@ -121,7 +122,14 @@ export async function coreGraphics(pdf: string, output: string, width: number, h
   return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: true, image: output }
 }
 
-export async function chromiumViewer(executablePath: string, pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
+export async function chromiumViewer(
+  executablePath: string,
+  pdf: string,
+  output: string,
+  width: number,
+  height: number,
+  markerInset = MARKER_INSET * SCALE,
+): Promise<ReaderResult> {
   const raw = output.replace(/\.png$/, '-viewer.png')
   let browser: Browser | undefined
   try {
@@ -140,7 +148,7 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
       })
       .catch(() => {})
     await page.screenshot({ path: raw })
-    const box = viewerPageBox(raw, captureWidth, captureHeight, width, height)
+    const box = viewerPageBox(raw, captureWidth, captureHeight, width, height, markerInset)
     const converted = ran([
       'ffmpeg',
       '-loglevel',
@@ -242,7 +250,7 @@ export const READERS: readonly { id: string; engine: string; render: ReaderRende
   {
     id: 'chromium',
     engine: 'Chromium PDF viewer',
-    render: (pdf, output, width, height, context) => chromiumViewer(context.executablePath, pdf, output, width, height),
+    render: (pdf, output, width, height, context) => chromiumViewer(context.executablePath, pdf, output, width, height, context.markerInset),
   },
   { id: 'adobe', engine: 'Adobe PDF engine via Photoshop 2026', render: (pdf, output, width, height) => adobePdfEngine(pdf, output, width, height) },
   { id: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, render: (pdf, output, width, height) => ghostscript(pdf, output, width, height) },

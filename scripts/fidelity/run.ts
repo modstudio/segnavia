@@ -153,14 +153,16 @@ try {
     await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
     const size = await imageSize(screen)
+    const croppedBleed = reference.crop?.x ?? 0
+    const expectedMarker = Math.round(EXPECTED_MARKER_POSITION - croppedBleed)
     const readers: ReaderResult[] = await Promise.all(
-      READERS.map((reader) => reader.render(comparisonPdf, readerPath(readerDirectory, reader.id), size.width, size.height, { executablePath })),
+      READERS.map((reader) =>
+        reader.render(comparisonPdf, readerPath(readerDirectory, reader.id), size.width, size.height, { executablePath, markerInset: expectedMarker }),
+      ),
     )
     for (const reader of readers) validateReaderProfile(reader)
     for (const reader of readers) {
       if (!reader.worked || !reader.image) continue
-      const croppedBleed = reference.crop?.x ?? 0
-      const expectedMarker = Math.round(EXPECTED_MARKER_POSITION - croppedBleed)
       reader.alignment = alignmentOffset(screen, reader.image, size.width, size.height, expectedMarker, expectedMarker)
       if (!reader.alignment.passed) {
         reader.worked = false

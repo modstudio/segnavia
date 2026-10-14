@@ -137,8 +137,19 @@ export function alignmentOffset(
   expectedX: number,
   expectedY: number,
 ): { offsetX: number; offsetY: number; referenceScore: number; measuredScore: number; passed: boolean; error?: string } {
-  const expected = markerPosition(rgb(reference, width, height), width, height, expectedX, expectedY)
-  const measured = markerPosition(rgb(actual, width, height), width, height, expectedX, expectedY)
+  return alignmentFromPixels(rgb(reference, width, height), rgb(actual, width, height), width, height, expectedX, expectedY)
+}
+
+export function alignmentFromPixels(
+  reference: Uint8Array,
+  actual: Uint8Array,
+  width: number,
+  height: number,
+  expectedX: number,
+  expectedY: number,
+): { offsetX: number; offsetY: number; referenceScore: number; measuredScore: number; passed: boolean; error?: string } {
+  const expected = markerPosition(reference, width, height, expectedX, expectedY)
+  const measured = markerPosition(actual, width, height, expectedX, expectedY)
   const offsetX = measured.x - expected.x
   const offsetY = measured.y - expected.y
   const scorePassed = expected.score <= MARKER_MATCH_MAX_SCORE && measured.score <= MARKER_MATCH_MAX_SCORE
