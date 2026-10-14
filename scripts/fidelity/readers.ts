@@ -9,6 +9,40 @@ function ran(args: string[]): { ok: boolean; error?: string } {
   return result.exitCode === 0 ? { ok: true } : { ok: false, error: result.stderr.toString().trim() || `exit ${result.exitCode}` }
 }
 
+function viewerPageBox(file: string, width: number, height: number, aspect: number): { x: number; y: number; width: number; height: number } {
+  const decoded = Bun.spawnSync(['ffmpeg', '-loglevel', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdout: 'pipe', stderr: 'pipe' })
+  if (decoded.exitCode !== 0) throw new Error(`ffmpeg failed: ${decoded.stderr.toString().trim()}`)
+  const pixels = decoded.stdout
+  const background = [pixels[0] ?? 0, pixels[1] ?? 0, pixels[2] ?? 0]
+  let left = width
+  let top = height
+  let right = 0
+  let bottom = 0
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = (y * width + x) * 3
+      const distance = [0, 1, 2].reduce((sum, channel) => sum + Math.abs((pixels[offset + channel] ?? 0) - (background[channel] ?? 0)), 0)
+      if (distance <= 24) continue
+      left = Math.min(left, x)
+      top = Math.min(top, y)
+      right = Math.max(right, x)
+      bottom = Math.max(bottom, y)
+    }
+  }
+  let pageWidth = right - left + 1
+  let pageHeight = bottom - top + 1
+  if (pageWidth / pageHeight > aspect) {
+    const fitted = pageHeight * aspect
+    left += (pageWidth - fitted) / 2
+    pageWidth = fitted
+  } else {
+    const fitted = pageWidth / aspect
+    top += (pageHeight - fitted) / 2
+    pageHeight = fitted
+  }
+  return { x: Math.round(left), y: Math.round(top), width: Math.round(pageWidth), height: Math.round(pageHeight) }
+}
+
 export async function poppler(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const base = output.replace(/\.png$/, '')
   const result = ran(['pdftoppm', '-png', '-singlefile', '-cropbox', '-scale-to-x', String(width), '-scale-to-y', String(height), pdf, base])
@@ -28,7 +62,9 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
   let browser: Browser | undefined
   try {
     browser = await chromium.launch({ executablePath, ignoreDefaultArgs: ['--disable-extensions'] })
-    const page = await browser.newPage({ viewport: { width, height } })
+    const captureWidth = Math.min(width, 1800)
+    const captureHeight = Math.round((captureWidth * height) / width)
+    const page = await browser.newPage({ viewport: { width: captureWidth, height: captureHeight } })
     await page.goto(`${pathToFileURL(pdf).href}#toolbar=0&view=Fit`)
     await page.waitForTimeout(1800)
     await page
@@ -40,7 +76,20 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
       })
       .catch(() => {})
     await page.screenshot({ path: raw })
-    const converted = ran(['ffmpeg', '-loglevel', 'error', '-i', raw, '-vf', `scale=${width}:${height}:flags=lanczos`, '-frames:v', '1', '-y', output])
+    const box = viewerPageBox(raw, captureWidth, captureHeight, width / height)
+    const converted = ran([
+      'ffmpeg',
+      '-loglevel',
+      'error',
+      '-i',
+      raw,
+      '-vf',
+      `crop=${box.width}:${box.height}:${box.x}:${box.y},scale=${width}:${height}:flags=lanczos`,
+      '-frames:v',
+      '1',
+      '-y',
+      output,
+    ])
     if (!converted.ok) return { reader: 'chromium', worked: false, error: converted.error }
     return { reader: 'chromium', worked: true, image: output }
   } catch (error) {
