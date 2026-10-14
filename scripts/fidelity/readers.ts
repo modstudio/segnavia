@@ -70,12 +70,10 @@ export function viewerPageBoxFromPixels(
     }
   }
   if (markerRight < markerLeft || markerBottom < markerTop) throw new Error('Chromium PDF viewer marker was not found in the screenshot.')
-  const scaleX = (markerLeft - screenshotWidth / 2) / (markerInset - pageWidth / 2)
-  const scaleY = (markerTop - screenshotHeight / 2) / (markerInset - pageHeight / 2)
-  const scale = (scaleX + scaleY) / 2
+  const scale = (markerLeft - screenshotWidth / 2) / (markerInset - pageWidth / 2)
   return {
     x: Math.round((screenshotWidth - pageWidth * scale) / 2),
-    y: Math.round((screenshotHeight - pageHeight * scale) / 2),
+    y: Math.round(markerTop - markerInset * scale),
     width: Math.round(pageWidth * scale),
     height: Math.round(pageHeight * scale),
   }

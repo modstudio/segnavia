@@ -32,10 +32,10 @@ describe('fidelity registration', () => {
     const width = 500
     const height = 400
     const pixels = new Uint8Array(width * height * 3).fill(255)
-    for (let y = 50; y < 350; y++) {
+    for (let y = 40; y < 340; y++) {
       for (let x = 50; x < 450; x++) pixels.set([244, 247, 251], (y * width + x) * 3)
     }
-    paintMarker(pixels, width, 50 + EXPECTED_MARKER_POSITION, 50 + EXPECTED_MARKER_POSITION)
-    expect(viewerPageBoxFromPixels(pixels, width, height, 400, 300)).toEqual({ x: 50, y: 50, width: 400, height: 300 })
+    paintMarker(pixels, width, 50 + EXPECTED_MARKER_POSITION, 40 + EXPECTED_MARKER_POSITION)
+    expect(viewerPageBoxFromPixels(pixels, width, height, 400, 300)).toEqual({ x: 50, y: 40, width: 400, height: 300 })
   })
 })
