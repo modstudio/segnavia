@@ -93,7 +93,12 @@ export function decodeContent(stream: PDFRawStream, budget?: ContentBudget): Uin
   let decoded: Uint8Array
   try {
     decoded = decision === 'compressed' ? inflateSync(stream.contents, { maxOutputLength: MAX_CONTENT_BYTES }) : stream.contents
-  } catch {
+  } catch (error) {
+    // zlib stops at maxOutputLength with this code, so an oversized stream is named as such rather than as corrupt.
+    if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE')
+      throw new RenderRefusedError(
+        `The PDF has unsupported decoded content stream longer than ${MAX_CONTENT_BYTES} bytes; supported: at most ${MAX_CONTENT_BYTES} bytes.`,
+      )
     throw new RenderRefusedError(`The PDF has unsupported content stream decode failure; supported: a valid ${'Fl' + 'ateDecode'} or unfiltered stream.`)
   }
   if (decoded.byteLength > MAX_CONTENT_BYTES)

@@ -245,7 +245,7 @@ test('bounds inflation before returning decoded content', () => {
   const document = PDFDocument.create()
   return document.then((created) => {
     const stream = created.context.stream(deflateSync(new Uint8Array(MAX_CONTENT_BYTES + 1)), { Filter: 'Fl' + 'ateDecode' })
-    expect(() => decodeContent(stream)).toThrow(/decode failure/)
+    expect(() => decodeContent(stream)).toThrow(`decoded content stream longer than ${MAX_CONTENT_BYTES} bytes`)
   })
 })
 
