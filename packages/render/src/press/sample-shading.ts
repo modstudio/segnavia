@@ -3,7 +3,7 @@ import { type PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 
 import type { Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { applyAffine, IDENTITY_MATRIX, invertAffine, multiplyAffine } from './affine.ts'
-import { evaluateCalculator, parseCalculator } from './calculator.ts'
+import { calculatorOperatorsExecuted, evaluateCalculator, parseCalculator } from './calculator.ts'
 import type { PatternPaint } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, MAX_DOCUMENT_CONTENT_BYTES, rawStreamOf } from './pdf-objects.ts'
 
@@ -13,6 +13,8 @@ export const SHADING_SAMPLE_SPACING_PT = 0.5
 export const MAX_SHADING_SAMPLES = 1_048_576
 // The fidelity suite's four-gradient page is four Type 1 shadings; this admits four at MAX_SHADING_SAMPLES so that page still converts when painted bounds fall back to the full Domain, and refuses a larger document.
 export const MAX_DOCUMENT_SHADING_SAMPLES = 4 * MAX_SHADING_SAMPLES
+// Eight Chromium conic programs at MAX_SHADING_SAMPLES. The fidelity four-gradient page and a page of eight 260 by 160 conics sit below it. Measured: eight 260 by 160 rainbow conics about 0.4 s; eight max-size grids of that program about 8 s.
+export const MAX_DOCUMENT_CALCULATOR_OPERATIONS = 8 * MAX_SHADING_SAMPLES * 32
 // Chromium stop programs reuse a handful of RGB triples; 4096 cached 8-bit keys bound the Map so a conic cannot grow it with the grid.
 export const MAX_SAMPLING_COLOR_CACHE = 4096
 const SAMPLE_CHANNELS = 4
@@ -29,8 +31,15 @@ function clamp01(value: number): number {
   return value
 }
 
+function requireFinite(values: readonly number[], found: string): void {
+  if (values.some((value) => !Number.isFinite(value))) refuse(found, 'finite numbers')
+}
+
 function axisSamples(span: number, columnA: number, columnB: number): number {
-  return Math.max(1, Math.ceil((Math.hypot(columnA, columnB) * Math.abs(span)) / SHADING_SAMPLE_SPACING_PT))
+  if (![span, columnA, columnB].every(Number.isFinite)) refuse('shading axis length', 'a finite length')
+  const extent = (Math.hypot(columnA, columnB) * Math.abs(span)) / SHADING_SAMPLE_SPACING_PT
+  if (!Number.isFinite(extent)) refuse('shading axis length', 'a finite length')
+  return Math.min(MAX_SHADING_SAMPLES, Math.max(1, Math.ceil(extent)))
 }
 
 export function packedRgb8(rgb: Color3): number {
@@ -58,7 +67,7 @@ export function createSamplingColorConverter(convert: (rgb: Color3) => Color4): 
 
 export function sampleDomainForPainted(domain: readonly number[], matrix: readonly number[], painted: PatternPaint | undefined): number[] {
   const original = [domain[0] ?? 0, domain[1] ?? 0, domain[2] ?? 0, domain[3] ?? 0]
-  // A use this tracker cannot bound (Do while a pattern is selected, a missing fill, a singular matrix) keeps Chromium's Domain under MAX_SHADING_SAMPLES.
+  // When painted bounds cannot be established (Do while a pattern is selected, a missing paint, a singular matrix), sample Chromium's Domain under MAX_SHADING_SAMPLES.
   if (!painted || painted === 'unbounded') return original
   const inverse = invertAffine(matrix)
   if (!inverse) return original
@@ -93,8 +102,14 @@ export function shadingSampleGrid(domain: readonly number[], matrix: readonly nu
   const x1 = domain[1] ?? 0
   const y0 = domain[2] ?? 0
   const y1 = domain[3] ?? 0
-  let n = axisSamples(x1 - x0, matrix[0] ?? 1, matrix[1] ?? 0)
-  let m = axisSamples(y1 - y0, matrix[2] ?? 0, matrix[3] ?? 1)
+  requireFinite([x0, x1, y0, y1], 'shading Domain')
+  const columnAx = matrix[0] ?? 1
+  const columnAy = matrix[1] ?? 0
+  const columnBx = matrix[2] ?? 0
+  const columnBy = matrix[3] ?? 1
+  requireFinite([columnAx, columnAy, columnBx, columnBy, matrix[4] ?? 0, matrix[5] ?? 0], 'shading Matrix')
+  let n = axisSamples(x1 - x0, columnAx, columnAy)
+  let m = axisSamples(y1 - y0, columnBx, columnBy)
   if (n * m <= MAX_SHADING_SAMPLES) return { n, m }
   const scale = Math.sqrt(MAX_SHADING_SAMPLES / (n * m))
   n = Math.max(1, Math.floor(n * scale))
@@ -146,14 +161,23 @@ export function sampleShadingToCmyk(
   return samples
 }
 
-function chargeSamples(budget: ContentBudget, samples: number): void {
+function chargeSamples(budget: ContentBudget, samples: number, operations: number): void {
   const bytes = samples * SAMPLE_CHANNELS * SAMPLE_BYTES
+  if (!Number.isFinite(samples) || samples < 0 || !Number.isFinite(bytes) || bytes < 0)
+    refuse(`document shading samples ${samples}`, 'a finite non-negative sample count and byte charge')
+  if (!Number.isFinite(operations) || operations < 0) refuse(`document calculator operations ${operations}`, 'a finite non-negative operator count')
   const totalSamples = (budget.shadingSamples ?? 0) + samples
-  if (totalSamples > MAX_DOCUMENT_SHADING_SAMPLES) refuse(`document shading samples ${totalSamples}`, `at most ${MAX_DOCUMENT_SHADING_SAMPLES} samples`)
+  const totalBytes = budget.decodedBytes + bytes
+  const totalOperations = (budget.calculatorOperations ?? 0) + operations
+  if (!Number.isFinite(totalSamples) || totalSamples > MAX_DOCUMENT_SHADING_SAMPLES)
+    refuse(`document shading samples ${totalSamples}`, `at most ${MAX_DOCUMENT_SHADING_SAMPLES} samples`)
+  if (!Number.isFinite(totalOperations) || totalOperations > MAX_DOCUMENT_CALCULATOR_OPERATIONS)
+    refuse(`document calculator operations ${totalOperations}`, `at most ${MAX_DOCUMENT_CALCULATOR_OPERATIONS} operators`)
+  if (!Number.isFinite(totalBytes) || totalBytes > MAX_DOCUMENT_CONTENT_BYTES)
+    refuse(`total decoded content length ${totalBytes}`, `at most ${MAX_DOCUMENT_CONTENT_BYTES} bytes`)
   budget.shadingSamples = totalSamples
-  budget.decodedBytes += bytes
-  if (budget.decodedBytes > MAX_DOCUMENT_CONTENT_BYTES)
-    refuse(`total decoded content length ${budget.decodedBytes}`, `at most ${MAX_DOCUMENT_CONTENT_BYTES} bytes`)
+  budget.decodedBytes = totalBytes
+  budget.calculatorOperations = totalOperations
 }
 
 const resolved = (document: PDFDocument, object: PDFObject | undefined): PDFObject | undefined =>
@@ -170,14 +194,18 @@ export function replaceType1Function(
   const existing = shading.get(PDFName.of('Function'))
   const stream = rawStreamOf(resolved(document, existing))
   if (!stream) return refuse('shading FunctionType 4 stream', 'a FunctionType 4 stream')
-  const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const shadingDomain = arrayNumbers(shading, 'Domain', 4)
   const matrix = shadingDeviceMatrix(shading, pattern)
+  requireFinite(shadingDomain, 'shading Domain')
+  requireFinite(matrix, 'shading Matrix')
   const domain = sampleDomainForPainted(shadingDomain, matrix, painted)
   const size = shadingSampleGrid(domain, matrix)
-  chargeSamples(budget, size.n * size.m)
-  const samples = sampleShadingToCmyk(program, domain, size, convert)
-  const replacement = document.context.stream(deflateSync(samples), {
+  const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
+  const samples = size.n * size.m
+  const operations = samples * calculatorOperatorsExecuted(program, [domain[0] ?? 0, domain[2] ?? 0])
+  chargeSamples(budget, samples, operations)
+  const data = sampleShadingToCmyk(program, domain, size, convert)
+  const replacement = document.context.stream(deflateSync(data), {
     FunctionType: 0,
     Domain: domain,
     Range: [0, 1, 0, 1, 0, 1, 0, 1],

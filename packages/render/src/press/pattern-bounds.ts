@@ -1,7 +1,10 @@
 import type { PDFDict } from 'pdf-lib'
 import { applyAffine, IDENTITY_MATRIX, multiplyAffine } from './affine.ts'
-import { MAX_CONTENT_NESTING, visitContentTokens } from './content.ts'
+import { visitContentTokens } from './content.ts'
 import { numberOf } from './pdf-objects.ts'
+
+// This bounds the painted-bounds save stack so the tracker cannot grow without limit.
+export const MAX_GRAPHICS_SAVE_DEPTH = 64
 
 export interface UserRect {
   x0: number
@@ -260,31 +263,27 @@ function fillStrokeAndClear(state: TrackState, close: boolean): void {
   clearPath(state.path)
 }
 
-function applyLineWidth(state: TrackState, operands: Operand[]): void {
-  const width = numbers(operands, 1)?.[0]
-  if (width === undefined || !Number.isFinite(width) || width < 0) {
-    markUnbounded(state)
-    return
-  }
+function setLineWidth(state: TrackState, width: number): boolean {
+  if (!Number.isFinite(width) || width < 0) return false
   state.current.lineWidth = width
+  return true
 }
 
-function applyLineJoin(state: TrackState, operands: Operand[]): void {
-  const join = numbers(operands, 1)?.[0]
-  if (join !== 0 && join !== 1 && join !== 2) {
-    markUnbounded(state)
-    return
-  }
+function setLineJoin(state: TrackState, join: number): boolean {
+  if (join !== 0 && join !== 1 && join !== 2) return false
   state.current.lineJoin = join
+  return true
 }
 
-function applyMiterLimit(state: TrackState, operands: Operand[]): void {
-  const miter = numbers(operands, 1)?.[0]
-  if (miter === undefined || !Number.isFinite(miter) || miter < 1) {
-    markUnbounded(state)
-    return
-  }
+function setMiterLimit(state: TrackState, miter: number): boolean {
+  if (!Number.isFinite(miter) || miter < 1) return false
   state.current.miterLimit = miter
+  return true
+}
+
+function applyStrokeNumber(state: TrackState, operands: Operand[], assign: (state: TrackState, value: number) => boolean): void {
+  const value = numbers(operands, 1)?.[0]
+  if (value === undefined || !assign(state, value)) markUnbounded(state)
 }
 
 function applyStyleNumber(dict: PDFDict, key: string, assign: (value: number) => boolean): boolean {
@@ -300,26 +299,14 @@ function applyGraphicsState(state: TrackState, operands: Operand[]): void {
     return
   }
   const applied =
-    applyStyleNumber(dict, 'LW', (width) => {
-      if (!Number.isFinite(width) || width < 0) return false
-      state.current.lineWidth = width
-      return true
-    }) &&
-    applyStyleNumber(dict, 'LJ', (join) => {
-      if (join !== 0 && join !== 1 && join !== 2) return false
-      state.current.lineJoin = join
-      return true
-    }) &&
-    applyStyleNumber(dict, 'ML', (miter) => {
-      if (!Number.isFinite(miter) || miter < 1) return false
-      state.current.miterLimit = miter
-      return true
-    })
+    applyStyleNumber(dict, 'LW', (width) => setLineWidth(state, width)) &&
+    applyStyleNumber(dict, 'LJ', (join) => setLineJoin(state, join)) &&
+    applyStyleNumber(dict, 'ML', (miter) => setMiterLimit(state, miter))
   if (!applied) markUnbounded(state)
 }
 
 function saveGraphics(state: TrackState): void {
-  if (state.pastSaveCap || state.graphics.length >= MAX_CONTENT_NESTING) {
+  if (state.pastSaveCap || state.graphics.length >= MAX_GRAPHICS_SAVE_DEPTH) {
     state.pastSaveCap = true
     markUnbounded(state)
     return
@@ -352,9 +339,9 @@ const handlers: Record<string, Handler> = {
   'B*': (state) => fillStrokeAndClear(state, false),
   b: (state) => fillStrokeAndClear(state, true),
   'b*': (state) => fillStrokeAndClear(state, true),
-  w: applyLineWidth,
-  j: applyLineJoin,
-  M: applyMiterLimit,
+  w: (state, operands) => applyStrokeNumber(state, operands, setLineWidth),
+  j: (state, operands) => applyStrokeNumber(state, operands, setLineJoin),
+  M: (state, operands) => applyStrokeNumber(state, operands, setMiterLimit),
   gs: applyGraphicsState,
   cs: colorHandler('cs'),
   CS: colorHandler('CS'),

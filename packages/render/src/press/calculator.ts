@@ -96,10 +96,19 @@ function exec(body: readonly CalculatorOp[], state: EvalState): void {
   }
 }
 
-export function evaluateCalculator(program: readonly CalculatorOp[], inputs: readonly number[]): number[] {
+function runCalculator(program: readonly CalculatorOp[], inputs: readonly number[]): EvalState {
   const state: EvalState = { count: 0, stack: [] }
   for (const value of inputs) pushStack(state, { kind: 'n', value, int: Number.isInteger(value) })
   exec(program, state)
+  return state
+}
+
+export function calculatorOperatorsExecuted(program: readonly CalculatorOp[], inputs: readonly number[]): number {
+  return runCalculator(program, inputs).count
+}
+
+export function evaluateCalculator(program: readonly CalculatorOp[], inputs: readonly number[]): number[] {
+  const state = runCalculator(program, inputs)
   return state.stack.map((value) => {
     if (value.kind !== 'n') return calculatorRefuse('calculator output type', 'numbers')
     return value.value

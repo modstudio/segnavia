@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import { type PDFDict, PDFDocument } from 'pdf-lib'
-import { MAX_CONTENT_NESTING } from './content.ts'
-import { type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
+import { MAX_GRAPHICS_SAVE_DEPTH, type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
 
 const bytes = (source: string) => new TextEncoder().encode(source)
 
@@ -58,8 +57,8 @@ test('gs applies /LW from the ExtGState to a stroke', async () => {
   expect(bounds.get(pattern)).toEqual({ x0: -20, y0: -20, x1: 30, y1: 30 })
 })
 
-test('q nesting past MAX_CONTENT_NESTING marks the selected pattern unbounded', async () => {
+test('q nesting past MAX_GRAPHICS_SAVE_DEPTH marks the selected pattern unbounded', async () => {
   const { bounds, pattern, resolve } = await setup()
-  recordPatternPaintedBounds(bytes(`${'q '.repeat(MAX_CONTENT_NESTING + 1)}/Pattern cs /P1 scn 0 0 10 10 re f`), resolve, bounds)
+  recordPatternPaintedBounds(bytes(`${'q '.repeat(MAX_GRAPHICS_SAVE_DEPTH + 1)}/Pattern cs /P1 scn 0 0 10 10 re f`), resolve, bounds)
   expect(bounds.get(pattern)).toBe('unbounded')
 })

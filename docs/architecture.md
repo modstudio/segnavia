@@ -250,15 +250,20 @@ as the author supplied them and are the only RGB the result may retain.
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
-converted by sampling their calculator program onto a DeviceCMYK type 0 function:
-one sample per 0.5 pt of the painted area in device space, 8 bits per sample,
-capped at `MAX_SHADING_SAMPLES` (1 048 576). Painted user-space bounds are mapped
-through the inverse of (pattern `/Matrix` times shading `/Matrix`), intersected
-with the shading Domain, and stored as the Type 0 function Domain; the shading's
-own Domain stays. When painted bounds cannot be established, the full Domain is
-sampled under that ceiling. Sample counts across one rewrite are capped at
+converted by sampling their calculator program onto a DeviceCMYK type 0 function,
+8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). The tracker unions
+fill and stroke path boxes after the content CTM (strokes grown by the current
+line width, join and miter). That rectangle maps through the inverse of (pattern
+`/Matrix` times shading `/Matrix`), intersects the shading Domain, and becomes
+the Type 0 function's Domain; the shading's own Domain stays. The sample grid is
+one sample per 0.5 pt of that Type 0 Domain through the combined matrix. When
+painted bounds cannot be established, the full Domain is sampled under that
+ceiling. Sample counts across one rewrite are capped at
 `MAX_DOCUMENT_SHADING_SAMPLES` (4 194 304), the fidelity suite's four Type 1
-shadings at the per-shading cap, charged before a shading is evaluated. The
+shadings at the per-shading cap, charged before a shading is evaluated. Calculator
+work across one rewrite is capped at `MAX_DOCUMENT_CALCULATOR_OPERATIONS`
+(268 435 456), eight max-size Chromium conic programs, charged before evaluation
+as samples times operators executed on one sample. The
 interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
 (8192), `MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled
 data counts against `MAX_DOCUMENT_CONTENT_BYTES` and is charged before evaluation. Axial and radial shadings are

@@ -73,6 +73,7 @@ function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict
   if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
   if (type === 1) {
+    // Sampling owns its conversion through the 8-bit, capped converter and must receive uncached pressColor, never state.convert.
     replaceType1Function(
       state.document,
       shading,
@@ -145,7 +146,7 @@ function convertContent(
 
 function newState(document: PDFDocument, profile: Profile): RewriteState {
   return {
-    budget: { decodedBytes: 0, shadingSamples: 0 },
+    budget: { calculatorOperations: 0, decodedBytes: 0, shadingSamples: 0 },
     convert: cachedPressColor(profile),
     document,
     painted: new WeakMap(),

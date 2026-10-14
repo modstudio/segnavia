@@ -11,6 +11,7 @@ import { MAX_DOCUMENT_CONTENT_BYTES } from './pdf-objects.ts'
 import {
   createSamplingColorConverter,
   domainValue,
+  MAX_DOCUMENT_CALCULATOR_OPERATIONS,
   MAX_DOCUMENT_SHADING_SAMPLES,
   MAX_SAMPLING_COLOR_CACHE,
   MAX_SHADING_SAMPLES,
@@ -316,40 +317,29 @@ test('sampling converts 8-bit quantized RGB through a cache capped by name', () 
   expect(cache.size()).toBe(MAX_SAMPLING_COLOR_CACHE)
 })
 
-test('a shading that would exceed the document sample ceiling is refused by name', async () => {
+async function type4Shading(domain: number[], program = '{ pop pop 1 0 0 }') {
   const document = await PDFDocument.create()
   const fn = document.context.register(
-    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 1 0 0 }')), {
+    document.context.stream(deflateSync(new TextEncoder().encode(program)), {
       FunctionType: 4,
-      Domain: [0, 1, 0, 1],
+      Domain: domain,
       Range: [0, 1, 0, 1, 0, 1],
       Filter: 'Fl' + 'ateDecode',
     }),
   )
-  const shading = document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 1, 0, 1], Function: fn }) as PDFDict
-  expect(() =>
-    replaceType1Function(
-      document,
-      shading,
-      undefined,
-      convert,
-      { decodedBytes: 0, shadingSamples: MAX_DOCUMENT_SHADING_SAMPLES },
-      { x0: 0, y0: 0, x1: 1, y1: 1 },
-    ),
-  ).toThrow(/document shading samples/)
+  return { document, shading: document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: domain, Function: fn }) as PDFDict }
+}
+
+const untouchedBudget = { calculatorOperations: 2, decodedBytes: 7, shadingSamples: 3 }
+
+test('a shading that would exceed the document sample ceiling is refused by name', async () => {
+  const { document, shading } = await type4Shading([0, 1, 0, 1])
+  const budget = { decodedBytes: 0, shadingSamples: MAX_DOCUMENT_SHADING_SAMPLES }
+  expect(() => replaceType1Function(document, shading, undefined, convert, budget, { x0: 0, y0: 0, x1: 1, y1: 1 })).toThrow(/document shading samples/)
 })
 
 test('sample bytes are charged to the content budget before evaluation', async () => {
-  const document = await PDFDocument.create()
-  const fn = document.context.register(
-    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 1 0 0 }')), {
-      FunctionType: 4,
-      Domain: [0, 100, 0, 100],
-      Range: [0, 1, 0, 1, 0, 1],
-      Filter: 'Fl' + 'ateDecode',
-    }),
-  )
-  const shading = document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 100, 0, 100], Function: fn }) as PDFDict
+  const { document, shading } = await type4Shading([0, 100, 0, 100])
   let called = 0
   expect(() =>
     replaceType1Function(
@@ -363,6 +353,35 @@ test('sample bytes are charged to the content budget before evaluation', async (
       { decodedBytes: MAX_DOCUMENT_CONTENT_BYTES - 1000, shadingSamples: 0 },
     ),
   ).toThrow(/total decoded content length/)
+  expect(called).toBe(0)
+})
+
+test.each([
+  ['a non-finite Domain is refused and leaves the budget unchanged', [0, Number.POSITIVE_INFINITY, 0, 1], /shading Domain/],
+  ['a Domain whose axis overflows is refused and leaves the budget unchanged', [0, 1e308, 0, 1], /shading axis length/],
+])('%s', async (_name, domain, message) => {
+  const { document, shading } = await type4Shading(domain)
+  const budget = { ...untouchedBudget }
+  expect(() => replaceType1Function(document, shading, undefined, convert, budget)).toThrow(message)
+  expect(budget).toEqual(untouchedBudget)
+})
+
+test('a shading that would exceed the document calculator operations ceiling is refused by name', async () => {
+  const { document, shading } = await type4Shading([0, 100, 0, 100])
+  let called = 0
+  expect(() =>
+    replaceType1Function(
+      document,
+      shading,
+      undefined,
+      () => {
+        called++
+        return [0, 0, 0, 1]
+      },
+      { decodedBytes: 0, shadingSamples: 0, calculatorOperations: MAX_DOCUMENT_CALCULATOR_OPERATIONS },
+      'unbounded',
+    ),
+  ).toThrow(/document calculator operations/)
   expect(called).toBe(0)
 })
 
