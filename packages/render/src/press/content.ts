@@ -3,7 +3,7 @@ import { formatPdfNumber } from './color-policy.ts'
 import { contentColorSpaceAction, inlineImageAction } from './policy.ts'
 
 export const MAX_CONTENT_NESTING = 64
-// Color operators need at most four operands; this leaves room for ordinary Chromium operators without unbounded retention.
+// Color operators need at most four operands and Chromium's largest observed operator, cm, uses six; 32 leaves room without unbounded retention.
 export const MAX_OPERANDS = 32
 
 interface Token {

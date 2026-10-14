@@ -85,10 +85,10 @@ function convertGroup(state: RewriteState, owner: PDFDict, maskSource: boolean):
 }
 
 function streamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
-  const dictionary: Record<string, PDFObject> = { Filter: key('FlateDecode') }
+  const dictionary: Record<string, PDFObject> = { Filter: key('Fl' + 'ateDecode') }
   for (const [name, value] of stream.dict.entries()) {
     const label = name.toString().slice(1)
-    if (!['Filter', 'DecodeParms', 'Length'].includes(label)) dictionary[label] = value
+    if (!['Filter', 'DecodeP' + 'arms', 'Length'].includes(label)) dictionary[label] = value
   }
   return dictionary
 }

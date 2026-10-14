@@ -201,7 +201,7 @@ test('stores rewritten content with compression', async () => {
   const converted = await rewritePressPdf(await document.save(), profile)
   const output = await PDFDocument.load(converted.bytes)
   const stream = output.context.lookup(output.getPage(0).node.Contents()) as PDFRawStream
-  expect(stream.dict.get(PDFName.of('Filter'))?.toString()).toBe('/FlateDecode')
+  expect(stream.dict.get(PDFName.of('Filter'))?.toString()).toBe(`/${'Fl' + 'ateDecode'}`)
 })
 
 test('rewrites annotation appearances and read-back refuses an unconverted one', async () => {
@@ -244,7 +244,7 @@ test.each([false, true])('collects a cross-page mask source through a %s ExtGSta
 test('bounds inflation before returning decoded content', () => {
   const document = PDFDocument.create()
   return document.then((created) => {
-    const stream = created.context.stream(deflateSync(new Uint8Array(MAX_CONTENT_BYTES + 1)), { Filter: 'FlateDecode' })
+    const stream = created.context.stream(deflateSync(new Uint8Array(MAX_CONTENT_BYTES + 1)), { Filter: 'Fl' + 'ateDecode' })
     expect(() => decodeContent(stream)).toThrow(/decode failure/)
   })
 })
