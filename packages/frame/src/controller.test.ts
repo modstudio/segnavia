@@ -92,7 +92,7 @@ describe('deck controller', () => {
     expect(controller.state.playing).toBe(false)
   })
 
-  test('an annotation shows from its cue word, and all show once paused', async () => {
+  test('an annotation shows from its cue word and stays shown when paused', async () => {
     const { controller, clocks, tick } = harness()
     await controller.load(deck)
     await controller.go(1)
