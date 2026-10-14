@@ -254,8 +254,8 @@ async function captureSandboxedTurns(h: Harness, durations: number[], pixels: Ar
       pixels.push(await stageCenterPixel(h))
       active = (await h.page.locator(`${STAGE} [data-active]`).getAttribute('data-slide-id')) ?? ''
     }
-    pixels.push(await stageCenterPixel(h), await stageCenterPixel(h))
     durations.push(performance.now() - started)
+    pixels.push(await stageCenterPixel(h), await stageCenterPixel(h))
   }
 }
 
