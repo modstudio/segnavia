@@ -33,6 +33,35 @@ export interface AlignmentResult {
   passed: boolean
 }
 
+export interface GlyphBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PosterVariantEvidence {
+  variant: string
+  screenCrop: string
+  popplerCrop: string
+  alignment: AlignmentResult
+  lines: Array<{
+    line: number
+    screen: GlyphBox
+    poppler: GlyphBox
+    displacementX: number
+    displacementY: number
+    widthChange: number
+    heightChange: number
+  }>
+}
+
+export interface PosterEvidence {
+  method: string
+  variants: PosterVariantEvidence[]
+  conclusion: string
+}
+
 export interface RegionResult extends Difference {
   name: string
   box: Box
@@ -109,4 +138,5 @@ export interface FidelityRun {
     profile?: string
   }
   documents: DocumentResult[]
+  posterEvidence?: PosterEvidence
 }

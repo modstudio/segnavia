@@ -16,11 +16,11 @@ import {
   ROOT,
   SCALE,
 } from './config.ts'
-import { alignmentOffset, cropImage, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
+import { alignmentOffset, cropImage, difference, glyphLineBoxes, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { adobePdfEngine, chromiumViewer, coreGraphics, ghostscript, poppler, readerPath, validateReaderProfile } from './readers.ts'
 import { writeSummary } from './report.ts'
-import type { Box, Difference, DocumentResult, FidelityRun, ReaderResult, RegionResult } from './types.ts'
+import type { Box, Difference, DocumentResult, FidelityRun, PosterEvidence, ReaderResult, RegionResult } from './types.ts'
 
 const label = (process.argv[2] ?? 'baseline').replace(/[^a-zA-Z0-9._-]+/g, '-')
 const commit = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
@@ -33,6 +33,7 @@ const documents: DocumentResult[] = []
 const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
+let posterEvidence: PosterEvidence | undefined
 
 interface ScreenReference {
   page: PageInput
@@ -101,6 +102,101 @@ async function prepareEffectless(tab: Tab): Promise<void> {
     style.textContent = effectlessCss
     document.head.append(style)
   }, EFFECTLESS_CSS)
+}
+
+async function posterLayoutEvidence(poster: PageInput): Promise<PosterEvidence> {
+  const evidenceDirectory = path.join(directory, 'poster', 'layout-evidence')
+  mkdirSync(evidenceDirectory, { recursive: true })
+  const diagnosticCss =
+    '<style>body{background:#fff!important}.fade,.art,.ticket,.type p{visibility:hidden!important}.type h1{color:#000!important;text-shadow:none!important}</style>'
+  const variants = [
+    { id: 'authored', label: 'authored CSS', css: '' },
+    { id: 'no-letter-spacing', label: 'letter-spacing removed', css: '<style>.type h1{letter-spacing:normal!important}</style>' },
+    { id: 'normal-line-height', label: 'line-height normal', css: '<style>.type h1{line-height:normal!important}</style>' },
+  ]
+  const results: PosterEvidence['variants'] = []
+  for (const variant of variants) {
+    const page = { ...poster, html: `${poster.html}${diagnosticCss}${variant.css}` }
+    let headline = { x: 0, y: 0, width: 0, height: 0 }
+    const screen = path.join(evidenceDirectory, `${variant.id}-screen-page.png`)
+    const pdf = path.join(evidenceDirectory, `${variant.id}.pdf`)
+    const comparisonPdf = path.join(evidenceDirectory, `${variant.id}-comparison.pdf`)
+    const popplerImage = path.join(evidenceDirectory, `${variant.id}-poppler-page.png`)
+    await Bun.write(
+      screen,
+      await renderer.pageImage(page, {
+        scale: SCALE,
+        css: MEASUREMENT_CSS,
+        beforeOutput: async (tab) => {
+          headline = await tab.locator('.type h1').evaluate((element) => {
+            const box = element.getBoundingClientRect()
+            return { x: box.x, y: box.y, width: box.width, height: box.height }
+          })
+        },
+      }),
+    )
+    await Bun.write(pdf, await renderer.pagePdf(page, { css: MEASUREMENT_CSS }))
+    await trimPdf(pdf, comparisonPdf)
+    const size = await imageSize(screen)
+    const rendered = await poppler(comparisonPdf, popplerImage, size.width, size.height)
+    if (!rendered.worked || !rendered.image) throw new Error(`Poster layout evidence did not render in Poppler: ${rendered.error ?? 'unknown error'}`)
+    const alignment = alignmentOffset(screen, rendered.image, size.width, size.height, 16 * SCALE, 16 * SCALE)
+    if (!alignment.passed) throw new Error(`Poster layout evidence is misaligned by ${alignment.offsetX}, ${alignment.offsetY} device px.`)
+    const padding = 24 * SCALE
+    const left = Math.max(0, headline.x * SCALE - padding)
+    const top = Math.max(0, headline.y * SCALE - padding)
+    const crop = {
+      x: left,
+      y: top,
+      width: Math.min(size.width, (headline.x + headline.width) * SCALE + padding) - left,
+      height: Math.min(size.height, (headline.y + headline.height) * SCALE + padding) - top,
+    }
+    const screenCrop = path.join(evidenceDirectory, `${variant.id}-screen-headline.png`)
+    const popplerCrop = path.join(evidenceDirectory, `${variant.id}-poppler-headline.png`)
+    cropImage(screen, screenCrop, crop)
+    cropImage(rendered.image, popplerCrop, crop)
+    const cropSize = await imageSize(screenCrop)
+    const screenLines = glyphLineBoxes(screenCrop, cropSize.width, cropSize.height)
+    const popplerLines = glyphLineBoxes(popplerCrop, cropSize.width, cropSize.height)
+    if (screenLines.length !== 3 || popplerLines.length !== 3) {
+      throw new Error(`${variant.id} poster evidence found ${screenLines.length} screen lines and ${popplerLines.length} Poppler lines; expected 3 each.`)
+    }
+    results.push({
+      variant: variant.label,
+      screenCrop,
+      popplerCrop,
+      alignment,
+      lines: screenLines.map((screenBox, index) => {
+        const popplerBox = popplerLines[index] as (typeof popplerLines)[number]
+        return {
+          line: index + 1,
+          screen: screenBox,
+          poppler: popplerBox,
+          displacementX: popplerBox.x - screenBox.x,
+          displacementY: popplerBox.y - screenBox.y,
+          widthChange: popplerBox.width - screenBox.width,
+          heightChange: popplerBox.height - screenBox.height,
+        }
+      }),
+    })
+  }
+  const authored = results[0]?.lines ?? []
+  const withoutSpacing = results[1]?.lines ?? []
+  const normalLineHeight = results[2]?.lines ?? []
+  const sameDisplacement = (left: typeof authored, right: typeof authored, axis: 'displacementX' | 'displacementY') =>
+    left.every((line, index) => Math.abs(line[axis] - (right[index]?.[axis] ?? Number.POSITIVE_INFINITY)) <= 1)
+  const spacingFinding = sameDisplacement(authored, withoutSpacing, 'displacementX')
+    ? 'Removing letter-spacing preserves the horizontal displacement.'
+    : 'Removing letter-spacing changes the horizontal displacement.'
+  const lineHeightFinding = sameDisplacement(authored, normalLineHeight, 'displacementY')
+    ? 'Normal line-height preserves the vertical displacement.'
+    : 'Normal line-height changes the vertical displacement.'
+  return {
+    method:
+      'An in-memory copy isolates the black headline on white, removes its shadow, and keeps the fixed page marker. Screen and Poppler crops use identical page coordinates after marker registration; dark-pixel glyph bounds are measured for each line.',
+    variants: results,
+    conclusion: `${spacingFinding} ${lineHeightFinding}`,
+  }
 }
 
 try {
@@ -267,6 +363,9 @@ try {
     })
     await Bun.write(path.join(directory, 'partial.json'), `${JSON.stringify(documents, null, 2)}\n`)
   }
+  const poster = (await fixtures()).find((fixture) => fixture.id === 'poster')
+  if (!poster) throw new Error('Poster fixture missing.')
+  posterEvidence = await posterLayoutEvidence(poster.page)
 } finally {
   await renderer.close()
 }
@@ -282,6 +381,7 @@ const run: FidelityRun = {
     profile: profilePath,
   },
   documents,
+  posterEvidence,
 }
 await writeSummary(run, directory)
 console.log(`Fidelity report: ${path.join(directory, 'summary.md')}`)

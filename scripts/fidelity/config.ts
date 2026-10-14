@@ -5,7 +5,7 @@ import type { PageInput } from '@segnavia/format'
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const OUTPUT_ROOT = path.resolve(process.env.SEGNAVIA_FIDELITY_OUT ?? path.join(ROOT, 'out/fidelity'))
 export const SCALE = 4
-// These acceptance limits are provisional until Shmuel agrees the numbers.
+// Shmuel agreed these acceptance limits on 2026-10-14.
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }

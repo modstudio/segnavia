@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
 import { ALIGNMENT_SEARCH_RADIUS, ALIGNMENT_TOLERANCE, SCALE } from './config.ts'
-import type { Box, Difference } from './types.ts'
+import type { Box, Difference, GlyphBox } from './types.ts'
 
 function command(args: string[]): Uint8Array {
   const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
@@ -33,6 +33,41 @@ function rgb(file: string, width: number, height: number): Uint8Array {
   ])
   if (bytes.byteLength !== width * height * 3) throw new Error(`Unexpected decoded size for ${file}.`)
   return bytes
+}
+
+export function glyphLineBoxes(file: string, width: number, height: number): GlyphBox[] {
+  const pixels = rgb(file, width, height)
+  const occupied = new Uint8Array(height)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const offset = (y * width + x) * 3
+      if ((pixels[offset] ?? 255) < 96 && (pixels[offset + 1] ?? 255) < 96 && (pixels[offset + 2] ?? 255) < 96) {
+        occupied[y] = 1
+        break
+      }
+    }
+  }
+  const bands: Array<{ top: number; bottom: number }> = []
+  for (let y = 0; y < height; y++) {
+    if (!occupied[y]) continue
+    const top = y
+    while (y + 1 < height && occupied[y + 1]) y++
+    if (y - top >= 3) bands.push({ top, bottom: y + 1 })
+  }
+  return bands.map(({ top, bottom }) => {
+    let left = width
+    let right = 0
+    for (let y = top; y < bottom; y++) {
+      for (let x = 0; x < width; x++) {
+        const offset = (y * width + x) * 3
+        if ((pixels[offset] ?? 255) < 96 && (pixels[offset + 1] ?? 255) < 96 && (pixels[offset + 2] ?? 255) < 96) {
+          left = Math.min(left, x)
+          right = Math.max(right, x + 1)
+        }
+      }
+    }
+    return { x: left, y: top, width: right - left, height: bottom - top }
+  })
 }
 
 export const proofTable = (profileBytes: Uint8Array): ProofTable => buildProofTable(readProfile(profileBytes))
