@@ -247,6 +247,9 @@ the rewrite, and the existing sheet and byte limit enforcement runs afterward,
 so limits also measure the bytes and pages actually returned. Profile reads are bounded by
 `MAX_PROFILE_BYTES` (32 MiB) and `MAX_PROFILE_TAGS` (256). Every inflated
 content stream is bounded by `MAX_CONTENT_BYTES` (32 MiB) before tokenization.
+One rewrite or read-back pass is bounded by `MAX_DOCUMENT_CONTENT_BYTES` (128
+MiB) across all decoded content streams, and rewritten streams are compressed
+again before the PDF is saved.
 
 A proof image, a gamut report and a `convert` hook for a host-owned full
 converter remain designed, not built.

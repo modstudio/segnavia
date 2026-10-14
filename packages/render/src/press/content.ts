@@ -1,7 +1,10 @@
 import type { Color3, Color4 } from '../color/types.ts'
 import { formatPdfNumber } from './color-policy.ts'
+import { contentColorSpaceAction, inlineImageAction } from './policy.ts'
 
 export const MAX_CONTENT_NESTING = 64
+// Color operators need at most four operands; this leaves room for ordinary Chromium operators without unbounded retention.
+export const MAX_OPERANDS = 32
 
 interface Token {
   end: number
@@ -134,8 +137,9 @@ function inlineImageEnd(source: string, at: number): number {
   match.lastIndex = id
   const end = match.exec(source)
   if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
-  if (!imageMask && !['/G', '/DeviceGray', '/CMYK', '/DeviceCMYK'].includes(colorSpace ?? 'missing'))
-    refusal(`BI operator with color space ${colorSpace ?? 'missing'}`, 'an image mask, DeviceGray, or DeviceCMYK')
+  const name = colorSpace?.startsWith('/') ? colorSpace.slice(1) : undefined
+  const policy = inlineImageAction(name, imageMask)
+  if (policy.action === 'refuse') refusal(`BI operator with color space ${policy.kind}`, policy.supported)
   return end.index + end[0].length
 }
 function skippedConstruct(source: string, cursor: number): number | undefined {
@@ -167,7 +171,9 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
 }
 function validateSpace(token: Token, operands: Token[]): void {
   if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
-  if (!['/Pattern', '/DeviceCMYK'].includes(operands[0].raw)) refusal(`${token.raw} operator selecting ${operands[0].raw}`, '/Pattern or /DeviceCMYK')
+  const name = operands[0].raw.slice(1)
+  const policy = contentColorSpaceAction(name)
+  if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${policy.action === 'refuse' ? 'other' : name}`, policy.supported)
 }
 function validateSetColor(token: Token, operands: Token[]): void {
   const pattern = (token.raw === 'scn' || token.raw === 'SCN') && operands.length === 1 && operands[0]?.kind === 'name'
@@ -222,23 +228,27 @@ function scan(
       const found = colorOperator(token, operands, convert, counts, inspect)
       if (found) visit?.(found)
       operands = []
-    } else operands.push(token)
+    } else {
+      if (operands.length >= MAX_OPERANDS) refusal(`more than ${MAX_OPERANDS} operands before an operator`, `at most ${MAX_OPERANDS} operands`)
+      operands.push(token)
+    }
   }
   return counts
 }
 
-export function contentHasBlackInk(bytes: Uint8Array): boolean {
-  let found = false
+export function visitContentOperators(bytes: Uint8Array, visit: (operator: string, operands: number[]) => void): void {
   scan(
     decoder.decode(bytes),
     () => [0, 0, 0, 0],
     false,
     undefined,
     (operator, operands) => {
-      if (operator.raw === 'k' && numeric(operands, 4, 'k').every((value, index) => value === [0, 0, 0, 1][index])) found = true
+      visit(
+        operator.raw,
+        operands.filter((operand) => operand.kind === 'number').map((operand) => Number(operand.raw)),
+      )
     },
   )
-  return found
 }
 
 export function inspectContent(bytes: Uint8Array): ContentCounts {

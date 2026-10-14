@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { inspectContent, rewriteContent } from './content.ts'
+import { inspectContent, MAX_OPERANDS, rewriteContent } from './content.ts'
 
 const bytes = (value: string) => new TextEncoder().encode(value)
 const text = (value: Uint8Array) => new TextDecoder().decode(value)
@@ -48,4 +48,8 @@ test.each(['BI /IM true ID x EI', 'BI /ImageMask true ID x EI', 'BI /CS/G ID x E
 
 test('the read-back operator policy refuses gray as well as RGB', () => {
   expect(() => inspectContent(bytes('0.5 g'))).toThrow(/gray color operator g/)
+})
+
+test('refuses an operator whose live operand list passes the ceiling', () => {
+  expect(() => rewriteContent(bytes(`${'1 '.repeat(MAX_OPERANDS + 1)}Tj`), convert)).toThrow(`more than ${MAX_OPERANDS} operands`)
 })

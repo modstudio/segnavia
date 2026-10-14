@@ -4,6 +4,7 @@ import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStre
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { inspectPressPdf, rewritePressDocument, rewritePressPdf } from './adapter.ts'
+import { decodeContent, MAX_CONTENT_BYTES, MAX_DOCUMENT_CONTENT_BYTES } from './pdf-objects.ts'
 
 const profile = buildPressProfile('mft1')
 
@@ -193,6 +194,68 @@ test('accepts the compression filter expressed as a one-element filter array', a
   expect(converted.report.fills).toBe(1)
 })
 
+test('stores rewritten content with compression', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('1 0 0 rg')))
+  const converted = await rewritePressPdf(await document.save(), profile)
+  const output = await PDFDocument.load(converted.bytes)
+  const stream = output.context.lookup(output.getPage(0).node.Contents()) as PDFRawStream
+  expect(stream.dict.get(PDFName.of('Filter'))?.toString()).toBe('/FlateDecode')
+})
+
+test('rewrites annotation appearances and read-back refuses an unconverted one', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([20, 20])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('0 0 0 1 k')))
+  const appearance = document.context.register(document.context.stream('1 0 0 rg', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 10, 10], Resources: {} }))
+  const annotation = document.context.register(document.context.obj({ Type: 'Annot', Subtype: 'Square', Rect: [0, 0, 10, 10], AP: { N: appearance } }))
+  page.node.set(PDFName.of('Annots'), document.context.obj([annotation]))
+  const input = await document.save()
+  await expect(inspectPressPdf(input)).rejects.toThrow(/RGB color operator/)
+  const converted = await rewritePressPdf(input, profile)
+  expect(converted.report.fills).toBe(2)
+})
+
+test.each([false, true])('collects a cross-page mask source through a %s ExtGState', async (indirect) => {
+  const document = await PDFDocument.create()
+  const form = document.context.register(
+    document.context.stream('0 0 0 1 k', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 10, 10],
+      Resources: {},
+      Group: { S: 'Transparency', CS: 'DeviceRGB' },
+    }),
+  )
+  setResources(document, document.addPage([20, 20]), { XObject: { Shared: form } }, '/Shared Do')
+  const mask = document.context.register(document.context.obj({ S: 'Luminosity', G: form }))
+  const graphicsState = document.context.obj({ SMask: mask })
+  const stateValue = indirect ? document.context.register(graphicsState) : graphicsState
+  setResources(document, document.addPage([20, 20]), { ExtGState: { Mask: stateValue } }, '/Mask gs')
+  const converted = await rewritePressPdf(await document.save(), profile)
+  expect(converted.report.groups).toBe(0)
+  const output = await PDFDocument.load(converted.bytes)
+  const convertedForm = output.context.lookup(form) as PDFRawStream
+  const group = convertedForm.dict.lookup(PDFName.of('Group'), PDFDict)
+  expect(group.get(PDFName.of('CS'))?.toString()).toBe('/DeviceRGB')
+})
+
+test('bounds inflation before returning decoded content', () => {
+  const document = PDFDocument.create()
+  return document.then((created) => {
+    const stream = created.context.stream(deflateSync(new Uint8Array(MAX_CONTENT_BYTES + 1)), { Filter: 'FlateDecode' })
+    expect(() => decodeContent(stream)).toThrow(/decode failure/)
+  })
+})
+
+test('bounds total decoded content for one document pass', () => {
+  return PDFDocument.create().then((document) => {
+    const stream = document.context.stream('1234')
+    expect(() => decodeContent(stream, { decodedBytes: MAX_DOCUMENT_CONTENT_BYTES - 3 })).toThrow(/total decoded content length/)
+  })
+})
+
 function imageBytes(document: PDFDocument): Uint8Array[] {
   return document.context
     .enumerateIndirectObjects()
@@ -256,7 +319,7 @@ const refusalCases: Array<[string, RefusalFixture]> = [
   ['FunctionType 0', shadingRefusal(2, 0)],
   ['FunctionType 4', shadingRefusal(2, 4)],
   [
-    'ASCIIHexDecode',
+    'content stream filter other',
     (document) => {
       const page = document.addPage([10, 10])
       page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('00>', { Filter: 'ASCIIHexDecode' })))

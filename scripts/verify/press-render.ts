@@ -6,7 +6,7 @@ import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
-import { contentHasBlackInk } from '../../packages/render/src/press/content.ts'
+import { visitContentOperators } from '../../packages/render/src/press/content.ts'
 import { decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -79,7 +79,13 @@ async function pageHasBlackInk(bytes: Uint8Array): Promise<boolean> {
     const objects = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
     for (const object of objects) {
       const stream = rawStreamOf(document.context.lookup(object))
-      if (stream && contentHasBlackInk(decodeContent(stream))) return true
+      if (stream) {
+        let found = false
+        visitContentOperators(decodeContent(stream), (operator, operands) => {
+          if (operator === 'k' && operands.length === 4 && operands.every((value, index) => value === [0, 0, 0, 1][index])) found = true
+        })
+        if (found) return true
+      }
     }
   }
   return false
