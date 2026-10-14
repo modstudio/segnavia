@@ -21,7 +21,7 @@ export function buildProofTable(profile: Profile, size = 65): ProofTable {
 function tetrahedral(data: Float32Array, base: number, gs: number, rs: number, r: number, g: number, b: number, channel: number): number {
   const last = base + rs + gs + 3 + channel
   if (base < 0 || channel < 0 || channel > 2 || last >= data.length) throw new Error(`proof table interpolation index ${last} is outside length ${data.length}`)
-  // The range check above establishes every corner index; fallbacks keep the hot interpolation loop compatible with noUncheckedIndexedAccess.
+  // The range check above establishes that every corner lies inside the packed table.
   const c = data[base + channel] ?? 0,
     cr = data[base + rs + channel] ?? 0,
     cg = data[base + gs + channel] ?? 0,
@@ -40,8 +40,9 @@ function tetrahedral(data: Float32Array, base: number, gs: number, rs: number, r
   return c + b * (cb - c) + g * (cgb - cb) + r * (crgb - cgb)
 }
 
-function coordinates(table: ProofTable, rgb: Color3) {
-  const [red, green, blue] = rgb
+type Coordinates = [number, number, number, number]
+
+function coordinates(table: ProofTable, red: number, green: number, blue: number, result: Coordinates): Coordinates {
   const scale = table.size - 1
   const rValue = clamp(red) * scale,
     gValue = clamp(green) * scale,
@@ -49,16 +50,16 @@ function coordinates(table: ProofTable, rgb: Color3) {
   const ri = Math.min(table.size - 2, Math.floor(rValue)),
     gi = Math.min(table.size - 2, Math.floor(gValue)),
     bi = Math.min(table.size - 2, Math.floor(bValue))
-  return {
-    base: ((ri * table.size + gi) * table.size + bi) * 3,
-    r: rValue - ri,
-    g: gValue - gi,
-    b: bValue - bi,
-  }
+  result[0] = ((ri * table.size + gi) * table.size + bi) * 3
+  result[1] = rValue - ri
+  result[2] = gValue - gi
+  result[3] = bValue - bi
+  return result
 }
 
 export function fastProof(table: ProofTable, rgb: Color3): Color3 {
-  const { base, r, g, b } = coordinates(table, rgb),
+  const [red, green, blue] = rgb
+  const [base, r, g, b] = coordinates(table, red, green, blue, [0, 0, 0, 0]),
     gs = table.size * 3,
     rs = table.size * gs
   return [
@@ -72,19 +73,14 @@ export function proofPixels(table: ProofTable, source: Uint8Array, destination =
   if (source.length % 3 !== 0) refuse(`proof pixel byte length ${source.length}`, 'packed RGB bytes with a length divisible by 3')
   if (destination.length !== source.length) refuse(`proof destination byte length ${destination.length}`, `${source.length}`)
   const gs = table.size * 3,
-    rs = table.size * gs
+    rs = table.size * gs,
+    coordinate: Coordinates = [0, 0, 0, 0]
   for (let offset = 0; offset < source.length; offset += 3) {
-    // Divisibility and loop bounds above establish all three source indices; byte coordinates always contain 256 entries.
+    // Divisibility and loop bounds establish the source indices, and every byte indexes the 256-entry coordinate table.
     const red = table.byteCoordinates[source[offset] ?? 0] ?? 0,
       green = table.byteCoordinates[source[offset + 1] ?? 0] ?? 0,
       blue = table.byteCoordinates[source[offset + 2] ?? 0] ?? 0
-    const ri = Math.min(table.size - 2, Math.floor(red)),
-      gi = Math.min(table.size - 2, Math.floor(green)),
-      bi = Math.min(table.size - 2, Math.floor(blue))
-    const base = ((ri * table.size + gi) * table.size + bi) * 3,
-      r = red - ri,
-      g = green - gi,
-      b = blue - bi
+    const [base, r, g, b] = coordinates(table, red / (table.size - 1), green / (table.size - 1), blue / (table.size - 1), coordinate)
     destination[offset] = linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 0)) * 255
     destination[offset + 1] = linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 1)) * 255
     destination[offset + 2] = linearToSrgb(tetrahedral(table.data, base, gs, rs, r, g, b, 2)) * 255

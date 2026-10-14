@@ -2,9 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import * as reference from '../../test-fixtures/lcms/reference.ts'
 import { fromPress, proof, toPress } from './engine.ts'
 import { outOfGamut } from './gamut.ts'
-import { readProfile } from './profile.ts'
+import { MAX_PROFILE_BYTES, readProfile } from './profile.ts'
 import { buildPressProfile } from './profile-fixture.test-helper.ts'
 import { buildProofTable, fastProof, proofPixels } from './proof.ts'
+import { srgbToLab, tableEncode } from './spaces.ts'
 import { checked, color3, color4 } from './types.ts'
 
 const lcms = await reference.instantiate()
@@ -96,10 +97,15 @@ describe('press color against LittleCMS', () => {
     })
 })
 
-test('the light-black model exercises black point compensation', () => {
+test('the light-black conversion applies black point compensation', () => {
   const profile = readProfile(checked(models, 2, 'profile models').bytes)
-  expect(profile.destinationBlackPoint[0]).toBeGreaterThan(5)
-  expect(toPress(profile, [0, 0, 0]).every(Number.isFinite)).toBe(true)
+  const withoutCompensation = color4(
+    profile.b2a.run(tableEncode(profile.pcs, profile.b2a.encoding, profile.majorVersion, srgbToLab([0, 0, 0]), true)),
+    'uncompensated B2A result',
+  )
+  expect(
+    Math.max(...toPress(profile, [0, 0, 0]).map((value, channel) => Math.abs(value - checked(withoutCompensation, channel, 'uncompensated B2A result')))),
+  ).toBeGreaterThan(3 / 255)
 })
 
 test('fast proof stays close to exact proof', () => {
@@ -123,9 +129,70 @@ test('fast proof stays close to exact proof', () => {
   expect(proofPixels(table, Uint8Array.from([0, 127, 255]))).toHaveLength(3)
 })
 
-test('gamut tolerance is caller-supplied', () => {
-  expect(typeof outOfGamut(readProfile(checked(models, 0, 'profile models').bytes), [1, 0, 0], 2)).toBe('boolean')
+test('gamut tolerance distinguishes a preserved neutral from an unreachable saturated color', () => {
+  const profile = readProfile(checked(models, 0, 'profile models').bytes)
+  expect(outOfGamut(profile, [1, 1, 1], 2)).toBe(false)
+  expect(outOfGamut(profile, [1, 0, 0], 2)).toBe(true)
 })
+
+function tagRecord(bytes: Uint8Array, name: string): { at: number; offset: number } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  for (let index = 0; index < view.getUint32(128, false); index++) {
+    const at = 132 + index * 12
+    if (new TextDecoder().decode(bytes.subarray(at, at + 4)) === name) return { at, offset: view.getUint32(at + 4, false) }
+  }
+  throw new Error(`fixture has no ${name} tag`)
+}
+
+test('a profile over the byte ceiling names its size and the ceiling', () => {
+  expect(() => readProfile(new Uint8Array(MAX_PROFILE_BYTES + 1))).toThrow(
+    `profile length ${MAX_PROFILE_BYTES + 1}; supported: at most ${MAX_PROFILE_BYTES} bytes`,
+  )
+})
+
+test('a wrong channel count is refused before its table payload is read', () => {
+  const bytes = checked(models, 0, 'profile models').bytes.slice(),
+    view = new DataView(bytes.buffer),
+    record = tagRecord(bytes, 'A2B1')
+  view.setUint32(record.at + 8, 48, false)
+  bytes[record.offset + 8] = 8
+  expect(() => readProfile(bytes)).toThrow(/A2B1 channel count 8->3/)
+})
+
+test('a tag cannot read a table beyond its declared size', () => {
+  const bytes = checked(models, 0, 'profile models').bytes.slice(),
+    view = new DataView(bytes.buffer),
+    record = tagRecord(bytes, 'A2B1')
+  view.setUint32(record.at + 8, 48, false)
+  expect(() => readProfile(bytes)).toThrow(/truncated A2B1 tag/)
+})
+
+test('a short white point at the end of the file is refused by its tag bound', () => {
+  const bytes = checked(models, 0, 'profile models').bytes.slice(),
+    view = new DataView(bytes.buffer),
+    record = tagRecord(bytes, 'wtpt')
+  view.setUint32(record.at + 8, 16, false)
+  expect(() => readProfile(bytes)).toThrow(/truncated wtpt tag/)
+})
+
+for (const point of [0, 1])
+  test(`an mAB CLUT dimension of ${point} is refused`, () => {
+    const bytes = checked(models, 0, 'profile models').bytes.slice(),
+      view = new DataView(bytes.buffer),
+      record = tagRecord(bytes, 'A2B1')
+    bytes.set(new TextEncoder().encode('mAB '), record.offset)
+    view.setUint32(record.offset + 12, 0, false)
+    view.setUint32(record.offset + 16, 0, false)
+    view.setUint32(record.offset + 20, 0, false)
+    view.setUint32(record.offset + 24, 32, false)
+    view.setUint32(record.offset + 28, 0, false)
+    bytes[record.offset + 8] = 4
+    bytes[record.offset + 9] = 3
+    bytes.fill(2, record.offset + 32, record.offset + 36)
+    bytes[record.offset + 32] = point
+    bytes[record.offset + 48] = 1
+    expect(() => readProfile(bytes)).toThrow(new RegExp(`mAB {2}CLUT grid point count ${point}`))
+  })
 
 test('refusals identify every unsupported profile property', () => {
   const cases: Array<[number, number[] | string, RegExp]> = [

@@ -1,20 +1,31 @@
+import { align4, fixed, need, signature, type TagBounds, u16, u32 } from './binary.ts'
+import { interpolate, matrixInput, multilinear, type Samples, tetrahedral4 } from './interpolation.ts'
 import { invert3, matrix3 } from './spaces.ts'
-import { type ColorTable, type Curve, checked, clamp, color3, type Matrix3, REVERSE_LUT, refuse } from './types.ts'
+import { type ColorTable, type Curve, checked, clamp, type Matrix3, REVERSE_LUT, refuse } from './types.ts'
 
-export const signature = (bytes: Uint8Array, offset: number): string => String.fromCharCode(...bytes.subarray(offset, offset + 4))
-export const u16 = (view: DataView, offset: number): number => view.getUint16(offset, false)
-export const u32 = (view: DataView, offset: number): number => view.getUint32(offset, false)
-export const fixed = (view: DataView, offset: number): number => view.getInt32(offset, false) / 65_536
-const align4 = (value: number) => (value + 3) & ~3
+export interface TagRecord extends TagBounds {
+  offset: number
+  size: number
+  type: string
+}
 
-function need(bytes: Uint8Array, offset: number, length: number, structure: string): void {
-  if (offset < 0 || length < 0 || offset + length > bytes.length) refuse(`truncated ${structure}`, `${structure} contained within the profile`)
+function packed(bytes: Uint8Array, view: DataView, offset: number, length: number, width: 1 | 2, bounds: TagBounds): Samples {
+  need(offset, length * width, bounds)
+  return {
+    length,
+    get(index) {
+      if (!Number.isInteger(index) || index < 0 || index >= length) throw new Error(`${bounds.name} sample index ${index} is outside length ${length}`)
+      return width === 1 ? checked(bytes, offset + index, `${bounds.name} samples`) / 255 : u16(view, offset + index * 2, bounds) / 65_535
+    },
+  }
 }
 
 const parametric: Array<(p: number[], x: number) => number> = [
   (p, x) => clamp(x) ** checked(p, 0, 'parametric curve'),
   (p, x) => {
-    const [g, a, b] = color3(p, 'parametric curve')
+    const g = checked(p, 0, 'parametric curve'),
+      a = checked(p, 1, 'parametric curve'),
+      b = checked(p, 2, 'parametric curve')
     return x >= -b / a ? (a * x + b) ** g : 0
   },
   (p, x) => {
@@ -44,133 +55,81 @@ const parametric: Array<(p: number[], x: number) => number> = [
   },
 ]
 
-export function parseCurve(bytes: Uint8Array, view: DataView, offset: number): { curve: Curve; size: number } {
-  need(bytes, offset, 12, 'curve')
-  const type = signature(bytes, offset)
+export function parseCurve(bytes: Uint8Array, view: DataView, offset: number, bounds: TagBounds): { curve: Curve; size: number } {
+  need(offset, 12, bounds)
+  const type = signature(bytes, offset, bounds)
   if (type === 'curv') {
-    const count = u32(view, offset + 8)
-    need(bytes, offset + 12, count * 2, 'curve values')
+    const count = u32(view, offset + 8, bounds)
+    need(offset + 12, count * 2, bounds)
     if (count === 0) return { curve: (value) => value, size: 12 }
     if (count === 1) {
-      const gamma = u16(view, offset + 12) / 256
+      const gamma = u16(view, offset + 12, bounds) / 256
       return { curve: (value) => clamp(value) ** gamma, size: 14 }
     }
-    const values = Array.from({ length: count }, (_, index) => u16(view, offset + 12 + index * 2) / 65_535)
+    const values = packed(bytes, view, offset + 12, count, 2, bounds)
     return { curve: (value) => interpolate(values, value), size: 12 + count * 2 }
   }
   if (type !== 'para') return refuse(`curve tag type ${JSON.stringify(type)}`, 'curv or para')
-  const kind = u16(view, offset + 8)
-  const counts = [1, 3, 4, 5, 7]
+  const kind = u16(view, offset + 8, bounds),
+    counts = [1, 3, 4, 5, 7]
   if (kind > 4) refuse(`parametric curve function ${kind}`, 'functions 0 through 4')
-  const parameterCount = checked(counts, kind, 'parametric curve function')
-  need(bytes, offset + 12, parameterCount * 4, 'parametric curve values')
-  const parameters = Array.from({ length: parameterCount }, (_, index) => fixed(view, offset + 12 + index * 4))
+  const count = checked(counts, kind, 'parametric curve function')
+  need(offset + 12, count * 4, bounds)
+  const parameters = Array.from({ length: count }, (_, index) => fixed(view, offset + 12 + index * 4, bounds))
   const evaluate = checked(parametric, kind, 'parametric curve function')
-  return { curve: (value) => evaluate(parameters, value), size: 12 + parameterCount * 4 }
+  return { curve: (value) => evaluate(parameters, value), size: 12 + count * 4 }
 }
 
-function curvesAt(bytes: Uint8Array, view: DataView, offset: number, count: number): Curve[] {
+function curvesAt(bytes: Uint8Array, view: DataView, offset: number, count: number, bounds: TagBounds): Curve[] {
   const curves: Curve[] = []
   let cursor = offset
   for (let index = 0; index < count; index++) {
-    const parsed = parseCurve(bytes, view, cursor)
+    const parsed = parseCurve(bytes, view, cursor, bounds)
     curves.push(parsed.curve)
     cursor = align4(cursor + parsed.size)
   }
   return curves
 }
 
-const interpolate = (table: number[], value: number): number => {
-  if (table.length === 0) throw new Error('ICC interpolation table is empty')
-  const position = clamp(value) * (table.length - 1)
-  const low = Math.floor(position)
-  const lower = checked(table, low, 'interpolation table')
-  return lower + (checked(table, Math.min(low + 1, table.length - 1), 'interpolation table') - lower) * (position - low)
+function channels(bytes: Uint8Array, offset: number, expectedInputs: number, expectedOutputs: number, bounds: TagBounds): void {
+  need(offset + 8, 2, bounds)
+  const inputs = checked(bytes, offset + 8, `${bounds.name} header`),
+    outputs = checked(bytes, offset + 9, `${bounds.name} header`)
+  if (inputs !== expectedInputs || outputs !== expectedOutputs)
+    refuse(`${bounds.name} channel count ${inputs}->${outputs}`, `${expectedInputs}->${expectedOutputs}`)
 }
 
-function multilinear(grid: number[], points: number[], outputs: number, input: readonly number[]): number[] {
-  const base = input.map((value, axis) => {
-    const count = checked(points, axis, 'CLUT dimensions')
-    return Math.min(count - 2, Math.floor(clamp(value) * (count - 1)))
-  })
-  const fractions = input.map((value, axis) => clamp(value) * (checked(points, axis, 'CLUT dimensions') - 1) - checked(base, axis, 'CLUT base'))
-  const stride = points.map((_, axis) => points.slice(axis + 1).reduce((a, b) => a * b, outputs))
-  const result = Array.from({ length: outputs }, () => 0)
-  for (let mask = 0; mask < 2 ** input.length; mask++) {
-    let weight = 1
-    let start = 0
-    for (let axis = 0; axis < input.length; axis++) {
-      const high = (mask & (1 << axis)) !== 0
-      const fraction = checked(fractions, axis, 'CLUT fractions')
-      weight *= high ? fraction : 1 - fraction
-      start += (checked(base, axis, 'CLUT base') + Number(high)) * checked(stride, axis, 'CLUT stride')
-    }
-    for (let channel = 0; channel < outputs; channel++)
-      result[channel] = checked(result, channel, 'CLUT result') + weight * checked(grid, start + channel, 'CLUT grid')
-  }
-  return result
-}
-
-function tetrahedral4(grid: number[], points: number[], outputs: number, input: readonly number[]): number[] {
-  const base = input.map((value, axis) => {
-    const count = checked(points, axis, 'CLUT dimensions')
-    return Math.min(count - 2, Math.floor(clamp(value) * (count - 1)))
-  })
-  const fractions = input.map((value, axis) => clamp(value) * (checked(points, axis, 'CLUT dimensions') - 1) - checked(base, axis, 'CLUT base'))
-  const stride = points.map((_, axis) => points.slice(axis + 1).reduce((a, b) => a * b, outputs))
-  const order = [1, 2, 3].sort((a, b) => checked(fractions, b, 'CLUT fractions') - checked(fractions, a, 'CLUT fractions'))
-  const plane = (first: number) => {
-    const corner = [0, 0, 0, 0]
-    let at = base.reduce((sum, value, axis) => sum + (value + (axis === 0 ? first : 0)) * checked(stride, axis, 'CLUT stride'), 0)
-    let previous = grid.slice(at, at + outputs)
-    const result = [...previous]
-    for (const axis of order) {
-      corner[axis] = 1
-      at = base.reduce(
-        (sum, value, index) => sum + (value + (index === 0 ? first : checked(corner, index, 'CLUT corner'))) * checked(stride, index, 'CLUT stride'),
-        0,
-      )
-      const next = grid.slice(at, at + outputs)
-      for (let channel = 0; channel < outputs; channel++)
-        result[channel] =
-          checked(result, channel, 'CLUT result') +
-          checked(fractions, axis, 'CLUT fractions') * (checked(next, channel, 'CLUT corner') - checked(previous, channel, 'CLUT corner'))
-      previous = next
-    }
-    return result
-  }
-  const low = plane(0)
-  const high = plane(1)
-  return low.map((value, channel) => value + checked(fractions, 0, 'CLUT fractions') * (checked(high, channel, 'CLUT high plane') - value))
-}
-
-export function parseMft(bytes: Uint8Array, view: DataView, offset: number, type: 'mft1' | 'mft2'): ColorTable {
-  need(bytes, offset, type === 'mft1' ? 48 : 52, type)
-  const inputs = checked(bytes, offset + 8, `${type} header`)
-  const outputs = checked(bytes, offset + 9, `${type} header`)
+export function parseMft(bytes: Uint8Array, view: DataView, record: TagRecord, type: 'mft1' | 'mft2', inputs: number, outputs: number): ColorTable {
+  const { offset } = record
+  need(offset, type === 'mft1' ? 48 : 52, record)
+  channels(bytes, offset, inputs, outputs, record)
   const pointCount = checked(bytes, offset + 10, `${type} header`)
   if (pointCount < 2) refuse(`${type} grid point count ${pointCount}`, 'at least 2')
-  const matrix = Array.from({ length: 9 }, (_, index) => fixed(view, offset + 12 + index * 4))
-  const inputEntries = type === 'mft1' ? 256 : u16(view, offset + 48)
-  const outputEntries = type === 'mft1' ? 256 : u16(view, offset + 50)
+  const matrix = Array.from({ length: 9 }, (_, index) => fixed(view, offset + 12 + index * 4, record))
+  const inputEntries = type === 'mft1' ? 256 : u16(view, offset + 48, record),
+    outputEntries = type === 'mft1' ? 256 : u16(view, offset + 50, record)
   if (inputEntries < 2 || outputEntries < 2) refuse(`${type} table entry counts ${inputEntries}/${outputEntries}`, 'at least 2 entries')
-  const width = type === 'mft1' ? 1 : 2
-  const values = inputs * inputEntries + pointCount ** inputs * outputs + outputs * outputEntries
+  const width: 1 | 2 = type === 'mft1' ? 1 : 2
   let cursor = offset + (type === 'mft1' ? 48 : 52)
-  need(bytes, cursor, values * width, `${type} tables`)
-  const read = () => {
-    const value = width === 1 ? checked(bytes, cursor, `${type} table`) / 255 : u16(view, cursor) / 65_535
-    cursor += width
-    return value
-  }
-  const inputTables = Array.from({ length: inputs }, () => Array.from({ length: inputEntries }, read))
-  const grid = Array.from({ length: pointCount ** inputs * outputs }, read)
-  const outputTables = Array.from({ length: outputs }, () => Array.from({ length: outputEntries }, read))
+  const inputTables = Array.from({ length: inputs }, () => {
+    const result = packed(bytes, view, cursor, inputEntries, width, record)
+    cursor += inputEntries * width
+    return result
+  })
+  const gridLength = pointCount ** inputs * outputs,
+    grid = packed(bytes, view, cursor, gridLength, width, record)
+  cursor += gridLength * width
+  const outputTables = Array.from({ length: outputs }, () => {
+    const result = packed(bytes, view, cursor, outputEntries, width, record)
+    cursor += outputEntries * width
+    return result
+  })
+  const points = Array.from({ length: inputs }, () => pointCount)
   return {
     inputChannels: inputs,
     outputChannels: outputs,
     encoding: type,
-    run: (values) => {
+    run(values) {
       let current: readonly number[] = values.map((value, channel) => interpolate(checked(inputTables, channel, `${type} input tables`), value))
       if (inputs === 3) {
         const fixedMatrix: Matrix3 = [
@@ -184,110 +143,108 @@ export function parseMft(bytes: Uint8Array, view: DataView, offset: number, type
           checked(matrix, 7, `${type} matrix`),
           checked(matrix, 8, `${type} matrix`),
         ]
-        current = matrix3(fixedMatrix, color3(current, `${type} input`))
+        current = matrix3(fixedMatrix, matrixInput(current))
       }
-      const points = Array.from({ length: inputs }, () => pointCount)
       current = inputs === 3 ? multilinear(grid, points, outputs, current) : tetrahedral4(grid, points, outputs, current)
       return current.map((value, channel) => interpolate(checked(outputTables, channel, `${type} output tables`), value))
     },
   }
 }
 
-export function parseMab(bytes: Uint8Array, view: DataView, offset: number, type: 'mAB ' | typeof REVERSE_LUT): ColorTable {
-  need(bytes, offset, 32, type)
-  const inputs = checked(bytes, offset + 8, `${type} header`)
-  const outputs = checked(bytes, offset + 9, `${type} header`)
+function mabGrid(bytes: Uint8Array, view: DataView, record: TagRecord, type: string, offset: number, inputs: number, outputs: number) {
+  if (!offset) return { points: [] as number[], grid: undefined }
+  need(offset, 20, record)
+  const points = Array.from(bytes.subarray(offset, offset + inputs))
+  const badPoint = points.find((point) => point < 2)
+  if (badPoint !== undefined) refuse(`${type} CLUT grid point count ${badPoint}`, 'at least 2')
+  const precision = checked(bytes, offset + 16, `${type} CLUT`)
+  if (precision !== 1 && precision !== 2) refuse(`${type} CLUT precision ${precision}`, '1 or 2 bytes')
+  return {
+    points,
+    grid: packed(
+      bytes,
+      view,
+      offset + 20,
+      points.reduce((a, b) => a * b, outputs),
+      precision,
+      record,
+    ),
+  }
+}
+
+export function parseMab(bytes: Uint8Array, view: DataView, record: TagRecord, type: 'mAB ' | typeof REVERSE_LUT, inputs: number, outputs: number): ColorTable {
+  const { offset } = record
+  need(offset, 32, record)
+  channels(bytes, offset, inputs, outputs, record)
   const relative = (at: number) => {
-    const value = u32(view, offset + at)
-    return value === 0 ? 0 : offset + value
+    const value = u32(view, offset + at, record),
+      absolute = value === 0 ? 0 : offset + value
+    if (absolute) need(absolute, 1, record)
+    return absolute
   }
   const bOffset = relative(12),
     matrixOffset = relative(16),
     mOffset = relative(20),
     clutOffset = relative(24),
     aOffset = relative(28)
-  const bCurves = bOffset ? curvesAt(bytes, view, bOffset, type === 'mAB ' ? outputs : inputs) : []
-  const mCurves = mOffset ? curvesAt(bytes, view, mOffset, type === 'mAB ' ? outputs : inputs) : []
-  const aCurves = aOffset ? curvesAt(bytes, view, aOffset, type === 'mAB ' ? inputs : outputs) : []
-  if (matrixOffset) need(bytes, matrixOffset, 48, `${type} matrix`)
-  const matrix = matrixOffset ? Array.from({ length: 12 }, (_, index) => fixed(view, matrixOffset + index * 4)) : []
-  if (clutOffset) need(bytes, clutOffset, 20, `${type} CLUT`)
-  const points = clutOffset ? Array.from(bytes.subarray(clutOffset, clutOffset + inputs)) : []
-  const precision = clutOffset ? checked(bytes, clutOffset + 16, `${type} CLUT`) : 0
-  if (clutOffset && precision !== 1 && precision !== 2) refuse(`${type} CLUT precision ${precision}`, '1 or 2 bytes')
-  let cursor = clutOffset + 20
-  const count = clutOffset ? points.reduce((a, b) => a * b, outputs) : 0
-  if (clutOffset) need(bytes, cursor, count * precision, `${type} CLUT values`)
-  const grid = Array.from({ length: count }, () => {
-    const value = precision === 1 ? checked(bytes, cursor, `${type} CLUT values`) / 255 : u16(view, cursor) / 65_535
-    cursor += precision
-    return value
-  })
+  const bCurves = bOffset ? curvesAt(bytes, view, bOffset, type === 'mAB ' ? outputs : inputs, record) : []
+  const mCurves = mOffset ? curvesAt(bytes, view, mOffset, type === 'mAB ' ? outputs : inputs, record) : []
+  const aCurves = aOffset ? curvesAt(bytes, view, aOffset, type === 'mAB ' ? inputs : outputs, record) : []
+  if (matrixOffset) need(matrixOffset, 48, record)
+  const matrix = matrixOffset ? Array.from({ length: 12 }, (_, index) => fixed(view, matrixOffset + index * 4, record)) : []
+  const { points, grid } = mabGrid(bytes, view, record, type, clutOffset, inputs, outputs)
   const apply = (curves: Curve[], values: readonly number[]) =>
     curves.length ? values.map((value, index) => checked(curves, index, `${type} curves`)(value)) : [...values]
   const applyMatrix = (values: readonly number[]) => {
     if (!matrix.length) return [...values]
-    const [x, y, z] = color3(values, `${type} matrix input`)
-    return [
-      checked(matrix, 0, `${type} matrix`) * x +
-        checked(matrix, 1, `${type} matrix`) * y +
-        checked(matrix, 2, `${type} matrix`) * z +
-        checked(matrix, 9, `${type} matrix`),
-      checked(matrix, 3, `${type} matrix`) * x +
-        checked(matrix, 4, `${type} matrix`) * y +
-        checked(matrix, 5, `${type} matrix`) * z +
-        checked(matrix, 10, `${type} matrix`),
-      checked(matrix, 6, `${type} matrix`) * x +
-        checked(matrix, 7, `${type} matrix`) * y +
-        checked(matrix, 8, `${type} matrix`) * z +
-        checked(matrix, 11, `${type} matrix`),
-    ]
+    const [x, y, z] = matrixInput(values)
+    return [0, 1, 2].map(
+      (row) =>
+        checked(matrix, row * 3, `${type} matrix`) * x +
+        checked(matrix, row * 3 + 1, `${type} matrix`) * y +
+        checked(matrix, row * 3 + 2, `${type} matrix`) * z +
+        checked(matrix, 9 + row, `${type} matrix`),
+    )
   }
+  const clut = (values: readonly number[]) =>
+    !grid ? [...values] : inputs === 3 ? multilinear(grid, points, outputs, values) : tetrahedral4(grid, points, outputs, values)
   return {
     inputChannels: inputs,
     outputChannels: outputs,
     encoding: type,
-    run: (values) => {
-      if (type === 'mAB ') {
-        let result = apply(aCurves, values)
-        if (grid.length) result = inputs === 3 ? multilinear(grid, points, outputs, result) : tetrahedral4(grid, points, outputs, result)
-        return apply(bCurves, applyMatrix(apply(mCurves, result)))
-      }
-      let result = applyMatrix(apply(bCurves, values))
-      result = apply(mCurves, result)
-      if (grid.length) result = inputs === 3 ? multilinear(grid, points, outputs, result) : tetrahedral4(grid, points, outputs, result)
-      return apply(aCurves, result)
+    run(values) {
+      return type === 'mAB '
+        ? apply(bCurves, applyMatrix(apply(mCurves, clut(apply(aCurves, values)))))
+        : apply(aCurves, clut(apply(mCurves, applyMatrix(apply(bCurves, values)))))
     },
   }
 }
 
-export function matrixTables(
-  bytes: Uint8Array,
-  view: DataView,
-  records: Record<string, { offset: number; type: string }>,
-): { a2b: ColorTable; b2a: ColorTable } | undefined {
-  if (!['rXYZ', 'gXYZ', 'bXYZ', 'rTRC', 'gTRC', 'bTRC'].every((name) => records[name])) return undefined
-  for (const name of ['rXYZ', 'gXYZ', 'bXYZ']) {
-    const record = records[name]
-    if (!record) refuse(`missing ${name} tag`, name)
-    if (record.type !== 'XYZ ') refuse(`${name} tag type ${record.type}`, 'XYZ ')
+export function matrixTables(bytes: Uint8Array, view: DataView, records: Record<string, TagRecord>): { a2b: ColorTable; b2a: ColorTable } | undefined {
+  const names = ['rXYZ', 'gXYZ', 'bXYZ', 'rTRC', 'gTRC', 'bTRC']
+  if (!names.every((name) => records[name])) return undefined
+  const record = (name: string) => {
+    const found = records[name]
+    if (!found) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
+    return found
   }
-  const columns = ['rXYZ', 'gXYZ', 'bXYZ'].map((name) => [
-    fixed(view, checkedRecord(records, name).offset + 8),
-    fixed(view, checkedRecord(records, name).offset + 12),
-    fixed(view, checkedRecord(records, name).offset + 16),
-  ])
-  const curves = ['rTRC', 'gTRC', 'bTRC'].map((name) => parseCurve(bytes, view, checkedRecord(records, name).offset).curve)
+  for (const name of names.slice(0, 3)) if (record(name).type !== 'XYZ ') refuse(`${name} tag type ${record(name).type}`, 'XYZ ')
+  const columns = names.slice(0, 3).map((name) => {
+    const tag = record(name)
+    need(tag.offset, 20, tag)
+    return [fixed(view, tag.offset + 8, tag), fixed(view, tag.offset + 12, tag), fixed(view, tag.offset + 16, tag)]
+  })
+  const curves = names.slice(3).map((name) => parseCurve(bytes, view, record(name).offset, record(name)).curve)
   const matrix: Matrix3 = [
-    checked(checked(columns, 0, 'colorant columns'), 0, 'red colorant'),
-    checked(checked(columns, 1, 'colorant columns'), 0, 'green colorant'),
-    checked(checked(columns, 2, 'colorant columns'), 0, 'blue colorant'),
-    checked(checked(columns, 0, 'colorant columns'), 1, 'red colorant'),
-    checked(checked(columns, 1, 'colorant columns'), 1, 'green colorant'),
-    checked(checked(columns, 2, 'colorant columns'), 1, 'blue colorant'),
-    checked(checked(columns, 0, 'colorant columns'), 2, 'red colorant'),
-    checked(checked(columns, 1, 'colorant columns'), 2, 'green colorant'),
-    checked(checked(columns, 2, 'colorant columns'), 2, 'blue colorant'),
+    checked(checked(columns, 0, 'colorants'), 0, 'red'),
+    checked(checked(columns, 1, 'colorants'), 0, 'green'),
+    checked(checked(columns, 2, 'colorants'), 0, 'blue'),
+    checked(checked(columns, 0, 'colorants'), 1, 'red'),
+    checked(checked(columns, 1, 'colorants'), 1, 'green'),
+    checked(checked(columns, 2, 'colorants'), 1, 'blue'),
+    checked(checked(columns, 0, 'colorants'), 2, 'red'),
+    checked(checked(columns, 1, 'colorants'), 2, 'green'),
+    checked(checked(columns, 2, 'colorants'), 2, 'blue'),
   ]
   const inverse = invert3(matrix)
   const invertCurve = (curve: Curve, target: number) => {
@@ -305,26 +262,13 @@ export function matrixTables(
       inputChannels: 3,
       outputChannels: 3,
       encoding: 'mAB ',
-      run: (input) =>
-        matrix3(
-          matrix,
-          color3(
-            input.map((value, index) => checked(curves, index, 'RGB curves')(value)),
-            'RGB curve result',
-          ),
-        ),
+      run: (input) => matrix3(matrix, matrixInput(input.map((value, index) => checked(curves, index, 'RGB curves')(value)))),
     },
     b2a: {
       inputChannels: 3,
       outputChannels: 3,
       encoding: REVERSE_LUT,
-      run: (input) => matrix3(inverse, color3(input, 'RGB PCS input')).map((value, index) => invertCurve(checked(curves, index, 'RGB curves'), value)),
+      run: (input) => matrix3(inverse, matrixInput(input)).map((value, index) => invertCurve(checked(curves, index, 'RGB curves'), value)),
     },
   }
-}
-
-function checkedRecord(records: Record<string, { offset: number; type: string }>, name: string): { offset: number; type: string } {
-  const record = records[name]
-  if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
-  return record
 }

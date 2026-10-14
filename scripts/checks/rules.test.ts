@@ -49,6 +49,12 @@ describe('architecture rules', () => {
     expect(checkImports(testFile, workspace('render'), all)).toEqual([])
     const helper = { ...source, path: 'packages/render/src/color/reference.test-helper.ts' }
     expect(checkImports(helper, workspace('render'), all)).toEqual([])
+    for (const escaped of ['../../../format/test-fixtures/foo.ts', '../../test-fixtures/../../../format/src/index.ts']) {
+      const file = { path: 'packages/render/src/color/color.test.ts', text: '', imports: [escaped] }
+      expect(checkImports(file, workspace('render'), all).map((finding) => finding.message)).toContain(
+        `"${escaped}" reaches outside the package; import another package by name.`,
+      )
+    }
   })
 
   test('a server-safe entry point may not reach a browser-only file', () => {

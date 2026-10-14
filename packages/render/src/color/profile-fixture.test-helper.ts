@@ -19,14 +19,19 @@ function xyzTag(): Uint8Array {
   return bytes
 }
 
+// This fixture restates D50 and ICC Lab table encoding so the oracle side remains independent of the engine implementation.
 function deviceToLab(device: Color4, floor: number): Color3 {
   const [c, m, y, k] = device
   const ink = 1 - (1 - k) * (1 - (0.08 * (c + m + y)) / 3)
-  return [(floor + (1 - floor) * (1 - ink)) * 100, 0, 0]
+  return [(floor + (1 - floor) * (1 - ink)) * 100, (m - c) * 1.5 * (1 - k), (y - (c + m) / 2) * 1.2 * (1 - k)]
 }
 
 function labToDevice(lab: Color3, floor: number): Color4 {
-  return [0, 0, 0, 1 - (lab[0] / 100 - floor) / (1 - floor)]
+  const [lightness, a, b] = lab
+  const clip = (value: number) => Math.max(0, Math.min(1, value))
+  const black = clip(1 - (lightness / 100 - floor) / (1 - floor))
+  const chroma = 1 - black
+  return [clip((-a / 1.5 - b / 2.4) * chroma), clip((a / 1.5 - b / 2.4) * chroma), clip((b / 1.2) * chroma), black]
 }
 
 function decodeLab(values: Color3): Color3 {
@@ -106,27 +111,51 @@ function profile(tags: Array<[string, Uint8Array]>): Uint8Array {
   return bytes
 }
 
-export function buildPressProfile(encoding: Encoding, floor = 0): Uint8Array {
+function pressTags(
+  encoding: Encoding,
+  floor: number,
+  a2bPoints: number,
+): { relativeA2b: Uint8Array; perceptualA2b: Uint8Array; relativeB2a: Uint8Array; perceptualB2a: Uint8Array; gamut: Uint8Array } {
   const legacy = encoding === 'mft2' ? 65_280 / 65_535 : 1
-  const a2b = lut(encoding, 4, 3, 9, (device) => encodeLab(deviceToLab(color4(device, 'fixture CMYK input'), floor)).map((value) => value * legacy))
-  const b2a = lut(encoding, 3, 4, 17, (encoded) =>
-    labToDevice(
-      decodeLab(
+  const a2b = (perceptual: boolean) =>
+    lut(encoding, 4, 3, a2bPoints, (device) => {
+      const [lightness, a, b] = deviceToLab(color4(device, 'fixture CMYK input'), floor)
+      const lab: Color3 = perceptual ? [lightness * 0.9 + 5, a * 0.8, b * 0.8] : [lightness, a, b]
+      return encodeLab(lab).map((value) => value * legacy)
+    })
+  const b2a = (perceptual: boolean) =>
+    lut(encoding, 3, 4, 17, (encoded) => {
+      const [lightness, a, b] = decodeLab(
         color3(
           encoded.map((value) => value / legacy),
           'fixture Lab input',
         ),
-      ),
-      floor,
-    ),
-  )
+      )
+      const lab: Color3 = perceptual ? [(lightness - 5) / 0.9, a / 0.8, b / 0.8] : [lightness, a, b]
+      return labToDevice(lab, floor)
+    })
   const gamut = lut(encoding, 3, 1, 5, () => [0])
+  return { relativeA2b: a2b(false), perceptualA2b: a2b(true), relativeB2a: b2a(false), perceptualB2a: b2a(true), gamut }
+}
+
+export function buildPressProfile(encoding: Encoding, floor = 0): Uint8Array {
+  const tags = pressTags(encoding, floor, 9)
   return profile([
-    ['A2B0', a2b],
-    ['A2B1', a2b],
-    ['B2A0', b2a],
-    ['B2A1', b2a],
-    ['gamt', gamut],
+    ['A2B0', tags.perceptualA2b],
+    ['A2B1', tags.relativeA2b],
+    ['B2A0', tags.perceptualB2a],
+    ['B2A1', tags.relativeB2a],
+    ['gamt', tags.gamut],
+    ['wtpt', xyzTag()],
+  ])
+}
+
+export function buildLargePressProfile(): Uint8Array {
+  const tags = pressTags('mft1', 0, 33)
+  return profile([
+    ['A2B1', tags.relativeA2b],
+    ['B2A1', tags.relativeB2a],
+    ['gamt', tags.gamut],
     ['wtpt', xyzTag()],
   ])
 }
