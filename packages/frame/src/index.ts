@@ -19,7 +19,7 @@ export { SegnaviaPaper } from './paper.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
 export { SegnaviaStage, type StageReserve } from './stage.ts'
-export { momentAt, wordAt, wordIndex } from './timeline.ts'
+export { deckTimeline, momentAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 export { type HostTransition, type TransitionAxis, type TurnDirection, type TurnTransition, transitionFor } from './transition.ts'
 
 if (!customElements.get('segnavia-stage')) customElements.define('segnavia-stage', SegnaviaStage)

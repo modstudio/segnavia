@@ -23,6 +23,28 @@ const narration = (cues: Narration['cues']): Narration => ({
 })
 
 describe('deck', () => {
+  test('slide timing is finite, bounded and belongs to the matching slide kind', () => {
+    const base = { title: 'T', slides: [{ id: 's', content: { kind: 'html' as const, html: '' } }] }
+    for (const field of ['beforeMs', 'afterMs'] as const) {
+      const wrong = Deck.safeParse({ ...base, slides: [{ ...base.slides[0], [field]: 1 }] })
+      expect(wrong.error?.issues[0]?.path).toEqual(['slides', 0, field])
+      expect(Deck.safeParse({ ...base, slides: [{ ...base.slides[0], narration: narration([]), [field]: 600_000 }] }).success).toBe(true)
+      expect(Deck.safeParse({ ...base, slides: [{ ...base.slides[0], narration: narration([]), [field]: 600_001 }] }).success).toBe(false)
+    }
+    const narratedHold = Deck.safeParse({ ...base, slides: [{ ...base.slides[0], narration: narration([]), holdMs: 1 }] })
+    expect(narratedHold.error?.issues[0]?.path).toEqual(['slides', 0, 'holdMs'])
+    for (const value of [-1, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(Deck.safeParse({ ...base, slides: [{ ...base.slides[0], holdMs: value }] }).success).toBe(false)
+    }
+  })
+
+  test('playback, captions and timing remain absent when omitted', () => {
+    const parsed = Deck.parse({ title: 'T', slides: [{ id: 's', content: { kind: 'html', html: '' } }] })
+    expect(parsed).not.toHaveProperty('playback')
+    expect(parsed).not.toHaveProperty('captions')
+    expect(parsed.slides[0]).not.toHaveProperty('holdMs')
+  })
+
   test('a cue naming an annotation the shot lacks is refused when the deck is read', () => {
     const result = Deck.safeParse({
       title: 'T',

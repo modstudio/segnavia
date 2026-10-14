@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import type { Narration } from '@segnavia/format'
-import { momentAt, wordAt, wordIndex } from './timeline.ts'
+import { Deck, type Narration } from '@segnavia/format'
+import { deckTimeline, momentAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 
 const narration: Narration = {
   text: 'Choose New class, then Create.',
@@ -21,6 +21,32 @@ const narration: Narration = {
 }
 
 describe('timeline', () => {
+  test('slide and deck durations include pauses, holds and marked untimed slides', () => {
+    const deck = Deck.parse({
+      title: 'T',
+      slides: [
+        { id: 'a', content: { kind: 'html', html: '' }, narration: { ...narration, cues: [] }, beforeMs: 100, afterMs: 200 },
+        { id: 'b', content: { kind: 'html', html: '' }, holdMs: 500 },
+        { id: 'c', content: { kind: 'html', html: '' } },
+      ],
+    })
+    expect(deck.slides.map(slideDurationMs)).toEqual([2500, 500, null])
+    expect(deckTimeline(deck)).toEqual({
+      slides: [
+        { startMs: 0, durationMs: 2500, untimed: false },
+        { startMs: 2500, durationMs: 500, untimed: false },
+        { startMs: 3000, durationMs: null, untimed: true },
+      ],
+      totalMs: 3000,
+    })
+  })
+
+  test('slide state has no word before narration and keeps the last word after it', () => {
+    const slide = { id: 'a', content: { kind: 'html' as const, html: '' }, narration, beforeMs: 100, afterMs: 200 }
+    expect(slideStateAt(slide, 99)).toEqual({ word: null, shown: [], phase: 'before' })
+    expect(slideStateAt(slide, 100).phase).toBe('narration')
+    expect(slideStateAt(slide, 2300)).toEqual({ word: 4, shown: [1], phase: 'after' })
+  })
   test('a pause keeps the word just spoken, so the caption never blanks', () => {
     expect(wordAt(narration, 350)).toBe(0)
     expect(wordAt(narration, 1000)).toBe(2)

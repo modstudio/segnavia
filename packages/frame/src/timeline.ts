@@ -2,12 +2,61 @@
 // annotations whose cues have arrived. Pure, so the viewer, a test and a
 // future video export all read the same answer from the same narration.
 
-import type { Cue, Narration } from '@segnavia/format'
+import type { Cue, Deck, Narration, Slide } from '@segnavia/format'
 
 export interface Moment {
   word: number | null
   annotations: number[]
   ended: boolean
+}
+
+export type SlidePhase = 'before' | 'narration' | 'after' | 'hold'
+
+export interface SlideMoment {
+  word: number | null
+  shown: number[]
+  phase: SlidePhase
+}
+
+export interface TimelineSlide {
+  startMs: number
+  durationMs: number | null
+  untimed: boolean
+}
+
+export interface DeckTimeline {
+  slides: TimelineSlide[]
+  totalMs: number
+}
+
+export function slideDurationMs(slide: Slide): number | null {
+  if (slide.narration) return (slide.beforeMs ?? 0) + slide.narration.durationMs + (slide.afterMs ?? 0)
+  return slide.holdMs ?? null
+}
+
+export function deckTimeline(deck: Pick<Deck, 'slides'>): DeckTimeline {
+  let totalMs = 0
+  const slides = deck.slides.map((slide) => {
+    const durationMs = slideDurationMs(slide)
+    const entry = { startMs: totalMs, durationMs, untimed: durationMs === null }
+    totalMs += durationMs ?? 0
+    return entry
+  })
+  return { slides, totalMs }
+}
+
+export function slideStateAt(slide: Slide, ms: number): SlideMoment {
+  const position = Math.max(0, ms)
+  if (!slide.narration) return { word: null, shown: [], phase: 'hold' }
+  const beforeMs = slide.beforeMs ?? 0
+  if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
+  const narrationMs = position - beforeMs
+  if (narrationMs < slide.narration.durationMs) {
+    const word = wordAt(slide.narration, narrationMs)
+    return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'narration' }
+  }
+  const word = wordAt(slide.narration, slide.narration.durationMs)
+  return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'after' }
 }
 
 // The word whose span holds the time, or during a pause the word just spoken,
