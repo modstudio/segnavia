@@ -135,6 +135,7 @@ function visitFonts(state: WalkState, resources: PDFDict): void {
 function visitResources(state: WalkState, resources: PDFDict | undefined): void {
   if (!resources || state.resources.has(resources)) return
   state.resources.add(resources)
+  // Content (XObjects and Type 3 glyphs included) is walked before shadings so convertShading can read painted bounds recorded from those streams.
   visitGraphicsStates(state, resources)
   visitXObjects(state, resources)
   visitFonts(state, resources)

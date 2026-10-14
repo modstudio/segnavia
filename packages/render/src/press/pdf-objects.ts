@@ -11,6 +11,7 @@ export const MAX_DOCUMENT_CONTENT_BYTES = 128 * 1024 * 1024
 
 export interface ContentBudget {
   decodedBytes: number
+  shadingSamples?: number
 }
 
 export const nameOf = (object: PDFObject | undefined): string | undefined => (object instanceof PDFName ? object.toString().slice(1) : undefined)

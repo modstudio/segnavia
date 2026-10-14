@@ -2,14 +2,19 @@ import { deflateSync } from 'node:zlib'
 import { type PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 'pdf-lib'
 import type { Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
+import { applyAffine, IDENTITY_MATRIX, invertAffine, multiplyAffine } from './affine.ts'
 import { evaluateCalculator, parseCalculator } from './calculator.ts'
+import type { PatternPaint } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, MAX_DOCUMENT_CONTENT_BYTES, rawStreamOf } from './pdf-objects.ts'
 
 // One sample per 0.5 pt maps a 10 CSS-px repeating stripe (7.5 pt) to 15 samples, so the stripe stays a hard press color rather than a blend. The grid is sized from the painted box, not Chromium's oversized Domain.
 export const SHADING_SAMPLE_SPACING_PT = 0.5
 // 8-bit CMYK at this count is 4 MiB, under MAX_DOCUMENT_CONTENT_BYTES; a 512 pt square still gets 0.5 pt samples.
 export const MAX_SHADING_SAMPLES = 1_048_576
-export const IDENTITY_MATRIX = [1, 0, 0, 1, 0, 0]
+// The fidelity suite's four-gradient page is four Type 1 shadings; this admits four at MAX_SHADING_SAMPLES so that page still converts when painted bounds fall back to the full Domain, and refuses a larger document.
+export const MAX_DOCUMENT_SHADING_SAMPLES = 4 * MAX_SHADING_SAMPLES
+// Chromium stop programs reuse a handful of RGB triples; 4096 cached 8-bit keys bound the Map so a conic cannot grow it with the grid.
+export const MAX_SAMPLING_COLOR_CACHE = 4096
 const SAMPLE_CHANNELS = 4
 const SAMPLE_BYTES = 1
 export const SHADING_BITS_PER_SAMPLE = 8
@@ -28,50 +33,30 @@ function axisSamples(span: number, columnA: number, columnB: number): number {
   return Math.max(1, Math.ceil((Math.hypot(columnA, columnB) * Math.abs(span)) / SHADING_SAMPLE_SPACING_PT))
 }
 
-function affineComponent(values: readonly number[], index: number): number {
-  return values[index] ?? 0
+export function packedRgb8(rgb: Color3): number {
+  return (Math.round(clamp01(rgb[0]) * 255) << 16) | (Math.round(clamp01(rgb[1]) * 255) << 8) | Math.round(clamp01(rgb[2]) * 255)
 }
 
-export function multiplyAffine(left: readonly number[], right: readonly number[]): number[] {
-  const a0 = affineComponent(left, 0)
-  const b0 = affineComponent(left, 1)
-  const c0 = affineComponent(left, 2)
-  const d0 = affineComponent(left, 3)
-  const e0 = affineComponent(left, 4)
-  const f0 = affineComponent(left, 5)
-  const a1 = affineComponent(right, 0)
-  const b1 = affineComponent(right, 1)
-  const c1 = affineComponent(right, 2)
-  const d1 = affineComponent(right, 3)
-  const e1 = affineComponent(right, 4)
-  const f1 = affineComponent(right, 5)
-  return [a0 * a1 + c0 * b1, b0 * a1 + d0 * b1, a0 * c1 + c0 * d1, b0 * c1 + d0 * d1, a0 * e1 + c0 * f1 + e0, b0 * e1 + d0 * f1 + f0]
+export function unpackRgb8(key: number): Color3 {
+  return [(key >> 16) / 255, ((key >> 8) & 255) / 255, (key & 255) / 255]
 }
 
-export function invertAffine(matrix: readonly number[]): number[] | undefined {
-  const a = affineComponent(matrix, 0)
-  const b = affineComponent(matrix, 1)
-  const c = affineComponent(matrix, 2)
-  const d = affineComponent(matrix, 3)
-  const e = affineComponent(matrix, 4)
-  const f = affineComponent(matrix, 5)
-  const det = a * d - b * c
-  if (det === 0 || !Number.isFinite(det)) return undefined
-  return [d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det]
-}
-
-export function applyAffine(matrix: readonly number[], x: number, y: number): { x: number; y: number } {
+export function createSamplingColorConverter(convert: (rgb: Color3) => Color4): { convert: (rgb: Color3) => Color4; size: () => number } {
+  const cache = new Map<number, Color4>()
   return {
-    x: affineComponent(matrix, 0) * x + affineComponent(matrix, 2) * y + affineComponent(matrix, 4),
-    y: affineComponent(matrix, 1) * x + affineComponent(matrix, 3) * y + affineComponent(matrix, 5),
+    size: () => cache.size,
+    convert: (rgb) => {
+      const key = packedRgb8(rgb)
+      const cached = cache.get(key)
+      if (cached) return cached
+      const converted = convert(unpackRgb8(key))
+      if (cache.size < MAX_SAMPLING_COLOR_CACHE) cache.set(key, converted)
+      return converted
+    },
   }
 }
 
-export function sampleDomainForPainted(
-  domain: readonly number[],
-  matrix: readonly number[],
-  painted: { x0: number; x1: number; y0: number; y1: number } | 'unbounded' | undefined,
-): number[] {
+export function sampleDomainForPainted(domain: readonly number[], matrix: readonly number[], painted: PatternPaint | undefined): number[] {
   const original = [domain[0] ?? 0, domain[1] ?? 0, domain[2] ?? 0, domain[3] ?? 0]
   // A use this tracker cannot bound (Do while a pattern is selected, a missing fill, a singular matrix) keeps Chromium's Domain under MAX_SHADING_SAMPLES.
   if (!painted || painted === 'unbounded') return original
@@ -143,15 +128,15 @@ export function sampleShadingToCmyk(
   const y0 = domain[2] ?? 0
   const y1 = domain[3] ?? 0
   const samples = new Uint8Array(size.n * size.m * SAMPLE_CHANNELS * SAMPLE_BYTES)
+  const toCmyk = createSamplingColorConverter(convert).convert
   let offset = 0
   for (let j = 0; j < size.m; j++) {
     const y = domainValue(y0, y1, j, size.m)
     for (let i = 0; i < size.n; i++) {
       const x = domainValue(x0, x1, i, size.n)
-      // Chromium's conic origin is in the domain; PDF engines treat atan of 0 0 as 0, and the calculator refuses that pair, so the origin sample uses a +x nudge and takes the 0-radian stop.
-      const rgb = evaluateCalculator(program, x === 0 && y === 0 ? [Number.EPSILON, 0] : [x, y])
+      const rgb = evaluateCalculator(program, [x, y])
       if (rgb.length !== 3) refuse('shading function outputs', '3 numbers')
-      const cmyk = convert([clamp01(rgb[0] ?? 0), clamp01(rgb[1] ?? 0), clamp01(rgb[2] ?? 0)])
+      const cmyk = toCmyk([clamp01(rgb[0] ?? 0), clamp01(rgb[1] ?? 0), clamp01(rgb[2] ?? 0)])
       for (const channel of cmyk) {
         samples[offset] = Math.round(clamp01(channel) * 255)
         offset += SAMPLE_BYTES
@@ -161,8 +146,11 @@ export function sampleShadingToCmyk(
   return samples
 }
 
-function chargeSamples(budget: ContentBudget | undefined, bytes: number): void {
-  if (!budget) return
+function chargeSamples(budget: ContentBudget, samples: number): void {
+  const bytes = samples * SAMPLE_CHANNELS * SAMPLE_BYTES
+  const totalSamples = (budget.shadingSamples ?? 0) + samples
+  if (totalSamples > MAX_DOCUMENT_SHADING_SAMPLES) refuse(`document shading samples ${totalSamples}`, `at most ${MAX_DOCUMENT_SHADING_SAMPLES} samples`)
+  budget.shadingSamples = totalSamples
   budget.decodedBytes += bytes
   if (budget.decodedBytes > MAX_DOCUMENT_CONTENT_BYTES)
     refuse(`total decoded content length ${budget.decodedBytes}`, `at most ${MAX_DOCUMENT_CONTENT_BYTES} bytes`)
@@ -177,7 +165,7 @@ export function replaceType1Function(
   pattern: PDFDict | undefined,
   convert: (rgb: Color3) => Color4,
   budget: ContentBudget,
-  painted?: { x0: number; x1: number; y0: number; y1: number } | 'unbounded',
+  painted?: PatternPaint,
 ): { n: number; m: number } {
   const existing = shading.get(PDFName.of('Function'))
   const stream = rawStreamOf(resolved(document, existing))
@@ -187,8 +175,8 @@ export function replaceType1Function(
   const matrix = shadingDeviceMatrix(shading, pattern)
   const domain = sampleDomainForPainted(shadingDomain, matrix, painted)
   const size = shadingSampleGrid(domain, matrix)
+  chargeSamples(budget, size.n * size.m)
   const samples = sampleShadingToCmyk(program, domain, size, convert)
-  chargeSamples(budget, samples.byteLength)
   const replacement = document.context.stream(deflateSync(samples), {
     FunctionType: 0,
     Domain: domain,

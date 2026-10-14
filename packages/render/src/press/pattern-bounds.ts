@@ -37,6 +37,7 @@ interface TrackState {
   bounds: PaintedBounds
   current: Graphics
   graphics: Graphics[]
+  pastSaveCap: boolean
   path: PathState
   resolve: (name: string) => PDFDict | undefined
   resolveGraphicsState: (name: string) => PDFDict | undefined
@@ -77,12 +78,7 @@ function addPoint(path: PathState, x: number, y: number): Point {
 }
 
 function deviceBox(box: UserRect, ctm: readonly number[]): UserRect | undefined {
-  const corners = [
-    applyAffine(ctm, box.x0, box.y0),
-    applyAffine(ctm, box.x1, box.y0),
-    applyAffine(ctm, box.x0, box.y1),
-    applyAffine(ctm, box.x1, box.y1),
-  ]
+  const corners = [applyAffine(ctm, box.x0, box.y0), applyAffine(ctm, box.x1, box.y0), applyAffine(ctm, box.x0, box.y1), applyAffine(ctm, box.x1, box.y1)]
   const xs = corners.map((point) => point.x)
   const ys = corners.map((point) => point.y)
   const x0 = Math.min(...xs)
@@ -116,12 +112,20 @@ function strokeMargin(graphics: Graphics): number | undefined {
 }
 
 function paintFill(state: TrackState): void {
+  if (state.pastSaveCap) {
+    addPaint(state.bounds, state.current.fill, 'unbounded')
+    return
+  }
   if (!state.path.box) return
   const box = deviceBox(state.path.box, state.current.ctm)
   if (box) addPaint(state.bounds, state.current.fill, box)
 }
 
 function paintStroke(state: TrackState): void {
+  if (state.pastSaveCap) {
+    addPaint(state.bounds, state.current.stroke, 'unbounded')
+    return
+  }
   if (!state.path.box) return
   const margin = strokeMargin(state.current)
   if (margin === undefined) {
@@ -283,7 +287,7 @@ function applyMiterLimit(state: TrackState, operands: Operand[]): void {
   state.current.miterLimit = miter
 }
 
-function applyStyleNumber(graphics: Graphics, dict: PDFDict, key: string, assign: (value: number) => boolean): boolean {
+function applyStyleNumber(dict: PDFDict, key: string, assign: (value: number) => boolean): boolean {
   const value = numberOf(dict, key)
   return value === undefined || assign(value)
 }
@@ -296,17 +300,17 @@ function applyGraphicsState(state: TrackState, operands: Operand[]): void {
     return
   }
   const applied =
-    applyStyleNumber(state.current, dict, 'LW', (width) => {
+    applyStyleNumber(dict, 'LW', (width) => {
       if (!Number.isFinite(width) || width < 0) return false
       state.current.lineWidth = width
       return true
     }) &&
-    applyStyleNumber(state.current, dict, 'LJ', (join) => {
+    applyStyleNumber(dict, 'LJ', (join) => {
       if (join !== 0 && join !== 1 && join !== 2) return false
       state.current.lineJoin = join
       return true
     }) &&
-    applyStyleNumber(state.current, dict, 'ML', (miter) => {
+    applyStyleNumber(dict, 'ML', (miter) => {
       if (!Number.isFinite(miter) || miter < 1) return false
       state.current.miterLimit = miter
       return true
@@ -315,7 +319,8 @@ function applyGraphicsState(state: TrackState, operands: Operand[]): void {
 }
 
 function saveGraphics(state: TrackState): void {
-  if (state.graphics.length >= MAX_CONTENT_NESTING) {
+  if (state.pastSaveCap || state.graphics.length >= MAX_CONTENT_NESTING) {
+    state.pastSaveCap = true
     markUnbounded(state)
     return
   }
@@ -375,6 +380,7 @@ export function recordPatternPaintedBounds(
     bounds,
     current: { ctm: IDENTITY_MATRIX.slice(), lineJoin: 0, lineWidth: 1, miterLimit: 10 },
     graphics: [],
+    pastSaveCap: false,
     path: {},
     resolve,
     resolveGraphicsState,

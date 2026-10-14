@@ -7,17 +7,22 @@ import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 import { evaluateCalculator, parseCalculator } from './calculator.ts'
 import { pressColor } from './color-policy.ts'
+import { MAX_DOCUMENT_CONTENT_BYTES } from './pdf-objects.ts'
 import {
+  createSamplingColorConverter,
   domainValue,
-  invertAffine,
+  MAX_DOCUMENT_SHADING_SAMPLES,
+  MAX_SAMPLING_COLOR_CACHE,
   MAX_SHADING_SAMPLES,
-  multiplyAffine,
+  packedRgb8,
   readSampleCmyk,
+  replaceType1Function,
   SHADING_BITS_PER_SAMPLE,
   SHADING_SAMPLE_SPACING_PT,
   sampleDomainForPainted,
   sampleShadingToCmyk,
   shadingSampleGrid,
+  unpackRgb8,
 } from './sample-shading.ts'
 
 const profileBytes = buildPressProfile('mft1')
@@ -107,16 +112,6 @@ test('sampled color at each repeating-linear stop equals pressColor of that stop
   expect(domainValue(0, 1, 1, 5)).toBeCloseTo(0.25, 10)
 })
 
-test('pattern matrix maps domain axes into device space', () => {
-  expect(multiplyAffine([2, 0, 0, 3, 4, 5], [1, 0, 0, 1, 0, 0])).toEqual([2, 0, 0, 3, 4, 5])
-})
-
-test('invertAffine undoes a scale and translation', () => {
-  const inverse = invertAffine([10, 0, 0, 10, 5, 6])
-  expect(inverse).toBeDefined()
-  expect(multiplyAffine([10, 0, 0, 10, 5, 6], inverse ?? [])).toEqual([1, 0, 0, 1, 0, 0])
-})
-
 test('painted bounds shrink the sample domain; a missing or unbounded paint keeps the shading domain', () => {
   const domain = [0, 1, 0, 1]
   const matrix = [10, 0, 0, 10, 0, 0]
@@ -153,6 +148,24 @@ dup .83333331 le {
 0 gt {1 0 0} if
 }`
 
+test('a repeating-linear sample at the domain origin equals the program at [0, 0]', () => {
+  const program = parseCalculator(REPEATING_LINEAR)
+  const samples = sampleShadingToCmyk(program, [0, 1, 0, 1], { n: 3, m: 3 }, convert)
+  const rgb = evaluateCalculator(program, [0, 0])
+  const expected = pressColor(profile, [rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])
+  const found = readSampleCmyk(samples, 3, 0, 0)
+  for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 2)
+})
+
+test('the conic origin sample is the start color', () => {
+  const program = parseCalculator(CONIC)
+  const samples = sampleShadingToCmyk(program, [-1, 1, -1, 1], { n: 3, m: 3 }, convert)
+  expect(domainValue(-1, 1, 1, 3)).toBe(0)
+  const found = readSampleCmyk(samples, 3, 1, 1)
+  const expected = pressColor(profile, [1, 0, 0])
+  for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 2)
+})
+
 test('sampling Chromium conic at compass points matches evaluating the program at those domain points', () => {
   const program = parseCalculator(CONIC)
   const domain = [-100, 100, -100, 100]
@@ -175,9 +188,9 @@ test('sampling Chromium conic at compass points matches evaluating the program a
     expect(domainValue(domain[2] ?? 0, domain[3] ?? 0, j, size.m)).toBe(y)
     const rgb = evaluateCalculator(program, [x, y])
     expect(rgb).toHaveLength(3)
-    const expected = pressColor(profile, [rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])
+    const expected = pressColor(profile, unpackRgb8(packedRgb8([rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])))
     const found = readSampleCmyk(samples, size.n, i, j)
-    for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 2)
+    for (let channel = 0; channel < 4; channel++) expect(Math.abs((found[channel] ?? 0) - (expected[channel] ?? 0))).toBeLessThanOrEqual(1 / 255 + 1e-12)
   }
 })
 
@@ -285,6 +298,72 @@ test('the read-back inspection refuses a function-based shading still in RGB', a
   const shading = document.context.register(document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 1, 0, 1], Function: fn }))
   setResources(document, document.addPage([10, 10]), { Shading: { Bad: shading } }, '/Bad sh')
   await expect(inspectPressPdf(await document.save())).rejects.toThrow(/ShadingType 1 FunctionType 4 color space DeviceRGB/)
+})
+
+test('sampling converts 8-bit quantized RGB through a cache capped by name', () => {
+  const seen: number[][] = []
+  const convertSpy = (rgb: [number, number, number]) => {
+    seen.push(rgb)
+    return pressColor(profile, rgb)
+  }
+  sampleShadingToCmyk(parseCalculator('{ pop pop 0.3 0.2 0.8 }'), [0, 1, 0, 1], { n: 4, m: 4 }, convertSpy)
+  expect(seen.length).toBe(1)
+  expect(seen[0]).toEqual(unpackRgb8(packedRgb8([0.3, 0.2, 0.8])))
+  const cache = createSamplingColorConverter(convert)
+  for (let red = 0; red < 20; red++)
+    for (let green = 0; green < 20; green++) for (let blue = 0; blue < 20; blue++) cache.convert([red / 255, green / 255, blue / 255])
+  expect(20 * 20 * 20).toBeGreaterThan(MAX_SAMPLING_COLOR_CACHE)
+  expect(cache.size()).toBe(MAX_SAMPLING_COLOR_CACHE)
+})
+
+test('a shading that would exceed the document sample ceiling is refused by name', async () => {
+  const document = await PDFDocument.create()
+  const fn = document.context.register(
+    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 1 0 0 }')), {
+      FunctionType: 4,
+      Domain: [0, 1, 0, 1],
+      Range: [0, 1, 0, 1, 0, 1],
+      Filter: 'Fl' + 'ateDecode',
+    }),
+  )
+  const shading = document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 1, 0, 1], Function: fn }) as PDFDict
+  expect(() =>
+    replaceType1Function(
+      document,
+      shading,
+      undefined,
+      convert,
+      { decodedBytes: 0, shadingSamples: MAX_DOCUMENT_SHADING_SAMPLES },
+      { x0: 0, y0: 0, x1: 1, y1: 1 },
+    ),
+  ).toThrow(/document shading samples/)
+})
+
+test('sample bytes are charged to the content budget before evaluation', async () => {
+  const document = await PDFDocument.create()
+  const fn = document.context.register(
+    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 1 0 0 }')), {
+      FunctionType: 4,
+      Domain: [0, 100, 0, 100],
+      Range: [0, 1, 0, 1, 0, 1],
+      Filter: 'Fl' + 'ateDecode',
+    }),
+  )
+  const shading = document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: [0, 100, 0, 100], Function: fn }) as PDFDict
+  let called = 0
+  expect(() =>
+    replaceType1Function(
+      document,
+      shading,
+      undefined,
+      () => {
+        called++
+        return [0, 0, 0, 1]
+      },
+      { decodedBytes: MAX_DOCUMENT_CONTENT_BYTES - 1000, shadingSamples: 0 },
+    ),
+  ).toThrow(/total decoded content length/)
+  expect(called).toBe(0)
 })
 
 test.each([2, 0])('refuses a type 1 shading whose function is type %p', async (functionType) => {
