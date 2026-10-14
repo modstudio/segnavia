@@ -284,7 +284,7 @@ export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uin
   try {
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     const report = rewriteEffectsDocument(document)
-    return { bytes: await document.save(), report }
+    return { bytes: report.rule1 === 0 ? bytes : await document.save(), report }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')

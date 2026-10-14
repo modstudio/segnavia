@@ -60,8 +60,10 @@ test('rewrites a grayscale-image luminosity mask as a direct image soft mask', a
 })
 
 test('keeps nested masks in Chromium form', async () => {
-  const rewritten = await rewriteEffectsPdf(await minimalMask(true))
+  const input = await minimalMask(true)
+  const rewritten = await rewriteEffectsPdf(input)
   expect(rewritten.report.rule1).toBe(0)
   expect(rewritten.report.kept).toBe(2)
+  expect(rewritten.bytes).toBe(input)
   expect(pageContent(await PDFDocument.load(rewritten.bytes))).toContain('/Mask gs')
 })
