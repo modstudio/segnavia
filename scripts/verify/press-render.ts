@@ -284,7 +284,13 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   await renderer.pagesPdf([page], { imposition, waitForPageReady: true, ...reportOption(profile, (report) => (pagesReport = report)) })
   check('press conversion runs after pagesPdf imposition', pagesReport?.images.length === 2, pagesReport ? JSON.stringify(pagesReport) : 'report not called')
 
-  const deck: Deck = { title: 'Press', size: { width: 1200, height: 800 }, scripts: 'sandboxed', slides: [{ id: 'press', content: { kind: 'html', html } }] }
+  const deck: Deck = {
+    title: 'Press',
+    size: { width: 1200, height: 800 },
+    scripts: 'sandboxed',
+    transition: { kind: 'none', duration: 300 },
+    slides: [{ id: 'press', content: { kind: 'html', html } }],
+  }
   let deckReport: PressReport | undefined
   await renderer.deckPdf(
     deck,
@@ -307,6 +313,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     title: 'Press content bound',
     size: { width: 1200, height: 800 },
     scripts: 'refuse',
+    transition: { kind: 'none', duration: 300 },
     slides: Array.from({ length: 24 }, (_, index) => ({
       id: `press-${index}`,
       content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },

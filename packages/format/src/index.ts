@@ -44,6 +44,17 @@ export type Size = z.infer<typeof Size>
 export const Scripts = z.enum(['refuse', 'sandboxed'])
 export type Scripts = z.infer<typeof Scripts>
 
+export const MIN_TRANSITION_DURATION_MS = 0
+export const MAX_TRANSITION_DURATION_MS = 2_000
+export const DEFAULT_TRANSITION_DURATION_MS = 300
+
+export const Transition = z.object({
+  kind: z.enum(['none', 'fade', 'slide']),
+  duration: z.number().int().min(MIN_TRANSITION_DURATION_MS).max(MAX_TRANSITION_DURATION_MS).default(DEFAULT_TRANSITION_DURATION_MS),
+})
+export type Transition = z.infer<typeof Transition>
+export type TransitionInput = z.input<typeof Transition>
+
 export const Direction = z.enum(['ltr', 'rtl', 'auto'])
 
 export const NAMED_PAPERS = ['letter', 'legal', 'tabloid', 'a3', 'a4', 'a5'] as const
@@ -294,6 +305,7 @@ const DeckShape = z.object({
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
+  transition: Transition.default({ kind: 'none', duration: DEFAULT_TRANSITION_DURATION_MS }),
   slides: z.array(Slide).min(1),
 })
 

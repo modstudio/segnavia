@@ -8,6 +8,7 @@
 //   --segnavia-canvas            the slide canvas behind its content
 //   --segnavia-annotation-color  rings, badges and arrows
 //   --segnavia-cue-fade          how long an annotation takes to appear
+//   --segnavia-transition-duration how long a deck turn takes
 //   --segnavia-paper             the paper behind its placements
 //   --segnavia-backdrop          the in-window presentation backdrop
 
@@ -16,6 +17,15 @@ export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-canvas,#fff);opacity:0;pointer-events:none}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){z-index:2}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition]){transition-duration:var(--segnavia-transition-duration);transition-timing-function:ease;transition-property:opacity,translate}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="fade"][data-entering]){opacity:0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="fade"][data-entering][data-running]){opacity:1}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-entering]){opacity:1}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-entering][data-axis="right"]){translate:100% 0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-entering][data-axis="left"]){translate:-100% 0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-entering][data-running]){translate:0 0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-leaving][data-axis="right"][data-running]){translate:-100% 0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-leaving][data-axis="left"][data-running]){translate:100% 0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > *){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__image){object-fit:contain}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}

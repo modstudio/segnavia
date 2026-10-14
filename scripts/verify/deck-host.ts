@@ -1,4 +1,5 @@
 import { inflateSync } from 'node:zlib'
+import { verifyDeckTransitions } from './deck-transitions.ts'
 import type { Harness } from './harness.ts'
 
 const STAGE = '#deck'
@@ -232,6 +233,8 @@ export async function verifyDeckHost(h: Harness) {
     sampled.cancelled && sampled.target === 'sandboxed-1' && sandboxedCount === 1,
     JSON.stringify({ cancelled: sampled.cancelled, target: sampled.target, sandboxedCount }),
   )
+
+  await verifyDeckTransitions(h)
 
   await page.evaluate(async () => {
     const host = (window as unknown as { __deckHost: { loadHeld(): Promise<void> } }).__deckHost

@@ -107,6 +107,7 @@ try {
   const deck = {
     title: 'Offline deck',
     scripts: 'sandboxed' as const,
+    transition: { kind: 'none' as const, duration: 300 },
     size: { width: 400, height: 200 },
     slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
   }
@@ -188,6 +189,7 @@ try {
       lang: 'he',
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
+      transition: { kind: 'none', duration: 300 },
       slides: [{ id: 'a', content: { kind: 'html', html: '<h1>שלום</h1>' }, notes: 'הערה' }],
     },
     {
@@ -313,7 +315,13 @@ try {
   )
 
   const slide = await renderer.slideImage(
-    { title: 'T', size: { width: 1280, height: 720 }, scripts: 'refuse', slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }] },
+    {
+      title: 'T',
+      size: { width: 1280, height: 720 },
+      scripts: 'refuse',
+      transition: { kind: 'none', duration: 300 },
+      slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
+    },
     0,
     { scale: 1 },
   )
@@ -349,6 +357,7 @@ try {
       title: 'English deck',
       size: { width: 400, height: 200 },
       scripts: 'refuse',
+      transition: { kind: 'none', duration: 300 },
       slides: [{ id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }],
     },
     {

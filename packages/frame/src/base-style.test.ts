@@ -29,4 +29,10 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}')
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){z-index:2}')
   })
+
+  test('turn motion uses only geometry and opacity with the duration custom property', () => {
+    expect(BASE_CSS).toContain('transition-property:opacity,translate')
+    expect(BASE_CSS).toContain('transition-duration:var(--segnavia-transition-duration)')
+    expect(BASE_CSS).toContain('[data-transition="slide"]')
+  })
 })
