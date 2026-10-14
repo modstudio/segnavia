@@ -29,7 +29,13 @@ export class SegnaviaCaption extends SegnaviaControl {
   protected render(state: DeckState) {
     const line = this.root.querySelector('p') as HTMLParagraphElement
     const narration = state.slide?.narration
-    this.toggleAttribute('data-empty', !narration)
+    const hidden = !narration || !state.captionsVisible
+    this.toggleAttribute('data-empty', hidden)
+    if (hidden) {
+      line.replaceChildren()
+      this.slide = -1
+      return
+    }
     if (this.slide !== state.index) {
       this.slide = state.index
       line.replaceChildren()

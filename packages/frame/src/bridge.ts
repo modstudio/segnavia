@@ -18,7 +18,7 @@ export const MESSAGE = {
 // Only these leave the frame, and only by name: nothing else about a
 // keystroke crosses. Escape rides with them so full screen can be left while
 // the slide holds focus.
-export const RELAYED_KEYS = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'Escape', ' '] as const
+export const RELAYED_KEYS = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'Escape', ' ', 'm', 'c', 'f'] as const
 
 export interface FrameOptions {
   scripts: Scripts

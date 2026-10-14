@@ -1,3 +1,5 @@
+export const hasWindow = typeof window !== 'undefined' && typeof location !== 'undefined'
+
 export function defaultSchedule(tick: () => void): () => void {
   if (typeof requestAnimationFrame === 'function') {
     const id = requestAnimationFrame(tick)

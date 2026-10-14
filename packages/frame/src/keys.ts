@@ -5,7 +5,7 @@
 
 import type { TextDirection } from '@segnavia/format'
 
-export type DeckAction = 'next' | 'previous' | 'toggle' | 'exit'
+export type DeckAction = 'next' | 'previous' | 'toggle' | 'exit' | 'mute' | 'captions' | 'present'
 
 export function keyAction(key: string, direction: TextDirection): DeckAction | null {
   switch (key) {
@@ -21,6 +21,12 @@ export function keyAction(key: string, direction: TextDirection): DeckAction | n
       return 'toggle'
     case 'Escape':
       return 'exit'
+    case 'm':
+      return 'mute'
+    case 'c':
+      return 'captions'
+    case 'f':
+      return 'present'
     default:
       return null
   }

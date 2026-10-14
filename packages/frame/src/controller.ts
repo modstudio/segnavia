@@ -8,13 +8,11 @@ import { type Clock, speechClock, timedClock } from './clock.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
-import { defaultSchedule } from './schedule.ts'
+import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
-
-const hasWindow = typeof window !== 'undefined' && typeof location !== 'undefined'
 
 export class DeckController extends EventTarget {
   private options: ControllerOptions
@@ -234,6 +232,8 @@ export class DeckController extends EventTarget {
     if (action === 'next') void this.next().catch(() => {})
     else if (action === 'previous') void this.previous().catch(() => {})
     else if (action === 'toggle') void Promise.resolve(this.toggle()).catch(() => {})
+    else if (action === 'mute') this.setMuted(!this.current.muted)
+    else if (action === 'captions') this.setCaptionsVisible(!this.current.captionsVisible)
     else if (action === 'exit') {
       this.stopPresenting()
       this.dispatchEvent(new CustomEvent('exit'))

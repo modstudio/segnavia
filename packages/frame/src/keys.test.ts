@@ -16,6 +16,17 @@ describe('keys', () => {
     expect([keyAction('PageDown', 'rtl'), keyAction(' ', 'rtl'), keyAction('Escape', 'ltr'), keyAction('a', 'ltr')]).toEqual(['next', 'toggle', 'exit', null])
   })
 
+  test('viewer shortcuts toggle mute and captions while present is returned to the host', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    await controller.load({ ...deck, captions: 'viewer' })
+    expect(controller.key('m')).toBe('mute')
+    expect(controller.state.muted).toBe(true)
+    expect(controller.key('c')).toBe('captions')
+    expect(controller.state.captionsVisible).toBe(false)
+    expect(controller.key('f')).toBe('present')
+    expect(controller.state.presenting).toBe(false)
+  })
+
   test('controller arrows and inferred language follow reading direction', async () => {
     const controller = new DeckController({ hash: null, persist: false })
     await controller.load({ ...deck, lang: 'he' })
