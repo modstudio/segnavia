@@ -99,19 +99,35 @@ interface Region {
   y1: number
 }
 
-function regionStats(first: Ppm, second: Ppm, region: Region): { max: number; mean: number } {
+function proofRgb(press: ReturnType<typeof readProfile>, pixel: [number, number, number]): [number, number, number] {
+  return proof(press, [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
+}
+
+function conicAngleDelta(original: Ppm, converted: Ppm, cx: number, cy: number, radius: number, press: ReturnType<typeof readProfile>): number {
+  let max = 0
+  for (let step = 0; step < 8; step++) {
+    const angle = (step * Math.PI) / 4
+    const x = cx + radius * Math.sin(angle)
+    const y = cy - radius * Math.cos(angle)
+    max = Math.max(max, channelDistance(pixelRgb(converted, x, y), proofRgb(press, pixelRgb(original, x, y))))
+  }
+  return max
+}
+
+function regionProofStats(original: Ppm, converted: Ppm, region: Region, press: ReturnType<typeof readProfile>): { max: number; mean: number } {
   let difference = 0
   let max = 0
   let count = 0
   const x0 = Math.max(0, Math.floor(region.x0))
   const y0 = Math.max(0, Math.floor(region.y0))
-  const x1 = Math.min(first.width, Math.ceil(region.x1))
-  const y1 = Math.min(first.height, Math.ceil(region.y1))
+  const x1 = Math.min(original.width, Math.ceil(region.x1))
+  const y1 = Math.min(original.height, Math.ceil(region.y1))
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
-      const offset = (y * first.width + x) * 3
+      const offset = (y * original.width + x) * 3
+      const expected = proofRgb(press, [original.pixels[offset] ?? 0, original.pixels[offset + 1] ?? 0, original.pixels[offset + 2] ?? 0])
       for (let channel = 0; channel < 3; channel++) {
-        const delta = Math.abs((first.pixels[offset + channel] ?? 0) - (second.pixels[offset + channel] ?? 0))
+        const delta = Math.abs((converted.pixels[offset + channel] ?? 0) - (expected[channel] ?? 0))
         difference += delta
         max = Math.max(max, delta)
         count++
@@ -158,6 +174,73 @@ async function largestContentStream(bytes: Uint8Array): Promise<number> {
     }
   }
   return largest
+}
+
+async function verifyPressGradients(renderer: Renderer, work: string, check: Check, profile: Uint8Array): Promise<void> {
+  const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
+  let gradientReport: PressReport | undefined
+  const unconvertedGradients = await renderer.pagePdf(gradientPage)
+  const convertedGradients = await renderer.pagePdf(
+    gradientPage,
+    reportOption(profile, (report) => (gradientReport = report)),
+  )
+  const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`
+  console.log(`PRESS GRADIENTS [${runtime}]: converted bytes=${convertedGradients.length}`)
+  check(
+    'press rewrite samples conic and repeating gradients and leaves no RGB outside images',
+    gradientReport !== undefined && gradientReport.images.length === 0 && gradientReport.sampledShadings === 4,
+    gradientReport ? JSON.stringify(gradientReport) : 'report not called',
+  )
+  const originalGradients = raster(work, 'press-gradients-original', unconvertedGradients)
+  const convertedGradientRaster = raster(work, 'press-gradients-converted', convertedGradients)
+  const cssPt = 0.75
+  const box = { width: 260 * cssPt, height: 160 * cssPt, gap: 16 * cssPt, margin: 20 * cssPt }
+  const regions: Region[] = [
+    { name: 'rainbow conic', x0: box.margin, y0: box.margin, x1: box.margin + box.width, y1: box.margin + box.height },
+    { name: 'repeating linear', x0: box.margin + box.width + box.gap, y0: box.margin, x1: box.margin + 2 * box.width + box.gap, y1: box.margin + box.height },
+    { name: 'repeating radial', x0: box.margin, y0: box.margin + box.height + box.gap, x1: box.margin + box.width, y1: box.margin + 2 * box.height + box.gap },
+    {
+      name: 'gray conic',
+      x0: box.margin + box.width + box.gap,
+      y0: box.margin + box.height + box.gap,
+      x1: box.margin + 2 * box.width + box.gap,
+      y1: box.margin + 2 * box.height + box.gap,
+    },
+  ]
+  const press = readProfile(profile)
+  // Proof-mean on Generic CMYK is 12.7–15.7; a 90-degree rotation of the same box is 53–83. Bound 22 fails a rotated or missing quadrant.
+  const regionMeanBound = 22
+  for (const region of regions) {
+    const stats = regionProofStats(originalGradients, convertedGradientRaster, region, press)
+    check(
+      `sampled ${region.name} stays close to the proof of the unconverted raster`,
+      originalGradients.width === convertedGradientRaster.width && stats.mean < regionMeanBound,
+      `mean=${stats.mean.toFixed(2)} max=${stats.max} (mean bound ${regionMeanBound})`,
+    )
+  }
+  const rainbow = regions[0]
+  const cx = ((rainbow?.x0 ?? 0) + (rainbow?.x1 ?? 0)) / 2
+  const cy = ((rainbow?.y0 ?? 0) + (rainbow?.y1 ?? 0)) / 2
+  const angleMax = conicAngleDelta(originalGradients, convertedGradientRaster, cx, cy, 40, press)
+  // Measured 30 at 45deg; a rotated wheel puts a primary on the wrong sample and exceeds 150.
+  const angleBound = 40
+  check(
+    'converted rainbow conic matches the proof of the unconverted raster at eight angles around the center',
+    angleMax <= angleBound,
+    `max channel delta=${angleMax} (bound ${angleBound})`,
+  )
+  const red = proof(press, [1, 0, 0]).map((value) => Math.round(value * 255)) as [number, number, number]
+  const stripe = proof(press, [224 / 255, 48 / 255, 48 / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
+  const conicPixel = pixelRgb(convertedGradientRaster, cx, (rainbow?.y0 ?? 0) + 20)
+  const linear = regions[1]
+  const stripePixel = pixelRgb(convertedGradientRaster, ((linear?.x0 ?? 0) + (linear?.x1 ?? 0)) / 2, ((linear?.y0 ?? 0) + (linear?.y1 ?? 0)) / 2)
+  const conicDelta = channelDistance(conicPixel, red)
+  const stripeDelta = channelDistance(stripePixel, stripe)
+  check(
+    'a conic stop and a repeating stripe match their proof colors',
+    conicDelta <= 24 && stripeDelta <= 24,
+    `conic=${conicPixel.join(',')} delta=${conicDelta}, stripe=${stripePixel.join(',')} delta=${stripeDelta} (bound 24)`,
+  )
 }
 
 export async function verifyPressRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -234,74 +317,5 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,
   )
 
-  const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
-  let gradientReport: PressReport | undefined
-  const unconvertedGradients = await renderer.pagePdf(gradientPage)
-  const convertedGradients = await renderer.pagePdf(
-    gradientPage,
-    reportOption(profile, (report) => (gradientReport = report)),
-  )
-  const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`
-  console.log(`PRESS GRADIENTS [${runtime}]: converted bytes=${convertedGradients.length}`)
-  check(
-    'press rewrite samples conic and repeating gradients and leaves no RGB outside images',
-    gradientReport !== undefined && gradientReport.images.length === 0 && gradientReport.sampledShadings === 4,
-    gradientReport ? JSON.stringify(gradientReport) : 'report not called',
-  )
-  const originalGradients = raster(work, 'press-gradients-original', unconvertedGradients)
-  const convertedGradientRaster = raster(work, 'press-gradients-converted', convertedGradients)
-  const cssPt = 0.75
-  const box = { width: 260 * cssPt, height: 160 * cssPt, gap: 16 * cssPt, margin: 20 * cssPt }
-  const regions: Region[] = [
-    { name: 'rainbow conic', x0: box.margin, y0: box.margin, x1: box.margin + box.width, y1: box.margin + box.height },
-    { name: 'repeating linear', x0: box.margin + box.width + box.gap, y0: box.margin, x1: box.margin + 2 * box.width + box.gap, y1: box.margin + box.height },
-    { name: 'repeating radial', x0: box.margin, y0: box.margin + box.height + box.gap, x1: box.margin + box.width, y1: box.margin + 2 * box.height + box.gap },
-    {
-      name: 'gray conic',
-      x0: box.margin + box.width + box.gap,
-      y0: box.margin + box.height + box.gap,
-      x1: box.margin + 2 * box.width + box.gap,
-      y1: box.margin + 2 * box.height + box.gap,
-    },
-  ]
-  // A rotated or missing quadrant moves saturated stops onto the wrong pixels, so mean exceeds ~20 and max exceeds ~80. Measured after the atan wrap on Generic CMYK.
-  const regionMeanBound = 18
-  const regionMaxBound = 48
-  for (const region of regions) {
-    const stats = regionStats(originalGradients, convertedGradientRaster, region)
-    check(
-      `sampled ${region.name} stays close to the unconverted raster`,
-      originalGradients.width === convertedGradientRaster.width && stats.mean < regionMeanBound && stats.max <= regionMaxBound,
-      `mean=${stats.mean.toFixed(2)} max=${stats.max} (bounds ${regionMeanBound}/${regionMaxBound})`,
-    )
-  }
-  const rainbow = regions[0]
-  const cx = ((rainbow?.x0 ?? 0) + (rainbow?.x1 ?? 0)) / 2
-  const cy = ((rainbow?.y0 ?? 0) + (rainbow?.y1 ?? 0)) / 2
-  const radius = 40
-  let angleMax = 0
-  for (let step = 0; step < 8; step++) {
-    const angle = (step * Math.PI) / 4
-    const found = pixelRgb(convertedGradientRaster, cx + radius * Math.sin(angle), cy - radius * Math.cos(angle))
-    const expected = pixelRgb(originalGradients, cx + radius * Math.sin(angle), cy - radius * Math.cos(angle))
-    angleMax = Math.max(angleMax, channelDistance(found, expected))
-  }
-  check(
-    'converted rainbow conic matches the unconverted raster at eight angles around the center',
-    angleMax <= regionMaxBound,
-    `max channel delta=${angleMax} (bound ${regionMaxBound})`,
-  )
-  const press = readProfile(profile)
-  const red = proof(press, [1, 0, 0]).map((value) => Math.round(value * 255)) as [number, number, number]
-  const stripe = proof(press, [224 / 255, 48 / 255, 48 / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
-  const conicPixel = pixelRgb(convertedGradientRaster, cx, (rainbow?.y0 ?? 0) + 20)
-  const linear = regions[1]
-  const stripePixel = pixelRgb(convertedGradientRaster, ((linear?.x0 ?? 0) + (linear?.x1 ?? 0)) / 2 - 20, ((linear?.y0 ?? 0) + (linear?.y1 ?? 0)) / 2)
-  const conicDelta = channelDistance(conicPixel, red)
-  const stripeDelta = channelDistance(stripePixel, stripe)
-  check(
-    'a conic stop and a repeating stripe match their proof colors',
-    conicDelta <= 24 && stripeDelta <= 24,
-    `conic=${conicPixel.join(',')} delta=${conicDelta}, stripe=${stripePixel.join(',')} delta=${stripeDelta} (bound 24)`,
-  )
+  await verifyPressGradients(renderer, work, check, profile)
 }
