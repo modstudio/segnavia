@@ -7,6 +7,7 @@
 // around them, and set data-empty when the slide has nothing to show.
 
 import { resolveDirection } from '@segnavia/format'
+import { captionHasContent } from './caption-visibility.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { TOKENS_CSS } from './controls-style.ts'
@@ -29,7 +30,7 @@ export class SegnaviaCaption extends SegnaviaControl {
   protected render(state: DeckState) {
     const line = this.root.querySelector('p') as HTMLParagraphElement
     const narration = state.slide?.narration
-    const hidden = !narration || !state.captionsVisible
+    const hidden = !captionHasContent(state)
     this.toggleAttribute('data-empty', hidden)
     if (hidden) {
       line.replaceChildren()

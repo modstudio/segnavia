@@ -151,58 +151,94 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
 export function speechClock(value: Slide | Narration, voiceName?: string): Clock {
   const slide = asSlide(value)
   const narration = slide.narration as Narration
-  const paced = wallClock(slide)
   const synth = window.speechSynthesis
   const offsets = wordOffsets(narration.text)
+  const duration = slideDurationMs(slide) ?? 0
+  const beforeMs = slide.beforeMs ?? 0
+  const narrationEnd = beforeMs + narration.durationMs
   const utterance = new SpeechSynthesisUtterance(narration.text)
   if (narration.lang) utterance.lang = narration.lang
   const voice = voiceName ? synth.getVoices().find((candidate) => candidate.name === voiceName) : undefined
   if (voice) utterance.voice = voice
   let spokenWord: number | null = null
-  let cancelled = false
+  let position = 0
+  let anchor = performance.now()
+  let running = true
   let speaking = false
+  let speechDone = false
+  let muted = false
+  let abandoned = false
   utterance.onboundary = (event) => {
     if (event.name === 'word') spokenWord = wordAtOffset(offsets, event.charIndex)
   }
+  const finishSpeech = () => {
+    speechDone = true
+    position = narrationEnd
+    anchor = performance.now()
+  }
+  utterance.onend = finishSpeech
+  utterance.onerror = finishSpeech
   const begin = () => {
-    if (speaking || cancelled) return
+    if (speaking || abandoned) return
     speaking = true
     synth.cancel()
     synth.speak(utterance)
   }
-  if ((slide.beforeMs ?? 0) === 0) begin()
+  const elapsed = () => {
+    if (!running) return position
+    const wall = position + performance.now() - anchor
+    if (position < beforeMs && wall >= beforeMs) {
+      position = beforeMs
+      anchor = performance.now()
+      begin()
+      return position
+    }
+    if (!abandoned && !speechDone && position >= beforeMs) return Math.min(narrationEnd, wall)
+    return Math.min(duration, wall)
+  }
+  if (beforeMs === 0) begin()
   return {
     word: () => {
-      if (!speaking && paced.elapsed() >= (slide.beforeMs ?? 0)) begin()
-      return cancelled ? slideStateAt(slide, paced.elapsed()).word : spokenWord
+      const now = elapsed()
+      if (!speaking && now >= beforeMs) begin()
+      return abandoned ? slideStateAt(slide, now).word : spokenWord
     },
-    ended: paced.ended,
-    elapsed: paced.elapsed,
-    progress: paced.progress,
+    ended: () => (abandoned || speechDone) && elapsed() >= duration,
+    elapsed,
+    progress: () => (duration === 0 ? (speechDone ? 1 : 0) : elapsed() / duration),
     pause: () => {
-      paced.pause()
-      if (speaking && !cancelled) synth.pause()
+      position = elapsed()
+      running = false
+      if (speaking && !abandoned) synth.pause()
     },
     resume: () => {
-      paced.resume()
-      if (speaking && !cancelled) synth.resume()
+      if (running) return
+      anchor = performance.now()
+      running = true
+      if (speaking && !abandoned) synth.resume()
     },
     seek: () => {
       synth.cancel()
       speaking = false
+      speechDone = false
       spokenWord = null
-      paced.seek(0)
+      position = 0
+      anchor = performance.now()
     },
     get muted() {
-      return cancelled
+      return muted
     },
     set muted(value) {
-      if (!value || cancelled) return
-      cancelled = true
+      muted = value
+      if (!value || abandoned) return
+      position = elapsed()
+      anchor = performance.now()
+      abandoned = true
       synth.cancel()
     },
     stop: () => {
-      paced.stop()
+      position = elapsed()
+      running = false
       synth.cancel()
     },
   }

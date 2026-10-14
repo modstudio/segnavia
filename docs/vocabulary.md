@@ -20,10 +20,11 @@ something else.
 | **Stage fit** | Which space a stage fits its slide into: `box` uses the stage's own box, while `viewport` uses the available window after reserved room. |
 | **Press profile** | The ICC profile of the press a piece is printed on. The host supplies it. With one, a PDF render converts supported vector color to CMYK, embeds the profile as its output intent, and reports authored RGB images left unchanged. |
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
-| **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and optional narration. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
-| **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set). |
-| **Static slide** | A slide without narration. You page through it. |
-| **Playing slide** | A slide with narration. The narration sets its length, its cues show annotations, and it moves on by itself. |
+| **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and narration. A narrated slide may pause for `beforeMs` and `afterMs`; an unnarrated slide may have `holdMs`. Each timing is 0–600000 milliseconds. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
+| **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set), with optional `playback` (`step` or `continuous`) and caption policy (`on`, `off` or `viewer`). |
+| **Untimed slide** | A slide with neither narration nor `holdMs`. Playback stops there until Play advances. |
+| **Timed slide** | A narrated slide or an unnarrated slide with `holdMs`. Its clock advances to the next slide when it ends. |
+| **Deck timeline** | Each slide's deck-wide start and duration plus the timed total. Untimed slides are marked and add zero to the total. |
 | **Narration** | A slide's voice track: text, words with timings, optional audio, cues. It can be live, meaning the browser speaks it and learns the timings as it goes. |
 | **Cue** | An annotation shown from a spoken word until the slide ends, or until a later word. |
 | **Shot** | A captured screen of a real app: a clean image, optionally an annotated rendition, and the annotations measured on that same image. |
@@ -32,7 +33,7 @@ something else.
 | **Flow** | A host's scripted path through its app, in named steps, taking shots. |
 | **Host** | An app that uses the library, through the seams the library declares. |
 | **Frame** | The sandboxed iframe that shows a page's or a slide's HTML. |
-| **Controller** | `DeckController`: the headless deck. It holds the state (slide, playing, word, annotations shown, progress, direction) and answers keys. It renders nothing. |
+| **Controller** | `DeckController`: the headless deck. It holds slide and deck time, playing state, word, annotations, progress, direction, playback mode, mute and caption visibility, and answers keys. It renders nothing. |
 | **Stage** | `<segnavia-stage>`: shows the controller's current slide, scaled to fit, and brings no appearance of its own. |
 | **Paper** | `<segnavia-paper>`: shows one paper of imposed pages, scaled to fit, and brings no appearance of its own. |
 | **Styled component** | One finished control (`<segnavia-play>`, `-step`, `-track`, `-counter`, `-caption`, `-notes`, `-fullscreen`). It finds its deck by `for`, by its `controller` property, or from the nearest ancestor that has one. |

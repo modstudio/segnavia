@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
-import { timedClock } from './clock.ts'
+import { speechClock, timedClock } from './clock.ts'
 
 const realPerformance = globalThis.performance
 const realAudio = globalThis.Audio
+const realWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+const realUtterance = Object.getOwnPropertyDescriptor(globalThis, 'SpeechSynthesisUtterance')
 
 afterEach(() => {
   Object.defineProperty(globalThis, 'performance', { configurable: true, value: realPerformance })
   Object.defineProperty(globalThis, 'Audio', { configurable: true, value: realAudio })
+  if (realWindow) Object.defineProperty(globalThis, 'window', realWindow)
+  else Reflect.deleteProperty(globalThis, 'window')
+  if (realUtterance) Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', realUtterance)
+  else Reflect.deleteProperty(globalThis, 'SpeechSynthesisUtterance')
 })
 
 function slide(input: Record<string, unknown>) {
@@ -59,5 +65,36 @@ describe('slide clock', () => {
     expect(clock.elapsed()).toBe(800)
     expect(clock.word()).toBe(0)
     expect(clock.ended()).toBe(true)
+  })
+
+  test('live speech seek returns to the start and mute cancels speech without ending timing', () => {
+    let now = 0
+    let cancellations = 0
+    const synth = {
+      cancel: () => cancellations++,
+      speak: () => {},
+      pause: () => {},
+      resume: () => {},
+      getVoices: () => [],
+    }
+    class FakeUtterance {
+      lang = ''
+      voice = null
+      onboundary: ((event: { name: string; charIndex: number }) => void) | null = null
+      constructor(_text: string) {}
+    }
+    Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } })
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: synth } })
+    Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance })
+    const narration = { text: 'hello', words: [], durationMs: 500, audio: null, live: true, cues: [] }
+    const clock = speechClock(slide({ narration, beforeMs: 100 }), undefined)
+    now = 200
+    clock.word()
+    clock.muted = true
+    expect(clock.muted).toBe(true)
+    expect(clock.elapsed()).toBe(100)
+    clock.seek(300)
+    expect(clock.elapsed()).toBe(0)
+    expect(cancellations).toBeGreaterThan(1)
   })
 })

@@ -1,8 +1,5 @@
 // The headless deck owns slides, play, cues, timing and keys. It answers keys in the deck's
-// reading direction. A host draws whatever controls it likes from `state`
-// and the `change` event; `<segnavia-stage>` draws the slide itself.
-// Events: change {state} · slide {index} · cue {annotations} · error {index, message} · end.
-
+// reading direction. It renders nothing; hosts draw from `state` and `change`.
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
@@ -202,7 +199,10 @@ export class DeckController extends EventTarget {
     if (!this.clock) this.startClock(local)
     else this.clock.seek(local)
     if (!wasPlaying) this.pause()
-    else this.readClock()
+    else {
+      this.readClock()
+      this.emit()
+    }
   }
 
   setMuted(muted: boolean) {
