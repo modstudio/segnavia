@@ -60,21 +60,7 @@ export class FramePool {
     }
     this.add(state.index, state.content, state, controller, options)
     this.sync(state, options.frameTitle)
-    const turn = ++this.turn
-    for (const index of indexes) {
-      if (index === state.index) continue
-      const slide = deck.slides[index]
-      if (!slide || (!reloaded && this.entries.has(slide.id))) continue
-      void controller
-        .contentFor(index)
-        .then((content) => {
-          if (turn !== this.turn || controller.state.deck !== deck) return
-          this.add(index, content, state, controller, options)
-          this.sync(controller.state, options.frameTitle)
-          this.changed()
-        })
-        .catch(() => {})
-    }
+    this.mountWindow(state, controller, options, reloaded)
     this.changed()
   }
 
@@ -120,12 +106,7 @@ export class FramePool {
     const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     const existing = this.entries.get(slide.id)
     const ready = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
-    const incoming = this.add(state.index, state.content, state, controller, options, false)
-    if (!incoming) return true
-    this.beginSwap(slide.id, activeId, incoming, controller, options.frameTitle, transition, options.neighbors, ready)
-    this.retain(state, fromIndex, options.neighbors)
-    this.sync(state, options.frameTitle)
-    this.host.append(incoming)
+    this.startSwap(state, controller, options, activeId, fromIndex, transition, ready)
     return true
   }
 
@@ -140,16 +121,15 @@ export class FramePool {
       const pending = this.entries.get(slide.id)
       if (this.pending?.id === slide.id && pending && sameContent(pending.value, value)) return true
       this.cancelPending()
-      const incoming = this.add(state.index, state.content, state, controller, options, false)
-      if (!incoming) return true
-      this.beginSwap(slide.id, activeId, incoming, controller, options.frameTitle, null, false, false)
-      this.retain(
+      this.startSwap(
         state,
+        controller,
+        options,
+        activeId,
         deck.slides.findIndex((candidate) => candidate.id === activeId),
-        options.neighbors,
+        null,
+        false,
       )
-      this.sync(state, options.frameTitle)
-      this.host.append(incoming)
       return true
     }
     this.cancelPending()
@@ -159,14 +139,33 @@ export class FramePool {
     return true
   }
 
+  private startSwap(
+    state: DeckState,
+    controller: DeckController,
+    options: PoolOptions,
+    activeId: string,
+    fromIndex: number,
+    transition: TurnTransition | null,
+    ready: boolean,
+  ) {
+    const slide = state.slide
+    if (!slide || !state.content) return
+    this.turn++
+    const incoming = this.add(state.index, state.content, state, controller, options, false)
+    if (!incoming) return
+    this.beginSwap(slide.id, activeId, incoming, controller, options, transition, ready)
+    this.retain(state, fromIndex, options.neighbors)
+    this.sync(state, options.frameTitle)
+    if (!incoming.isConnected) this.host.append(incoming)
+  }
+
   private beginSwap(
     id: string,
     visibleId: string,
     incoming: HTMLElement,
     controller: DeckController,
-    frameTitle: FrameTitle,
+    options: PoolOptions,
     transition: TurnTransition | null,
-    neighbors: boolean,
     ready: boolean,
   ) {
     const media = incoming.querySelector('iframe, img')
@@ -182,8 +181,9 @@ export class FramePool {
       cleanup()
       this.pending = null
       this.clearTransitionAttributes()
-      this.retain(controller.state, controller.state.index, neighbors)
-      this.sync(controller.state, frameTitle)
+      this.retain(controller.state, controller.state.index, options.neighbors)
+      this.sync(controller.state, options.frameTitle)
+      this.mountWindow(controller.state, controller, options)
       this.changed()
     }
     const animate = () => {
@@ -237,6 +237,7 @@ export class FramePool {
           incoming.dataset.active = ''
           incoming.setAttribute('aria-hidden', 'false')
           incoming.inert = false
+          this.mountWindow(controller.state, controller, options)
           this.changed()
         } else {
           settled = true
@@ -254,7 +255,6 @@ export class FramePool {
       canvas.dataset.transition = transition.kind
       canvas.dataset.axis = transition.axis
       canvas.style.setProperty('--segnavia-transition-duration', duration)
-      canvas.style.setProperty('--segnavia-transition-scale', canvas.style.transform.match(/scale\(([^)]+)\)/)?.[1] ?? '1')
     }
     outgoing.dataset.leaving = ''
     incoming.dataset.entering = ''
@@ -264,7 +264,26 @@ export class FramePool {
     for (const canvas of this.entries.values()) {
       for (const name of ['data-transition', 'data-axis', 'data-entering', 'data-leaving', 'data-running']) canvas.canvas.removeAttribute(name)
       canvas.canvas.style.removeProperty('--segnavia-transition-duration')
-      canvas.canvas.style.removeProperty('--segnavia-transition-scale')
+    }
+  }
+
+  private mountWindow(state: DeckState, controller: DeckController, options: PoolOptions, reload = false) {
+    const deck = state.deck
+    if (!deck) return
+    const turn = ++this.turn
+    for (const index of frameWindow(state.index, deck.slides.length, options.neighbors, deck.scripts)) {
+      if (index === state.index) continue
+      const slide = deck.slides[index]
+      if (!slide || (!reload && this.entries.has(slide.id))) continue
+      void controller
+        .contentFor(index)
+        .then((content) => {
+          if (turn !== this.turn || controller.state.deck !== deck) return
+          this.add(index, content, state, controller, options)
+          this.sync(controller.state, options.frameTitle)
+          this.changed()
+        })
+        .catch(() => {})
     }
   }
 

@@ -9,6 +9,7 @@
 //   --segnavia-annotation-color  rings, badges and arrows
 //   --segnavia-cue-fade          how long an annotation takes to appear
 //   --segnavia-transition-duration how long a deck turn takes
+//   --segnavia-transition-scale    the canvas fit scale used for slide travel
 //   --segnavia-paper             the paper behind its placements
 //   --segnavia-backdrop          the in-window presentation backdrop
 

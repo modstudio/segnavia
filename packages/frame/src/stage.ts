@@ -7,8 +7,9 @@
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
 // State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction. A visible canvas has data-active; a
-// sandboxed canvas waiting to replace it has data-incoming.
+// data-word, data-shown, data-direction. A visible canvas has data-active, and
+// a pending incoming canvas on any swap has data-incoming. Motion uses
+// data-transition, data-entering, data-leaving, data-running and data-axis.
 
 import type { TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
@@ -199,7 +200,10 @@ export class SegnaviaStage extends HTMLElement {
       fitted = { scale, width: deck.size.width * scale, height: deck.size.height * scale }
       this.style.removeProperty('block-size')
     }
-    for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) item.style.transform = `scale(${fitted.scale})`
+    for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) {
+      item.style.transform = `scale(${fitted.scale})`
+      item.style.setProperty('--segnavia-transition-scale', String(fitted.scale))
+    }
     if (this.measured?.scale === fitted.scale && this.measured.width === fitted.width && this.measured.height === fitted.height) return
     this.measured = fitted
     this.dispatchEvent(new CustomEvent('segnavia-fit', { detail: fitted }))

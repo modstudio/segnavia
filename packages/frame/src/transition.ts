@@ -1,4 +1,4 @@
-import { type Deck, resolveDirection, type Slide, type Transition } from '@segnavia/format'
+import { DEFAULT_TRANSITION_DURATION_MS, type Deck, resolveDirection, type Slide, type Transition } from '@segnavia/format'
 import type { AttributeTransition } from './transition-option.ts'
 
 export type TurnDirection = 'forward' | 'back'
@@ -30,7 +30,10 @@ export function transitionFor({ deck, from: _from, to: _to, direction, hostOverr
   const selected =
     hostOverride === 'none'
       ? { kind: 'none' as const, duration: 0 }
-      : { kind: hostOverride?.kind ?? deck.transition?.kind ?? 'none', duration: hostOverride?.duration ?? deck.transition?.duration ?? 0 }
+      : {
+          kind: hostOverride?.kind ?? deck.transition?.kind ?? 'none',
+          duration: hostOverride?.duration ?? deck.transition?.duration ?? DEFAULT_TRANSITION_DURATION_MS,
+        }
   if (reducedMotion || selected.kind === 'none') return { kind: 'none', duration: 0, axis }
   return { ...selected, axis }
 }

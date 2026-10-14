@@ -17,6 +17,8 @@ interface TransitionSample {
   first: number
   last: number
   target: string | null
+  stableWindow: boolean | null
+  loadsAfterStart: number
 }
 
 export async function verifyDeckTransitions(h: Harness) {
@@ -29,6 +31,12 @@ export async function verifyDeckTransitions(h: Harness) {
       JSON.stringify(sample),
     )
   }
+  const refusedSamples = samples.filter((sample) => sample.scripts === 'refuse')
+  check(
+    'deck host: refused-script fade and slide preserve the loaded neighbor document',
+    refusedSamples.every((sample) => sample.stableWindow === true && sample.loadsAfterStart === 0),
+    JSON.stringify(refusedSamples),
+  )
 
   const rtl = await sampleTransition(h, 'slide', 'refuse', 'rtl')
   check('deck host: a right-to-left forward slide enters from the left', rtl.first < 0 && rtl.monotonic, JSON.stringify(rtl))
@@ -49,6 +57,20 @@ export async function verifyDeckTransitions(h: Harness) {
     'deck host: a second turn during a transition settles only on its target',
     interrupted.target === 'transition-3' && interrupted.visible === 1 && interrupted.canvases === 1,
     JSON.stringify(interrupted),
+  )
+
+  const neighbor = await neighborWindowFacts(h)
+  check(
+    'deck host: animated refused turns replenish and reuse the next neighbor',
+    neighbor.mounted && neighbor.sameWindow && neighbor.loadsAfterStart === 0 && neighbor.addedDuringSecondTurn === 0,
+    JSON.stringify(neighbor),
+  )
+
+  const precommit = await precommitInterruptionFacts(h)
+  check(
+    'deck host: interrupting a refused neighbor before motion keeps its document',
+    precommit.sameWindow && precommit.target === 'transition-3',
+    JSON.stringify(precommit),
   )
 }
 
@@ -96,6 +118,77 @@ async function interruptedFacts(h: Harness) {
   })
 }
 
+async function neighborWindowFacts(h: Harness) {
+  return h.page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+    const stage = document.querySelector('#deck') as HTMLElement
+    await host.loadTransition('fade', 'refuse')
+    const waitFor = (predicate: () => boolean) =>
+      new Promise<void>((resolve) => {
+        const poll = () => (predicate() ? resolve() : requestAnimationFrame(poll))
+        poll()
+      })
+    await host.controller.go(1)
+    await waitFor(() => stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-2' && !stage.querySelector('[data-transition]'))
+    await waitFor(() => Boolean(stage.querySelector('[data-slide-id="transition-3"] iframe')))
+    const neighbor = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-3"] iframe')
+    const before = neighbor?.contentWindow
+    let loadsAfterStart = 0
+    neighbor?.addEventListener('load', () => loadsAfterStart++)
+    let addedDuringSecondTurn = 0
+    const observer = new MutationObserver((records) => {
+      addedDuringSecondTurn += records.reduce(
+        (count, record) => count + [...record.addedNodes].filter((node) => node instanceof Element && node.matches('.segnavia-stage__canvas')).length,
+        0,
+      )
+    })
+    observer.observe(stage, { childList: true })
+    await host.controller.go(2)
+    await waitFor(() => stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-3' && !stage.querySelector('[data-transition]'))
+    observer.disconnect()
+    return {
+      mounted: Boolean(neighbor),
+      sameWindow: Boolean(before) && neighbor?.contentWindow === before,
+      loadsAfterStart,
+      addedDuringSecondTurn,
+    }
+  })
+}
+
+async function precommitInterruptionFacts(h: Harness) {
+  return h.page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+    const stage = document.querySelector('#deck') as HTMLElement
+    await host.loadTransition('slide', 'refuse')
+    host.stage.setAttribute('transition-duration', '1000')
+    const reused = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-2"] iframe')
+    const before = reused?.contentWindow
+    const waitFor = (predicate: () => boolean) =>
+      new Promise<void>((resolve) => {
+        const poll = () => (predicate() ? resolve() : requestAnimationFrame(poll))
+        poll()
+      })
+    const waitForIncoming = () =>
+      new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (!stage.querySelector('[data-slide-id="transition-2"][data-incoming]')) return
+          observer.disconnect()
+          resolve()
+        })
+        observer.observe(stage, { attributes: true, childList: true, subtree: true })
+      })
+    const incoming = waitForIncoming()
+    void host.controller.go(1)
+    await incoming
+    await host.controller.go(2)
+    await waitFor(() => stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-3' && !stage.querySelector('[data-transition]'))
+    return {
+      sameWindow: Boolean(before) && reused?.isConnected === true && reused.contentWindow === before,
+      target: stage.querySelector('[data-active]')?.getAttribute('data-slide-id') ?? null,
+    }
+  })
+}
+
 async function sampleTransition(
   h: Harness,
   kind: 'fade' | 'slide',
@@ -108,6 +201,10 @@ async function sampleTransition(
     async ({ selectedKind, selectedScripts }) => {
       const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
       const stage = document.querySelector('#deck') as HTMLElement
+      const incomingFrame = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-2"] iframe')
+      const incomingWindow = selectedScripts === 'refuse' ? incomingFrame?.contentWindow : null
+      let loadsAfterStart = 0
+      if (selectedScripts === 'refuse') incomingFrame?.addEventListener('load', () => loadsAfterStart++)
       const values: number[] = []
       const facts = { emptyFrames: 0, observedKind: null as string | null }
       const hasPaintedCanvas = () => {
@@ -159,6 +256,8 @@ async function sampleTransition(
         first,
         last,
         target: stage.querySelector('[data-active]')?.getAttribute('data-slide-id') ?? null,
+        stableWindow: selectedScripts === 'refuse' ? Boolean(incomingWindow) && incomingFrame?.contentWindow === incomingWindow : null,
+        loadsAfterStart,
       }
     },
     { selectedKind: kind, selectedScripts: scripts },
