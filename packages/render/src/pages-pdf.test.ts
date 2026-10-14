@@ -10,7 +10,7 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
       pagePdf: async () => new Uint8Array(),
       piecePdf: async () => new Uint8Array(),
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   await expect(render).rejects.toThrow(new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.'))

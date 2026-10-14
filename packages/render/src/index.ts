@@ -15,8 +15,11 @@ import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
+import { rewritePressPdf } from './press/adapter.ts'
+import type { PressReport } from './press/types.ts'
 
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+export type { PressImage, PressReport } from './press/types.ts'
 
 export const RENDER_BOUND_MS = 60_000
 // How long a page that runs its own code gets to call window.pageReady().
@@ -61,6 +64,14 @@ export interface RenderOptions {
   // top-level HTML slide render. It is not called for an imposed deck because
   // that path has no single frame-based document.
   beforeOutput?: (tab: Tab) => Promise<void>
+  // Converts a finished PDF through the supplied press profile and reports
+  // authored RGB images. Image renders ignore this option.
+  press?: {
+    /** The ICC profile of the press, as bytes. The library ships none. */
+    profile: Uint8Array
+    /** Called once per render with what the PDF still holds in RGB. */
+    report?: (report: PressReport) => void
+  }
 }
 
 export interface ImageOptions extends RenderOptions {
@@ -123,6 +134,13 @@ async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promi
     if (count > limits.maxSheets) throw new RenderRefusedError(`The PDF has ${count} sheets; the limit is ${limits.maxSheets}.`)
   }
   return pdf
+}
+
+async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array> {
+  if (!options.press) return enforce(pdf, options.limits)
+  const converted = await rewritePressPdf(pdf, options.press.profile)
+  options.press.report?.(converted.report)
+  return enforce(converted.bytes, options.limits)
 }
 
 // One image of what a tab shows. Shared with capture, so a shot and a
@@ -270,7 +288,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
       },
     )
-    return enforce(pdf, opts.limits)
+    return pdf
   }
 
   async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions): Promise<Uint8Array> {
@@ -306,7 +324,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const renderer: Renderer = {
     async pagePdf(input, opts = {}) {
-      return renderPagePdf(Page.parse(input), opts)
+      return finishPdf(await renderPagePdf(Page.parse(input), opts), opts)
     },
 
     async pageImage(input, opts = {}) {
@@ -335,7 +353,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         pagePdf: renderPagePdf,
         piecePdf: renderPiecePdf,
         fontFaces: (options) => fontFaces(options.fonts),
-        enforce,
+        finish: finishPdf,
       })
     },
 
@@ -343,7 +361,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return renderDeckPdf(deck, opts, {
         renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false }, (tab) => tab.pdf(pdf)),
         fontFaces: (options) => fontFaces(options.fonts),
-        enforce,
+        finish: finishPdf,
       })
     },
 
