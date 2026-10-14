@@ -187,7 +187,6 @@ export class FramePool {
       this.changed()
     }
     const animate = () => {
-      if (transition) return finish()
       if (!transition || transition.duration === 0) return finish()
       const outgoing = this.entries.get(visibleId)?.canvas
       if (!outgoing) return finish()
