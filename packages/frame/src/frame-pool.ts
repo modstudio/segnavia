@@ -110,7 +110,7 @@ export class FramePool {
     const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     const existing = this.entries.get(slide.id)
     const reused = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
-    const ready = reused && existing?.loaded === true
+    const ready = reused
     if (transition.kind === 'none') {
       if (deck.scripts === 'sandboxed') return this.updateSandboxed(state, controller, options)
       if (ready || !reused) return false

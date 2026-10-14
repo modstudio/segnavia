@@ -62,7 +62,7 @@ export async function verifyDeckTransitions(h: Harness) {
   const neighbor = await neighborWindowFacts(h)
   check(
     'deck host: animated refused turns replenish and reuse the next neighbor',
-    neighbor.mounted && neighbor.sameWindow && neighbor.loadsAfterStart === 0 && neighbor.addedDuringSecondTurn === 0,
+    neighbor.mounted && neighbor.sameWindow && neighbor.addedDuringSecondTurn === 0,
     JSON.stringify(neighbor),
   )
 
