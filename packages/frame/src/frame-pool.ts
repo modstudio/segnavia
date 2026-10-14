@@ -1,4 +1,4 @@
-import { sameContent } from './content-value.ts'
+import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { neighborWindow } from './deck-window.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -74,9 +74,10 @@ export class FramePool {
     const slide = deck?.slides[index]
     if (!deck || !slide) return
     const existing = this.entries.get(slide.id)
-    if (existing && sameContent(existing.content, content)) return
+    const comparable = comparableContent(content, (path) => controller.url(path))
+    if (existing && sameContent(existing.content, comparable)) return
     const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle)
-    this.entries.set(slide.id, { canvas, content })
+    this.entries.set(slide.id, { canvas, content: comparable })
     if (existing) existing.canvas.replaceWith(canvas)
     else this.host.append(canvas)
   }
@@ -92,6 +93,10 @@ export class FramePool {
       canvas.setAttribute('aria-hidden', String(!visible))
       canvas.inert = !visible
       const frame = canvas.querySelector('iframe')
+      if (frame && !visible && frame === this.host.ownerDocument.activeElement) {
+        frame.blur()
+        this.host.focus()
+      }
       if (frame) frame.title = frameTitle(deck.title, index + 1)
     }
   }

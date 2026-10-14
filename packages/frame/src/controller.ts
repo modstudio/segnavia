@@ -37,7 +37,7 @@ export interface ControllerOptions {
   resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent> | SlideContent
   // Resolve the slides either side while one shows; each result is used once.
   prefetch?: boolean
-  // Stage listens only on the stage; page listens on window and ignores form fields.
+  // Page listens on window; form fields retain paging keys, while Escape can end presenting.
   keys?: 'stage' | 'page'
   // The prefix of `#slide-N` addresses, or null to leave the address alone.
   hash?: string | null

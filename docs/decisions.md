@@ -68,7 +68,7 @@ a host supplies the stock it uses as a value.
 made for every cell before any render limit applies, so the bound is enforced
 at the edge. A host that wants a lower one enforces it.
 
-**A reloaded deck keeps the slide a reader is on.** A host that reorders or edits slides under an open viewer reloads the deck; the reader stays on the same slide, found by its id, and a link past the end opens the last slide.
+**A reloaded deck keeps the slide a reader is on.** A host that reorders or edits slides under an open viewer reloads the deck; the reader stays on the same slide, found by its id, and when that slide was removed, on the position it held, clamped to the new length. A link past the last slide opens the last slide.
 
 ## Shape of the library
 

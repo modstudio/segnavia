@@ -86,6 +86,7 @@ export class SegnaviaStage extends HTMLElement {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.addEventListener('keydown', this.onKey)
+    this.addEventListener('focusin', this.onFocusIn)
     window.addEventListener('message', this.onMessage)
     window.addEventListener('resize', this.onResize)
     window.visualViewport?.addEventListener('resize', this.onResize)
@@ -96,6 +97,7 @@ export class SegnaviaStage extends HTMLElement {
 
   disconnectedCallback() {
     this.removeEventListener('keydown', this.onKey)
+    this.removeEventListener('focusin', this.onFocusIn)
     window.removeEventListener('message', this.onMessage)
     window.removeEventListener('resize', this.onResize)
     window.visualViewport?.removeEventListener('resize', this.onResize)
@@ -188,6 +190,13 @@ export class SegnaviaStage extends HTMLElement {
   private onKey = (event: KeyboardEvent) => {
     if (event.target !== this || this.attached?.keys !== 'stage') return
     if (this.attached?.key(event.key)) event.preventDefault()
+  }
+
+  private onFocusIn = (event: FocusEvent) => {
+    const frame = event.target
+    if (!(frame instanceof HTMLIFrameElement) || frame.closest('.segnavia-stage__canvas')?.hasAttribute('data-active')) return
+    frame.blur()
+    this.focus()
   }
 
   // A key pressed inside the slide reaches the stage only through the bridge.

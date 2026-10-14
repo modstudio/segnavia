@@ -156,6 +156,26 @@ export async function verifyDeckHost(h: Harness) {
     authorColor === 'rgb(0, 128, 0)' && documentFacts.nonce && documentFacts.bridge,
     JSON.stringify({ authorColor, ...documentFacts }),
   )
+
+  await page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: { focusNeighbor(): Promise<void> } }).__deckHost
+    await host.focusNeighbor()
+    document.querySelector<HTMLTextAreaElement>('#notes')?.focus()
+  })
+  await page.waitForTimeout(300)
+  const guardedFocus = await page.evaluate(() => {
+    const active = document.activeElement
+    const hiddenFrame = document.querySelector<HTMLIFrameElement>('#deck [aria-hidden="true"] iframe')
+    return active !== hiddenFrame && active === document.querySelector('#deck')
+  })
+  await page.locator('#notes').focus()
+  await page.keyboard.type(' receives typed keys')
+  const notesValue = await page.locator('#notes').inputValue()
+  check(
+    'deck host: a scripted hidden neighbor cannot retain focus or intercept page typing',
+    guardedFocus && notesValue === 'Notes stay editable receives typed keys',
+    JSON.stringify({ guardedFocus, notesValue }),
+  )
   await page.setViewportSize({ width: 1280, height: 816 })
 }
 

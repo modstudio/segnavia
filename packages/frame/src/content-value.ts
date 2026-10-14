@@ -1,5 +1,10 @@
 import type { ResolvedContent } from './controller.ts'
 
+export function comparableContent(content: ResolvedContent, resolveUrl: (path: string) => string): ResolvedContent {
+  if (content.kind === 'url' || content.kind === 'image' || content.kind === 'shot') return { ...content, src: resolveUrl(content.src) }
+  return content
+}
+
 export function sameContent(left: ResolvedContent, right: ResolvedContent): boolean {
   return sameValue(left, right)
 }
