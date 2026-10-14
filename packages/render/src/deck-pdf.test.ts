@@ -34,8 +34,8 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
         return setup.html.includes('<section class="sheet">') ? base.save() : onePage()
       },
       fontFaces: () => '',
-      enforce: async (pdf, limits) => {
-        limitsSeen.push(limits)
+      finish: async (pdf, options) => {
+        limitsSeen.push(options.limits)
         return pdf
       },
     },
@@ -56,7 +56,7 @@ test('a failed HTML slide render names the slide id', async () => {
         return onePage()
       },
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   await expect(rendering).rejects.toThrow('Slide "html-slide" could not be rendered: paint failed')
@@ -84,8 +84,8 @@ test('an imposed deck renders every slide alone and enforces the composed papers
         return onePage(400, 200)
       },
       fontFaces: () => '',
-      enforce: async (pdf, limits) => {
-        limitsSeen.push(limits)
+      finish: async (pdf, options) => {
+        limitsSeen.push(options.limits)
         return pdf
       },
     },
@@ -112,7 +112,7 @@ test('an imposed repeat deck embeds one rendered slide across each paper', async
         return onePage(400, 200)
       },
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   expect(renders).toBe(1)
@@ -126,7 +126,7 @@ test('a two-sided imposed deck emits front and back PDF pages for one physical p
     {
       renderPdf: async () => onePage(400, 200),
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   expect((await PDFDocument.load(output)).getPageCount()).toBe(2)
@@ -143,7 +143,7 @@ test('an imposed deck refuses notes before rendering', async () => {
         return onePage()
       },
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
@@ -161,7 +161,7 @@ test('a failed non-HTML slide render names the slide id', async () => {
         return onePage()
       },
       fontFaces: () => '',
-      enforce: async (pdf) => pdf,
+      finish: async (pdf) => pdf,
     },
   )
   await expect(rendering).rejects.toThrow('Slide "image-slide" could not be rendered: image failed')

@@ -55,6 +55,11 @@ guaranteed. The render names
 what it left in RGB. The engines that convert a whole PDF carry licenses an
 MIT library cannot bundle, so a full converter is the host's to pass in.
 
+**A render with a press profile refuses what it cannot convert.** Anything
+left in RGB besides an authored image would print in a color nobody chose, so
+content the rewrite does not know is a refusal that names it, not a line in a
+report.
+
 **The library ships no catalogue of label stock.** Stock numbers differ by
 maker and country and change. A grid in millimeters describes any of them, so
 a host supplies the stock it uses as a value.

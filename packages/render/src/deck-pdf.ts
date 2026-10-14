@@ -22,7 +22,7 @@ interface DeckPdfServices {
     pdf: Parameters<Tab['pdf']>[0],
   ): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
-  enforce(pdf: Uint8Array, limits: RenderOptions['limits']): Promise<Uint8Array>
+  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array>
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -83,7 +83,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
     const embedded = await embedOnePage(output, item.bytes, `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`)
     drawClippedPage(sheet, embedded, geometry, geometry)
   }
-  return services.enforce(await output.save(), opts.limits)
+  return services.finish(await output.save(), opts)
 }
 
 async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
@@ -131,7 +131,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
     bytes: item.bytes,
     placements: placements.get(item.index) ?? [],
   }))
-  return services.enforce(await composeImposedPdf(imposed, pieces), opts.limits)
+  return services.finish(await composeImposedPdf(imposed, pieces), opts)
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {

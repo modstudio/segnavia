@@ -53,7 +53,8 @@ library names a host.
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card; marks and folds are not built. |
-| press profile, `convert` (designed, not built) | render options | The ICC profile of the press, as bytes, and optionally a full converter to run on the finished PDF. |
+| press profile | render options | The ICC profile of the press, as bytes, and a report callback for authored RGB images left unchanged and conversion counts read back from the output. |
+| `convert`, proof image, gamut report (designed, not built) | render options | A future hook may supply a full converter for the finished PDF, with a proof and out-of-gamut colors for a host to show. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 
@@ -224,27 +225,39 @@ is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
-**Color for a press.** A browser draws in RGB, so a render is RGB unless the
-host names a press profile: the ICC profile of the press, passed as bytes the
-way `fonts` are. The library ships none. With a profile, the render writes
-CMYK as far as it can. Every solid color in the PDF (text, fills and
-strokes) and every gradient stop is converted through the profile, and a
-black or neutral grey becomes black ink alone, so text prints sharp. A
-gradient's stops are then exact and the blend between them is the press's. A
-shadow is treated as a gradient is: its color is converted and its fade is
-not guaranteed. A raster image stays as the author supplied it. The render
-reports what it left in RGB, so a host can tell its user.
+**Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
+the host passes `press.profile`: the ICC profile of the press, as bytes. The
+library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed
+forms, rewrite the finished PDF once; `pageImage` and `slideImage` ignore the
+option. Solid fills and strokes, including text and shadow colors and colors
+inside Type 3 glyphs, and every axial or radial gradient stop are converted
+through the profile. A black or neutral gray becomes black ink alone, so text
+prints sharp. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
+group stays gray and a mask source keeps its declared space. Raster images,
+including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
+as the author supplied them and are the only RGB the result may retain.
+`press.report` receives their pixel dimensions and color-space kinds, plus
+counts of converted fills, strokes, gradient stops and groups read back from
+the finished PDF. An unfamiliar color operator, function, group or stream
+filter is refused by name rather than left in RGB. Function-based shadings are
+refused for now; axial and radial shadings are converted. The catalog's output intent
+embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
+through the profile that made them. The input byte ceiling is checked before
+the rewrite, and the existing sheet and byte limit enforcement runs afterward,
+so limits also measure the bytes and pages actually returned. Profile reads are bounded by
+`MAX_PROFILE_BYTES` (32 MiB) and `MAX_PROFILE_TAGS` (256). Every inflated
+content stream is bounded by `MAX_CONTENT_BYTES` (32 MiB) before tokenization.
+One rewrite or read-back pass is bounded by `MAX_DOCUMENT_CONTENT_BYTES` (128
+MiB) across all decoded content streams, and rewritten streams are compressed
+again before the PDF is saved. `MAX_OPERANDS` (32) bounds the operands retained
+while the tokenizer waits for an operator.
 
-Two more things come from the same profile. A proof is the page as an image
-with every pixel taken to the press's color and back, so a host can show a
-page as it will print beside the page as designed; it is a guide, not a
-contract proof. It is rendered on request, not kept live while a page is
-edited, because a frame's pixels never leave the frame. A gamut report lists the colors the press cannot reach. A
-host that owns a full converter passes it as `convert`, and it runs on the
-finished PDF.
+A proof image, a gamut report and a `convert` hook for a host-owned full
+converter remain designed, not built.
 
-This part is done when a page with text, a solid fill and a gradient renders
-to a PDF in which a preflight tool finds no RGB outside its images.
+The built rewrite is done when its read-back report finds no RGB outside the
+authored images and reports that the page's text, solid fill and gradient were
+converted.
 
 The grid fills in the imposition's reading direction: from the top
 inline-start corner, so the first cell of a right-to-left imposition is at

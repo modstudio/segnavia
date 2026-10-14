@@ -18,6 +18,7 @@ import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
+import { verifyPressRender } from './verify/press-render.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const FACE = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
@@ -286,6 +287,7 @@ try {
 
   verifyPagesRender(output, work, check)
   verifyDeckRender(output, work, check)
+  await verifyPressRender(renderer, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {
