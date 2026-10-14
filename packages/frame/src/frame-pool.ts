@@ -74,7 +74,7 @@ export class FramePool {
     const slide = deck?.slides[index]
     if (!deck || !slide) return
     const existing = this.entries.get(slide.id)
-    if (existing) return
+    if (existing && sameContent(existing.content, content)) return
     const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle)
     this.entries.set(slide.id, { canvas, content })
     if (existing) existing.canvas.replaceWith(canvas)
