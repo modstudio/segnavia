@@ -243,6 +243,7 @@ writeFileSync(
       document.getElementById('player').labels = {
         play: 'הפעלה', pause: 'השהיה', previous: 'השקופית הקודמת', next: 'השקופית הבאה',
         slide: (n, total) => 'שקופית ' + n + ' מתוך ' + total, notes: 'הערות', showNotes: 'הצגת הערות',
+        frameTitle: (title, n) => title + ' — שקופית ' + n,
         hideNotes: 'הסתרת הערות', enterFullscreen: 'מסך מלא', exitFullscreen: 'יציאה ממסך מלא', player: 'נגן שקופיות',
       }
     </script>`),

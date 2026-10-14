@@ -122,6 +122,7 @@ export async function verifyDeckHost(h: Harness) {
     authorColor === 'rgb(0, 128, 0)' && documentFacts.nonce && documentFacts.bridge,
     JSON.stringify({ authorColor, ...documentFacts }),
   )
+  await page.setViewportSize({ width: 1280, height: 816 })
 }
 
 async function fitFacts(h: Harness) {
