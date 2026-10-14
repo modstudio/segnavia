@@ -232,7 +232,11 @@ async function heldNeighborFacts(h: Harness) {
     void host.controller.go(1)
   })
   await h.page.waitForTimeout(100)
-  const waited = await h.page.evaluate(() => document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'held-start')
+  const waited = await h.page.evaluate(
+    () =>
+      document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'held-start' &&
+      !document.querySelector('#deck [data-slide-id="held"][data-transition]'),
+  )
   h.releaseHeldFrames()
   await h.page.waitForFunction(
     () => document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'held' && !document.querySelector('#deck [data-transition]'),
