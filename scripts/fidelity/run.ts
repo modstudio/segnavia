@@ -42,7 +42,7 @@ interface ScreenReference {
 }
 
 function screenReference(page: PageInput): ScreenReference {
-  if (!page.print) return { page, css: MEASUREMENT_CSS, description: 'screen viewport (the PDF TrimBox)' }
+  if (!page.print) return { page, css: MEASUREMENT_CSS, description: 'viewport matching the PDF TrimBox' }
   const print = Print.parse(page.print)
   const boxes = printBoxes(print)
   const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
