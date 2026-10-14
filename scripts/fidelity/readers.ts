@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -5,6 +7,19 @@ import { type Browser, chromium } from 'playwright-core'
 import type { ReaderResult } from './types.ts'
 
 const SRGB_PROFILE = '/System/Library/ColorSync/Profiles/sRGB Profile.icc'
+const PHOTOSHOP = '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app'
+const GHOSTSCRIPT = ['/opt/homebrew/bin/gs', '/usr/local/bin/gs', '/usr/bin/gs'].find(existsSync)
+
+function version(args: string[], fromStderr = false): string | undefined {
+  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  if (result.exitCode !== 0) return undefined
+  const value = (fromStderr ? result.stderr : result.stdout).toString().trim().split('\n')[0]
+  return value || undefined
+}
+
+const POPPLER_ENGINE = version(['pdftoppm', '-v'], true)?.replace(/^pdftoppm version /, 'Poppler ') ?? 'Poppler pdftoppm'
+const GHOSTSCRIPT_ENGINE = GHOSTSCRIPT ? `Ghostscript ${version([GHOSTSCRIPT, '--version']) ?? 'unknown version'}` : 'Ghostscript'
+let adobeFailure: string | undefined
 
 function ran(args: string[]): { ok: boolean; error?: string } {
   const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
@@ -67,18 +82,22 @@ function viewerPageBox(file: string, width: number, height: number, aspect: numb
 export async function poppler(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const base = output.replace(/\.png$/, '')
   const result = ran(['pdftoppm', '-png', '-singlefile', '-cropbox', '-scale-to-x', String(width), '-scale-to-y', String(height), pdf, base])
-  return result.ok ? { reader: 'poppler', worked: true, image: output } : { reader: 'poppler', worked: false, error: result.error }
+  return result.ok
+    ? { reader: 'poppler', engine: POPPLER_ENGINE, worked: true, image: output }
+    : { reader: 'poppler', engine: POPPLER_ENGINE, worked: false, error: result.error }
 }
 
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), pdf, '--out', output])
-  if (!result.ok) return { reader: 'coregraphics', worked: false, error: result.error }
-  if (!(await Bun.file(output).exists())) return { reader: 'coregraphics', worked: false, error: 'sips exited successfully without writing a PNG.' }
+  if (!result.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: result.error }
+  if (!(await Bun.file(output).exists())) {
+    return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: 'sips exited successfully without writing a PNG.' }
+  }
   const converted = `${output}.srgb.png`
   const matched = ran(['sips', '-m', SRGB_PROFILE, output, '--out', converted])
-  if (!matched.ok) return { reader: 'coregraphics', worked: false, error: matched.error }
+  if (!matched.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: matched.error }
   await rename(converted, output)
-  return { reader: 'coregraphics', worked: true, image: output }
+  return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: true, image: output }
 }
 
 export async function chromiumViewer(executablePath: string, pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
@@ -114,14 +133,83 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
       '-y',
       output,
     ])
-    if (!converted.ok) return { reader: 'chromium', worked: false, error: converted.error }
-    return { reader: 'chromium', worked: true, image: output }
+    if (!converted.ok) return { reader: 'chromium', engine: 'Chromium PDF viewer', worked: false, error: converted.error }
+    return { reader: 'chromium', engine: 'Chromium PDF viewer', worked: true, image: output }
   } catch (error) {
-    return { reader: 'chromium', worked: false, error: error instanceof Error ? error.message : String(error) }
+    return { reader: 'chromium', engine: 'Chromium PDF viewer', worked: false, error: error instanceof Error ? error.message : String(error) }
   } finally {
     await browser?.close().catch(() => {})
     if (await Bun.file(raw).exists()) await unlink(raw)
   }
+}
+
+function scriptString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+export async function adobePdfEngine(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
+  const engine = 'Adobe PDF engine via Photoshop 2026'
+  if (!existsSync(PHOTOSHOP)) return { reader: 'adobe', engine, worked: false, error: `Photoshop is not installed at ${PHOTOSHOP}.` }
+  if (adobeFailure) return { reader: 'adobe', engine, worked: false, error: adobeFailure }
+  const script = `${output}.jsx`
+  const jsx = `app.displayDialogs = DialogModes.NO;
+var options = new PDFOpenOptions();
+options.antiAlias = true;
+options.cropPage = CropToType.CROPBOX;
+options.mode = OpenDocumentMode.RGB;
+options.page = 1;
+options.resolution = 384;
+options.suppressWarnings = true;
+var document = app.open(File('${scriptString(pdf)}'), options);
+document.resizeImage(UnitValue(${width}, 'px'), UnitValue(${height}, 'px'), null, ResampleMethod.BICUBICSHARPER);
+document.convertProfile('sRGB IEC61966-2.1', Intent.RELATIVECOLORIMETRIC, true, true);
+var png = new PNGSaveOptions();
+png.interlaced = false;
+document.saveAs(File('${scriptString(output)}'), png, true, Extension.LOWERCASE);
+document.close(SaveOptions.DONOTSAVECHANGES);`
+  await Bun.write(script, jsx)
+  try {
+    execFileSync('osascript', ['-e', `tell application "Adobe Photoshop 2026" to do javascript file ${JSON.stringify(script)}`], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+      timeout: 120_000,
+    })
+    if (!(await Bun.file(output).exists())) return { reader: 'adobe', engine, worked: false, error: 'Photoshop exited successfully without writing a PNG.' }
+    return { reader: 'adobe', engine, worked: true, image: output }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    adobeFailure = detail.includes('ETIMEDOUT')
+      ? 'Photoshop ExtendScript timed out after 120 seconds. Photoshop must be open and allow osascript automation.'
+      : `Photoshop ExtendScript failed: ${detail}`
+    return { reader: 'adobe', engine, worked: false, error: adobeFailure }
+  } finally {
+    await unlink(script).catch(() => {})
+  }
+}
+
+export async function ghostscript(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
+  if (!GHOSTSCRIPT) {
+    return { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: false, error: 'gs was not found in a standard Homebrew or system location.' }
+  }
+  const dpi = 384
+  const result = ran([
+    GHOSTSCRIPT,
+    '-dSAFER',
+    '-dBATCH',
+    '-dNOPAUSE',
+    '-dUseCropBox',
+    '-dPDFFitPage',
+    '-sDEVICE=png16m',
+    `-r${dpi}`,
+    `-g${width}x${height}`,
+    '-dTextAlphaBits=4',
+    '-dGraphicsAlphaBits=4',
+    `-sOutputFile=${output}`,
+    pdf,
+  ])
+  return result.ok
+    ? { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: true, image: output }
+    : { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: false, error: result.error }
 }
 
 export function readerPath(directory: string, reader: string): string {

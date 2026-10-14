@@ -58,6 +58,7 @@ export interface PdfAnalysis {
 
 export interface ReaderResult {
   reader: string
+  engine: string
   worked: boolean
   colorProfile?: string
   error?: string

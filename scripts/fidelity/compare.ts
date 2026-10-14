@@ -76,14 +76,18 @@ const regionMap = (run: FidelityRun) =>
   )
 const leftRegions = regionMap(left)
 const rightRegions = regionMap(right)
+const engineName = (name: string): string =>
+  right.documents.flatMap((document) => document.readers).find((reader) => reader.reader === name)?.engine ??
+  left.documents.flatMap((document) => document.readers).find((reader) => reader.reader === name)?.engine ??
+  name
 const regionRows = [...leftRegions.entries()].flatMap(([key, before]) => {
   const after = rightRegions.get(key)
   if (!after) return []
-  const [document, reader, name] = key.split('\u0000')
+  const [document = '', reader = '', name = ''] = key.split('\u0000')
   return [
     {
       document,
-      reader,
+      reader: engineName(reader),
       name,
       beforeMean: before.mean,
       afterMean: after.mean,

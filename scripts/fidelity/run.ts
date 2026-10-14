@@ -17,7 +17,7 @@ import {
 } from './config.ts'
 import { alignmentOffset, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
-import { chromiumViewer, coreGraphics, poppler, readerPath, validateReaderProfile } from './readers.ts'
+import { adobePdfEngine, chromiumViewer, coreGraphics, ghostscript, poppler, readerPath, validateReaderProfile } from './readers.ts'
 import { writeSummary } from './report.ts'
 import type { Box, Difference, DocumentResult, FidelityRun, ReaderResult, RegionResult } from './types.ts'
 
@@ -109,6 +109,8 @@ try {
       poppler(comparisonPdf, readerPath(readerDirectory, 'poppler'), size.width, size.height),
       coreGraphics(comparisonPdf, readerPath(readerDirectory, 'coregraphics'), size.width, size.height),
       chromiumViewer(executablePath, comparisonPdf, readerPath(readerDirectory, 'chromium'), size.width, size.height),
+      adobePdfEngine(comparisonPdf, readerPath(readerDirectory, 'adobe'), size.width, size.height),
+      ghostscript(comparisonPdf, readerPath(readerDirectory, 'ghostscript'), size.width, size.height),
     ])
     for (const reader of readers) validateReaderProfile(reader)
     for (const reader of readers) {
