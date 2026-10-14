@@ -239,11 +239,16 @@ export class FramePool {
           incoming.inert = false
           this.mountWindow(controller.state, controller, options)
           this.changed()
-        } else {
+        } else if (!ready) {
           settled = true
           cleanup()
           incoming.remove()
           this.entries.delete(id)
+        } else {
+          settled = true
+          cleanup()
+          this.clearTransitionAttributes()
+          incoming.removeAttribute('data-incoming')
         }
       },
     }
