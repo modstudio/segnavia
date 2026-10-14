@@ -94,9 +94,11 @@ export class SegnaviaStage extends HTMLElement {
     this.resize.observe(this)
     this.attached?.connectWindow()
     if (!this.owned) this.loadSource()
+    if (this.attached?.state.deck) this.update(this.attached.state)
   }
 
   disconnectedCallback() {
+    this.pool.cancelPending()
     this.removeEventListener('keydown', this.onKey)
     window.removeEventListener('message', this.onMessage)
     window.removeEventListener('resize', this.onResize)

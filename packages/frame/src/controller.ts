@@ -149,7 +149,7 @@ export class DeckController extends EventTarget {
         )
       : (this.hashIndex(deck) ?? 0)
     this.current = { ...this.current, deck, direction, playing: false, index }
-    await this.show(index, wasOpen)
+    await this.show(index)
   }
 
   async go(index: number): Promise<void> {

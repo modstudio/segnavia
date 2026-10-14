@@ -33,6 +33,21 @@ export async function openHarness(): Promise<Harness> {
     port: 0,
     fetch: async (request) => {
       const url = new URL(request.url)
+      if (url.pathname === '/held-frame.html') {
+        const encoder = new TextEncoder()
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  '<!doctype html><style>html{background:rgb(88,28,135)}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>',
+                ),
+              )
+            },
+          }),
+          { headers: { 'content-type': 'text/html; charset=utf-8' } },
+        )
+      }
       const file = Bun.file(path.join(SITE, path.normalize(url.pathname.replace(/^\/$/, '/index.html'))))
       return (await file.exists()) ? new Response(file) : new Response('Not found', { status: 404 })
     },

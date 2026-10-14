@@ -14,31 +14,37 @@ const shot = Shot.parse({
 
 describe('resolved content values', () => {
   test('matches equal values rather than object identity', () => {
-    expect(sameContent({ kind: 'html', html: '<p>same</p>' }, { html: '<p>same</p>', kind: 'html' })).toBe(true)
-    expect(sameContent({ kind: 'html', html: '<p>before</p>' }, { kind: 'html', html: '<p>after</p>' })).toBe(false)
+    const value = (html: string, scripts: 'refuse' | 'sandboxed' = 'refuse', css = '', cspExtra = '') =>
+      comparableContent({ kind: 'html', html }, (path) => path, scripts, css, cspExtra)
+    expect(sameContent(value('<p>same</p>'), value('<p>same</p>'))).toBe(true)
+    expect(sameContent(value('<p>before</p>'), value('<p>after</p>'))).toBe(false)
+    expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'sandboxed'))).toBe(false)
+    expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'refuse', 'p{color:red}'))).toBe(false)
+    expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'refuse', '', "img-src 'none'"))).toBe(false)
   })
 
   test('compares external content by its absolute address', () => {
     const from = (base: string) => (path: string) => new URL(path, base).href
     const relative = { kind: 'url' as const, src: 'slide.html' }
-    expect(sameContent(comparableContent(relative, from('https://one.example/')), comparableContent(relative, from('https://one.example/')))).toBe(true)
-    expect(sameContent(comparableContent(relative, from('https://one.example/')), comparableContent(relative, from('https://two.example/')))).toBe(false)
+    const comparable = (content: Parameters<typeof comparableContent>[0], base: string) => comparableContent(content, from(base), 'refuse', '', '')
+    expect(sameContent(comparable(relative, 'https://one.example/'), comparable(relative, 'https://one.example/'))).toBe(true)
+    expect(sameContent(comparable(relative, 'https://one.example/'), comparable(relative, 'https://two.example/'))).toBe(false)
     expect(
       sameContent(
-        comparableContent({ kind: 'image', src: 'slide.png', alt: '' }, from('https://one.example/')),
-        comparableContent({ kind: 'image', src: 'slide.png', alt: '' }, from('https://two.example/')),
+        comparable({ kind: 'image', src: 'slide.png', alt: '' }, 'https://one.example/'),
+        comparable({ kind: 'image', src: 'slide.png', alt: '' }, 'https://two.example/'),
       ),
     ).toBe(false)
     expect(
       sameContent(
-        comparableContent({ kind: 'shot', src: 'slide.png', shot }, from('https://one.example/')),
-        comparableContent({ kind: 'shot', src: 'slide.png', shot }, from('https://two.example/')),
+        comparable({ kind: 'shot', src: 'slide.png', shot }, 'https://one.example/'),
+        comparable({ kind: 'shot', src: 'slide.png', shot }, 'https://two.example/'),
       ),
     ).toBe(false)
     expect(
       sameContent(
-        comparableContent({ kind: 'html', html: '<p>same</p>' }, from('https://one.example/')),
-        comparableContent({ kind: 'html', html: '<p>same</p>' }, from('https://two.example/')),
+        comparable({ kind: 'html', html: '<p>same</p>' }, 'https://one.example/'),
+        comparable({ kind: 'html', html: '<p>same</p>' }, 'https://two.example/'),
       ),
     ).toBe(true)
   })
