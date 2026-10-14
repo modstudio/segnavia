@@ -1,5 +1,5 @@
 import { deflateSync } from 'node:zlib'
-import { PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
+import { PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
@@ -129,6 +129,23 @@ function convertGroup(state: RewriteState, owner: PDFDict, maskSource: boolean):
   }
 }
 
+function convertEffectImage(state: RewriteState, image: PDFRawStream): void {
+  if (numberOf(image.dict, 'SegnaviaEffectRule') !== 1) return
+  if (resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace')))).kind !== 'rgb') return
+  const source = arrayNumbers(image.dict, 'SegnaviaEffectColor', 3) as Color3
+  const color = state.convert(source)
+  const width = numberOf(image.dict, 'Width') ?? refuse('effect image Width missing', 'a positive Width number')
+  const height = numberOf(image.dict, 'Height') ?? refuse('effect image Height missing', 'a positive Height number')
+  if (width <= 0 || height <= 0) refuse('effect image dimensions', 'positive Width and Height numbers')
+  const dictionary = streamDictionary(image)
+  const palette = color.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255))
+  dictionary.ColorSpace = state.document.context.obj(['Indexed', 'DeviceCMYK', 0, PDFHexString.of(Buffer.from(palette).toString('hex'))])
+  dictionary.SegnaviaEffectColor = state.document.context.obj(color)
+  const replacement = state.document.context.stream(image.contents, dictionary)
+  const reference = state.document.context.getObjectRef(image)
+  if (reference) state.document.context.assign(reference, replacement)
+}
+
 function streamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
   const dictionary: Record<string, PDFObject> = { Filter: key('Fl' + 'ateDecode') }
   for (const [name, value] of stream.dict.entries()) {
@@ -213,7 +230,7 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile): P
     content: (object, stream, replace) => convertContent(state, object, stream, replace),
     function: (fn, decision) => convertFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
-    image: () => undefined,
+    image: (image) => convertEffectImage(state, image),
     shading: (shading, pattern) => convertShading(state, shading, pattern),
   })
   return state.totals

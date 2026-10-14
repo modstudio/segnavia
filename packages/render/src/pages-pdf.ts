@@ -11,7 +11,7 @@ interface PagesPdfServices {
   pagePdf(page: Page, options: RenderOptions): Promise<Uint8Array>
   piecePdf(page: Page, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
-  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array>
+  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
 async function joinPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
@@ -66,7 +66,7 @@ export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions,
   if (inputs.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   const pages = inputs.map((input) => Page.parse(input))
   if (!opts.imposition) {
-    const rendered = await Promise.all(pages.map((page) => services.pagePdf(page, { ...opts, limits: undefined, press: undefined })))
+    const rendered = await Promise.all(pages.map((page) => services.pagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined })))
     return services.finish(await joinPdfs(rendered), opts)
   }
   const imposition = Imposition.parse(opts.imposition)
