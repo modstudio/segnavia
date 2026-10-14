@@ -34,6 +34,17 @@ describe('turn transition', () => {
     expect(choose()).toMatchObject({ kind: 'slide', duration: 450 })
   })
 
+  test('an absent deck setting is instant', () => {
+    const deck = Deck.parse({
+      title: 'Deck',
+      slides: [
+        { id: 'one', content: { kind: 'html', html: 'one' } },
+        { id: 'two', content: { kind: 'html', html: 'two' } },
+      ],
+    })
+    expect(choose({ deck })).toMatchObject({ kind: 'none', duration: 0 })
+  })
+
   test('forward and back enter from opposite inline sides', () => {
     expect(choose({ direction: 'forward' }).axis).toBe('right')
     expect(choose({ direction: 'back' }).axis).toBe('left')
