@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
+import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
 import { contentHasBlackInk } from '../../packages/render/src/press/content.ts'
 import { decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 
@@ -111,8 +112,9 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   const page = { html, scripts: 'sandboxed' as const, size: { width: 1200, height: 800 } }
   const unconverted = await renderer.pagePdf(page)
   let pageReport: PressReport | undefined
-  const started = performance.now()
   const converted = await renderer.pagePdf(page, { waitForPageReady: true, ...reportOption(profile, (report) => (pageReport = report)) })
+  const started = performance.now()
+  await rewritePressPdf(unconverted, profile)
   const elapsed = performance.now() - started
   const report = pageReport
   check(
