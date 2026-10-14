@@ -10,7 +10,8 @@ function barRows(run: FidelityRun): string[] {
   const documents = run.documents.map((document) => {
     const effect = document.bars.effects.measured
     const press = document.bars.pressColor.measured
-    return `| ${document.title} | ${verdict(document.bars.effects.passed)} — mean ${decimal(effect?.mean)}, p99 ${decimal(effect?.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | ${verdict(document.bars.pressColor.passed)} — mean ${decimal(press?.mean)}, p99 ${decimal(press?.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | ${verdict(document.bars.size.passed)} — ${(document.bars.size.measured ?? 0).toLocaleString()} / ≤ ${thresholds.pdfBytes.toLocaleString()} bytes |`
+    const size = document.bars.size.measured
+    return `| ${document.title} | ${verdict(document.bars.effects.passed)} — mean ${decimal(effect?.mean)}, p99 ${decimal(effect?.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | ${verdict(document.bars.pressColor.passed)} — mean ${decimal(press?.mean)}, p99 ${decimal(press?.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | ${verdict(document.bars.size.passed)} — ${size?.pdfBytes.toLocaleString() ?? '—'} / ${size?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(size?.multiple)}× / ≤ ${thresholds.size.multiple}× and ≤ ${thresholds.size.absoluteBytes.toLocaleString()} bytes |`
   })
   const worstEffect = run.documents.reduce(
     (worst, document) => ({
@@ -27,13 +28,14 @@ function barRows(run: FidelityRun): string[] {
     { mean: 0, p99: 0 },
   )
   const largest = Math.max(...run.documents.map((document) => document.pdfBytes), 0)
+  const worstMultiple = Math.max(...run.documents.map((document) => document.bars.size.measured?.multiple ?? 0), 0)
   const all = {
     effects: run.documents.every((document) => document.bars.effects.passed),
     press: run.documents.every((document) => document.bars.pressColor.passed),
     size: run.documents.every((document) => document.bars.size.passed),
   }
   return [
-    `| **Total** | **${verdict(all.effects)}** — mean ${decimal(worstEffect.mean)}, p99 ${decimal(worstEffect.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | **${verdict(all.press)}** — mean ${decimal(worstPress.mean)}, p99 ${decimal(worstPress.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | **${verdict(all.size)}** — ${largest.toLocaleString()} / ≤ ${thresholds.pdfBytes.toLocaleString()} bytes |`,
+    `| **Total** | **${verdict(all.effects)}** — mean ${decimal(worstEffect.mean)}, p99 ${decimal(worstEffect.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | **${verdict(all.press)}** — mean ${decimal(worstPress.mean)}, p99 ${decimal(worstPress.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | **${verdict(all.size)}** — largest ${largest.toLocaleString()} bytes, worst ${decimal(worstMultiple)}× / ≤ ${thresholds.size.multiple}× and ≤ ${thresholds.size.absoluteBytes.toLocaleString()} bytes |`,
     ...documents,
   ]
 }
@@ -65,8 +67,8 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
     const image = region.sideBySide ? ` — [screen | reader](${relative(directory, region.sideBySide)})` : ''
     return `- ${document} / ${reader} / ${region.name}: mean ${region.mean.toFixed(2)}, p99 ${region.p99.toFixed(0)}${image}`
   })
-  const imageThreshold = run.metadata.comparisonImageThreshold
-  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nThe thresholds are provisional values set from the baseline.\n\n| Document | Effects | Press color | PDF size |\n|---|---|---|---|\n${barRows(run).join('\n')}\n\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Summary\n\n| Document | Reader | PDF bytes | Rendered | Mean | P99 |\n|---|---|---:|:---:|---:|---:|\n${rows.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n`
+  const imageThreshold = run.metadata.thresholds.effects
+  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nThe thresholds are provisional until Shmuel agrees the numbers.\n\n| Document | Effects | Press color | PDF size (actual / effectless) |\n|---|---|---|---|\n${barRows(run).join('\n')}\n\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Summary\n\n| Document | Reader | PDF bytes | Rendered | Mean | P99 |\n|---|---|---:|:---:|---:|---:|\n${rows.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n`
   await Bun.write(path.join(directory, 'summary.md'), markdown)
 }
 

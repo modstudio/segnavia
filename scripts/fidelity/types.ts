@@ -21,6 +21,12 @@ export interface BarResult<T> {
   reason?: string
 }
 
+export interface SizeMeasurement {
+  pdfBytes: number
+  effectlessPdfBytes: number
+  multiple: number
+}
+
 export interface AlignmentResult {
   offsetX: number
   offsetY: number
@@ -65,6 +71,8 @@ export interface DocumentResult {
   title: string
   pdf: string
   pdfBytes: number
+  effectlessPdf: string
+  effectlessPdfBytes: number
   screen: string
   width: number
   height: number
@@ -76,7 +84,7 @@ export interface DocumentResult {
   bars: {
     effects: BarResult<Difference>
     pressColor: BarResult<Difference>
-    size: BarResult<number>
+    size: BarResult<SizeMeasurement>
   }
 }
 
@@ -86,11 +94,10 @@ export interface FidelityRun {
     commit: string
     createdAt: string
     scale: number
-    comparisonImageThreshold: Threshold
     thresholds: {
       effects: Threshold
       pressColor: Threshold
-      pdfBytes: number
+      size: { multiple: number; absoluteBytes: number }
     }
     chromium: string
     profile?: string

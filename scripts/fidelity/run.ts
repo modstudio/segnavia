@@ -2,14 +2,15 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { openRenderer } from '@segnavia/render'
+import type { Page as Tab } from 'playwright-core'
 import {
-  COMPARISON_IMAGE_THRESHOLD,
   chromiumPath,
   EFFECT_REGION_THRESHOLD,
+  EFFECTLESS_CSS,
   fixtures,
   MEASUREMENT_CSS,
   OUTPUT_ROOT,
-  PDF_BYTES_THRESHOLD,
+  PDF_SIZE_THRESHOLD,
   PRESS_COLOR_THRESHOLD,
   ROOT,
   SCALE,
@@ -32,6 +33,41 @@ const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
 
+async function prepareEffectless(tab: Tab): Promise<void> {
+  await tab.evaluate((effectlessCss) => {
+    const firstColor = (paint: string): string | undefined => paint.match(/rgba?\([^)]*\)/)?.[0]
+    const flattenBackground = (element: HTMLElement, pseudo?: '::before' | '::after'): void => {
+      const paint = getComputedStyle(element, pseudo).backgroundImage
+      if (!paint.includes('gradient(')) return
+      element.classList.add(pseudo === '::before' ? 'fidelity-flat-before' : pseudo === '::after' ? 'fidelity-flat-after' : 'fidelity-flat-gradient')
+      element.style.setProperty('--fidelity-flat-color', firstColor(paint) ?? 'transparent')
+    }
+    const gradientColor = (paint: string): string => {
+      const id = paint.match(/url\(["']?#([^"')]+)["']?\)/)?.[1]
+      const stop = id ? document.querySelector(`#${CSS.escape(id)} stop`) : undefined
+      return stop ? getComputedStyle(stop).stopColor : '#000'
+    }
+    const flattenSvgPaint = (element: SVGElement, property: 'fill' | 'stroke', className: string): void => {
+      const paint = getComputedStyle(element)[property]
+      if (!paint.startsWith('url(')) return
+      element.classList.add(className)
+      element.style.setProperty(`--fidelity-flat-${property}`, gradientColor(paint))
+    }
+    for (const element of document.querySelectorAll<HTMLElement>('*')) {
+      flattenBackground(element)
+      flattenBackground(element, '::before')
+      flattenBackground(element, '::after')
+      if (element instanceof SVGElement) {
+        flattenSvgPaint(element, 'fill', 'fidelity-flat-fill')
+        flattenSvgPaint(element, 'stroke', 'fidelity-flat-stroke')
+      }
+    }
+    const style = document.createElement('style')
+    style.textContent = effectlessCss
+    document.head.append(style)
+  }, EFFECTLESS_CSS)
+}
+
 try {
   for (const fixture of await fixtures()) {
     console.log(`Rendering ${fixture.title}`)
@@ -42,6 +78,7 @@ try {
     mkdirSync(comparisonDirectory, { recursive: true })
     const screen = path.join(documentDirectory, 'screen.png')
     const pdf = path.join(documentDirectory, `${fixture.id}.pdf`)
+    const effectlessPdf = path.join(documentDirectory, `${fixture.id}-effectless.pdf`)
     const comparisonPdf = path.join(documentDirectory, 'comparison.pdf')
     const regions: Array<{ name: string; box: Box }> = []
     const screenBytes = await renderer.pageImage(fixture.page, {
@@ -59,8 +96,13 @@ try {
       },
     })
     const pdfBytes = await renderer.pagePdf(fixture.page, { css: MEASUREMENT_CSS })
+    const effectlessPdfBytes = await renderer.pagePdf(fixture.page, {
+      css: MEASUREMENT_CSS,
+      beforeOutput: prepareEffectless,
+    })
     await Bun.write(screen, screenBytes)
     await Bun.write(pdf, pdfBytes)
+    await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
     const size = await imageSize(screen)
     const readers: ReaderResult[] = await Promise.all([
@@ -71,13 +113,7 @@ try {
     for (const reader of readers) {
       if (!reader.worked || !reader.image) continue
       const croppedBleed = (fixture.page.print?.bleed ?? 0) * (96 / 25.4) * SCALE
-      reader.alignment = alignmentOffset(
-        reader.image,
-        size.width,
-        size.height,
-        Math.round(16 * SCALE - croppedBleed),
-        Math.round(16 * SCALE - croppedBleed),
-      )
+      reader.alignment = alignmentOffset(reader.image, size.width, size.height, Math.round(16 * SCALE - croppedBleed), Math.round(16 * SCALE - croppedBleed))
       if (!reader.alignment.passed) {
         throw new Error(
           `${fixture.id}/${reader.reader} is misaligned by ${reader.alignment.offsetX}px horizontally and ${reader.alignment.offsetY}px vertically.`,
@@ -94,7 +130,7 @@ try {
           height: Math.max(0, Math.min(box.height * SCALE, size.height - y)),
         }
         const result: RegionResult = { name, box: scaled, ...difference(screen, reader.image as string, size.width, size.height, scaled) }
-        if (result.mean > COMPARISON_IMAGE_THRESHOLD.mean || result.p99 > COMPARISON_IMAGE_THRESHOLD.p99) {
+        if (result.mean > EFFECT_REGION_THRESHOLD.mean || result.p99 > EFFECT_REGION_THRESHOLD.p99) {
           result.sideBySide = path.join(comparisonDirectory, `${reader.reader}-${name}.png`)
           sideBySide(screen, reader.image as string, scaled, result.sideBySide)
         }
@@ -139,11 +175,18 @@ try {
       p99: 0,
     })
     const readersWorked = readers.every((reader) => reader.worked)
+    const sizeMeasurement = {
+      pdfBytes: pdfBytes.byteLength,
+      effectlessPdfBytes: effectlessPdfBytes.byteLength,
+      multiple: pdfBytes.byteLength / effectlessPdfBytes.byteLength,
+    }
     documents.push({
       id: fixture.id,
       title: fixture.title,
       pdf,
       pdfBytes: pdfBytes.byteLength,
+      effectlessPdf,
+      effectlessPdfBytes: effectlessPdfBytes.byteLength,
       screen,
       width: size.width,
       height: size.height,
@@ -163,7 +206,10 @@ try {
           passed: Boolean(pressDifference && pressDifference.mean <= PRESS_COLOR_THRESHOLD.mean && pressDifference.p99 <= PRESS_COLOR_THRESHOLD.p99),
           reason: pressReason,
         },
-        size: { measured: pdfBytes.byteLength, passed: pdfBytes.byteLength <= PDF_BYTES_THRESHOLD },
+        size: {
+          measured: sizeMeasurement,
+          passed: sizeMeasurement.multiple <= PDF_SIZE_THRESHOLD.multiple && pdfBytes.byteLength <= PDF_SIZE_THRESHOLD.absoluteBytes,
+        },
       },
     })
     await Bun.write(path.join(directory, 'partial.json'), `${JSON.stringify(documents, null, 2)}\n`)
@@ -178,8 +224,7 @@ const run: FidelityRun = {
     commit,
     createdAt: new Date().toISOString(),
     scale: SCALE,
-    comparisonImageThreshold: COMPARISON_IMAGE_THRESHOLD,
-    thresholds: { effects: EFFECT_REGION_THRESHOLD, pressColor: PRESS_COLOR_THRESHOLD, pdfBytes: PDF_BYTES_THRESHOLD },
+    thresholds: { effects: EFFECT_REGION_THRESHOLD, pressColor: PRESS_COLOR_THRESHOLD, size: PDF_SIZE_THRESHOLD },
     chromium: executablePath,
     profile: profilePath,
   },

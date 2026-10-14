@@ -26,7 +26,11 @@ function acceptance(run: FidelityRun) {
     effects: { measured: effects, passed: run.documents.every((document) => document.bars.effects.passed) },
     pressColor: { measured: press, passed: run.documents.every((document) => document.bars.pressColor.passed) },
     size: {
-      measured: Math.max(...run.documents.map((document) => document.pdfBytes), 0),
+      measured: {
+        pdfBytes: Math.max(...run.documents.map((document) => document.pdfBytes), 0),
+        effectlessPdfBytes: 0,
+        multiple: Math.max(...run.documents.map((document) => document.bars.size.measured?.multiple ?? 0), 0),
+      },
       passed: run.documents.every((document) => document.bars.size.passed),
     },
   }
@@ -34,9 +38,14 @@ function acceptance(run: FidelityRun) {
 
 function barCell(run: FidelityRun, document: FidelityRun['documents'][number] | undefined, bar: 'effects' | 'pressColor' | 'size'): string {
   const result = document?.bars[bar] ?? acceptance(run)[bar]
-  const threshold = run.metadata.thresholds[bar === 'size' ? 'pdfBytes' : bar]
-  if (bar === 'size')
-    return `${verdict(result.passed)} ${(result.measured as number | undefined)?.toLocaleString() ?? '—'} / ≤ ${(threshold as number).toLocaleString()} bytes`
+  const threshold = run.metadata.thresholds[bar]
+  if (bar === 'size') {
+    const measured = result.measured as { pdfBytes: number; effectlessPdfBytes: number; multiple: number } | undefined
+    const limit = threshold as { multiple: number; absoluteBytes: number }
+    if (!document)
+      return `${verdict(result.passed)} largest ${measured?.pdfBytes.toLocaleString() ?? '—'} bytes, worst ${decimal(measured?.multiple)}× / ≤ ${limit.multiple}× and ≤ ${limit.absoluteBytes.toLocaleString()} bytes`
+    return `${verdict(result.passed)} ${measured?.pdfBytes.toLocaleString() ?? '—'} / ${measured?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(measured?.multiple)}× / ≤ ${limit.multiple}× and ≤ ${limit.absoluteBytes.toLocaleString()} bytes`
+  }
   const measured = result.measured as { mean: number; p99: number } | undefined
   const limit = threshold as { mean: number; p99: number }
   return `${verdict(result.passed)} mean ${decimal(measured?.mean)}, p99 ${decimal(measured?.p99)} / mean ≤ ${limit.mean}, p99 ≤ ${limit.p99}`

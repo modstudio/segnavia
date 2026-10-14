@@ -5,16 +5,17 @@ import type { PageInput } from '@segnavia/format'
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const OUTPUT_ROOT = path.join(ROOT, 'out/fidelity')
 export const SCALE = 4
-export const COMPARISON_IMAGE_THRESHOLD = { mean: 2, p99: 24 }
-// These limits are provisional baseline values. They are kept together so a
-// reviewed baseline changes each acceptance bar in exactly one place.
-export const EFFECT_REGION_THRESHOLD = { mean: 20, p99: 225 }
-export const PRESS_COLOR_THRESHOLD = { mean: 16, p99: 210 }
-export const PDF_BYTES_THRESHOLD = 325_000
+// These acceptance limits are provisional until Shmuel agrees the numbers.
+export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
+export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
+export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
 export const ALIGNMENT_TOLERANCE = 16
 
 export const MEASUREMENT_CSS =
   'html{overflow:clip!important}html::after{content:"";position:fixed;left:16px;top:16px;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
+
+export const EFFECTLESS_CSS =
+  '*,*::before,*::after{box-shadow:none!important;text-shadow:none!important;filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;mask-image:none!important;-webkit-mask-image:none!important}.fidelity-flat-gradient{background-image:none!important;background-color:var(--fidelity-flat-color)!important}.fidelity-flat-before::before,.fidelity-flat-after::after{background-image:none!important;background-color:var(--fidelity-flat-color)!important}.fidelity-flat-fill{fill:var(--fidelity-flat-fill)!important}.fidelity-flat-stroke{stroke:var(--fidelity-flat-stroke)!important}'
 
 export interface Fixture {
   id: string
