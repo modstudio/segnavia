@@ -5,11 +5,11 @@ import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor, pressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
+import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
-import { replaceType1Function } from './sample-shading.ts'
+import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf } from './sample-shading.ts'
 import type { PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
 
@@ -23,6 +23,9 @@ interface RewriteState {
   profile: Profile
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
+  sequence?: PaintedBoundsTracker
+  shadingPainted: PaintedBounds
+  shadingPatterns: WeakMap<PDFDict, PDFDict[]>
   totals: PressRewriteCounts
 }
 
@@ -58,6 +61,39 @@ function functionTypeOf(state: RewriteState, shading: PDFDict): number | undefin
   return fn ? numberOf(fn, 'FunctionType') : undefined
 }
 
+function indexShadingPattern(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
+  if (!pattern) return false
+  const list = state.shadingPatterns.get(shading) ?? []
+  if (!list.includes(pattern)) list.push(pattern)
+  state.shadingPatterns.set(shading, list)
+  return false
+}
+
+function shadingUses(
+  state: RewriteState,
+  shading: PDFDict,
+  pattern?: PDFDict,
+): Array<{ matrix: number[]; painted: PatternPaint | undefined; pattern?: PDFDict }> {
+  const patterns = [...(state.shadingPatterns.get(shading) ?? [])]
+  if (pattern && !patterns.includes(pattern)) patterns.push(pattern)
+  const uses: Array<{ matrix: number[]; painted: PatternPaint | undefined; pattern?: PDFDict }> = patterns.map((found) => ({
+    matrix: shadingDeviceMatrix(shading, found),
+    painted: state.painted.get(found),
+    pattern: found,
+  }))
+  const shPaint = state.shadingPainted.get(shading)
+  if (shPaint !== undefined) uses.push({ matrix: shadingDeviceMatrix(shading, undefined), painted: shPaint })
+  return uses.filter((use) => use.painted !== undefined)
+}
+
+function convertType1Shading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): void {
+  const uses = shadingUses(state, shading, pattern)
+  const matrixPattern = uses.find((use) => use.pattern)?.pattern ?? pattern
+  const domain = sampleDomainForUses(shadingDomainOf(shading), uses)
+  // Sampling owns its conversion through the 8-bit, capped converter and must receive uncached pressColor, never state.convert.
+  replaceType1Function(state.document, shading, matrixPattern, (rgb) => pressColor(state.profile, rgb), state.budget, undefined, domain)
+}
+
 function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
   if (state.seenShadings.has(shading)) return false
   state.seenShadings.add(shading)
@@ -73,15 +109,7 @@ function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict
   if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
   if (type === 1) {
-    // Sampling owns its conversion through the 8-bit, capped converter and must receive uncached pressColor, never state.convert.
-    replaceType1Function(
-      state.document,
-      shading,
-      pattern,
-      (rgb) => pressColor(state.profile, rgb),
-      state.budget,
-      pattern ? state.painted.get(pattern) : undefined,
-    )
+    convertType1Shading(state, shading, pattern)
     return false
   }
   return true
@@ -121,20 +149,22 @@ function resolveGraphicsState(state: RewriteState, resources: PDFDict | undefine
   return dictionaryOf(resolved(state, states?.get(PDFName.of(name))))
 }
 
-function convertContent(
-  state: RewriteState,
-  object: PDFObject,
-  stream: PDFRawStream,
-  setDirect: (stream: PDFRawStream) => void,
-  resources: PDFDict | undefined,
-): void {
+function resolveShadingResource(state: RewriteState, resources: PDFDict | undefined, name: string): PDFDict | undefined {
+  const shadings = resources?.lookupMaybe(key('Shading'), PDFDict)
+  return dictionaryOf(resolved(state, shadings?.get(PDFName.of(name))))
+}
+
+function recordContentBounds(state: RewriteState, stream: PDFRawStream, resources: PDFDict | undefined): void {
+  const bytes = decodeContent(stream)
+  const resolve = (name: string) => resolveShadingPattern(state, resources, name)
+  const resolveGs = (name: string) => resolveGraphicsState(state, resources, name)
+  const resolveShading = (name: string) => resolveShadingResource(state, resources, name)
+  if (state.sequence) state.sequence.feed(bytes, resolve, resolveGs, resolveShading)
+  else recordPatternPaintedBounds(bytes, resolve, state.painted, resolveGs, resolveShading, state.shadingPainted)
+}
+
+function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void): void {
   const bytes = decodeContent(stream, state.budget)
-  recordPatternPaintedBounds(
-    bytes,
-    (name) => resolveShadingPattern(state, resources, name),
-    state.painted,
-    (name) => resolveGraphicsState(state, resources, name),
-  )
   const rewritten = rewriteContent(bytes, state.convert)
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
@@ -153,14 +183,30 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
     profile,
     seenGroups: new WeakSet(),
     seenShadings: new WeakSet(),
+    shadingPainted: new WeakMap(),
+    shadingPatterns: new WeakMap(),
     totals: { fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
   }
 }
 
 export function rewritePressDocument(document: PDFDocument, profile: Profile): PressRewriteCounts {
   const state = newState(document, profile)
+  // Painted bounds are gathered for the whole document before any Type 1 function is replaced.
   walkPressGraph(document, {
-    content: (object, stream, replace, resources) => convertContent(state, object, stream, replace, resources),
+    beginContentsSequence: () => {
+      state.sequence = createPaintedBoundsTracker(state.painted, state.shadingPainted)
+    },
+    content: (_object, stream, _replace, resources) => recordContentBounds(state, stream, resources),
+    endContentsSequence: () => {
+      state.sequence = undefined
+    },
+    function: () => undefined,
+    group: () => undefined,
+    image: () => undefined,
+    shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
+  })
+  walkPressGraph(document, {
+    content: (object, stream, replace) => convertContent(state, object, stream, replace),
     function: (fn, decision) => convertFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
     image: () => undefined,

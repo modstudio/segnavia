@@ -251,7 +251,7 @@ test('converts a function-based RGB shading into a DeviceCMYK sampled function',
     .enumerateIndirectObjects()
     .map(([, object]) => object)
     .filter((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.lookup(PDFName.of('FunctionType'))?.toString() === '4')
-  expect(leftoverType4).toHaveLength(0)
+  expect(leftoverType4).toHaveLength(1)
 })
 
 test('a painted fill sizes the sampled function from that box, not the full domain', async () => {

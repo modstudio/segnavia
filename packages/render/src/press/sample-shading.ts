@@ -1,5 +1,5 @@
 import { deflateSync } from 'node:zlib'
-import { type PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 'pdf-lib'
+import { PDFArray, type PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRef } from 'pdf-lib'
 import type { Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { applyAffine, IDENTITY_MATRIX, invertAffine, multiplyAffine } from './affine.ts'
@@ -33,6 +33,19 @@ function clamp01(value: number): number {
 
 function requireFinite(values: readonly number[], found: string): void {
   if (values.some((value) => !Number.isFinite(value))) refuse(found, 'finite numbers')
+}
+
+function shadingNumbers(dictionary: PDFDict, key: 'Domain' | 'Matrix', count: 4 | 6): number[] {
+  const expected = count === 4 ? 'four finite numbers' : 'six finite numbers'
+  const array = dictionary.lookupMaybe(PDFName.of(key), PDFArray)
+  if (!array || array.size() !== count) refuse(`shading ${key}`, expected)
+  const values = Array.from({ length: count }, (_, index) => array.lookupMaybe(index, PDFNumber)?.asNumber())
+  if (values.some((value) => value === undefined || !Number.isFinite(value))) refuse(`shading ${key}`, expected)
+  return values as number[]
+}
+
+export function shadingDomainOf(shading: PDFDict): number[] {
+  return shadingNumbers(shading, 'Domain', 4)
 }
 
 function axisSamples(span: number, columnA: number, columnB: number): number {
@@ -87,13 +100,34 @@ export function sampleDomainForPainted(domain: readonly number[], matrix: readon
   return [x0, x1, y0, y1]
 }
 
+export function unionSampleDomain(left: readonly number[], right: readonly number[]): number[] {
+  return [
+    Math.min(left[0] ?? 0, right[0] ?? 0),
+    Math.max(left[1] ?? 0, right[1] ?? 0),
+    Math.min(left[2] ?? 0, right[2] ?? 0),
+    Math.max(left[3] ?? 0, right[3] ?? 0),
+  ]
+}
+
+export function sampleDomainForUses(domain: readonly number[], uses: Array<{ matrix: readonly number[]; painted: PatternPaint | undefined }>): number[] {
+  const original = [domain[0] ?? 0, domain[1] ?? 0, domain[2] ?? 0, domain[3] ?? 0]
+  if (uses.length === 0) return original
+  let union: number[] | undefined
+  for (const use of uses) {
+    const next = sampleDomainForPainted(domain, use.matrix, use.painted)
+    if (!use.painted || use.painted === 'unbounded') return original
+    union = union ? unionSampleDomain(union, next) : next
+  }
+  return union ?? original
+}
+
 export function matrixOf(dictionary: PDFDict | undefined): number[] {
   if (!dictionary?.has(PDFName.of('Matrix'))) return IDENTITY_MATRIX.slice()
   return arrayNumbers(dictionary, 'Matrix', 6)
 }
 
 export function shadingDeviceMatrix(shading: PDFDict, pattern: PDFDict | undefined): number[] {
-  const shadingMatrix = matrixOf(shading)
+  const shadingMatrix = shading.has(PDFName.of('Matrix')) ? shadingNumbers(shading, 'Matrix', 6) : IDENTITY_MATRIX.slice()
   return pattern ? multiplyAffine(matrixOf(pattern), shadingMatrix) : shadingMatrix
 }
 
@@ -190,15 +224,15 @@ export function replaceType1Function(
   convert: (rgb: Color3) => Color4,
   budget: ContentBudget,
   painted?: PatternPaint,
+  sampleDomain?: readonly number[],
 ): { n: number; m: number } {
   const existing = shading.get(PDFName.of('Function'))
   const stream = rawStreamOf(resolved(document, existing))
   if (!stream) return refuse('shading FunctionType 4 stream', 'a FunctionType 4 stream')
-  const shadingDomain = arrayNumbers(shading, 'Domain', 4)
+  const shadingDomain = shadingDomainOf(shading)
   const matrix = shadingDeviceMatrix(shading, pattern)
-  requireFinite(shadingDomain, 'shading Domain')
   requireFinite(matrix, 'shading Matrix')
-  const domain = sampleDomainForPainted(shadingDomain, matrix, painted)
+  const domain = sampleDomain ? [...sampleDomain] : sampleDomainForPainted(shadingDomain, matrix, painted)
   const size = shadingSampleGrid(domain, matrix)
   const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const samples = size.n * size.m
@@ -214,7 +248,6 @@ export function replaceType1Function(
     Order: 1,
     Filter: 'Fl' + 'ateDecode',
   })
-  if (existing instanceof PDFRef) document.context.assign(existing, replacement)
-  else shading.set(PDFName.of('Function'), document.context.register(replacement))
+  shading.set(PDFName.of('Function'), document.context.register(replacement))
   return size
 }

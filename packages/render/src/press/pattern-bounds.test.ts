@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { type PDFDict, PDFDocument } from 'pdf-lib'
-import { MAX_GRAPHICS_SAVE_DEPTH, type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
+import { createPaintedBoundsTracker, MAX_GRAPHICS_SAVE_DEPTH, type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
 
 const bytes = (source: string) => new TextEncoder().encode(source)
 
@@ -61,4 +61,43 @@ test('q nesting past MAX_GRAPHICS_SAVE_DEPTH marks the selected pattern unbounde
   const { bounds, pattern, resolve } = await setup()
   recordPatternPaintedBounds(bytes(`${'q '.repeat(MAX_GRAPHICS_SAVE_DEPTH + 1)}/Pattern cs /P1 scn 0 0 10 10 re f`), resolve, bounds)
   expect(bounds.get(pattern)).toBe('unbounded')
+})
+
+test('feeding a second stream keeps the selected pattern', async () => {
+  const { bounds, pattern, resolve } = await setup()
+  const tracker = createPaintedBoundsTracker(bounds)
+  tracker.feed(bytes('/Pattern cs /P1 scn 0 0 1 1 re f'), resolve)
+  tracker.feed(bytes('0 0 10 10 re f'), resolve)
+  expect(bounds.get(pattern)).toEqual({ x0: 0, y0: 0, x1: 10, y1: 10 })
+})
+
+test('a clip then sh records the clip box on the shading', async () => {
+  const document = await PDFDocument.create()
+  const shading = document.context.obj({ ShadingType: 1 }) as PDFDict
+  const bounds: PaintedBounds = new WeakMap()
+  const shadingBounds: PaintedBounds = new WeakMap()
+  recordPatternPaintedBounds(
+    bytes('0 0 10 10 re W n /S1 sh'),
+    () => undefined,
+    bounds,
+    () => undefined,
+    (name) => (name === 'S1' ? shading : undefined),
+    shadingBounds,
+  )
+  expect(shadingBounds.get(shading)).toEqual({ x0: 0, y0: 0, x1: 10, y1: 10 })
+})
+
+test('sh without a clip marks the shading unbounded', async () => {
+  const document = await PDFDocument.create()
+  const shading = document.context.obj({ ShadingType: 1 }) as PDFDict
+  const shadingBounds: PaintedBounds = new WeakMap()
+  recordPatternPaintedBounds(
+    bytes('/S1 sh'),
+    () => undefined,
+    new WeakMap(),
+    () => undefined,
+    (name) => (name === 'S1' ? shading : undefined),
+    shadingBounds,
+  )
+  expect(shadingBounds.get(shading)).toBe('unbounded')
 })

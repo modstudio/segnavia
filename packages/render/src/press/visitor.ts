@@ -3,7 +3,9 @@ import { dictionaryOf, nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
 import { type FunctionDecision, shadingFunctionAction } from './policy.ts'
 
 export interface PressGraphActions {
+  beginContentsSequence?: () => void
   content: (object: PDFObject, stream: PDFRawStream, replace: (stream: PDFRawStream) => void, resources: PDFDict | undefined) => void
+  endContentsSequence?: () => void
   function: (fn: PDFDict | undefined, decision: FunctionDecision) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, maskSource: boolean) => void
   image: (stream: PDFRawStream) => void
@@ -135,7 +137,7 @@ function visitFonts(state: WalkState, resources: PDFDict): void {
 function visitResources(state: WalkState, resources: PDFDict | undefined): void {
   if (!resources || state.resources.has(resources)) return
   state.resources.add(resources)
-  // Content (XObjects and Type 3 glyphs included) is walked before shadings so convertShading can read painted bounds recorded from those streams.
+  // XObjects and Type 3 glyphs are content streams; walk them with other content before listing shadings and patterns.
   visitGraphicsStates(state, resources)
   visitXObjects(state, resources)
   visitFonts(state, resources)
@@ -143,16 +145,24 @@ function visitResources(state: WalkState, resources: PDFDict | undefined): void 
   visitPatterns(state, resources)
 }
 
+function visitPageContents(state: WalkState, page: PDFDict, contents: PDFObject | undefined, pageResources: PDFDict | undefined): void {
+  if (contents instanceof PDFArray) {
+    // A page Contents array is one graphics-state sequence (PDF 7.8.2).
+    state.actions?.beginContentsSequence?.()
+    for (let index = 0; index < contents.size(); index++)
+      visitContent(state, contents.get(index), (replacement) => contents.set(index, replacement), pageResources)
+    state.actions?.endContentsSequence?.()
+    return
+  }
+  visitContent(state, contents, (replacement) => page.set(key('Contents'), replacement), pageResources)
+}
+
 function traverse(document: PDFDocument, maskSources: WeakSet<PDFRawStream>, actions?: PressGraphActions): void {
   const state: WalkState = { document, maskSources, actions, functions: new WeakSet(), references: new Set(), resources: new WeakSet(), streams: new WeakSet() }
   for (const page of document.getPages()) {
     actions?.group(page.node, undefined, false)
     const pageResources = page.node.Resources()
-    const contents = page.node.Contents()
-    if (contents instanceof PDFArray) {
-      for (let index = 0; index < contents.size(); index++)
-        visitContent(state, contents.get(index), (replacement) => contents.set(index, replacement), pageResources)
-    } else visitContent(state, contents, (replacement) => page.node.set(key('Contents'), replacement), pageResources)
+    visitPageContents(state, page.node, page.node.Contents(), pageResources)
     visitResources(state, pageResources)
     visitAppearances(state, page.node, pageResources)
   }

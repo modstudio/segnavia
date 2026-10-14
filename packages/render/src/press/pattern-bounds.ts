@@ -1,39 +1,38 @@
 import type { PDFDict } from 'pdf-lib'
-import { applyAffine, IDENTITY_MATRIX, multiplyAffine } from './affine.ts'
+import { IDENTITY_MATRIX, multiplyAffine } from './affine.ts'
 import { visitContentTokens } from './content.ts'
+import {
+  clearPath,
+  closePath,
+  curveTo,
+  curveV,
+  curveY,
+  deviceBox,
+  intersectRect,
+  lineTo,
+  moveTo,
+  type PathState,
+  rectTo,
+  type UserRect,
+} from './pattern-path.ts'
 import { numberOf } from './pdf-objects.ts'
+
+export type { UserRect } from './pattern-path.ts'
 
 // This bounds the painted-bounds save stack so the tracker cannot grow without limit.
 export const MAX_GRAPHICS_SAVE_DEPTH = 64
 
-export interface UserRect {
-  x0: number
-  x1: number
-  y0: number
-  y1: number
-}
-
 export type PatternPaint = UserRect | 'unbounded'
 export type PaintedBounds = WeakMap<PDFDict, PatternPaint>
 
-interface Point {
-  x: number
-  y: number
-}
-
 interface Graphics {
+  clip?: UserRect
   ctm: number[]
   fill?: PDFDict
   lineJoin: number
   lineWidth: number
   miterLimit: number
   stroke?: PDFDict
-}
-
-interface PathState {
-  box?: UserRect
-  current?: Point
-  start?: Point
 }
 
 interface TrackState {
@@ -44,12 +43,24 @@ interface TrackState {
   path: PathState
   resolve: (name: string) => PDFDict | undefined
   resolveGraphicsState: (name: string) => PDFDict | undefined
+  resolveShading: (name: string) => PDFDict | undefined
+  shadingBounds: PaintedBounds
+}
+
+export interface PaintedBoundsTracker {
+  feed(
+    bytes: Uint8Array,
+    resolve: (name: string) => PDFDict | undefined,
+    resolveGraphicsState?: (name: string) => PDFDict | undefined,
+    resolveShading?: (name: string) => PDFDict | undefined,
+  ): void
 }
 
 type Operand = { kind: string; raw: string }
 type Handler = (state: TrackState, operands: Operand[]) => void
 
 const cloneGraphics = (graphics: Graphics): Graphics => ({
+  clip: graphics.clip ? { ...graphics.clip } : undefined,
   ctm: graphics.ctm.slice(),
   fill: graphics.fill,
   lineJoin: graphics.lineJoin,
@@ -68,42 +79,18 @@ function nameOf(operands: Operand[]): string | undefined {
   return operands[0].raw.slice(1)
 }
 
-function includePoint(box: UserRect | undefined, x: number, y: number): UserRect {
-  if (!box) return { x0: x, y0: y, x1: x, y1: y }
-  return { x0: Math.min(box.x0, x), y0: Math.min(box.y0, y), x1: Math.max(box.x1, x), y1: Math.max(box.y1, y) }
-}
-
-function addPoint(path: PathState, x: number, y: number): Point {
-  const point = { x, y }
-  path.box = includePoint(path.box, x, y)
-  path.current = point
-  return point
-}
-
-function deviceBox(box: UserRect, ctm: readonly number[]): UserRect | undefined {
-  const corners = [applyAffine(ctm, box.x0, box.y0), applyAffine(ctm, box.x1, box.y0), applyAffine(ctm, box.x0, box.y1), applyAffine(ctm, box.x1, box.y1)]
-  const xs = corners.map((point) => point.x)
-  const ys = corners.map((point) => point.y)
-  const x0 = Math.min(...xs)
-  const y0 = Math.min(...ys)
-  const x1 = Math.max(...xs)
-  const y1 = Math.max(...ys)
-  if (!Number.isFinite(x0) || !Number.isFinite(y0) || !Number.isFinite(x1) || !Number.isFinite(y1)) return undefined
-  return { x0, y0, x1, y1 }
-}
-
 export function unionRect(left: UserRect, right: UserRect): UserRect {
   return { x0: Math.min(left.x0, right.x0), y0: Math.min(left.y0, right.y0), x1: Math.max(left.x1, right.x1), y1: Math.max(left.y1, right.y1) }
 }
 
-function addPaint(bounds: PaintedBounds, pattern: PDFDict | undefined, paint: PatternPaint): void {
-  if (!pattern) return
-  const existing = bounds.get(pattern)
+function addPaint(bounds: PaintedBounds, target: PDFDict | undefined, paint: PatternPaint): void {
+  if (!target) return
+  const existing = bounds.get(target)
   if (existing === 'unbounded' || paint === 'unbounded') {
-    bounds.set(pattern, 'unbounded')
+    bounds.set(target, 'unbounded')
     return
   }
-  bounds.set(pattern, existing ? unionRect(existing, paint) : paint)
+  bounds.set(target, existing ? unionRect(existing, paint) : paint)
 }
 
 function strokeMargin(graphics: Graphics): number | undefined {
@@ -145,66 +132,34 @@ function paintStroke(state: TrackState): void {
   if (box) addPaint(state.bounds, state.current.stroke, box)
 }
 
-function closePath(path: PathState): void {
-  if (path.start) addPoint(path, path.start.x, path.start.y)
-}
-
-function clearPath(path: PathState): void {
-  path.box = undefined
-  path.current = undefined
-  path.start = undefined
-}
-
 function applyMove(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 2)
-  if (!values) return
-  const point = addPoint(state.path, values[0] ?? 0, values[1] ?? 0)
-  state.path.start = point
+  if (values) moveTo(state.path, values[0] ?? 0, values[1] ?? 0)
 }
 
 function applyLine(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 2)
-  if (!values) return
-  addPoint(state.path, values[0] ?? 0, values[1] ?? 0)
+  if (values) lineTo(state.path, values[0] ?? 0, values[1] ?? 0)
 }
 
 function applyCurve(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 6)
-  if (!values) return
-  addPoint(state.path, values[0] ?? 0, values[1] ?? 0)
-  addPoint(state.path, values[2] ?? 0, values[3] ?? 0)
-  addPoint(state.path, values[4] ?? 0, values[5] ?? 0)
+  if (values) curveTo(state.path, values)
 }
 
 function applyCurveV(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 4)
-  if (!values || !state.path.current) return
-  addPoint(state.path, state.path.current.x, state.path.current.y)
-  addPoint(state.path, values[0] ?? 0, values[1] ?? 0)
-  addPoint(state.path, values[2] ?? 0, values[3] ?? 0)
+  if (values) curveV(state.path, values)
 }
 
 function applyCurveY(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 4)
-  if (!values) return
-  addPoint(state.path, values[0] ?? 0, values[1] ?? 0)
-  addPoint(state.path, values[2] ?? 0, values[3] ?? 0)
-  addPoint(state.path, values[2] ?? 0, values[3] ?? 0)
+  if (values) curveY(state.path, values)
 }
 
 function applyRect(state: TrackState, operands: Operand[]): void {
   const values = numbers(operands, 4)
-  if (!values) return
-  const x = values[0] ?? 0
-  const y = values[1] ?? 0
-  const width = values[2] ?? 0
-  const height = values[3] ?? 0
-  addPoint(state.path, x, y)
-  state.path.start = { x, y }
-  addPoint(state.path, x + width, y)
-  addPoint(state.path, x + width, y + height)
-  addPoint(state.path, x, y + height)
-  addPoint(state.path, x, y)
+  if (values) rectTo(state.path, values[0] ?? 0, values[1] ?? 0, values[2] ?? 0, values[3] ?? 0)
 }
 
 function applyCm(state: TrackState, operands: Operand[]): void {
@@ -314,6 +269,23 @@ function saveGraphics(state: TrackState): void {
   state.graphics.push(cloneGraphics(state.current))
 }
 
+function applyClip(state: TrackState): void {
+  if (!state.path.box) return
+  const box = deviceBox(state.path.box, state.current.ctm)
+  if (!box) return
+  state.current.clip = state.current.clip ? intersectRect(state.current.clip, box) : box
+}
+
+function applyShading(state: TrackState, operands: Operand[]): void {
+  const name = nameOf(operands)
+  const shading = name ? state.resolveShading(name) : undefined
+  if (state.pastSaveCap || !state.current.clip) {
+    addPaint(state.shadingBounds, shading, 'unbounded')
+    return
+  }
+  addPaint(state.shadingBounds, shading, state.current.clip)
+}
+
 const handlers: Record<string, Handler> = {
   q: saveGraphics,
   Q: (state) => {
@@ -329,6 +301,9 @@ const handlers: Record<string, Handler> = {
   h: (state) => closePath(state.path),
   re: applyRect,
   n: (state) => clearPath(state.path),
+  W: applyClip,
+  'W*': applyClip,
+  sh: applyShading,
   Do: markUnbounded,
   S: (state) => strokeAndClear(state, false),
   s: (state) => strokeAndClear(state, true),
@@ -357,20 +332,39 @@ const handlers: Record<string, Handler> = {
   K: colorHandler('K'),
 }
 
+function emptyGraphics(): Graphics {
+  return { ctm: IDENTITY_MATRIX.slice(), lineJoin: 0, lineWidth: 1, miterLimit: 10 }
+}
+
+export function createPaintedBoundsTracker(bounds: PaintedBounds, shadingBounds: PaintedBounds = new WeakMap()): PaintedBoundsTracker {
+  const state: TrackState = {
+    bounds,
+    current: emptyGraphics(),
+    graphics: [],
+    pastSaveCap: false,
+    path: {},
+    resolve: () => undefined,
+    resolveGraphicsState: () => undefined,
+    resolveShading: () => undefined,
+    shadingBounds,
+  }
+  return {
+    feed(bytes, resolve, resolveGraphicsState = () => undefined, resolveShading = () => undefined) {
+      state.resolve = resolve
+      state.resolveGraphicsState = resolveGraphicsState
+      state.resolveShading = resolveShading
+      visitContentTokens(bytes, (operator, operands) => handlers[operator]?.(state, operands))
+    },
+  }
+}
+
 export function recordPatternPaintedBounds(
   bytes: Uint8Array,
   resolve: (name: string) => PDFDict | undefined,
   bounds: PaintedBounds,
   resolveGraphicsState: (name: string) => PDFDict | undefined = () => undefined,
+  resolveShading: (name: string) => PDFDict | undefined = () => undefined,
+  shadingBounds: PaintedBounds = new WeakMap(),
 ): void {
-  const state: TrackState = {
-    bounds,
-    current: { ctm: IDENTITY_MATRIX.slice(), lineJoin: 0, lineWidth: 1, miterLimit: 10 },
-    graphics: [],
-    pastSaveCap: false,
-    path: {},
-    resolve,
-    resolveGraphicsState,
-  }
-  visitContentTokens(bytes, (operator, operands) => handlers[operator]?.(state, operands))
+  createPaintedBoundsTracker(bounds, shadingBounds).feed(bytes, resolve, resolveGraphicsState, resolveShading)
 }
