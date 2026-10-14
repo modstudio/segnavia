@@ -169,6 +169,31 @@ describe('deck controller', () => {
     }
   })
 
+  test('play restarts an ended deck in either playback mode', async () => {
+    for (const playback of ['step', 'continuous'] as const) {
+      const { controller, clocks, tick } = harness({ playback })
+      let ends = 0
+      controller.addEventListener('end', () => ends++)
+      await controller.load({
+        title: 'T',
+        slides: [{ id: 'a', content: { kind: 'html', html: '' }, narration: narration('hello') }],
+      })
+      await controller.play()
+      const clock = clocks[0]
+      if (!clock) throw new Error('clock was not created')
+      clock.ended = true
+      await tick()
+      expect(ends).toBe(1)
+
+      await controller.play()
+      expect(controller.state.index).toBe(0)
+      expect(controller.state.playing).toBe(true)
+      expect(clocks).toHaveLength(2)
+      expect(clocks[1]?.elapsed).toBe(0)
+      expect(ends).toBe(1)
+    }
+  })
+
   test('mute changes sound without changing the clock position', async () => {
     const { controller, clocks } = harness()
     await controller.load({ title: 'T', slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 }] })
