@@ -17,8 +17,8 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 
 | Layer | What it is | Appearance |
 |---|---|---|
-| `DeckController` | All behavior: slides, play, clocks, cues, keys in reading direction, exact and clamped `#slide-N` links, neighbour content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>` | Light DOM elements that show one slide, one page, or one paper of imposed pages in sandboxed frames. A stage scales to its box or the available window and can keep its neighbouring slides mounted. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| `DeckController` | All behavior: slides, play, clocks, cues, keys in reading direction, exact and clamped `#slide-N` links, neighbor content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it. | None: it renders nothing. |
+| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>` | Light DOM elements that show one slide, one page, or one paper of imposed pages in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a layout of the styled components around a stage, with notes, full screen and translatable labels. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
@@ -46,11 +46,11 @@ library names a host.
 |---|---|---|
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
-| `contentFor` | `DeckController` | Resolved content for a neighbour without navigating; the stage shares the controller's prefetch cache. |
+| `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized `"<deck title> — slide N"` frame title. The position is recomputed after a reorder. |
 | `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade. |
-| `neighbours` | `<segnavia-stage>` | Whether previous and next frames remain mounted, inert and visually hidden. The visible frame and its annotations keep the deck's direction. |
+| `neighbors` | `<segnavia-stage>` | Whether previous and next frames remain mounted, inert and visually hidden. The visible frame and its annotations keep the deck's direction. |
 | `keys` | `DeckController` option | `'stage'` for stage-local keys or `'page'` for bounded page-wide arrows and page keys; arrows follow reading direction and form fields retain their keys. |
 | `present`, `stopPresenting`, `presenting`, `data-presenting` | `DeckController` and `DeckState` | The element to present over the window, the exit operation, readable state and the host styling hook. `--segnavia-backdrop` supplies its backdrop. |
 | `fit="viewport"`, `reserve`, `fitted`, `segnavia-fit` | `<segnavia-stage>` | Window fitting, fixed block-start and block-end room in CSS pixels, and the resulting scale and size. Inline padding and block edges follow CSS writing direction. |
@@ -79,7 +79,7 @@ library names a host.
    frame the deck asks the clock for the current word, and `annotationsAt`
    decides which annotations show. The stage and any host controls draw
    from the `change` event.
-5. With `neighbours`, the stage keys frames by slide id and keeps the selected slide plus its previous and next slide. A turn reveals the already-running neighbour without changing its document. Reloading a reordered deck keeps the selected id and its frame; removing it clamps the selection to the new last slide.
+5. With `neighbors`, the stage keys frames by slide id and keeps the selected slide plus its previous and next slide. A turn reveals the already-running neighbor without changing its document. Reloading a reordered deck keeps the selected id and its frame; removing it clamps the selection to the new last slide.
 6. A first load reads an exact `#slide-N`, clamped to the deck's bounds. `go`, keys and live hash changes navigate directly and replace the address rather than adding history.
 7. In page-key mode, arrows and page keys work outside form fields, Space has no deck action, and Escape ends an in-window presentation. `present(element)` marks the chosen element with `data-presenting`, locks body overflow and uses `--segnavia-backdrop`; `stopPresenting`, stage disconnection and controller destruction restore it. `<segnavia-fullscreen mode="window">` uses this path, while its default remains native fullscreen.
 8. `fit="viewport"` scales from the stage's unscaled inline space and `window.innerHeight`, subtracting its block-start edge and `reserve` at both block edges. While presenting it uses the presented element's block size. It reports `{ scale, width, height }` through `fitted` and `segnavia-fit`; window, visual-viewport and stage resizes trigger a new measurement.

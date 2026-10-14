@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { hashSlideIndex, indexAfterReload, neighbourWindow } from './deck-window.ts'
+import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 
-describe('neighbour window', () => {
-  test('keeps the selected slide first and at most its two neighbours', () => {
-    expect(neighbourWindow(0, 40)).toEqual([0, 1])
-    expect(neighbourWindow(1, 40)).toEqual([1, 0, 2])
-    expect(neighbourWindow(39, 40)).toEqual([39, 38])
+describe('neighbor window', () => {
+  test('keeps the selected slide first and at most its two neighbors', () => {
+    expect(neighborWindow(0, 40)).toEqual([0, 1])
+    expect(neighborWindow(1, 40)).toEqual([1, 0, 2])
+    expect(neighborWindow(39, 40)).toEqual([39, 38])
   })
 })
 

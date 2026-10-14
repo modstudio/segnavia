@@ -12,7 +12,7 @@ html,body{margin:0;max-inline-size:100%;overflow-x:hidden;font:16px system-ui,sa
 #controls{block-size:140px;display:flex;align-items:center;gap:8px}textarea{display:block;inline-size:100%;block-size:172px}
 [data-presenting] .layout{display:block}[data-presenting] #rail,[data-presenting] textarea{display:none}[data-presenting] .main{padding:0}
 </style></head><body><div id="deck-root"><div class="layout"><nav id="rail"></nav><main class="main">
-<segnavia-stage id="deck" neighbours fit="viewport"></segnavia-stage><div id="controls"><button id="previous">Previous</button>
+<segnavia-stage id="deck" neighbors fit="viewport"></segnavia-stage><div id="controls"><button id="previous">Previous</button>
 <button id="next">Next</button><button id="present">Present</button><output id="counter"></output></div>
 <textarea id="notes">Notes stay editable</textarea></main></div></div><script type="module" src="segnavia-controls.js"></script>
 <script type="module">

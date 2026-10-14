@@ -1,9 +1,9 @@
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
-import { neighbourWindow } from './deck-window.ts'
+import { neighborWindow } from './deck-window.ts'
 import { type FrameTitle, stageCanvas } from './stage-content.ts'
 
 interface PoolOptions {
-  neighbours: boolean
+  neighbors: boolean
   css: string
   csp: string
   frameTitle: FrameTitle
@@ -27,7 +27,7 @@ export class FramePool {
   update(state: DeckState, controller: DeckController, options: PoolOptions) {
     const deck = state.deck
     if (!deck || !state.slide || !state.content) return
-    const indexes = options.neighbours ? neighbourWindow(state.index, deck.slides.length) : [state.index]
+    const indexes = options.neighbors ? neighborWindow(state.index, deck.slides.length) : [state.index]
     const wanted = new Set(indexes.map((index) => deck.slides[index]?.id))
     for (const [id, canvas] of this.entries) {
       if (!wanted.has(id)) {

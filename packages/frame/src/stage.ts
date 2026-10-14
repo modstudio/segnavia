@@ -22,7 +22,7 @@ export interface StageReserve {
 }
 
 export class SegnaviaStage extends HTMLElement {
-  static observedAttributes = ['src', 'neighbours', 'fit']
+  static observedAttributes = ['src', 'neighbors', 'fit']
   // Styles applied inside every slide, such as a host's house style.
   css = ''
   cspExtra = ''
@@ -34,12 +34,12 @@ export class SegnaviaStage extends HTMLElement {
   private resize = new ResizeObserver(() => this.measure())
   private pool = new FramePool(this, () => this.measure())
 
-  get neighbours(): boolean {
-    return this.hasAttribute('neighbours')
+  get neighbors(): boolean {
+    return this.hasAttribute('neighbors')
   }
 
-  set neighbours(value: boolean) {
-    this.toggleAttribute('neighbours', value)
+  set neighbors(value: boolean) {
+    this.toggleAttribute('neighbors', value)
   }
 
   get fit(): 'box' | 'viewport' {
@@ -121,7 +121,7 @@ export class SegnaviaStage extends HTMLElement {
     if (!deck || !state.content) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.pool.update(state, this.attached as DeckController, {
-      neighbours: this.neighbours,
+      neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,
       frameTitle: this.frameTitle,

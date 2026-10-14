@@ -25,7 +25,7 @@ describe('controller reloads', () => {
     expect(controller.state.slide?.id).toBe('b')
   })
 
-  test('contentFor resolves a neighbour without navigating', async () => {
+  test('contentFor resolves a neighbor without navigating', async () => {
     const controller = new DeckController({ hash: null })
     await controller.load(deck(['a', 'b']))
     expect(await controller.contentFor(1)).toEqual({ kind: 'html', html: '<p>b</p>' })

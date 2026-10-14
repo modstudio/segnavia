@@ -20,7 +20,7 @@ export async function verifyDeckHost(h: Harness) {
       same: stage.querySelector('[data-active] iframe') === next && next.dataset.identity === 'kept' && next.srcdoc === srcdoc,
     }
   })
-  check('deck host: a turn reveals the unchanged neighbour frame and mounts three', turn.same && turn.count === 3, JSON.stringify(turn))
+  check('deck host: a turn reveals the unchanged neighbor frame and mounts three', turn.same && turn.count === 3, JSON.stringify(turn))
 
   const reorder = await page.evaluate(async () => {
     const host = (window as unknown as { __deckHost: { ids: string[]; reload(ids: string[]): Promise<void> } }).__deckHost

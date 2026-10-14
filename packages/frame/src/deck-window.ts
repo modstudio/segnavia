@@ -1,4 +1,4 @@
-export function neighbourWindow(index: number, length: number): number[] {
+export function neighborWindow(index: number, length: number): number[] {
   if (length <= 0) return []
   const current = Math.min(Math.max(index, 0), length - 1)
   return [current, current - 1, current + 1].filter((candidate) => candidate >= 0 && candidate < length)
