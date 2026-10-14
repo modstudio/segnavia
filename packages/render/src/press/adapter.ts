@@ -9,7 +9,7 @@ import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTrack
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
-import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf } from './sample-shading.ts'
+import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf, shadingSampleGridForUses } from './sample-shading.ts'
 import type { PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
 
@@ -88,10 +88,11 @@ function shadingUses(
 
 function convertType1Shading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): void {
   const uses = shadingUses(state, shading, pattern)
-  const matrixPattern = uses.find((use) => use.pattern)?.pattern ?? pattern
   const domain = sampleDomainForUses(shadingDomainOf(shading), uses)
+  const matrices = uses.length > 0 ? uses.map((use) => use.matrix) : [shadingDeviceMatrix(shading, pattern)]
+  const size = shadingSampleGridForUses(domain, matrices)
   // Sampling owns its conversion through the 8-bit, capped converter and must receive uncached pressColor, never state.convert.
-  replaceType1Function(state.document, shading, matrixPattern, (rgb) => pressColor(state.profile, rgb), state.budget, undefined, domain)
+  replaceType1Function(state.document, shading, pattern, (rgb) => pressColor(state.profile, rgb), state.budget, undefined, domain, size)
 }
 
 function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
@@ -154,8 +155,8 @@ function resolveShadingResource(state: RewriteState, resources: PDFDict | undefi
   return dictionaryOf(resolved(state, shadings?.get(PDFName.of(name))))
 }
 
-function recordContentBounds(state: RewriteState, stream: PDFRawStream, resources: PDFDict | undefined): void {
-  const bytes = decodeContent(stream)
+function recordContentBounds(state: RewriteState, stream: PDFRawStream, resources: PDFDict | undefined, budget: ContentBudget): void {
+  const bytes = decodeContent(stream, budget)
   const resolve = (name: string) => resolveShadingPattern(state, resources, name)
   const resolveGs = (name: string) => resolveGraphicsState(state, resources, name)
   const resolveShading = (name: string) => resolveShadingResource(state, resources, name)
@@ -191,18 +192,21 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
 
 export function rewritePressDocument(document: PDFDocument, profile: Profile): PressRewriteCounts {
   const state = newState(document, profile)
+  // Each pass has its own 128 MiB decoded-content ceiling so a stream is not charged twice in one budget.
+  const boundsBudget: ContentBudget = { decodedBytes: 0 }
   // Painted bounds are gathered for the whole document before any Type 1 function is replaced.
   walkPressGraph(document, {
     beginContentsSequence: () => {
       state.sequence = createPaintedBoundsTracker(state.painted, state.shadingPainted)
     },
-    content: (_object, stream, _replace, resources) => recordContentBounds(state, stream, resources),
+    content: (_object, stream, _replace, resources) => recordContentBounds(state, stream, resources, boundsBudget),
     endContentsSequence: () => {
       state.sequence = undefined
     },
     function: () => undefined,
     group: () => undefined,
     image: () => undefined,
+    replayPageContents: true,
     shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
   })
   walkPressGraph(document, {

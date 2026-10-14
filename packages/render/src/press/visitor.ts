@@ -9,6 +9,8 @@ export interface PressGraphActions {
   function: (fn: PDFDict | undefined, decision: FunctionDecision) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, maskSource: boolean) => void
   image: (stream: PDFRawStream) => void
+  // When set, each page Contents stream is fed every time it appears; the convert pass leaves this unset so streams stay unique.
+  replayPageContents?: boolean
   shading: (shading: PDFDict, pattern?: PDFDict) => boolean
 }
 
@@ -28,20 +30,33 @@ const resolved = (state: WalkState, object: PDFObject | undefined): PDFObject | 
 const dictionary = (state: WalkState, object: PDFObject | undefined): PDFDict | undefined => dictionaryOf(resolved(state, object))
 const stream = (state: WalkState, object: PDFObject | undefined): PDFRawStream | undefined => rawStreamOf(resolved(state, object))
 
-function visitContent(state: WalkState, object: PDFObject | undefined, replace: (value: PDFRawStream) => void, enclosing?: PDFDict): void {
+function rememberRef(state: WalkState, object: PDFObject): boolean {
+  if (!(object instanceof PDFRef)) return false
+  const label = object.toString()
+  if (state.references.has(label)) return true
+  state.references.add(label)
+  return false
+}
+
+function visitContent(
+  state: WalkState,
+  object: PDFObject | undefined,
+  replace: (value: PDFRawStream) => void,
+  enclosing?: PDFDict,
+  replay = false,
+  nestResources = true,
+): void {
   if (!object) return
-  if (object instanceof PDFRef) {
-    const label = object.toString()
-    if (state.references.has(label)) return
-    state.references.add(label)
-  }
+  const seenRef = rememberRef(state, object)
   const found = stream(state, object)
-  if (!found || state.streams.has(found)) return
-  state.streams.add(found)
+  if (!found) return
+  const seenStream = state.streams.has(found)
+  if (!seenStream) state.streams.add(found)
+  if ((seenRef || seenStream) && !replay) return
   const own = found.dict.lookupMaybe(key('Resources'), PDFDict)
-  state.actions?.group(found.dict, found, state.maskSources.has(found))
+  if (!seenRef && !seenStream) state.actions?.group(found.dict, found, state.maskSources.has(found))
   state.actions?.content(object, found, replace, own ?? enclosing)
-  visitResources(state, own)
+  if (nestResources && !seenRef && !seenStream) visitResources(state, own)
 }
 
 function visitSoftMask(state: WalkState, object: PDFObject | undefined, enclosing?: PDFDict): void {
@@ -146,15 +161,21 @@ function visitResources(state: WalkState, resources: PDFDict | undefined): void 
 }
 
 function visitPageContents(state: WalkState, page: PDFDict, contents: PDFObject | undefined, pageResources: PDFDict | undefined): void {
+  const replay = Boolean(state.actions?.replayPageContents)
+  const nested: PDFDict[] = []
+  const feed = (object: PDFObject | undefined, replace: (value: PDFRawStream) => void) => {
+    visitContent(state, object, replace, pageResources, replay, false)
+    const own = stream(state, object)?.dict.lookupMaybe(key('Resources'), PDFDict)
+    if (own) nested.push(own)
+  }
   if (contents instanceof PDFArray) {
-    // A page Contents array is one graphics-state sequence (PDF 7.8.2).
+    // A page Contents array is one graphics-state sequence (PDF 7.8.2). Nested resources are walked after it ends so they do not share that tracker.
     state.actions?.beginContentsSequence?.()
     for (let index = 0; index < contents.size(); index++)
-      visitContent(state, contents.get(index), (replacement) => contents.set(index, replacement), pageResources)
+      feed(contents.get(index), (replacement) => contents.set(index, replacement))
     state.actions?.endContentsSequence?.()
-    return
-  }
-  visitContent(state, contents, (replacement) => page.set(key('Contents'), replacement), pageResources)
+  } else feed(contents, (replacement) => page.set(key('Contents'), replacement))
+  for (const resources of nested) visitResources(state, resources)
 }
 
 function traverse(document: PDFDocument, maskSources: WeakSet<PDFRawStream>, actions?: PressGraphActions): void {

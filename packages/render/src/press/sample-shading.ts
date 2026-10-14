@@ -131,6 +131,19 @@ export function shadingDeviceMatrix(shading: PDFDict, pattern: PDFDict | undefin
   return pattern ? multiplyAffine(matrixOf(pattern), shadingMatrix) : shadingMatrix
 }
 
+function capSampleGrid(n: number, m: number): { n: number; m: number } {
+  if (n * m <= MAX_SHADING_SAMPLES) return { n, m }
+  const scale = Math.sqrt(MAX_SHADING_SAMPLES / (n * m))
+  let nextN = Math.max(1, Math.floor(n * scale))
+  let nextM = Math.max(1, Math.floor(m * scale))
+  while (nextN * nextM > MAX_SHADING_SAMPLES) {
+    if (nextN >= nextM && nextN > 1) nextN--
+    else if (nextM > 1) nextM--
+    else break
+  }
+  return { n: nextN, m: nextM }
+}
+
 export function shadingSampleGrid(domain: readonly number[], matrix: readonly number[]): { n: number; m: number } {
   const x0 = domain[0] ?? 0
   const x1 = domain[1] ?? 0
@@ -142,18 +155,19 @@ export function shadingSampleGrid(domain: readonly number[], matrix: readonly nu
   const columnBx = matrix[2] ?? 0
   const columnBy = matrix[3] ?? 1
   requireFinite([columnAx, columnAy, columnBx, columnBy, matrix[4] ?? 0, matrix[5] ?? 0], 'shading Matrix')
-  let n = axisSamples(x1 - x0, columnAx, columnAy)
-  let m = axisSamples(y1 - y0, columnBx, columnBy)
-  if (n * m <= MAX_SHADING_SAMPLES) return { n, m }
-  const scale = Math.sqrt(MAX_SHADING_SAMPLES / (n * m))
-  n = Math.max(1, Math.floor(n * scale))
-  m = Math.max(1, Math.floor(m * scale))
-  while (n * m > MAX_SHADING_SAMPLES) {
-    if (n >= m && n > 1) n--
-    else if (m > 1) m--
-    else break
+  return capSampleGrid(axisSamples(x1 - x0, columnAx, columnAy), axisSamples(y1 - y0, columnBx, columnBy))
+}
+
+export function shadingSampleGridForUses(domain: readonly number[], matrices: readonly (readonly number[])[]): { n: number; m: number } {
+  if (matrices.length === 0) return shadingSampleGrid(domain, IDENTITY_MATRIX)
+  let n = 1
+  let m = 1
+  for (const matrix of matrices) {
+    const grid = shadingSampleGrid(domain, matrix)
+    n = Math.max(n, grid.n)
+    m = Math.max(m, grid.m)
   }
-  return { n, m }
+  return capSampleGrid(n, m)
 }
 
 export function domainValue(min: number, max: number, index: number, size: number): number {
@@ -225,6 +239,7 @@ export function replaceType1Function(
   budget: ContentBudget,
   painted?: PatternPaint,
   sampleDomain?: readonly number[],
+  sampleSize?: { n: number; m: number },
 ): { n: number; m: number } {
   const existing = shading.get(PDFName.of('Function'))
   const stream = rawStreamOf(resolved(document, existing))
@@ -233,7 +248,7 @@ export function replaceType1Function(
   const matrix = shadingDeviceMatrix(shading, pattern)
   requireFinite(matrix, 'shading Matrix')
   const domain = sampleDomain ? [...sampleDomain] : sampleDomainForPainted(shadingDomain, matrix, painted)
-  const size = shadingSampleGrid(domain, matrix)
+  const size = sampleSize ?? shadingSampleGrid(domain, matrix)
   const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const samples = size.n * size.m
   const operations = samples * staticOperatorCount(program)
