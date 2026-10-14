@@ -5,6 +5,7 @@
 
 import { verifyCapture } from './verify/capture.ts'
 import { verifyComponents } from './verify/components.ts'
+import { verifyDeckHost } from './verify/deck-host.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyMedia } from './verify/media.ts'
@@ -22,6 +23,7 @@ try {
   await verifyRtl(h)
   await verifyHeadless(h)
   await verifyComponents(h)
+  await verifyDeckHost(h)
   await verifyMedia(h)
   h.check('no errors in any page', h.errors.length === 0, h.errors.join('; '))
 } finally {

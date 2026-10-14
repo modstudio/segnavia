@@ -10,13 +10,14 @@ import { SegnaviaStage } from './stage.ts'
 
 export { BASE_CSS } from './base-style.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'
-export { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
+export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'
+export { type FitInputs, type FittedSize, fitSheet } from './fit.ts'
 export { type DeckAction, keyAction } from './keys.ts'
 export { SegnaviaPage } from './page.ts'
 export { SegnaviaPaper } from './paper.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
-export { SegnaviaStage } from './stage.ts'
+export { SegnaviaStage, type StageReserve } from './stage.ts'
 export { momentAt, wordAt, wordIndex } from './timeline.ts'
 
 if (!customElements.get('segnavia-stage')) customElements.define('segnavia-stage', SegnaviaStage)

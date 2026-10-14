@@ -58,6 +58,7 @@ export class SegnaviaPlayer extends HTMLElement {
   // Labels are the host's to translate; every component takes them.
   set labels(labels: PlayerLabels) {
     this.words = labels
+    this.stage.frameTitle = labels.frameTitle
     for (const control of this.controls()) control.labels = labels
     if (this.controller.state.deck) this.update(this.controller.state)
   }
@@ -71,6 +72,7 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   connectedCallback() {
+    this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
   }
 

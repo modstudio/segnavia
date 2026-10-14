@@ -9,11 +9,13 @@
 //   --segnavia-annotation-color  rings, badges and arrows
 //   --segnavia-cue-fade          how long an annotation takes to appear
 //   --segnavia-paper             the paper behind its placements
+//   --segnavia-backdrop          the in-window presentation backdrop
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;left:50%;top:50%;transform-origin:center;background:var(--segnavia-canvas,#fff)}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > *){position:absolute;inset:0;width:100%;height:100%;border:0;margin:0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-canvas,#fff);opacity:0;pointer-events:none}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > *){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__image){object-fit:contain}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 :where(segnavia-stage:not([unstyled]) [data-annotation]){opacity:0;transition:opacity var(--segnavia-cue-fade,160ms)}
@@ -24,6 +26,8 @@ export const BASE_CSS = `
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
+:where([data-presenting]){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}
+:where(:host([data-presenting])){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}
 `
 
 // Adds the base styles once to the document, or to the shadow root an

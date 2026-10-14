@@ -14,6 +14,7 @@ import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
+import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
@@ -339,6 +340,7 @@ const scripted = Deck.parse({
 writeFileSync(path.join(SITE, 'deck-scripted.json'), JSON.stringify(scripted))
 writeFileSync(path.join(SITE, 'scripted.html'), shell('<segnavia-player src="deck-scripted.json" hash="off"></segnavia-player>'))
 writeFileSync(path.join(SITE, 'prefetch.html'), shell('<segnavia-player id="d" src="deck.json" prefetch></segnavia-player>'))
+buildDeckHost(SITE)
 // A page the host serves itself, as a preview ticket would be: its own CSP,
 // and the bridge included under the host's nonce to report its height.
 writeFileSync(

@@ -7,6 +7,7 @@ export interface PlayerLabels {
   previous: string
   next: string
   slide: (number: number, total: number) => string
+  frameTitle: (deckTitle: string, number: number) => string
   slides: string
   notes: string
   showNotes: string
@@ -22,6 +23,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   previous: 'Previous slide',
   next: 'Next slide',
   slide: (number, total) => `Slide ${number} of ${total}`,
+  frameTitle: (deckTitle, number) => `${deckTitle} — slide ${number}`,
   slides: 'Slides',
   notes: 'Notes',
   showNotes: 'Show notes',
