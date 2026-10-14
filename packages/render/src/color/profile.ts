@@ -5,6 +5,8 @@ import { type ColorTable, checked, type Profile, REVERSE_LUT, refuse } from './t
 
 // Every parsed table is backed by the profile bytes, so this ceiling also bounds table memory.
 export const MAX_PROFILE_BYTES = 32 * 1024 * 1024
+// One object is built per tag directory entry, so this ceiling bounds parser memory.
+export const MAX_PROFILE_TAGS = 256
 
 type Records = Record<string, TagRecord>
 
@@ -26,6 +28,7 @@ function header(bytes: Uint8Array, view: DataView, bounds: TagBounds): Pick<Prof
 
 function records(bytes: Uint8Array, view: DataView, bounds: TagBounds): Records {
   const count = u32(view, 128, bounds)
+  if (count > MAX_PROFILE_TAGS) refuse(`tag count ${count}`, `at most ${MAX_PROFILE_TAGS} tags`)
   if (count > (bytes.length - 132) / 12) refuse('truncated tag table', 'tag records contained within the profile')
   const result: Records = {}
   for (let index = 0; index < count; index++) {
@@ -41,14 +44,18 @@ function records(bytes: Uint8Array, view: DataView, bounds: TagBounds): Records 
   return result
 }
 
+function recordTable(bytes: Uint8Array, view: DataView, record: TagRecord, inputs: number, outputs: number): ColorTable {
+  if (record.type === 'mft1' || record.type === 'mft2') return parseMft(bytes, view, record, record.type, inputs, outputs)
+  if (record.type === 'mAB ' || record.type === REVERSE_LUT) return parseMab(bytes, view, record, record.type, inputs, outputs)
+  return refuse(`${record.name} tag type ${JSON.stringify(record.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
+}
+
 function table(bytes: Uint8Array, view: DataView, all: Records, names: string[], inputs: number, outputs: number): ColorTable {
   const name = names.find((candidate) => all[candidate])
   if (!name) refuse(`missing ${names.join('/')} tag`, names.join(' or '))
   const record = all[name]
   if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
-  if (record.type === 'mft1' || record.type === 'mft2') return parseMft(bytes, view, record, record.type, inputs, outputs)
-  if (record.type === 'mAB ' || record.type === REVERSE_LUT) return parseMab(bytes, view, record, record.type, inputs, outputs)
-  return refuse(`${name} tag type ${JSON.stringify(record.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
+  return recordTable(bytes, view, record, inputs, outputs)
 }
 
 export function readProfile(bytes: Uint8Array): Profile {
@@ -64,13 +71,8 @@ export function readProfile(bytes: Uint8Array): Profile {
   const b2a = matrix?.b2a ?? table(bytes, view, all, ['B2A1', 'B2A0'], 3, channels)
   const perceptualA2b = matrix?.a2b ?? table(bytes, view, all, ['A2B0', 'A2B1'], channels, 3)
   const perceptualB2a = matrix?.b2a ?? table(bytes, view, all, ['B2A0', 'B2A1'], 3, channels)
-  const gamutRecord = all.gamt
-  let gamut: ColorTable | undefined
-  if (gamutRecord) {
-    if (gamutRecord.type === 'mft1' || gamutRecord.type === 'mft2') gamut = parseMft(bytes, view, gamutRecord, gamutRecord.type, 3, 1)
-    else if (gamutRecord.type === 'mAB ' || gamutRecord.type === REVERSE_LUT) gamut = parseMab(bytes, view, gamutRecord, gamutRecord.type, 3, 1)
-    else refuse(`gamt tag type ${JSON.stringify(gamutRecord.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
-  }
+  const gamutRecord = all.gamt,
+    gamut = gamutRecord ? recordTable(bytes, view, gamutRecord, 3, 1) : undefined
   const white = all.wtpt
   if (!white) throw new Error('ICC profile is missing wtpt after its tag set was validated')
   need(white.offset, 20, white)

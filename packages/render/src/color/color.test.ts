@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as reference from '../../test-fixtures/lcms/reference.ts'
 import { fromPress, proof, toPress } from './engine.ts'
 import { outOfGamut } from './gamut.ts'
-import { MAX_PROFILE_BYTES, readProfile } from './profile.ts'
+import { MAX_PROFILE_BYTES, MAX_PROFILE_TAGS, readProfile } from './profile.ts'
 import { buildPressProfile } from './profile-fixture.test-helper.ts'
 import { buildProofTable, fastProof, proofPixels } from './proof.ts'
 import { srgbToLab, tableEncode } from './spaces.ts'
@@ -148,6 +148,13 @@ test('a profile over the byte ceiling names its size and the ceiling', () => {
   expect(() => readProfile(new Uint8Array(MAX_PROFILE_BYTES + 1))).toThrow(
     `profile length ${MAX_PROFILE_BYTES + 1}; supported: at most ${MAX_PROFILE_BYTES} bytes`,
   )
+})
+
+test('a tag directory over the count ceiling names its count and the ceiling', () => {
+  const bytes = checked(models, 0, 'profile models').bytes.slice(),
+    count = MAX_PROFILE_TAGS + 1
+  new DataView(bytes.buffer).setUint32(128, count, false)
+  expect(() => readProfile(bytes)).toThrow(`tag count ${count}; supported: at most ${MAX_PROFILE_TAGS} tags`)
 })
 
 test('a wrong channel count is refused before its table payload is read', () => {

@@ -53,16 +53,13 @@ export function decodePcs(pcs: 'Lab ' | 'XYZ ', encoded: Color3): Color3 {
   return pcs === 'Lab ' ? [x * 100, y * 255 - 128, z * 255 - 128] : [x * (65_535 / 32_768), y * (65_535 / 32_768), z * (65_535 / 32_768)]
 }
 
-export function encodePcs(pcs: 'Lab ' | 'XYZ ', value: Color3): Color3 {
+function normalizePcs(pcs: 'Lab ' | 'XYZ ', value: Color3): Color3 {
   const [x, y, z] = value
-  return pcs === 'Lab '
-    ? [clamp(x / 100), clamp((y + 128) / 255), clamp((z + 128) / 255)]
-    : [clamp(x * (32_768 / 65_535)), clamp(y * (32_768 / 65_535)), clamp(z * (32_768 / 65_535))]
+  return pcs === 'Lab ' ? [x / 100, (y + 128) / 255, (z + 128) / 255] : [x * (32_768 / 65_535), y * (32_768 / 65_535), z * (32_768 / 65_535)]
 }
 
 export function tableEncode(pcs: 'Lab ' | 'XYZ ', encoding: ColorTable['encoding'], major: number, value: Color3, clipped: boolean): Color3 {
-  const [x, y, z] = value
-  const encoded: Color3 = pcs === 'Lab ' ? [x / 100, (y + 128) / 255, (z + 128) / 255] : [x * (32_768 / 65_535), y * (32_768 / 65_535), z * (32_768 / 65_535)]
+  const encoded = normalizePcs(pcs, value)
   const prepared: Color3 = clipped ? [clamp(encoded[0]), clamp(encoded[1]), clamp(encoded[2])] : encoded
   if (pcs !== 'Lab ' || encoding !== 'mft2' || major !== 2) return prepared
   const scale = 65_280 / 65_535
