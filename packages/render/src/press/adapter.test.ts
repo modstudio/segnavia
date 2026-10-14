@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, rgb } from 'pdf-lib'
+import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
-import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
+import { inspectPressPdf, rewritePressDocument, rewritePressPdf } from './adapter.ts'
 
 const profile = buildPressProfile('mft1')
 
@@ -38,21 +39,23 @@ test('rewrites page fills and strokes and installs the press output intent', asy
 test('the read-back inspection refuses an RGB operator', async () => {
   const document = await PDFDocument.create()
   const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.flateStream('1 0 0 rg')))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('1 0 0 rg')))
   await expect(inspectPressPdf(await document.save())).rejects.toThrow(/RGB color operator/)
 })
 
 function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
   page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.flateStream(content)))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
 }
 
 test('a form XObject shared by two pages is represented once in the read-back report', async () => {
   const document = await PDFDocument.create()
-  const form = document.context.flateStream('1 0 0 rg', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 10, 10], Resources: {} })
+  const form = document.context.stream('1 0 0 rg', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 10, 10], Resources: {} })
   const formRef = document.context.register(form)
   for (let index = 0; index < 2; index++) setResources(document, document.addPage([20, 20]), { XObject: { Shared: formRef } }, '/Shared Do')
-  const converted = await rewritePressPdf(await document.save(), profile)
+  const loaded = await PDFDocument.load(await document.save())
+  expect(rewritePressDocument(loaded, readProfile(profile)).fills).toBe(1)
+  const converted = await rewritePressPdf(await loaded.save(), profile)
   expect(converted.report.fills).toBe(1)
 })
 
@@ -84,7 +87,7 @@ test('sets ordinary transparency groups to CMYK and preserves a gray luminosity 
   const document = await PDFDocument.create()
   const form = (space?: string) =>
     document.context.register(
-      document.context.flateStream('1 0 0 rg', {
+      document.context.stream('1 0 0 rg', {
         Type: 'XObject',
         Subtype: 'Form',
         BBox: [0, 0, 10, 10],
@@ -95,7 +98,7 @@ test('sets ordinary transparency groups to CMYK and preserves a gray luminosity 
   const inherited = form()
   const rgbGroup = form('DeviceRGB')
   const grayMask = document.context.register(
-    document.context.flateStream('', {
+    document.context.stream('', {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
@@ -183,7 +186,7 @@ const refusalCases: Array<[string, RefusalFixture]> = [
     'CalRGB',
     (document) => {
       const form = document.context.register(
-        document.context.flateStream('', {
+        document.context.stream('', {
           Type: 'XObject',
           Subtype: 'Form',
           BBox: [0, 0, 1, 1],

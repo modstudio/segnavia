@@ -4,7 +4,7 @@ import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
-import { pressPdfContainsBlackInk } from '../../packages/render/src/press/adapter.ts'
+import { pressPdfContainsBlackInk } from '../../packages/render/src/press/report.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -93,7 +93,13 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     `${originalRaster.width}x${originalRaster.height}, mean channel difference=${difference.toFixed(2)} (bound 20 from the prototype's measured 4.08 with profile/runtime allowance)`,
   )
 
-  const imposition = { paper: { width: 320, height: 240, unit: 'mm' as const }, columns: 1, rows: 1, cell: { width: 317.5, height: 211.67 } }
+  const imposition = {
+    paper: { width: 320, height: 240, unit: 'mm' as const },
+    orientation: 'landscape' as const,
+    columns: 1,
+    rows: 1,
+    cell: { width: 317.5, height: 211.67 },
+  }
   let pagesReport: PressReport | undefined
   await renderer.pagesPdf([page], { imposition, waitForPageReady: true, ...reportOption(profile, (report) => (pagesReport = report)) })
   check('press conversion runs after pagesPdf imposition', pagesReport?.images.length === 2, pagesReport ? JSON.stringify(pagesReport) : 'report not called')
