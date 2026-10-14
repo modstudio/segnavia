@@ -51,7 +51,11 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
   const findings: Finding[] = []
   const depth = within.split('/').length - 1
   const ups = specifier.split('/').filter((part) => part === '..').length
-  if (ups >= depth)
+  const importsFixture = specifier.split('/').includes('test-fixtures')
+  const fixtureAllowed = importsFixture && /\.(?:test|test-helper)\.ts$/.test(file.path)
+  if (importsFixture && /^packages\/[^/]+\/src\//.test(file.path) && !fixtureAllowed)
+    findings.push({ rule: 'architecture', path: file.path, message: 'package source may import test fixtures only from a test or test-helper module.' })
+  if (ups >= depth && !fixtureAllowed)
     findings.push({ rule: 'architecture', path: file.path, message: `"${specifier}" reaches outside the package; import another package by name.` })
   const safe = workspace.rule.serverSafe ?? []
   if (safe.includes(within) && !safe.some((entry) => specifier.endsWith(entry.replace(/^src\//, '')))) {
@@ -62,7 +66,6 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
 
 function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>, specifier: string): Finding[] {
   if (specifier === 'bun:test') return []
-  if (specifier === 'lcms-wasm' && file.path.endsWith('.test.ts')) return []
   if (specifier.startsWith('node:')) {
     return workspace.rule.runtime === 'server'
       ? []
@@ -84,13 +87,6 @@ export function checkImports(file: SourceFile, workspace: Workspace, all: Map<st
   const findings = file.imports.flatMap((specifier) =>
     specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
   )
-  if (!file.path.endsWith('.test.ts') && file.imports.includes('lcms-wasm')) {
-    findings.push({
-      rule: 'architecture',
-      path: file.path,
-      message: 'lcms-wasm is a development-only reference and may be imported only by tests and scripts.',
-    })
-  }
   if (workspace.rule.runtime !== 'server' && !file.path.endsWith('.test.ts') && NODE_GLOBALS.test(stripComments(file.text))) {
     findings.push({ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package uses a Node global.` })
   }

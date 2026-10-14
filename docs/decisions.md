@@ -196,7 +196,8 @@ varies by engine. A deck that ships uses recorded narration.
 engine dependency because the available packages are either unmaintained or
 large and copyleft, while this library needs only three conversions. Its black
 point steps are translated from LittleCMS under the MIT license. LittleCMS is a
-development-only reference that the tests compare against.
+vendored test fixture, with its license, that the tests compare against. It is
+never a dependency and is never shipped.
 
 **Bun workspaces, TypeScript, Zod 4, Biome, `playwright-core`.** These match
 multiple hosts. `playwright-core` runs under Bun in one host's production and

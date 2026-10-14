@@ -43,7 +43,7 @@ function workspaces(): Map<string, Workspace> {
   return map
 }
 
-const PATTERNS = ['packages/*/src/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
+const PATTERNS = ['packages/*/src/**/*.ts', 'packages/*/test-fixtures/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
 
 function sources(): string[] {
   const found = new Set<string>()

@@ -1,9 +1,9 @@
 import type { Dirent, Stats } from 'node:fs'
 import { lstatSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import * as reference from 'lcms-wasm'
 import { buildProofTable, fastProof, fromPress, readProfile, toPress } from '../packages/render/src/color/index.ts'
 import { checked, color3, color4 } from '../packages/render/src/color/types.ts'
+import * as reference from '../packages/render/test-fixtures/lcms/reference.ts'
 
 const roots = [
   '/System/Library/ColorSync/Profiles',

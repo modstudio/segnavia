@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import * as reference from 'lcms-wasm'
+import * as reference from '../../test-fixtures/lcms/reference.ts'
 import { fromPress, proof, toPress } from './engine.ts'
 import { outOfGamut } from './gamut.ts'
 import { readProfile } from './profile.ts'

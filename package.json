@@ -30,11 +30,10 @@
     "@segnavia/html": "workspace:*"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "2",
-    "@changesets/cli": "^2.29.7",
     "@types/bun": "latest",
-    "lcms-wasm": "1.0.5",
     "publint": "^0.3.25",
     "tsdown": "^0.23.0",
     "typescript": "^5.9.0",
