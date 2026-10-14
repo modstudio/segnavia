@@ -3,7 +3,7 @@ import { type PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRef } from 
 import type { Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { applyAffine, IDENTITY_MATRIX, invertAffine, multiplyAffine } from './affine.ts'
-import { calculatorOperatorsExecuted, evaluateCalculator, parseCalculator } from './calculator.ts'
+import { evaluateCalculator, parseCalculator, staticOperatorCount } from './calculator.ts'
 import type { PatternPaint } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, MAX_DOCUMENT_CONTENT_BYTES, rawStreamOf } from './pdf-objects.ts'
 
@@ -13,8 +13,8 @@ export const SHADING_SAMPLE_SPACING_PT = 0.5
 export const MAX_SHADING_SAMPLES = 1_048_576
 // The fidelity suite's four-gradient page is four Type 1 shadings; this admits four at MAX_SHADING_SAMPLES so that page still converts when painted bounds fall back to the full Domain, and refuses a larger document.
 export const MAX_DOCUMENT_SHADING_SAMPLES = 4 * MAX_SHADING_SAMPLES
-// Eight Chromium conic programs at MAX_SHADING_SAMPLES. The fidelity four-gradient page and a page of eight 260 by 160 conics sit below it. Measured: eight 260 by 160 rainbow conics about 0.4 s; eight max-size grids of that program about 8 s.
-export const MAX_DOCUMENT_CALCULATOR_OPERATIONS = 8 * MAX_SHADING_SAMPLES * 32
+// Chromium's rainbow conic program has 52 operators. Eight max-size grids of that program are charged as samples times the program's operator count. The fidelity four-gradient page and a page of eight 260 by 160 conics sit below it.
+export const MAX_DOCUMENT_CALCULATOR_OPERATIONS = 8 * MAX_SHADING_SAMPLES * 52
 // Chromium stop programs reuse a handful of RGB triples; 4096 cached 8-bit keys bound the Map so a conic cannot grow it with the grid.
 export const MAX_SAMPLING_COLOR_CACHE = 4096
 const SAMPLE_CHANNELS = 4
@@ -202,7 +202,7 @@ export function replaceType1Function(
   const size = shadingSampleGrid(domain, matrix)
   const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const samples = size.n * size.m
-  const operations = samples * calculatorOperatorsExecuted(program, [domain[0] ?? 0, domain[2] ?? 0])
+  const operations = samples * staticOperatorCount(program)
   chargeSamples(budget, samples, operations)
   const data = sampleShadingToCmyk(program, domain, size, convert)
   const replacement = document.context.stream(deflateSync(data), {

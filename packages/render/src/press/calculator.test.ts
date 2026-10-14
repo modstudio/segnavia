@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { evaluateCalculator, MAX_CALCULATOR_PROGRAM_BYTES, MAX_CALCULATOR_STACK, parseCalculator } from './calculator.ts'
+import { evaluateCalculator, MAX_CALCULATOR_PROGRAM_BYTES, MAX_CALCULATOR_STACK, parseCalculator, staticOperatorCount } from './calculator.ts'
 
 const run = (source: string, inputs: number[] = []) => evaluateCalculator(parseCalculator(source), inputs)
 
@@ -149,6 +149,12 @@ test('the Chromium repeating-linear program at chosen points matches hand-comput
   const seam = run(REPEATING_LINEAR, [0, 0])
   expect(seam[0]).toBeCloseTo(0.1882, 5)
   expect(seam[2]).toBeCloseTo(0.8784, 5)
+})
+
+test('staticOperatorCount includes both branches of if', () => {
+  const heavy = Array.from({ length: 1000 }, () => 'dup pop').join(' ')
+  expect(staticOperatorCount(parseCalculator(`{ pop dup 0.5 gt { ${heavy} } if 0 0 0 }`))).toBe(2004)
+  expect(staticOperatorCount(parseCalculator(CONIC))).toBe(52)
 })
 
 test.each([

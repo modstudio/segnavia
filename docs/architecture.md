@@ -262,8 +262,8 @@ ceiling. Sample counts across one rewrite are capped at
 `MAX_DOCUMENT_SHADING_SAMPLES` (4 194 304), the fidelity suite's four Type 1
 shadings at the per-shading cap, charged before a shading is evaluated. Calculator
 work across one rewrite is capped at `MAX_DOCUMENT_CALCULATOR_OPERATIONS`
-(268 435 456), eight max-size Chromium conic programs, charged before evaluation
-as samples times operators executed on one sample. The
+(436 207 616), eight max-size Chromium conic programs, charged before evaluation
+as samples times the program's operator count. The
 interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
 (8192), `MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled
 data counts against `MAX_DOCUMENT_CONTENT_BYTES` and is charged before evaluation. Axial and radial shadings are

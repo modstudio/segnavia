@@ -366,8 +366,11 @@ test.each([
   expect(budget).toEqual(untouchedBudget)
 })
 
-test('a shading that would exceed the document calculator operations ceiling is refused by name', async () => {
-  const { document, shading } = await type4Shading([0, 100, 0, 100])
+test('a program whose origin branch is cheap is charged its static operator count', async () => {
+  const heavy = Array.from({ length: 1000 }, () => 'dup pop').join(' ')
+  const domain = [0, 1, 0, 1]
+  const { document, shading } = await type4Shading(domain, `{ pop dup 0.5 gt { ${heavy} } if 0 0 0 }`)
+  const { n, m } = shadingSampleGrid(domain, [1, 0, 0, 1, 0, 0])
   let called = 0
   expect(() =>
     replaceType1Function(
@@ -378,8 +381,7 @@ test('a shading that would exceed the document calculator operations ceiling is 
         called++
         return [0, 0, 0, 1]
       },
-      { decodedBytes: 0, shadingSamples: 0, calculatorOperations: MAX_DOCUMENT_CALCULATOR_OPERATIONS },
-      'unbounded',
+      { decodedBytes: 0, shadingSamples: 0, calculatorOperations: MAX_DOCUMENT_CALCULATOR_OPERATIONS - (n * m * 4 + 1) },
     ),
   ).toThrow(/document calculator operations/)
   expect(called).toBe(0)

@@ -103,8 +103,14 @@ function runCalculator(program: readonly CalculatorOp[], inputs: readonly number
   return state
 }
 
-export function calculatorOperatorsExecuted(program: readonly CalculatorOp[], inputs: readonly number[]): number {
-  return runCalculator(program, inputs).count
+// A type-4 program has no loops, so counting every operator including both branches of if/ifelse is an upper bound on one evaluation.
+export function staticOperatorCount(program: readonly CalculatorOp[]): number {
+  let count = 0
+  for (const token of program) {
+    if (token.kind === 'operator') count++
+    else if (token.kind === 'procedure') count += staticOperatorCount(token.body)
+  }
+  return count
 }
 
 export function evaluateCalculator(program: readonly CalculatorOp[], inputs: readonly number[]): number[] {
