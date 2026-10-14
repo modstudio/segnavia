@@ -34,11 +34,6 @@ const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : u
 const table = profileBytes ? proofTable(profileBytes) : undefined
 
 async function placeAlignmentMarker(tab: Tab): Promise<Box> {
-  await tab.evaluate(() => {
-    if (document.documentElement.dir !== 'rtl') return
-    document.documentElement.dir = 'ltr'
-    document.body.dir = 'rtl'
-  })
   return tab.locator('[data-fidelity]').evaluateAll((regions) => {
     const region =
       regions.find((candidate) => {

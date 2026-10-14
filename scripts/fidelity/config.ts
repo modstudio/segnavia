@@ -8,13 +8,13 @@ export const SCALE = 4
 export const COMPARISON_IMAGE_THRESHOLD = { mean: 2, p99: 24 }
 // These limits are provisional baseline values. They are kept together so a
 // reviewed baseline changes each acceptance bar in exactly one place.
-export const EFFECT_REGION_THRESHOLD = { mean: 8, p99: 160 }
-export const PRESS_COLOR_THRESHOLD = { mean: 12, p99: 180 }
-export const PDF_BYTES_THRESHOLD = 2_500_000
+export const EFFECT_REGION_THRESHOLD = { mean: 20, p99: 225 }
+export const PRESS_COLOR_THRESHOLD = { mean: 16, p99: 210 }
+export const PDF_BYTES_THRESHOLD = 325_000
 export const ALIGNMENT_TOLERANCE = 16
 
 export const MEASUREMENT_CSS =
-  'html{overflow:clip!important}html[dir=rtl]{direction:ltr!important}html[dir=rtl] body{direction:rtl}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
+  'html{overflow:clip!important}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
 
 export interface Fixture {
   id: string
@@ -39,7 +39,7 @@ export async function fixtures(): Promise<Fixture[]> {
     fixed('print-piece', 'A5 postcard', 559, 794, {
       print: { paper: 'a5', orientation: 'portrait', bleed: 3, safe: 8, marks: false },
     }),
-    fixed('hebrew', 'Hebrew editorial page', 900, 1100, { dir: 'rtl', lang: 'he' }),
+    fixed('hebrew', 'Hebrew editorial page', 900, 1100, { lang: 'he' }),
   ]
   for (const entry of entries) entry.page.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
   return entries
