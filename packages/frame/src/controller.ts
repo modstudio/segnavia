@@ -8,6 +8,7 @@
 
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide, type SlideContent, type TextDirection } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { annotationsAt } from './timeline.ts'
 
@@ -26,6 +27,7 @@ export interface DeckState {
   shown: number[] | null
   // How far the current slide has run, from 0 to 1; 0 on a static slide.
   progress: number
+  presenting: boolean
 }
 
 export interface ControllerOptions {
@@ -35,6 +37,8 @@ export interface ControllerOptions {
   resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent> | SlideContent
   // Resolve the slides either side while one shows; each result is used once.
   prefetch?: boolean
+  // Page listens on window; form fields retain paging keys, while Escape can end presenting.
+  keys?: 'stage' | 'page'
   // The prefix of `#slide-N` addresses, or null to leave the address alone.
   hash?: string | null
   clock?: (narration: NonNullable<Slide['narration']>, audio: string | null) => Clock
@@ -55,31 +59,70 @@ const hasWindow = typeof window !== 'undefined' && typeof location !== 'undefine
 
 export class DeckController extends EventTarget {
   private options: ControllerOptions
-  private current: DeckState = { deck: null, index: 0, slide: null, content: null, direction: 'ltr', playing: false, word: null, shown: null, progress: 0 }
+  private current: DeckState = {
+    deck: null,
+    index: 0,
+    slide: null,
+    content: null,
+    direction: 'ltr',
+    playing: false,
+    word: null,
+    shown: null,
+    progress: 0,
+    presenting: false,
+  }
   private clock: Clock | null = null
   private cancel: (() => void) | null = null
   private shows = 0
   private shots = new Map<string, Promise<PublishedShot>>()
-  private prefetched = new Map<number, Promise<ResolvedContent>>()
+  private prefetched = new Map<string, Promise<ResolvedContent>>()
   private lastCue = ''
+  private presented: HTMLElement | null = null
+  private bodyOverflow = ''
+  private listening = false
 
   constructor(options: ControllerOptions = {}) {
     super()
-    this.options = { hash: 'slide-', ...options }
-    if (hasWindow && this.options.hash) window.addEventListener('hashchange', this.onHash)
+    this.options = { hash: 'slide-', keys: 'stage', ...options }
+    this.connectWindow()
   }
 
   get state(): DeckState {
     return this.current
   }
 
+  get keys(): 'stage' | 'page' {
+    return this.options.keys ?? 'stage'
+  }
+
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }
 
+  get resolveSlide(): ControllerOptions['resolveSlide'] {
+    return this.options.resolveSlide
+  }
+
   destroy() {
+    this.stopPresenting()
     this.stopClock()
-    if (hasWindow) window.removeEventListener('hashchange', this.onHash)
+    this.disconnectWindow()
+  }
+
+  // A stage suspends these global listeners while it is disconnected. A host
+  // may use the same pair when the controller temporarily has no live view.
+  connectWindow() {
+    if (!hasWindow || this.listening) return
+    if (this.options.hash) window.addEventListener('hashchange', this.onHash)
+    if (this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
+    this.listening = true
+  }
+
+  disconnectWindow() {
+    if (!hasWindow || !this.listening) return
+    window.removeEventListener('hashchange', this.onHash)
+    window.removeEventListener('keydown', this.onPageKey)
+    this.listening = false
   }
 
   async loadUrl(src: string): Promise<void> {
@@ -92,11 +135,21 @@ export class DeckController extends EventTarget {
   async load(input: unknown, base?: string): Promise<void> {
     if (base) this.options.base = base
     const deck = Deck.parse(input)
+    const wasOpen = this.current.deck !== null
+    const oldIds = this.current.deck?.slides.map((slide) => slide.id) ?? []
+    const selectedId = this.current.slide?.id ?? null
     this.prefetched.clear()
     this.shots.clear()
     const direction = resolveDirection(deck.dir, deck.lang, deck.title)
-    this.current = { ...this.current, deck, direction, playing: false, index: this.hashIndex(deck) ?? 0 }
-    await this.show()
+    const index = wasOpen
+      ? indexAfterReload(
+          oldIds,
+          deck.slides.map((slide) => slide.id),
+          selectedId,
+        )
+      : (this.hashIndex(deck) ?? 0)
+    this.current = { ...this.current, deck, direction, playing: false, index }
+    await this.show(index, wasOpen)
   }
 
   async go(index: number): Promise<void> {
@@ -109,6 +162,38 @@ export class DeckController extends EventTarget {
       this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
       throw error
     }
+  }
+
+  contentFor(index: number): Promise<ResolvedContent> {
+    const slide = this.current.deck?.slides[index]
+    if (!slide) return Promise.reject(new RangeError(`Slide ${index + 1} is outside the deck.`))
+    let ready = this.prefetched.get(slide.id)
+    if (!ready) {
+      ready = this.resolveFresh(slide, index)
+      void ready.catch(() => {})
+      this.prefetched.set(slide.id, ready)
+    }
+    return ready
+  }
+
+  present(element: HTMLElement) {
+    if (this.presented === element) return
+    this.stopPresenting()
+    this.presented = element
+    this.bodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    element.dataset.presenting = ''
+    this.current = { ...this.current, presenting: true }
+    this.emit()
+  }
+
+  stopPresenting() {
+    if (!this.presented) return
+    this.presented.removeAttribute('data-presenting')
+    document.body.style.overflow = this.bodyOverflow
+    this.presented = null
+    this.current = { ...this.current, presenting: false }
+    this.emit()
   }
 
   async next(): Promise<void> {
@@ -142,11 +227,15 @@ export class DeckController extends EventTarget {
 
   // Returns what the key did, so a caller knows whether to prevent its default.
   key(key: string): DeckAction | null {
+    if (this.options.keys === 'page' && key === ' ') return null
     const action = keyAction(key, this.current.direction)
     if (action === 'next') void this.next().catch(() => {})
     else if (action === 'previous') void this.previous().catch(() => {})
     else if (action === 'toggle') void Promise.resolve(this.toggle()).catch(() => {})
-    else if (action === 'exit') this.dispatchEvent(new CustomEvent('exit'))
+    else if (action === 'exit') {
+      this.stopPresenting()
+      this.dispatchEvent(new CustomEvent('exit'))
+    }
     return action
   }
 
@@ -175,19 +264,14 @@ export class DeckController extends EventTarget {
   private prefetch() {
     const deck = this.current.deck
     if (!this.options.prefetch || !deck) return
-    for (const index of [this.current.index - 1, this.current.index + 1]) {
-      const slide = deck.slides[index]
-      if (slide && !this.prefetched.has(index)) {
-        const ready = this.resolveFresh(slide, index)
-        void ready.catch(() => {})
-        this.prefetched.set(index, ready)
-      }
+    for (const index of neighborWindow(this.current.index, deck.slides.length)) {
+      if (index !== this.current.index) void this.contentFor(index)
     }
   }
 
   private resolve(slide: Slide, index: number): Promise<ResolvedContent> {
-    const ready = this.prefetched.get(index)
-    this.prefetched.delete(index)
+    const ready = this.prefetched.get(slide.id)
+    this.prefetched.delete(slide.id)
     return ready ?? this.resolveFresh(slide, index)
   }
 
@@ -260,14 +344,25 @@ export class DeckController extends EventTarget {
 
   private hashIndex(deck: Deck): number | null {
     const prefix = this.options.hash
-    if (!hasWindow || !prefix || !location.hash.startsWith(`#${prefix}`)) return null
-    const index = Number(location.hash.slice(prefix.length + 1)) - 1
-    return Number.isInteger(index) && index >= 0 && index < deck.slides.length ? index : null
+    return hasWindow && prefix ? hashSlideIndex(location.hash, prefix, deck.slides.length) : null
   }
 
   private onHash = () => {
     const deck = this.current.deck
     const index = deck ? this.hashIndex(deck) : null
     if (index !== null && index !== this.current.index) void this.go(index).catch(() => {})
+  }
+
+  private onPageKey = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) return
+    const target = event.target
+    const action = keyAction(event.key, this.current.direction)
+    if (
+      (action === 'next' || action === 'previous') &&
+      target instanceof HTMLElement &&
+      (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+    )
+      return
+    if (this.key(event.key)) event.preventDefault()
   }
 }

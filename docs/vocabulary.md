@@ -16,7 +16,8 @@ something else.
 | **Cell** | One place in an imposition's grid. It holds one page, shown at the cell's size. |
 | **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |
-| **Fit** | How a fixed page is shown in a cell of another shape: `contain` shows all of it, `cover` fills the cell and crops. |
+| **Imposition fit** | How a fixed page is shown in a cell of another shape: `contain` shows all of it, `cover` fills the cell and crops. |
+| **Stage fit** | Which space a stage fits its slide into: `box` uses the stage's own box, while `viewport` uses the available window after reserved room. |
 | **Press profile** | The ICC profile of the press a piece is printed on. The host supplies it. With one, a PDF render converts supported vector color to CMYK, embeds the profile as its output intent, and reports authored RGB images left unchanged. |
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
 | **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and optional narration. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |

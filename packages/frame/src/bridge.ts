@@ -113,8 +113,12 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 
 // Our frame is identified by the window a message came from, which a page
 // cannot forge. `origin` is "null" for every sandboxed frame and proves nothing.
-export function messageFrom(event: MessageEvent, frame: HTMLIFrameElement | null): { type: string; key?: string; height?: number } | null {
-  if (!frame || event.source !== frame.contentWindow) return null
+export function messageFrom(
+  event: MessageEvent,
+  frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
+): { type: string; key?: string; height?: number } | null {
+  const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
+  if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
   const data = event.data as { type?: unknown; key?: unknown; height?: unknown }
   if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
     return { type: MESSAGE.key, key: data.key }

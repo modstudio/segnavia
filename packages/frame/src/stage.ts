@@ -9,21 +9,62 @@
 // State is mirrored as data attributes for styling: data-slide, data-playing,
 // data-word, data-shown, data-direction.
 
-import { firstStrongDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { DeckController, type DeckState, type ResolvedContent } from './controller.ts'
-import { annotationSvg } from './svg.ts'
+import { MESSAGE, messageFrom } from './bridge.ts'
+import { DeckController, type DeckState } from './controller.ts'
+import { type FittedSize, fitSheet } from './fit.ts'
+import { FramePool } from './frame-pool.ts'
+import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+
+export interface StageReserve {
+  blockStart?: number
+  blockEnd?: number
+}
 
 export class SegnaviaStage extends HTMLElement {
-  static observedAttributes = ['src']
+  static observedAttributes = ['src', 'neighbors', 'fit']
   // Styles applied inside every slide, such as a host's house style.
   css = ''
   cspExtra = ''
   private owned: DeckController | null = null
   private attached: DeckController | null = null
-  private painted: ResolvedContent | null = null
-  private resize = new ResizeObserver(() => this.fit())
+  frameTitle: FrameTitle = defaultFrameTitle
+  private room: StageReserve = {}
+  private measured: FittedSize | null = null
+  private resize = new ResizeObserver(() => this.measure())
+  private pool = new FramePool(this, () => this.measure())
+
+  // Neighbor frames mount only when author scripts are refused. A sandboxed
+  // deck keeps one frame because a hidden running script could take page focus.
+  get neighbors(): boolean {
+    return this.hasAttribute('neighbors')
+  }
+
+  set neighbors(value: boolean) {
+    this.toggleAttribute('neighbors', value)
+  }
+
+  get fit(): 'box' | 'viewport' {
+    return this.getAttribute('fit') === 'viewport' ? 'viewport' : 'box'
+  }
+
+  set fit(value: 'box' | 'viewport') {
+    if (value === 'viewport') this.setAttribute('fit', value)
+    else this.removeAttribute('fit')
+  }
+
+  get reserve(): StageReserve {
+    return { ...this.room }
+  }
+
+  set reserve(value: StageReserve) {
+    this.room = { ...value }
+    this.measure()
+  }
+
+  get fitted(): FittedSize | null {
+    return this.measured
+  }
 
   get controller(): DeckController | null {
     return this.attached
@@ -32,7 +73,9 @@ export class SegnaviaStage extends HTMLElement {
   set controller(controller: DeckController | null) {
     this.attached?.removeEventListener('change', this.onChange)
     this.attached = controller
-    this.painted = null
+    if (this.isConnected) controller?.connectWindow()
+    else controller?.disconnectWindow()
+    this.pool.clear()
     controller?.addEventListener('change', this.onChange)
     if (controller?.state.deck) this.update(controller.state)
     // Styled components pointing at this stage with `for` connect on this.
@@ -46,17 +89,43 @@ export class SegnaviaStage extends HTMLElement {
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.addEventListener('keydown', this.onKey)
     window.addEventListener('message', this.onMessage)
+    window.addEventListener('resize', this.onResize)
+    window.visualViewport?.addEventListener('resize', this.onResize)
     this.resize.observe(this)
+    this.attached?.connectWindow()
+    if (!this.owned) this.loadSource()
   }
 
   disconnectedCallback() {
     this.removeEventListener('keydown', this.onKey)
     window.removeEventListener('message', this.onMessage)
+    window.removeEventListener('resize', this.onResize)
+    window.visualViewport?.removeEventListener('resize', this.onResize)
     this.resize.disconnect()
+    if (this.owned) {
+      this.owned.destroy()
+      this.controller = null
+      this.owned = null
+    } else {
+      this.attached?.stopPresenting()
+      this.attached?.disconnectWindow()
+    }
   }
 
-  attributeChangedCallback(_: string, __: string | null, src: string | null) {
-    if (!src) return
+  attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name !== 'src') {
+      if (this.attached?.state.deck) this.update(this.attached.state)
+      this.measure()
+      return
+    }
+    if (value) this.loadSource()
+  }
+
+  private onChange = (event: Event) => this.update((event as CustomEvent<DeckState>).detail)
+
+  private loadSource() {
+    const src = this.getAttribute('src')
+    if (!src || !this.isConnected) return
     if (!this.owned) {
       const hash = this.getAttribute('hash')
       this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch') })
@@ -65,14 +134,18 @@ export class SegnaviaStage extends HTMLElement {
     void this.owned.loadUrl(src)
   }
 
-  private onChange = (event: Event) => this.update((event as CustomEvent<DeckState>).detail)
-
   private update(state: DeckState) {
     const deck = state.deck
     if (!deck || !state.content) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
-    if (state.content !== this.painted) this.paint(state, state.content)
-    for (const group of this.querySelectorAll<SVGGElement>('[data-annotation]')) {
+    this.pool.update(state, this.attached as DeckController, {
+      neighbors: this.neighbors,
+      css: this.css,
+      csp: this.cspExtra,
+      frameTitle: this.frameTitle,
+    })
+    const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
+    for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
       const shown = state.shown === null || state.shown.includes(Number(group.dataset.annotation))
       group.toggleAttribute('data-shown', shown)
     }
@@ -83,66 +156,47 @@ export class SegnaviaStage extends HTMLElement {
     this.dataset.direction = state.direction
   }
 
-  private paint(state: DeckState, content: ResolvedContent) {
-    const deck = state.deck as NonNullable<DeckState['deck']>
-    const { width, height } = deck.size
-    this.painted = content
-    const canvas = document.createElement('div')
-    canvas.className = 'segnavia-stage__canvas'
-    canvas.style.cssText = `width:${width}px;height:${height}px;margin:${-height / 2}px 0 0 ${-width / 2}px`
-    if (content.kind === 'html' || content.kind === 'url') {
-      const iframe = document.createElement('iframe')
-      iframe.className = 'segnavia-stage__frame'
-      iframe.setAttribute('sandbox', 'allow-scripts')
-      iframe.title = `Slide ${state.index + 1}`
-      if (content.kind === 'html') {
-        iframe.srcdoc = frameDocument(content.html, {
-          scripts: deck.scripts,
-          nonce: newNonce(),
-          dir: deck.dir,
-          lang: deck.lang,
-          css: this.css,
-          csp: this.cspExtra || undefined,
-          reportHeight: false,
-        })
-      } else iframe.src = this.attached?.url(content.src) ?? content.src
-      canvas.append(iframe)
-    } else {
-      // Content goes in as properties, never markup, so nothing a slide holds
-      // is parsed as part of the page.
-      const image = document.createElement('img')
-      image.className = 'segnavia-stage__image'
-      image.src = this.attached?.url(content.src) ?? content.src
-      image.alt = content.kind === 'image' ? content.alt : content.shot.title
-      const alt = image.alt
-      image.dir = firstStrongDirection(alt) ?? 'auto'
-      canvas.append(image)
-      if (content.kind === 'shot') {
-        const layer = document.createElement('div')
-        layer.className = 'segnavia-stage__annotations'
-        layer.innerHTML = annotationSvg(content.shot.size, content.shot.annotations, 'currentColor')
-        canvas.append(layer)
-      }
-    }
-    this.replaceChildren(canvas)
-    this.fit()
-  }
-
-  private fit() {
+  private measure() {
     const deck = this.attached?.state.deck
-    const canvas = this.querySelector<HTMLElement>('.segnavia-stage__canvas')
+    const canvas = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     if (!deck || !canvas) return
-    canvas.style.transform = `scale(${Math.min(this.clientWidth / deck.size.width, this.clientHeight / deck.size.height)})`
+    let fitted: FittedSize
+    if (this.fit === 'viewport') {
+      const style = getComputedStyle(this)
+      const presenting = this.closest<HTMLElement>('[data-presenting]')
+      const blockAvailable = presenting ? presenting.clientHeight : window.innerHeight - this.getBoundingClientRect().top
+      fitted = fitSheet({
+        width: this.clientWidth,
+        height: blockAvailable,
+        paddingInlineStart: Number.parseFloat(style.paddingInlineStart) || 0,
+        paddingInlineEnd: Number.parseFloat(style.paddingInlineEnd) || 0,
+        reserveBlockStart: this.room.blockStart ?? 0,
+        reserveBlockEnd: this.room.blockEnd ?? 0,
+        sheetWidth: deck.size.width,
+        sheetHeight: deck.size.height,
+      })
+      this.style.blockSize = `${fitted.height}px`
+    } else {
+      const scale = Math.min(this.clientWidth / deck.size.width, this.clientHeight / deck.size.height)
+      fitted = { scale, width: deck.size.width * scale, height: deck.size.height * scale }
+      this.style.removeProperty('block-size')
+    }
+    for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) item.style.transform = `scale(${fitted.scale})`
+    if (this.measured?.scale === fitted.scale && this.measured.width === fitted.width && this.measured.height === fitted.height) return
+    this.measured = fitted
+    this.dispatchEvent(new CustomEvent('segnavia-fit', { detail: fitted }))
   }
 
   private onKey = (event: KeyboardEvent) => {
-    if (event.target !== this) return
+    if (event.target !== this || this.attached?.keys !== 'stage') return
     if (this.attached?.key(event.key)) event.preventDefault()
   }
 
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
-    const message = messageFrom(event, this.querySelector('iframe'))
-    if (message?.type === MESSAGE.key && message.key) this.attached?.key(message.key)
+    const message = messageFrom(event, this.pool.frames())
+    if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }
+
+  private onResize = () => this.measure()
 }

@@ -71,9 +71,13 @@ export class SegnaviaCounter extends SegnaviaControl {
 }
 
 export class SegnaviaFullscreen extends SegnaviaControl {
-  constructor() {
-    super()
-    document.addEventListener('fullscreenchange', () => this.controller && this.render(this.controller.state))
+  connectedCallback() {
+    super.connectedCallback()
+    document.addEventListener('fullscreenchange', this.onFullscreen)
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    document.removeEventListener('fullscreenchange', this.onFullscreen)
   }
   // An element set directly wins over the `target` id, for a host whose
   // target is outside the component's own root.
@@ -91,7 +95,8 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     return '<button part="button"></button>'
   }
   protected render(_state: DeckState) {
-    const full = document.fullscreenElement !== null && document.fullscreenElement === this.target()
+    const full =
+      this.getAttribute('mode') === 'window' ? _state.presenting : document.fullscreenElement !== null && document.fullscreenElement === this.target()
     const button = this.root.querySelector('button') as HTMLButtonElement
     button.innerHTML = full ? ICONS.exitFullscreen : ICONS.enterFullscreen
     button.setAttribute('aria-label', full ? this.labels.exitFullscreen : this.labels.enterFullscreen)
@@ -99,8 +104,15 @@ export class SegnaviaFullscreen extends SegnaviaControl {
   protected clicked() {
     const target = this.target()
     if (!target) return
+    if (this.getAttribute('mode') === 'window') {
+      if (this.controller?.state.presenting) this.controller.stopPresenting()
+      else if (target instanceof HTMLElement) this.controller?.present(target)
+      return
+    }
     void (document.fullscreenElement === target ? document.exitFullscreen() : target.requestFullscreen())
   }
+
+  private onFullscreen = () => this.controller && this.render(this.controller.state)
 }
 
 export class SegnaviaTrack extends SegnaviaControl {
