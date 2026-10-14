@@ -21,8 +21,14 @@ interface PendingTurn {
   cancel: () => void
 }
 
+interface FrameEntry {
+  canvas: HTMLElement
+  value: ContentValue
+  loaded: boolean
+}
+
 export class FramePool {
-  private entries = new Map<string, { canvas: HTMLElement; value: ContentValue }>()
+  private entries = new Map<string, FrameEntry>()
   private turn = 0
   private deck: DeckState['deck'] = null
   private pending: PendingTurn | null = null
@@ -101,12 +107,17 @@ export class FramePool {
       hostOverride: options.transition,
       reducedMotion: options.reducedMotion,
     })
-    if (transition.kind === 'none') return deck.scripts === 'sandboxed' && this.updateSandboxed(state, controller, options)
-
     const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     const existing = this.entries.get(slide.id)
-    const ready = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
-    this.startSwap(state, controller, options, activeId, fromIndex, transition, ready)
+    const reused = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
+    const ready = reused && existing?.loaded === true
+    if (transition.kind === 'none') {
+      if (deck.scripts === 'sandboxed') return this.updateSandboxed(state, controller, options)
+      if (ready || !reused) return false
+      this.startSwap(state, controller, options, activeId, fromIndex, null, false, true)
+      return true
+    }
+    this.startSwap(state, controller, options, activeId, fromIndex, transition, ready, reused)
     return true
   }
 
@@ -129,6 +140,7 @@ export class FramePool {
         deck.slides.findIndex((candidate) => candidate.id === activeId),
         null,
         false,
+        false,
       )
       return true
     }
@@ -147,13 +159,14 @@ export class FramePool {
     fromIndex: number,
     transition: TurnTransition | null,
     ready: boolean,
+    reused: boolean,
   ) {
     const slide = state.slide
     if (!slide || !state.content) return
     this.turn++
     const incoming = this.add(state.index, state.content, state, controller, options, false)
     if (!incoming) return
-    this.beginSwap(slide.id, activeId, incoming, controller, options, transition, ready)
+    this.beginSwap(slide.id, activeId, incoming, controller, options, transition, ready, reused)
     this.retain(state, fromIndex, options.neighbors)
     this.sync(state, options.frameTitle)
     if (!incoming.isConnected) this.host.append(incoming)
@@ -167,6 +180,7 @@ export class FramePool {
     options: PoolOptions,
     transition: TurnTransition | null,
     ready: boolean,
+    reused: boolean,
   ) {
     const media = incoming.querySelector('iframe, img')
     let firstFrame = 0
@@ -202,6 +216,10 @@ export class FramePool {
       })
     }
     const painted = () => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = 0
+      }
       firstFrame = requestAnimationFrame(() => {
         secondFrame = requestAnimationFrame(animate)
       })
@@ -239,7 +257,7 @@ export class FramePool {
           incoming.inert = false
           this.mountWindow(controller.state, controller, options)
           this.changed()
-        } else if (!ready) {
+        } else if (!ready && !reused) {
           settled = true
           cleanup()
           incoming.remove()
@@ -312,8 +330,12 @@ export class FramePool {
     const existing = this.entries.get(slide.id)
     const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     if (existing && sameContent(existing.value, comparable)) return existing.canvas
-    const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle)
-    this.entries.set(slide.id, { canvas, value: comparable })
+    const entry: FrameEntry = { canvas: document.createElement('div'), value: comparable, loaded: false }
+    const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle, () => {
+      entry.loaded = true
+    })
+    entry.canvas = canvas
+    this.entries.set(slide.id, entry)
     if (existing) existing.canvas.replaceWith(canvas)
     else if (mount) this.host.append(canvas)
     return canvas

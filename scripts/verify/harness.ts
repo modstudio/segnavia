@@ -24,25 +24,33 @@ export interface Harness {
   evidence(name: string): Promise<void>
   failures(): number
   errors: string[]
+  releaseHeldFrames(): void
   close(): Promise<void>
 }
 
 export async function openHarness(): Promise<Harness> {
   mkdirSync(EVIDENCE, { recursive: true })
+  const heldFrames = new Set<ReadableStreamDefaultController<Uint8Array>>()
   const server = Bun.serve({
     port: 0,
     fetch: async (request) => {
       const url = new URL(request.url)
       if (url.pathname === '/held-frame.html') {
         const encoder = new TextEncoder()
+        let heldController: ReadableStreamDefaultController<Uint8Array> | undefined
         return new Response(
           new ReadableStream({
             start(controller) {
+              heldController = controller
+              heldFrames.add(controller)
               controller.enqueue(
                 encoder.encode(
                   '<!doctype html><style>html{background:rgb(88,28,135)}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>',
                 ),
               )
+            },
+            cancel() {
+              if (heldController) heldFrames.delete(heldController)
             },
           }),
           { headers: { 'content-type': 'text/html; charset=utf-8' } },
@@ -71,6 +79,10 @@ export async function openHarness(): Promise<Harness> {
   return {
     page,
     errors,
+    releaseHeldFrames() {
+      for (const controller of heldFrames) controller.close()
+      heldFrames.clear()
+    },
     url: (file) => `http://localhost:${server.port}/${file}`,
     check(what, ok, detail = '') {
       console.log(`${ok ? 'PASS' : 'FAIL'}  ${what}${detail ? `  (${detail})` : ''}`)
