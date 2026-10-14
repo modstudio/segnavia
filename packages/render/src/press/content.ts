@@ -1,6 +1,7 @@
 import type { Color3, Color4 } from '../color/types.ts'
+import { RenderRefusedError } from '../errors.ts'
 import { formatPdfNumber } from './color-policy.ts'
-import { contentColorSpaceAction, inlineImageAction } from './policy.ts'
+import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
 
 export const MAX_CONTENT_NESTING = 64
 // Color operators need at most four operands and Chromium's largest observed operator, cm, uses six; 32 leaves room without unbounded retention.
@@ -32,7 +33,7 @@ const numberPattern = /^[+-]?(?:\d+\.?\d*|\.\d+)$/
 const whitespace = (character: string | undefined): boolean => character !== undefined && /[\0\t\n\f\r ]/.test(character)
 const delimiter = (character: string | undefined): boolean => character !== undefined && /[()<>{}[\]/%]/.test(character)
 function refusal(found: string, supported: string): never {
-  throw new Error(`PDF content has unsupported ${found}; supported: ${supported}`)
+  throw new RenderRefusedError(`The PDF has unsupported ${found}; supported: ${supported}.`)
 }
 
 function skipComment(source: string, at: number): number {
@@ -139,7 +140,7 @@ function inlineImageEnd(source: string, at: number): number {
   if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
   const name = colorSpace?.startsWith('/') ? colorSpace.slice(1) : undefined
   const policy = inlineImageAction(name, imageMask)
-  if (policy.action === 'refuse') refusal(`BI operator with color space ${policy.kind}`, policy.supported)
+  if (policy.action === 'refuse') refusal(`BI operator with color space ${policy.label}`, policy.supported)
   return end.index + end[0].length
 }
 function skippedConstruct(source: string, cursor: number): number | undefined {
@@ -172,25 +173,33 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
 function validateSpace(token: Token, operands: Token[]): void {
   if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
   const name = operands[0].raw.slice(1)
-  const policy = contentColorSpaceAction(name)
-  if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${policy.action === 'refuse' ? 'other' : name}`, policy.supported)
+  const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name)
+  if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
 }
-function validateSetColor(token: Token, operands: Token[]): void {
-  const pattern = (token.raw === 'scn' || token.raw === 'SCN') && operands.length === 1 && operands[0]?.kind === 'name'
-  if (!pattern) refusal(`${token.raw} operator with numeric operands`, 'a pattern name with scn or SCN')
+function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
+  if (policy.action !== 'refuse') return
+  const operator = token.raw
+  if (operator === 'cs' || operator === 'CS') {
+    validateSpace(token, operands)
+    return
+  }
+  if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN')
+    refusal(`${operator} operator with numeric operands`, policy.supported)
+  refusal(`${operator === 'g' || operator === 'G' ? 'gray' : 'RGB'} color operator ${operator} after conversion`, policy.supported)
 }
 function colorOperator(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts, inspect: boolean): Replacement | undefined {
   const operator = token.raw
+  if (!isContentColorOperator(operator)) return undefined
+  const patternName = operands.length === 1 && operands[0]?.kind === 'name'
+  const policy = contentOperatorAction(operator, inspect, undefined, patternName)
+  enforceOperatorPolicy(token, operands, policy)
   if (operator === 'rg' || operator === 'RG') {
-    if (inspect) refusal(`RGB color operator ${operator} after conversion`, 'CMYK operators')
     return replaceRgb(token, operands, convert, counts)
   }
   if (operator === 'g' || operator === 'G') {
-    if (inspect) refusal(`gray color operator ${operator} after conversion`, 'CMYK operators')
     return replaceGray(token, operands, convert, counts)
   }
   if (operator === 'cs' || operator === 'CS') validateSpace(token, operands)
-  else if (['sc', 'SC', 'scn', 'SCN'].includes(operator)) validateSetColor(token, operands)
   else if (operator === 'k' || operator === 'K') {
     numeric(operands, 4, operator)
     counts[operator === 'k' ? 'fills' : 'strokes']++

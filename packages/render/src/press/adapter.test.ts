@@ -45,6 +45,16 @@ test('the read-back inspection refuses an RGB operator', async () => {
   await expect(inspectPressPdf(await document.save())).rejects.toThrow(/RGB color operator/)
 })
 
+test.each([
+  ['/DeviceRGB cs', /cs operator/],
+  ['BI /CS /RGB ID x EI', /BI operator/],
+] as const)('preserves the named content refusal for %s', async (content, message) => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
+  await expect(rewritePressPdf(await document.save(), profile)).rejects.toThrow(message)
+})
+
 function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
   page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
@@ -150,6 +160,30 @@ test('converts page groups while leaving ordinary and mask DeviceGray groups alo
   document.getPage(2).node.set(PDFName.of('Resources'), document.context.obj({ ExtGState: { Mask: { SMask: alphaMask } } }))
   const converted = await rewritePressPdf(await document.save(), profile)
   expect(converted.report.groups).toBe(2)
+})
+
+test('classifies an unknown group color space without echoing its name', async () => {
+  const document = await PDFDocument.create()
+  const unknown = `secret-${'x'.repeat(8_000)}`
+  const form = document.context.register(
+    document.context.stream('', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+      Resources: {},
+      Group: { S: 'Transparency', CS: PDFName.of(unknown) },
+    }),
+  )
+  setResources(document, document.addPage([10, 10]), { XObject: { Bad: form } }, '/Bad Do')
+  try {
+    await rewritePressPdf(await document.save(), profile)
+    throw new Error('Expected the unknown group color space to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toContain('transparency group color space other')
+    expect((error as Error).message).not.toContain('secret-')
+    expect((error as Error).message.length).toBeLessThan(256)
+  }
 })
 
 test('rewrites Type 3 glyph color and reports an RGB image drawn by a glyph', async () => {

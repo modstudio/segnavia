@@ -249,7 +249,8 @@ so limits also measure the bytes and pages actually returned. Profile reads are 
 content stream is bounded by `MAX_CONTENT_BYTES` (32 MiB) before tokenization.
 One rewrite or read-back pass is bounded by `MAX_DOCUMENT_CONTENT_BYTES` (128
 MiB) across all decoded content streams, and rewritten streams are compressed
-again before the PDF is saved.
+again before the PDF is saved. `MAX_OPERANDS` (32) bounds the operands retained
+while the tokenizer waits for an operator.
 
 A proof image, a gamut report and a `convert` hook for a host-owned full
 converter remain designed, not built.

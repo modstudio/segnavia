@@ -1,15 +1,14 @@
-import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
+import { PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { inspectContent } from './content.ts'
-import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, resolvedColorSpace } from './pdf-objects.ts'
-import { functionAction, groupAction, shadingAction } from './policy.ts'
+import { type ContentBudget, decodeContent, nameOf, numberOf, resolvedColorSpace } from './pdf-objects.ts'
+import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import type { PressImage, PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
 
 interface ReportState {
   budget: ContentBudget
   document: PDFDocument
-  functions: WeakSet<PDFDict>
   groups: WeakSet<PDFDict>
   images: WeakSet<PDFRawStream>
   report: PressReport
@@ -34,29 +33,19 @@ function inspectImage(state: ReportState, image: PDFRawStream): void {
   state.report.images.push({ width, height, colorSpace: space.label as PressImage['colorSpace'] })
 }
 
-function functionStops(state: ReportState, object: PDFObject | undefined): number {
-  const fn = dictionaryOf(resolved(state, object))
-  if (!fn || state.functions.has(fn)) return 0
-  state.functions.add(fn)
-  const type = numberOf(fn, 'FunctionType')
-  const policy = functionAction(type)
-  if (policy.action === 'refuse') return refuse(`shading FunctionType ${type ?? 'missing'}`, policy.supported)
-  if (type === 2) return 2
-  const functions = fn.lookupMaybe(key('Functions'), PDFArray)
-  if (!functions) return refuse('FunctionType 3 Functions missing', 'a Functions array')
-  let count = 0
-  for (let index = 0; index < functions.size(); index++) count += functionStops(state, functions.get(index))
-  return count
+function inspectFunction(state: ReportState, fn: PDFDict | undefined, policy: FunctionDecision): void {
+  if (policy.action === 'refuse') refuse(policy.found, policy.supported)
+  if (fn && numberOf(fn, 'FunctionType') === 2) state.report.gradientStops += 2
 }
 
-function inspectShading(state: ReportState, shading: PDFDict): void {
-  if (state.shadings.has(shading)) return
+function inspectShading(state: ReportState, shading: PDFDict): boolean {
+  if (state.shadings.has(shading)) return false
   state.shadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
   const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
   const policy = shadingAction(space.kind, type)
   if (policy.action === 'refuse' || policy.action === 'convert') refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
-  state.report.gradientStops += functionStops(state, shading.get(key('Function')))
+  return true
 }
 
 function inspectGroup(state: ReportState, owner: PDFDict, maskSource: boolean): void {
@@ -74,7 +63,6 @@ export async function inspectPressPdf(bytes: Uint8Array): Promise<PressReport> {
   const state: ReportState = {
     budget: { decodedBytes: 0 },
     document,
-    functions: new WeakSet(),
     groups: new WeakSet(),
     images: new WeakSet(),
     report: { images: [], fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
@@ -86,6 +74,7 @@ export async function inspectPressPdf(bytes: Uint8Array): Promise<PressReport> {
       state.report.fills += counts.fills
       state.report.strokes += counts.strokes
     },
+    function: (fn, decision) => inspectFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => inspectGroup(state, owner, maskSource),
     image: (image) => inspectImage(state, image),
     shading: (shading) => inspectShading(state, shading),

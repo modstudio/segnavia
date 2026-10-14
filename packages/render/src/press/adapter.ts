@@ -1,12 +1,12 @@
 import { deflateSync } from 'node:zlib'
-import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
+import { PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
-import { functionAction, groupAction, shadingAction } from './policy.ts'
+import { arrayNumbers, type ContentBudget, decodeContent, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
+import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
 import type { PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
@@ -17,7 +17,6 @@ interface RewriteState {
   budget: ContentBudget
   convert: ReturnType<typeof cachedPressColor>
   document: PDFDocument
-  seenFunctions: WeakSet<PDFDict>
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
   totals: PressRewriteCounts
@@ -37,38 +36,30 @@ const refuse = (found: string, supported: string): never => {
 const resolved = (state: RewriteState, object: PDFObject | undefined): PDFObject | undefined =>
   object instanceof PDFRef ? state.document.context.lookup(object) : object
 
-function functionStops(state: RewriteState, object: PDFObject | undefined): number {
-  const fn = dictionaryOf(resolved(state, object))
-  if (!fn) return refuse('shading function other', functionAction(undefined).supported)
-  if (state.seenFunctions.has(fn)) return 0
-  state.seenFunctions.add(fn)
+function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: FunctionDecision): void {
+  if (policy.action === 'refuse') refuse(policy.found, policy.supported)
+  if (!fn) return
   const type = numberOf(fn, 'FunctionType')
-  const policy = functionAction(type)
-  if (policy.action === 'refuse') return refuse(`shading FunctionType ${type ?? 'missing'}`, policy.supported)
   if (type === 2) {
     for (const name of ['C0', 'C1']) replaceArray(fn, name, state.convert(arrayNumbers(fn, name, 3) as Color3))
     if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
-    return 2
+    state.totals.gradientStops += 2
+    return
   }
-  const functions = fn.lookupMaybe(key('Functions'), PDFArray)
-  if (!functions) return refuse('FunctionType 3 Functions missing', 'a Functions array')
-  let stops = 0
-  for (let index = 0; index < functions.size(); index++) stops += functionStops(state, functions.get(index))
   if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
-  return stops
 }
 
-function convertShading(state: RewriteState, shading: PDFDict): void {
-  if (state.seenShadings.has(shading)) return
+function convertShading(state: RewriteState, shading: PDFDict): boolean {
+  if (state.seenShadings.has(shading)) return false
   state.seenShadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
   const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
   const policy = shadingAction(space.kind, type)
   if (policy.action === 'refuse') refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
-  if (policy.action === 'keep') return
-  state.totals.gradientStops += functionStops(state, shading.get(key('Function')))
+  if (policy.action === 'keep') return false
   if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
+  return true
 }
 
 function convertGroup(state: RewriteState, owner: PDFDict, maskSource: boolean): void {
@@ -108,7 +99,6 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
     budget: { decodedBytes: 0 },
     convert: cachedPressColor(profile),
     document,
-    seenFunctions: new WeakSet(),
     seenGroups: new WeakSet(),
     seenShadings: new WeakSet(),
     totals: { fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
@@ -119,6 +109,7 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile): P
   const state = newState(document, profile)
   walkPressGraph(document, {
     content: (object, stream, replace) => convertContent(state, object, stream, replace),
+    function: (fn, decision) => convertFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
     image: () => undefined,
     shading: (shading) => convertShading(state, shading),
@@ -141,7 +132,7 @@ export async function rewritePressPdf(bytes: Uint8Array, profileBytes: Uint8Arra
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     rewritePressDocument(document, profile)
     addOutputIntent(document, profileBytes)
-    const output = await document.save()
+    const output = await document.save({ useObjectStreams: false })
     return { bytes: output, report: await inspectPressPdf(output) }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error

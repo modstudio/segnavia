@@ -1,16 +1,19 @@
 import { PDFArray, PDFDict, type PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
 import { dictionaryOf, nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
+import { type FunctionDecision, shadingFunctionAction } from './policy.ts'
 
 export interface PressGraphActions {
   content: (object: PDFObject, stream: PDFRawStream, replace: (stream: PDFRawStream) => void) => void
+  function: (fn: PDFDict | undefined, decision: FunctionDecision) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, maskSource: boolean) => void
   image: (stream: PDFRawStream) => void
-  shading: (shading: PDFDict) => void
+  shading: (shading: PDFDict) => boolean
 }
 
 interface WalkState {
   actions?: PressGraphActions
   document: PDFDocument
+  functions: WeakSet<PDFDict>
   maskSources: WeakSet<PDFRawStream>
   resources: WeakSet<PDFDict>
   references: Set<string>
@@ -64,11 +67,26 @@ function visitAppearances(state: WalkState, page: PDFDict): void {
   }
 }
 
+function visitFunction(state: WalkState, object: PDFObject | undefined): void {
+  const fn = dictionary(state, object)
+  if (fn && state.functions.has(fn)) return
+  if (fn) state.functions.add(fn)
+  const type = fn ? numberOf(fn, 'FunctionType') : undefined
+  const functions = type === 3 ? fn?.lookupMaybe(key('Functions'), PDFArray) : undefined
+  const decision = shadingFunctionAction(type, Boolean(fn), type !== 3 || Boolean(functions))
+  state.actions?.function(fn, decision)
+  for (let index = 0; index < (functions?.size() ?? 0); index++) visitFunction(state, functions?.get(index))
+}
+
+function visitShading(state: WalkState, shading: PDFDict): void {
+  if (state.actions?.shading(shading)) visitFunction(state, shading.get(key('Function')))
+}
+
 function visitShadings(state: WalkState, resources: PDFDict): void {
   const shadings = resources.lookupMaybe(key('Shading'), PDFDict)
   for (const [, object] of shadings?.entries() ?? []) {
     const found = dictionary(state, object)
-    if (found) state.actions?.shading(found)
+    if (found) visitShading(state, found)
   }
 }
 
@@ -79,7 +97,7 @@ function visitPatterns(state: WalkState, resources: PDFDict): void {
     if (!found) continue
     if (numberOf(found, 'PatternType') === 2) {
       const shading = dictionary(state, found.get(key('Shading')))
-      if (shading) state.actions?.shading(shading)
+      if (shading) visitShading(state, shading)
     } else visitContent(state, object, (replacement) => patterns?.set(name, replacement))
     visitResources(state, found.lookupMaybe(key('Resources'), PDFDict))
   }
@@ -122,7 +140,7 @@ function visitResources(state: WalkState, resources: PDFDict | undefined): void 
 }
 
 function traverse(document: PDFDocument, maskSources: WeakSet<PDFRawStream>, actions?: PressGraphActions): void {
-  const state: WalkState = { document, maskSources, actions, references: new Set(), resources: new WeakSet(), streams: new WeakSet() }
+  const state: WalkState = { document, maskSources, actions, functions: new WeakSet(), references: new Set(), resources: new WeakSet(), streams: new WeakSet() }
   for (const page of document.getPages()) {
     actions?.group(page.node, undefined, false)
     const contents = page.node.Contents()
@@ -136,6 +154,7 @@ function traverse(document: PDFDocument, maskSources: WeakSet<PDFRawStream>, act
 
 export function walkPressGraph(document: PDFDocument, actions: PressGraphActions): void {
   const maskSources = new WeakSet<PDFRawStream>()
+  // The first traversal only records mask sources so the action traversal can distinguish their groups from ordinary transparency groups.
   traverse(document, maskSources)
   traverse(document, maskSources, actions)
 }

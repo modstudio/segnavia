@@ -1,7 +1,7 @@
 import { inflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef, PDFStream } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
-import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, contentFilter } from './policy.ts'
+import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, colorSpaceLabel, contentFilter } from './policy.ts'
 
 // This bounds each inflated author-influenced content stream before tokenization.
 export const MAX_CONTENT_BYTES = 32 * 1024 * 1024
@@ -67,8 +67,7 @@ function colorSpaceValue(document: PDFDocument, object: PDFObject | undefined): 
 
 export function resolvedColorSpace(document: PDFDocument, object: PDFObject | undefined): { kind: ColorSpaceKind; label: string } {
   const value = colorSpaceValue(document, object)
-  const label = value?.name ?? value?.family ?? (object ? 'other' : 'missing')
-  return { kind: colorSpaceKind(value), label }
+  return { kind: colorSpaceKind(value), label: object ? colorSpaceLabel(value) : 'missing' }
 }
 
 function filterNames(filter: PDFObject | undefined): string[] | undefined {
@@ -88,11 +87,10 @@ function filterNames(filter: PDFObject | undefined): string[] | undefined {
 export function decodeContent(stream: PDFRawStream, budget?: ContentBudget): Uint8Array {
   const filter = stream.dict.get(PDFName.of('Filter'))
   const decision = contentFilter(filterNames(filter))
-  if (decision === 'unsupported')
-    throw new RenderRefusedError(`The PDF has unsupported content stream filter other; supported: ${'Fl' + 'ateDecode'} or no filter.`)
+  if (decision.action === 'refuse') throw new RenderRefusedError(`The PDF has unsupported content stream filter other; supported: ${decision.supported}.`)
   let decoded: Uint8Array
   try {
-    decoded = decision === 'compressed' ? inflateSync(stream.contents, { maxOutputLength: MAX_CONTENT_BYTES }) : stream.contents
+    decoded = decision.encoding === 'compressed' ? inflateSync(stream.contents, { maxOutputLength: MAX_CONTENT_BYTES }) : stream.contents
   } catch (error) {
     // zlib stops at maxOutputLength with this code, so an oversized stream is named as such rather than as corrupt.
     if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE')
