@@ -1,11 +1,25 @@
+import type { Scripts } from '@segnavia/format'
 import type { ResolvedContent } from './controller.ts'
 
-export function comparableContent(content: ResolvedContent, resolveUrl: (path: string) => string): ResolvedContent {
-  if (content.kind === 'url' || content.kind === 'image' || content.kind === 'shot') return { ...content, src: resolveUrl(content.src) }
-  return content
+export interface ContentValue {
+  content: ResolvedContent
+  scripts: Scripts
+  css: string
+  cspExtra: string
 }
 
-export function sameContent(left: ResolvedContent, right: ResolvedContent): boolean {
+export function comparableContent(
+  content: ResolvedContent,
+  resolveUrl: (path: string) => string,
+  scripts: Scripts,
+  css: string,
+  cspExtra: string,
+): ContentValue {
+  const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
+  return { content: resolved, scripts, css, cspExtra }
+}
+
+export function sameContent(left: ContentValue, right: ContentValue): boolean {
   return sameValue(left, right)
 }
 

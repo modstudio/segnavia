@@ -20,9 +20,10 @@ await customElements.whenDefined('segnavia-stage')
 const lib = await import('./segnavia.js')
 const stage = document.getElementById('deck')
 const root = document.getElementById('deck-root')
-const makeSlide = (id, suffix='') => ({id,content:{kind:'html',html:'<!doctype html><html><head><style>h1{color:rgb(0, 128, 0)}</style></head><body style="margin:0;height:100vh;display:grid;place-items:center"><h1>'+id+suffix+'</h1></body></html>'}})
+const makeSlide = (id, suffix='') => ({id,content:{kind:'html',html:'<!doctype html><html><head><style>html{background:rgb(15,118,110)}h1{color:rgb(0, 128, 0)}</style></head><body style="margin:0;height:100vh;display:grid;place-items:center"><h1>'+id+suffix+'</h1><script>document.querySelector("h1").textContent+="-script-ran"<\\/script></body></html>'}})
 const makeDeck = (ids, edits={}, scripts='refuse') => ({title:'Window deck',scripts,slides:ids.map(id=>makeSlide(id,edits[id]||''))})
 let ids = Array.from({length:Number(new URLSearchParams(location.search).get('slides')||40)},(_,index)=>'slide-'+(index+1))
+let scripts = 'refuse'
 const controller = new lib.DeckController({keys:'page'})
 stage.controller = controller
 stage.css = 'h1{color:rgb(200, 0, 0)}'
@@ -33,7 +34,7 @@ document.getElementById('previous').onclick=()=>controller.previous()
 document.getElementById('next').onclick=()=>controller.next()
 document.getElementById('present').onclick=()=>controller.state.presenting?controller.stopPresenting():controller.present(root)
 controller.addEventListener('change',({detail})=>{document.getElementById('counter').textContent=(detail.index+1)+' / '+detail.deck.slides.length;stage.reserve=detail.presenting?{blockStart:140}:{blockStart:140,blockEnd:172}})
-const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits))},async loadSandboxed(){ids=['sandboxed-1','sandboxed-2','sandboxed-3'];await controller.load(makeDeck(ids,{},'sandboxed'))},deck:()=>makeDeck(ids)}
+const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits,scripts))},async loadScripts(nextScripts){scripts=nextScripts;await controller.load(makeDeck(ids,{},scripts))},async loadSandboxed(){ids=['sandboxed-1','sandboxed-2','sandboxed-3'];scripts='sandboxed';await controller.load(makeDeck(ids,{},scripts));await controller.go(0)},async loadHeld(){const shown=controller.state.slide.id;ids=[shown,'held'];scripts='sandboxed';await controller.load({title:'Window deck',scripts,slides:[makeSlide(ids[0]),{id:ids[1],content:{kind:'url',src:'held-frame.html'}}]})},async setCss(css){stage.css=css;await controller.load(makeDeck(ids,{},scripts))},deck:()=>makeDeck(ids,{},scripts)}
 Object.defineProperty(window,'__deckHost',{value:api})
 await controller.load(makeDeck(ids))
 </script></body></html>`,

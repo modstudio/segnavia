@@ -15,6 +15,7 @@ export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-canvas,#fff);opacity:0;pointer-events:none}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){z-index:2}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > *){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__image){object-fit:contain}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}

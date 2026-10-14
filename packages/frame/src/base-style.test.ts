@@ -24,4 +24,9 @@ describe('headless base styles', () => {
       expect(BASE_CSS).toMatch(new RegExp(`var\\(--segnavia-[a-z-]+,${color.replace('(', '\\(')}`))
     }
   })
+
+  test('an incoming canvas stacks above the active canvas without becoming visible', () => {
+    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}')
+    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){z-index:2}')
+  })
 })
