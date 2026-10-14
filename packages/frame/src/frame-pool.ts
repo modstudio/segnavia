@@ -102,7 +102,7 @@ export class FramePool {
       incoming.setAttribute('aria-hidden', 'true')
       incoming.style.opacity = '0'
       incoming.style.zIndex = '2'
-      this.beginSwap(slide.id, incoming, state, options.frameTitle)
+      this.beginSwap(slide.id, incoming, controller, options.frameTitle)
       this.host.append(incoming)
       return true
     }
@@ -118,7 +118,7 @@ export class FramePool {
     return true
   }
 
-  private beginSwap(id: string, incoming: HTMLElement, state: DeckState, frameTitle: FrameTitle) {
+  private beginSwap(id: string, incoming: HTMLElement, controller: DeckController, frameTitle: FrameTitle) {
     const media = incoming.querySelector('iframe, img')
     let firstFrame = 0
     let secondFrame = 0
@@ -137,7 +137,7 @@ export class FramePool {
       incoming.style.removeProperty('opacity')
       incoming.style.removeProperty('z-index')
       this.pending = null
-      this.sync(state, frameTitle)
+      this.sync(controller.state, frameTitle)
       this.changed()
     }
     const painted = () => {

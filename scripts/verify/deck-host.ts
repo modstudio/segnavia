@@ -211,12 +211,18 @@ export async function verifyDeckHost(h: Harness) {
   const turnDurations: number[] = []
   const pixels: Array<[number, number, number]> = []
   await captureSandboxedTurns(h, turnDurations, pixels)
-  const sandboxedCount = await page.locator(`${STAGE} iframe`).count()
   const bare = pixels.filter(([red, green, blue]) => Math.abs(red - 238) < 3 && Math.abs(green - 238) < 3 && Math.abs(blue - 238) < 3)
+  const sampled = await sampleSandboxedTurns(h)
+  const sandboxedCount = await page.locator(`${STAGE} iframe`).count()
   check(
-    'deck host: tight per-frame captures stay painted and sandboxed decks retain no neighbor',
-    pixels.length >= 6 && bare.length === 0 && sandboxedCount === 1,
-    JSON.stringify({ captures: pixels.length, bare: bare.length, sandboxedCount, turnDurations }),
+    'deck host: every parent animation frame stays loaded and painted across sandboxed turns',
+    pixels.length >= 6 && bare.length === 0 && sampled.badFrames === 0 && sampled.turns >= 6 && sampled.frames > sampled.turns,
+    JSON.stringify({ captures: pixels.length, bare: bare.length, ...sampled, turnDurations }),
+  )
+  check(
+    'deck host: a rapid second turn cancels the first incoming frame and retains no neighbor',
+    sampled.cancelled && sampled.target === 'sandboxed-1' && sandboxedCount === 1,
+    JSON.stringify({ cancelled: sampled.cancelled, target: sampled.target, sandboxedCount }),
   )
 
   await page.evaluate(async () => {
@@ -257,6 +263,85 @@ async function captureSandboxedTurns(h: Harness, durations: number[], pixels: Ar
     durations.push(performance.now() - started)
     pixels.push(await stageCenterPixel(h), await stageCenterPixel(h))
   }
+}
+
+interface SampledTurns {
+  frames: number
+  badFrames: number
+  turns: number
+  cancelled: boolean
+  target: string | null
+}
+
+async function sampleSandboxedTurns(h: Harness): Promise<SampledTurns> {
+  return h.page.evaluate(async () => {
+    const stage = document.querySelector('#deck') as HTMLElement & { controller: { go(index: number): Promise<void> } }
+    const loaded = new WeakSet<Element>()
+    const watch = (canvas: Element) => {
+      const media = canvas.querySelector('iframe, img')
+      if (media) media.addEventListener('load', () => loaded.add(media), { once: true })
+    }
+    const activeMedia = stage.querySelector('[data-active] iframe, [data-active] img')
+    if (activeMedia) loaded.add(activeMedia)
+    const observer = new MutationObserver((records) => {
+      const added = records.flatMap((record) => [...record.addedNodes]).filter((node): node is Element => node instanceof Element)
+      for (const node of added) {
+        if (node.matches('.segnavia-stage__canvas')) watch(node)
+        for (const canvas of node.querySelectorAll('.segnavia-stage__canvas')) watch(canvas)
+      }
+    })
+    observer.observe(stage, { childList: true, subtree: true })
+
+    let frames = 0
+    let badFrames = 0
+    let sampling = true
+    const sample = () => {
+      if (!sampling) return
+      frames++
+      const visible = [...stage.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')].filter((canvas) => {
+        const style = getComputedStyle(canvas)
+        return style.opacity === '1' && style.display !== 'none' && style.visibility !== 'hidden' && !canvas.hidden
+      })
+      const media = visible[0]?.querySelector('iframe, img')
+      if (visible.length !== 1 || !media || !loaded.has(media)) badFrames++
+      requestAnimationFrame(sample)
+    }
+    requestAnimationFrame(sample)
+    const settle = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    const waitForActive = (id: string) =>
+      new Promise<void>((resolve) => {
+        const poll = () => {
+          if (stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === id) resolve()
+          else requestAnimationFrame(poll)
+        }
+        poll()
+      })
+    const go = async (index: number) => {
+      await stage.controller.go(index)
+      await waitForActive(`sandboxed-${index + 1}`)
+      await settle()
+    }
+    await go(1)
+    await go(2)
+    await go(1)
+    await go(0)
+    await go(1)
+    await stage.controller.go(2)
+    const firstIncoming = stage.querySelector<HTMLElement>('[data-slide-id="sandboxed-3"]')
+    await stage.controller.go(0)
+    await waitForActive('sandboxed-1')
+    await settle()
+    sampling = false
+    observer.disconnect()
+    const active = stage.querySelector<HTMLElement>('[data-active]')
+    return {
+      frames,
+      badFrames,
+      turns: 7,
+      cancelled: Boolean(firstIncoming) && !firstIncoming?.isConnected && !stage.querySelector('[data-slide-id="sandboxed-3"]'),
+      target: active?.dataset.slideId ?? null,
+    }
+  })
 }
 
 async function stageCenterPixel(h: Harness): Promise<[number, number, number]> {
