@@ -160,20 +160,25 @@ export async function verifyDeckHost(h: Harness) {
   await page.evaluate(async () => {
     const host = (window as unknown as { __deckHost: { focusNeighbor(): Promise<void> } }).__deckHost
     await host.focusNeighbor()
-    document.querySelector<HTMLTextAreaElement>('#notes')?.focus()
   })
-  await page.waitForTimeout(300)
+  const scriptedNeighbor = page.locator('#deck [data-slide-id="focus-neighbor"] iframe')
+  await scriptedNeighbor.contentFrame().locator('html[data-focus-ready]').waitFor()
+  await page.locator('#notes').focus()
+  await scriptedNeighbor.evaluate((frame: HTMLIFrameElement) => frame.contentWindow?.postMessage('focus', '*'))
+  await page.waitForFunction(() => (window as unknown as { __messages: string[] }).__messages.includes('focus-attempted'))
+  await page.waitForTimeout(50)
   const guardedFocus = await page.evaluate(() => {
     const active = document.activeElement
-    const hiddenFrame = document.querySelector<HTMLIFrameElement>('#deck [aria-hidden="true"] iframe')
-    return active !== hiddenFrame && active === document.querySelector('#deck')
+    const hiddenFrame = document.querySelector<HTMLIFrameElement>('#deck [data-slide-id="focus-neighbor"] iframe')
+    return { ok: active !== hiddenFrame && active === document.querySelector('#deck'), active: active?.tagName, id: active?.id }
   })
   await page.locator('#notes').focus()
+  await page.keyboard.press('End')
   await page.keyboard.type(' receives typed keys')
   const notesValue = await page.locator('#notes').inputValue()
   check(
     'deck host: a scripted hidden neighbor cannot retain focus or intercept page typing',
-    guardedFocus && notesValue === 'Notes stay editable receives typed keys',
+    guardedFocus.ok && notesValue === 'Notes stay editable receives typed keys',
     JSON.stringify({ guardedFocus, notesValue }),
   )
   await page.setViewportSize({ width: 1280, height: 816 })

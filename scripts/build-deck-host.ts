@@ -22,7 +22,7 @@ const stage = document.getElementById('deck')
 const root = document.getElementById('deck-root')
 const makeSlide = (id, suffix='') => ({id,content:{kind:'html',html:'<!doctype html><html><head><style>h1{color:rgb(0, 128, 0)}</style></head><body style="margin:0;height:100vh;display:grid;place-items:center"><h1>'+id+suffix+'</h1></body></html>'}})
 const makeDeck = (ids, edits={}) => ({title:'Window deck',scripts:'refuse',slides:ids.map(id=>makeSlide(id,edits[id]||''))})
-const makeFocusDeck = () => ({title:'Focus deck',scripts:'sandboxed',slides:[makeSlide('focus-active'),{id:'focus-neighbor',content:{kind:'html',html:'<input><scr'+'ipt>setTimeout(function(){document.querySelector("input").focus()},150)</scr'+'ipt>'}}]})
+const makeFocusDeck = () => ({title:'Focus deck',scripts:'sandboxed',slides:[makeSlide('focus-active'),{id:'focus-neighbor',content:{kind:'html',html:'<input><scr'+'ipt>addEventListener("message",function(){document.querySelector("input").focus();parent.postMessage({type:"focus-attempted"},"*")});document.documentElement.dataset.focusReady=""</scr'+'ipt>'}}]})
 let ids = Array.from({length:Number(new URLSearchParams(location.search).get('slides')||40)},(_,index)=>'slide-'+(index+1))
 const controller = new lib.DeckController({keys:'page'})
 stage.controller = controller

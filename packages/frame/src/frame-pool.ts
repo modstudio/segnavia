@@ -69,6 +69,13 @@ export class FramePool {
     return this.host.querySelector<HTMLIFrameElement>('.segnavia-stage__canvas[data-active] iframe')
   }
 
+  guardFocus(target: EventTarget | null = this.host.ownerDocument.activeElement) {
+    if (!(target instanceof HTMLIFrameElement) || !this.host.contains(target)) return
+    if (target.closest('.segnavia-stage__canvas')?.hasAttribute('data-active')) return
+    target.blur()
+    this.host.focus()
+  }
+
   private add(index: number, content: ResolvedContent, state: DeckState, controller: DeckController, options: PoolOptions) {
     const deck = state.deck
     const slide = deck?.slides[index]
@@ -93,10 +100,7 @@ export class FramePool {
       canvas.setAttribute('aria-hidden', String(!visible))
       canvas.inert = !visible
       const frame = canvas.querySelector('iframe')
-      if (frame && !visible && frame === this.host.ownerDocument.activeElement) {
-        frame.blur()
-        this.host.focus()
-      }
+      if (frame && !visible && frame === this.host.ownerDocument.activeElement) this.guardFocus(frame)
       if (frame) frame.title = frameTitle(deck.title, index + 1)
     }
   }

@@ -1,5 +1,16 @@
 import { describe, expect, test } from 'bun:test'
+import { Shot } from '@segnavia/format'
 import { comparableContent, sameContent } from './content-value.ts'
+
+const shot = Shot.parse({
+  key: 'slide',
+  title: 'Slide',
+  file: 'slide.png',
+  size: { width: 1280, height: 720 },
+  scale: 1,
+  annotations: [],
+  capturedAt: 'now',
+})
 
 describe('resolved content values', () => {
   test('matches equal values rather than object identity', () => {
@@ -16,6 +27,12 @@ describe('resolved content values', () => {
       sameContent(
         comparableContent({ kind: 'image', src: 'slide.png', alt: '' }, from('https://one.example/')),
         comparableContent({ kind: 'image', src: 'slide.png', alt: '' }, from('https://two.example/')),
+      ),
+    ).toBe(false)
+    expect(
+      sameContent(
+        comparableContent({ kind: 'shot', src: 'slide.png', shot }, from('https://one.example/')),
+        comparableContent({ kind: 'shot', src: 'slide.png', shot }, from('https://two.example/')),
       ),
     ).toBe(false)
     expect(
