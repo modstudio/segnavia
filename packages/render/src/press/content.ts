@@ -245,10 +245,7 @@ function scan(
   return counts
 }
 
-export function visitContentTokens(
-  bytes: Uint8Array,
-  visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void,
-): void {
+export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void): void {
   scan(
     decoder.decode(bytes),
     () => [0, 0, 0, 0],

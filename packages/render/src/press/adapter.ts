@@ -5,6 +5,7 @@ import type { Color3, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
+import { type PaintedBounds, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
@@ -18,6 +19,7 @@ interface RewriteState {
   budget: ContentBudget
   convert: ReturnType<typeof cachedPressColor>
   document: PDFDocument
+  painted: PaintedBounds
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
   totals: PressRewriteCounts
@@ -70,7 +72,7 @@ function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict
   if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
   shading.set(key('ColorSpace'), key('DeviceCMYK'))
   if (type === 1) {
-    replaceType1Function(state.document, shading, pattern, state.convert, state.budget)
+    replaceType1Function(state.document, shading, pattern, state.convert, state.budget, pattern ? state.painted.get(pattern) : undefined)
     return false
   }
   return true
@@ -98,8 +100,23 @@ function streamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
   return dictionary
 }
 
-function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void): void {
-  const rewritten = rewriteContent(decodeContent(stream, state.budget), state.convert)
+function resolveShadingPattern(state: RewriteState, resources: PDFDict | undefined, name: string): PDFDict | undefined {
+  const patterns = resources?.lookupMaybe(key('Pattern'), PDFDict)
+  const found = dictionaryOf(resolved(state, patterns?.get(PDFName.of(name))))
+  if (found && numberOf(found, 'PatternType') === 2) return found
+  return undefined
+}
+
+function convertContent(
+  state: RewriteState,
+  object: PDFObject,
+  stream: PDFRawStream,
+  setDirect: (stream: PDFRawStream) => void,
+  resources: PDFDict | undefined,
+): void {
+  const bytes = decodeContent(stream, state.budget)
+  recordPatternPaintedBounds(bytes, (name) => resolveShadingPattern(state, resources, name), state.painted)
+  const rewritten = rewriteContent(bytes, state.convert)
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
   const replacement = state.document.context.stream(deflateSync(rewritten.bytes), streamDictionary(stream))
@@ -113,6 +130,7 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
     budget: { decodedBytes: 0 },
     convert: cachedPressColor(profile),
     document,
+    painted: new WeakMap(),
     seenGroups: new WeakSet(),
     seenShadings: new WeakSet(),
     totals: { fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
@@ -122,7 +140,7 @@ function newState(document: PDFDocument, profile: Profile): RewriteState {
 export function rewritePressDocument(document: PDFDocument, profile: Profile): PressRewriteCounts {
   const state = newState(document, profile)
   walkPressGraph(document, {
-    content: (object, stream, replace) => convertContent(state, object, stream, replace),
+    content: (object, stream, replace, resources) => convertContent(state, object, stream, replace, resources),
     function: (fn, decision) => convertFunction(state, fn, decision),
     group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
     image: () => undefined,

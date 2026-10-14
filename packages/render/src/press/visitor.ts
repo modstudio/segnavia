@@ -3,7 +3,7 @@ import { dictionaryOf, nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
 import { type FunctionDecision, shadingFunctionAction } from './policy.ts'
 
 export interface PressGraphActions {
-  content: (object: PDFObject, stream: PDFRawStream, replace: (stream: PDFRawStream) => void) => void
+  content: (object: PDFObject, stream: PDFRawStream, replace: (stream: PDFRawStream) => void, resources: PDFDict | undefined) => void
   function: (fn: PDFDict | undefined, decision: FunctionDecision) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, maskSource: boolean) => void
   image: (stream: PDFRawStream) => void
@@ -26,7 +26,7 @@ const resolved = (state: WalkState, object: PDFObject | undefined): PDFObject | 
 const dictionary = (state: WalkState, object: PDFObject | undefined): PDFDict | undefined => dictionaryOf(resolved(state, object))
 const stream = (state: WalkState, object: PDFObject | undefined): PDFRawStream | undefined => rawStreamOf(resolved(state, object))
 
-function visitContent(state: WalkState, object: PDFObject | undefined, replace: (value: PDFRawStream) => void): void {
+function visitContent(state: WalkState, object: PDFObject | undefined, replace: (value: PDFRawStream) => void, enclosing?: PDFDict): void {
   if (!object) return
   if (object instanceof PDFRef) {
     const label = object.toString()
@@ -36,21 +36,22 @@ function visitContent(state: WalkState, object: PDFObject | undefined, replace: 
   const found = stream(state, object)
   if (!found || state.streams.has(found)) return
   state.streams.add(found)
+  const own = found.dict.lookupMaybe(key('Resources'), PDFDict)
   state.actions?.group(found.dict, found, state.maskSources.has(found))
-  state.actions?.content(object, found, replace)
-  visitResources(state, found.dict.lookupMaybe(key('Resources'), PDFDict))
+  state.actions?.content(object, found, replace, own ?? enclosing)
+  visitResources(state, own)
 }
 
-function visitSoftMask(state: WalkState, object: PDFObject | undefined): void {
+function visitSoftMask(state: WalkState, object: PDFObject | undefined, enclosing?: PDFDict): void {
   const mask = dictionary(state, dictionary(state, object)?.get(key('SMask')))
   const sourceObject = mask?.get(key('G'))
   const source = stream(state, sourceObject)
   if (!source || !sourceObject) return
   state.maskSources.add(source)
-  visitContent(state, sourceObject, (replacement) => mask?.set(key('G'), replacement))
+  visitContent(state, sourceObject, (replacement) => mask?.set(key('G'), replacement), enclosing)
 }
 
-function visitAppearances(state: WalkState, page: PDFDict): void {
+function visitAppearances(state: WalkState, page: PDFDict, enclosing?: PDFDict): void {
   const annotations = resolved(state, page.get(key('Annots')))
   if (!(annotations instanceof PDFArray)) return
   for (let index = 0; index < annotations.size(); index++) {
@@ -58,10 +59,11 @@ function visitAppearances(state: WalkState, page: PDFDict): void {
     for (const name of ['N', 'R', 'D']) {
       const object = appearance?.get(key(name))
       if (!object) continue
-      if (stream(state, object)) visitContent(state, object, (replacement) => appearance?.set(key(name), replacement))
+      if (stream(state, object)) visitContent(state, object, (replacement) => appearance?.set(key(name), replacement), enclosing)
       else {
         const states = dictionary(state, object)
-        for (const [stateName, stateObject] of states?.entries() ?? []) visitContent(state, stateObject, (replacement) => states?.set(stateName, replacement))
+        for (const [stateName, stateObject] of states?.entries() ?? [])
+          visitContent(state, stateObject, (replacement) => states?.set(stateName, replacement), enclosing)
       }
     }
   }
@@ -98,14 +100,14 @@ function visitPatterns(state: WalkState, resources: PDFDict): void {
     if (numberOf(found, 'PatternType') === 2) {
       const shading = dictionary(state, found.get(key('Shading')))
       if (shading) visitShading(state, shading, found)
-    } else visitContent(state, object, (replacement) => patterns?.set(name, replacement))
+    } else visitContent(state, object, (replacement) => patterns?.set(name, replacement), found.lookupMaybe(key('Resources'), PDFDict) ?? resources)
     visitResources(state, found.lookupMaybe(key('Resources'), PDFDict))
   }
 }
 
 function visitGraphicsStates(state: WalkState, resources: PDFDict): void {
   const graphicsStates = resources.lookupMaybe(key('ExtGState'), PDFDict)
-  for (const [, object] of graphicsStates?.entries() ?? []) visitSoftMask(state, object)
+  for (const [, object] of graphicsStates?.entries() ?? []) visitSoftMask(state, object, resources)
 }
 
 function visitXObjects(state: WalkState, resources: PDFDict): void {
@@ -114,7 +116,7 @@ function visitXObjects(state: WalkState, resources: PDFDict): void {
     const found = stream(state, object)
     if (!found) continue
     if (nameOf(found.dict.get(key('Subtype'))) === 'Image') state.actions?.image(found)
-    else visitContent(state, object, (replacement) => xObjects?.set(name, replacement))
+    else visitContent(state, object, (replacement) => xObjects?.set(name, replacement), found.dict.lookupMaybe(key('Resources'), PDFDict) ?? resources)
   }
 }
 
@@ -124,7 +126,8 @@ function visitFonts(state: WalkState, resources: PDFDict): void {
     const font = dictionary(state, object)
     if (!font || nameOf(font.get(key('Subtype'))) !== 'Type3') continue
     const charProcs = font.lookupMaybe(key('CharProcs'), PDFDict)
-    for (const [name, glyph] of charProcs?.entries() ?? []) visitContent(state, glyph, (replacement) => charProcs?.set(name, replacement))
+    for (const [name, glyph] of charProcs?.entries() ?? [])
+      visitContent(state, glyph, (replacement) => charProcs?.set(name, replacement), font.lookupMaybe(key('Resources'), PDFDict) ?? resources)
     visitResources(state, font.lookupMaybe(key('Resources'), PDFDict))
   }
 }
@@ -132,23 +135,25 @@ function visitFonts(state: WalkState, resources: PDFDict): void {
 function visitResources(state: WalkState, resources: PDFDict | undefined): void {
   if (!resources || state.resources.has(resources)) return
   state.resources.add(resources)
-  visitShadings(state, resources)
-  visitPatterns(state, resources)
   visitGraphicsStates(state, resources)
   visitXObjects(state, resources)
   visitFonts(state, resources)
+  visitShadings(state, resources)
+  visitPatterns(state, resources)
 }
 
 function traverse(document: PDFDocument, maskSources: WeakSet<PDFRawStream>, actions?: PressGraphActions): void {
   const state: WalkState = { document, maskSources, actions, functions: new WeakSet(), references: new Set(), resources: new WeakSet(), streams: new WeakSet() }
   for (const page of document.getPages()) {
     actions?.group(page.node, undefined, false)
+    const pageResources = page.node.Resources()
     const contents = page.node.Contents()
     if (contents instanceof PDFArray) {
-      for (let index = 0; index < contents.size(); index++) visitContent(state, contents.get(index), (replacement) => contents.set(index, replacement))
-    } else visitContent(state, contents, (replacement) => page.node.set(key('Contents'), replacement))
-    visitResources(state, page.node.Resources())
-    visitAppearances(state, page.node)
+      for (let index = 0; index < contents.size(); index++)
+        visitContent(state, contents.get(index), (replacement) => contents.set(index, replacement), pageResources)
+    } else visitContent(state, contents, (replacement) => page.node.set(key('Contents'), replacement), pageResources)
+    visitResources(state, pageResources)
+    visitAppearances(state, page.node, pageResources)
   }
 }
 

@@ -251,11 +251,13 @@ counts of converted fills, strokes, gradient stops, sampled shadings and groups 
 the finished PDF. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
 converted by sampling their calculator program onto a DeviceCMYK type 0 function:
-one sample per 0.5 pt of the shading's domain in device space (the pattern
-`/Matrix` and the domain), capped at `MAX_SHADING_SAMPLES` (1 048 576). The
-interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES` (8192),
-`MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled data
-counts against `MAX_DOCUMENT_CONTENT_BYTES`. Axial and radial shadings are
+one sample per 0.5 pt of the area the shading paints in device space (the
+pattern's painted bounds, mapped through the pattern `/Matrix` and intersected
+with the domain), 8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576).
+When painted bounds cannot be established, the full domain is sampled under that
+ceiling. The interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
+(8192), `MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled
+data counts against `MAX_DOCUMENT_CONTENT_BYTES`. Axial and radial shadings are
 converted by their stops. The catalog's output intent
 embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
 through the profile that made them. The input byte ceiling is checked before

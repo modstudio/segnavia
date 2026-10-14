@@ -85,14 +85,41 @@ function channelDistance(found: [number, number, number], expected: [number, num
   return Math.max(...found.map((value, index) => Math.abs(value - (expected[index] ?? 0))))
 }
 
-const gradientHtml = `<!doctype html><style>
-@page{size:300px 100px;margin:0}
-html,body{margin:0;width:300px;height:100px;display:flex}
-.box{width:100px;height:100px}
-.conic{background:conic-gradient(red, yellow, lime, aqua, blue, magenta, red)}
-.linear{background:repeating-linear-gradient(90deg, #e03030 0 40px, #3030e0 40px 80px)}
-.radial{background:repeating-radial-gradient(circle at 50% 50%, #e03030 0 40px, #3030e0 40px 80px)}
-</style><div class="box conic"></div><div class="box linear"></div><div class="box radial"></div>`
+const gradientHtml = `<body style="margin:20px;display:grid;grid-template-columns:repeat(2,260px);gap:16px">
+<div style="height:160px;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)"></div>
+<div style="height:160px;background:repeating-linear-gradient(45deg,#e03030 0 10px,#3030e0 10px 20px)"></div>
+<div style="height:160px;background:repeating-radial-gradient(circle,#20a060 0 8px,#f0c020 8px 16px)"></div>
+<div style="height:160px;background:conic-gradient(from 90deg,#333,#fff)"></div></body>`
+
+interface Region {
+  name: string
+  x0: number
+  x1: number
+  y0: number
+  y1: number
+}
+
+function regionStats(first: Ppm, second: Ppm, region: Region): { max: number; mean: number } {
+  let difference = 0
+  let max = 0
+  let count = 0
+  const x0 = Math.max(0, Math.floor(region.x0))
+  const y0 = Math.max(0, Math.floor(region.y0))
+  const x1 = Math.min(first.width, Math.ceil(region.x1))
+  const y1 = Math.min(first.height, Math.ceil(region.y1))
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const offset = (y * first.width + x) * 3
+      for (let channel = 0; channel < 3; channel++) {
+        const delta = Math.abs((first.pixels[offset + channel] ?? 0) - (second.pixels[offset + channel] ?? 0))
+        difference += delta
+        max = Math.max(max, delta)
+        count++
+      }
+    }
+  }
+  return { mean: count === 0 ? Number.POSITIVE_INFINITY : difference / count, max }
+}
 
 async function pageHasBlackInk(bytes: Uint8Array): Promise<boolean> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
@@ -207,36 +234,71 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,
   )
 
-  const gradientPage = { html: gradientHtml, size: { width: 300, height: 100 } }
+  const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
   let gradientReport: PressReport | undefined
   const unconvertedGradients = await renderer.pagePdf(gradientPage)
   const convertedGradients = await renderer.pagePdf(
     gradientPage,
     reportOption(profile, (report) => (gradientReport = report)),
   )
+  const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`
+  console.log(`PRESS GRADIENTS [${runtime}]: converted bytes=${convertedGradients.length}`)
   check(
     'press rewrite samples conic and repeating gradients and leaves no RGB outside images',
-    gradientReport !== undefined && gradientReport.images.length === 0 && gradientReport.sampledShadings === 3,
+    gradientReport !== undefined && gradientReport.images.length === 0 && gradientReport.sampledShadings === 4,
     gradientReport ? JSON.stringify(gradientReport) : 'report not called',
   )
   const originalGradients = raster(work, 'press-gradients-original', unconvertedGradients)
   const convertedGradientRaster = raster(work, 'press-gradients-converted', convertedGradients)
-  const gradientDifference = meanDifference(originalGradients, convertedGradientRaster)
-  // Measured 40.07 on an all-gradient page through Generic CMYK; saturated CSS primaries shift more than the mixed demo page (7.20 against bound 20).
+  const cssPt = 0.75
+  const box = { width: 260 * cssPt, height: 160 * cssPt, gap: 16 * cssPt, margin: 20 * cssPt }
+  const regions: Region[] = [
+    { name: 'rainbow conic', x0: box.margin, y0: box.margin, x1: box.margin + box.width, y1: box.margin + box.height },
+    { name: 'repeating linear', x0: box.margin + box.width + box.gap, y0: box.margin, x1: box.margin + 2 * box.width + box.gap, y1: box.margin + box.height },
+    { name: 'repeating radial', x0: box.margin, y0: box.margin + box.height + box.gap, x1: box.margin + box.width, y1: box.margin + 2 * box.height + box.gap },
+    {
+      name: 'gray conic',
+      x0: box.margin + box.width + box.gap,
+      y0: box.margin + box.height + box.gap,
+      x1: box.margin + 2 * box.width + box.gap,
+      y1: box.margin + 2 * box.height + box.gap,
+    },
+  ]
+  // A rotated or missing quadrant moves saturated stops onto the wrong pixels, so mean exceeds ~20 and max exceeds ~80. Measured after the atan wrap on Generic CMYK.
+  const regionMeanBound = 18
+  const regionMaxBound = 48
+  for (const region of regions) {
+    const stats = regionStats(originalGradients, convertedGradientRaster, region)
+    check(
+      `sampled ${region.name} stays close to the unconverted raster`,
+      originalGradients.width === convertedGradientRaster.width && stats.mean < regionMeanBound && stats.max <= regionMaxBound,
+      `mean=${stats.mean.toFixed(2)} max=${stats.max} (bounds ${regionMeanBound}/${regionMaxBound})`,
+    )
+  }
+  const rainbow = regions[0]
+  const cx = ((rainbow?.x0 ?? 0) + (rainbow?.x1 ?? 0)) / 2
+  const cy = ((rainbow?.y0 ?? 0) + (rainbow?.y1 ?? 0)) / 2
+  const radius = 40
+  let angleMax = 0
+  for (let step = 0; step < 8; step++) {
+    const angle = (step * Math.PI) / 4
+    const found = pixelRgb(convertedGradientRaster, cx + radius * Math.sin(angle), cy - radius * Math.cos(angle))
+    const expected = pixelRgb(originalGradients, cx + radius * Math.sin(angle), cy - radius * Math.cos(angle))
+    angleMax = Math.max(angleMax, channelDistance(found, expected))
+  }
   check(
-    'sampled gradient rewrite stays close to the RGB page',
-    originalGradients.width === convertedGradientRaster.width && originalGradients.height === convertedGradientRaster.height && gradientDifference < 48,
-    `${originalGradients.width}x${originalGradients.height}, mean channel difference=${gradientDifference.toFixed(2)} (bound 48)`,
+    'converted rainbow conic matches the unconverted raster at eight angles around the center',
+    angleMax <= regionMaxBound,
+    `max channel delta=${angleMax} (bound ${regionMaxBound})`,
   )
   const press = readProfile(profile)
-  const cssPx = originalGradients.width / 300
   const red = proof(press, [1, 0, 0]).map((value) => Math.round(value * 255)) as [number, number, number]
   const stripe = proof(press, [224 / 255, 48 / 255, 48 / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
-  const conicPixel = pixelRgb(convertedGradientRaster, 50 * cssPx, 20 * cssPx)
-  const stripePixel = pixelRgb(convertedGradientRaster, 120 * cssPx, 50 * cssPx)
+  const conicPixel = pixelRgb(convertedGradientRaster, cx, (rainbow?.y0 ?? 0) + 20)
+  const linear = regions[1]
+  const stripePixel = pixelRgb(convertedGradientRaster, ((linear?.x0 ?? 0) + (linear?.x1 ?? 0)) / 2 - 20, ((linear?.y0 ?? 0) + (linear?.y1 ?? 0)) / 2)
   const conicDelta = channelDistance(conicPixel, red)
   const stripeDelta = channelDistance(stripePixel, stripe)
-  // Measured 19 and 20 against the library proof; pdftoppm's CMYK preview is not the same engine.
   check(
     'a conic stop and a repeating stripe match their proof colors',
     conicDelta <= 24 && stripeDelta <= 24,

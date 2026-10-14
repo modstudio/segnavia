@@ -5,14 +5,17 @@ import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
-import { parseCalculator } from './calculator.ts'
+import { evaluateCalculator, parseCalculator } from './calculator.ts'
 import { pressColor } from './color-policy.ts'
 import {
   domainValue,
+  invertAffine,
   MAX_SHADING_SAMPLES,
   multiplyAffine,
   readSampleCmyk,
+  SHADING_BITS_PER_SAMPLE,
   SHADING_SAMPLE_SPACING_PT,
+  sampleDomainForPainted,
   sampleShadingToCmyk,
   shadingSampleGrid,
 } from './sample-shading.ts'
@@ -65,7 +68,7 @@ test('sample grid stores x varying fastest so a swapped n/m layout fails', () =>
   const right = readSampleCmyk(samples, size.n, size.n - 1, 0)
   const top = readSampleCmyk(samples, size.n, 0, size.m - 1)
   const close = (found: number[], expected: number[]) => {
-    for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 4)
+    for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 2)
   }
   close(left, pressColor(profile, [0, 0, 0]))
   close(right, pressColor(profile, [1, 0, 0]))
@@ -106,6 +109,83 @@ test('sampled color at each repeating-linear stop equals pressColor of that stop
 
 test('pattern matrix maps domain axes into device space', () => {
   expect(multiplyAffine([2, 0, 0, 3, 4, 5], [1, 0, 0, 1, 0, 0])).toEqual([2, 0, 0, 3, 4, 5])
+})
+
+test('invertAffine undoes a scale and translation', () => {
+  const inverse = invertAffine([10, 0, 0, 10, 5, 6])
+  expect(inverse).toBeDefined()
+  expect(multiplyAffine([10, 0, 0, 10, 5, 6], inverse ?? [])).toEqual([1, 0, 0, 1, 0, 0])
+})
+
+test('painted bounds shrink the sample domain; a missing or unbounded paint keeps the shading domain', () => {
+  const domain = [0, 1, 0, 1]
+  const matrix = [10, 0, 0, 10, 0, 0]
+  expect(sampleDomainForPainted(domain, matrix, { x0: 0, y0: 0, x1: 1, y1: 1 })).toEqual([0, 0.1, 0, 0.1])
+  expect(sampleDomainForPainted(domain, matrix, undefined)).toEqual(domain)
+  expect(sampleDomainForPainted(domain, matrix, 'unbounded')).toEqual(domain)
+})
+
+const CONIC = `{exch atan 360 div
+dup 0 le {pop 1 0 0 0} if
+dup dup 0 gt exch 1 le and {
+dup .5 le {
+dup .166666672 le {
+0 sub 1 exch 6 mul 0 
+}{
+dup .33333334 le {
+.166666672 sub -6 mul 1 add 1 0 
+}{
+.33333334 sub 0 exch 1 exch 6.0000005 mul 
+} ifelse
+} ifelse
+}{
+dup .66666669 le {
+.5 sub 0 exch -5.9999995 mul 1 add 1 
+}{
+dup .83333331 le {
+.66666669 sub 6.0000014 mul 0 1 
+}{
+.83333331 sub 1 exch 0 exch -5.9999995 mul 1 add 
+} ifelse
+} ifelse
+} ifelse
+0} if
+0 gt {1 0 0} if
+}`
+
+test('sampling Chromium conic at compass points matches evaluating the program at those domain points', () => {
+  const program = parseCalculator(CONIC)
+  const domain = [-100, 100, -100, 100]
+  const size = { n: 21, m: 21 }
+  const samples = sampleShadingToCmyk(program, domain, size, convert)
+  const points: Array<[number, number]> = [
+    [50, 0],
+    [0, 50],
+    [-50, 0],
+    [0, -50],
+    [10, 10],
+    [10, -10],
+    [-10, 10],
+    [-10, -10],
+  ]
+  for (const [x, y] of points) {
+    const i = Math.round(((x - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) * (size.n - 1))
+    const j = Math.round(((y - (domain[2] ?? 0)) / ((domain[3] ?? 1) - (domain[2] ?? 0))) * (size.m - 1))
+    expect(domainValue(domain[0] ?? 0, domain[1] ?? 0, i, size.n)).toBe(x)
+    expect(domainValue(domain[2] ?? 0, domain[3] ?? 0, j, size.m)).toBe(y)
+    const rgb = evaluateCalculator(program, [x, y])
+    expect(rgb).toHaveLength(3)
+    const expected = pressColor(profile, [rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])
+    const found = readSampleCmyk(samples, size.n, i, j)
+    for (let channel = 0; channel < 4; channel++) expect(found[channel]).toBeCloseTo(expected[channel] ?? 0, 2)
+  }
+})
+
+test('8-bit samples stay within one 8-bit step of the press color', () => {
+  const samples = sampleShadingToCmyk(parseCalculator('{ pop pop 0.4 0.2 0.8 }'), [0, 1, 0, 1], { n: 2, m: 2 }, convert)
+  const found = readSampleCmyk(samples, 2, 0, 0)
+  const expected = pressColor(profile, [0.4, 0.2, 0.8])
+  for (let channel = 0; channel < 4; channel++) expect(Math.abs((found[channel] ?? 0) - (expected[channel] ?? 0))).toBeLessThanOrEqual(1 / 255 + 1e-12)
 })
 
 test('converts a function-based RGB shading into a DeviceCMYK sampled function', async () => {
@@ -149,10 +229,47 @@ test('converts a function-based RGB shading into a DeviceCMYK sampled function',
     .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('BitsPerSample')))
   expect(sampled).toBeDefined()
   expect(sampled?.dict.lookup(PDFName.of('Size'), PDFArray).lookup(0)?.toString()).toBe('20')
-  expect(sampled?.dict.lookup(PDFName.of('BitsPerSample'))?.toString()).toBe('16')
+  expect(sampled?.dict.lookup(PDFName.of('BitsPerSample'))?.toString()).toBe(String(SHADING_BITS_PER_SAMPLE))
   expect(sampled?.dict.lookup(PDFName.of('Order'))?.toString()).toBe('1')
   expect(sampled?.dict.lookup(PDFName.of('Range'), PDFArray).size()).toBe(8)
   expect(readSampleCmyk(decodePDFRawStream(sampled as PDFRawStream).decode(), 20, 0, 0)).toEqual(pressColor(profile, [0.4, 0.4, 0.4]))
+  const leftoverType4 = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .filter((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.lookup(PDFName.of('FunctionType'))?.toString() === '4')
+  expect(leftoverType4).toHaveLength(0)
+})
+
+test('a painted fill sizes the sampled function from that box, not the full domain', async () => {
+  const document = await PDFDocument.create()
+  const domain = [0, 1, 0, 1]
+  const fn = document.context.register(
+    document.context.stream(deflateSync(new TextEncoder().encode('{ pop pop 0.4 0.4 0.4 }')), {
+      FunctionType: 4,
+      Domain: domain,
+      Range: [0, 1, 0, 1, 0, 1],
+      Filter: 'Fl' + 'ateDecode',
+    }),
+  )
+  const shading = document.context.register(
+    document.context.obj({
+      ShadingType: 1,
+      ColorSpace: 'DeviceRGB',
+      Domain: domain,
+      Function: fn,
+    }),
+  )
+  const pattern = document.context.register(document.context.obj({ Type: 'Pattern', PatternType: 2, Matrix: [10, 0, 0, 10, 0, 0], Shading: shading }))
+  setResources(document, document.addPage([20, 20]), { Pattern: { P1: pattern } }, '/Pattern cs /P1 scn 0 0 1 1 re f')
+  const converted = await rewritePressPdf(await document.save(), profileBytes)
+  const output = await PDFDocument.load(converted.bytes)
+  const sampled = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('BitsPerSample')))
+  expect(sampled?.dict.lookup(PDFName.of('Size'), PDFArray).lookup(0)?.toString()).toBe('2')
+  expect(sampled?.dict.lookup(PDFName.of('Size'), PDFArray).lookup(1)?.toString()).toBe('2')
+  expect(sampled?.dict.lookup(PDFName.of('Domain'), PDFArray).lookup(1)?.toString()).toBe('0.1')
 })
 
 test('the read-back inspection refuses a function-based shading still in RGB', async () => {
