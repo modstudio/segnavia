@@ -112,7 +112,8 @@ function decodedContent(stream: PDFRawStream): Uint8Array {
 }
 
 function replaceTarget(state: RewriteState, original: PDFObject, replacement: PDFRawStream, setDirect: (stream: PDFRawStream) => void): void {
-  if (original instanceof PDFRef) state.document.context.assign(original, replacement)
+  const reference = original instanceof PDFRef ? original : state.document.context.getObjectRef(original)
+  if (reference) state.document.context.assign(reference, replacement)
   else setDirect(replacement)
 }
 
@@ -149,6 +150,7 @@ function convertStream(state: RewriteState, object: PDFObject, setDirect: (strea
   const groups = convertGroup(state, stream)
   const rewritten = rewriteContent(decodedContent(stream), state.convert)
   const replacement = state.document.context.flateStream(rewritten.bytes, copyStreamDictionary(stream))
+  state.seenStreams.add(replacement)
   replaceTarget(state, object, replacement, setDirect)
   return { ...rewritten.counts, groups }
 }
@@ -170,9 +172,20 @@ function walkResources(state: RewriteState, resources: PDFDict | undefined, tota
   state.seenResources.add(resources)
   const shadings = resources.lookupMaybe(key('Shading'), PDFDict)
   for (const [, shading] of shadings?.entries() ?? []) totals.gradientStops += convertShading(state, shading)
+  const graphicsStates = resources.lookupMaybe(key('ExtGState'), PDFDict)
+  markResourceLuminosityMasks(state, graphicsStates)
   walkPatterns(state, resources.lookupMaybe(key('Pattern'), PDFDict), totals)
   walkXObjects(state, resources.lookupMaybe(key('XObject'), PDFDict), totals)
-  walkSoftMasks(state, resources.lookupMaybe(key('ExtGState'), PDFDict), totals)
+  walkSoftMasks(state, graphicsStates, totals)
+}
+
+function markResourceLuminosityMasks(state: RewriteState, states: PDFDict | undefined): void {
+  for (const [, stateObject] of states?.entries() ?? []) {
+    const mask = dictResolved(state, dictResolved(state, stateObject)?.get(key('SMask')))
+    if (!mask || nameOf(mask.get(key('S'))) !== 'Luminosity') continue
+    const source = rawResolved(state, mask.get(key('G')))
+    if (source) state.luminosity.add(source)
+  }
 }
 
 function walkPatterns(state: RewriteState, patterns: PDFDict | undefined, totals: Totals): void {
@@ -295,10 +308,25 @@ export async function inspectPressPdf(bytes: Uint8Array): Promise<PressReport> {
   const state = newState(document, {} as Profile)
   const report: PressReport = { images: [], fills: 0, strokes: 0, gradientStops: 0, groups: 0 }
   for (const [, object] of document.context.enumerateIndirectObjects()) inspectObject(state, object, report)
+  for (const page of document.getPages()) inspectResources(state, page.node.Resources(), report)
   const totals = inspectPageStreams(state)
   report.fills = totals.fills
   report.strokes = totals.strokes
   return report
+}
+
+export async function pressPdfContainsBlackInk(bytes: Uint8Array): Promise<boolean> {
+  const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  for (const [, object] of document.context.enumerateIndirectObjects()) {
+    const stream = rawStreamOf(object)
+    if (!stream || nameOf(stream.dict.get(key('Subtype'))) === 'Image') continue
+    try {
+      if (/(?:^|\s)0 0 0 1 k(?:\s|$)/.test(new TextDecoder().decode(decodePDFRawStream(stream).decode()))) return true
+    } catch {
+      // Non-content streams may use filters that this diagnostic does not read.
+    }
+  }
+  return false
 }
 
 function isRgbSpace(space: ReturnType<typeof colorSpaceKind>): boolean {
@@ -308,8 +336,7 @@ function isRgbSpace(space: ReturnType<typeof colorSpaceKind>): boolean {
 function inspectObject(state: RewriteState, object: PDFObject, report: PressReport): void {
   const stream = rawStreamOf(object)
   if (stream && nameOf(stream.dict.get(key('Subtype'))) === 'Image') {
-    const image = imageReport(state, stream)
-    if (image) report.images.push(image)
+    inspectImage(state, stream, report)
     return
   }
   const dictionary = dictionaryOf(object)
@@ -320,17 +347,73 @@ function inspectObject(state: RewriteState, object: PDFObject, report: PressRepo
 
 function inspectShading(state: RewriteState, dictionary: PDFDict, report: PressReport): void {
   if (!dictionary.has(key('ShadingType'))) return
+  if (state.seenShadings.has(dictionary)) return
+  state.seenShadings.add(dictionary)
   const space = colorSpaceKind(state, dictionary.get(key('ColorSpace')))
   if (isRgbSpace(space)) refusal(`RGB shading color space ${space}`, 'DeviceCMYK')
-  if (space === 'DeviceCMYK') report.gradientStops += countFunctionStops(state, dictionary.get(key('Function')), new WeakSet())
+  if (space === 'DeviceCMYK') report.gradientStops += countFunctionStops(state, dictionary.get(key('Function')), state.seenFunctions)
 }
 
 function inspectGroup(state: RewriteState, dictionary: PDFDict, report: PressReport): void {
   const group = dictionary.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency') return
+  if (state.seenGroups.has(group)) return
+  state.seenGroups.add(group)
   const space = colorSpaceKind(state, group.get(key('CS')))
   if (isRgbSpace(space)) refusal(`RGB transparency group color space ${space}`, 'DeviceCMYK or DeviceGray')
   if (space === 'DeviceCMYK') report.groups++
+}
+
+function inspectImage(state: RewriteState, stream: PDFRawStream, report: PressReport): void {
+  if (state.seenStreams.has(stream)) return
+  state.seenStreams.add(stream)
+  const image = imageReport(state, stream)
+  if (image) report.images.push(image)
+}
+
+function inspectResources(state: RewriteState, resources: PDFDict | undefined, report: PressReport): void {
+  if (!resources || state.seenResources.has(resources)) return
+  state.seenResources.add(resources)
+  const shadings = resources.lookupMaybe(key('Shading'), PDFDict)
+  for (const [, object] of shadings?.entries() ?? []) {
+    const dictionary = dictResolved(state, object)
+    if (dictionary) inspectShading(state, dictionary, report)
+  }
+  inspectPatternResources(state, resources.lookupMaybe(key('Pattern'), PDFDict), report)
+  inspectXObjectResources(state, resources.lookupMaybe(key('XObject'), PDFDict), report)
+  inspectMaskResources(state, resources.lookupMaybe(key('ExtGState'), PDFDict), report)
+}
+
+function inspectPatternResources(state: RewriteState, patterns: PDFDict | undefined, report: PressReport): void {
+  for (const [, object] of patterns?.entries() ?? []) {
+    const dictionary = dictResolved(state, object)
+    if (!dictionary) continue
+    const shading = dictResolved(state, dictionary.get(key('Shading')))
+    if (shading) inspectShading(state, shading, report)
+    inspectResources(state, dictionary.lookupMaybe(key('Resources'), PDFDict), report)
+  }
+}
+
+function inspectXObjectResources(state: RewriteState, xObjects: PDFDict | undefined, report: PressReport): void {
+  for (const [, object] of xObjects?.entries() ?? []) {
+    const stream = rawResolved(state, object)
+    if (!stream) continue
+    if (nameOf(stream.dict.get(key('Subtype'))) === 'Image') inspectImage(state, stream, report)
+    else {
+      inspectGroup(state, stream.dict, report)
+      inspectResources(state, stream.dict.lookupMaybe(key('Resources'), PDFDict), report)
+    }
+  }
+}
+
+function inspectMaskResources(state: RewriteState, states: PDFDict | undefined, report: PressReport): void {
+  for (const [, object] of states?.entries() ?? []) {
+    const mask = dictResolved(state, dictResolved(state, object)?.get(key('SMask')))
+    const stream = rawResolved(state, mask?.get(key('G')))
+    if (!stream) continue
+    inspectGroup(state, stream.dict, report)
+    inspectResources(state, stream.dict.lookupMaybe(key('Resources'), PDFDict), report)
+  }
 }
 
 function countFunctionStops(state: RewriteState, object: PDFObject | undefined, seen: WeakSet<PDFDict>): number {

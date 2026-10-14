@@ -17,7 +17,7 @@ something else.
 | **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |
 | **Fit** | How a fixed page is shown in a cell of another shape: `contain` shows all of it, `cover` fills the cell and crops. |
-| **Press profile** | The ICC profile of the press a piece is printed on. The host supplies it. With one, a render writes CMYK. |
+| **Press profile** | The ICC profile of the press a piece is printed on. The host supplies it. With one, a PDF render converts supported vector color to CMYK, embeds the profile as its output intent, and reports authored RGB images left unchanged. |
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
 | **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and optional narration. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set). |

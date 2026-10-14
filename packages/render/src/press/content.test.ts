@@ -35,4 +35,3 @@ test.each([
 test.each(['(unfinished', '<123', '<< /A 1', '[1 2', 'BI /W 1 ID data'])('refuses a truncated stream: %s', (source) => {
   expect(() => rewriteContent(bytes(source), convert)).toThrow(/truncated/)
 })
-

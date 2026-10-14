@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
+import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
-import { toPress } from '../color/engine.ts'
 import { formatPdfNumber, pressColor } from './color-policy.ts'
 
 const profile = readProfile(buildPressProfile('mft1'))
@@ -21,4 +21,3 @@ test('PDF number formatting round-trips within half a thousandth without exponen
     expect(Math.abs(Number(formatted) - value)).toBeLessThanOrEqual(0.0005)
   }
 })
-
