@@ -157,29 +157,21 @@ export async function verifyDeckHost(h: Harness) {
     JSON.stringify({ authorColor, ...documentFacts }),
   )
 
-  await page.evaluate(async () => {
-    const host = (window as unknown as { __deckHost: { focusNeighbor(): Promise<void> } }).__deckHost
-    await host.focusNeighbor()
+  const sandboxedCounts = await page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: { loadSandboxed(): Promise<void>; controller: { go(index: number): Promise<void> } } }).__deckHost
+    await host.loadSandboxed()
+    const stage = document.querySelector('#deck') as HTMLElement
+    const counts = [stage.querySelectorAll('iframe').length]
+    await host.controller.go(1)
+    counts.push(stage.querySelectorAll('iframe').length)
+    await host.controller.go(2)
+    counts.push(stage.querySelectorAll('iframe').length)
+    return counts
   })
-  const scriptedNeighbor = page.locator('#deck [data-slide-id="focus-neighbor"] iframe')
-  await scriptedNeighbor.contentFrame().locator('html[data-focus-ready]').waitFor()
-  await page.locator('#notes').focus()
-  await scriptedNeighbor.evaluate((frame: HTMLIFrameElement) => frame.contentWindow?.postMessage('focus', '*'))
-  await page.waitForFunction(() => (window as unknown as { __messages: string[] }).__messages.includes('focus-attempted'))
-  await page.waitForTimeout(250)
-  const guardedFocus = await page.evaluate(() => {
-    const active = document.activeElement
-    const hiddenFrame = document.querySelector<HTMLIFrameElement>('#deck [data-slide-id="focus-neighbor"] iframe')
-    return { ok: active !== hiddenFrame && active === document.querySelector('#deck'), active: active?.tagName, id: active?.id }
-  })
-  await page.locator('#notes').focus()
-  await page.keyboard.press('End')
-  await page.keyboard.type(' receives typed keys')
-  const notesValue = await page.locator('#notes').inputValue()
   check(
-    'deck host: a scripted hidden neighbor cannot retain focus or intercept page typing',
-    guardedFocus.ok && notesValue === 'Notes stay editable receives typed keys',
-    JSON.stringify({ guardedFocus, notesValue }),
+    'deck host: sandboxed scripts mount only the visible frame despite neighbors',
+    sandboxedCounts.every((count) => count === 1),
+    JSON.stringify(sandboxedCounts),
   )
   await page.setViewportSize({ width: 1280, height: 816 })
 }

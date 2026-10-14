@@ -31,10 +31,11 @@ export class SegnaviaStage extends HTMLElement {
   frameTitle: FrameTitle = defaultFrameTitle
   private room: StageReserve = {}
   private measured: FittedSize | null = null
-  private focusGuard: ReturnType<typeof setTimeout> | null = null
   private resize = new ResizeObserver(() => this.measure())
   private pool = new FramePool(this, () => this.measure())
 
+  // Neighbor frames mount only when author scripts are refused. A sandboxed
+  // deck keeps one frame because a hidden running script could take page focus.
   get neighbors(): boolean {
     return this.hasAttribute('neighbors')
   }
@@ -87,10 +88,7 @@ export class SegnaviaStage extends HTMLElement {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.addEventListener('keydown', this.onKey)
-    this.addEventListener('focusin', this.onFocusIn)
-    document.addEventListener('focusout', this.onFocusOut)
     window.addEventListener('message', this.onMessage)
-    window.addEventListener('blur', this.onWindowBlur)
     window.addEventListener('resize', this.onResize)
     window.visualViewport?.addEventListener('resize', this.onResize)
     this.resize.observe(this)
@@ -100,14 +98,9 @@ export class SegnaviaStage extends HTMLElement {
 
   disconnectedCallback() {
     this.removeEventListener('keydown', this.onKey)
-    this.removeEventListener('focusin', this.onFocusIn)
-    document.removeEventListener('focusout', this.onFocusOut)
     window.removeEventListener('message', this.onMessage)
-    window.removeEventListener('blur', this.onWindowBlur)
     window.removeEventListener('resize', this.onResize)
     window.visualViewport?.removeEventListener('resize', this.onResize)
-    if (this.focusGuard !== null) clearTimeout(this.focusGuard)
-    this.focusGuard = null
     this.resize.disconnect()
     if (this.owned) {
       this.owned.destroy()
@@ -198,22 +191,6 @@ export class SegnaviaStage extends HTMLElement {
     if (event.target !== this || this.attached?.keys !== 'stage') return
     if (this.attached?.key(event.key)) event.preventDefault()
   }
-
-  private onFocusIn = (event: FocusEvent) => {
-    this.pool.guardFocus(event.target)
-  }
-
-  // Focusing inside a nested document blurs its parent window without
-  // dispatching focusin on the iframe in some engines.
-  private onFocusOut = () => {
-    if (this.focusGuard !== null) clearTimeout(this.focusGuard)
-    this.focusGuard = setTimeout(() => {
-      this.focusGuard = null
-      if (this.isConnected) this.pool.guardFocus()
-    }, 0)
-  }
-
-  private onWindowBlur = this.onFocusOut
 
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {

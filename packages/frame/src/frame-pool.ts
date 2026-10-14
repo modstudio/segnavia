@@ -1,6 +1,6 @@
 import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
-import { neighborWindow } from './deck-window.ts'
+import { frameWindow } from './deck-window.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { stageCanvas } from './stage-content.ts'
 
@@ -33,7 +33,7 @@ export class FramePool {
     if (!deck || !state.slide || !state.content) return
     const reloaded = deck !== this.deck
     this.deck = deck
-    const indexes = options.neighbors ? neighborWindow(state.index, deck.slides.length) : [state.index]
+    const indexes = frameWindow(state.index, deck.slides.length, options.neighbors, deck.scripts)
     const wanted = new Set(indexes.map((index) => deck.slides[index]?.id))
     for (const [id, entry] of this.entries) {
       if (!wanted.has(id)) {
@@ -69,13 +69,6 @@ export class FramePool {
     return this.host.querySelector<HTMLIFrameElement>('.segnavia-stage__canvas[data-active] iframe')
   }
 
-  guardFocus(target: EventTarget | null = this.host.ownerDocument.activeElement) {
-    if (!(target instanceof HTMLIFrameElement) || !this.host.contains(target)) return
-    if (target.closest('.segnavia-stage__canvas')?.hasAttribute('data-active')) return
-    target.blur()
-    this.host.focus()
-  }
-
   private add(index: number, content: ResolvedContent, state: DeckState, controller: DeckController, options: PoolOptions) {
     const deck = state.deck
     const slide = deck?.slides[index]
@@ -100,7 +93,6 @@ export class FramePool {
       canvas.setAttribute('aria-hidden', String(!visible))
       canvas.inert = !visible
       const frame = canvas.querySelector('iframe')
-      if (frame && !visible && frame === this.host.ownerDocument.activeElement) this.guardFocus(frame)
       if (frame) frame.title = frameTitle(deck.title, index + 1)
     }
   }

@@ -4,6 +4,11 @@ export function neighborWindow(index: number, length: number): number[] {
   return [current, current - 1, current + 1].filter((candidate) => candidate >= 0 && candidate < length)
 }
 
+export function frameWindow(index: number, length: number, neighbors: boolean, scripts: 'refuse' | 'sandboxed'): number[] {
+  const window = neighborWindow(index, length)
+  return neighbors && scripts === 'refuse' ? window : window.slice(0, 1)
+}
+
 export function indexAfterReload(oldIds: string[], newIds: string[], selectedId: string | null): number {
   if (newIds.length === 0) return 0
   if (selectedId) {

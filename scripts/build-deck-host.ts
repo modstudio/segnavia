@@ -21,8 +21,7 @@ const lib = await import('./segnavia.js')
 const stage = document.getElementById('deck')
 const root = document.getElementById('deck-root')
 const makeSlide = (id, suffix='') => ({id,content:{kind:'html',html:'<!doctype html><html><head><style>h1{color:rgb(0, 128, 0)}</style></head><body style="margin:0;height:100vh;display:grid;place-items:center"><h1>'+id+suffix+'</h1></body></html>'}})
-const makeDeck = (ids, edits={}) => ({title:'Window deck',scripts:'refuse',slides:ids.map(id=>makeSlide(id,edits[id]||''))})
-const makeFocusDeck = () => ({title:'Focus deck',scripts:'sandboxed',slides:[makeSlide('focus-active'),{id:'focus-neighbor',content:{kind:'html',html:'<input><scr'+'ipt>addEventListener("message",function(){document.querySelector("input").focus();parent.postMessage({type:"focus-attempted"},"*")});document.documentElement.dataset.focusReady=""</scr'+'ipt>'}}]})
+const makeDeck = (ids, edits={}, scripts='refuse') => ({title:'Window deck',scripts,slides:ids.map(id=>makeSlide(id,edits[id]||''))})
 let ids = Array.from({length:Number(new URLSearchParams(location.search).get('slides')||40)},(_,index)=>'slide-'+(index+1))
 const controller = new lib.DeckController({keys:'page'})
 stage.controller = controller
@@ -34,7 +33,7 @@ document.getElementById('previous').onclick=()=>controller.previous()
 document.getElementById('next').onclick=()=>controller.next()
 document.getElementById('present').onclick=()=>controller.state.presenting?controller.stopPresenting():controller.present(root)
 controller.addEventListener('change',({detail})=>{document.getElementById('counter').textContent=(detail.index+1)+' / '+detail.deck.slides.length;stage.reserve=detail.presenting?{blockStart:140}:{blockStart:140,blockEnd:172}})
-const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits))},async focusNeighbor(){await controller.load(makeFocusDeck());await controller.go(0)},deck:()=>makeDeck(ids)}
+const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits))},async loadSandboxed(){ids=['sandboxed-1','sandboxed-2','sandboxed-3'];await controller.load(makeDeck(ids,{},'sandboxed'))},deck:()=>makeDeck(ids)}
 Object.defineProperty(window,'__deckHost',{value:api})
 await controller.load(makeDeck(ids))
 </script></body></html>`,
