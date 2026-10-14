@@ -1,6 +1,7 @@
 import type { PDFDict } from 'pdf-lib'
-import { visitContentTokens } from './content.ts'
-import { IDENTITY_MATRIX, multiplyAffine } from './sample-shading.ts'
+import { applyAffine, IDENTITY_MATRIX, multiplyAffine } from './affine.ts'
+import { MAX_CONTENT_NESTING, visitContentTokens } from './content.ts'
+import { numberOf } from './pdf-objects.ts'
 
 export interface UserRect {
   x0: number
@@ -20,12 +21,15 @@ interface Point {
 interface Graphics {
   ctm: number[]
   fill?: PDFDict
+  lineJoin: number
+  lineWidth: number
+  miterLimit: number
   stroke?: PDFDict
 }
 
 interface PathState {
+  box?: UserRect
   current?: Point
-  points: Point[]
   start?: Point
 }
 
@@ -35,12 +39,20 @@ interface TrackState {
   graphics: Graphics[]
   path: PathState
   resolve: (name: string) => PDFDict | undefined
+  resolveGraphicsState: (name: string) => PDFDict | undefined
 }
 
 type Operand = { kind: string; raw: string }
 type Handler = (state: TrackState, operands: Operand[]) => void
 
-const cloneGraphics = (graphics: Graphics): Graphics => ({ ctm: graphics.ctm.slice(), fill: graphics.fill, stroke: graphics.stroke })
+const cloneGraphics = (graphics: Graphics): Graphics => ({
+  ctm: graphics.ctm.slice(),
+  fill: graphics.fill,
+  lineJoin: graphics.lineJoin,
+  lineWidth: graphics.lineWidth,
+  miterLimit: graphics.miterLimit,
+  stroke: graphics.stroke,
+})
 
 function numbers(operands: Operand[], count: number): number[] | undefined {
   if (operands.length !== count || operands.some((operand) => operand.kind !== 'number')) return undefined
@@ -52,27 +64,31 @@ function nameOf(operands: Operand[]): string | undefined {
   return operands[0].raw.slice(1)
 }
 
+function includePoint(box: UserRect | undefined, x: number, y: number): UserRect {
+  if (!box) return { x0: x, y0: y, x1: x, y1: y }
+  return { x0: Math.min(box.x0, x), y0: Math.min(box.y0, y), x1: Math.max(box.x1, x), y1: Math.max(box.y1, y) }
+}
+
 function addPoint(path: PathState, x: number, y: number): Point {
   const point = { x, y }
-  path.points.push(point)
+  path.box = includePoint(path.box, x, y)
   path.current = point
   return point
 }
 
-function pathBox(path: PathState, ctm: readonly number[]): UserRect | undefined {
-  if (path.points.length === 0) return undefined
-  let x0 = Number.POSITIVE_INFINITY
-  let y0 = Number.POSITIVE_INFINITY
-  let x1 = Number.NEGATIVE_INFINITY
-  let y1 = Number.NEGATIVE_INFINITY
-  for (const point of path.points) {
-    const x = (ctm[0] ?? 1) * point.x + (ctm[2] ?? 0) * point.y + (ctm[4] ?? 0)
-    const y = (ctm[1] ?? 0) * point.x + (ctm[3] ?? 1) * point.y + (ctm[5] ?? 0)
-    x0 = Math.min(x0, x)
-    y0 = Math.min(y0, y)
-    x1 = Math.max(x1, x)
-    y1 = Math.max(y1, y)
-  }
+function deviceBox(box: UserRect, ctm: readonly number[]): UserRect | undefined {
+  const corners = [
+    applyAffine(ctm, box.x0, box.y0),
+    applyAffine(ctm, box.x1, box.y0),
+    applyAffine(ctm, box.x0, box.y1),
+    applyAffine(ctm, box.x1, box.y1),
+  ]
+  const xs = corners.map((point) => point.x)
+  const ys = corners.map((point) => point.y)
+  const x0 = Math.min(...xs)
+  const y0 = Math.min(...ys)
+  const x1 = Math.max(...xs)
+  const y1 = Math.max(...ys)
   if (!Number.isFinite(x0) || !Number.isFinite(y0) || !Number.isFinite(x1) || !Number.isFinite(y1)) return undefined
   return { x0, y0, x1, y1 }
 }
@@ -91,13 +107,34 @@ function addPaint(bounds: PaintedBounds, pattern: PDFDict | undefined, paint: Pa
   bounds.set(pattern, existing ? unionRect(existing, paint) : paint)
 }
 
+function strokeMargin(graphics: Graphics): number | undefined {
+  const half = graphics.lineWidth / 2
+  if (!Number.isFinite(half) || half < 0) return undefined
+  if (graphics.lineJoin === 1 || graphics.lineJoin === 2) return half
+  if (graphics.lineJoin !== 0 || !Number.isFinite(graphics.miterLimit) || graphics.miterLimit < 1) return undefined
+  return graphics.miterLimit * half
+}
+
 function paintFill(state: TrackState): void {
-  const box = pathBox(state.path, state.current.ctm)
+  if (!state.path.box) return
+  const box = deviceBox(state.path.box, state.current.ctm)
   if (box) addPaint(state.bounds, state.current.fill, box)
 }
 
 function paintStroke(state: TrackState): void {
-  const box = pathBox(state.path, state.current.ctm)
+  if (!state.path.box) return
+  const margin = strokeMargin(state.current)
+  if (margin === undefined) {
+    addPaint(state.bounds, state.current.stroke, 'unbounded')
+    return
+  }
+  const grown = {
+    x0: state.path.box.x0 - margin,
+    y0: state.path.box.y0 - margin,
+    x1: state.path.box.x1 + margin,
+    y1: state.path.box.y1 + margin,
+  }
+  const box = deviceBox(grown, state.current.ctm)
   if (box) addPaint(state.bounds, state.current.stroke, box)
 }
 
@@ -106,7 +143,7 @@ function closePath(path: PathState): void {
 }
 
 function clearPath(path: PathState): void {
-  path.points = []
+  path.box = undefined
   path.current = undefined
   path.start = undefined
 }
@@ -219,10 +256,74 @@ function fillStrokeAndClear(state: TrackState, close: boolean): void {
   clearPath(state.path)
 }
 
+function applyLineWidth(state: TrackState, operands: Operand[]): void {
+  const width = numbers(operands, 1)?.[0]
+  if (width === undefined || !Number.isFinite(width) || width < 0) {
+    markUnbounded(state)
+    return
+  }
+  state.current.lineWidth = width
+}
+
+function applyLineJoin(state: TrackState, operands: Operand[]): void {
+  const join = numbers(operands, 1)?.[0]
+  if (join !== 0 && join !== 1 && join !== 2) {
+    markUnbounded(state)
+    return
+  }
+  state.current.lineJoin = join
+}
+
+function applyMiterLimit(state: TrackState, operands: Operand[]): void {
+  const miter = numbers(operands, 1)?.[0]
+  if (miter === undefined || !Number.isFinite(miter) || miter < 1) {
+    markUnbounded(state)
+    return
+  }
+  state.current.miterLimit = miter
+}
+
+function applyStyleNumber(graphics: Graphics, dict: PDFDict, key: string, assign: (value: number) => boolean): boolean {
+  const value = numberOf(dict, key)
+  return value === undefined || assign(value)
+}
+
+function applyGraphicsState(state: TrackState, operands: Operand[]): void {
+  const name = nameOf(operands)
+  const dict = name ? state.resolveGraphicsState(name) : undefined
+  if (!dict) {
+    markUnbounded(state)
+    return
+  }
+  const applied =
+    applyStyleNumber(state.current, dict, 'LW', (width) => {
+      if (!Number.isFinite(width) || width < 0) return false
+      state.current.lineWidth = width
+      return true
+    }) &&
+    applyStyleNumber(state.current, dict, 'LJ', (join) => {
+      if (join !== 0 && join !== 1 && join !== 2) return false
+      state.current.lineJoin = join
+      return true
+    }) &&
+    applyStyleNumber(state.current, dict, 'ML', (miter) => {
+      if (!Number.isFinite(miter) || miter < 1) return false
+      state.current.miterLimit = miter
+      return true
+    })
+  if (!applied) markUnbounded(state)
+}
+
+function saveGraphics(state: TrackState): void {
+  if (state.graphics.length >= MAX_CONTENT_NESTING) {
+    markUnbounded(state)
+    return
+  }
+  state.graphics.push(cloneGraphics(state.current))
+}
+
 const handlers: Record<string, Handler> = {
-  q: (state) => {
-    state.graphics.push(cloneGraphics(state.current))
-  },
+  q: saveGraphics,
   Q: (state) => {
     const restored = state.graphics.pop()
     if (restored) state.current = restored
@@ -246,6 +347,10 @@ const handlers: Record<string, Handler> = {
   'B*': (state) => fillStrokeAndClear(state, false),
   b: (state) => fillStrokeAndClear(state, true),
   'b*': (state) => fillStrokeAndClear(state, true),
+  w: applyLineWidth,
+  j: applyLineJoin,
+  M: applyMiterLimit,
+  gs: applyGraphicsState,
   cs: colorHandler('cs'),
   CS: colorHandler('CS'),
   sc: colorHandler('sc'),
@@ -260,13 +365,19 @@ const handlers: Record<string, Handler> = {
   K: colorHandler('K'),
 }
 
-export function recordPatternPaintedBounds(bytes: Uint8Array, resolve: (name: string) => PDFDict | undefined, bounds: PaintedBounds): void {
+export function recordPatternPaintedBounds(
+  bytes: Uint8Array,
+  resolve: (name: string) => PDFDict | undefined,
+  bounds: PaintedBounds,
+  resolveGraphicsState: (name: string) => PDFDict | undefined = () => undefined,
+): void {
   const state: TrackState = {
     bounds,
-    current: { ctm: IDENTITY_MATRIX.slice() },
+    current: { ctm: IDENTITY_MATRIX.slice(), lineJoin: 0, lineWidth: 1, miterLimit: 10 },
     graphics: [],
-    path: { points: [] },
+    path: {},
     resolve,
+    resolveGraphicsState,
   }
   visitContentTokens(bytes, (operator, operands) => handlers[operator]?.(state, operands))
 }

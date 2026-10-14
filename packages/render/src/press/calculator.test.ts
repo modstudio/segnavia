@@ -26,6 +26,7 @@ test('arithmetic operators match hand-computed results', () => {
   expect(run('90 sin')[0]).toBeCloseTo(1, 10)
   expect(run('180 cos')[0]).toBeCloseTo(-1, 10)
   expect(run('1 1 atan')[0]).toBeCloseTo(45, 10)
+  expect(run('0 0 atan')).toEqual([0])
   expect(run('0 -1 atan')[0]).toBeCloseTo(180, 10)
   expect(run('-1 0 atan')[0]).toBeCloseTo(270, 10)
   expect(run('-1 1 atan')[0]).toBeCloseTo(315, 10)
@@ -49,6 +50,8 @@ test('relational boolean and bitwise operators', () => {
   expect(run('6 3 xor')).toEqual([5])
   expect(run('1 3 bitshift')).toEqual([8])
   expect(run('8 -2 bitshift')).toEqual([2])
+  expect(run('-8 -1 bitshift')).toEqual([2147483644])
+  expect(run('1 32 bitshift')).toEqual([0])
   expect(run('1 not')).toEqual([-2])
 })
 
@@ -155,7 +158,6 @@ test.each([
   ['underflow', 'pop', /calculator pop stack underflow/],
   ['stack', `${'1 '.repeat(MAX_CALCULATOR_STACK + 1)}`, /calculator stack depth/],
   ['length', `${'1 '.repeat(MAX_CALCULATOR_PROGRAM_BYTES)}`, /calculator program length/],
-  ['atan', '0 0 atan', /calculator atan undefined/],
 ])('refuses %s and names it', (_name, source, message) => {
   expect(() => run(source)).toThrow(message)
 })

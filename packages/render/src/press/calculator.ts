@@ -1,4 +1,4 @@
-import { applyOperator, type CalculatorOp, calculatorRefuse, type EvalState, MAX_CALCULATOR_STACK, type StackValue } from './calculator-ops.ts'
+import { applyOperator, type CalculatorOp, calculatorRefuse, classifiedOperatorName, type EvalState, pushStack } from './calculator-ops.ts'
 
 export { type CalculatorOp, calculatorRefuse, MAX_CALCULATOR_STACK } from './calculator-ops.ts'
 
@@ -28,10 +28,6 @@ function skipSpace(source: string, at: number): number {
   return cursor
 }
 
-function classifiedOperator(name: string): string {
-  return /^[A-Za-z][A-Za-z0-9]{0,15}$/.test(name) ? name : 'other'
-}
-
 function parseNumber(source: string, at: number): { end: number; op: CalculatorOp } {
   const match = NUMBER.exec(source.slice(at))
   if (!match) return calculatorRefuse('calculator number', 'a PDF calculator number')
@@ -43,7 +39,7 @@ function parseNumber(source: string, at: number): { end: number; op: CalculatorO
 
 function parseOperator(source: string, at: number): { end: number; op: CalculatorOp } {
   const match = OPERATOR.exec(source.slice(at))
-  if (!match) return calculatorRefuse(`calculator token ${classifiedOperator(source[at] ?? 'other')}`, 'a PDF calculator operator, number, or procedure')
+  if (!match) return calculatorRefuse(`calculator token ${classifiedOperatorName(source[at] ?? 'other')}`, 'a PDF calculator operator, number, or procedure')
   return { end: at + match[0].length, op: { kind: 'operator', name: match[0] } }
 }
 
@@ -83,19 +79,14 @@ export function parseCalculator(source: string): CalculatorOp[] {
   return tokens
 }
 
-function push(state: EvalState, value: StackValue): void {
-  state.stack.push(value)
-  if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
-}
-
 function exec(body: readonly CalculatorOp[], state: EvalState): void {
   for (const token of body) {
     if (token.kind === 'number') {
-      push(state, { kind: 'n', value: token.value, int: token.int })
+      pushStack(state, { kind: 'n', value: token.value, int: token.int })
       continue
     }
     if (token.kind === 'procedure') {
-      push(state, { kind: 'p', body: token.body })
+      pushStack(state, { kind: 'p', body: token.body })
       continue
     }
     state.count++
@@ -106,11 +97,8 @@ function exec(body: readonly CalculatorOp[], state: EvalState): void {
 }
 
 export function evaluateCalculator(program: readonly CalculatorOp[], inputs: readonly number[]): number[] {
-  const state: EvalState = {
-    count: 0,
-    stack: inputs.map((value) => ({ kind: 'n' as const, value, int: Number.isInteger(value) })),
-  }
-  if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
+  const state: EvalState = { count: 0, stack: [] }
+  for (const value of inputs) pushStack(state, { kind: 'n', value, int: Number.isInteger(value) })
   exec(program, state)
   return state.stack.map((value) => {
     if (value.kind !== 'n') return calculatorRefuse('calculator output type', 'numbers')

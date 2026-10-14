@@ -25,7 +25,11 @@ function pop(state: EvalState, operator: string): StackValue {
   return value
 }
 
-function push(state: EvalState, value: StackValue): void {
+export function classifiedOperatorName(name: string): string {
+  return /^[A-Za-z][A-Za-z0-9]{0,15}$/.test(name) ? name : 'other'
+}
+
+export function pushStack(state: EvalState, value: StackValue): void {
   state.stack.push(value)
   if (state.stack.length > MAX_CALCULATOR_STACK) calculatorRefuse(`calculator stack depth ${state.stack.length}`, `at most ${MAX_CALCULATOR_STACK} values`)
 }
@@ -56,11 +60,11 @@ function popProc(state: EvalState, operator: string): readonly CalculatorOp[] {
 
 function pushNumber(state: EvalState, value: number, int: boolean): void {
   if (!Number.isFinite(value)) calculatorRefuse('calculator numeric result', 'a finite number')
-  push(state, { kind: 'n', value, int: int && Number.isInteger(value) })
+  pushStack(state, { kind: 'n', value, int: int && Number.isInteger(value) })
 }
 
 function pushBool(state: EvalState, value: boolean): void {
-  push(state, { kind: 'b', value })
+  pushStack(state, { kind: 'b', value })
 }
 
 function unary(operator: string, apply: (value: number, int: boolean) => { int: boolean; value: number }): Handler {
@@ -127,8 +131,11 @@ const operators: Record<string, Handler> = {
   atan: (state) => {
     const den = popNumber(state, 'atan')
     const num = popNumber(state, 'atan')
-    if (num.value === 0 && den.value === 0) calculatorRefuse('calculator atan undefined', 'a non-zero atan pair')
-    // PDF engines that render Chromium's type-4 shadings (PDFium, Poppler) return 0 to 360, not PostScript's −180 to 180. Chromium's conic programs clamp t<=0 to the start color, so the negative half-turn would otherwise paint as a flat stop.
+    // PDF readers treat atan of 0 0 as 0 degrees. Chromium's type-4 shadings (PDFium, Poppler) return 0 to 360, not PostScript's −180 to 180. Chromium's conic programs clamp t<=0 to the start color, so the negative half-turn would otherwise paint as a flat stop.
+    if (num.value === 0 && den.value === 0) {
+      pushNumber(state, 0, false)
+      return
+    }
     let angle = (Math.atan2(num.value, den.value) * 180) / Math.PI
     if (angle < 0) angle += 360
     pushNumber(state, angle, false)
@@ -172,7 +179,12 @@ const operators: Record<string, Handler> = {
     const shift = popInt(state, 'bitshift')
     const value = popInt(state, 'bitshift')
     const bits = value | 0
-    pushNumber(state, (shift >= 0 ? bits << shift : bits >> -shift) | 0, true)
+    if (shift >= 32 || shift <= -32) {
+      pushNumber(state, 0, true)
+      return
+    }
+    // A negative count is a 32-bit zero-fill right shift (PDF 32000-1 7.10.5), not an arithmetic shift.
+    pushNumber(state, shift >= 0 ? (bits << shift) | 0 : (bits >>> -shift) | 0, true)
   },
   eq: (state) => equal(state, 'eq', false),
   false: (state) => pushBool(state, false),
@@ -221,24 +233,24 @@ const operators: Record<string, Handler> = {
     const count = popInt(state, 'copy')
     if (count < 0 || state.stack.length < count) calculatorRefuse('calculator copy count', 'a non-negative integer within the stack')
     const copies = state.stack.slice(state.stack.length - count)
-    for (const value of copies) push(state, value)
+    for (const value of copies) pushStack(state, value)
   },
   dup: (state) => {
     const value = pop(state, 'dup')
-    push(state, value)
-    push(state, value)
+    pushStack(state, value)
+    pushStack(state, value)
   },
   exch: (state) => {
     const top = pop(state, 'exch')
     const below = pop(state, 'exch')
-    push(state, top)
-    push(state, below)
+    pushStack(state, top)
+    pushStack(state, below)
   },
   index: (state) => {
     const n = popInt(state, 'index')
     if (n < 0 || n >= state.stack.length) calculatorRefuse('calculator index', 'a non-negative integer within the stack')
     const value = state.stack[state.stack.length - 1 - n]
-    if (value) push(state, value)
+    if (value) pushStack(state, value)
   },
   pop: (state) => {
     pop(state, 'pop')
@@ -257,6 +269,6 @@ const operators: Record<string, Handler> = {
 
 export function applyOperator(name: string, state: EvalState, exec: Exec): void {
   const handler = operators[name]
-  if (!handler) calculatorRefuse(`calculator operator ${/^[A-Za-z][A-Za-z0-9]{0,15}$/.test(name) ? name : 'other'}`, 'the PDF calculator operators')
+  if (!handler) calculatorRefuse(`calculator operator ${classifiedOperatorName(name)}`, 'the PDF calculator operators')
   handler(state, exec)
 }
