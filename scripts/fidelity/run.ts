@@ -191,11 +191,14 @@ async function posterLayoutEvidence(poster: PageInput): Promise<PosterEvidence> 
   const lineHeightFinding = sameDisplacement(authored, normalLineHeight, 'displacementY')
     ? 'Normal line-height preserves the vertical displacement.'
     : 'Normal line-height changes the vertical displacement.'
+  const authoredX = authored.map((line) => line.displacementX).join(', ')
+  const authoredY = authored.map((line) => line.displacementY).join(', ')
+  const marker = results[0]?.alignment
   return {
     method:
       'An in-memory copy isolates the black headline on white, removes its shadow, and keeps the fixed page marker. Screen and Poppler crops use identical page coordinates after marker registration; dark-pixel glyph bounds are measured for each line.',
     variants: results,
-    conclusion: `${spacingFinding} ${lineHeightFinding}`,
+    conclusion: `The fixed marker is displaced ${marker?.offsetX ?? '—'}, ${marker?.offsetY ?? '—'} device px while the authored glyph boxes are displaced horizontally ${authoredX} and vertically ${authoredY} device px, so page crop or registration does not explain the headline difference. ${spacingFinding} ${lineHeightFinding} Neither scratch change removes the difference; the evidence supports Chromium screen-versus-print text metrics or layout as the cause, but does not isolate one authored property.`,
   }
 }
 
