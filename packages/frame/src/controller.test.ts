@@ -2,25 +2,30 @@ import { describe, expect, test } from 'bun:test'
 import { type Narration, Shot } from '@segnavia/format'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
-import { keyAction } from './keys.ts'
 
 // A clock the test moves by hand, and a scheduler that runs a tick only when
 // the test asks, so the controller is driven without a browser or real time.
-function harness() {
-  const clocks: Array<{ word: number | null; ended: boolean; elapsed: number; muted: boolean }> = []
+function harness(options: { playback?: 'step' | 'continuous'; persist?: boolean } = {}) {
+  const clocks: Array<{ word: number | null; ended: boolean; elapsed: number; muted: boolean; pauses: number; resumes: number }> = []
   let pending: (() => void) | null = null
   const controller = new DeckController({
     hash: null,
-    clock: (narration: Narration): Clock => {
-      const state = { word: null as number | null, ended: false, elapsed: 0, muted: false }
+    ...options,
+    clock: (slide): Clock => {
+      const narration = slide.narration
+      const state = { word: null as number | null, ended: false, elapsed: 0, muted: false, pauses: 0, resumes: 0 }
       clocks.push(state)
       return {
         word: () => state.word,
         ended: () => state.ended,
         elapsed: () => state.elapsed,
-        progress: () => (state.ended ? 1 : (state.word ?? 0) / narration.words.length),
-        pause: () => {},
-        resume: () => {},
+        progress: () => (state.ended ? 1 : (state.word ?? 0) / (narration?.words.length ?? 1)),
+        pause: () => {
+          state.pauses++
+        },
+        resume: () => {
+          state.resumes++
+        },
         seek: (ms) => {
           state.elapsed = ms
         },
@@ -99,22 +104,81 @@ describe('deck controller', () => {
     await tick()
     expect(controller.state.shown).toEqual([0])
     controller.pause()
-    expect(controller.state.shown).toBeNull()
+    expect(controller.state.shown).toEqual([0])
   })
 
-  test('arrow keys follow the deck reading direction', async () => {
-    const { controller } = harness()
-    await controller.load({ ...deck, dir: 'rtl' })
-    expect(controller.state.direction).toBe('rtl')
-    expect(controller.key('ArrowLeft')).toBe('next')
-    await Bun.sleep(0)
+  test('pause preserves position and play resumes the same clock', async () => {
+    const { controller, clocks, tick } = harness()
+    await controller.load(deck)
+    await controller.go(1)
+    await controller.play()
+    const clock = clocks[0]
+    if (!clock) throw new Error('clock was not created')
+    clock.elapsed = 400
+    clock.word = 1
+    await tick()
+    controller.pause()
+    expect(controller.state.slideElapsedMs).toBe(400)
+    expect(controller.state.progress).toBeGreaterThan(0)
+    await controller.play()
+    expect(clocks).toHaveLength(1)
+    expect(clock.pauses).toBe(1)
+    expect(clock.resumes).toBe(1)
+  })
+
+  test('seek moves across slides and within one slide', async () => {
+    const { controller, clocks } = harness()
+    await controller.load({
+      title: 'T',
+      slides: [
+        { id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 },
+        { id: 'b', content: { kind: 'html', html: '' }, narration: narration('hello') },
+      ],
+    })
+    await controller.seek(750)
     expect(controller.state.index).toBe(1)
+    expect(controller.state.slideElapsedMs).toBe(250)
+    expect(controller.state.elapsedMs).toBe(750)
+    await controller.seek(900)
+    expect(controller.state.index).toBe(1)
+    expect(clocks.at(-1)?.elapsed).toBe(400)
   })
 
-  test('a deck in a right to left language reads right to left without a dir', async () => {
-    const { controller } = harness()
-    await controller.load({ ...deck, lang: 'he' })
-    expect(controller.state.direction).toBe('rtl')
+  test('hold slides advance and untimed slides stop in either playback mode', async () => {
+    for (const playback of ['step', 'continuous'] as const) {
+      const { controller, clocks, tick } = harness({ playback })
+      await controller.load({
+        title: 'T',
+        slides: [
+          { id: 'a', content: { kind: 'html', html: '' }, holdMs: 50 },
+          { id: 'b', content: { kind: 'html', html: '' } },
+          { id: 'c', content: { kind: 'html', html: '' }, holdMs: 50 },
+        ],
+      })
+      await controller.play()
+      const clock = clocks[0]
+      if (!clock) throw new Error('clock was not created')
+      clock.ended = true
+      await tick()
+      expect(controller.state.index).toBe(1)
+      expect(controller.state.playing).toBe(false)
+      expect(controller.state.playback).toBe(playback)
+      await controller.play()
+      expect(controller.state.index).toBe(2)
+      expect(controller.state.playing).toBe(true)
+    }
+  })
+
+  test('mute changes sound without changing the clock position', async () => {
+    const { controller, clocks } = harness()
+    await controller.load({ title: 'T', slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 }] })
+    await controller.play()
+    const clock = clocks[0]
+    if (!clock) throw new Error('clock was not created')
+    clock.elapsed = 200
+    controller.setMuted(true)
+    expect(clock.muted).toBe(true)
+    expect(clock.elapsed).toBe(200)
   })
 
   test('reloading a deck resolves a referenced shot again', async () => {
@@ -295,13 +359,6 @@ describe('deck controller', () => {
     } finally {
       globalThis.fetch = realFetch
     }
-  })
-})
-
-describe('keys', () => {
-  test('page keys and space mean the same in either direction; arrows mirror', () => {
-    expect([keyAction('ArrowRight', 'ltr'), keyAction('ArrowRight', 'rtl')]).toEqual(['next', 'previous'])
-    expect([keyAction('PageDown', 'rtl'), keyAction(' ', 'rtl'), keyAction('Escape', 'ltr'), keyAction('a', 'ltr')]).toEqual(['next', 'toggle', 'exit', null])
   })
 })
 
