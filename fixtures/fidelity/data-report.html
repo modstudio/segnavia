@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; font-family: Inter, Arial, sans-serif; }
+  body { padding: 48px 56px; color: #14223b; background: #f4f7fb; }
+  header { display: flex; justify-content: space-between; align-items: end; margin-bottom: 28px; }
+  h1 { font-size: 42px; margin: 0; }
+  header p { margin: 0; color: #65708b; }
+  .layout { display: grid; grid-template-columns: 1.4fr .8fr; gap: 26px; }
+  .panel { background: #fff; border-radius: 24px; padding: 26px; box-shadow: 0 14px 36px #293b6220; }
+  .chart { height: 310px; }
+  .chart svg { width: 100%; height: 100%; }
+  .side { display: grid; gap: 22px; }
+  .donut { height: 144px; }
+  .table { grid-column: 1 / -1; padding: 0; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 16px 22px; }
+  th { background: #182741; color: #fff; }
+  tbody tr:nth-child(even) { background: #edf2f8; }
+  .up { color: #0b8c68; font-weight: 700; }
+</style>
+<body>
+  <header><div><p>QUARTERLY SIGNALS · Q3</p><h1>Momentum, without the noise.</h1></div><p>Prepared 14 October</p></header>
+  <main class="layout">
+    <section class="panel chart" data-fidelity="area-chart">
+      <svg viewBox="0 0 620 300" role="img" aria-label="Quarterly momentum area chart">
+        <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#6c5ce7" stop-opacity=".75"/><stop offset="1" stop-color="#6c5ce7" stop-opacity="0"/></linearGradient><filter id="lineShadow" x="-20%" y="-30%" width="140%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#362c88" flood-opacity=".35"/></filter></defs>
+        <g stroke="#dce3ed"><path d="M30 40H600M30 100H600M30 160H600M30 220H600"/></g><path d="M30 238C110 210 142 215 210 155S340 180 420 98 535 70 600 45V260H30Z" fill="url(#area)"/><path d="M30 238C110 210 142 215 210 155S340 180 420 98 535 70 600 45" fill="none" stroke="#6c5ce7" stroke-width="8" filter="url(#lineShadow)"/>
+      </svg>
+    </section>
+    <div class="side">
+      <section class="panel donut" data-fidelity="svg-blur">
+        <svg viewBox="0 0 300 120" role="img" aria-label="Retention ring chart">
+          <defs><filter id="glow"><feGaussianBlur stdDeviation="7"/></filter><linearGradient id="bar"><stop stop-color="#00c2a8"/><stop offset="1" stop-color="#39a4ff"/></linearGradient></defs><circle cx="60" cy="60" r="38" fill="none" stroke="#21c7b7" stroke-width="18" opacity=".32" filter="url(#glow)"/><circle cx="60" cy="60" r="38" fill="none" stroke="url(#bar)" stroke-width="14" stroke-dasharray="180 60"/><text x="120" y="58" font-size="24" font-weight="700">76%</text><text x="120" y="84" fill="#65708b">retained</text>
+        </svg>
+      </section>
+      <section class="panel"><b>Net confidence</b><h2 class="up">+18.4%</h2><p>Three-month rolling average</p></section>
+    </div>
+    <section class="panel table" data-fidelity="zebra-table">
+      <table><thead><tr><th>Market</th><th>Volume</th><th>Change</th><th>Signal</th></tr></thead><tbody><tr><td>North</td><td>24,810</td><td class="up">+12.8%</td><td>Strong</td></tr><tr><td>Central</td><td>18,204</td><td class="up">+8.2%</td><td>Stable</td></tr><tr><td>Coastal</td><td>31,905</td><td class="up">+22.1%</td><td>Strong</td></tr></tbody></table>
+    </section>
+  </main>
+</body>
+</html>

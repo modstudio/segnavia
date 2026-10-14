@@ -14,6 +14,8 @@
     "test": "bun --conditions=@segnavia/source test packages scripts",
     "typecheck": "tsc --noEmit -p .",
     "demo": "bun --conditions=@segnavia/source scripts/build-demo.ts && bun --conditions=@segnavia/source scripts/verify-demo.ts && bun --conditions=@segnavia/source scripts/verify-render.ts && node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts && php fixtures/php-host/validate.php out",
+    "fidelity": "bun --conditions=@segnavia/source scripts/fidelity/run.ts",
+    "fidelity:compare": "bun --conditions=@segnavia/source scripts/fidelity/compare.ts",
     "changeset": "changeset",
     "version": "changeset version && bun install",
     "release": "bun scripts/publish.ts",
@@ -27,7 +29,8 @@
     "@segnavia/voice": "workspace:*",
     "@segnavia/render": "workspace:*",
     "@segnavia/frame": "workspace:*",
-    "@segnavia/html": "workspace:*"
+    "@segnavia/html": "workspace:*",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
