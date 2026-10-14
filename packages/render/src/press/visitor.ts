@@ -52,11 +52,12 @@ function visitContent(
   if (!found) return
   const seenStream = state.streams.has(found)
   if (!seenStream) state.streams.add(found)
-  if ((seenRef || seenStream) && !replay) return
+  const seen = seenRef || seenStream
+  if (seen && !replay) return
   const own = found.dict.lookupMaybe(key('Resources'), PDFDict)
-  if (!seenRef && !seenStream) state.actions?.group(found.dict, found, state.maskSources.has(found))
+  if (!seen) state.actions?.group(found.dict, found, state.maskSources.has(found))
   state.actions?.content(object, found, replace, own ?? enclosing)
-  if (nestResources && !seenRef && !seenStream) visitResources(state, own)
+  if (nestResources && !seen) visitResources(state, own)
 }
 
 function visitSoftMask(state: WalkState, object: PDFObject | undefined, enclosing?: PDFDict): void {
@@ -171,8 +172,7 @@ function visitPageContents(state: WalkState, page: PDFDict, contents: PDFObject 
   if (contents instanceof PDFArray) {
     // A page Contents array is one graphics-state sequence (PDF 7.8.2). Nested resources are walked after it ends so they do not share that tracker.
     state.actions?.beginContentsSequence?.()
-    for (let index = 0; index < contents.size(); index++)
-      feed(contents.get(index), (replacement) => contents.set(index, replacement))
+    for (let index = 0; index < contents.size(); index++) feed(contents.get(index), (replacement) => contents.set(index, replacement))
     state.actions?.endContentsSequence?.()
   } else feed(contents, (replacement) => page.set(key('Contents'), replacement))
   for (const resources of nested) visitResources(state, resources)
