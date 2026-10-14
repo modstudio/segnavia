@@ -12,6 +12,7 @@ import {
   checkImports,
   checkManifest,
   checkSourceResolution,
+  checkTypeScriptSuppressions,
   type Finding,
   packageOf,
   type Workspace,
@@ -42,7 +43,7 @@ function workspaces(): Map<string, Workspace> {
   return map
 }
 
-const PATTERNS = ['packages/*/src/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
+const PATTERNS = ['packages/*/src/**/*.ts', 'packages/*/test-fixtures/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
 
 function sources(): string[] {
   const found = new Set<string>()
@@ -83,7 +84,7 @@ function structural(names: string[]): Finding[] {
       else findings.push(...checkImports(file, workspace, all))
       findings.push(...checkHostNames(file, names))
     }
-    findings.push(...checkComments(file), ...checkCeiling(file))
+    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkCeiling(file))
   }
   return findings
 }

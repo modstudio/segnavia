@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { PACKAGES, SOURCE_CONDITION } from '../../architecture.ts'
-import { checkComments, checkHostNames, checkImports, checkManifest, checkSourceResolution, type ResolutionInputs, type Workspace } from './rules.ts'
+import {
+  checkComments,
+  checkHostNames,
+  checkImports,
+  checkManifest,
+  checkSourceResolution,
+  checkTypeScriptSuppressions,
+  type ResolutionInputs,
+  type Workspace,
+} from './rules.ts'
 
 const workspace = (name: string, exports = ['.']): Workspace => ({
   name: `@segnavia/${name}`,
@@ -29,6 +38,23 @@ describe('architecture rules', () => {
   test('an undeclared dependency is refused with where to declare it', () => {
     const file = { path: 'packages/voice/src/index.ts', text: '', imports: ['playwright-core'] }
     expect(checkImports(file, workspace('voice'), all)[0]?.message).toContain('declare it in architecture.ts')
+  })
+
+  test('test fixtures can be imported only by tests and test helpers in package source', () => {
+    const source = { path: 'packages/render/src/color/reference.ts', text: '', imports: ['../../test-fixtures/lcms/reference.ts'] }
+    expect(checkImports(source, workspace('render'), all).map((finding) => finding.message)).toContain(
+      'package source may import test fixtures only from a test or test-helper module.',
+    )
+    const testFile = { ...source, path: 'packages/render/src/color/reference.test.ts' }
+    expect(checkImports(testFile, workspace('render'), all)).toEqual([])
+    const helper = { ...source, path: 'packages/render/src/color/reference.test-helper.ts' }
+    expect(checkImports(helper, workspace('render'), all)).toEqual([])
+    for (const escaped of ['../../../format/test-fixtures/foo.ts', '../../test-fixtures/../../../format/src/index.ts']) {
+      const file = { path: 'packages/render/src/color/color.test.ts', text: '', imports: [escaped] }
+      expect(checkImports(file, workspace('render'), all).map((finding) => finding.message)).toContain(
+        `"${escaped}" reaches outside the package; import another package by name.`,
+      )
+    }
   })
 
   test('a server-safe entry point may not reach a browser-only file', () => {
@@ -67,6 +93,15 @@ describe('writing rules', () => {
 
   test('a tracker key in a comment is caught', () => {
     expect(checkComments({ path: 'x.ts', text: '// see AB-2954', imports: [] })).toHaveLength(1)
+  })
+
+  test('TypeScript suppression directives are caught in packages and scripts', () => {
+    for (const path of ['packages/render/src/example.ts', 'scripts/example.ts'])
+      for (const name of ['nocheck', 'ignore', 'expect-error']) {
+        const file = { path, text: `// @ts-${name}`, imports: [] }
+        expect(checkTypeScriptSuppressions(file).map((finding) => finding.rule)).toEqual(['type-suppression'])
+      }
+    expect(checkTypeScriptSuppressions({ path: 'docs/example.ts', text: `// @ts-${'ignore'}`, imports: [] })).toEqual([])
   })
 
   test('code never names a host', () => {
