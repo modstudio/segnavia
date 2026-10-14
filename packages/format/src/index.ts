@@ -4,6 +4,7 @@
 
 import { z } from 'zod'
 import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { DEFAULT_TRANSITION_DURATION_MS, Transition } from './transition.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export {
@@ -32,6 +33,7 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export * from './transition.ts'
 
 export const Size = z.object({
   width: z.number().int().positive(),
@@ -43,17 +45,6 @@ export type Size = z.infer<typeof Size>
 // runs them in a frame with an opaque origin that cannot reach its host.
 export const Scripts = z.enum(['refuse', 'sandboxed'])
 export type Scripts = z.infer<typeof Scripts>
-
-export const MIN_TRANSITION_DURATION_MS = 0
-export const MAX_TRANSITION_DURATION_MS = 2_000
-export const DEFAULT_TRANSITION_DURATION_MS = 300
-
-export const Transition = z.object({
-  kind: z.enum(['none', 'fade', 'slide']),
-  duration: z.number().int().min(MIN_TRANSITION_DURATION_MS).max(MAX_TRANSITION_DURATION_MS).default(DEFAULT_TRANSITION_DURATION_MS),
-})
-export type Transition = z.infer<typeof Transition>
-export type TransitionInput = z.input<typeof Transition>
 
 export const Direction = z.enum(['ltr', 'rtl', 'auto'])
 

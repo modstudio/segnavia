@@ -187,10 +187,13 @@ export class FramePool {
       this.changed()
     }
     const animate = () => {
+      if (transition) return finish()
       if (!transition || transition.duration === 0) return finish()
       const outgoing = this.entries.get(visibleId)?.canvas
       if (!outgoing) return finish()
       this.setTransitionAttributes(outgoing, incoming, transition)
+      // Commit the entering position before the next frame starts motion.
+      incoming.getBoundingClientRect()
       ;(this.pending as PendingTurn).running = true
       animationFrame = requestAnimationFrame(() => {
         if (settled || this.pending?.id !== id) return
@@ -252,6 +255,7 @@ export class FramePool {
       canvas.dataset.transition = transition.kind
       canvas.dataset.axis = transition.axis
       canvas.style.setProperty('--segnavia-transition-duration', duration)
+      canvas.style.setProperty('--segnavia-transition-scale', canvas.style.transform.match(/scale\(([^)]+)\)/)?.[1] ?? '1')
     }
     outgoing.dataset.leaving = ''
     incoming.dataset.entering = ''
@@ -261,6 +265,7 @@ export class FramePool {
     for (const canvas of this.entries.values()) {
       for (const name of ['data-transition', 'data-axis', 'data-entering', 'data-leaving', 'data-running']) canvas.canvas.removeAttribute(name)
       canvas.canvas.style.removeProperty('--segnavia-transition-duration')
+      canvas.canvas.style.removeProperty('--segnavia-transition-scale')
     }
   }
 

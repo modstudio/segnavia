@@ -77,9 +77,14 @@ async function interruptedFacts(h: Harness) {
     await host.loadTransition('slide', 'sandboxed')
     host.stage.setAttribute('transition-duration', '1000')
     await host.controller.go(1)
-    await animationFrameMatching(() => Boolean(document.querySelector('#deck [data-running]')))
+    const waitFor = (predicate: () => boolean) =>
+      new Promise<void>((resolve) => {
+        const poll = () => (predicate() ? resolve() : requestAnimationFrame(poll))
+        poll()
+      })
+    await waitFor(() => Boolean(document.querySelector('#deck [data-running]')))
     await host.controller.go(2)
-    await animationFrameMatching(
+    await waitFor(
       () =>
         document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'transition-3' && !document.querySelector('#deck [data-transition]'),
     )
@@ -91,13 +96,6 @@ async function interruptedFacts(h: Harness) {
   })
 }
 
-function animationFrameMatching(predicate: () => boolean): Promise<void> {
-  return new Promise((resolve) => {
-    const poll = () => (predicate() ? resolve() : requestAnimationFrame(poll))
-    poll()
-  })
-}
-
 async function sampleTransition(
   h: Harness,
   kind: 'fade' | 'slide',
@@ -106,7 +104,65 @@ async function sampleTransition(
   override?: { kind: 'fade' | 'slide'; duration: number },
 ): Promise<TransitionSample> {
   await prepareTransition(h, kind, scripts, dir, override)
-  return h.page.evaluate(sampleInPage, { selectedKind: kind, selectedScripts: scripts })
+  return h.page.evaluate(
+    async ({ selectedKind, selectedScripts }) => {
+      const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+      const stage = document.querySelector('#deck') as HTMLElement
+      const values: number[] = []
+      const facts = { emptyFrames: 0, observedKind: null as string | null }
+      const hasPaintedCanvas = () => {
+        const stageBox = stage.getBoundingClientRect()
+        return [...stage.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')].some((canvas) => {
+          const style = getComputedStyle(canvas)
+          const box = canvas.getBoundingClientRect()
+          return Number(style.opacity) > 0 && box.right > stageBox.left && box.left < stageBox.right
+        })
+      }
+      const recordIncoming = () => {
+        const incoming = stage.querySelector<HTMLElement>('[data-slide-id="transition-2"]')
+        if (!incoming?.dataset.transition) return
+        facts.observedKind = incoming.dataset.transition
+        const style = getComputedStyle(incoming)
+        if (selectedKind === 'fade' || facts.observedKind === 'fade') values.push(Number(style.opacity))
+        else {
+          const box = incoming.getBoundingClientRect()
+          const stageBox = stage.getBoundingClientRect()
+          const restingLeft = stageBox.left + (stageBox.width - box.width) / 2
+          values.push(((box.left - restingLeft) / box.width) * 100)
+        }
+      }
+      const turn = host.controller.go(1)
+      await new Promise<void>((resolve) => {
+        const sample = () => {
+          recordIncoming()
+          if (!hasPaintedCanvas()) facts.emptyFrames++
+          const settled = stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-2' && !stage.querySelector('[data-transition]')
+          if (settled) resolve()
+          else requestAnimationFrame(sample)
+        }
+        requestAnimationFrame(sample)
+      })
+      await turn
+      const normalized = facts.observedKind === 'fade' ? values : values.map((value) => Math.abs(value))
+      const decreasing = normalized.every((value, index) => index === 0 || value <= (normalized[index - 1] ?? value) + 0.5)
+      const increasing = values.every((value, index) => index === 0 || value + 0.01 >= (values[index - 1] ?? value))
+      const first = values[0] ?? 0
+      const last = values.at(-1) ?? 0
+      return {
+        kind: selectedKind,
+        scripts: selectedScripts,
+        observedKind: facts.observedKind,
+        frames: values.length,
+        emptyFrames: facts.emptyFrames,
+        monotonic: facts.observedKind === 'fade' ? increasing : decreasing,
+        range: facts.observedKind === 'fade' ? first < 0.2 && last > 0.8 : Math.abs(first) >= 99 && Math.abs(last) < 1,
+        first,
+        last,
+        target: stage.querySelector('[data-active]')?.getAttribute('data-slide-id') ?? null,
+      }
+    },
+    { selectedKind: kind, selectedScripts: scripts },
+  )
 }
 
 async function prepareTransition(
@@ -127,68 +183,4 @@ async function prepareTransition(
     },
     { selectedKind: kind, selectedScripts: scripts, selectedDirection: dir, hostOverride: override },
   )
-}
-
-async function sampleInPage({ selectedKind, selectedScripts }: { selectedKind: 'fade' | 'slide'; selectedScripts: 'refuse' | 'sandboxed' }) {
-  const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
-  const stage = document.querySelector('#deck') as HTMLElement
-  const values: number[] = []
-  const facts = { emptyFrames: 0, observedKind: null as string | null }
-  const turn = host.controller.go(1)
-  await new Promise<void>((resolve) => requestAnimationFrame(() => sampleFrame(stage, selectedKind, values, facts, resolve)))
-  await turn
-  return summarizeSample(stage, selectedKind, selectedScripts, values, facts)
-}
-
-function sampleFrame(
-  stage: HTMLElement,
-  kind: 'fade' | 'slide',
-  values: number[],
-  facts: { emptyFrames: number; observedKind: string | null },
-  done: () => void,
-) {
-  const incoming = stage.querySelector<HTMLElement>('[data-slide-id="transition-2"]')
-  if (incoming?.dataset.transition) {
-    facts.observedKind = incoming.dataset.transition
-    const style = getComputedStyle(incoming)
-    values.push(kind === 'fade' || facts.observedKind === 'fade' ? Number(style.opacity) : Number.parseFloat(style.translate) || 0)
-  }
-  if (!hasPaintedCanvas(stage)) facts.emptyFrames++
-  if (stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-2' && !stage.querySelector('[data-transition]')) done()
-  else requestAnimationFrame(() => sampleFrame(stage, kind, values, facts, done))
-}
-
-function hasPaintedCanvas(stage: HTMLElement): boolean {
-  const stageBox = stage.getBoundingClientRect()
-  return [...stage.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')].some((canvas) => {
-    const style = getComputedStyle(canvas)
-    const box = canvas.getBoundingClientRect()
-    return Number(style.opacity) > 0 && box.right > stageBox.left && box.left < stageBox.right
-  })
-}
-
-function summarizeSample(
-  stage: HTMLElement,
-  kind: 'fade' | 'slide',
-  scripts: 'refuse' | 'sandboxed',
-  values: number[],
-  facts: { emptyFrames: number; observedKind: string | null },
-): TransitionSample {
-  const normalized = facts.observedKind === 'fade' ? values : values.map((value) => Math.abs(value))
-  const decreasing = normalized.every((value, index) => index === 0 || value <= (normalized[index - 1] ?? value) + 0.5)
-  const increasing = values.every((value, index) => index === 0 || value + 0.01 >= (values[index - 1] ?? value))
-  const first = values[0] ?? 0
-  const last = values.at(-1) ?? 0
-  return {
-    kind,
-    scripts,
-    observedKind: facts.observedKind,
-    frames: values.length,
-    emptyFrames: facts.emptyFrames,
-    monotonic: facts.observedKind === 'fade' ? increasing : decreasing,
-    range: facts.observedKind === 'fade' ? first < 0.2 && last > 0.8 : Math.abs(first) > 100 && Math.abs(last) < 100,
-    first,
-    last,
-    target: stage.querySelector('[data-active]')?.getAttribute('data-slide-id') ?? null,
-  }
 }

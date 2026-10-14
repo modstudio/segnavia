@@ -32,7 +32,7 @@ describe('headless base styles', () => {
 
   test('turn motion uses only geometry and opacity with the duration custom property', () => {
     expect(BASE_CSS).toContain('transition-property:opacity,translate')
-    expect(BASE_CSS).toContain('transition-duration:var(--segnavia-transition-duration)')
+    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration)')
     expect(BASE_CSS).toContain('[data-transition="slide"]')
   })
 })
