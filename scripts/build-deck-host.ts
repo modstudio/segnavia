@@ -34,7 +34,7 @@ document.getElementById('previous').onclick=()=>controller.previous()
 document.getElementById('next').onclick=()=>controller.next()
 document.getElementById('present').onclick=()=>controller.state.presenting?controller.stopPresenting():controller.present(root)
 controller.addEventListener('change',({detail})=>{document.getElementById('counter').textContent=(detail.index+1)+' / '+detail.deck.slides.length;stage.reserve=detail.presenting?{blockStart:140}:{blockStart:140,blockEnd:172}})
-const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits))},async focusNeighbor(){await controller.load(makeFocusDeck())},deck:()=>makeDeck(ids)}
+const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits))},async focusNeighbor(){await controller.load(makeFocusDeck());await controller.go(0)},deck:()=>makeDeck(ids)}
 Object.defineProperty(window,'__deckHost',{value:api})
 await controller.load(makeDeck(ids))
 </script></body></html>`,

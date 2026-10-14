@@ -166,7 +166,7 @@ export async function verifyDeckHost(h: Harness) {
   await page.locator('#notes').focus()
   await scriptedNeighbor.evaluate((frame: HTMLIFrameElement) => frame.contentWindow?.postMessage('focus', '*'))
   await page.waitForFunction(() => (window as unknown as { __messages: string[] }).__messages.includes('focus-attempted'))
-  await page.waitForTimeout(50)
+  await page.waitForTimeout(250)
   const guardedFocus = await page.evaluate(() => {
     const active = document.activeElement
     const hiddenFrame = document.querySelector<HTMLIFrameElement>('#deck [data-slide-id="focus-neighbor"] iframe')
