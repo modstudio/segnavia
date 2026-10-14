@@ -251,14 +251,19 @@ counts of converted fills, strokes, gradient stops, sampled shadings and groups 
 the finished PDF. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
 converted by sampling their calculator program onto a DeviceCMYK type 0 function,
-8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). The tracker unions
-fill and stroke path boxes after the content CTM (strokes grown by the current
-line width, join and miter). That rectangle maps through the inverse of (pattern
-`/Matrix` times shading `/Matrix`), intersects the shading Domain, and becomes
-the Type 0 function's Domain; the shading's own Domain stays. The sample grid is
-one sample per 0.5 pt of that Type 0 Domain through the combined matrix. When
-painted bounds cannot be established, the full Domain is sampled under that
-ceiling. Sample counts across one rewrite are capped at
+8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). Painted bounds are
+gathered for the whole document in a pass before any conversion, under its own
+`MAX_DOCUMENT_CONTENT_BYTES` budget. That pass replays each page's Contents in
+order every time a stream appears, and walks resources reached from content
+(forms, Type 3 glyphs, tiling patterns, soft masks) with a fresh tracker. The
+tracker unions fill and stroke path boxes after the content CTM (strokes grown by
+the current line width, join and miter). For each use of a shading, that
+rectangle maps through the inverse of (pattern `/Matrix` times shading
+`/Matrix`) and intersects the shading Domain; the union over every use becomes
+the Type 0 function's Domain, and the shading's own Domain stays. The sample grid
+is the largest per-use grid over that Domain, one sample per 0.5 pt through each
+use's combined matrix. A use the pass cannot bound samples the full Domain under
+that ceiling, so a sampled Domain is never smaller than a painted use needs. Sample counts across one rewrite are capped at
 `MAX_DOCUMENT_SHADING_SAMPLES` (4 194 304), the fidelity suite's four Type 1
 shadings at the per-shading cap, charged before a shading is evaluated. Calculator
 work across one rewrite is capped at `MAX_DOCUMENT_CALCULATOR_OPERATIONS`
