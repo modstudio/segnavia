@@ -1,7 +1,7 @@
 import { PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { inspectContent } from './content.ts'
-import { type ContentBudget, decodeContent, nameOf, numberOf, resolvedColorSpace } from './pdf-objects.ts'
+import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import type { PressImage, PressReport } from './types.ts'
 import { walkPressGraph } from './visitor.ts'
@@ -42,9 +42,18 @@ function inspectShading(state: ReportState, shading: PDFDict): boolean {
   if (state.shadings.has(shading)) return false
   state.shadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
+  const fn = dictionaryOf(resolved(state, shading.get(key('Function'))))
+  const functionType = fn ? numberOf(fn, 'FunctionType') : undefined
   const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
-  const policy = shadingAction(space.kind, type)
-  if (policy.action === 'refuse' || policy.action === 'convert') refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
+  const policy = shadingAction(space.kind, type, functionType)
+  if (policy.action !== 'keep') {
+    if (type === 1) refuse(`ShadingType 1 FunctionType ${functionType ?? 'missing'} color space ${space.label}`, policy.supported)
+    refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
+  }
+  if (type === 1) {
+    state.report.sampledShadings++
+    return false
+  }
   return true
 }
 
@@ -65,7 +74,7 @@ export async function inspectPressPdf(bytes: Uint8Array): Promise<PressReport> {
     document,
     groups: new WeakSet(),
     images: new WeakSet(),
-    report: { images: [], fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
+    report: { images: [], fills: 0, strokes: 0, gradientStops: 0, sampledShadings: 0, groups: 0 },
     shadings: new WeakSet(),
   }
   walkPressGraph(document, {

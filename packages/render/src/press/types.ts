@@ -11,5 +11,7 @@ export interface PressReport {
   fills: number
   strokes: number
   gradientStops: number
+  /** Function-based shadings rewritten as DeviceCMYK sampled functions. */
+  sampledShadings: number
   groups: number
 }

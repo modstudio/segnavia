@@ -51,8 +51,14 @@ export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boo
   return decision('refuse', supported)
 }
 
-// Only axial and radial RGB shadings are converted; already-CMYK shadings need no work.
-export function shadingAction(kind: ColorSpaceKind, type: number | undefined): PolicyDecision {
+// Axial and radial RGB shadings convert by their stops; a type 1 RGB shading converts when its function is a type 4 calculator.
+export function shadingAction(kind: ColorSpaceKind, type: number | undefined, functionType?: number): PolicyDecision {
+  if (type === 1) {
+    const supported = 'ShadingType 1 in an RGB space with FunctionType 4, or DeviceCMYK'
+    if (kind === 'cmyk') return decision('keep', supported)
+    if (kind === 'rgb' && functionType === 4) return decision('convert', supported)
+    return decision('refuse', supported)
+  }
   const supported = 'ShadingType 2 or 3 in an RGB or DeviceCMYK color space'
   if (type !== 2 && type !== 3) return decision('refuse', supported)
   if (kind === 'rgb') return decision('convert', supported)

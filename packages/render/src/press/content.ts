@@ -245,7 +245,7 @@ function scan(
   return counts
 }
 
-export function visitContentOperators(bytes: Uint8Array, visit: (operator: string, operands: number[]) => void): void {
+export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void): void {
   scan(
     decoder.decode(bytes),
     () => [0, 0, 0, 0],
@@ -254,10 +254,19 @@ export function visitContentOperators(bytes: Uint8Array, visit: (operator: strin
     (operator, operands) => {
       visit(
         operator.raw,
-        operands.filter((operand) => operand.kind === 'number').map((operand) => Number(operand.raw)),
+        operands.flatMap((operand) => (operand.kind === 'name' || operand.kind === 'number' ? [{ kind: operand.kind, raw: operand.raw }] : [])),
       )
     },
   )
+}
+
+export function visitContentOperators(bytes: Uint8Array, visit: (operator: string, operands: number[]) => void): void {
+  visitContentTokens(bytes, (operator, operands) => {
+    visit(
+      operator,
+      operands.filter((operand) => operand.kind === 'number').map((operand) => Number(operand.raw)),
+    )
+  })
 }
 
 export function inspectContent(bytes: Uint8Array): ContentCounts {

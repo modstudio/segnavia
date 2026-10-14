@@ -4,6 +4,8 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
+import { proof } from '../../packages/render/src/color/engine.ts'
+import { readProfile } from '../../packages/render/src/color/profile.ts'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
@@ -72,6 +74,69 @@ function meanDifference(first: Ppm, second: Ppm): number {
   return difference / first.pixels.length
 }
 
+function pixelRgb(image: Ppm, x: number, y: number): [number, number, number] {
+  const px = Math.min(image.width - 1, Math.max(0, Math.round(x)))
+  const py = Math.min(image.height - 1, Math.max(0, Math.round(y)))
+  const offset = (py * image.width + px) * 3
+  return [image.pixels[offset] ?? 0, image.pixels[offset + 1] ?? 0, image.pixels[offset + 2] ?? 0]
+}
+
+function channelDistance(found: [number, number, number], expected: [number, number, number]): number {
+  return Math.max(...found.map((value, index) => Math.abs(value - (expected[index] ?? 0))))
+}
+
+const gradientHtml = `<body style="margin:20px;display:grid;grid-template-columns:repeat(2,260px);gap:16px">
+<div style="height:160px;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red)"></div>
+<div style="height:160px;background:repeating-linear-gradient(45deg,#e03030 0 10px,#3030e0 10px 20px)"></div>
+<div style="height:160px;background:repeating-radial-gradient(circle,#20a060 0 8px,#f0c020 8px 16px)"></div>
+<div style="height:160px;background:conic-gradient(from 90deg,#333,#fff)"></div></body>`
+
+interface Region {
+  name: string
+  x0: number
+  x1: number
+  y0: number
+  y1: number
+}
+
+function proofRgb(press: ReturnType<typeof readProfile>, pixel: [number, number, number]): [number, number, number] {
+  return proof(press, [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
+}
+
+function conicAngleDelta(original: Ppm, converted: Ppm, cx: number, cy: number, radius: number, press: ReturnType<typeof readProfile>): number {
+  let max = 0
+  for (let step = 0; step < 8; step++) {
+    const angle = (step * Math.PI) / 4
+    const x = cx + radius * Math.sin(angle)
+    const y = cy - radius * Math.cos(angle)
+    max = Math.max(max, channelDistance(pixelRgb(converted, x, y), proofRgb(press, pixelRgb(original, x, y))))
+  }
+  return max
+}
+
+function regionProofStats(original: Ppm, converted: Ppm, region: Region, press: ReturnType<typeof readProfile>): { max: number; mean: number } {
+  let difference = 0
+  let max = 0
+  let count = 0
+  const x0 = Math.max(0, Math.floor(region.x0))
+  const y0 = Math.max(0, Math.floor(region.y0))
+  const x1 = Math.min(original.width, Math.ceil(region.x1))
+  const y1 = Math.min(original.height, Math.ceil(region.y1))
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const offset = (y * original.width + x) * 3
+      const expected = proofRgb(press, [original.pixels[offset] ?? 0, original.pixels[offset + 1] ?? 0, original.pixels[offset + 2] ?? 0])
+      for (let channel = 0; channel < 3; channel++) {
+        const delta = Math.abs((converted.pixels[offset + channel] ?? 0) - (expected[channel] ?? 0))
+        difference += delta
+        max = Math.max(max, delta)
+        count++
+      }
+    }
+  }
+  return { mean: count === 0 ? Number.POSITIVE_INFINITY : difference / count, max }
+}
+
 async function pageHasBlackInk(bytes: Uint8Array): Promise<boolean> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
   for (const page of document.getPages()) {
@@ -109,6 +174,73 @@ async function largestContentStream(bytes: Uint8Array): Promise<number> {
     }
   }
   return largest
+}
+
+async function verifyPressGradients(renderer: Renderer, work: string, check: Check, profile: Uint8Array): Promise<void> {
+  const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
+  let gradientReport: PressReport | undefined
+  const unconvertedGradients = await renderer.pagePdf(gradientPage)
+  const convertedGradients = await renderer.pagePdf(
+    gradientPage,
+    reportOption(profile, (report) => (gradientReport = report)),
+  )
+  const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`
+  console.log(`PRESS GRADIENTS [${runtime}]: converted bytes=${convertedGradients.length}`)
+  check(
+    'press rewrite samples conic and repeating gradients and leaves no RGB outside images',
+    gradientReport !== undefined && gradientReport.images.length === 0 && gradientReport.sampledShadings === 4,
+    gradientReport ? JSON.stringify(gradientReport) : 'report not called',
+  )
+  const originalGradients = raster(work, 'press-gradients-original', unconvertedGradients)
+  const convertedGradientRaster = raster(work, 'press-gradients-converted', convertedGradients)
+  const cssPt = 0.75
+  const box = { width: 260 * cssPt, height: 160 * cssPt, gap: 16 * cssPt, margin: 20 * cssPt }
+  const regions: Region[] = [
+    { name: 'rainbow conic', x0: box.margin, y0: box.margin, x1: box.margin + box.width, y1: box.margin + box.height },
+    { name: 'repeating linear', x0: box.margin + box.width + box.gap, y0: box.margin, x1: box.margin + 2 * box.width + box.gap, y1: box.margin + box.height },
+    { name: 'repeating radial', x0: box.margin, y0: box.margin + box.height + box.gap, x1: box.margin + box.width, y1: box.margin + 2 * box.height + box.gap },
+    {
+      name: 'gray conic',
+      x0: box.margin + box.width + box.gap,
+      y0: box.margin + box.height + box.gap,
+      x1: box.margin + 2 * box.width + box.gap,
+      y1: box.margin + 2 * box.height + box.gap,
+    },
+  ]
+  const press = readProfile(profile)
+  // Proof-mean on Generic CMYK is 12.7–15.7; a 90-degree rotation of the same box is 53–83. Bound 22 fails a rotated or missing quadrant.
+  const regionMeanBound = 22
+  for (const region of regions) {
+    const stats = regionProofStats(originalGradients, convertedGradientRaster, region, press)
+    check(
+      `sampled ${region.name} stays close to the proof of the unconverted raster`,
+      originalGradients.width === convertedGradientRaster.width && stats.mean < regionMeanBound,
+      `mean=${stats.mean.toFixed(2)} max=${stats.max} (mean bound ${regionMeanBound})`,
+    )
+  }
+  const rainbow = regions[0]
+  const cx = ((rainbow?.x0 ?? 0) + (rainbow?.x1 ?? 0)) / 2
+  const cy = ((rainbow?.y0 ?? 0) + (rainbow?.y1 ?? 0)) / 2
+  const angleMax = conicAngleDelta(originalGradients, convertedGradientRaster, cx, cy, 40, press)
+  // Measured 30 at 45deg; a rotated wheel puts a primary on the wrong sample and exceeds 150.
+  const angleBound = 40
+  check(
+    'converted rainbow conic matches the proof of the unconverted raster at eight angles around the center',
+    angleMax <= angleBound,
+    `max channel delta=${angleMax} (bound ${angleBound})`,
+  )
+  const red = proof(press, [1, 0, 0]).map((value) => Math.round(value * 255)) as [number, number, number]
+  const stripe = proof(press, [224 / 255, 48 / 255, 48 / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
+  const conicPixel = pixelRgb(convertedGradientRaster, cx, (rainbow?.y0 ?? 0) + 20)
+  const linear = regions[1]
+  const stripePixel = pixelRgb(convertedGradientRaster, ((linear?.x0 ?? 0) + (linear?.x1 ?? 0)) / 2, ((linear?.y0 ?? 0) + (linear?.y1 ?? 0)) / 2)
+  const conicDelta = channelDistance(conicPixel, red)
+  const stripeDelta = channelDistance(stripePixel, stripe)
+  check(
+    'a conic stop and a repeating stripe match their proof colors',
+    conicDelta <= 24 && stripeDelta <= 24,
+    `conic=${conicPixel.join(',')} delta=${conicDelta}, stripe=${stripePixel.join(',')} delta=${stripeDelta} (bound 24)`,
+  )
 }
 
 export async function verifyPressRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -184,4 +316,6 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   console.log(
     `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,
   )
+
+  await verifyPressGradients(renderer, work, check, profile)
 }
