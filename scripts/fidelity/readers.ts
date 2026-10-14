@@ -27,7 +27,7 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
   const raw = output.replace(/\.png$/, '-viewer.png')
   let browser: Browser | undefined
   try {
-    browser = await chromium.launch({ executablePath })
+    browser = await chromium.launch({ executablePath, ignoreDefaultArgs: ['--disable-extensions'] })
     const page = await browser.newPage({ viewport: { width, height } })
     await page.goto(`${pathToFileURL(pdf).href}#toolbar=0&view=Fit`)
     await page.waitForTimeout(1800)

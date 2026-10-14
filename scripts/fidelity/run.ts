@@ -57,7 +57,14 @@ try {
       if (!reader.worked || !reader.image) continue
       reader.page = difference(screen, reader.image, size.width, size.height)
       reader.regions = regions.map(({ name, box }) => {
-        const scaled = { x: box.x * SCALE, y: box.y * SCALE, width: box.width * SCALE, height: box.height * SCALE }
+        const x = Math.max(0, box.x * SCALE)
+        const y = Math.max(0, box.y * SCALE)
+        const scaled = {
+          x,
+          y,
+          width: Math.max(0, Math.min(box.width * SCALE, size.width - x)),
+          height: Math.max(0, Math.min(box.height * SCALE, size.height - y)),
+        }
         const result: RegionResult = { name, box: scaled, ...difference(screen, reader.image as string, size.width, size.height, scaled) }
         if (result.mean > THRESHOLD.mean || result.p99 > THRESHOLD.p99) {
           result.sideBySide = path.join(comparisonDirectory, `${reader.reader}-${name}.png`)

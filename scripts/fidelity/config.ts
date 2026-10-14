@@ -29,7 +29,6 @@ export async function fixtures(): Promise<Fixture[]> {
     fixed('poster', 'Event poster', 800, 1120),
     fixed('slide', 'Presentation slide', 1280, 720),
     fixed('print-piece', 'A5 postcard', 559, 794, {
-      size: 'fluid',
       print: { paper: 'a5', orientation: 'portrait', bleed: 3, safe: 8, marks: false },
     }),
     fixed('hebrew', 'Hebrew editorial page', 900, 1100, { dir: 'rtl', lang: 'he' }),
