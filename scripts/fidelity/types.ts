@@ -59,6 +59,7 @@ export interface PdfAnalysis {
 export interface ReaderResult {
   reader: string
   worked: boolean
+  colorProfile?: string
   error?: string
   image?: string
   page?: Difference

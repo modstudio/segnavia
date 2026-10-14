@@ -17,7 +17,7 @@ import {
 } from './config.ts'
 import { alignmentOffset, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
-import { chromiumViewer, coreGraphics, poppler, readerPath } from './readers.ts'
+import { chromiumViewer, coreGraphics, poppler, readerPath, validateReaderProfile } from './readers.ts'
 import { writeSummary } from './report.ts'
 import type { Box, Difference, DocumentResult, FidelityRun, ReaderResult, RegionResult } from './types.ts'
 
@@ -110,6 +110,7 @@ try {
       coreGraphics(comparisonPdf, readerPath(readerDirectory, 'coregraphics'), size.width, size.height),
       chromiumViewer(executablePath, comparisonPdf, readerPath(readerDirectory, 'chromium'), size.width, size.height),
     ])
+    for (const reader of readers) validateReaderProfile(reader)
     for (const reader of readers) {
       if (!reader.worked || !reader.image) continue
       const croppedBleed = (fixture.page.print?.bleed ?? 0) * (96 / 25.4) * SCALE

@@ -1,12 +1,33 @@
-import { unlink } from 'node:fs/promises'
+import { rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { type Browser, chromium } from 'playwright-core'
 import type { ReaderResult } from './types.ts'
 
+const SRGB_PROFILE = '/System/Library/ColorSync/Profiles/sRGB Profile.icc'
+
 function ran(args: string[]): { ok: boolean; error?: string } {
   const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
   return result.exitCode === 0 ? { ok: true } : { ok: false, error: result.stderr.toString().trim() || `exit ${result.exitCode}` }
+}
+
+export function imageProfile(file: string): string | undefined {
+  const result = Bun.spawnSync(['sips', '-g', 'profile', file], { stdout: 'pipe', stderr: 'pipe' })
+  if (result.exitCode !== 0) throw new Error(`Could not read the image profile for ${file}: ${result.stderr.toString().trim()}`)
+  const profile = result.stdout
+    .toString()
+    .match(/^\s*profile:\s*(.+)$/m)?.[1]
+    ?.trim()
+  return profile && profile !== '<nil>' ? profile : undefined
+}
+
+export function validateReaderProfile(reader: ReaderResult): void {
+  if (!reader.worked || !reader.image) return
+  const profile = imageProfile(reader.image)
+  reader.colorProfile = profile ?? 'absent'
+  if (profile && !profile.toLowerCase().startsWith('srgb')) {
+    throw new Error(`${reader.reader} reader image has embedded profile "${profile}"; expected sRGB or no profile.`)
+  }
 }
 
 function viewerPageBox(file: string, width: number, height: number, aspect: number): { x: number; y: number; width: number; height: number } {
@@ -52,9 +73,12 @@ export async function poppler(pdf: string, output: string, width: number, height
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), pdf, '--out', output])
   if (!result.ok) return { reader: 'coregraphics', worked: false, error: result.error }
-  return (await Bun.file(output).exists())
-    ? { reader: 'coregraphics', worked: true, image: output }
-    : { reader: 'coregraphics', worked: false, error: 'sips exited successfully without writing a PNG.' }
+  if (!(await Bun.file(output).exists())) return { reader: 'coregraphics', worked: false, error: 'sips exited successfully without writing a PNG.' }
+  const converted = `${output}.srgb.png`
+  const matched = ran(['sips', '-m', SRGB_PROFILE, output, '--out', converted])
+  if (!matched.ok) return { reader: 'coregraphics', worked: false, error: matched.error }
+  await rename(converted, output)
+  return { reader: 'coregraphics', worked: true, image: output }
 }
 
 export async function chromiumViewer(executablePath: string, pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {

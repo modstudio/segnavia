@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
 
 export const ROOT = path.resolve(import.meta.dir, '../..')
-export const OUTPUT_ROOT = path.join(ROOT, 'out/fidelity')
+export const OUTPUT_ROOT = path.resolve(process.env.SEGNAVIA_FIDELITY_OUT ?? path.join(ROOT, 'out/fidelity'))
 export const SCALE = 4
 // These acceptance limits are provisional until Shmuel agrees the numbers.
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
