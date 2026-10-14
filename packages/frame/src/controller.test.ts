@@ -7,17 +7,29 @@ import { keyAction } from './keys.ts'
 // A clock the test moves by hand, and a scheduler that runs a tick only when
 // the test asks, so the controller is driven without a browser or real time.
 function harness() {
-  const clocks: Array<{ word: number | null; ended: boolean }> = []
+  const clocks: Array<{ word: number | null; ended: boolean; elapsed: number; muted: boolean }> = []
   let pending: (() => void) | null = null
   const controller = new DeckController({
     hash: null,
     clock: (narration: Narration): Clock => {
-      const state = { word: null as number | null, ended: false }
+      const state = { word: null as number | null, ended: false, elapsed: 0, muted: false }
       clocks.push(state)
       return {
         word: () => state.word,
         ended: () => state.ended,
+        elapsed: () => state.elapsed,
         progress: () => (state.ended ? 1 : (state.word ?? 0) / narration.words.length),
+        pause: () => {},
+        resume: () => {},
+        seek: (ms) => {
+          state.elapsed = ms
+        },
+        get muted() {
+          return state.muted
+        },
+        set muted(value) {
+          state.muted = value
+        },
         stop: () => {},
       }
     },

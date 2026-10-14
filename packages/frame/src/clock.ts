@@ -1,78 +1,209 @@
-// What drives a playing slide, as the word being spoken. Recorded audio and a
-// paced timing read the word from elapsed time; live speech reads it from the
-// engine as it speaks, so it needs no timings in advance.
+// A positionable clock for one whole slide. Recorded audio is authoritative
+// while narration plays; pauses around it and unnarrated holds use wall time.
 
-import type { Narration } from '@segnavia/format'
-import { wordAt, wordAtOffset, wordOffsets } from './timeline.ts'
+import type { Narration, Slide } from '@segnavia/format'
+import { slideDurationMs, slideStateAt, wordAtOffset, wordOffsets } from './timeline.ts'
 
 export interface Clock {
   word(): number | null
   ended(): boolean
-  // How far the narration has run, from 0 to 1.
+  elapsed(): number
   progress(): number
+  pause(): void
+  resume(): void
+  seek(ms: number): void
+  muted: boolean
   stop(): void
 }
 
-export function timedClock(narration: Narration, audioSrc: string | null): Clock {
-  const started = performance.now()
-  const elapsed = () => performance.now() - started
-  if (!audioSrc) {
-    return {
-      word: () => wordAt(narration, elapsed()),
-      ended: () => elapsed() >= narration.durationMs,
-      progress: () => Math.min(1, elapsed() / narration.durationMs),
-      stop: () => {},
-    }
-  }
-  const audio = new Audio(audioSrc)
-  // Until the audio is actually playing, and for good if the browser refuses
-  // to play it, the narration's own timing drives the slide so it still
-  // advances and its cues still fire.
-  let playing = false
-  let ended = false
-  audio.addEventListener('playing', () => {
-    playing = true
-  })
-  audio.addEventListener('ended', () => {
-    ended = true
-  })
-  void audio.play().catch(() => {})
-  const now = () => (playing ? audio.currentTime * 1000 : elapsed())
+function asSlide(value: Slide | Narration): Slide {
+  return 'id' in value ? value : { id: '', content: { kind: 'html', html: '' }, narration: value }
+}
+
+function wallClock(slide: Slide): Clock {
+  const duration = slideDurationMs(slide) ?? 0
+  let position = 0
+  let anchor = performance.now()
+  let running = true
+  let muted = false
+  const elapsed = () => Math.min(duration, position + (running ? performance.now() - anchor : 0))
   return {
-    word: () => wordAt(narration, now()),
-    ended: () => ended || now() >= narration.durationMs,
-    progress: () => (ended ? 1 : Math.min(1, now() / narration.durationMs)),
-    stop: () => audio.pause(),
+    word: () => slideStateAt(slide, elapsed()).word,
+    ended: () => elapsed() >= duration,
+    elapsed,
+    progress: () => (duration === 0 ? 1 : elapsed() / duration),
+    pause: () => {
+      position = elapsed()
+      running = false
+    },
+    resume: () => {
+      if (running) return
+      anchor = performance.now()
+      running = true
+    },
+    seek: (ms) => {
+      position = Math.max(0, Math.min(duration, ms))
+      anchor = performance.now()
+    },
+    get muted() {
+      return muted
+    },
+    set muted(value) {
+      muted = value
+    },
+    stop: () => {
+      position = elapsed()
+      running = false
+    },
   }
 }
 
-// The browser's own voices: no audio file and no timings, which is what a
-// draft wants. Quality and timing vary by engine; a deck that ships uses
-// recorded narration.
-export function speechClock(narration: Narration, voiceName?: string): Clock {
+export function timedClock(value: Slide | Narration, audioSrc: string | null): Clock {
+  const slide = asSlide(value)
+  if (!audioSrc || !slide.narration) return wallClock(slide)
+  const audio = new Audio(audioSrc)
+  const duration = slideDurationMs(slide) ?? 0
+  const beforeMs = slide.beforeMs ?? 0
+  const narrationEnd = beforeMs + slide.narration.durationMs
+  let position = 0
+  let anchor = performance.now()
+  let running = true
+  let audioPlaying = false
+  let audioEnded = false
+  const playAudio = () => void audio.play().catch(() => {})
+  audio.addEventListener('playing', () => {
+    audioPlaying = true
+  })
+  audio.addEventListener('ended', () => {
+    audioEnded = true
+    position = narrationEnd
+    anchor = performance.now()
+  })
+  const elapsed = () => {
+    if (!running) return position
+    if (position < beforeMs) {
+      const wall = position + performance.now() - anchor
+      if (wall < beforeMs) return wall
+      position = beforeMs
+      anchor = performance.now()
+      playAudio()
+      return position
+    }
+    if (!audioEnded && position < narrationEnd) {
+      const fallback = position + performance.now() - anchor
+      const narrationPosition = audioPlaying ? beforeMs + audio.currentTime * 1000 : fallback
+      if (narrationPosition < narrationEnd) return narrationPosition
+      audioEnded = true
+      position = narrationEnd
+      anchor = performance.now()
+    }
+    return Math.min(duration, position + performance.now() - anchor)
+  }
+  const syncAudio = () => {
+    const now = elapsed()
+    if (now < beforeMs || now >= narrationEnd) {
+      audio.pause()
+      return
+    }
+    audio.currentTime = (now - beforeMs) / 1000
+    playAudio()
+  }
+  const clock: Clock = {
+    word: () => slideStateAt(slide, elapsed()).word,
+    ended: () => elapsed() >= duration,
+    elapsed,
+    progress: () => (duration === 0 ? 1 : elapsed() / duration),
+    pause: () => {
+      position = elapsed()
+      running = false
+      audio.pause()
+    },
+    resume: () => {
+      if (running) return
+      anchor = performance.now()
+      running = true
+      syncAudio()
+    },
+    seek: (ms) => {
+      position = Math.max(0, Math.min(duration, ms))
+      anchor = performance.now()
+      audioEnded = position >= narrationEnd
+      syncAudio()
+    },
+    get muted() {
+      return audio.muted
+    },
+    set muted(value) {
+      audio.muted = value
+    },
+    stop: () => {
+      position = elapsed()
+      running = false
+      audio.pause()
+    },
+  }
+  if (beforeMs === 0) playAudio()
+  return clock
+}
+
+// Browser speech cannot seek or change volume mid-utterance. Muting cancels
+// it and leaves the declared slide timing to pace the remainder.
+export function speechClock(value: Slide | Narration, voiceName?: string): Clock {
+  const slide = asSlide(value)
+  const narration = slide.narration as Narration
+  const paced = wallClock(slide)
   const synth = window.speechSynthesis
   const offsets = wordOffsets(narration.text)
   const utterance = new SpeechSynthesisUtterance(narration.text)
   if (narration.lang) utterance.lang = narration.lang
   const voice = voiceName ? synth.getVoices().find((candidate) => candidate.name === voiceName) : undefined
   if (voice) utterance.voice = voice
-  let word: number | null = null
-  let ended = false
+  let spokenWord: number | null = null
+  let cancelled = false
+  let speaking = false
   utterance.onboundary = (event) => {
-    if (event.name === 'word') word = wordAtOffset(offsets, event.charIndex)
+    if (event.name === 'word') spokenWord = wordAtOffset(offsets, event.charIndex)
   }
-  utterance.onend = () => {
-    ended = true
+  const begin = () => {
+    if (speaking || cancelled) return
+    speaking = true
+    synth.cancel()
+    synth.speak(utterance)
   }
-  utterance.onerror = () => {
-    ended = true
-  }
-  synth.cancel()
-  synth.speak(utterance)
+  if ((slide.beforeMs ?? 0) === 0) begin()
   return {
-    word: () => word,
-    ended: () => ended,
-    progress: () => (ended ? 1 : word === null ? 0 : (word + 1) / Math.max(1, offsets.length)),
-    stop: () => synth.cancel(),
+    word: () => {
+      if (!speaking && paced.elapsed() >= (slide.beforeMs ?? 0)) begin()
+      return cancelled ? slideStateAt(slide, paced.elapsed()).word : spokenWord
+    },
+    ended: paced.ended,
+    elapsed: paced.elapsed,
+    progress: paced.progress,
+    pause: () => {
+      paced.pause()
+      if (speaking && !cancelled) synth.pause()
+    },
+    resume: () => {
+      paced.resume()
+      if (speaking && !cancelled) synth.resume()
+    },
+    seek: () => {
+      synth.cancel()
+      speaking = false
+      spokenWord = null
+      paced.seek(0)
+    },
+    get muted() {
+      return cancelled
+    },
+    set muted(value) {
+      if (!value || cancelled) return
+      cancelled = true
+      synth.cancel()
+    },
+    stop: () => {
+      paced.stop()
+      synth.cancel()
+    },
   }
 }
