@@ -1,9 +1,8 @@
 import { type Deck, firstStrongDirection, type Slide } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
+import type { FrameTitle } from './frame-title.ts'
 import { annotationSvg } from './svg.ts'
-
-export type FrameTitle = (deckTitle: string, slideNumber: number) => string
 
 export function stageCanvas(
   controller: DeckController,

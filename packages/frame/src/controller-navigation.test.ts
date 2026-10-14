@@ -16,13 +16,22 @@ describe('controller reloads', () => {
     expect(controller.state.slide?.id).toBe('c')
   })
 
-  test('clamps to the new last slide when the selected id is removed', async () => {
+  test('keeps the old position, clamped to the new last slide, when the selected id is removed', async () => {
     const controller = new DeckController({ hash: null })
     await controller.load(deck(['a', 'b', 'c']))
     await controller.go(2)
     await controller.load(deck(['a', 'b']))
     expect(controller.state.index).toBe(1)
     expect(controller.state.slide?.id).toBe('b')
+  })
+
+  test("lands on the slide that takes a removed middle slide's position", async () => {
+    const controller = new DeckController({ hash: null })
+    await controller.load(deck(['a', 'b', 'c', 'd']))
+    await controller.go(1)
+    await controller.load(deck(['a', 'c', 'd']))
+    expect(controller.state.index).toBe(1)
+    expect(controller.state.slide?.id).toBe('c')
   })
 
   test('contentFor resolves a neighbor without navigating', async () => {

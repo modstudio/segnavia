@@ -8,7 +8,7 @@
 
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide, type SlideContent, type TextDirection } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
-import { hashSlideIndex, indexAfterReload } from './deck-window.ts'
+import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { annotationsAt } from './timeline.ts'
 
@@ -79,12 +79,12 @@ export class DeckController extends EventTarget {
   private lastCue = ''
   private presented: HTMLElement | null = null
   private bodyOverflow = ''
+  private listening = false
 
   constructor(options: ControllerOptions = {}) {
     super()
     this.options = { hash: 'slide-', keys: 'stage', ...options }
-    if (hasWindow && this.options.hash) window.addEventListener('hashchange', this.onHash)
-    if (hasWindow && this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
+    this.connectWindow()
   }
 
   get state(): DeckState {
@@ -106,10 +106,23 @@ export class DeckController extends EventTarget {
   destroy() {
     this.stopPresenting()
     this.stopClock()
-    if (hasWindow) {
-      window.removeEventListener('hashchange', this.onHash)
-      window.removeEventListener('keydown', this.onPageKey)
-    }
+    this.disconnectWindow()
+  }
+
+  // A stage suspends these global listeners while it is disconnected. A host
+  // may use the same pair when the controller temporarily has no live view.
+  connectWindow() {
+    if (!hasWindow || this.listening) return
+    if (this.options.hash) window.addEventListener('hashchange', this.onHash)
+    if (this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
+    this.listening = true
+  }
+
+  disconnectWindow() {
+    if (!hasWindow || !this.listening) return
+    window.removeEventListener('hashchange', this.onHash)
+    window.removeEventListener('keydown', this.onPageKey)
+    this.listening = false
   }
 
   async loadUrl(src: string): Promise<void> {
@@ -251,8 +264,8 @@ export class DeckController extends EventTarget {
   private prefetch() {
     const deck = this.current.deck
     if (!this.options.prefetch || !deck) return
-    for (const index of [this.current.index - 1, this.current.index + 1]) {
-      if (deck.slides[index]) void this.contentFor(index)
+    for (const index of neighborWindow(this.current.index, deck.slides.length)) {
+      if (index !== this.current.index) void this.contentFor(index)
     }
   }
 
@@ -343,7 +356,9 @@ export class DeckController extends EventTarget {
   private onPageKey = (event: KeyboardEvent) => {
     if (event.defaultPrevented) return
     const target = event.target
+    const action = keyAction(event.key, this.current.direction)
     if (
+      (action === 'next' || action === 'previous') &&
       target instanceof HTMLElement &&
       (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
     )

@@ -14,7 +14,7 @@ import { MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { type FittedSize, fitSheet } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
-import type { FrameTitle } from './stage-content.ts'
+import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 
 export interface StageReserve {
   blockStart?: number
@@ -28,7 +28,7 @@ export class SegnaviaStage extends HTMLElement {
   cspExtra = ''
   private owned: DeckController | null = null
   private attached: DeckController | null = null
-  frameTitle: FrameTitle = (title, number) => `${title} — slide ${number}`
+  frameTitle: FrameTitle = defaultFrameTitle
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
@@ -71,6 +71,8 @@ export class SegnaviaStage extends HTMLElement {
   set controller(controller: DeckController | null) {
     this.attached?.removeEventListener('change', this.onChange)
     this.attached = controller
+    if (this.isConnected) controller?.connectWindow()
+    else controller?.disconnectWindow()
     this.pool.clear()
     controller?.addEventListener('change', this.onChange)
     if (controller?.state.deck) this.update(controller.state)
@@ -88,6 +90,8 @@ export class SegnaviaStage extends HTMLElement {
     window.addEventListener('resize', this.onResize)
     window.visualViewport?.addEventListener('resize', this.onResize)
     this.resize.observe(this)
+    this.attached?.connectWindow()
+    if (!this.owned) this.loadSource()
   }
 
   disconnectedCallback() {
@@ -96,7 +100,14 @@ export class SegnaviaStage extends HTMLElement {
     window.removeEventListener('resize', this.onResize)
     window.visualViewport?.removeEventListener('resize', this.onResize)
     this.resize.disconnect()
-    this.attached?.stopPresenting()
+    if (this.owned) {
+      this.owned.destroy()
+      this.controller = null
+      this.owned = null
+    } else {
+      this.attached?.stopPresenting()
+      this.attached?.disconnectWindow()
+    }
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
@@ -105,16 +116,21 @@ export class SegnaviaStage extends HTMLElement {
       this.measure()
       return
     }
-    if (!value) return
+    if (value) this.loadSource()
+  }
+
+  private onChange = (event: Event) => this.update((event as CustomEvent<DeckState>).detail)
+
+  private loadSource() {
+    const src = this.getAttribute('src')
+    if (!src || !this.isConnected) return
     if (!this.owned) {
       const hash = this.getAttribute('hash')
       this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch') })
       this.controller = this.owned
     }
-    void this.owned.loadUrl(value)
+    void this.owned.loadUrl(src)
   }
-
-  private onChange = (event: Event) => this.update((event as CustomEvent<DeckState>).detail)
 
   private update(state: DeckState) {
     const deck = state.deck
@@ -177,7 +193,7 @@ export class SegnaviaStage extends HTMLElement {
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
     const message = messageFrom(event, this.pool.frames())
-    if (message?.type === MESSAGE.key && message.key) this.attached?.key(message.key)
+    if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }
 
   private onResize = () => this.measure()

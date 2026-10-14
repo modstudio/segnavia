@@ -14,6 +14,10 @@ describe('reorder mapping', () => {
     expect(indexAfterReload(['a', 'b', 'c'], ['c', 'a', 'b'], 'c')).toBe(0)
     expect(indexAfterReload(['a', 'b', 'c'], ['a', 'b'], 'c')).toBe(1)
   })
+
+  test('keeps the old position when a middle selected id disappears', () => {
+    expect(indexAfterReload(['a', 'b', 'c', 'd'], ['a', 'c', 'd'], 'b')).toBe(1)
+  })
 })
 
 describe('slide hashes', () => {

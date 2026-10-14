@@ -23,15 +23,23 @@ export async function verifyDeckHost(h: Harness) {
   check('deck host: a turn reveals the unchanged neighbor frame and mounts three', turn.same && turn.count === 3, JSON.stringify(turn))
 
   const reorder = await page.evaluate(async () => {
-    const host = (window as unknown as { __deckHost: { ids: string[]; reload(ids: string[]): Promise<void> } }).__deckHost
+    const host = (window as unknown as { __deckHost: { ids: string[]; reload(ids: string[], edits?: Record<string, string>): Promise<void> } }).__deckHost
     const active = document.querySelector('#deck [data-active] iframe') as HTMLIFrameElement
     active.dataset.reorderIdentity = 'kept'
     await host.reload(['slide-2', ...host.ids.filter((id) => id !== 'slide-2')])
     const same = document.querySelector('#deck [data-active] iframe') === active && active.dataset.reorderIdentity === 'kept'
+    const beforeEdit = document.querySelector<HTMLIFrameElement>('#deck [data-active] iframe')
+    await host.reload(host.ids, { 'slide-2': '-edited' })
+    const afterEdit = document.querySelector<HTMLIFrameElement>('#deck [data-active] iframe')
+    const replaced = afterEdit !== beforeEdit && Boolean(afterEdit?.srcdoc.includes('slide-2-edited'))
     await host.reload(['slide-1'])
-    return { same, counter: document.querySelector('#counter')?.textContent }
+    return { same, replaced, counter: document.querySelector('#counter')?.textContent }
   })
-  check('deck host: reorder keeps frame identity and shrinking clamps the counter', reorder.same && reorder.counter === '1 / 1', JSON.stringify(reorder))
+  check(
+    'deck host: reorder keeps unchanged frames, edits replace frames, and shrinking clamps the counter',
+    reorder.same && reorder.replaced && reorder.counter === '1 / 1',
+    JSON.stringify(reorder),
+  )
 
   await page.goto(h.url('deck-host.html?slides=30#slide-30'))
   await h.waitFor(STAGE, (data) => data.slide === '30')
@@ -46,6 +54,20 @@ export async function verifyDeckHost(h: Harness) {
 
   await page.keyboard.press('ArrowRight')
   await h.waitFor(STAGE, (data) => data.slide === '5')
+  const hidden = await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLElement>('#deck [aria-hidden="true"]')
+    return { inert: canvas?.inert === true, slide: document.querySelector<HTMLElement>('#deck')?.dataset.slide }
+  })
+  await page
+    .locator(`${STAGE} [aria-hidden="true"] iframe`)
+    .first()
+    .contentFrame()
+    .locator('body')
+    .evaluate(() => {
+      parent.postMessage({ type: 'segnavia:key', key: 'ArrowRight' }, '*')
+    })
+  await page.waitForTimeout(100)
+  const afterHiddenRelay = (await h.state(STAGE)).slide
   await page.locator('#notes').focus()
   await page.keyboard.press('ArrowRight')
   await page.waitForTimeout(100)
@@ -55,14 +77,17 @@ export async function verifyDeckHost(h: Harness) {
   await h.waitFor(STAGE, (data) => data.slide === '6')
   await page.keyboard.press(' ')
   await page.waitForTimeout(100)
-  check('deck host: page arrows, form exclusion, relayed keys and ignored Space hold', afterInput === '5' && (await h.state(STAGE)).slide === '6')
+  check(
+    'deck host: page arrows, inert neighbors, relay filtering, form exclusion and ignored Space hold',
+    hidden.inert && hidden.slide === '5' && afterHiddenRelay === '5' && afterInput === '5' && (await h.state(STAGE)).slide === '6',
+  )
 
   await page.locator('#present').click()
   const presentation = await page.evaluate(() => ({
     marked: document.querySelector('#deck-root')?.hasAttribute('data-presenting'),
     overflow: document.body.style.overflow,
   }))
-  await page.keyboard.press('Escape')
+  await page.locator('#notes').dispatchEvent('keydown', { key: 'Escape' })
   const pageExit = await page.evaluate(() => ({
     restored: document.body.style.overflow,
     ended: !document.querySelector('#deck-root')?.hasAttribute('data-presenting'),
@@ -76,6 +101,14 @@ export async function verifyDeckHost(h: Harness) {
     document.querySelector('#deck')?.remove()
     return document.body.style.overflow
   })
+  const indexBeforeDetachedKey = await page.evaluate(
+    () => (window as unknown as { __deckHost: { controller: { state: { index: number } } } }).__deckHost.controller.state.index,
+  )
+  await page.keyboard.press('ArrowRight')
+  await page.waitForTimeout(100)
+  const indexAfterDetachedKey = await page.evaluate(
+    () => (window as unknown as { __deckHost: { controller: { state: { index: number } } } }).__deckHost.controller.state.index,
+  )
   check(
     'deck host: window presentation marks, locks, exits and restores on removal',
     presentation.marked === true &&
@@ -83,8 +116,9 @@ export async function verifyDeckHost(h: Harness) {
       pageExit.ended === true &&
       pageExit.restored === '' &&
       relayEnded &&
-      removedOverflow === '',
-    JSON.stringify({ ...presentation, ...pageExit, relayEnded, removedOverflow }),
+      removedOverflow === '' &&
+      indexAfterDetachedKey === indexBeforeDetachedKey,
+    JSON.stringify({ ...presentation, ...pageExit, relayEnded, removedOverflow, indexBeforeDetachedKey, indexAfterDetachedKey }),
   )
 
   await page.setViewportSize({ width: 1280, height: 816 })
@@ -100,12 +134,12 @@ export async function verifyDeckHost(h: Harness) {
     const host = (window as unknown as { __deckHost: { ids: string[]; reload(ids: string[]): Promise<void> } }).__deckHost
     const before = [...document.querySelectorAll<HTMLIFrameElement>('#deck iframe')].map((frame) => frame.title)
     await host.reload(['slide-2', 'slide-1', ...host.ids.slice(2)])
-    const after = [...document.querySelectorAll<HTMLIFrameElement>('#deck iframe')].map((frame) => frame.title)
-    return { before, after }
+    const moved = document.querySelector<HTMLIFrameElement>('#deck [data-slide-id="slide-1"] iframe')?.title
+    return { before, moved }
   })
   check(
     'deck host: frame titles name deck positions and update after reorder',
-    titles.before.includes('Window deck — slide 1') && titles.after.includes('Window deck — slide 1') && titles.after.includes('Window deck — slide 2'),
+    titles.before.includes('Window deck — slide 1') && titles.moved === 'Window deck — slide 2',
     JSON.stringify(titles),
   )
 
