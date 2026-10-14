@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { ALIGNMENT_TOLERANCE, SCALE } from './config.ts'
 import type { Box, Difference } from './types.ts'
 
 function command(args: string[]): Uint8Array {
@@ -31,6 +33,53 @@ function rgb(file: string, width: number, height: number): Uint8Array {
   ])
   if (bytes.byteLength !== width * height * 3) throw new Error(`Unexpected decoded size for ${file}.`)
   return bytes
+}
+
+export const proofTable = (profileBytes: Uint8Array): ProofTable => buildProofTable(readProfile(profileBytes))
+
+export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable): void {
+  const proved = proofPixels(table, rgb(reference, width, height))
+  const result = Bun.spawnSync(
+    ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
+    { stdin: proved, stdout: 'pipe', stderr: 'pipe' },
+  )
+  if (result.exitCode !== 0) throw new Error(`Could not make ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
+}
+
+export function alignmentOffset(
+  actual: string,
+  width: number,
+  height: number,
+  expectedX: number,
+  expectedY: number,
+): { offsetX: number; offsetY: number; passed: boolean } {
+  const pixels = rgb(actual, width, height)
+  const size = 12 * SCALE
+  const samples = [
+    { x: SCALE, y: SCALE, color: [254, 1, 253] },
+    { x: size - SCALE - 1, y: SCALE, color: [254, 1, 253] },
+    { x: SCALE, y: size - SCALE - 1, color: [254, 1, 253] },
+    { x: size - SCALE - 1, y: size - SCALE - 1, color: [254, 1, 253] },
+    { x: size / 2, y: size / 2, color: [1, 254, 2] },
+  ]
+  let best = { x: expectedX, y: expectedY, score: Number.POSITIVE_INFINITY }
+  for (let y = Math.max(0, expectedY - 96); y <= Math.min(height - size, expectedY + 96); y++) {
+    for (let x = Math.max(0, expectedX - 96); x <= Math.min(width - size, expectedX + 96); x++) {
+      let score = 0
+      for (const sample of samples) {
+        const offset = ((y + sample.y) * width + x + sample.x) * 3
+        for (let channel = 0; channel < 3; channel++) score += Math.abs((pixels[offset + channel] ?? 0) - (sample.color[channel] ?? 0))
+      }
+      if (score < best.score) best = { x, y, score }
+    }
+  }
+  const offsetX = best.x - expectedX
+  const offsetY = best.y - expectedY
+  return {
+    offsetX,
+    offsetY,
+    passed: Math.abs(offsetX) <= ALIGNMENT_TOLERANCE && Math.abs(offsetY) <= ALIGNMENT_TOLERANCE,
+  }
 }
 
 export function difference(reference: string, actual: string, width: number, height: number, box?: Box): Difference {

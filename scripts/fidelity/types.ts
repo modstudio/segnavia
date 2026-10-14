@@ -10,6 +10,23 @@ export interface Difference {
   p99: number
 }
 
+export interface Threshold {
+  mean: number
+  p99: number
+}
+
+export interface BarResult<T> {
+  measured?: T
+  passed: boolean
+  reason?: string
+}
+
+export interface AlignmentResult {
+  offsetX: number
+  offsetY: number
+  passed: boolean
+}
+
 export interface RegionResult extends Difference {
   name: string
   box: Box
@@ -40,6 +57,7 @@ export interface ReaderResult {
   image?: string
   page?: Difference
   regions?: RegionResult[]
+  alignment?: AlignmentResult
 }
 
 export interface DocumentResult {
@@ -53,6 +71,13 @@ export interface DocumentResult {
   analysis: PdfAnalysis
   readers: ReaderResult[]
   pressPdf?: string
+  pressProof?: string
+  pressRaster?: string
+  bars: {
+    effects: BarResult<Difference>
+    pressColor: BarResult<Difference>
+    size: BarResult<number>
+  }
 }
 
 export interface FidelityRun {
@@ -61,8 +86,14 @@ export interface FidelityRun {
     commit: string
     createdAt: string
     scale: number
-    threshold: { mean: number; p99: number }
+    comparisonImageThreshold: Threshold
+    thresholds: {
+      effects: Threshold
+      pressColor: Threshold
+      pdfBytes: number
+    }
     chromium: string
+    profile?: string
   }
   documents: DocumentResult[]
 }

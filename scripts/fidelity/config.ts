@@ -5,13 +5,21 @@ import type { PageInput } from '@segnavia/format'
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const OUTPUT_ROOT = path.join(ROOT, 'out/fidelity')
 export const SCALE = 4
-export const THRESHOLD = { mean: 2, p99: 24 }
+export const COMPARISON_IMAGE_THRESHOLD = { mean: 2, p99: 24 }
+// These limits are provisional baseline values. They are kept together so a
+// reviewed baseline changes each acceptance bar in exactly one place.
+export const EFFECT_REGION_THRESHOLD = { mean: 8, p99: 160 }
+export const PRESS_COLOR_THRESHOLD = { mean: 12, p99: 180 }
+export const PDF_BYTES_THRESHOLD = 2_500_000
+export const ALIGNMENT_TOLERANCE = 8
+
+export const MEASUREMENT_CSS =
+  'html{overflow:hidden!important}.fidelity-alignment-marker{position:fixed;width:12px;height:12px;box-sizing:border-box;background:rgb(1 254 2);border:3px solid rgb(254 1 253);z-index:2147483647;pointer-events:none}'
 
 export interface Fixture {
   id: string
   title: string
   page: PageInput
-  press?: boolean
 }
 
 const fixed = (id: string, title: string, width: number, height: number, extra: Partial<PageInput> = {}): Fixture => ({
@@ -34,8 +42,6 @@ export async function fixtures(): Promise<Fixture[]> {
     fixed('hebrew', 'Hebrew editorial page', 900, 1100, { dir: 'rtl', lang: 'he' }),
   ]
   for (const entry of entries) entry.page.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
-  const printPiece = entries.find((entry) => entry.id === 'print-piece')
-  if (printPiece) printPiece.press = true
   return entries
 }
 

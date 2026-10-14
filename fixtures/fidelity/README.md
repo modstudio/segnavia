@@ -5,7 +5,8 @@ Run `bun run fidelity baseline` to write a labeled, commit-specific run under
 `bun run fidelity:compare <run-a> <run-b>`; each argument may be a run name or
 an output directory. Set `SEGNAVIA_CHROMIUM` when Chromium is not in a standard
 Playwright or macOS location. Set `SEGNAVIA_FIDELITY_PROFILE` to an ICC profile
-to add a press-profile `pagesPdf` result for the print piece.
+to add a proofed press-profile comparison for every document. On macOS, use
+`/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc` for the baseline.
 
 The fixtures are realistic combinations rather than isolated effect tiles:
 
