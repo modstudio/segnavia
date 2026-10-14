@@ -1,55 +1,9 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { OUTPUT_ROOT } from './config.ts'
+import { barCell, totalBars } from './bars.ts'
+import { ACCEPTANCE_BARS, OUTPUT_ROOT } from './config.ts'
 import { regionKey } from './report.ts'
 import type { FidelityRun } from './types.ts'
-
-const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
-const verdict = (passed: boolean): string => (passed ? 'PASS' : 'FAIL')
-
-function acceptance(run: FidelityRun) {
-  const effects = run.documents.reduce(
-    (worst, document) => ({
-      mean: Math.max(worst.mean, document.bars.effects.measured?.mean ?? 0),
-      p99: Math.max(worst.p99, document.bars.effects.measured?.p99 ?? 0),
-    }),
-    { mean: 0, p99: 0 },
-  )
-  const press = run.documents.reduce(
-    (worst, document) => ({
-      mean: Math.max(worst.mean, document.bars.pressColor.measured?.mean ?? 0),
-      p99: Math.max(worst.p99, document.bars.pressColor.measured?.p99 ?? 0),
-    }),
-    { mean: 0, p99: 0 },
-  )
-  return {
-    effects: { measured: effects, passed: run.documents.every((document) => document.bars.effects.passed) },
-    pressColor: { measured: press, passed: run.documents.every((document) => document.bars.pressColor.passed) },
-    size: {
-      measured: {
-        pdfBytes: Math.max(...run.documents.map((document) => document.pdfBytes), 0),
-        effectlessPdfBytes: 0,
-        multiple: Math.max(...run.documents.map((document) => document.bars.size.measured?.multiple ?? 0), 0),
-      },
-      passed: run.documents.every((document) => document.bars.size.passed),
-    },
-  }
-}
-
-function barCell(run: FidelityRun, document: FidelityRun['documents'][number] | undefined, bar: 'effects' | 'pressColor' | 'size'): string {
-  const result = document?.bars[bar] ?? acceptance(run)[bar]
-  const threshold = run.metadata.thresholds[bar]
-  if (bar === 'size') {
-    const measured = result.measured as { pdfBytes: number; effectlessPdfBytes: number; multiple: number } | undefined
-    const limit = threshold as { multiple: number; absoluteBytes: number }
-    if (!document)
-      return `${verdict(result.passed)} largest ${measured?.pdfBytes.toLocaleString() ?? '—'} bytes, worst ${decimal(measured?.multiple)}× / ≤ ${limit.multiple}× and ≤ ${limit.absoluteBytes.toLocaleString()} bytes`
-    return `${verdict(result.passed)} ${measured?.pdfBytes.toLocaleString() ?? '—'} / ${measured?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(measured?.multiple)}× / ≤ ${limit.multiple}× and ≤ ${limit.absoluteBytes.toLocaleString()} bytes`
-  }
-  const measured = result.measured as { mean: number; p99: number } | undefined
-  const limit = threshold as { mean: number; p99: number }
-  return `${verdict(result.passed)} mean ${decimal(measured?.mean)}, p99 ${decimal(measured?.p99)} / mean ≤ ${limit.mean}, p99 ≤ ${limit.p99}`
-}
 
 function resolveRun(value: string): string {
   const direct = path.resolve(value)
@@ -104,7 +58,7 @@ const sizeRows = left.documents.flatMap((before) => {
 const comparison = {
   before: left.metadata,
   after: right.metadata,
-  bars: { before: acceptance(left), after: acceptance(right) },
+  bars: { before: totalBars(left.documents), after: totalBars(right.documents) },
   sizes: sizeRows,
   regions: regionRows,
 }
@@ -113,10 +67,14 @@ const barRows = ['Total', ...left.documents.map((document) => document.id)].flat
   const before = id === 'Total' ? undefined : left.documents.find((document) => document.id === id)
   const after = id === 'Total' ? undefined : right.documents.find((document) => document.id === id)
   if (id !== 'Total' && (!before || !after)) return []
+  const beforeBars = before?.bars ?? totalBars(left.documents)
+  const afterBars = after?.bars ?? totalBars(right.documents)
   return [
-    `| ${id} | ${barCell(left, before, 'effects')} → ${barCell(right, after, 'effects')} | ${barCell(left, before, 'pressColor')} → ${barCell(right, after, 'pressColor')} | ${barCell(left, before, 'size')} → ${barCell(right, after, 'size')} |`,
+    `| ${id} | ${ACCEPTANCE_BARS.map((bar) => `${barCell(beforeBars[bar.id], bar.id, !before)} → ${barCell(afterBars[bar.id], bar.id, !after)}`).join(' | ')} |`,
   ]
 })
-const markdown = `# Fidelity comparison\n\n## Acceptance bars\n\nEach cell is before → after; thresholds are printed beside the measured values.\n\n| Document | Effects | Press color | PDF size |\n|---|---|---|---|\n${barRows.join('\n')}\n\nBefore: **${left.metadata.label}** (\`${left.metadata.commit}\`)  \nAfter: **${right.metadata.label}** (\`${right.metadata.commit}\`)\n\n## PDF size\n\n| Document | Before | After | Change |\n|---|---:|---:|---:|\n${sizeRows.map((row) => `| ${row.document} | ${row.before} | ${row.after} | ${row.change >= 0 ? '+' : ''}${row.change} |`).join('\n')}\n\n## Regions\n\n| Document | Reader | Region | Mean before | Mean after | Change | P99 before | P99 after |\n|---|---|---|---:|---:|---:|---:|---:|\n${regionRows.map((row) => `| ${row.document} | ${row.reader} | ${row.name} | ${row.beforeMean.toFixed(2)} | ${row.afterMean.toFixed(2)} | ${row.meanChange >= 0 ? '+' : ''}${row.meanChange.toFixed(2)} | ${row.beforeP99} | ${row.afterP99} |`).join('\n')}\n`
+const barHeader = ACCEPTANCE_BARS.map((bar) => bar.title).join(' | ')
+const barDivider = ACCEPTANCE_BARS.map(() => '---').join('|')
+const markdown = `# Fidelity comparison\n\n## Acceptance bars\n\nEach cell is before → after; thresholds are printed beside the measured values.\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows.join('\n')}\n\nBefore: **${left.metadata.label}** (\`${left.metadata.commit}\`)  \nAfter: **${right.metadata.label}** (\`${right.metadata.commit}\`)\n\n## PDF size\n\n| Document | Before | After | Change |\n|---|---:|---:|---:|\n${sizeRows.map((row) => `| ${row.document} | ${row.before} | ${row.after} | ${row.change >= 0 ? '+' : ''}${row.change} |`).join('\n')}\n\n## Regions\n\n| Document | Reader | Region | Mean before | Mean after | Change | P99 before | P99 after |\n|---|---|---|---:|---:|---:|---:|---:|\n${regionRows.map((row) => `| ${row.document} | ${row.reader} | ${row.name} | ${row.beforeMean.toFixed(2)} | ${row.afterMean.toFixed(2)} | ${row.meanChange >= 0 ? '+' : ''}${row.meanChange.toFixed(2)} | ${row.beforeP99} | ${row.afterP99} |`).join('\n')}\n`
 await Bun.write(path.join(destination, 'compare.md'), markdown)
 console.log(`Comparison report: ${path.join(destination, 'compare.md')}`)

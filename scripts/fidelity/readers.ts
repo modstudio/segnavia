@@ -4,6 +4,7 @@ import { rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { type Browser, chromium } from 'playwright-core'
+import { MARKER_BORDER_COLOR, MARKER_INSET, MARKER_SIZE, READER_RASTER_DPI, SCALE } from './config.ts'
 import type { ReaderResult } from './types.ts'
 
 const SRGB_PROFILE = '/System/Library/ColorSync/Profiles/sRGB Profile.icc'
@@ -45,39 +46,59 @@ export function validateReaderProfile(reader: ReaderResult): void {
   }
 }
 
-function viewerPageBox(file: string, width: number, height: number, aspect: number): { x: number; y: number; width: number; height: number } {
-  const decoded = Bun.spawnSync(['ffmpeg', '-loglevel', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdout: 'pipe', stderr: 'pipe' })
-  if (decoded.exitCode !== 0) throw new Error(`ffmpeg failed: ${decoded.stderr.toString().trim()}`)
-  const pixels = decoded.stdout
-  const background = [pixels[0] ?? 0, pixels[1] ?? 0, pixels[2] ?? 0]
-  let left = width
-  let top = height
-  let right = 0
-  let bottom = 0
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const offset = (y * width + x) * 3
-      const distance = [0, 1, 2].reduce((sum, channel) => sum + Math.abs((pixels[offset + channel] ?? 0) - (background[channel] ?? 0)), 0)
-      if (distance <= 24) continue
-      left = Math.min(left, x)
-      top = Math.min(top, y)
-      right = Math.max(right, x)
-      bottom = Math.max(bottom, y)
+export function viewerPageBoxFromPixels(
+  pixels: Uint8Array,
+  screenshotWidth: number,
+  screenshotHeight: number,
+  pageWidth: number,
+  pageHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  let markerLeft = screenshotWidth
+  let markerTop = screenshotHeight
+  let markerRight = -1
+  let markerBottom = -1
+  for (let y = 0; y < screenshotHeight; y++) {
+    for (let x = 0; x < screenshotWidth; x++) {
+      const offset = (y * screenshotWidth + x) * 3
+      const distance = MARKER_BORDER_COLOR.reduce((sum, value, channel) => sum + Math.abs((pixels[offset + channel] ?? 0) - value), 0)
+      if (distance > 48) continue
+      markerLeft = Math.min(markerLeft, x)
+      markerTop = Math.min(markerTop, y)
+      markerRight = Math.max(markerRight, x)
+      markerBottom = Math.max(markerBottom, y)
     }
   }
-  let pageWidth = right - left + 1
-  let pageHeight = bottom - top + 1
-  if (pageWidth / pageHeight > aspect) {
-    const fitted = pageHeight * aspect
-    left += (pageWidth - fitted) / 2
-    pageWidth = fitted
-  } else {
-    const fitted = pageWidth / aspect
-    top += (pageHeight - fitted) / 2
-    pageHeight = fitted
+  if (markerRight < markerLeft || markerBottom < markerTop) throw new Error('Chromium PDF viewer marker was not found in the screenshot.')
+  const markerWidth = markerRight - markerLeft + 1
+  const markerHeight = markerBottom - markerTop + 1
+  const scale = (markerWidth + markerHeight) / (2 * MARKER_SIZE * SCALE)
+  const x = markerLeft - MARKER_INSET * SCALE * scale
+  const y = markerTop - MARKER_INSET * SCALE * scale
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    width: Math.round(pageWidth * scale),
+    height: Math.round(pageHeight * scale),
   }
-  return { x: Math.round(left), y: Math.round(top), width: Math.round(pageWidth), height: Math.round(pageHeight) }
 }
+
+function viewerPageBox(
+  file: string,
+  width: number,
+  height: number,
+  pageWidth: number,
+  pageHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  const decoded = Bun.spawnSync(['ffmpeg', '-loglevel', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { stdout: 'pipe', stderr: 'pipe' })
+  if (decoded.exitCode !== 0) throw new Error(`ffmpeg failed: ${decoded.stderr.toString().trim()}`)
+  return viewerPageBoxFromPixels(decoded.stdout, width, height, pageWidth, pageHeight)
+}
+
+export interface ReaderContext {
+  executablePath: string
+}
+
+export type ReaderRender = (pdf: string, output: string, width: number, height: number, context: ReaderContext) => Promise<ReaderResult>
 
 export async function poppler(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const base = output.replace(/\.png$/, '')
@@ -105,8 +126,8 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
   let browser: Browser | undefined
   try {
     browser = await chromium.launch({ executablePath, ignoreDefaultArgs: ['--disable-extensions'] })
-    const captureWidth = Math.min(width, 1800)
-    const captureHeight = Math.round((captureWidth * height) / width)
+    const captureWidth = width
+    const captureHeight = height
     const page = await browser.newPage({ viewport: { width: captureWidth, height: captureHeight } })
     await page.goto(`${pathToFileURL(pdf).href}#toolbar=0&view=Fit`)
     await page.waitForTimeout(1800)
@@ -119,7 +140,7 @@ export async function chromiumViewer(executablePath: string, pdf: string, output
       })
       .catch(() => {})
     await page.screenshot({ path: raw })
-    const box = viewerPageBox(raw, captureWidth, captureHeight, width / height)
+    const box = viewerPageBox(raw, captureWidth, captureHeight, width, height)
     const converted = ran([
       'ffmpeg',
       '-loglevel',
@@ -158,7 +179,7 @@ options.antiAlias = true;
 options.cropPage = CropToType.CROPBOX;
 options.mode = OpenDocumentMode.RGB;
 options.page = 1;
-options.resolution = 384;
+options.resolution = ${READER_RASTER_DPI};
 options.suppressWarnings = true;
 var document = app.open(File('${scriptString(pdf)}'), options);
 document.resizeImage(UnitValue(${width}, 'px'), UnitValue(${height}, 'px'), null, ResampleMethod.BICUBICSHARPER);
@@ -191,7 +212,6 @@ export async function ghostscript(pdf: string, output: string, width: number, he
   if (!GHOSTSCRIPT) {
     return { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: false, error: 'gs was not found in a standard Homebrew or system location.' }
   }
-  const dpi = 384
   const result = ran([
     GHOSTSCRIPT,
     '-dSAFER',
@@ -200,7 +220,7 @@ export async function ghostscript(pdf: string, output: string, width: number, he
     '-dUseCropBox',
     '-dPDFFitPage',
     '-sDEVICE=png16m',
-    `-r${dpi}`,
+    `-r${READER_RASTER_DPI}`,
     `-g${width}x${height}`,
     '-dTextAlphaBits=4',
     '-dGraphicsAlphaBits=4',
@@ -215,3 +235,15 @@ export async function ghostscript(pdf: string, output: string, width: number, he
 export function readerPath(directory: string, reader: string): string {
   return path.join(directory, `${reader}.png`)
 }
+
+export const READERS: readonly { id: string; engine: string; render: ReaderRender }[] = [
+  { id: 'poppler', engine: POPPLER_ENGINE, render: (pdf, output, width, height) => poppler(pdf, output, width, height) },
+  { id: 'coregraphics', engine: 'CoreGraphics via sips', render: (pdf, output, width, height) => coreGraphics(pdf, output, width, height) },
+  {
+    id: 'chromium',
+    engine: 'Chromium PDF viewer',
+    render: (pdf, output, width, height, context) => chromiumViewer(context.executablePath, pdf, output, width, height),
+  },
+  { id: 'adobe', engine: 'Adobe PDF engine via Photoshop 2026', render: (pdf, output, width, height) => adobePdfEngine(pdf, output, width, height) },
+  { id: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, render: (pdf, output, width, height) => ghostscript(pdf, output, width, height) },
+]

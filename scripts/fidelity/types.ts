@@ -30,7 +30,10 @@ export interface SizeMeasurement {
 export interface AlignmentResult {
   offsetX: number
   offsetY: number
+  referenceScore: number
+  measuredScore: number
   passed: boolean
+  error?: string
 }
 
 export interface GlyphBox {
@@ -116,12 +119,11 @@ export interface DocumentResult {
   pressPdf?: string
   pressProof?: string
   pressRaster?: string
-  bars: {
-    effects: BarResult<Difference>
-    pressColor: BarResult<Difference>
-    size: BarResult<SizeMeasurement>
-  }
+  bars: Record<BarId, BarResult<BarMeasurement>>
 }
+
+export type BarId = 'effects' | 'pressColor' | 'size'
+export type BarMeasurement = Difference | SizeMeasurement
 
 export interface FidelityRun {
   metadata: {
@@ -129,11 +131,7 @@ export interface FidelityRun {
     commit: string
     createdAt: string
     scale: number
-    thresholds: {
-      effects: Threshold
-      pressColor: Threshold
-      size: { multiple: number; absoluteBytes: number }
-    }
+    thresholds: Record<BarId, Threshold | { multiple: number; absoluteBytes: number }>
     chromium: string
     profile?: string
   }

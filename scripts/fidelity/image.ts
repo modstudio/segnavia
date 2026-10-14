@@ -1,6 +1,15 @@
 import path from 'node:path'
 import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
-import { ALIGNMENT_SEARCH_RADIUS, ALIGNMENT_TOLERANCE, SCALE } from './config.ts'
+import {
+  ALIGNMENT_SEARCH_RADIUS,
+  ALIGNMENT_TOLERANCE,
+  MARKER_BORDER,
+  MARKER_BORDER_COLOR,
+  MARKER_FILL,
+  MARKER_MATCH_MAX_SCORE,
+  MARKER_SIZE,
+  SCALE,
+} from './config.ts'
 import type { Box, Difference, GlyphBox } from './types.ts'
 
 function command(args: string[]): Uint8Array {
@@ -90,15 +99,21 @@ export function cropImage(source: string, destination: string, box: Box): void {
   if (result.exitCode !== 0) throw new Error(`Could not crop ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
 }
 
-function markerPosition(image: string, width: number, height: number, expectedX: number, expectedY: number): { x: number; y: number } {
-  const pixels = rgb(image, width, height)
-  const size = 12 * SCALE
+export function markerPosition(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+  expectedX: number,
+  expectedY: number,
+): { x: number; y: number; score: number } {
+  const size = MARKER_SIZE * SCALE
+  const borderSample = Math.max(1, Math.floor((MARKER_BORDER * SCALE) / 2))
   const samples = [
-    { x: SCALE, y: SCALE, color: [254, 1, 253] },
-    { x: size - SCALE - 1, y: SCALE, color: [254, 1, 253] },
-    { x: SCALE, y: size - SCALE - 1, color: [254, 1, 253] },
-    { x: size - SCALE - 1, y: size - SCALE - 1, color: [254, 1, 253] },
-    { x: size / 2, y: size / 2, color: [1, 254, 2] },
+    { x: borderSample, y: borderSample, color: MARKER_BORDER_COLOR },
+    { x: size - borderSample - 1, y: borderSample, color: MARKER_BORDER_COLOR },
+    { x: borderSample, y: size - borderSample - 1, color: MARKER_BORDER_COLOR },
+    { x: size - borderSample - 1, y: size - borderSample - 1, color: MARKER_BORDER_COLOR },
+    { x: Math.floor(size / 2), y: Math.floor(size / 2), color: MARKER_FILL },
   ]
   let best = { x: expectedX, y: expectedY, score: Number.POSITIVE_INFINITY }
   for (let y = Math.max(0, expectedY - ALIGNMENT_SEARCH_RADIUS); y <= Math.min(height - size, expectedY + ALIGNMENT_SEARCH_RADIUS); y++) {
@@ -121,15 +136,25 @@ export function alignmentOffset(
   height: number,
   expectedX: number,
   expectedY: number,
-): { offsetX: number; offsetY: number; passed: boolean } {
-  const expected = markerPosition(reference, width, height, expectedX, expectedY)
-  const measured = markerPosition(actual, width, height, expectedX, expectedY)
+): { offsetX: number; offsetY: number; referenceScore: number; measuredScore: number; passed: boolean; error?: string } {
+  const expected = markerPosition(rgb(reference, width, height), width, height, expectedX, expectedY)
+  const measured = markerPosition(rgb(actual, width, height), width, height, expectedX, expectedY)
   const offsetX = measured.x - expected.x
   const offsetY = measured.y - expected.y
+  const scorePassed = expected.score <= MARKER_MATCH_MAX_SCORE && measured.score <= MARKER_MATCH_MAX_SCORE
+  const positionPassed = Math.abs(offsetX) <= ALIGNMENT_TOLERANCE && Math.abs(offsetY) <= ALIGNMENT_TOLERANCE
+  const error = !scorePassed
+    ? `marker not found: reference score ${expected.score}, reader score ${measured.score}, maximum ${MARKER_MATCH_MAX_SCORE}, search window ±${ALIGNMENT_SEARCH_RADIUS} device px`
+    : !positionPassed
+      ? `marker offset ${offsetX}, ${offsetY} device px exceeds tolerance ±${ALIGNMENT_TOLERANCE}`
+      : undefined
   return {
     offsetX,
     offsetY,
-    passed: Math.abs(offsetX) <= ALIGNMENT_TOLERANCE && Math.abs(offsetY) <= ALIGNMENT_TOLERANCE,
+    referenceScore: expected.score,
+    measuredScore: measured.score,
+    passed: scorePassed && positionPassed,
+    error,
   }
 }
 

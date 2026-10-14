@@ -1,43 +1,15 @@
 import path from 'node:path'
-import { ALIGNMENT_SEARCH_RADIUS, ALIGNMENT_TOLERANCE } from './config.ts'
+import { barCell, totalBars } from './bars.ts'
+import { ACCEPTANCE_BARS, ALIGNMENT_SEARCH_RADIUS, ALIGNMENT_TOLERANCE, MARKER_MATCH_MAX_SCORE } from './config.ts'
 import type { FidelityRun, RegionResult } from './types.ts'
 
 const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
 const relative = (root: string, file: string): string => path.relative(root, file).split(path.sep).join('/')
-const verdict = (passed: boolean): string => (passed ? 'PASS' : 'FAIL')
-
 function barRows(run: FidelityRun): string[] {
-  const thresholds = run.metadata.thresholds
-  const documents = run.documents.map((document) => {
-    const effect = document.bars.effects.measured
-    const press = document.bars.pressColor.measured
-    const size = document.bars.size.measured
-    return `| ${document.title} | ${verdict(document.bars.effects.passed)} — mean ${decimal(effect?.mean)}, p99 ${decimal(effect?.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | ${verdict(document.bars.pressColor.passed)} — mean ${decimal(press?.mean)}, p99 ${decimal(press?.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | ${verdict(document.bars.size.passed)} — ${size?.pdfBytes.toLocaleString() ?? '—'} / ${size?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(size?.multiple)}× / ≤ ${thresholds.size.multiple}× and ≤ ${thresholds.size.absoluteBytes.toLocaleString()} bytes |`
-  })
-  const worstEffect = run.documents.reduce(
-    (worst, document) => ({
-      mean: Math.max(worst.mean, document.bars.effects.measured?.mean ?? 0),
-      p99: Math.max(worst.p99, document.bars.effects.measured?.p99 ?? 0),
-    }),
-    { mean: 0, p99: 0 },
-  )
-  const worstPress = run.documents.reduce(
-    (worst, document) => ({
-      mean: Math.max(worst.mean, document.bars.pressColor.measured?.mean ?? 0),
-      p99: Math.max(worst.p99, document.bars.pressColor.measured?.p99 ?? 0),
-    }),
-    { mean: 0, p99: 0 },
-  )
-  const largest = Math.max(...run.documents.map((document) => document.pdfBytes), 0)
-  const worstMultiple = Math.max(...run.documents.map((document) => document.bars.size.measured?.multiple ?? 0), 0)
-  const all = {
-    effects: run.documents.every((document) => document.bars.effects.passed),
-    press: run.documents.every((document) => document.bars.pressColor.passed),
-    size: run.documents.every((document) => document.bars.size.passed),
-  }
+  const total = totalBars(run.documents)
   return [
-    `| **Total** | **${verdict(all.effects)}** — mean ${decimal(worstEffect.mean)}, p99 ${decimal(worstEffect.p99)} / mean ≤ ${thresholds.effects.mean}, p99 ≤ ${thresholds.effects.p99} | **${verdict(all.press)}** — mean ${decimal(worstPress.mean)}, p99 ${decimal(worstPress.p99)} / mean ≤ ${thresholds.pressColor.mean}, p99 ≤ ${thresholds.pressColor.p99} | **${verdict(all.size)}** — largest ${largest.toLocaleString()} bytes, worst ${decimal(worstMultiple)}× / ≤ ${thresholds.size.multiple}× and ≤ ${thresholds.size.absoluteBytes.toLocaleString()} bytes |`,
-    ...documents,
+    `| **Total** | ${ACCEPTANCE_BARS.map((bar) => `**${barCell(total[bar.id], bar.id, true)}**`).join(' | ')} |`,
+    ...run.documents.map((document) => `| ${document.title} | ${ACCEPTANCE_BARS.map((bar) => barCell(document.bars[bar.id], bar.id)).join(' | ')} |`),
   ]
 }
 
@@ -62,7 +34,7 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
   const registration = run.documents.flatMap((document) =>
     document.readers.map((reader) => {
       const offset = reader.alignment
-      return `| ${document.title} | ${reader.engine} | ${offset ? `${offset.offsetX}, ${offset.offsetY} device px` : `SKIP — ${reader.error ?? 'not run'}`} |`
+      return `| ${document.title} | ${reader.engine} | ${offset ? `${offset.offsetX}, ${offset.offsetY} device px; scores ${offset.referenceScore}/${offset.measuredScore}` : `SKIP — ${reader.error ?? 'not run'}`} |`
     }),
   )
   const worst = run.documents
@@ -84,7 +56,7 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
     const image = region.sideBySide ? ` — [screen | reader](${relative(directory, region.sideBySide)})` : ''
     return `- ${document} / ${reader} / ${region.name}: mean ${region.mean.toFixed(2)}, p99 ${region.p99.toFixed(0)}${image}`
   })
-  const imageThreshold = run.metadata.thresholds.effects
+  const imageThreshold = ACCEPTANCE_BARS.find((bar) => bar.id === 'effects')?.threshold as { mean: number; p99: number }
   const posterEvidence = run.posterEvidence
   const posterLines = posterEvidence?.variants.flatMap((variant) =>
     variant.lines.map(
@@ -95,7 +67,9 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
     (variant) =>
       `- ${variant.variant}: [screen crop](${relative(directory, variant.screenCrop)}) | [Poppler crop](${relative(directory, variant.popplerCrop)}); marker offset ${variant.alignment.offsetX}, ${variant.alignment.offsetY} device px.`,
   )
-  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nShmuel agreed these thresholds on 2026-10-14.\n\n| Document | Effects | Press color | PDF size (actual / effectless) |\n|---|---|---|---|\n${barRows(run).join('\n')}\n\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Summary\n\nReader cells are mean / p99 channel difference.\n\n| Document | PDF bytes | ${readerHeader} |\n|---|---:|${readerDivider}|\n${rows.join('\n')}\n\n## Compared page boxes\n\n${boxes.join('\n')}\n\n## Registration\n\nOffsets are found from the fixed marker within ±${ALIGNMENT_SEARCH_RADIUS} device pixels and are diagnostic only; they are never applied to the comparison. A run is refused when either axis exceeds ${ALIGNMENT_TOLERANCE} device pixels.\n\n| Document | Reader | Reader minus screen |\n|---|---|---:|\n${registration.join('\n')}\n\n## Poster headline layout evidence\n\n${posterEvidence?.method ?? 'Not measured.'}\n\nEach displacement is Poppler minus screen in device pixels. Width and height changes are Poppler minus screen glyph-box dimensions.\n\n| Scratch variant | Line | Horizontal displacement | Vertical displacement | Width change | Height change |\n|---|---:|---:|---:|---:|---:|\n${posterLines?.join('\n') ?? ''}\n\n${posterCrops?.join('\n') ?? ''}\n\n${posterEvidence?.conclusion ?? ''} The scratch variants are generated in memory; the committed fixture is unchanged.\n\n## Reader color profiles\n\n${profiles.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n\n## Limits\n\nThe Harlequin RIP engine is not covered by this local suite.\n`
+  const barHeader = ACCEPTANCE_BARS.map((bar) => bar.title).join(' | ')
+  const barDivider = ACCEPTANCE_BARS.map(() => '---').join('|')
+  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nShmuel agreed these thresholds on 2026-10-14.\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows(run).join('\n')}\n\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Summary\n\nReader cells are mean / p99 channel difference.\n\n| Document | PDF bytes | ${readerHeader} |\n|---|---:|${readerDivider}|\n${rows.join('\n')}\n\n## Compared page boxes\n\n${boxes.join('\n')}\n\n## Registration\n\nOffsets are found from the fixed marker within ±${ALIGNMENT_SEARCH_RADIUS} device pixels and are diagnostic only; they are never applied to the comparison. A reader fails when either axis exceeds ${ALIGNMENT_TOLERANCE} device pixels or either five-sample marker score exceeds ${MARKER_MATCH_MAX_SCORE}.\n\n| Document | Reader | Reader minus screen; marker scores reference/reader |\n|---|---|---:|\n${registration.join('\n')}\n\n## Poster headline layout evidence\n\n${posterEvidence?.method ?? 'Not measured.'}\n\nEach displacement is Poppler minus screen in device pixels. Width and height changes are Poppler minus screen glyph-box dimensions.\n\n| Scratch variant | Line | Horizontal displacement | Vertical displacement | Width change | Height change |\n|---|---:|---:|---:|---:|---:|\n${posterLines?.join('\n') ?? ''}\n\n${posterCrops?.join('\n') ?? ''}\n\n${posterEvidence?.conclusion ?? ''} The scratch variants are generated in memory; the committed fixture is unchanged.\n\n## Reader color profiles\n\n${profiles.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n\n## Limits\n\nThe Harlequin RIP engine is not covered by this local suite.\n`
   await Bun.write(path.join(directory, 'summary.md'), markdown)
 }
 
