@@ -128,7 +128,10 @@ const operators: Record<string, Handler> = {
     const den = popNumber(state, 'atan')
     const num = popNumber(state, 'atan')
     if (num.value === 0 && den.value === 0) calculatorRefuse('calculator atan undefined', 'a non-zero atan pair')
-    pushNumber(state, (Math.atan2(num.value, den.value) * 180) / Math.PI, false)
+    // PDF engines that render Chromium's type-4 shadings (PDFium, Poppler) return 0 to 360, not PostScript's −180 to 180. Chromium's conic programs clamp t<=0 to the start color, so the negative half-turn would otherwise paint as a flat stop.
+    let angle = (Math.atan2(num.value, den.value) * 180) / Math.PI
+    if (angle < 0) angle += 360
+    pushNumber(state, angle, false)
   },
   ceiling: unary('ceiling', (value, int) => ({ value: Math.ceil(value), int })),
   cos: unary('cos', (value) => ({ value: Math.cos((value * Math.PI) / 180), int: false })),
