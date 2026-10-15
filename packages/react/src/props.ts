@@ -24,7 +24,6 @@ type ControlProps<E extends HTMLElement> = ElementProps<E> & {
 }
 
 export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
-  controller?: DeckController
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
