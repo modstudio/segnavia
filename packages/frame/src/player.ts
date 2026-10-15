@@ -13,7 +13,7 @@
 import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
-import { DeckController, type DeckState } from './controller.ts'
+import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { ICONS } from './icons.ts'
 import { isEditableLetterShortcut } from './keys.ts'
@@ -40,6 +40,15 @@ const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
   .join(',')
 
+function playerOptions(player: HTMLElement): Pick<ControllerOptions, 'playback' | 'captions'> {
+  const playback = player.getAttribute('playback')
+  const captions = player.getAttribute('captions')
+  return {
+    playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
+    captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
+  }
+}
+
 export class SegnaviaPlayer extends HTMLElement {
   static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
@@ -50,13 +59,9 @@ export class SegnaviaPlayer extends HTMLElement {
   constructor() {
     super()
     const hash = this.getAttribute('hash')
-    const playback = this.getAttribute('playback')
-    const captions = this.getAttribute('captions')
     this.controller = new DeckController({
       hash: hash === 'off' ? null : (hash ?? 'slide-'),
       prefetch: this.hasAttribute('prefetch'),
-      playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
-      captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
     })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
@@ -121,12 +126,7 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private passPlayerOptions() {
-    const playback = this.getAttribute('playback')
-    const captions = this.getAttribute('captions')
-    this.controller.setPlayerOptions({
-      playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
-      captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
-    })
+    this.controller.setPlayerOptions(playerOptions(this))
   }
 
   private passTransitionAttributes() {
