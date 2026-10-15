@@ -332,14 +332,17 @@ library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed
 forms, rewrite the finished PDF once; `pageImage` and `slideImage` ignore the
 option. Solid fills and strokes, including text and shadow colors and colors
 inside Type 3 glyphs, and every axial or radial gradient stop are converted
-through the profile. A black or neutral gray becomes black ink alone, so text
-prints sharp. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
+through the profile. A black or near-neutral gray becomes black ink alone, so text
+prints sharp. `press.neutralTolerance` sets the largest channel difference treated
+as neutral in 8-bit units from 0 to 255 and defaults to 3; 0 keeps the exact-neutral
+rule. The black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
 group stays gray and a mask source keeps its declared space. Raster images,
 including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
 as the author supplied them and are the only RGB the result may retain.
 `press.report` receives their pixel dimensions and color-space kinds, plus
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
-the finished PDF. An unfamiliar color operator, function, group or stream
+the finished PDF, and the number of conversions snapped to black by the configured
+tolerance beyond the exact-neutral rule. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
 converted by sampling their calculator program onto a DeviceCMYK type 0 function,
 8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). Painted bounds are

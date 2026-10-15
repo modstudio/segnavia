@@ -74,7 +74,7 @@ export async function inspectPressPdf(bytes: Uint8Array): Promise<PressReport> {
     document,
     groups: new WeakSet(),
     images: new WeakSet(),
-    report: { images: [], fills: 0, strokes: 0, gradientStops: 0, sampledShadings: 0, groups: 0 },
+    report: { images: [], fills: 0, strokes: 0, gradientStops: 0, sampledShadings: 0, groups: 0, neutralColors: 0 },
     shadings: new WeakSet(),
   }
   walkPressGraph(document, {

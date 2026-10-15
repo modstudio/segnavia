@@ -4,7 +4,7 @@ import { readProfile } from '../color/profile.ts'
 import type { Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
-import { cachedPressColor, pressColor } from './color-policy.ts'
+import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, newlySnapsToNeutral, pressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
@@ -22,6 +22,7 @@ interface RewriteState {
   document: PDFDocument
   painted: PaintedBounds
   profile: Profile
+  sampleConvert: (rgb: Color3) => ReturnType<typeof pressColor>
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
   sequence?: PaintedBoundsTracker
@@ -35,6 +36,7 @@ export interface PressRewriteCounts {
   gradientStops: number
   groups: number
   strokes: number
+  neutralColors: number
 }
 
 const key = (name: string): PDFName => PDFName.of(name)
@@ -92,8 +94,8 @@ function convertType1Shading(state: RewriteState, shading: PDFDict, pattern?: PD
   const domain = sampleDomainForUses(shadingDomainOf(shading), uses)
   const matrices = uses.length > 0 ? uses.map((use) => use.matrix) : [shadingDeviceMatrix(shading, pattern)]
   const size = shadingSampleGridForUses(domain, matrices)
-  // Sampling owns its conversion through the 8-bit, capped converter and must receive uncached pressColor, never state.convert.
-  replaceType1Function(state.document, shading, pattern, (rgb) => pressColor(state.profile, rgb), state.budget, undefined, domain, size)
+  // Sampling owns its conversion through the 8-bit, capped converter and must remain uncached.
+  replaceType1Function(state.document, shading, pattern, state.sampleConvert, state.budget, undefined, domain, size)
 }
 
 function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
@@ -211,23 +213,32 @@ function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawSt
   else setDirect(replacement)
 }
 
-function newState(document: PDFDocument, profile: Profile): RewriteState {
+function newState(document: PDFDocument, profile: Profile, tolerance: number): RewriteState {
+  const cached = cachedPressColor(profile, tolerance)
+  const totals: PressRewriteCounts = { fills: 0, strokes: 0, gradientStops: 0, groups: 0, neutralColors: 0 }
   return {
     budget: { calculatorOperations: 0, decodedBytes: 0, shadingSamples: 0 },
-    convert: cachedPressColor(profile),
+    convert: (rgb) => {
+      if (newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
+      return cached(rgb)
+    },
     document,
     painted: new WeakMap(),
     profile,
+    sampleConvert: (rgb) => {
+      if (newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
+      return pressColor(profile, rgb, tolerance)
+    },
     seenGroups: new WeakSet(),
     seenShadings: new WeakSet(),
     shadingPainted: new WeakMap(),
     shadingPatterns: new WeakMap(),
-    totals: { fills: 0, strokes: 0, gradientStops: 0, groups: 0 },
+    totals,
   }
 }
 
-export function rewritePressDocument(document: PDFDocument, profile: Profile): PressRewriteCounts {
-  const state = newState(document, profile)
+export function rewritePressDocument(document: PDFDocument, profile: Profile, tolerance = DEFAULT_NEUTRAL_TOLERANCE): PressRewriteCounts {
+  const state = newState(document, profile, tolerance)
   // Each pass has its own 128 MiB decoded-content ceiling so a stream is not charged twice in one budget.
   const boundsBudget: ContentBudget = { decodedBytes: 0 }
   // Painted bounds are gathered for the whole document before any Type 1 function is replaced.
@@ -263,15 +274,21 @@ function addOutputIntent(document: PDFDocument, profile: Uint8Array): void {
   document.catalog.set(key('OutputIntents'), document.context.obj([intentRef]))
 }
 
-export async function rewritePressPdf(bytes: Uint8Array, profileBytes: Uint8Array): Promise<{ bytes: Uint8Array; report: PressReport }> {
+export async function rewritePressPdf(
+  bytes: Uint8Array,
+  profileBytes: Uint8Array,
+  tolerance = DEFAULT_NEUTRAL_TOLERANCE,
+): Promise<{ bytes: Uint8Array; report: PressReport }> {
   try {
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK')
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
-    rewritePressDocument(document, profile)
+    const counts = rewritePressDocument(document, profile, tolerance)
     addOutputIntent(document, profileBytes)
     const output = await document.save({ useObjectStreams: false })
-    return { bytes: output, report: await inspectPressPdf(output) }
+    const report = await inspectPressPdf(output)
+    report.neutralColors = counts.neutralColors
+    return { bytes: output, report }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')

@@ -8,14 +8,15 @@ import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
 import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
+import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
-import { decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
+import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const genericProfile = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
-const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
+const { PDFArray, PDFDict, PDFDocument, PDFName } = renderRequire('pdf-lib')
 
 const html = `<!doctype html><style>
 @page{size:1200px 800px;margin:0}*{box-sizing:border-box}html,body{margin:0;width:1200px;height:800px}
@@ -176,6 +177,63 @@ async function largestContentStream(bytes: Uint8Array): Promise<number> {
   return largest
 }
 
+async function cmykColors(bytes: Uint8Array): Promise<number[][]> {
+  const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  const colors: number[][] = []
+  for (const [, object] of document.context.enumerateIndirectObjects()) {
+    if (object instanceof PDFDict && numberOf(object, 'FunctionType') === 2) {
+      for (const name of ['C0', 'C1']) if (object.has(PDFName.of(name))) colors.push(arrayNumbers(object, name, 4))
+    }
+    const stream = rawStreamOf(object)
+    if (!stream) continue
+    if (stream.dict.has(PDFName.of('SegnaviaEffectColor'))) colors.push(arrayNumbers(stream.dict, 'SegnaviaEffectColor', 4))
+    if (nameOf(stream.dict.get(PDFName.of('Subtype'))) === 'Image') continue
+    visitContentOperators(decodeContent(stream), (operator, operands) => {
+      if ((operator === 'k' || operator === 'K') && operands.length === 4) colors.push(operands)
+    })
+  }
+  return colors
+}
+
+const sameColor = (left: number[], right: number[]): boolean => left.every((value, index) => Math.abs(value - (right[index] ?? Number.NaN)) <= 0.002)
+
+async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileBytes: Uint8Array): Promise<void> {
+  const rgb8 = [
+    [103, 101, 100],
+    [63, 61, 60],
+    [183, 181, 180],
+  ] as const
+  const page = {
+    html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(63,61,60),rgb(183,181,180))}</style><div class="shadow"></div><div class="gradient"></div>`,
+    size: { width: 400, height: 220 },
+  }
+  let defaultReport: PressReport | undefined
+  let exactReport: PressReport | undefined
+  const defaults = await renderer.pagePdf(
+    page,
+    reportOption(profileBytes, (report) => (defaultReport = report)),
+  )
+  const exact = await renderer.pagePdf(page, { press: { profile: profileBytes, neutralTolerance: 0, report: (report) => (exactReport = report) } })
+  const profile = readProfile(profileBytes)
+  const defaultColors = await cmykColors(defaults)
+  const exactColors = await cmykColors(exact)
+  const rgb = rgb8.map((color) => color.map((channel) => channel / 255) as [number, number, number])
+  const defaultExpected = rgb.map((color) => pressColor(profile, color, 3))
+  const exactExpected = rgb.map((color) => pressColor(profile, color, 0))
+  check(
+    'the default press neutral tolerance paints a near-grey shadow and gradient with black ink alone',
+    defaultExpected.every((color) => color.slice(0, 3).every((channel) => channel === 0) && defaultColors.some((found) => sameColor(found, color))) &&
+      (defaultReport?.neutralColors ?? 0) > 0,
+    defaultReport ? JSON.stringify(defaultReport) : 'report not called',
+  )
+  check(
+    'press neutral tolerance zero paints the near-grey shadow and gradient with all four inks',
+    exactExpected.every((color) => color.every((channel) => channel > 0) && exactColors.some((found) => sameColor(found, color))) &&
+      exactReport?.neutralColors === 0,
+    exactReport ? JSON.stringify(exactReport) : 'report not called',
+  )
+}
+
 async function verifyPressGradients(renderer: Renderer, work: string, check: Check, profile: Uint8Array): Promise<void> {
   const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
   let gradientReport: PressReport | undefined
@@ -323,4 +381,5 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   )
 
   await verifyPressGradients(renderer, work, check, profile)
+  await verifyNeutralTolerance(renderer, check, profile)
 }

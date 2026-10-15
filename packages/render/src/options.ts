@@ -26,6 +26,7 @@ export interface RenderOptions {
   effects?: false | { report?: (report: EffectsReport) => void }
   press?: {
     profile: Uint8Array
+    neutralTolerance?: number
     report?: (report: PressReport) => void
   }
 }
