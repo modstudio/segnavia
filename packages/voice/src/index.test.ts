@@ -209,7 +209,7 @@ describe('ElevenLabs provider', () => {
 
   test('uses script spelling for captions while retaining provider timings', async () => {
     globalThis.fetch = (async () => {
-      const characters = [...'Stoh-pal']
+      const characters = [...'Kah-dosh']
       return new Response(
         JSON.stringify({
           audio_base64: '',
@@ -221,13 +221,13 @@ describe('ElevenLabs provider', () => {
         }),
       )
     }) as unknown as typeof fetch
-    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Stopal')
-    expect(speech.words).toEqual([{ text: 'Stopal', startMs: 0, endMs: 780 }])
+    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Kadosh')
+    expect(speech.words).toEqual([{ text: 'Kadosh', startMs: 0, endMs: 780 }])
   })
 
   test('leaves provider words unchanged when alignment and script word counts differ', async () => {
     globalThis.fetch = (async () => {
-      const characters = [...'Stoh pal']
+      const characters = [...'Kah dosh']
       return new Response(
         JSON.stringify({
           audio_base64: '',
@@ -239,8 +239,8 @@ describe('ElevenLabs provider', () => {
         }),
       )
     }) as unknown as typeof fetch
-    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Stopal')
-    expect(speech.words.map((word) => word.text)).toEqual(['Stoh', 'pal'])
+    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Kadosh')
+    expect(speech.words.map((word) => word.text)).toEqual(['Kah', 'dosh'])
   })
 
   test('a refusal names the status and the reason', async () => {
