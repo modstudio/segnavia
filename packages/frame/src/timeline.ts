@@ -6,7 +6,7 @@ import type { Cue, Deck, Narration, Slide } from '@segnavia/format'
 
 export interface Moment {
   word: number | null
-  annotations: number[]
+  annotations: number[] | null
   ended: boolean
 }
 
@@ -14,7 +14,7 @@ export type SlidePhase = 'before' | 'narration' | 'after' | 'hold' | 'untimed'
 
 export interface SlideMoment {
   word: number | null
-  shown: number[]
+  shown: number[] | null
   phase: SlidePhase
 }
 
@@ -72,7 +72,7 @@ export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosi
 
 export function slideStateAt(slide: Slide, ms: number): SlideMoment {
   const position = Math.max(0, ms)
-  if (!slide.narration) return { word: null, shown: [], phase: slide.holdMs === undefined ? 'untimed' : 'hold' }
+  if (!slide.narration) return { word: null, shown: null, phase: slide.holdMs === undefined ? 'untimed' : 'hold' }
   const { beforeMs } = phaseBounds(slide)
   if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
   const narrationMs = position - beforeMs

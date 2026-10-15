@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
+import { Shot } from '@segnavia/format'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
 
@@ -148,4 +149,43 @@ test('seeking a paused controller into recorded narration stays silent', async (
   await controller.seek(350)
   expect(controller.state.playing).toBe(false)
   expect(plays).toBe(0)
+})
+
+test('a playing hold shot keeps all annotations shown', async () => {
+  let pending: (() => void) | null = null
+  const controller = new DeckController({
+    hash: null,
+    clock: (): Clock => ({
+      word: () => null,
+      ended: () => false,
+      elapsed: () => 100,
+      progress: () => 0.1,
+      pause: () => {},
+      resume: () => {},
+      seek: () => {},
+      muted: false,
+      stop: () => {},
+    }),
+    schedule: (tick) => {
+      pending = tick
+      return () => {
+        pending = null
+      }
+    },
+  })
+  const shot = Shot.parse({
+    key: 'shot',
+    title: 'Shot',
+    file: 'shot.png',
+    size: { width: 100, height: 100 },
+    scale: 1,
+    capturedAt: 'now',
+    annotations: [{ ring: null, badge: null, arrow: null }],
+  })
+  await controller.load({ title: 'T', slides: [{ id: 'a', content: { kind: 'shot', src: 'shot.png', shot }, holdMs: 1000 }] })
+  await controller.play()
+  const tick = pending as (() => void) | null
+  pending = null
+  tick?.()
+  expect(controller.state.shown).toBeNull()
 })
