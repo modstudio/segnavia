@@ -11,6 +11,7 @@
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, ICONS, TOKENS_CSS } from './controls-style.ts'
+import { slideDurationMs } from './timeline.ts'
 
 export class SegnaviaPlay extends SegnaviaControl {
   protected styles() {
@@ -140,7 +141,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (this.count !== slides.length) {
       this.count = slides.length
       list.innerHTML = slides
-        .map((slide, index) => `<li><button part="segment" data-go="${index}"${slide.narration ? ' data-plays' : ''}><span class="fill"></span></button></li>`)
+        .map((slide, index) => `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`)
         .join('')
     }
     for (const segment of list.querySelectorAll<HTMLElement>('button')) {
