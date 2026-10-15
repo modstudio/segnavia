@@ -1,12 +1,11 @@
-import type { Page } from 'playwright-core'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
-const WAIT_TIMEOUT = 5000
-
-export async function neighborTurnFacts(page: Page) {
+export async function neighborTurnFacts(h: Harness) {
+  const { page } = h
   const next = await page.locator('#deck [data-slide-id="slide-2"] iframe').elementHandle()
   if (!next) return { count: await page.locator('#deck iframe').count(), same: false }
   const nextFrame = await next.contentFrame()
-  await nextFrame?.waitForLoadState('load', { timeout: WAIT_TIMEOUT }).catch(() => {})
+  await nextFrame?.waitForLoadState('load', { timeout: BOUNDED_WAIT_MS }).catch(() => {})
   await next.evaluate((frame: HTMLIFrameElement) => {
     frame.dataset.identity = 'kept'
   })
@@ -15,14 +14,8 @@ export async function neighborTurnFacts(page: Page) {
     const stage = document.querySelector('#deck') as HTMLElement & { controller: { go(index: number): Promise<void> } }
     await stage.controller.go(1)
   })
-  await page
-    .waitForFunction(
-      () =>
-        document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'slide-2' && document.querySelectorAll('#deck iframe').length === 3,
-      undefined,
-      { timeout: WAIT_TIMEOUT },
-    )
-    .catch(() => {})
+  await h.waitFor('#deck', (data) => data.slide === '2', { timeout: BOUNDED_WAIT_MS })
+  await page.waitForFunction(() => document.querySelectorAll('#deck iframe').length === 3, undefined, { timeout: BOUNDED_WAIT_MS }).catch(() => {})
   return next.evaluate(
     (frame: HTMLIFrameElement, originalSrcdoc) => ({
       count: document.querySelectorAll('#deck iframe').length,
@@ -30,8 +23,4 @@ export async function neighborTurnFacts(page: Page) {
     }),
     srcdoc,
   )
-}
-
-export async function waitForPresentationExit(page: Page) {
-  await page.waitForFunction(() => !document.querySelector('#deck-root')?.hasAttribute('data-presenting'), undefined, { timeout: WAIT_TIMEOUT }).catch(() => {})
 }

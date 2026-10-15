@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
-import { type Harness, SITE } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -42,7 +42,7 @@ export async function verifyPlayer(h: Harness) {
 
   await h.clickFrame(`${PLAYER} iframe`)
   await page.keyboard.press('ArrowRight')
-  await h.waitFor(PLAYER, (d) => d.slide === '2', { timeout: 5000 })
+  await h.waitFor(PLAYER, (d) => d.slide === '2', { timeout: BOUNDED_WAIT_MS })
   check('an arrow key pressed inside a slide pages the deck, with author scripts refused', (await h.state(PLAYER)).slide === '2')
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowLeft')
   await h.waitFor(PLAYER, (d) => d.slide === '1')
@@ -99,7 +99,7 @@ async function verifyScripted(h: Harness) {
   const frame = page.frameLocator(`${PLAYER} iframe`)
   await frame
     .locator('#t', { hasText: 'ran' })
-    .waitFor({ timeout: 5000 })
+    .waitFor({ timeout: BOUNDED_WAIT_MS })
     .catch(() => {})
   check("with scripts sandboxed, the slide's own script runs", (await frame.locator('#t').textContent()) === 'ran')
   const reach = await frame.locator('body').evaluate(() => {
@@ -112,7 +112,7 @@ async function verifyScripted(h: Harness) {
   check('a sandboxed slide cannot reach its host', reach === 'blocked', reach)
   await h.clickFrame(`${PLAYER} iframe`)
   await page.keyboard.press('ArrowRight')
-  await h.waitFor(PLAYER, (d) => d.slide === '2', { timeout: 5000 })
+  await h.waitFor(PLAYER, (d) => d.slide === '2', { timeout: BOUNDED_WAIT_MS })
   check('keys relay from a scripted slide too', (await h.state(PLAYER)).slide === '2')
   check("hash off leaves the host's address alone", !page.url().includes('#'), page.url())
 }
