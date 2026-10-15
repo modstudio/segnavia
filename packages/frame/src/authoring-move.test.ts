@@ -1,6 +1,17 @@
 import { describe, expect, test } from 'bun:test'
+import { Shot } from '@segnavia/format'
 import { moveSlideOptimistically } from './authoring-move.ts'
 import { DeckController } from './controller.ts'
+
+const shot = Shot.parse({
+  key: 'shot',
+  title: 'Shot',
+  file: 'shot.png',
+  size: { width: 1280, height: 720 },
+  scale: 1,
+  capturedAt: 'now',
+  annotations: [],
+})
 
 const input = {
   title: 'Deck',
@@ -33,5 +44,37 @@ describe('authoring reorder', () => {
     expect(controller.state.deck?.slides.map((slide) => slide.id)).toEqual(['a', 'b', 'c'])
     expect(controller.state.slide?.id).toBe('b')
     expect(controller.state.index).toBe(1)
+  })
+
+  test('restores order without saving when the optimistic reload rejects', async () => {
+    let resolutions = 0
+    let saves = 0
+    const controller = new DeckController({
+      hash: null,
+      resolveSlide: () => {
+        resolutions++
+        if (resolutions === 2) throw new Error('Expired shot')
+        return { kind: 'shot', src: 'shot.png', shot }
+      },
+    })
+    const referenced = {
+      title: 'Deck',
+      slides: [
+        { id: 'a', content: { kind: 'shot-ref' as const, href: 'shot.json' } },
+        { id: 'b', content: { kind: 'html' as const, html: 'B' } },
+      ],
+    }
+    await controller.load(referenced)
+
+    await expect(
+      moveSlideOptimistically(controller, 0, 1, async () => {
+        saves++
+      }),
+    ).rejects.toThrow('Expired shot')
+
+    expect(controller.state.deck?.slides.map((slide) => slide.id)).toEqual(['a', 'b'])
+    expect(controller.state.slide?.id).toBe('a')
+    expect(controller.state.index).toBe(0)
+    expect(saves).toBe(0)
   })
 })

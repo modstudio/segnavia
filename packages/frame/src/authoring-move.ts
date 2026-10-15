@@ -21,8 +21,8 @@ export async function moveSlideOptimistically(controller: DeckController, fromIn
   const previous = controller.state.deck
   const slide = previous?.slides[fromIndex]
   if (!previous || !slide || toIndex < 0 || toIndex >= previous.slides.length || fromIndex === toIndex) return
-  await controller.load(reordered(previous, fromIndex, toIndex))
   try {
+    await controller.load(reordered(previous, fromIndex, toIndex))
     await save({ slideId: slide.id, fromIndex, toIndex })
   } catch (error) {
     await controller.load(previous)
