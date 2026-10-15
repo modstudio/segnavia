@@ -1,4 +1,15 @@
-const PROPERTY_NAMES = new Set(['labels', 'css', 'cspExtra', 'resolveSlide', 'controller', 'transition', 'reserve', 'targetElement'])
+const PROPERTY_NAMES = new Set([
+  'labels',
+  'css',
+  'cspExtra',
+  'resolveSlide',
+  'controller',
+  'transition',
+  'reserve',
+  'frameTitle',
+  'targetElement',
+  'mountMargin',
+])
 
 function attributeName(name: string): string {
   if (name === 'className') return 'class'

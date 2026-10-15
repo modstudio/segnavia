@@ -1,22 +1,33 @@
-import type { HTMLAttributes } from 'react'
-import type { FrameElementProps } from './index.ts'
-
-type TagProps = HTMLAttributes<HTMLElement> & FrameElementProps
+import type {
+  CaptionProps,
+  CaptionsProps,
+  CounterProps,
+  FullscreenProps,
+  MuteProps,
+  NotesProps,
+  PlayerProps,
+  PlayProps,
+  RailProps,
+  StageProps,
+  StepProps,
+  TimeProps,
+  TrackProps,
+} from './props.ts'
 
 export interface SegnaviaIntrinsicElements {
-  'segnavia-player': TagProps
-  'segnavia-stage': TagProps
-  'segnavia-play': TagProps
-  'segnavia-step': TagProps
-  'segnavia-track': TagProps
-  'segnavia-counter': TagProps
-  'segnavia-time': TagProps
-  'segnavia-mute': TagProps
-  'segnavia-captions': TagProps
-  'segnavia-caption': TagProps
-  'segnavia-notes': TagProps
-  'segnavia-fullscreen': TagProps
-  'segnavia-rail': TagProps
+  'segnavia-player': PlayerProps
+  'segnavia-stage': StageProps
+  'segnavia-play': PlayProps
+  'segnavia-step': StepProps
+  'segnavia-track': TrackProps
+  'segnavia-counter': CounterProps
+  'segnavia-time': TimeProps
+  'segnavia-mute': MuteProps
+  'segnavia-captions': CaptionsProps
+  'segnavia-caption': CaptionProps
+  'segnavia-notes': NotesProps
+  'segnavia-fullscreen': FullscreenProps
+  'segnavia-rail': RailProps
 }
 
 declare module 'react' {

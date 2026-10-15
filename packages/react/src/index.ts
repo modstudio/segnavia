@@ -2,36 +2,22 @@ import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
 import '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, type RefObject, useEffect, useRef, useState } from 'react'
+import type {
+  CaptionProps,
+  CaptionsProps,
+  CounterProps,
+  FullscreenProps,
+  MuteProps,
+  NotesProps,
+  PlayerProps,
+  PlayProps,
+  RailProps,
+  StageProps,
+  StepProps,
+  TimeProps,
+  TrackProps,
+} from './props.ts'
 import { syncElementProps } from './react-props.ts'
-
-export interface FrameElementProps {
-  children?: ReactNode
-  labels?: unknown
-  css?: string
-  cspExtra?: string
-  resolveSlide?: unknown
-  controller?: DeckController | null
-  transition?: unknown
-  src?: string
-  theme?: string
-  notes?: boolean
-  rail?: boolean
-  hash?: string
-  prefetch?: boolean
-  playback?: 'step' | 'continuous'
-  captions?: 'on' | 'off' | 'viewer'
-  presentation?: 'window' | 'native' | 'off'
-  transitionDuration?: number
-  for?: string
-  to?: 'previous' | 'next'
-  mode?: 'window' | 'native'
-  target?: string
-  fit?: 'box' | 'viewport'
-  neighbors?: boolean
-  unstyled?: boolean
-  slot?: string
-  [name: string]: unknown
-}
 
 type ElementWithController = HTMLElement & { controller?: DeckController | null }
 
@@ -40,15 +26,16 @@ function assignRef<T>(ref: Ref<T>, value: T | null) {
   else if (ref) ref.current = value
 }
 
-export function createComponent<T extends HTMLElement>(tag: string) {
-  return forwardRef<T, FrameElementProps>(function SegnaviaReactComponent(props, forwardedRef) {
+export function createComponent<T extends HTMLElement, P extends { children?: ReactNode }>(tag: string) {
+  return forwardRef<T, P>(function SegnaviaReactComponent(props, forwardedRef) {
     const element = useRef<T | null>(null)
     const previous = useRef<Record<string, unknown>>({})
     const { children, ...values } = props
     useEffect(() => {
       if (!element.current) return
-      const cleanup = syncElementProps(element.current, values, previous.current)
-      previous.current = values
+      const next = values as Record<string, unknown>
+      const cleanup = syncElementProps(element.current, next, previous.current)
+      previous.current = next
       return cleanup
     })
     return createElement(
@@ -64,19 +51,19 @@ export function createComponent<T extends HTMLElement>(tag: string) {
   })
 }
 
-export const Player = createComponent<HTMLElement & { controller: DeckController }>('segnavia-player')
-export const Stage = createComponent<ElementWithController>('segnavia-stage')
-export const Play = createComponent<ElementWithController>('segnavia-play')
-export const Step = createComponent<ElementWithController>('segnavia-step')
-export const Track = createComponent<ElementWithController>('segnavia-track')
-export const Counter = createComponent<ElementWithController>('segnavia-counter')
-export const Time = createComponent<ElementWithController>('segnavia-time')
-export const Mute = createComponent<ElementWithController>('segnavia-mute')
-export const Captions = createComponent<ElementWithController>('segnavia-captions')
-export const Caption = createComponent<ElementWithController>('segnavia-caption')
-export const Notes = createComponent<ElementWithController>('segnavia-notes')
-export const Fullscreen = createComponent<ElementWithController>('segnavia-fullscreen')
-export const Rail = createComponent<ElementWithController>('segnavia-rail')
+export const Player = createComponent<HTMLElement & { controller: DeckController }, PlayerProps>('segnavia-player')
+export const Stage = createComponent<ElementWithController, StageProps>('segnavia-stage')
+export const Play = createComponent<ElementWithController, PlayProps>('segnavia-play')
+export const Step = createComponent<ElementWithController, StepProps>('segnavia-step')
+export const Track = createComponent<ElementWithController, TrackProps>('segnavia-track')
+export const Counter = createComponent<ElementWithController, CounterProps>('segnavia-counter')
+export const Time = createComponent<ElementWithController, TimeProps>('segnavia-time')
+export const Mute = createComponent<ElementWithController, MuteProps>('segnavia-mute')
+export const Captions = createComponent<ElementWithController, CaptionsProps>('segnavia-captions')
+export const Caption = createComponent<ElementWithController, CaptionProps>('segnavia-caption')
+export const Notes = createComponent<ElementWithController, NotesProps>('segnavia-notes')
+export const Fullscreen = createComponent<ElementWithController, FullscreenProps>('segnavia-fullscreen')
+export const Rail = createComponent<ElementWithController, RailProps>('segnavia-rail')
 
 export function useDeckController(ref: RefObject<ElementWithController | null>): DeckController | null {
   const [controller, setController] = useState<DeckController | null>(null)
@@ -116,5 +103,13 @@ export function useAuthoring(
   return controller
 }
 
+export type {
+  AuthoringController,
+  AuthoringErrorDetail,
+  AuthoringHandlers,
+  AuthoringOptions,
+  DirtyChangeDetail,
+  SaveNotesInput,
+} from '@segnavia/frame/authoring'
 export type { SegnaviaIntrinsicElements } from './jsx.ts'
-export type { AuthoringController, AuthoringHandlers, AuthoringOptions }
+export type * from './props.ts'
