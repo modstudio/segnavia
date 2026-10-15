@@ -113,10 +113,15 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
       const previousBox = previous.getBoundingClientRect()
       const nextBox = next.getBoundingClientRect()
       const endBox = end.getBoundingClientRect()
+      const segmentBoxes = [...(root.querySelector('segnavia-track')?.shadowRoot?.querySelectorAll('.segment') ?? [])].map((segment) =>
+        segment.getBoundingClientRect(),
+      )
       return {
         centred: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
         centreVisible: [previousBox, playBox, nextBox].every((box) => box.width > 0 && box.height > 0),
         centreClear: nextBox.right <= endBox.left,
+        segmentCount: segmentBoxes.length,
+        segmentsSeparated: segmentBoxes.every((box, index) => index === 0 || box.left > (segmentBoxes[index - 1]?.right ?? box.left)),
         counter: getComputedStyle(counter).display,
         notes: getComputedStyle(notes).display,
         presentation: getComputedStyle(presentation).display,
@@ -128,6 +133,13 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
       geometry.centreVisible && geometry.centreClear,
       JSON.stringify(geometry),
     )
+    if (mode === 'continuous' && width === 960) {
+      check(
+        'continuous track shows one separated segment per slide at 960px',
+        geometry.segmentCount === 4 && geometry.segmentsSeparated,
+        JSON.stringify(geometry),
+      )
+    }
     if (width === 560) check('560px bar hides its counter and notes panel', geometry.counter === 'none' && geometry.notes === 'none', JSON.stringify(geometry))
     if (width === 360) check('360px bar hides presentation', geometry.presentation === 'none', JSON.stringify(geometry))
     await h.evidence(`player-${mode}-${width}.png`)

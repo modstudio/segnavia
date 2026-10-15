@@ -13,10 +13,10 @@ const timeline = deckTimeline({
 test('continuous track maps proportional time around fixed untimed markers', () => {
   expect(trackMsAt(23.5, 100, timeline, 'ltr')).toBe(10_000)
   expect(trackMsAt(26.5, 100, timeline, 'ltr')).toBe(10_000)
-  expect(trackMsAt(53, 100, timeline, 'ltr')).toBeCloseTo(20_000)
+  expect(trackMsAt(57, 100, timeline, 'ltr')).toBeCloseTo(20_000)
 })
 
 test('continuous track mirrors position in RTL', () => {
-  expect(trackMsAt(47, 100, timeline, 'rtl')).toBeCloseTo(20_000)
+  expect(trackMsAt(43, 100, timeline, 'rtl')).toBeCloseTo(20_000)
   expect(trackMsAt(100, 100, timeline, 'rtl')).toBe(0)
 })

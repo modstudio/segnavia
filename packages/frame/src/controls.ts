@@ -200,7 +200,7 @@ export class SegnaviaTrack extends SegnaviaControl {
       .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
       [data-state="done"] .fill{inline-size:100%;background:var(--_muted)}
       [data-state="current"] .fill{inline-size:calc(var(--progress,1) * 100%)}
-      ol.continuous{gap:0;cursor:pointer;touch-action:none}
+      ol.continuous{gap:4px;cursor:pointer;touch-action:none}
       ol.continuous li{flex:none;position:relative;block-size:20px}
       ol.continuous li.timed{flex-grow:var(--duration)}
       ol.continuous li.marker{inline-size:6px}
