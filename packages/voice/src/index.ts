@@ -7,7 +7,9 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Word } from '@segnavia/format'
-import { remapCaptionWords } from './captions.ts'
+import { remapCaptionWords, splitWords } from './captions.ts'
+
+export { splitWords } from './captions.ts'
 
 export { publishElevenLabsLexicon } from './elevenlabs-lexicon.ts'
 export { lexiconProvider } from './lexicon-provider.ts'
@@ -26,10 +28,6 @@ export interface VoiceProvider {
 export interface PronunciationDictionary {
   id: string
   versionId?: string
-}
-
-export function splitWords(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean)
 }
 
 // Characters with start and end times (what ElevenLabs returns) folded into
