@@ -15,7 +15,7 @@ import { TOKENS_CSS } from './controls-style.ts'
 export class SegnaviaCaption extends SegnaviaControl {
   private slide = -1
   protected styles() {
-    return `${TOKENS_CSS}:host{display:block;font-size:var(--segnavia-caption-size,clamp(15px,1.5vw + 8px,20px));line-height:1.5;
+    return `${TOKENS_CSS}:host{display:block;font-size:var(--segnavia-caption-size,var(--_segnavia-presented-caption-size,clamp(15px,1.5vw + 8px,20px)));line-height:1.5;
         text-align:var(--segnavia-caption-align,center);color:var(--_muted)}
       p{margin:0;unicode-bidi:plaintext}
       .spoken{color:var(--_ink)}

@@ -19,9 +19,11 @@ segnavia-stage{width:min(100cqw,100cqh * var(--ratio,1.7778));height:auto;border
 segnavia-stage:focus-visible{outline:2px solid var(--_accent);outline-offset:3px}
 segnavia-notes{inline-size:clamp(200px,28%,340px);border-inline-start:1px solid var(--_line);padding:16px 18px;overflow:auto;background:var(--_surface)}
 .notes-closed segnavia-notes{display:none}
-segnavia-caption{padding:6px 24px 10px;min-block-size:calc(var(--segnavia-caption-size,20px) * 1.5 * 2);overflow:hidden}
+segnavia-caption{padding:6px 24px 10px;min-block-size:calc(var(--segnavia-caption-size,var(--_segnavia-presented-caption-size,20px)) * 1.5 * 2);overflow:hidden}
 segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
+:host([data-presenting]) segnavia-caption{--_segnavia-presented-caption-size:clamp(20px,2.6vw,40px);box-sizing:border-box;
+  inline-size:100%;max-inline-size:70ch;margin-inline:auto}
 .bar{display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
 segnavia-track{inline-size:100%}
 .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--segnavia-play-size,48px)}
