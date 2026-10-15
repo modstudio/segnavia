@@ -38,5 +38,8 @@ button:hover{background:var(--_line)}
 button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
 button[disabled]{opacity:.35;cursor:default;background:none}
 svg{inline-size:20px;block-size:20px}
+slot{display:inline-grid;place-items:center;inline-size:20px;block-size:20px;pointer-events:none}
+slot[hidden]{display:none}
+slot::slotted(*){inline-size:20px;block-size:20px}
 [dir="rtl"] .mirror{transform:scaleX(-1)}
 `

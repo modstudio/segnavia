@@ -153,6 +153,7 @@ async function verifyContinuousPlayer(h: Harness) {
   await h.waitFor(PLAYER, (d) => d.slide === '1')
   await verifyControlBar(h, 'continuous')
   check('an actions slot button appears in the end group', await page.locator('#host-action').isVisible())
+  await verifySlottedPlayIcons(h)
 
   const track = page.locator(`${PLAYER} segnavia-track ol`)
   const box = await track.boundingBox()
@@ -198,6 +199,31 @@ async function verifyContinuousPlayer(h: Harness) {
   await h.waitFor(PLAYER, (d) => d.word !== '')
   const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.active`).evaluate((word) => getComputedStyle(word).outlineColor)
   check('a ::part(word-current) host style applies', wordOutline === 'rgb(255, 0, 255)', wordOutline)
+}
+
+async function verifySlottedPlayIcons(h: Harness) {
+  const { page, check } = h
+  const activeIcon = () =>
+    page.locator(PLAYER).evaluate((player) => {
+      const play = player.shadowRoot?.querySelector('segnavia-play')
+      const active = play?.shadowRoot?.querySelector<HTMLSlotElement>('slot:not([hidden])')
+      const forwarded = active?.assignedElements()[0] as HTMLSlotElement | undefined
+      return {
+        slot: active?.name ?? '',
+        custom: forwarded?.assignedElements()[0]?.getAttribute('data-custom-icon') ?? '',
+      }
+    })
+  const stopped = await activeIcon()
+  check('a player play-icon slot replaces the built-in icon', stopped.slot === 'icon-play' && stopped.custom === 'play', JSON.stringify(stopped))
+  await page.locator(`${PLAYER} segnavia-play button`).click()
+  await h.waitFor(PLAYER, (d) => d.playing === 'true')
+  const playing = await activeIcon()
+  check(
+    'the slotted play icon changes to the slotted pause icon while playing',
+    playing.slot === 'icon-pause' && playing.custom === 'pause',
+    JSON.stringify(playing),
+  )
+  await page.locator(`${PLAYER} segnavia-play button`).click()
 }
 
 async function verifyScripted(h: Harness) {

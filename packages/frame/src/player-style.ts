@@ -31,6 +31,10 @@ segnavia-counter{padding-inline:6px}
 .notes-toggle:hover{background:var(--_line)}
 .notes-toggle:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
 .notes-toggle svg{inline-size:20px;block-size:20px}
+.notes-toggle slot{display:inline-grid;place-items:center;inline-size:20px;block-size:20px;pointer-events:none}
+.notes-toggle slot::slotted(*){inline-size:20px;block-size:20px}
+slot[slot^="icon-"]{pointer-events:none}
+slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:none}
 .notes-toggle[hidden]{display:none}
 ::slotted([slot="actions"]){flex:none}
 slot[name="actions"]::slotted(button){all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
