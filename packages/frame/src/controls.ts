@@ -12,7 +12,8 @@ import { SegnaviaControl } from './control.ts'
 import { deckHasNarration, formatTime } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, ICONS, TOKENS_CSS } from './controls-style.ts'
-import { slideDurationMs } from './timeline.ts'
+import { deckTimeline, slideDurationMs } from './timeline.ts'
+import { trackMsAt } from './track-mapping.ts'
 
 export class SegnaviaTime extends SegnaviaControl {
   protected styles() {
@@ -25,7 +26,8 @@ export class SegnaviaTime extends SegnaviaControl {
     const duration = state.slide ? slideDurationMs(state.slide) : null
     const elapsed = state.playback === 'continuous' ? state.elapsedMs : state.slideElapsedMs
     const total = state.playback === 'continuous' ? state.totalMs : duration
-    ;(this.root.querySelector('span') as HTMLElement).textContent = total === null || total === 0 ? '' : this.labels.time(formatTime(elapsed), formatTime(total))
+    ;(this.root.querySelector('span') as HTMLElement).textContent =
+      total === null || total === 0 ? '' : this.labels.time(formatTime(elapsed), formatTime(total))
   }
 }
 
@@ -172,6 +174,21 @@ export class SegnaviaFullscreen extends SegnaviaControl {
 
 export class SegnaviaTrack extends SegnaviaControl {
   private count = -1
+  private mode: DeckState['playback'] | null = null
+  private dragging = false
+  private listening = false
+  connectedCallback() {
+    super.connectedCallback()
+    if (this.listening) return
+    this.listening = true
+    const list = this.root.querySelector('ol') as HTMLOListElement
+    list.addEventListener('pointerdown', this.onPointer)
+    list.addEventListener('pointermove', this.onPointer)
+    list.addEventListener('pointerup', () => {
+      this.dragging = false
+    })
+    list.addEventListener('keydown', this.onKey)
+  }
   protected styles() {
     return `${TOKENS_CSS}:host{display:block;min-inline-size:60px}
       ol{display:flex;gap:4px;margin:0;padding:0;list-style:none}li{flex:1;display:flex}
@@ -182,6 +199,13 @@ export class SegnaviaTrack extends SegnaviaControl {
       .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
       [data-state="done"] .fill{inline-size:100%;background:var(--_muted)}
       [data-state="current"] .fill{inline-size:calc(var(--progress,1) * 100%)}
+      ol.continuous{gap:0;cursor:pointer;touch-action:none}
+      ol.continuous li{flex:none;position:relative;block-size:20px}
+      ol.continuous li.timed{flex-grow:var(--duration)}
+      ol.continuous li.marker{inline-size:6px}
+      ol.continuous .segment{position:absolute;inset:8px 0;background:var(--_line)}
+      ol.continuous .fill{inset:0;block-size:auto}
+      ol.continuous:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       @media (prefers-reduced-motion:no-preference){.fill{transition:inline-size .12s linear}}`
   }
   protected markup() {
@@ -191,27 +215,94 @@ export class SegnaviaTrack extends SegnaviaControl {
     const list = this.root.querySelector('ol') as HTMLOListElement
     const slides = state.deck?.slides ?? []
     list.dir = state.direction
-    list.setAttribute('aria-label', this.labels.slides)
-    if (this.count !== slides.length) {
+    const continuous = state.playback === 'continuous'
+    list.classList.toggle('continuous', continuous)
+    this.configureAccessibility(list, state, continuous)
+    if (this.count !== slides.length || this.mode !== state.playback) {
       this.count = slides.length
-      list.innerHTML = slides
-        .map(
-          (slide, index) =>
-            `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
-        )
-        .join('')
+      this.mode = state.playback
+      list.innerHTML = continuous ? this.continuousSegments(slides) : this.stepSegments(slides)
     }
-    for (const segment of list.querySelectorAll<HTMLElement>('button')) {
-      const index = Number(segment.dataset.go)
+    this.renderSegments(list, state, continuous)
+  }
+
+  private configureAccessibility(list: HTMLOListElement, state: DeckState, continuous: boolean) {
+    list.setAttribute('aria-label', continuous ? this.labels.seek : this.labels.slides)
+    list.setAttribute('role', continuous ? 'slider' : 'list')
+    list.tabIndex = continuous ? 0 : -1
+    if (!continuous) {
+      for (const name of ['aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext']) list.removeAttribute(name)
+      return
+    }
+    list.setAttribute('aria-valuemin', '0')
+    list.setAttribute('aria-valuemax', String(state.totalMs))
+    list.setAttribute('aria-valuenow', String(state.elapsedMs))
+    list.setAttribute('aria-valuetext', this.labels.time(formatTime(state.elapsedMs), formatTime(state.totalMs)))
+  }
+
+  private continuousSegments(slides: NonNullable<DeckState['deck']>['slides']): string {
+    return slides
+      .map((slide, index) => {
+        const duration = slideDurationMs(slide)
+        return `<li class="${duration === null ? 'marker' : 'timed'}" data-go="${index}" style="--duration:${duration ?? 0}"><span class="segment" part="segment"><span class="fill"></span></span></li>`
+      })
+      .join('')
+  }
+
+  private stepSegments(slides: NonNullable<DeckState['deck']>['slides']): string {
+    return slides
+      .map(
+        (slide, index) =>
+          `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
+      )
+      .join('')
+  }
+
+  private renderSegments(list: HTMLOListElement, state: DeckState, continuous: boolean) {
+    const slides = state.deck?.slides ?? []
+    for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
+      const index = Number(item.dataset.go)
+      const segment = (continuous ? item.querySelector('.segment') : item) as HTMLElement
       segment.dataset.state = index < state.index ? 'done' : index === state.index ? 'current' : 'upcoming'
-      segment.style.setProperty('--progress', state.playing ? String(state.progress) : '1')
-      segment.setAttribute('aria-label', this.labels.slide(index + 1, slides.length))
-      if (index === state.index) segment.setAttribute('aria-current', 'step')
-      else segment.removeAttribute('aria-current')
+      segment.style.setProperty('--progress', continuous ? String(state.progress) : state.playing ? String(state.progress) : '1')
+      if (!continuous) {
+        segment.setAttribute('aria-label', this.labels.slide(index + 1, slides.length))
+        if (index === state.index) segment.setAttribute('aria-current', 'step')
+        else segment.removeAttribute('aria-current')
+      }
     }
   }
   protected clicked(event: Event) {
+    if (this.controller?.state.playback === 'continuous') return
     const go = (event.target as Element).closest('button')?.dataset.go
     if (go !== undefined) void this.controller?.go(Number(go))?.catch(() => {})
+  }
+
+  private onPointer = (event: PointerEvent) => {
+    if (this.controller?.state.playback !== 'continuous' || (event.type === 'pointermove' && !this.dragging)) return
+    this.dragging = event.type === 'pointerdown' || this.dragging
+    if (event.type === 'pointerdown') (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+    const list = event.currentTarget as HTMLElement
+    const rect = list.getBoundingClientRect()
+    const timeline = deckTimeline(this.controller.state.deck as NonNullable<DeckState['deck']>)
+    void this.controller.seek(trackMsAt(event.clientX - rect.left, rect.width, timeline, this.controller.state.direction))
+  }
+
+  private onKey = (event: KeyboardEvent) => {
+    const controller = this.controller
+    if (controller?.state.playback !== 'continuous') return
+    const state = controller.state
+    const timeline = deckTimeline(state.deck as NonNullable<DeckState['deck']>)
+    let target: number | null = null
+    if (event.key === 'Home') target = 0
+    else if (event.key === 'End') target = state.totalMs
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const forward = event.key === 'ArrowRight' ? state.direction === 'ltr' : state.direction === 'rtl'
+      target = state.elapsedMs + (forward ? 5000 : -5000)
+    } else if (event.key === 'PageUp') target = timeline.slides[Math.max(0, state.index - 1)]?.startMs ?? 0
+    else if (event.key === 'PageDown') target = timeline.slides[Math.min(timeline.slides.length - 1, state.index + 1)]?.startMs ?? state.totalMs
+    if (target === null) return
+    event.preventDefault()
+    void controller.seek(Math.max(0, Math.min(state.totalMs, target)))
   }
 }

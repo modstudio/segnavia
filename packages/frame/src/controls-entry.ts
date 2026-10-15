@@ -14,6 +14,7 @@ export { ICONS, TOKENS_CSS } from './controls-style.ts'
 export * from './index.ts'
 export { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
+export { trackMsAt } from './track-mapping.ts'
 
 const COMPONENTS: Array<[string, CustomElementConstructor]> = [
   [STYLED_ELEMENTS.play, SegnaviaPlay],
