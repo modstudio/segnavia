@@ -61,6 +61,7 @@ function wallClock(slide: Slide): Clock {
 export function timedClock(value: Slide | Narration, audioSrc: string | null): Clock {
   const slide = asSlide(value)
   if (!audioSrc || !slide.narration) return wallClock(slide)
+  const narration = slide.narration
   const audio = new Audio(audioSrc)
   const duration = slideDurationMs(slide) ?? 0
   const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide)
@@ -99,7 +100,7 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
     return Math.min(duration, position + performance.now() - anchor)
   }
   const syncAudio = () => {
-    audio.currentTime = Math.max(0, Math.min(slide.narration.durationMs, position - beforeMs)) / 1000
+    audio.currentTime = Math.max(0, Math.min(narration.durationMs, position - beforeMs)) / 1000
     if (position < beforeMs || position >= narrationEnd) {
       audio.pause()
       audioPlaying = false

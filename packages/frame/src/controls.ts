@@ -141,7 +141,10 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (this.count !== slides.length) {
       this.count = slides.length
       list.innerHTML = slides
-        .map((slide, index) => `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`)
+        .map(
+          (slide, index) =>
+            `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
+        )
         .join('')
     }
     for (const segment of list.querySelectorAll<HTMLElement>('button')) {
