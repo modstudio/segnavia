@@ -84,10 +84,15 @@ export function elevenLabsProvider(options: {
   model?: string
   pronunciationDictionaries?: readonly PronunciationDictionary[]
 }): VoiceProvider {
-  const dictionaries = options.pronunciationDictionaries ?? []
-  if (dictionaries.length > 3) throw new Error(`ElevenLabs accepts at most 3 pronunciation dictionaries; received ${dictionaries.length}.`)
+  // Built once, so the id and every request say the same thing even if the
+  // caller changes its array afterwards.
+  const locators = (options.pronunciationDictionaries ?? []).map(({ id, versionId }) => ({
+    pronunciation_dictionary_id: id,
+    ...(versionId === undefined ? {} : { version_id: versionId }),
+  }))
+  if (locators.length > 3) throw new Error(`ElevenLabs accepts at most 3 pronunciation dictionaries; received ${locators.length}.`)
   const baseId = `elevenlabs-${options.model ?? 'eleven_multilingual_v2'}-${options.voice}`
-  const dictionaryId = dictionaries.length > 0 ? `-${JSON.stringify(dictionaries.map(({ id, versionId }) => [id, versionId ?? null]))}` : ''
+  const dictionaryId = locators.length > 0 ? `-${JSON.stringify(locators)}` : ''
   return {
     id: `${baseId}${dictionaryId}`,
     async synthesize(text, voice = options.voice) {
@@ -97,14 +102,7 @@ export function elevenLabsProvider(options: {
         body: JSON.stringify({
           text,
           model_id: options.model ?? 'eleven_multilingual_v2',
-          ...(dictionaries.length > 0
-            ? {
-                pronunciation_dictionary_locators: dictionaries.map(({ id, versionId }) => ({
-                  pronunciation_dictionary_id: id,
-                  ...(versionId === undefined ? {} : { version_id: versionId }),
-                })),
-              }
-            : {}),
+          ...(locators.length > 0 ? { pronunciation_dictionary_locators: locators } : {}),
         }),
       })
       if (!response.ok) throw new Error(`ElevenLabs refused the synthesis: ${response.status} ${await response.text()}`)

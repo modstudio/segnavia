@@ -123,6 +123,28 @@ describe('ElevenLabs provider', () => {
     ])
   })
 
+  test('keeps the dictionaries it was given when the caller changes them afterwards', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    const dictionaries = [{ id: 'before', versionId: 'v1' }]
+    const provider = elevenLabsProvider({ voice: 'v', apiKey: () => 'k', pronunciationDictionaries: dictionaries })
+    const id = provider.id
+    const first = dictionaries[0]
+    if (first) first.id = 'after'
+    dictionaries.push({ id: 'two', versionId: 'v1' }, { id: 'three', versionId: 'v1' }, { id: 'four', versionId: 'v1' })
+    await provider.synthesize('word')
+    expect(provider.id).toBe(id)
+    expect(body.pronunciation_dictionary_locators).toEqual([{ pronunciation_dictionary_id: 'before', version_id: 'v1' }])
+  })
+
   test('sends no pronunciation dictionary locators when none are configured', async () => {
     const bodies: Record<string, unknown>[] = []
     globalThis.fetch = (async (_url: string, init: RequestInit) => {
