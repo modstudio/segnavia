@@ -153,7 +153,6 @@ async function verifyContinuousPlayer(h: Harness) {
   await h.waitFor(PLAYER, (d) => d.slide === '1')
   await verifyControlBar(h, 'continuous')
   check('an actions slot button appears in the end group', await page.locator('#host-action').isVisible())
-  await verifySlottedPlayIcons(h)
 
   const track = page.locator(`${PLAYER} segnavia-track ol`)
   const box = await track.boundingBox()
@@ -199,10 +198,13 @@ async function verifyContinuousPlayer(h: Harness) {
   await h.waitFor(PLAYER, (d) => d.word !== '')
   const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.active`).evaluate((word) => getComputedStyle(word).outlineColor)
   check('a ::part(word-current) host style applies', wordOutline === 'rgb(255, 0, 255)', wordOutline)
+  await verifySlottedPlayIcons(h)
 }
 
 async function verifySlottedPlayIcons(h: Harness) {
   const { page, check } = h
+  await page.goto(h.url('icons.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
   const activeIcon = () =>
     page.locator(PLAYER).evaluate((player) => {
       const play = player.shadowRoot?.querySelector('segnavia-play')
