@@ -29,7 +29,7 @@ const LAYOUT = `<div class="player" part="player">
     <segnavia-track exportparts="track,segment"></segnavia-track>
     <div class="control-row">
       <div class="start"><segnavia-counter exportparts="count:counter"></segnavia-counter><span class="time-separator">·</span><segnavia-time exportparts="time"></segnavia-time></div>
-      <div class="centre"><segnavia-step to="previous" exportparts="button:previous-button,button:step-button"></segnavia-step><segnavia-play exportparts="button:play-button"></segnavia-play><segnavia-step to="next" exportparts="button:next-button,button:step-button"></segnavia-step></div>
+      <div class="centre"><segnavia-step to="previous" exportparts="step-button,button:previous-button"></segnavia-step><segnavia-play exportparts="button:play-button"></segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button"></segnavia-step></div>
       <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button"></segnavia-mute><segnavia-captions exportparts="button:captions-button"></segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${ICONS.notes}</button><segnavia-fullscreen exportparts="button:presentation-button"></segnavia-fullscreen></div>
     </div>
   </div><div class="below"><slot name="below"></slot></div></div>`
@@ -172,8 +172,11 @@ export class SegnaviaPlayer extends HTMLElement {
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
     if (event.key.toLowerCase() === 'f' && !isEditableLetterShortcut(event.key, event.composedPath()[0])) {
-      event.preventDefault()
-      this.togglePresentation()
+      if (this.getAttribute('presentation') === 'off') return
+      if (this.controller.key(event.key) === 'present') {
+        event.preventDefault()
+        this.togglePresentation()
+      }
       return
     }
     handlePlayerKey(this.controller, this.stage, event)

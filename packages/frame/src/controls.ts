@@ -93,7 +93,7 @@ export class SegnaviaStep extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return '<span part="wrapper"><button part="button"></button></span>'
+    return '<span part="wrapper"><button part="button step-button"></button></span>'
   }
   // The icon follows the deck's reading direction, which may differ from the
   // page the control sits on.
@@ -300,8 +300,12 @@ export class SegnaviaTrack extends SegnaviaControl {
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       const forward = event.key === 'ArrowRight' ? state.direction === 'ltr' : state.direction === 'rtl'
       target = state.elapsedMs + (forward ? 5000 : -5000)
-    } else if (event.key === 'PageUp') target = timeline.slides[Math.max(0, state.index - 1)]?.startMs ?? 0
-    else if (event.key === 'PageDown') target = timeline.slides[Math.min(timeline.slides.length - 1, state.index + 1)]?.startMs ?? state.totalMs
+    } else if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const offset = event.key === 'PageUp' ? -1 : 1
+      event.preventDefault()
+      void controller.go(Math.max(0, Math.min(timeline.slides.length - 1, state.index + offset)))
+      return
+    }
     if (target === null) return
     event.preventDefault()
     void controller.seek(Math.max(0, Math.min(state.totalMs, target)))
