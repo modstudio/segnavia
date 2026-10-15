@@ -200,6 +200,45 @@ export async function verifyRailAuthoring(h: Harness) {
   check('the probe slide takes no key from focused notes', protectedText.endsWith('y') && protectedKeys === '0', `${protectedText}; probe=${protectedKeys}`)
   await h.evidence('authoring.png')
 
+  await page.goto(h.url('authoring.html'))
+  await page.waitForFunction(() => 'authoring' in window)
+  const serializedNotes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = true))
+  await serializedNotes.fill('Pending removal')
+  const serializedUpdate = await page.evaluate(async () => {
+    const holder = window as unknown as {
+      authoring: {
+        update(handlers: { saveNotes?: (input: { notes: string }) => Promise<void> }, options?: { notesMaxLength?: number }): Promise<void>
+      }
+      authoringFacts: { releaseNotes(): void }
+      serializedSaves?: string[]
+    }
+    const removing = holder.authoring.update({})
+    await Promise.resolve()
+    holder.serializedSaves = []
+    const readding = holder.authoring.update(
+      { saveNotes: async ({ notes }) => holder.serializedSaves?.push(notes) },
+      { notesMaxLength: 4321 },
+    )
+    holder.authoringFacts.releaseNotes()
+    await Promise.all([removing, readding])
+    const field = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('textarea') as HTMLTextAreaElement | null
+    return { attached: Boolean(field), text: field?.value, maxLength: field?.maxLength }
+  })
+  if (serializedUpdate.attached) {
+    await serializedNotes.fill('Newest handler')
+    await page.waitForTimeout(700)
+  }
+  const serializedSaves = await page.evaluate(() => (window as unknown as { serializedSaves?: string[] }).serializedSaves ?? [])
+  check(
+    'remove then re-add during a flush keeps notes attached with the newest handler',
+    serializedUpdate.attached &&
+      serializedUpdate.text === 'Pending removal' &&
+      serializedUpdate.maxLength === 4321 &&
+      serializedSaves.join(',') === 'Newest handler',
+    JSON.stringify({ ...serializedUpdate, serializedSaves }),
+  )
+
   await page.goto(h.url('react.html'))
   await page.waitForFunction(() => 'reactSetRail' in window && document.querySelector('segnavia-player'))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
