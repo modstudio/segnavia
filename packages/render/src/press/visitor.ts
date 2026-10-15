@@ -12,6 +12,7 @@ export interface PressGraphActions {
   // When set, each page Contents stream is fed every time it appears; the convert pass leaves this unset so streams stay unique.
   replayPageContents?: boolean
   shading: (shading: PDFDict, pattern?: PDFDict) => boolean
+  softMask?: (graphicsState: PDFDict, mask: PDFDict, source: PDFRawStream, resources: PDFDict | undefined) => void
 }
 
 interface WalkState {
@@ -61,10 +62,12 @@ function visitContent(
 }
 
 function visitSoftMask(state: WalkState, object: PDFObject | undefined, enclosing?: PDFDict): void {
-  const mask = dictionary(state, dictionary(state, object)?.get(key('SMask')))
+  const graphicsState = dictionary(state, object)
+  const mask = dictionary(state, graphicsState?.get(key('SMask')))
   const sourceObject = mask?.get(key('G'))
   const source = stream(state, sourceObject)
-  if (!source || !sourceObject) return
+  if (!graphicsState || !mask || !source || !sourceObject) return
+  state.actions?.softMask?.(graphicsState, mask, source, source.dict.lookupMaybe(key('Resources'), PDFDict) ?? enclosing)
   state.maskSources.add(source)
   visitContent(state, sourceObject, (replacement) => mask?.set(key('G'), replacement), enclosing)
 }

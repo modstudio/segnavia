@@ -1,9 +1,5 @@
-// Renders pages, slides and decks to PDF or images in a headless Chromium the
-// host names. A page renders at its own size; paper applies only when the
-// page asks for it. Every render is offline: a request leaving the document
-// is refused and the browser's own sockets go to a proxy that is not there,
-// so a render cannot fetch, beacon or depend on the network. Everything a
-// page shows (faces, images, styles) arrives inside it.
+// Renders pages, slides and decks in a host-named headless Chromium. Every
+// render is offline, and everything it shows arrives inside the document.
 
 import { type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
@@ -11,6 +7,8 @@ import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { rewriteEffectsPdf } from './effects/adapter.ts'
+import type { EffectsReport } from './effects/types.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -18,6 +16,7 @@ import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import type { PressReport } from './press/types.ts'
 
+export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export type { PressImage, PressReport } from './press/types.ts'
 
@@ -53,17 +52,15 @@ export interface RenderOptions {
   fonts?: Font[]
   limits?: RenderLimits
   boundMs?: number
-  // A page running its own code is printed only once it calls
-  // window.pageReady(); false prints it as soon as it loads.
+  // A scripted page prints after window.pageReady(); false prints on load.
   waitForPageReady?: boolean
   // Let the document's own @page size win over its print setting.
   preferCssPageSize?: boolean
-  // Runs in the loaded page before it is printed or captured, for a host that
-  // measures and lays out inside the browser (a scale that fits, a page count).
-  // For a deck PDF it runs once on the frame-based print document, not on each
-  // top-level HTML slide render. It is not called for an imposed deck because
-  // that path has no single frame-based document.
+  // Runs after load for browser-side layout. A deck calls it on its single
+  // print document; an imposed deck has no such document and does not call it.
   beforeOutput?: (tab: Tab) => Promise<void>
+  // Rewrites Chromium's soft-masked effects for consistent PDF readers. Absent is on; false is off.
+  effects?: false | { report?: (report: EffectsReport) => void }
   // Converts a finished PDF through the supplied press profile. Image renders
   // ignore this option.
   press?: {
@@ -136,13 +133,21 @@ async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promi
   return pdf
 }
 
-async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array> {
-  if (!options.press) return enforce(pdf, options.limits)
+async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array> {
   if (options.limits?.maxBytes !== undefined && pdf.byteLength > options.limits.maxBytes)
     throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${options.limits.maxBytes}.`)
-  const converted = await rewritePressPdf(pdf, options.press.profile)
-  options.press.report?.(converted.report)
-  return enforce(converted.bytes, options.limits)
+  let output = pdf
+  if (options.effects !== false) {
+    const rewritten = await rewriteEffectsPdf(output)
+    output = rewritten.bytes
+    options.effects?.report?.(rewritten.report)
+  }
+  if (options.press) {
+    const converted = await rewritePressPdf(output, options.press.profile)
+    output = converted.bytes
+    options.press.report?.(converted.report)
+  }
+  return enforce(output, options.limits)
 }
 
 // One image of what a tab shows. Shared with capture, so a shot and a

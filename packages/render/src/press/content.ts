@@ -13,6 +13,12 @@ interface Token {
   raw: string
   start: number
 }
+export interface ContentOperation {
+  end: number
+  operands: Array<{ end: number; kind: 'name' | 'number'; raw: string; start: number }>
+  operator: string
+  start: number
+}
 interface Replacement {
   end: number
   start: number
@@ -246,16 +252,24 @@ function scan(
 }
 
 export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void): void {
+  visitContentOperations(bytes, ({ operator, operands }) => visit(operator, operands))
+}
+
+export function visitContentOperations(bytes: Uint8Array, visit: (operation: ContentOperation) => void): void {
   scan(
     decoder.decode(bytes),
     () => [0, 0, 0, 0],
     false,
     undefined,
     (operator, operands) => {
-      visit(
-        operator.raw,
-        operands.flatMap((operand) => (operand.kind === 'name' || operand.kind === 'number' ? [{ kind: operand.kind, raw: operand.raw }] : [])),
-      )
+      visit({
+        end: operator.end,
+        operands: operands.flatMap((operand) =>
+          operand.kind === 'name' || operand.kind === 'number' ? [{ end: operand.end, kind: operand.kind, raw: operand.raw, start: operand.start }] : [],
+        ),
+        operator: operator.raw,
+        start: operator.start,
+      })
     },
   )
 }

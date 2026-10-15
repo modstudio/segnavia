@@ -236,6 +236,41 @@ is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
+**Effects in PDF readers.** Chromium writes CSS shadows and blurs as
+luminosity soft masks. Rule 1 rewrites a mask whose transparency group paints
+one grayscale image over the default black backdrop: the masked constant-color
+rectangle becomes an image whose direct alpha soft mask is that grayscale
+image. Rule C handles a nested-mask composite when every varying color and
+coverage layer is a shading along one shared affine axis. It samples color and
+combined coverage every 0.5 pt along that axis into an interpolated,
+one-sample-wide RGB image and DeviceGray image soft mask, then replaces only
+the composite's paint. Shading types, functions, coordinates and matrices,
+the mask chain and constant opacity must all be established from the PDF;
+otherwise the composite stays as Chromium wrote it.
+
+Both rules hold every graphics state a rewrite depends on to one allow-list,
+including the states set inside a mask group or a nested form. A `gs` adds
+its keys to the state already in effect, so each state is read merged with
+the earlier ones under the same `q`. A form must have no `/Matrix` or the
+identity. A graphics state may set only `/Type`, `/SMask`, a finite `/ca`,
+`/CA` 1 and `/BM /Normal`. Rule C bakes an outer or alpha-mask `/ca` into its
+coverage. A `/ca` other than 1 on the image Rule 1 copies, or on a Rule C
+color or luminosity layer, keeps the mask as written.
+
+`effects: false` preserves Chromium's masks; an absent `effects` option enables
+the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
+and a count of masks kept as written. The effects rewrite
+runs before the press rewrite, which converts generated Rule 1 images and Rule
+C's RGB samples to CMYK without reporting them as authored RGB images.
+
+Rule 2, for vector mask groups, is unbuilt because the corrected reader
+measurements do not show a defect that needs it. Rule 3 is left out because
+measurements showed that combining nested masks did not fix the reader defect.
+Rule 4 is the unbuilt fallback for a nested composite whose layers do not share
+one axis: rasterize only the effect region from Chromium while retaining later
+content as vector. When built it is an opt-in export option that is off by
+default; the suite currently has no document that needs it.
+
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The
 library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed

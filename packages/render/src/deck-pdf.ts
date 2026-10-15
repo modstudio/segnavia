@@ -22,7 +22,7 @@ interface DeckPdfServices {
     pdf: Parameters<Tab['pdf']>[0],
   ): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
-  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'press'>): Promise<Uint8Array>
+  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
 function nameSlideError(error: unknown, id: string): never {
