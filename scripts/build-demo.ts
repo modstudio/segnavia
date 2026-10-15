@@ -221,8 +221,7 @@ writeFileSync(path.join(SITE, 'page-rtl.json'), JSON.stringify(hebrewPage))
 writeFileSync(path.join(SITE, 'page-rtl-div.json'), JSON.stringify(rightToLeftDivPage))
 writeFileSync(path.join(SITE, 'page-fixed.json'), JSON.stringify(fixedPage))
 writeFileSync(path.join(SITE, 'page-postcard.json'), JSON.stringify(postcardPage))
-// Each browser bundle contains its layer and every layer beneath it, so a
-// page loads exactly one of the files the package ships.
+// Each browser bundle contains its layer and every layer beneath it, so a page loads exactly one shipped file.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
   exports: Record<string, { default: string }>
 }
