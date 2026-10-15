@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { BookShape } from './book.ts'
 import { Direction } from './direction.ts'
+import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
@@ -24,6 +25,7 @@ export {
   type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
+export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export * from './numbering.ts'
 export {
   MARK_GAP_MM,
@@ -379,6 +381,7 @@ export function jsonSchemas() {
   return {
     book: z.toJSONSchema(BookShape, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
+    lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),

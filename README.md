@@ -23,7 +23,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | A finished player, a layout of those components: `<segnavia-player>` | `@segnavia/frame/player` |
 | Pages, slides and decks to PDF or PNG/WebP/JPEG, offline, at their own size or on paper | `@segnavia/render` |
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
-| Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing | `@segnavia/voice` |
+| Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |
 
 ## Quick look
 
