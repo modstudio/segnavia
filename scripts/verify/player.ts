@@ -238,6 +238,8 @@ async function verifyContinuousPlayer(h: Harness) {
 
   await page.goto(h.url('parts.html'))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
+  const partsCaptions = page.locator(`${PLAYER} segnavia-captions button`)
+  if ((await partsCaptions.getAttribute('aria-pressed')) === 'false') await partsCaptions.click()
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { go(index: number): Promise<void>; play(): Promise<void> } }) => {
     await player.controller.go(1)
     await player.controller.play()
