@@ -28,7 +28,7 @@
     },
     "packages/capture": {
       "name": "@segnavia/capture",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -38,21 +38,21 @@
     },
     "packages/format": {
       "name": "@segnavia/format",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "zod": "^4.1.0",
       },
     },
     "packages/frame": {
       "name": "@segnavia/frame",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
       },
     },
     "packages/html": {
       "name": "@segnavia/html",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "dom-serializer": "^2.0.0",
         "domhandler": "^5.0.3",
@@ -61,7 +61,7 @@
     },
     "packages/render": {
       "name": "@segnavia/render",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -71,7 +71,7 @@
     },
     "packages/voice": {
       "name": "@segnavia/voice",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
       },
