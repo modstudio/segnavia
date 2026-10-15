@@ -14,7 +14,7 @@ import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, TOKENS_CSS } from './controls-style.ts'
 import { ICONS } from './icons.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
-import { trackMsAt } from './track-mapping.ts'
+import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackMsAt } from './track-mapping.ts'
 
 const iconSlot = (name: string, fallback: string) => `<slot name="${name}">${fallback}</slot>`
 
@@ -200,7 +200,7 @@ export class SegnaviaTrack extends SegnaviaControl {
   }
   protected styles() {
     return `${TOKENS_CSS}:host{display:block;min-inline-size:60px}
-      ol{display:flex;gap:4px;margin:0;padding:0;list-style:none}li{flex:1;display:flex}
+      ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none}li{flex:1;display:flex}
       button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:4px;position:relative;cursor:pointer}
       button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:2px;background:var(--_line)}
@@ -208,10 +208,10 @@ export class SegnaviaTrack extends SegnaviaControl {
       .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
       [data-state="done"] .fill{inline-size:100%;background:var(--_muted)}
       [data-state="current"] .fill{inline-size:calc(var(--progress,1) * 100%)}
-      ol.continuous{gap:4px;cursor:pointer;touch-action:none}
+      ol.continuous{cursor:pointer;touch-action:none}
       ol.continuous li{flex:none;position:relative;block-size:20px}
       ol.continuous li.timed{flex-grow:var(--duration)}
-      ol.continuous li.marker{inline-size:6px}
+      ol.continuous li.marker{inline-size:${TRACK_MARKER_WIDTH}px}
       ol.continuous .segment{position:absolute;inset:8px 0;background:var(--_line)}
       ol.continuous .fill{inset:0;block-size:auto}
       ol.continuous:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
