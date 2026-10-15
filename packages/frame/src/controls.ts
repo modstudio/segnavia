@@ -18,11 +18,11 @@ import { SegnaviaControl } from './control.ts'
 import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, TOKENS_CSS } from './controls-style.ts'
-import { ICONS } from './icons.ts'
+import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
 
-const iconSlot = (name: string, fallback: string) => `<slot name="${name}">${fallback}</slot>`
+const icon = (root: ShadowRoot, name: IconName) => root.querySelector(`[name="${iconSlotName(name)}"]`) as HTMLSlotElement
 
 export class SegnaviaTime extends SegnaviaControl {
   protected styles() {
@@ -43,13 +43,13 @@ export class SegnaviaMute extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-mute', ICONS.mute)}${iconSlot('icon-unmute', ICONS.unmute)}</button>`
+    return `<button part="button">${iconSlot('mute')}${iconSlot('unmute')}</button>`
   }
   protected render(state: DeckState) {
     this.hidden = !deckHasNarration(state)
     const button = this.root.querySelector('button') as HTMLButtonElement
-    ;(this.root.querySelector('[name="icon-mute"]') as HTMLSlotElement).hidden = state.muted
-    ;(this.root.querySelector('[name="icon-unmute"]') as HTMLSlotElement).hidden = !state.muted
+    icon(this.root, 'mute').hidden = state.muted
+    icon(this.root, 'unmute').hidden = !state.muted
     button.setAttribute('aria-label', state.muted ? this.labels.unmute : this.labels.mute)
     button.setAttribute('aria-pressed', String(state.muted))
   }
@@ -63,13 +63,13 @@ export class SegnaviaCaptions extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-captions-on', ICONS.captionsOn)}${iconSlot('icon-captions-off', ICONS.captionsOff)}</button>`
+    return `<button part="button">${iconSlot('captionsOn')}${iconSlot('captionsOff')}</button>`
   }
   protected render(state: DeckState) {
     this.hidden = !captionsControlVisible(state, this.controller?.captionsPolicy ?? 'viewer')
     const button = this.root.querySelector('button') as HTMLButtonElement
-    ;(this.root.querySelector('[name="icon-captions-on"]') as HTMLSlotElement).hidden = !state.captionsVisible
-    ;(this.root.querySelector('[name="icon-captions-off"]') as HTMLSlotElement).hidden = state.captionsVisible
+    icon(this.root, 'captionsOn').hidden = !state.captionsVisible
+    icon(this.root, 'captionsOff').hidden = state.captionsVisible
     button.setAttribute('aria-label', state.captionsVisible ? this.labels.hideCaptions : this.labels.showCaptions)
     button.setAttribute('aria-pressed', String(state.captionsVisible))
   }
@@ -84,12 +84,12 @@ export class SegnaviaPlay extends SegnaviaControl {
       button:hover{background:color-mix(in srgb,var(--_accent) 85%,var(--_ink))}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-play', ICONS.play)}${iconSlot('icon-pause', ICONS.pause)}</button>`
+    return `<button part="button">${iconSlot('play')}${iconSlot('pause')}</button>`
   }
   protected render(state: DeckState) {
     const button = this.root.querySelector('button') as HTMLButtonElement
-    ;(this.root.querySelector('[name="icon-play"]') as HTMLSlotElement).hidden = state.playing
-    ;(this.root.querySelector('[name="icon-pause"]') as HTMLSlotElement).hidden = !state.playing
+    icon(this.root, 'play').hidden = state.playing
+    icon(this.root, 'pause').hidden = !state.playing
     button.setAttribute('aria-label', state.playing ? this.labels.pause : this.labels.play)
   }
   protected clicked() {
@@ -105,7 +105,7 @@ export class SegnaviaStep extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<span part="wrapper"><button part="button step-button">${iconSlot('icon-previous', ICONS.previous)}${iconSlot('icon-next', ICONS.next)}</button></span>`
+    return `<span part="wrapper"><button part="button step-button">${iconSlot('previous')}${iconSlot('next')}</button></span>`
   }
   // The icon follows the deck's reading direction, which may differ from the
   // page the control sits on.
@@ -113,8 +113,8 @@ export class SegnaviaStep extends SegnaviaControl {
     const wrapper = this.root.querySelector('span') as HTMLElement
     wrapper.dir = state.direction
     const button = this.root.querySelector('button') as HTMLButtonElement
-    ;(this.root.querySelector('[name="icon-previous"]') as HTMLSlotElement).hidden = this.forward
-    ;(this.root.querySelector('[name="icon-next"]') as HTMLSlotElement).hidden = !this.forward
+    icon(this.root, 'previous').hidden = this.forward
+    icon(this.root, 'next').hidden = !this.forward
     button.setAttribute('aria-label', this.forward ? this.labels.next : this.labels.previous)
     const total = state.deck?.slides.length ?? 0
     button.disabled = this.forward ? state.index >= total - 1 : state.index === 0
@@ -160,14 +160,14 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-enter-presentation', ICONS.enterPresentation)}${iconSlot('icon-exit-presentation', ICONS.exitPresentation)}</button>`
+    return `<button part="button">${iconSlot('enterPresentation')}${iconSlot('exitPresentation')}</button>`
   }
   protected render(_state: DeckState) {
     const windowMode = this.getAttribute('mode') !== 'native'
     const full = windowMode ? _state.presenting : document.fullscreenElement !== null && document.fullscreenElement === this.target()
     const button = this.root.querySelector('button') as HTMLButtonElement
-    ;(this.root.querySelector('[name="icon-enter-presentation"]') as HTMLSlotElement).hidden = full
-    ;(this.root.querySelector('[name="icon-exit-presentation"]') as HTMLSlotElement).hidden = !full
+    icon(this.root, 'enterPresentation').hidden = full
+    icon(this.root, 'exitPresentation').hidden = !full
     button.setAttribute(
       'aria-label',
       windowMode ? (full ? this.labels.exitPresentation : this.labels.enterPresentation) : full ? this.labels.exitFullscreen : this.labels.enterFullscreen,

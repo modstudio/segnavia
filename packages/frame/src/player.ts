@@ -15,7 +15,7 @@ import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
-import { ICONS } from './icons.ts'
+import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { handlePlayerKey } from './player-key.ts'
@@ -31,8 +31,8 @@ const LAYOUT = `<div class="player" part="player">
     <segnavia-track exportparts="track,segment"></segnavia-track>
     <div class="control-row">
       <div class="start"><segnavia-counter exportparts="count:counter"></segnavia-counter><span class="time-separator">·</span><segnavia-time exportparts="time"></segnavia-time></div>
-      <div class="centre"><segnavia-step to="previous" exportparts="step-button,button:previous-button"><slot name="icon-previous" slot="icon-previous">${ICONS.previous}</slot></segnavia-step><segnavia-play exportparts="button:play-button"><slot name="icon-play" slot="icon-play">${ICONS.play}</slot><slot name="icon-pause" slot="icon-pause">${ICONS.pause}</slot></segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button"><slot name="icon-next" slot="icon-next">${ICONS.next}</slot></segnavia-step></div>
-      <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button"><slot name="icon-mute" slot="icon-mute">${ICONS.mute}</slot><slot name="icon-unmute" slot="icon-unmute">${ICONS.unmute}</slot></segnavia-mute><segnavia-captions exportparts="button:captions-button"><slot name="icon-captions-on" slot="icon-captions-on">${ICONS.captionsOn}</slot><slot name="icon-captions-off" slot="icon-captions-off">${ICONS.captionsOff}</slot></segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden><slot name="icon-notes">${ICONS.notes}</slot></button><segnavia-fullscreen exportparts="button:presentation-button"><slot name="icon-enter-presentation" slot="icon-enter-presentation">${ICONS.enterPresentation}</slot><slot name="icon-exit-presentation" slot="icon-exit-presentation">${ICONS.exitPresentation}</slot></segnavia-fullscreen></div>
+      <div class="centre"><segnavia-step to="previous" exportparts="step-button,button:previous-button">${forwardedIconSlot('previous')}</segnavia-step><segnavia-play exportparts="button:play-button">${forwardedIconSlot('play')}${forwardedIconSlot('pause')}</segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button">${forwardedIconSlot('next')}</segnavia-step></div>
+      <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute><segnavia-captions exportparts="button:captions-button">${forwardedIconSlot('captionsOn')}${forwardedIconSlot('captionsOff')}</segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${iconSlot('notes')}</button><segnavia-fullscreen exportparts="button:presentation-button">${forwardedIconSlot('enterPresentation')}${forwardedIconSlot('exitPresentation')}</segnavia-fullscreen></div>
     </div>
   </div><div class="below"><slot name="below"></slot></div></div>`
 
