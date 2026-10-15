@@ -62,6 +62,8 @@ export class AuthoringController extends EventTarget {
   private notes: NotesSaveQueue | null = null
   private notesRoot: HTMLElement | null = null
   private notesSlideId: string | null = null
+  private updateGeneration = 0
+  private updateTail = Promise.resolve()
 
   constructor(
     private player: SegnaviaPlayer,
@@ -77,15 +79,22 @@ export class AuthoringController extends EventTarget {
     return this.notes?.dirty ?? false
   }
 
-  async update(handlers: AuthoringHandlers, options: AuthoringOptions = {}) {
-    if (this.stopped) return
+  update(handlers: AuthoringHandlers, options: AuthoringOptions = {}): Promise<void> {
+    const generation = ++this.updateGeneration
+    const next = this.updateTail.then(() => this.applyUpdate(generation, handlers, options))
+    this.updateTail = next.catch(() => {})
+    return next
+  }
+
+  private async applyUpdate(generation: number, handlers: AuthoringHandlers, options: AuthoringOptions) {
+    if (this.stopped || generation !== this.updateGeneration) return
     const hadMove = Boolean(this.handlers.moveSlide)
     const hadNotes = Boolean(this.handlers.saveNotes)
     const hasMove = Boolean(handlers.moveSlide)
     const hasNotes = Boolean(handlers.saveNotes)
     if (hadNotes && !hasNotes) {
       const saved = await this.notes?.flushAll()
-      if (this.stopped) return
+      if (this.stopped || generation !== this.updateGeneration) return
       if (saved === false) return
       this.detachNotes()
     }
