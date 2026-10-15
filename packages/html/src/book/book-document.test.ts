@@ -119,8 +119,29 @@ describe('book document', () => {
       ),
     )
     expect(generated.issues).toEqual([
+      'authored id segnavia-fn-2-1 in One (segnavia-chapter-1) uses the reserved segnavia- prefix',
       'destination id segnavia-fn-2-1 is used in both One (segnavia-chapter-1) and Two (segnavia-chapter-2); listed heading and generated destination ids must be unique',
     ])
+  })
+
+  test('reports that chapter endnotes belong to unbuilt paginated mode', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          mode: 'paginated',
+          page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+          endnotes: { placement: 'chapter' },
+        }),
+      ),
+    )
+    expect(result.issues).toContain('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
+  })
+
+  test('reports authored ids that use the reserved library prefix', () => {
+    const result = bookDocument(
+      Book.parse(input({ chapters: [chapter('One', '<div id="segnavia-fn-1-1">Authored</div><p>Text<span data-note="footnote">Note</span></p>')] })),
+    )
+    expect(result.issues).toContain('authored id segnavia-fn-1-1 in One (segnavia-chapter-1) uses the reserved segnavia- prefix')
   })
 
   test("uses a Hebrew book's resolved endnotes title and direction", () => {

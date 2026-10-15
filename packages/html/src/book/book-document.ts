@@ -99,6 +99,14 @@ function duplicateIdIssues(sections: BuiltSection[], headings: BookHeading[]): s
   })
 }
 
+function reservedIdIssues(section: BuiltSection): string[] {
+  return elements(section.node.children).flatMap((node) => {
+    const id = node.attribs.id
+    if (!id?.startsWith('segnavia-')) return []
+    return [`authored id ${id} in ${section.info.title ?? section.info.id} (${section.info.id}) uses the reserved segnavia- prefix`]
+  })
+}
+
 function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[]): BuiltSection {
   const id = 'segnavia-endnotes'
   const titleValue = book.endnotes.title
@@ -122,6 +130,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   const notes = noteState()
   const sections: BuiltSection[] = []
   const headings: BookHeading[] = []
+  const issues: string[] = []
   let frontNumber = 0
   let contents: BuiltSection | undefined
 
@@ -134,6 +143,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     frontNumber += 1
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`)
     sections.push(section)
+    issues.push(...reservedIdIssues(section))
     if (entry.contents && entry.title !== undefined) headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
     transformNotes(section.node, book, 0, notes)
   }
@@ -142,11 +152,15 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     const number = offset + 1
     const section = chapterSection(chapter, number)
     sections.push(section)
+    issues.push(...reservedIdIssues(section))
     headings.push({ id: section.info.id, level: 1, text: chapter.title, sectionId: section.info.id }, ...chapterHeadings(section, number, book.contents.depth))
     transformNotes(section.node, book, number, notes)
   }
 
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs))
+  if (book.endnotes.placement === 'chapter') {
+    issues.push('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
+  }
   if (contents) addContents(book, contents, headings, options)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind) === options.part)
@@ -161,6 +175,6 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     html: serialize(document),
     sections: sections.map((section) => section.info),
     headings,
-    issues: [...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }), ...duplicateIdIssues(sections, headings)],
+    issues: [...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }), ...issues, ...duplicateIdIssues(sections, headings)],
   }
 }
