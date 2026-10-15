@@ -98,27 +98,21 @@ export function useAuthoring(
   options?: AuthoringOptions,
 ): AuthoringController | null {
   const [controller, setController] = useState<AuthoringController | null>(null)
-  const currentHandlers = useRef(handlers)
-  currentHandlers.current = handlers
-  const handlerKinds = `${handlers.moveSlide ? 'move' : ''}:${handlers.saveNotes ? 'notes' : ''}`
-  const notesMaxLength = options?.notesMaxLength
+  const initialHandlers = useRef(handlers)
+  const initialOptions = useRef(options)
   useEffect(() => {
     const player = playerRef.current
     if (!player) return
-    const attached = attachAuthoring(
-      player as never,
-      {
-        moveSlide: handlerKinds.includes('move') ? (input) => currentHandlers.current.moveSlide?.(input) ?? Promise.resolve() : undefined,
-        saveNotes: handlerKinds.includes('notes') ? (input) => currentHandlers.current.saveNotes?.(input) ?? Promise.resolve() : undefined,
-      },
-      { notesMaxLength },
-    )
+    const attached = attachAuthoring(player as never, initialHandlers.current, initialOptions.current)
     setController(attached)
     return () => {
       attached.detach()
       setController(null)
     }
-  }, [playerRef.current, handlerKinds, notesMaxLength])
+  }, [playerRef.current])
+  useEffect(() => {
+    void controller?.update(handlers, options)
+  }, [controller, handlers, options])
   return controller
 }
 

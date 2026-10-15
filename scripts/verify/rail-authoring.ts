@@ -139,6 +139,20 @@ export async function verifyRailAuthoring(h: Harness) {
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
     reactLabel ?? '',
   )
+  const reactNotes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
+  await reactNotes.fill('React draft')
+  await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
+  await page.waitForTimeout(700)
+  const authoringUpdate = await page.evaluate(() => {
+    const field = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('textarea')
+    const facts = (window as unknown as { reactFacts: { saves: string[] } }).reactFacts
+    return { text: field?.value, maxLength: field?.maxLength, saves: facts.saves }
+  })
+  check(
+    'React authoring updates preserve a debounced draft',
+    authoringUpdate.text === 'React draft' && authoringUpdate.maxLength === 1234 && authoringUpdate.saves.join(',') === 'React draft',
+    JSON.stringify(authoringUpdate),
+  )
   const detached = await page.evaluate(() => {
     const holder = window as unknown as { reactPlayer: HTMLElement; reactUnmount(): void }
     const player = holder.reactPlayer

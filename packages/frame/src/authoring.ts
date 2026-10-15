@@ -77,18 +77,32 @@ export class AuthoringController extends EventTarget {
     return this.notes?.dirty ?? false
   }
 
+  async update(handlers: AuthoringHandlers, options: AuthoringOptions = {}) {
+    if (this.stopped) return
+    const hadMove = Boolean(this.handlers.moveSlide)
+    const hadNotes = Boolean(this.handlers.saveNotes)
+    const hasMove = Boolean(handlers.moveSlide)
+    const hasNotes = Boolean(handlers.saveNotes)
+    if (hadNotes && !hasNotes) {
+      await this.notes?.flushAll()
+      if (this.stopped) return
+      this.detachNotes()
+    }
+    this.handlers = handlers
+    if (!hadMove && hasMove) this.attachReorder()
+    else if (hadMove && !hasMove) this.detachReorder()
+    if (!hadNotes && handlers.saveNotes) this.attachNotes(handlers.saveNotes)
+    else if (handlers.saveNotes) this.notes?.setSave(handlers.saveNotes)
+    this.options.notesMaxLength = options.notesMaxLength ?? 20_000
+    const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
+    if (field) field.maxLength = this.options.notesMaxLength
+  }
+
   detach() {
     if (this.stopped) return
     this.stopped = true
-    this.player.controller.removeEventListener('change', this.configureReorder)
-    this.player.controller.removeEventListener('change', this.renderNotes)
-    this.player.removeEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, null)
-    this.notes?.dispose()
-    this.notesRoot?.remove()
-    this.player.shadowRoot?.querySelector('style[data-segnavia-authoring]')?.remove()
-    this.refuseStageScripts(false)
-    this.removeRailListeners()
+    this.detachReorder()
+    this.detachNotes()
   }
 
   private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {
@@ -126,6 +140,19 @@ export class AuthoringController extends EventTarget {
       if (slideId) await this.notes?.flush(slideId)
     })
     this.renderNotes()
+  }
+
+  private detachNotes() {
+    this.player.controller.removeEventListener('change', this.renderNotes)
+    this.player.removeEventListener('segnavia-labels', this.renderNotes)
+    setNavigationGuard(this.player.controller, null)
+    this.notes?.dispose()
+    this.notes = null
+    this.notesRoot?.remove()
+    this.notesRoot = null
+    this.notesSlideId = null
+    this.player.shadowRoot?.querySelector('style[data-segnavia-authoring]')?.remove()
+    this.refuseStageScripts(false)
   }
 
   private renderNotes = () => {
@@ -173,6 +200,11 @@ export class AuthoringController extends EventTarget {
   private attachReorder() {
     this.player.controller.addEventListener('change', this.configureReorder)
     this.configureReorder()
+  }
+
+  private detachReorder() {
+    this.player.controller.removeEventListener('change', this.configureReorder)
+    this.removeRailListeners()
   }
 
   private configureReorder = () => {

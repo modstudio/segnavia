@@ -43,6 +43,10 @@ export class NotesSaveQueue {
     return [...this.entries.values()].some((entry) => entry.text !== entry.saved)
   }
 
+  setSave(save: (input: { slideId: string; notes: string }) => Promise<void>) {
+    this.save = save
+  }
+
   seed(slideId: string, notes: string) {
     if (!this.entries.has(slideId)) {
       this.entries.set(slideId, { text: notes, saved: notes, version: 0, timer: null, saves: new Map(), status: 'idle', message: '' })
@@ -76,6 +80,10 @@ export class NotesSaveQueue {
     }
     if (entry.text === entry.saved) return
     await this.start(slideId, entry.version)
+  }
+
+  async flushAll(): Promise<void> {
+    await Promise.all([...this.entries.keys()].map((slideId) => this.flush(slideId)))
   }
 
   retry(slideId: string): Promise<void> {
