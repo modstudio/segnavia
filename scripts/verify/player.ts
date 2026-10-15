@@ -7,6 +7,7 @@ import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
+import { verifyWindowPresentation } from './player-presentation.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -183,58 +184,8 @@ async function verifyContinuousPlayer(h: Harness) {
   const captions = page.locator(`${PLAYER} segnavia-captions button`)
   await captions.click()
   check('CC toggles with aria-pressed', (await captions.getAttribute('aria-pressed')) === 'false')
-
-  const beforePresentation = await page.locator(PLAYER).evaluate((player) => {
-    const rect = player.getBoundingClientRect()
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, position: getComputedStyle(player).position, overflow: document.body.style.overflow }
-  })
-  await page.locator(`${PLAYER} segnavia-stage`).focus()
-  await page.keyboard.press('f')
-  const presented = await page.locator(PLAYER).evaluate((player) => {
-    const rect = player.getBoundingClientRect()
-    return {
-      marked: player.hasAttribute('data-presenting'),
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-      viewportWidth: innerWidth,
-      viewportHeight: innerHeight,
-      position: getComputedStyle(player).position,
-      zIndex: getComputedStyle(player).zIndex,
-      overflow: document.body.style.overflow,
-    }
-  })
-  check(
-    'f enters window presentation by default and covers the viewport',
-    presented.marked &&
-      presented.x === 0 &&
-      presented.y === 0 &&
-      presented.width === presented.viewportWidth &&
-      presented.height === presented.viewportHeight &&
-      presented.position === 'fixed' &&
-      presented.zIndex === '2147483647' &&
-      presented.overflow === 'hidden',
-    JSON.stringify(presented),
-  )
-  await page.keyboard.press('Escape')
-  const restored = await page.locator(PLAYER).evaluate((player) => {
-    const rect = player.getBoundingClientRect()
-    return {
-      marked: player.hasAttribute('data-presenting'),
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-      position: getComputedStyle(player).position,
-      overflow: document.body.style.overflow,
-    }
-  })
-  check(
-    'Escape leaves window presentation and restores its geometry',
-    !restored.marked && JSON.stringify(restored) === JSON.stringify({ marked: false, ...beforePresentation }),
-    JSON.stringify({ beforePresentation, restored }),
-  )
+  await captions.click()
+  await verifyWindowPresentation(h)
 
   await page.goto(h.url('parts.html'))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
