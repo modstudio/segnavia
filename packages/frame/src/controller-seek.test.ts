@@ -48,6 +48,41 @@ test('a superseded seek cannot overwrite the newer seek position', async () => {
   expect(controller.state.slideElapsedMs).toBe(100)
 })
 
+test('a superseded failed seek cannot pause or report over a newer seek', async () => {
+  let reject: ((error: Error) => void) | undefined
+  const delayed = new Promise<never>((_, rejectPromise) => {
+    reject = rejectPromise
+  })
+  const controller = new DeckController({
+    hash: null,
+    resolveSlide: async (slide: Slide) => {
+      if (slide.id === 'b') return delayed
+      return slide.content
+    },
+  })
+  await controller.load({
+    title: 'T',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'a' }, holdMs: 1000 },
+      { id: 'b', content: { kind: 'html', html: 'b' }, holdMs: 1000 },
+    ],
+  })
+  await controller.play()
+  const errors: Array<{ index: number; message: string }> = []
+  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail))
+
+  const older = controller.seek(1400)
+  await Bun.sleep(0)
+  await controller.seek(100)
+  reject?.(new Error('obsolete signed URL'))
+  await older
+
+  expect(controller.state.playing).toBe(true)
+  expect(controller.state.index).toBe(0)
+  expect(controller.state.slide?.id).toBe('a')
+  expect(errors).toEqual([])
+})
+
 test('a failed seek pauses playback and reports the target slide once', async () => {
   const controller = new DeckController({
     hash: null,

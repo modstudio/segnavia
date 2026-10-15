@@ -240,7 +240,13 @@ export class DeckController extends EventTarget {
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
     this.stopClock()
-    const content = await this.resolve(slide, index)
+    let content: ResolvedContent
+    try {
+      content = await this.resolve(slide, index)
+    } catch (error) {
+      if (shown !== this.shows) return false
+      throw error
+    }
     // A newer show began while this one resolved; it owns the state.
     if (shown !== this.shows) return false
     if (commitNavigation) {
