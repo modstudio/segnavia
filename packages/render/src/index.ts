@@ -1,24 +1,25 @@
 // Renders pages, slides and decks in a host-named headless Chromium. Every
 // render is offline, and everything it shows arrives inside the document.
 
-import { type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
+import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
+import { renderBrowserBookPdf } from './book-render.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
-import type { EffectsReport } from './effects/types.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
-import type { PressReport } from './press/types.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+export type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
 export type { PressImage, PressReport } from './press/types.ts'
 
 export const RENDER_BOUND_MS = 60_000
@@ -33,53 +34,6 @@ const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-
 export class RenderTimeoutError extends Error {
   override name = 'RenderTimeoutError'
 }
-export interface Font {
-  family: string
-  data: Uint8Array
-  format: 'woff2' | 'woff' | 'truetype' | 'opentype'
-  weight?: number | string
-  style?: 'normal' | 'italic'
-}
-
-export interface RenderLimits {
-  // Counts PDF pages; a two-sided imposition uses two for each physical paper.
-  maxSheets?: number
-  maxBytes?: number
-}
-
-export interface RenderOptions {
-  // The host's house style and faces, applied to every document rendered.
-  css?: string
-  fonts?: Font[]
-  limits?: RenderLimits
-  boundMs?: number
-  // A scripted page prints after window.pageReady(); false prints on load.
-  waitForPageReady?: boolean
-  // Let the document's own @page size win over its print setting.
-  preferCssPageSize?: boolean
-  // Runs after load for browser-side layout. A deck calls it on its single
-  // print document; an imposed deck has no such document and does not call it.
-  beforeOutput?: (tab: Tab) => Promise<void>
-  // Rewrites Chromium's soft-masked effects for consistent PDF readers. Absent is on; false is off.
-  effects?: false | { report?: (report: EffectsReport) => void }
-  // Converts a finished PDF through the supplied press profile. Image renders
-  // ignore this option.
-  press?: {
-    /** The ICC profile of the press, as bytes. The library ships none. */
-    profile: Uint8Array
-    /** Called with authored RGB images left unchanged and counts read back from the output. */
-    report?: (report: PressReport) => void
-  }
-}
-
-export interface ImageOptions extends RenderOptions {
-  format?: 'png' | 'jpeg' | 'webp'
-  // Tried in order until the image fits `limits.maxBytes`.
-  quality?: number[]
-  scale?: number
-  width?: number
-}
-
 export interface RendererOptions {
   executablePath: string
   args?: string[]
@@ -90,6 +44,7 @@ export interface RendererOptions {
 }
 
 export interface Renderer {
+  bookPdf(book: BookInput, options?: RenderOptions): Promise<Uint8Array>
   pagePdf(page: PageInput, options?: RenderOptions): Promise<Uint8Array>
   pagesPdf(pages: PageInput[], options?: RenderOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
@@ -331,6 +286,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   const renderer: Renderer = {
+    bookPdf(input, opts = {}) {
+      return renderBrowserBookPdf(input, opts, {
+        render: (setup, pdf) => withTab(setup, (tab) => tab.pdf(pdf)),
+        fontFaces: (options) => fontFaces(options.fonts),
+        finish: finishPdf,
+      })
+    },
+
     async pagePdf(input, opts = {}) {
       return finishPdf(await renderPagePdf(Page.parse(input), opts), opts)
     },

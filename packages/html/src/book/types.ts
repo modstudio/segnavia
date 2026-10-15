@@ -1,6 +1,9 @@
 export interface BookDocumentOptions {
   pageNumbers?: Record<string, string>
   blankBefore?: string[]
+  part?: 'front' | 'body'
+  crossLinks?: boolean
+  targets?: boolean
 }
 
 export interface BookSectionInfo {

@@ -30,7 +30,7 @@ export const PACKAGES: Record<string, PackageRule> = {
     serverSafe: ['src/svg.ts', 'src/timeline.ts', 'src/bridge.ts', 'src/print-document.ts', 'src/styled-elements.ts', 'src/icons.ts'],
   },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
-  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', 'playwright-core', 'pdf-lib'] },
+  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }
 

@@ -112,4 +112,30 @@ describe('book document', () => {
     expect(result.html).toContain('<h1 class="segnavia-endnotes-title" dir="rtl">הערות</h1>')
     expect(result.sections.at(-1)?.title).toBe('הערות')
   })
+
+  test('selects a print part while metadata still describes the whole book', () => {
+    const book = Book.parse(input({ frontMatter: [{ title: 'Preface', html: '<p>Front</p>' }, { kind: 'contents' }] }))
+    const front = bookDocument(book, { part: 'front' })
+    const body = bookDocument(book, { part: 'body' })
+    expect(front.sections).toEqual(body.sections)
+    expect(front.headings).toEqual(body.headings)
+    expect(front.html).toContain('Front')
+    expect(front.html).not.toContain('id="segnavia-chapter-1"')
+    expect(body.html).not.toContain('Front')
+    expect(body.html).toContain('id="segnavia-chapter-1"')
+  })
+
+  test('writes cross-print contents links and hidden links to selected targets', () => {
+    const book = Book.parse(
+      input({
+        frontMatter: [{ kind: 'contents' }],
+        chapters: [chapter('One', '<h2 id="topic">Topic</h2><p>A<span data-note="footnote">f</span><span data-note="endnote">e</span></p>')],
+      }),
+    )
+    expect(bookDocument(book, { part: 'front', crossLinks: true }).html).toContain('href="segnavia:target/topic"')
+    const body = bookDocument(book, { part: 'body', targets: true }).html
+    for (const id of ['segnavia-chapter-1', 'topic', 'segnavia-fn-1-1', 'segnavia-fnref-1-1', 'segnavia-en-1', 'segnavia-enref-1']) {
+      expect(body).toContain(`href="#${id}"`)
+    }
+  })
 })

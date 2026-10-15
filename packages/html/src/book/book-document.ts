@@ -5,7 +5,8 @@ import { descendants, element, linkChildren, text, textContent } from './dom.ts'
 import { noteState, transformNotes } from './notes.ts'
 import type { BookDocument, BookDocumentOptions, BookHeading, BookSectionInfo } from './types.ts'
 
-const PRINT_CSS = '@media print{:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}}'
+const PRINT_CSS =
+  '@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}'
 
 interface BuiltSection {
   info: BookSectionInfo
@@ -55,11 +56,11 @@ function chapterHeadings(section: BuiltSection, chapter: number, depth: number):
   })
 }
 
-function contentsList(book: Book, headings: BookHeading[], pageNumbers: Record<string, string> | undefined) {
+function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
   const entries = headings.map((heading) => {
-    const page = book.contents.pageNumbers ? (pageNumbers?.[heading.id] ?? '') : ''
+    const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
     return element('li', { class: 'segnavia-contents-entry', 'data-level': String(heading.level) }, [
-      element('a', { href: `#${heading.id}`, dir: direction(book, heading.text) }, [text(heading.text)]),
+      element('a', { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: direction(book, heading.text) }, [text(heading.text)]),
       element('span', { class: 'segnavia-contents-page', 'data-target': heading.id, dir: direction(book, page) }, [text(page)]),
     ])
   })
@@ -70,8 +71,20 @@ function addContents(book: Book, section: BuiltSection, headings: BookHeading[],
   const title = section.info.title
   const titleNode = section.node.children.find((child) => isTag(child) && child.name === 'h1')
   if (title !== undefined && titleNode && isTag(titleNode)) titleNode.attribs.dir = direction(book, title)
-  section.node.children.push(contentsList(book, headings, options.pageNumbers))
+  section.node.children.push(contentsList(book, headings, options))
   linkChildren(section.node)
+}
+
+function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
+  const ids = sections.flatMap((section) => [
+    section.info.id,
+    ...descendants(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : [])),
+  ])
+  return element(
+    'div',
+    { class: 'segnavia-targets', 'aria-hidden': 'true' },
+    [...new Set(ids)].map((id) => element('a', { href: `#${id}` }, [text('\u200b')])),
+  )
 }
 
 function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[]): BuiltSection {
@@ -124,8 +137,17 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs))
   if (contents) addContents(book, contents, headings, options)
 
+  const visible = sections.filter((section) => {
+    if (options.part === 'front') return section.info.kind === 'front' || section.info.kind === 'contents'
+    if (options.part === 'body') return section.info.kind === 'chapter' || section.info.kind === 'endnotes'
+    return true
+  })
   const document = parse('') as Document
-  document.children = [element('style', {}, [text(PRINT_CSS)]), ...withBlankPages(sections, options.blankBefore)]
+  document.children = [
+    element('style', {}, [text(PRINT_CSS)]),
+    ...(options.targets ? [targetLinks(visible)] : []),
+    ...withBlankPages(visible, options.blankBefore),
+  ]
   linkChildren(document)
   return {
     html: serialize(document),
