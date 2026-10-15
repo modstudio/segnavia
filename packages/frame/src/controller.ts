@@ -1,76 +1,19 @@
-// The headless deck: everything a player does, with no markup. It knows the
-// current slide, whether it plays, the word being spoken, which annotations
-// show and how far the slide has run, and it answers keys in the deck's
-// reading direction. A host draws whatever controls it likes from `state`
-// and the `change` event; `<segnavia-stage>` draws the slide itself.
-//
-// Events: change {state} · slide {index} · cue {annotations} · error {index, message} · end.
-
-import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide, type SlideContent, type TextDirection } from '@segnavia/format'
+// The headless deck owns slides, play, cues, timing and keys. It answers keys in the deck's
+// reading direction. It renders nothing; hosts draw from `state` and `change`.
+import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
-import { type DeckAction, keyAction } from './keys.ts'
-import { annotationsAt } from './timeline.ts'
+import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
+import { defaultSchedule, hasWindow } from './schedule.ts'
+import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
+import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
-export type ResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
-
-export interface DeckState {
-  deck: Deck | null
-  index: number
-  slide: Slide | null
-  content: ResolvedContent | null
-  direction: TextDirection
-  playing: boolean
-  // The word being spoken, or null when nothing is.
-  word: number | null
-  // Annotations to show: a list while playing, null for all of them.
-  shown: number[] | null
-  // How far the current slide has run, from 0 to 1; 0 on a static slide.
-  progress: number
-  presenting: boolean
-}
-
-export interface ControllerOptions {
-  // The address relative paths in the deck resolve against.
-  base?: string
-  // Mints what a slide needs when it is shown: a ticket URL, a signed image.
-  resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent> | SlideContent
-  // Resolve the slides either side while one shows; each result is used once.
-  prefetch?: boolean
-  // Page listens on window; form fields retain paging keys, while Escape can end presenting.
-  keys?: 'stage' | 'page'
-  // The prefix of `#slide-N` addresses, or null to leave the address alone.
-  hash?: string | null
-  clock?: (narration: NonNullable<Slide['narration']>, audio: string | null) => Clock
-  // Calls `tick` on the next frame and returns a way to cancel it.
-  schedule?: (tick: () => void) => () => void
-}
-
-function defaultSchedule(tick: () => void): () => void {
-  if (typeof requestAnimationFrame === 'function') {
-    const id = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(id)
-  }
-  const id = setTimeout(tick, 16)
-  return () => clearTimeout(id)
-}
-
-const hasWindow = typeof window !== 'undefined' && typeof location !== 'undefined'
+export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
 
 export class DeckController extends EventTarget {
   private options: ControllerOptions
-  private current: DeckState = {
-    deck: null,
-    index: 0,
-    slide: null,
-    content: null,
-    direction: 'ltr',
-    playing: false,
-    word: null,
-    shown: null,
-    progress: 0,
-    presenting: false,
-  }
+  private current: DeckState = initialDeckState()
   private clock: Clock | null = null
   private cancel: (() => void) | null = null
   private shows = 0
@@ -80,10 +23,13 @@ export class DeckController extends EventTarget {
   private presented: HTMLElement | null = null
   private bodyOverflow = ''
   private listening = false
+  private settings = { ...DEFAULT_VIEWER_SETTINGS }
 
   constructor(options: ControllerOptions = {}) {
     super()
     this.options = { hash: 'slide-', keys: 'stage', ...options }
+    this.settings = readViewerSettings(this.options.persist !== false)
+    this.current = { ...this.current, ...this.settings }
     this.connectWindow()
   }
 
@@ -141,6 +87,8 @@ export class DeckController extends EventTarget {
     this.prefetched.clear()
     this.shots.clear()
     const direction = resolveDirection(deck.dir, deck.lang, deck.title)
+    const playback = this.options.playback ?? deck.playback ?? 'step'
+    const captionsVisible = deck.captions === 'on' ? true : deck.captions === 'off' ? false : this.settings.captionsVisible
     const index = wasOpen
       ? indexAfterReload(
           oldIds,
@@ -148,7 +96,7 @@ export class DeckController extends EventTarget {
           selectedId,
         )
       : (this.hashIndex(deck) ?? 0)
-    this.current = { ...this.current, deck, direction, playing: false, index }
+    this.current = { ...this.current, deck, direction, playback, captionsVisible, playing: false, index, totalMs: deckTimeline(deck).totalMs }
     await this.show(index)
   }
 
@@ -207,17 +155,66 @@ export class DeckController extends EventTarget {
     if (this.current.index > 0) await this.go(this.current.index - 1)
   }
 
-  // Pressed on a static slide, play moves on to the next one and plays it.
   async play(): Promise<void> {
+    const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
-    if (!this.current.slide?.narration) return this.next()
-    this.startClock()
+    if (slide && index + 1 === deck?.slides.length && (this.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
+    if (!slide || slideDurationMs(slide) === null) return this.next()
+    if (this.clock) {
+      this.clock.resume()
+      this.scheduleTick()
+    } else this.startClock(this.current.slideElapsedMs)
     this.emit()
   }
 
   pause() {
-    this.stopClock()
-    this.current = { ...this.current, playing: false, word: null, shown: null, progress: 0 }
+    this.cancel?.()
+    this.cancel = null
+    this.clock?.pause()
+    this.readClock()
+    this.current = { ...this.current, playing: false }
+    this.emit()
+  }
+
+  async seek(deckMs: number): Promise<void> {
+    const deck = this.current.deck
+    if (!deck) return
+    const timeline = deckTimeline(deck)
+    const { index, localMs, untimed } = positionAt(timeline, deckMs)
+    const entry = timeline.slides[index]
+    if (!entry) return
+    const wasPlaying = this.current.playing
+    if (!(await this.show(index, true))) return
+    if (untimed) {
+      this.current = { ...this.current, playing: false, elapsedMs: entry.startMs, slideElapsedMs: 0, progress: 0 }
+      this.emit()
+      return
+    }
+    const slide = deck.slides[index]
+    if (!slide) return
+    const local = slide.narration?.live && localMs > 0 ? 0 : localMs
+    if (!this.clock) this.startClock(local)
+    else this.clock.seek(local)
+    if (!wasPlaying) this.pause()
+    else {
+      this.readClock()
+      this.emit()
+    }
+  }
+
+  setMuted(muted: boolean) {
+    this.settings.muted = muted
+    if (this.clock) this.clock.muted = muted
+    this.current = { ...this.current, muted }
+    this.persistSettings()
+    this.emit()
+  }
+
+  setCaptionsVisible(visible: boolean) {
+    if ((this.current.deck?.captions ?? 'viewer') !== 'viewer') return
+    this.settings.captionsVisible = visible
+    this.current = { ...this.current, captionsVisible: visible }
+    this.persistSettings()
     this.emit()
   }
 
@@ -232,6 +229,8 @@ export class DeckController extends EventTarget {
     if (action === 'next') void this.next().catch(() => {})
     else if (action === 'previous') void this.previous().catch(() => {})
     else if (action === 'toggle') void Promise.resolve(this.toggle()).catch(() => {})
+    else if (action === 'mute') this.setMuted(!this.current.muted)
+    else if (action === 'captions') this.setCaptionsVisible(!this.current.captionsVisible)
     else if (action === 'exit') {
       this.stopPresenting()
       this.dispatchEvent(new CustomEvent('exit'))
@@ -239,28 +238,31 @@ export class DeckController extends EventTarget {
     return action
   }
 
-  private async show(index = this.current.index, commitNavigation = false) {
+  private async show(index = this.current.index, commitNavigation = false): Promise<boolean> {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
     this.stopClock()
     const content = await this.resolve(slide, index)
     // A newer show began while this one resolved; it owns the state.
-    if (shown !== this.shows) return
+    if (shown !== this.shows) return false
     if (commitNavigation) {
       this.current = { ...this.current, index }
       const prefix = this.options.hash
       if (hasWindow && prefix) history.replaceState(null, '', `#${prefix}${index + 1}`)
     }
-    const playing = this.current.playing && Boolean(slide.narration)
-    this.current = { ...this.current, slide, content, playing, word: null, shown: null, progress: 0 }
+    const duration = slideDurationMs(slide)
+    const playing = this.current.playing && duration !== null
+    const timeline = deckTimeline(deck)
+    const startMs = timeline.slides[index]?.startMs ?? 0
+    this.current = { ...this.current, slide, content, playing, word: null, shown: null, progress: 0, elapsedMs: startMs, slideElapsedMs: 0 }
     this.lastCue = ''
     if (playing) this.startClock()
     this.emit()
     this.dispatchEvent(new CustomEvent('slide', { detail: { index } }))
     this.prefetch()
+    return true
   }
-
   private prefetch() {
     const deck = this.current.deck
     if (!this.options.prefetch || !deck) return
@@ -305,20 +307,24 @@ export class DeckController extends EventTarget {
     return new URL(path, this.options.base ?? (hasWindow ? location.href : undefined)).href
   }
 
-  private startClock() {
-    const narration = this.current.slide?.narration
-    if (!narration) return
-    const audio = narration.audio ? this.url(narration.audio) : null
-    this.clock = this.options.clock
-      ? this.options.clock(narration, audio)
-      : narration.live
-        ? speechClock(narration, narration.voice)
-        : timedClock(narration, audio)
+  private startClock(position = 0) {
+    const slide = this.current.slide
+    if (!slide || slideDurationMs(slide) === null) return
+    const narration = slide.narration
+    const audio = narration?.audio ? this.url(narration.audio) : null
+    this.clock = this.options.clock ? this.options.clock(slide, audio) : narration?.live ? speechClock(slide, narration.voice) : timedClock(slide, audio)
+    this.clock.muted = this.current.muted
+    if (!this.current.playing) this.clock.pause()
+    this.clock.seek(position)
+    this.scheduleTick()
+  }
+
+  private scheduleTick() {
+    if (!this.current.playing) return
     const tick = () => {
       const clock = this.clock
       if (!clock) return
-      const word = clock.word()
-      this.current = { ...this.current, word, shown: annotationsAt(narration.cues, word), progress: clock.progress() }
+      this.readClock()
       this.emit()
       if (clock.ended()) void this.next().catch(() => this.pause())
       else this.cancel = (this.options.schedule ?? defaultSchedule)(tick)
@@ -326,11 +332,36 @@ export class DeckController extends EventTarget {
     this.cancel = (this.options.schedule ?? defaultSchedule)(tick)
   }
 
+  private readClock() {
+    const clock = this.clock
+    const slide = this.current.slide
+    const deck = this.current.deck
+    if (!clock || !slide || !deck) return
+    const slideElapsedMs = clock.elapsed()
+    let moment = slideStateAt(slide, slideElapsedMs)
+    const live = slide.narration?.live ? slide.narration : null
+    const word = live ? clock.word() : moment.word
+    if (live) moment = { ...moment, word, shown: annotationsAt(live.cues, word) }
+    const startMs = deckTimeline(deck).slides[this.current.index]?.startMs ?? 0
+    this.current = {
+      ...this.current,
+      word: moment.word,
+      shown: moment.shown,
+      progress: clock.progress(),
+      slideElapsedMs,
+      elapsedMs: startMs + slideElapsedMs,
+    }
+  }
+
   private stopClock() {
     this.cancel?.()
     this.cancel = null
     this.clock?.stop()
     this.clock = null
+  }
+
+  private persistSettings() {
+    writeViewerSettings(this.options.persist !== false, this.settings)
   }
 
   private emit() {
@@ -357,12 +388,8 @@ export class DeckController extends EventTarget {
     if (event.defaultPrevented) return
     const target = event.target
     const action = keyAction(event.key, this.current.direction)
-    if (
-      (action === 'next' || action === 'previous') &&
-      target instanceof HTMLElement &&
-      (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
-    )
-      return
+    if (isEditableLetterShortcut(event.key, target)) return
+    if ((action === 'next' || action === 'previous') && isEditableTarget(target)) return
     if (this.key(event.key)) event.preventDefault()
   }
 }

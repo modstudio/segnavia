@@ -1,7 +1,27 @@
 import { describe, expect, test } from 'bun:test'
-import { frameDocument, newNonce } from './bridge.ts'
+import { bridgeForHost, frameDocument, newNonce, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
+  test('relays viewer and presentation shortcuts', () => {
+    expect(RELAYED_KEYS).toEqual(expect.arrayContaining(['m', 'c', 'f']))
+  })
+  test('does not relay letter shortcuts from editable targets', () => {
+    let onKey: ((event: { key: string; target: unknown }) => void) | undefined
+    const messages: unknown[] = []
+    const document = {
+      addEventListener: (name: string, listener: typeof onKey) => {
+        if (name === 'keydown') onKey = listener
+      },
+      fonts: null,
+      images: [],
+      readyState: 'loading',
+    }
+    const parent = { postMessage: (message: unknown) => messages.push(message) }
+    const window = { addEventListener: () => {} }
+    Function('document', 'parent', 'window', bridgeForHost({ reportHeight: false }))(document, parent, window)
+    onKey?.({ key: 'c', target: { tagName: 'SELECT', isContentEditable: false } })
+    expect(messages).toEqual([])
+  })
   test('the policy and the bridge come before anything the author wrote', () => {
     const html = frameDocument('<!doctype html><html><head><script>evil()</script></head><body>x</body></html>', { scripts: 'refuse', nonce: 'n1' })
     const policy = html.indexOf("script-src 'nonce-n1'")

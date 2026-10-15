@@ -4,6 +4,7 @@
 
 import { z } from 'zod'
 import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
@@ -33,6 +34,8 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export { type ShotUse, shotsUsed } from './shots-used.ts'
+export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 
 export const Size = z.object({
@@ -279,12 +282,15 @@ export const SlideContent = z.discriminatedUnion('kind', [
 ])
 export type SlideContent = z.infer<typeof SlideContent>
 
-// A slide plays when it has narration and is static when it has none.
+// A slide plays for its narration and surrounding pauses, or for its hold.
 export const Slide = z.object({
   id: z.string(),
   content: SlideContent,
   notes: z.string().optional(),
   narration: Narration.optional(),
+  beforeMs: SlideTiming.optional(),
+  afterMs: SlideTiming.optional(),
+  holdMs: SlideTiming.optional(),
 })
 export type Slide = z.infer<typeof Slide>
 
@@ -297,6 +303,8 @@ const DeckShape = z.object({
   dir: Direction.optional(),
   lang: z.string().optional(),
   transition: Transition.optional(),
+  playback: z.enum(['step', 'continuous']).optional(),
+  captions: z.enum(['on', 'off', 'viewer']).optional(),
   slides: z.array(Slide).min(1),
 })
 
@@ -328,6 +336,10 @@ function cueIssues(slide: Slide): string[] {
 export const Deck = DeckShape.superRefine((deck, ctx) => {
   deck.slides.forEach((slide, index) => {
     for (const message of cueIssues(slide)) ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration', 'cues'], message })
+    for (const field of slideTimingIssues(slide)) {
+      const kind = field === 'holdMs' ? 'without' : 'with'
+      ctx.addIssue({ code: 'custom', path: ['slides', index, field], message: `${field} is allowed only ${kind} narration` })
+    }
   })
   const ids = new Set<string>()
   deck.slides.forEach((slide, index) => {
@@ -367,22 +379,6 @@ export function exceedsLimits(deck: Deck, limits: DeckLimits): string[] {
     }
   })
   return reasons
-}
-
-// Every shot a deck shows, so a host can record where each one is used and
-// say which decks a recapture reaches.
-export interface ShotUse {
-  slide: string
-  key?: string
-  href?: string
-}
-
-export function shotsUsed(deck: Deck): ShotUse[] {
-  return deck.slides.flatMap((slide): ShotUse[] => {
-    if (slide.content.kind === 'shot') return [{ slide: slide.id, key: slide.content.shot.key }]
-    if (slide.content.kind === 'shot-ref') return [{ slide: slide.id, href: slide.content.href }]
-    return []
-  })
 }
 
 export function jsonSchemas() {

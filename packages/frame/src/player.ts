@@ -16,6 +16,7 @@ import { DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { ICONS } from './controls-style.ts'
 import { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
+import { handlePlayerKey } from './player-key.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaStage } from './stage.ts'
 import type { HostTransition } from './transition.ts'
@@ -132,9 +133,6 @@ export class SegnaviaPlayer extends HTMLElement {
   // The stage handles keys pressed on it. Elsewhere in the player, paging keys
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
-    const target = event.composedPath()[0]
-    if (target === this.stage) return
-    if ((event.key === ' ' || event.key === 'Enter') && target instanceof HTMLButtonElement) return
-    if (this.controller.key(event.key)) event.preventDefault()
+    handlePlayerKey(this.controller, this.stage, event)
   }
 }

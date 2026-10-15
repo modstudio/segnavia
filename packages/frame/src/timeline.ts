@@ -2,12 +2,86 @@
 // annotations whose cues have arrived. Pure, so the viewer, a test and a
 // future video export all read the same answer from the same narration.
 
-import type { Cue, Narration } from '@segnavia/format'
+import type { Cue, Deck, Narration, Slide } from '@segnavia/format'
 
 export interface Moment {
   word: number | null
-  annotations: number[]
+  annotations: number[] | null
   ended: boolean
+}
+
+export type SlidePhase = 'before' | 'narration' | 'after' | 'hold' | 'untimed'
+
+export interface SlideMoment {
+  word: number | null
+  shown: number[] | null
+  phase: SlidePhase
+}
+
+export interface PhaseBounds {
+  beforeMs: number
+  narrationEndMs: number
+}
+
+export interface TimelineSlide {
+  startMs: number
+  durationMs: number | null
+  untimed: boolean
+}
+
+export interface DeckTimeline {
+  slides: TimelineSlide[]
+  totalMs: number
+}
+
+export interface TimelinePosition {
+  index: number
+  localMs: number
+  untimed: boolean
+}
+
+export function slideDurationMs(slide: Slide): number | null {
+  if (slide.narration) return (slide.beforeMs ?? 0) + slide.narration.durationMs + (slide.afterMs ?? 0)
+  return slide.holdMs ?? null
+}
+
+export function phaseBounds(slide: Pick<Slide, 'beforeMs' | 'narration'>): PhaseBounds {
+  const beforeMs = slide.beforeMs ?? 0
+  return { beforeMs, narrationEndMs: beforeMs + (slide.narration?.durationMs ?? 0) }
+}
+
+export function deckTimeline(deck: Pick<Deck, 'slides'>): DeckTimeline {
+  let totalMs = 0
+  const slides = deck.slides.map((slide) => {
+    const durationMs = slideDurationMs(slide)
+    const entry = { startMs: totalMs, durationMs, untimed: durationMs === null }
+    totalMs += durationMs ?? 0
+    return entry
+  })
+  return { slides, totalMs }
+}
+
+export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosition {
+  const target = Math.max(0, Math.min(timeline.totalMs, deckMs))
+  let index = timeline.slides.findIndex((entry) => entry.untimed && entry.startMs === target)
+  if (index < 0) index = timeline.slides.findIndex((entry) => entry.durationMs !== null && target >= entry.startMs && target < entry.startMs + entry.durationMs)
+  if (index < 0) index = Math.max(0, timeline.slides.length - 1)
+  const entry = timeline.slides[index]
+  return { index, localMs: entry?.untimed ? 0 : target - (entry?.startMs ?? 0), untimed: entry?.untimed ?? true }
+}
+
+export function slideStateAt(slide: Slide, ms: number): SlideMoment {
+  const position = Math.max(0, ms)
+  if (!slide.narration) return { word: null, shown: null, phase: slide.holdMs === undefined ? 'untimed' : 'hold' }
+  const { beforeMs } = phaseBounds(slide)
+  if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
+  const narrationMs = position - beforeMs
+  if (narrationMs < slide.narration.durationMs) {
+    const word = wordAt(slide.narration, narrationMs)
+    return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'narration' }
+  }
+  const word = wordAt(slide.narration, slide.narration.durationMs)
+  return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'after' }
 }
 
 // The word whose span holds the time, or during a pause the word just spoken,
@@ -28,8 +102,8 @@ export function annotationsAt(cues: Cue[], word: number | null): number[] {
 }
 
 export function momentAt(narration: Narration, ms: number): Moment {
-  const word = wordAt(narration, ms)
-  return { word, annotations: annotationsAt(narration.cues, word), ended: ms >= narration.durationMs }
+  const state = slideStateAt({ id: '', content: { kind: 'html', html: '' }, narration }, ms)
+  return { word: state.word, annotations: state.shown, ended: ms >= narration.durationMs }
 }
 
 export function words(text: string): string[] {
