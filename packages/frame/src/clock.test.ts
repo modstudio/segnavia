@@ -58,6 +58,8 @@ describe('slide clock', () => {
     expect(clock.word()).toBeNull()
     clock.seek(250)
     expect(clock.elapsed()).toBe(250)
+    clock.seek(400)
+    expect(clock.elapsed()).toBe(400)
     clock.muted = true
     expect(clock.muted).toBe(true)
     clock.seek(650)

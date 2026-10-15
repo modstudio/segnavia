@@ -99,12 +99,12 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
     return Math.min(duration, position + performance.now() - anchor)
   }
   const syncAudio = () => {
-    const now = elapsed()
-    if (now < beforeMs || now >= narrationEnd) {
+    audio.currentTime = Math.max(0, Math.min(slide.narration.durationMs, position - beforeMs)) / 1000
+    if (position < beforeMs || position >= narrationEnd) {
       audio.pause()
+      audioPlaying = false
       return
     }
-    audio.currentTime = (now - beforeMs) / 1000
     playAudio()
   }
   const clock: Clock = {
