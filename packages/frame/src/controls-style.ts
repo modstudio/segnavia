@@ -31,12 +31,18 @@ export const TOKENS_CSS = `
 :host([hidden]),:host([data-empty]){display:none}
 `
 
+export function buttonChrome(...selectors: string[]): string {
+  const select = (state = '') => selectors.map((value) => (value.includes('&') ? value.replace('&', state) : `${value}${state}`)).join(',')
+  const selector = select()
+  return `${selector}{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
+${select(':hover')}{background:var(--_line)}
+${select(':focus-visible')}{outline:2px solid var(--_accent);outline-offset:1px}
+${select('[disabled]')}{opacity:.35;cursor:default;background:none}`
+}
+
 export const BUTTON_CSS = `
 :host{display:inline-flex}
-button{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
-button:hover{background:var(--_line)}
-button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
-button[disabled]{opacity:.35;cursor:default;background:none}
+${buttonChrome('button')}
 svg{inline-size:20px;block-size:20px}
 slot{display:inline-grid;place-items:center;inline-size:20px;block-size:20px;pointer-events:none}
 slot[hidden]{display:none}

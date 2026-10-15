@@ -2,7 +2,7 @@
 // so theming the player and theming the components are the same act: set
 // `--segnavia-*` properties, or `theme`, on the player or any ancestor.
 
-import { TOKENS_CSS } from './controls-style.ts'
+import { buttonChrome, TOKENS_CSS } from './controls-style.ts'
 
 export const PLAYER_CSS = `${TOKENS_CSS}
 :host{display:block;position:relative;container-type:inline-size;background:var(--_bg);border-radius:var(--_radius);overflow:hidden;min-height:240px;
@@ -29,9 +29,7 @@ segnavia-track{inline-size:100%}
 .time-separator{color:var(--_muted)}
 .time-separator[hidden]{display:none}
 segnavia-counter{padding-inline:6px}
-.notes-toggle{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:36px;block-size:36px;border-radius:10px;color:var(--_ink);cursor:pointer}
-.notes-toggle:hover{background:var(--_line)}
-.notes-toggle:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
+${buttonChrome('.notes-toggle', 'slot[name="actions"]::slotted(button&)')}
 .notes-toggle svg{inline-size:20px;block-size:20px}
 .notes-toggle slot{display:inline-grid;place-items:center;inline-size:20px;block-size:20px;pointer-events:none}
 .notes-toggle slot::slotted(*){inline-size:20px;block-size:20px}
@@ -39,9 +37,6 @@ slot[slot^="icon-"]{pointer-events:none}
 slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:none}
 .notes-toggle[hidden]{display:none}
 ::slotted([slot="actions"]){flex:none}
-slot[name="actions"]::slotted(button){all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
-slot[name="actions"]::slotted(button:hover){background:var(--_line)}
-slot[name="actions"]::slotted(button:focus-visible){outline:2px solid var(--_accent);outline-offset:1px}
 :host([data-presenting]) .below{display:none}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .body{flex:none}.screen{container-type:normal;display:block;padding:12px 12px 4px}segnavia-stage{width:100%}segnavia-caption{min-block-size:0}}
