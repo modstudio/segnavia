@@ -35,7 +35,7 @@ const LAYOUT = `<div class="player" part="player">
       <div class="center"><segnavia-step to="previous" exportparts="step-button,button:previous-button">${forwardedIconSlot('previous')}</segnavia-step><segnavia-play exportparts="button:play-button">${forwardedIconSlot('play')}${forwardedIconSlot('pause')}</segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button">${forwardedIconSlot('next')}</segnavia-step></div>
       <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute><segnavia-captions exportparts="button:captions-button">${forwardedIconSlot('captionsOn')}${forwardedIconSlot('captionsOff')}</segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${iconSlot('notes')}</button><segnavia-fullscreen exportparts="button:presentation-button">${forwardedIconSlot('enterPresentation')}${forwardedIconSlot('exitPresentation')}</segnavia-fullscreen></div>
     </div>
-  </div><div class="below"><slot name="below"></slot></div></div>`
+  </div><segnavia-rail exportparts="rail,thumbnail,thumbnail-current,thumbnail-number"></segnavia-rail><div class="below"><slot name="below"></slot></div></div>`
 
 const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
@@ -56,7 +56,7 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 }
 
 export class SegnaviaPlayer extends HTMLElement {
-  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  static observedAttributes = ['src', 'notes', 'rail', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -103,6 +103,14 @@ export class SegnaviaPlayer extends HTMLElement {
 
   set cspExtra(csp: string) {
     this.stage.cspExtra = csp
+  }
+
+  get rail(): boolean {
+    return this.hasAttribute('rail')
+  }
+
+  set rail(value: boolean) {
+    this.toggleAttribute('rail', value)
   }
 
   get transition(): HostTransition | undefined {
