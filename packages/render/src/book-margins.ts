@@ -19,7 +19,7 @@ export function marginDocument(book: Book, pages: MarginPage[]): string {
   const css =
     `@page{size:${size.width}mm ${size.height}mm;margin:0}` +
     `:where(html,body){margin:0}` +
-    `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page}` +
+    `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
     `:where(.segnavia-running-head,.segnavia-folio){position:absolute;display:flex;align-items:center}` +
     `:where(.segnavia-running-head){inset-block-start:0;block-size:${edge.top}mm}` +
     `:where(.segnavia-folio){inset-block-end:0;block-size:${edge.bottom}mm}` +
@@ -30,11 +30,11 @@ export function marginDocument(book: Book, pages: MarginPage[]): string {
       const head =
         page.runningHead === undefined
           ? ''
-          : `<div class="segnavia-running-head" dir="${resolveDirection(book.dir, book.lang, page.runningHead)}"><bdi>${escapeHtml(page.runningHead)}</bdi></div>`
+          : `<div class="segnavia-running-head"><bdi dir="${resolveDirection(book.dir, book.lang, page.runningHead)}">${escapeHtml(page.runningHead)}</bdi></div>`
       const folio =
         page.folio === undefined
           ? ''
-          : `<div class="segnavia-folio" dir="${resolveDirection(book.dir, book.lang, page.folio)}"><bdi>${escapeHtml(page.folio)}</bdi></div>`
+          : `<div class="segnavia-folio"><bdi dir="${resolveDirection(book.dir, book.lang, page.folio)}">${escapeHtml(page.folio)}</bdi></div>`
       return `<div class="segnavia-margin-page" data-side="${page.side}">${head}${folio}</div>`
     })
     .join('')

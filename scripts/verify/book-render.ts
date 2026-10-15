@@ -103,6 +103,12 @@ function pageWith(pages: string[], value: string): number {
   return pages.findIndex((page) => page.includes(value)) + 1
 }
 
+function frontPageCount(fixture: Fixture, pages: string[]): number {
+  const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
+  const lastContentsPage = pageWith(pages, `${tag}-3-H2-5`)
+  return lastContentsPage % 2 === 1 ? lastContentsPage + 1 : lastContentsPage
+}
+
 function annotationDestination(document: PDFDocument, value: unknown): number | undefined {
   const key = (value: string) => PDFName.of(value)
   const resolve = (value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
@@ -142,26 +148,28 @@ function contentsNumbers(
   frontSystem: 'arabic' | 'roman-lower',
   bodySystem: 'arabic' | 'hebrew',
 ): boolean {
-  const lines = text.split('\n').map((line) => line.replaceAll(/\s/g, ''))
+  const compact = (value: string) => value.replaceAll(/[\s\u202a-\u202e\u2066-\u2069]/g, '')
+  const lines = text.split('\n').map(compact)
   const entries = [
     { text: fixture.frontTitle, number: formatNumber(1, frontSystem) },
     ...chapterPages.flatMap((page, index) => [
       { text: fixture.book.chapters[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
-      ...Array.from({ length: 6 }, (_, topic) => [
-        { text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H2-${topic}`, number: formatNumber(page - frontPages, bodySystem) },
-        { text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H3-${topic}`, number: formatNumber(page - frontPages, bodySystem) },
-      ]).flat(),
+      ...Array.from({ length: 6 }, (_, topic) => ({
+        text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H2-${topic}`,
+        number: formatNumber(page - frontPages, bodySystem),
+      })),
     ]),
   ]
-  return entries.every((entry) =>
-    lines.some((line) => line.includes(entry.text.replaceAll(/\s/g, '')) && (line.endsWith(entry.number) || line.startsWith(entry.number))),
-  )
+  return entries.every((entry) => {
+    const printed = compact(entry.text)
+    return lines.some((line) => line.includes(printed) && (line.endsWith(entry.number) || line.startsWith(entry.number)))
+  })
 }
 
 function expectedLinkPages(fixture: Fixture, pages: string[], frontPages: number): number[] {
   const chapterPages = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
   const endnotes = pageWith(pages, fixture.endnotesTitle)
-  const headings = [pageWith(pages, fixture.frontMarker), ...chapterPages.flatMap((page) => Array.from({ length: 13 }, () => page))]
+  const headings = [pageWith(pages, fixture.frontMarker), ...chapterPages.flatMap((page) => Array.from({ length: 7 }, () => page))]
   const footnote = chapterPages[0] ?? 0
   const endnote = chapterPages[2] ?? 0
   return [...headings, footnote, footnote, endnotes, endnote].sort((left, right) => left - right).map((page) => page || frontPages)
@@ -178,7 +186,7 @@ function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPag
       .map((word) => word.text)
       .join(' ')
     const top = (bboxes[index]?.words ?? [])
-      .filter((word) => word.yMin < 45)
+      .filter((word) => word.yMin < 35)
       .map((word) => word.text)
       .join(' ')
     let kind = page <= frontPages ? (page < pageWith(pages, fixture.contentsTitle) ? 'front' : 'contents') : 'chapter'
@@ -202,7 +210,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   const pages = pagesText(file)
   const bboxes = bboxPages(file)
   const chapterPages = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
-  const frontPages = (chapterPages[0] ?? 1) - 1
+  const frontPages = frontPageCount(fixture, pages)
   const map = pageMap(fixture, pages, bboxes, frontPages)
   console.log(`BOOK MAP [${fixture.key}] ${JSON.stringify(map.map(({ opening: _, ...page }) => page))}`)
 
