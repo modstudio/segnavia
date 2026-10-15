@@ -101,6 +101,148 @@ describe('ElevenLabs provider', () => {
     expect(elevenLabsProvider({ voice: 'voice-b', model: 'model-a', apiKey }).id).toBe('elevenlabs-model-a-voice-b')
   })
 
+  test('sends configured pronunciation dictionary locators', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    await elevenLabsProvider({
+      voice: 'v',
+      apiKey: () => 'k',
+      pronunciationDictionaries: [{ id: 'dictionary-a', versionId: 'version-a' }, { id: 'dictionary-b' }],
+    }).synthesize('word')
+    expect(body.pronunciation_dictionary_locators).toEqual([
+      { pronunciation_dictionary_id: 'dictionary-a', version_id: 'version-a' },
+      { pronunciation_dictionary_id: 'dictionary-b' },
+    ])
+  })
+
+  test('keeps the dictionaries it was given when the caller changes them afterwards', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    const dictionaries = [{ id: 'before', versionId: 'v1' }]
+    const provider = elevenLabsProvider({ voice: 'v', apiKey: () => 'k', pronunciationDictionaries: dictionaries })
+    const id = provider.id
+    const first = dictionaries[0]
+    if (first) first.id = 'after'
+    dictionaries.push({ id: 'two', versionId: 'v1' }, { id: 'three', versionId: 'v1' }, { id: 'four', versionId: 'v1' })
+    await provider.synthesize('word')
+    expect(provider.id).toBe(id)
+    expect(body.pronunciation_dictionary_locators).toEqual([{ pronunciation_dictionary_id: 'before', version_id: 'v1' }])
+  })
+
+  test('sends no pronunciation dictionary locators when none are configured', async () => {
+    const bodies: Record<string, unknown>[] = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('word')
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k', pronunciationDictionaries: [] }).synthesize('word')
+    expect(bodies).toHaveLength(2)
+    for (const body of bodies) expect(Object.keys(body).sort()).toEqual(['model_id', 'text'])
+  })
+
+  test('refuses more than three pronunciation dictionaries before requesting synthesis', () => {
+    let requests = 0
+    globalThis.fetch = (async () => {
+      requests++
+      return new Response('{}')
+    }) as unknown as typeof fetch
+    expect(() =>
+      elevenLabsProvider({
+        voice: 'v',
+        apiKey: () => 'k',
+        pronunciationDictionaries: [{ id: 'one' }, { id: 'two' }, { id: 'three' }, { id: 'four' }],
+      }),
+    ).toThrow('at most 3 pronunciation dictionaries; received 4')
+    expect(requests).toBe(0)
+  })
+
+  test('its identity includes pronunciation dictionary ids and versions in order', () => {
+    const apiKey = () => 'secret'
+    const unchanged = elevenLabsProvider({ voice: 'voice-a', model: 'model-a', apiKey }).id
+    const configured = elevenLabsProvider({
+      voice: 'voice-a',
+      model: 'model-a',
+      apiKey,
+      pronunciationDictionaries: [{ id: 'one', versionId: 'v1' }, { id: 'two' }],
+    }).id
+    expect(unchanged).toBe('elevenlabs-model-a-voice-a')
+    expect(configured).not.toBe(unchanged)
+    expect(configured).not.toBe(
+      elevenLabsProvider({
+        voice: 'voice-a',
+        model: 'model-a',
+        apiKey,
+        pronunciationDictionaries: [{ id: 'two' }, { id: 'one', versionId: 'v1' }],
+      }).id,
+    )
+    expect(configured).not.toBe(
+      elevenLabsProvider({
+        voice: 'voice-a',
+        model: 'model-a',
+        apiKey,
+        pronunciationDictionaries: [{ id: 'one', versionId: 'v2' }, { id: 'two' }],
+      }).id,
+    )
+  })
+
+  test('uses script spelling for captions while retaining provider timings', async () => {
+    globalThis.fetch = (async () => {
+      const characters = [...'Stoh-pal']
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: {
+            characters,
+            character_start_times_seconds: characters.map((_, index) => index * 0.1),
+            character_end_times_seconds: characters.map((_, index) => index * 0.1 + 0.08),
+          },
+        }),
+      )
+    }) as unknown as typeof fetch
+    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Stopal')
+    expect(speech.words).toEqual([{ text: 'Stopal', startMs: 0, endMs: 780 }])
+  })
+
+  test('leaves provider words unchanged when alignment and script word counts differ', async () => {
+    globalThis.fetch = (async () => {
+      const characters = [...'Stoh pal']
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: {
+            characters,
+            character_start_times_seconds: characters.map((_, index) => index * 0.1),
+            character_end_times_seconds: characters.map((_, index) => index * 0.1 + 0.08),
+          },
+        }),
+      )
+    }) as unknown as typeof fetch
+    const speech = await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('Stopal')
+    expect(speech.words.map((word) => word.text)).toEqual(['Stoh', 'pal'])
+  })
+
   test('a refusal names the status and the reason', async () => {
     globalThis.fetch = (async () => new Response('quota exceeded', { status: 429 })) as unknown as typeof fetch
     await expect(elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('x')).rejects.toThrow('429 quota exceeded')

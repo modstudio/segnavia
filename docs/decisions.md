@@ -191,7 +191,14 @@ never shorter than its viewport.
 
 **Synthesis is cached by content.** The cache key is provider, voice and
 text. Editing one slide re-voices that slide only, and playback is
-deterministic.
+deterministic. A provider's identity includes its model and its pronunciation
+dictionaries, so changing either re-voices every slide it touches.
+
+**Pronunciation is the engine's job, and captions show the script.** A word
+the voice says wrong is fixed in the engine's own pronunciation dictionary
+(ElevenLabs accepts up to three per request), not by respelling the script.
+Captions keep the script's spelling: when the engine's aligned word count
+matches the script, each word takes the script's text and keeps its timing.
 
 **An aligner that loses a word is refused.** One missing word would shift
 every cue after it.
