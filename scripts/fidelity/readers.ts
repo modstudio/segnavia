@@ -12,14 +12,31 @@ const PHOTOSHOP = '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app'
 const GHOSTSCRIPT = ['/opt/homebrew/bin/gs', '/usr/local/bin/gs', '/usr/bin/gs'].find(existsSync)
 
 function version(args: string[], fromStderr = false): string | undefined {
-  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  let result: ReturnType<typeof Bun.spawnSync>
+  try {
+    result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
+  } catch {
+    return undefined
+  }
   if (result.exitCode !== 0) return undefined
-  const value = (fromStderr ? result.stderr : result.stdout).toString().trim().split('\n')[0]
+  const value = (fromStderr ? result.stderr : result.stdout)?.toString().trim().split('\n')[0]
   return value || undefined
 }
 
-const POPPLER_ENGINE = version(['pdftoppm', '-v'], true)?.replace(/^pdftoppm version /, 'Poppler ') ?? 'Poppler pdftoppm'
-const GHOSTSCRIPT_ENGINE = GHOSTSCRIPT ? `Ghostscript ${version([GHOSTSCRIPT, '--version']) ?? 'unknown version'}` : 'Ghostscript'
+// Engine names are looked up when a reader first runs, so importing this module spawns nothing.
+const engines = new Map<string, string>()
+function engineName(reader: 'poppler' | 'ghostscript'): string {
+  const known = engines.get(reader)
+  if (known) return known
+  const name =
+    reader === 'poppler'
+      ? (version(['pdftoppm', '-v'], true)?.replace(/^pdftoppm version /, 'Poppler ') ?? 'Poppler pdftoppm')
+      : GHOSTSCRIPT
+        ? `Ghostscript ${version([GHOSTSCRIPT, '--version']) ?? 'unknown version'}`
+        : 'Ghostscript'
+  engines.set(reader, name)
+  return name
+}
 let adobeFailure: string | undefined
 
 function ran(args: string[]): { ok: boolean; error?: string } {
@@ -103,8 +120,8 @@ export async function poppler(pdf: string, output: string, width: number, height
   const base = output.replace(/\.png$/, '')
   const result = ran(['pdftoppm', '-png', '-singlefile', '-cropbox', '-scale-to-x', String(width), '-scale-to-y', String(height), pdf, base])
   return result.ok
-    ? { reader: 'poppler', engine: POPPLER_ENGINE, worked: true, image: output }
-    : { reader: 'poppler', engine: POPPLER_ENGINE, worked: false, error: result.error }
+    ? { reader: 'poppler', engine: engineName('poppler'), worked: true, image: output }
+    : { reader: 'poppler', engine: engineName('poppler'), worked: false, error: result.error }
 }
 
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
@@ -216,7 +233,7 @@ document.close(SaveOptions.DONOTSAVECHANGES);`
 
 export async function ghostscript(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   if (!GHOSTSCRIPT) {
-    return { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: false, error: 'gs was not found in a standard Homebrew or system location.' }
+    return { reader: 'ghostscript', engine: engineName('ghostscript'), worked: false, error: 'gs was not found in a standard Homebrew or system location.' }
   }
   const result = ran([
     GHOSTSCRIPT,
@@ -234,22 +251,21 @@ export async function ghostscript(pdf: string, output: string, width: number, he
     pdf,
   ])
   return result.ok
-    ? { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: true, image: output }
-    : { reader: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, worked: false, error: result.error }
+    ? { reader: 'ghostscript', engine: engineName('ghostscript'), worked: true, image: output }
+    : { reader: 'ghostscript', engine: engineName('ghostscript'), worked: false, error: result.error }
 }
 
 export function readerPath(directory: string, reader: string): string {
   return path.join(directory, `${reader}.png`)
 }
 
-export const READERS: readonly { id: string; engine: string; render: ReaderRender }[] = [
-  { id: 'poppler', engine: POPPLER_ENGINE, render: (pdf, output, width, height) => poppler(pdf, output, width, height) },
-  { id: 'coregraphics', engine: 'CoreGraphics via sips', render: (pdf, output, width, height) => coreGraphics(pdf, output, width, height) },
+export const READERS: readonly { id: string; render: ReaderRender }[] = [
+  { id: 'poppler', render: (pdf, output, width, height) => poppler(pdf, output, width, height) },
+  { id: 'coregraphics', render: (pdf, output, width, height) => coreGraphics(pdf, output, width, height) },
   {
     id: 'chromium',
-    engine: 'Chromium PDF viewer',
     render: (pdf, output, width, height, context) => chromiumViewer(context.executablePath, pdf, output, width, height, context.markerInset),
   },
-  { id: 'adobe', engine: 'Adobe PDF engine via Photoshop 2026', render: (pdf, output, width, height) => adobePdfEngine(pdf, output, width, height) },
-  { id: 'ghostscript', engine: GHOSTSCRIPT_ENGINE, render: (pdf, output, width, height) => ghostscript(pdf, output, width, height) },
+  { id: 'adobe', render: (pdf, output, width, height) => adobePdfEngine(pdf, output, width, height) },
+  { id: 'ghostscript', render: (pdf, output, width, height) => ghostscript(pdf, output, width, height) },
 ]
