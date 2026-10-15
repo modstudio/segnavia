@@ -61,8 +61,6 @@ export class DeckController extends EventTarget {
     this.stopClock()
     this.disconnectWindow()
   }
-  // A stage suspends these global listeners while it is disconnected. A host
-  // may use the same pair when the controller temporarily has no live view.
   connectWindow() {
     if (!hasWindow || this.listening) return
     if (this.options.hash) window.addEventListener('hashchange', this.onHash)

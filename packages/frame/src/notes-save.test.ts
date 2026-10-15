@@ -44,9 +44,13 @@ describe('notes save queue', () => {
   test('flushes immediately and retains rejected text for retry', async () => {
     const time = scheduler()
     let reject = true
-    const queue = new NotesSaveQueue(async () => {
-      if (reject) throw new Error('Offline')
-    }, () => {}, time)
+    const queue = new NotesSaveQueue(
+      async () => {
+        if (reject) throw new Error('Offline')
+      },
+      () => {},
+      time,
+    )
     queue.seed('a', 'old')
     queue.edit('a', 'new')
     await queue.flush('a')

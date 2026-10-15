@@ -1,6 +1,18 @@
 import type { TextDirection } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically, railMoveTarget } from './authoring-move.ts'
+import { setNavigationGuard } from './navigation-guard.ts'
+import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
+import type { SegnaviaStage } from './stage.ts'
+
+const NOTES_CSS = `<style data-segnavia-authoring>
+[data-authoring-notes]{display:grid;gap:6px;padding:12px;border-block-start:1px solid var(--_line);background:var(--_surface)}
+[data-authoring-notes] label{font:600 13px/1.4 system-ui;color:var(--_ink)}
+[data-authoring-notes] textarea{box-sizing:border-box;inline-size:100%;min-block-size:96px;resize:block;padding:9px 10px;border:1px solid var(--_line);border-radius:8px;background:var(--_bg);color:var(--_ink);font:inherit}
+[data-authoring-notes] textarea:focus{outline:2px solid var(--_accent);outline-offset:1px}
+[data-authoring-status]{min-block-size:1.4em;color:var(--_muted);font:12px/1.4 system-ui}
+[data-authoring-status] button{all:unset;color:var(--_accent);cursor:pointer;text-decoration:underline}
+</style>`
 
 export interface SaveNotesInput {
   slideId: string
@@ -47,6 +59,9 @@ export class AuthoringController extends EventTarget {
   private stopped = false
   private dragFrom: number | null = null
   private rail: RailElement | null = null
+  private notes: NotesSaveQueue | null = null
+  private notesRoot: HTMLElement | null = null
+  private notesSlideId: string | null = null
 
   constructor(
     private player: SegnaviaPlayer,
@@ -55,17 +70,104 @@ export class AuthoringController extends EventTarget {
   ) {
     super()
     if (handlers.moveSlide) this.attachReorder()
+    if (handlers.saveNotes) this.attachNotes(handlers.saveNotes)
   }
 
   get dirty(): boolean {
-    return false
+    return this.notes?.dirty ?? false
   }
 
   detach() {
     if (this.stopped) return
     this.stopped = true
     this.player.controller.removeEventListener('change', this.configureReorder)
+    this.player.controller.removeEventListener('change', this.renderNotes)
+    this.player.removeEventListener('segnavia-labels', this.renderNotes)
+    setNavigationGuard(this.player.controller, null)
+    this.notes?.dispose()
+    this.notesRoot?.remove()
+    this.player.shadowRoot?.querySelector('style[data-segnavia-authoring]')?.remove()
+    this.refuseStageScripts(false)
     this.removeRailListeners()
+  }
+
+  private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {
+    const root = this.player.shadowRoot
+    const below = root?.querySelector('.below')
+    if (!root || !below) return
+    root.prepend(document.createRange().createContextualFragment(NOTES_CSS))
+    const notes = document.createElement('div')
+    notes.dataset.authoringNotes = ''
+    notes.innerHTML = '<label><span></span><textarea part="notes-editor" dir="auto"></textarea></label><div data-authoring-status aria-live="polite"></div>'
+    below.prepend(notes)
+    this.notesRoot = notes
+    const field = notes.querySelector('textarea') as HTMLTextAreaElement
+    field.maxLength = this.options.notesMaxLength
+    field.addEventListener('input', this.editNotes)
+    field.addEventListener('focus', () => this.refuseStageScripts(true))
+    field.addEventListener('blur', () => this.refuseStageScripts(false))
+    notes.querySelector('[data-authoring-status]')?.addEventListener('click', this.retryNotes)
+    this.notes = new NotesSaveQueue(
+      save,
+      (dirty) => this.dispatchEvent(new CustomEvent<DirtyChangeDetail>('dirty-change', { detail: { dirty } })),
+      undefined,
+      (slideId) => {
+        if (slideId === this.notesSlideId) this.renderNotesStatus()
+      },
+      (slideId, error) => {
+        const detail: AuthoringErrorDetail = { operation: 'notes', slideId, message: errorMessage(error), error }
+        this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
+      },
+    )
+    this.player.controller.addEventListener('change', this.renderNotes)
+    this.player.addEventListener('segnavia-labels', this.renderNotes)
+    setNavigationGuard(this.player.controller, async () => {
+      const slideId = this.player.controller.state.slide?.id
+      if (slideId) await this.notes?.flush(slideId)
+    })
+    this.renderNotes()
+  }
+
+  private renderNotes = () => {
+    const slide = this.player.controller.state.slide
+    const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
+    const label = this.notesRoot?.querySelector('label span')
+    if (!slide || !field || !this.notes) return
+    this.notes.seed(slide.id, slide.notes ?? '')
+    if (this.notesSlideId !== slide.id) {
+      this.notesSlideId = slide.id
+      field.value = this.notes.state(slide.id).text
+    }
+    if (label) label.textContent = this.player.labels.editNotes
+    this.renderNotesStatus()
+  }
+
+  private renderNotesStatus() {
+    if (!this.notesSlideId || !this.notes || !this.notesRoot) return
+    const state = this.notes.state(this.notesSlideId)
+    const status = this.notesRoot.querySelector('[data-authoring-status]') as HTMLElement
+    if (state.status === 'saving') status.textContent = this.player.labels.savingNotes
+    else if (state.status === 'saved') status.textContent = this.player.labels.savedNotes
+    else if (state.status === 'error') {
+      status.replaceChildren()
+      const retry = document.createElement('button')
+      retry.type = 'button'
+      retry.textContent = this.player.labels.tryNotesAgain
+      status.append(retry, document.createTextNode(state.message ? `: ${state.message}` : ''))
+    } else status.textContent = ''
+  }
+
+  private editNotes = (event: Event) => {
+    if (this.notesSlideId) this.notes?.edit(this.notesSlideId, (event.currentTarget as HTMLTextAreaElement).value)
+  }
+
+  private retryNotes = (event: Event) => {
+    if ((event.target as Element).closest('button') && this.notesSlideId) void this.notes?.retry(this.notesSlideId)
+  }
+
+  private refuseStageScripts(refused: boolean) {
+    const stage = this.player.shadowRoot?.querySelector('segnavia-stage') as SegnaviaStage | null
+    stage?.setAuthoringScriptsRefused(refused)
   }
 
   private attachReorder() {
