@@ -250,11 +250,11 @@ export class FramePool {
       if (animationTimeout) clearTimeout(animationTimeout)
       if (animationFrame) cancelAnimationFrame(animationFrame)
     }
-    if (reused) painted()
+    if (entry.loaded) painted()
     else stopWaiting = entry.waitForLoad(painted)
     // Measured complete turns in local Chromium stay below 100 ms; 250 ms leaves
     // more than twice that headroom without letting a broken frame stall a turn.
-    if (!reused) timeout = window.setTimeout(transition ? animate : finish, TURN_SWAP_TIMEOUT_MS)
+    if (!entry.loaded) timeout = window.setTimeout(transition ? animate : finish, TURN_SWAP_TIMEOUT_MS)
     this.pending = {
       id,
       visibleId,
