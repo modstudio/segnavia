@@ -88,7 +88,8 @@ export class DeckController extends EventTarget {
     this.shots.clear()
     const direction = resolveDirection(deck.dir, deck.lang, deck.title)
     const playback = this.options.playback ?? deck.playback ?? 'step'
-    const captionsVisible = deck.captions === 'on' ? true : deck.captions === 'off' ? false : this.settings.captionsVisible
+    const captions = this.options.captions ?? deck.captions ?? 'viewer'
+    const captionsVisible = captions === 'on' ? true : captions === 'off' ? false : this.settings.captionsVisible
     const index = wasOpen
       ? indexAfterReload(
           oldIds,
@@ -211,7 +212,7 @@ export class DeckController extends EventTarget {
   }
 
   setCaptionsVisible(visible: boolean) {
-    if ((this.current.deck?.captions ?? 'viewer') !== 'viewer') return
+    if ((this.options.captions ?? this.current.deck?.captions ?? 'viewer') !== 'viewer') return
     this.settings.captionsVisible = visible
     this.current = { ...this.current, captionsVisible: visible }
     this.persistSettings()

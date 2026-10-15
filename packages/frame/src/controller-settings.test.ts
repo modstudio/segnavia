@@ -28,6 +28,19 @@ describe('viewer settings', () => {
     expect(controller.state.captionsVisible).toBe(false)
   })
 
+  test('the controller captions option overrides the deck policy', async () => {
+    const forced = new DeckController({ hash: null, persist: false, captions: 'viewer' })
+    await forced.load(deck('off'))
+    expect(forced.state.captionsVisible).toBe(true)
+    forced.setCaptionsVisible(false)
+    expect(forced.state.captionsVisible).toBe(false)
+
+    const locked = new DeckController({ hash: null, persist: false, captions: 'on' })
+    await locked.load(deck('viewer'))
+    locked.setCaptionsVisible(false)
+    expect(locked.state.captionsVisible).toBe(true)
+  })
+
   test('mute and viewer captions persist together', async () => {
     let stored: string | null = null
     Object.defineProperty(globalThis, 'localStorage', {

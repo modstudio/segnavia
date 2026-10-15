@@ -30,6 +30,7 @@ export interface ControllerOptions {
   hash?: string | null
   clock?: (slide: Slide, audio: string | null) => Clock
   playback?: 'step' | 'continuous'
+  captions?: 'on' | 'off' | 'viewer'
   persist?: boolean
   schedule?: (tick: () => void) => () => void
 }
