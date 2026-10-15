@@ -50,6 +50,11 @@ function playerOptions(player: HTMLElement): Pick<ControllerOptions, 'playback' 
   }
 }
 
+function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
+  const presentation = player.getAttribute('presentation')
+  return presentation === 'native' || presentation === 'off' ? presentation : 'window'
+}
+
 export class SegnaviaPlayer extends HTMLElement {
   static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
@@ -143,8 +148,7 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private async configurePresentation() {
-    const mode = this.getAttribute('presentation')
-    const presentation = mode === 'native' || mode === 'off' ? mode : 'window'
+    const presentation = playerPresentation(this)
     const control = this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen
     if (presentation !== 'window' && this.controller.state.presenting) this.controller.stopPresenting()
     if (presentation !== 'native' && document.fullscreenElement === this) await document.exitFullscreen()
@@ -153,7 +157,7 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private togglePresentation() {
-    if (this.getAttribute('presentation') === 'off') return
+    if (playerPresentation(this) === 'off') return
     ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).toggle()
   }
 
@@ -186,7 +190,7 @@ export class SegnaviaPlayer extends HTMLElement {
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
     if (event.key.toLowerCase() === 'f' && !isEditableLetterShortcut(event.key, event.composedPath()[0])) {
-      if (this.getAttribute('presentation') === 'off') return
+      if (playerPresentation(this) === 'off') return
       if (this.controller.key(event.key) === 'present') {
         event.preventDefault()
         this.togglePresentation()
