@@ -52,6 +52,8 @@ export class SegnaviaCaption extends SegnaviaControl {
     }
     line.querySelectorAll('span').forEach((span, index) => {
       span.className = state.word === null || index > state.word ? '' : index === state.word ? 'active' : 'spoken'
+      const wordState = index === state.word ? ' word-current' : state.word !== null && index < state.word ? ' word-spoken' : ''
+      span.setAttribute('part', `word${wordState}`)
     })
   }
 }
