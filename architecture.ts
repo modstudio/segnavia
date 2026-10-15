@@ -23,14 +23,14 @@ export interface PackageRule {
 
 export const PACKAGES: Record<string, PackageRule> = {
   format: { runtime: 'universal', imports: ['zod'] },
-  html: { runtime: 'universal', imports: ['htmlparser2', 'domhandler', 'dom-serializer'] },
+  html: { runtime: 'universal', imports: ['@segnavia/format', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
     serverSafe: ['src/svg.ts', 'src/timeline.ts', 'src/bridge.ts', 'src/print-document.ts', 'src/styled-elements.ts', 'src/icons.ts'],
   },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
-  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', 'playwright-core', 'pdf-lib'] },
+  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }
 

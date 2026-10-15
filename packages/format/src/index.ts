@@ -11,7 +11,7 @@ import { Scripts } from './scripts.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
-export { Book, type BookInput, BookMode, BookPage, BookSection, Chapter, noteMarkerIssues } from './book.ts'
+export { Book, BookContents, BookFrontMatterEntry, type BookInput, BookMode, BookPage, BookSection, Chapter, isBookContents, noteMarkerIssues } from './book.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export {
   fitPage,

@@ -24,8 +24,9 @@ something else.
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set), with optional `playback` (`step` or `continuous`) and caption policy (`on`, `off` or `viewer`). |
 | **Book** | A long document made of optional front matter and one or more chapters, in continuous or paginated mode. |
 | **Chapter** | A titled part of a book, with HTML and an optional replacement title for its running head. |
-| **Front matter** | The optional parts before a book's chapters. Each part can have a title and can opt out of the table of contents. |
-| **Book page** | The trim, orientation and mirrored margins used by a paginated book. |
+| **Front matter** | The optional entries before a book's chapters. Each is either an authored section with optional title and contents opt-out, or the generated contents entry. |
+| **Contents entry** | A front-matter entry that places the generated table of contents at that position; it may have a title but has no authored HTML. |
+| **Book page** | The trim, orientation and mirrored margins used by a paginated book. With `rectoOpenings`, each chapter and body page 1 opens on an odd-page recto: right-hand in a left-to-right book and left-hand in a right-to-left book. |
 | **Number system** | The Arabic, lower- or upper-case Roman, or Hebrew system used for book page numbers and note markers. |
 | **Note marker** | The number system or symbol sequence that identifies a footnote or endnote. |
 | **Untimed slide** | A slide with neither narration nor `holdMs`. Playback stops there until Play advances. |
