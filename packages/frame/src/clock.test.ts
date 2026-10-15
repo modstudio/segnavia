@@ -69,6 +69,28 @@ describe('slide clock', () => {
     expect(clock.ended()).toBe(true)
   })
 
+  test('seeking recorded audio while paused stays silent until resume', () => {
+    let plays = 0
+    class FakeAudio extends EventTarget {
+      currentTime = 0
+      muted = false
+      pause() {}
+      play() {
+        plays++
+        this.dispatchEvent(new Event('playing'))
+        return Promise.resolve()
+      }
+    }
+    Object.defineProperty(globalThis, 'Audio', { configurable: true, value: FakeAudio })
+    const narration = { text: 'hello', words: [], durationMs: 500, audio: 'a.mp3', live: false, cues: [] }
+    const clock = timedClock(slide({ narration, beforeMs: 100 }), 'a.mp3')
+    clock.pause()
+    clock.seek(250)
+    expect(plays).toBe(0)
+    clock.resume()
+    expect(plays).toBe(1)
+  })
+
   test('live speech seek returns to the start and mute cancels speech without ending timing', () => {
     let now = 0
     let cancellations = 0

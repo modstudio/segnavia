@@ -70,7 +70,9 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
   let running = true
   let audioPlaying = false
   let audioEnded = false
-  const playAudio = () => void audio.play().catch(() => {})
+  const playAudio = () => {
+    if (running) void audio.play().catch(() => {})
+  }
   audio.addEventListener('playing', () => {
     audioPlaying = true
   })
@@ -90,6 +92,7 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
       return position
     }
     if (!audioEnded && position < narrationEnd) {
+      if (!audioPlaying) playAudio()
       const fallback = position + performance.now() - anchor
       const narrationPosition = audioPlaying ? beforeMs + audio.currentTime * 1000 : fallback
       if (narrationPosition < narrationEnd) return narrationPosition
@@ -101,7 +104,7 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
   }
   const syncAudio = () => {
     audio.currentTime = Math.max(0, Math.min(narration.durationMs, position - beforeMs)) / 1000
-    if (position < beforeMs || position >= narrationEnd) {
+    if (!running || position < beforeMs || position >= narrationEnd) {
       audio.pause()
       audioPlaying = false
       return
@@ -142,7 +145,6 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
       audio.pause()
     },
   }
-  if (beforeMs === 0) playAudio()
   return clock
 }
 
