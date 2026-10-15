@@ -19,6 +19,21 @@ function screenshotPixel(png: Uint8Array): [number, number, number] {
   return [row[1] ?? 0, row[2] ?? 0, row[3] ?? 0]
 }
 
+async function waitForScreenshotPixel(
+  screenshot: () => Promise<Uint8Array>,
+  expected: readonly [number, number, number],
+  timeoutMs = 5000,
+): Promise<[number, number, number]> {
+  const deadline = performance.now() + timeoutMs
+  let pixel: [number, number, number] = [0, 0, 0]
+  do {
+    pixel = screenshotPixel(await screenshot())
+    if (pixel.every((channel, index) => channel === expected[index])) return pixel
+    await new Promise((resolve) => setTimeout(resolve, 16))
+  } while (performance.now() < deadline)
+  return pixel
+}
+
 export async function verifyPapers(h: Harness) {
   const { page, check } = h
   const imposition = Imposition.parse(labelsImposition)
@@ -137,8 +152,9 @@ export async function verifyPapers(h: Harness) {
   const firstFrame = page.locator('#first iframe').first()
   const frameBox = await firstFrame.boundingBox()
   if (!frameBox) throw new Error('The first label frame has no box.')
-  const pixel = screenshotPixel(
-    await page.screenshot({ clip: { x: frameBox.x + frameBox.width / 2, y: frameBox.y + frameBox.height / 2, width: 1, height: 1 } }),
+  const pixel = await waitForScreenshotPixel(
+    () => page.screenshot({ clip: { x: frameBox.x + frameBox.width / 2, y: frameBox.y + frameBox.height / 2, width: 1, height: 1 } }),
+    [254, 243, 199],
   )
   check('a screenshot sample inside the first label shows its background shade', pixel[0] === 254 && pixel[1] === 243 && pixel[2] === 199, pixel.join(','))
 
