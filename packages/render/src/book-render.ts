@@ -1,6 +1,7 @@
 import { type Book, type BookInput, PX_PER_MM, sheetMm } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import type { Page as Tab } from 'playwright-core'
+import { marginCss } from './book-margins.ts'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
@@ -25,7 +26,7 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
     print: (html: string, book: Book, renderOptions: RenderOptions, marginLayer = false) => {
       if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
       const size = sheetMm(book.page)
-      const css = `${bookPageCss(book, marginLayer)}${dependencies.fontFaces(renderOptions)}${renderOptions.css ?? ''}`
+      const css = `${bookPageCss(book, marginLayer)}${marginLayer ? marginCss(book) : ''}${dependencies.fontFaces(renderOptions)}${renderOptions.css ?? ''}`
       return dependencies.render(
         {
           viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },

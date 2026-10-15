@@ -12,11 +12,11 @@ function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
 }
 
-export function marginDocument(book: Book, pages: MarginPage[]): string {
+export function marginCss(book: Book): string {
   if (!book.page) return ''
   const size = sheetMm(book.page)
   const edge = book.page.margin
-  const css =
+  return (
     `@page{size:${size.width}mm ${size.height}mm;margin:0}` +
     `:where(html,body){margin:0}` +
     `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
@@ -25,6 +25,10 @@ export function marginDocument(book: Book, pages: MarginPage[]): string {
     `:where(.segnavia-folio){inset-block-end:0;block-size:${edge.bottom}mm}` +
     `:where([data-side="left"] .segnavia-running-head,[data-side="left"] .segnavia-folio){inset-inline-start:${edge.outer}mm;inset-inline-end:${edge.inner}mm;justify-content:flex-start}` +
     `:where([data-side="right"] .segnavia-running-head,[data-side="right"] .segnavia-folio){inset-inline-start:${edge.inner}mm;inset-inline-end:${edge.outer}mm;justify-content:flex-end}`
+  )
+}
+
+export function marginDocument(book: Book, pages: MarginPage[]): string {
   const html = pages
     .map((page) => {
       const head =
@@ -38,5 +42,5 @@ export function marginDocument(book: Book, pages: MarginPage[]): string {
       return `<div class="segnavia-margin-page" data-side="${page.side}">${head}${folio}</div>`
     })
     .join('')
-  return `<style>${css}</style>${html}`
+  return html
 }
