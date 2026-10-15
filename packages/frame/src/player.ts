@@ -16,7 +16,7 @@ import { DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { ICONS } from './controls-style.ts'
 import { isEditableLetterShortcut } from './keys.ts'
-import { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
+import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { handlePlayerKey } from './player-key.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -72,10 +72,10 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   // Labels are the host's to translate; every component takes them.
-  set labels(labels: PlayerLabels) {
-    this.words = labels
-    this.stage.frameTitle = labels.frameTitle ?? ENGLISH_LABELS.frameTitle
-    for (const control of this.controls()) control.labels = labels
+  set labels(labels: Partial<PlayerLabels>) {
+    this.words = playerLabels(labels)
+    this.stage.frameTitle = this.words.frameTitle
+    for (const control of this.controls()) control.labels = this.words
     if (this.controller.state.deck) this.update(this.controller.state)
   }
 

@@ -50,3 +50,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   exitPresentation: 'Exit presentation',
   player: 'Slide player',
 }
+
+export function playerLabels(labels: Partial<PlayerLabels>): PlayerLabels {
+  return { ...ENGLISH_LABELS, ...labels }
+}

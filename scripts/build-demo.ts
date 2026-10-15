@@ -252,6 +252,8 @@ writeFileSync(
         slide: (n, total) => 'שקופית ' + n + ' מתוך ' + total, notes: 'הערות', showNotes: 'הצגת הערות',
         frameTitle: (title, n) => title + ' — שקופית ' + n,
         hideNotes: 'הסתרת הערות', enterFullscreen: 'מסך מלא', exitFullscreen: 'יציאה ממסך מלא', player: 'נגן שקופיות',
+        mute: 'השתקה', unmute: 'ביטול השתקה', showCaptions: 'הצגת כתוביות', hideCaptions: 'הסתרת כתוביות',
+        seek: 'חיפוש', time: (elapsed, total) => elapsed + ' / ' + total, enterPresentation: 'מצגת', exitPresentation: 'יציאה ממצגת',
       }
     </script>`),
 )
