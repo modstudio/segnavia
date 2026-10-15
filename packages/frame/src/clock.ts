@@ -16,10 +16,6 @@ export interface Clock {
   stop(): void
 }
 
-function asSlide(value: Slide | Narration): Slide {
-  return 'id' in value ? value : { id: '', content: { kind: 'html', html: '' }, narration: value }
-}
-
 function wallClock(slide: Slide): Clock {
   const duration = slideDurationMs(slide) ?? 0
   let position = 0
@@ -58,8 +54,7 @@ function wallClock(slide: Slide): Clock {
   }
 }
 
-export function timedClock(value: Slide | Narration, audioSrc: string | null): Clock {
-  const slide = asSlide(value)
+export function timedClock(slide: Slide, audioSrc: string | null): Clock {
   if (!audioSrc || !slide.narration) return wallClock(slide)
   const narration = slide.narration
   const audio = new Audio(audioSrc)
@@ -150,8 +145,7 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
 
 // Browser speech cannot seek or change volume mid-utterance. Muting cancels
 // it and leaves the declared slide timing to pace the remainder.
-export function speechClock(value: Slide | Narration, voiceName?: string): Clock {
-  const slide = asSlide(value)
+export function speechClock(slide: Slide, voiceName?: string): Clock {
   const narration = slide.narration as Narration
   const synth = window.speechSynthesis
   const offsets = wordOffsets(narration.text)
