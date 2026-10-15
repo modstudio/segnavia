@@ -10,12 +10,12 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import type { EffectsReport } from './effects/types.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import type { PressReport } from './press/types.ts'
-import { SINGLE_PAGE_PRINT_CSS } from './print-css.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -261,12 +261,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       release()
     }
   }
-
   function pageDocument(page: Page, options: RenderOptions, printing = false): string {
-    const css = `${printing && !page.print ? SINGLE_PAGE_PRINT_CSS : ''}${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
+    const hostCss = `${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
+    const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
+    const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
-
   function pageViewport(page: Page, width?: number, printing = false) {
     if (page.print) {
       return printViewport(page.print, printing)
@@ -305,7 +305,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       nonce: newNonce(),
       dir: page.dir,
       lang: page.lang,
-      css: `${SINGLE_PAGE_PRINT_CSS}${css}`,
+      css: containFixedPageOverflow(css),
       relayKeys: false,
       reportHeight: false,
     })
