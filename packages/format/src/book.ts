@@ -14,6 +14,15 @@ export const BookSection = z.object({
 })
 export type BookSection = z.infer<typeof BookSection>
 
+export const BookContents = z.object({
+  kind: z.literal('contents'),
+  title: z.string().optional(),
+})
+export type BookContents = z.infer<typeof BookContents>
+
+export const BookFrontMatterEntry = z.union([BookSection, BookContents])
+export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
+
 export const Chapter = z.object({
   title: z.string(),
   html: z.string(),
@@ -40,7 +49,7 @@ export const BookShape = z.object({
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
-  frontMatter: z.array(BookSection).default([]),
+  frontMatter: z.array(BookFrontMatterEntry).default([]),
   chapters: z.array(Chapter).min(1),
   numbering: z
     .object({
@@ -58,10 +67,11 @@ export const BookShape = z.object({
     .object({
       marker: NoteMarker.optional(),
       placement: z.enum(['book', 'chapter']).default('book'),
+      title: z.string().optional(),
     })
     .default({ placement: 'book' }),
   rightHandOpenings: z.boolean().default(false),
-  contents: z.object({ pageNumbers: z.boolean().default(true) }).default({ pageNumbers: true }),
+  contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
 function isHebrew(lang: string | undefined): boolean {
@@ -78,11 +88,19 @@ const ResolvedBook = BookShape.transform((book) => {
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
     },
     footnotes: { ...book.footnotes, marker: book.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols') },
-    endnotes: { ...book.endnotes, marker: book.endnotes.marker ?? 'arabic' },
+    endnotes: { ...book.endnotes, marker: book.endnotes.marker ?? 'arabic', title: book.endnotes.title ?? (hebrew ? 'הערות' : 'Notes') },
   }
 })
 
 export const Book = ResolvedBook.superRefine((book, ctx) => {
+  const contentsPositions = book.frontMatter.flatMap((entry, index) => ('kind' in entry && entry.kind === 'contents' ? [index + 1] : []))
+  if (contentsPositions.length > 1) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['frontMatter'],
+      message: `front-matter entries at positions ${contentsPositions[0]} and ${contentsPositions[1]} are both contents entries; one must go`,
+    })
+  }
   if (book.mode === 'paginated' && !book.page) {
     ctx.addIssue({ code: 'custom', path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   }

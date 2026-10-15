@@ -25,6 +25,7 @@ something else.
 | **Book** | A long document made of optional front matter and one or more chapters, in continuous or paginated mode. |
 | **Chapter** | A titled part of a book, with HTML and an optional replacement title for its running head. |
 | **Front matter** | The optional parts before a book's chapters. Each part can have a title and can opt out of the table of contents. |
+| **Contents entry** | A front-matter entry that places the generated table of contents at that position; it may have a title but has no authored HTML. |
 | **Book page** | The trim, orientation and mirrored margins used by a paginated book. |
 | **Number system** | The Arabic, lower- or upper-case Roman, or Hebrew system used for book page numbers and note markers. |
 | **Note marker** | The number system or symbol sequence that identifies a footnote or endnote. |

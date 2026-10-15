@@ -23,7 +23,7 @@ export interface PackageRule {
 
 export const PACKAGES: Record<string, PackageRule> = {
   format: { runtime: 'universal', imports: ['zod'] },
-  html: { runtime: 'universal', imports: ['htmlparser2', 'domhandler', 'dom-serializer'] },
+  html: { runtime: 'universal', imports: ['@segnavia/format', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
