@@ -123,6 +123,23 @@ describe('ElevenLabs provider', () => {
     ])
   })
 
+  test('sends no pronunciation dictionary locators when none are configured', async () => {
+    const bodies: Record<string, unknown>[] = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('word')
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k', pronunciationDictionaries: [] }).synthesize('word')
+    expect(bodies).toHaveLength(2)
+    for (const body of bodies) expect(Object.keys(body).sort()).toEqual(['model_id', 'text'])
+  })
+
   test('refuses more than three pronunciation dictionaries before requesting synthesis', () => {
     let requests = 0
     globalThis.fetch = (async () => {
