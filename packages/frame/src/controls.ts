@@ -20,7 +20,7 @@ import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, TOKENS_CSS } from './controls-style.ts'
 import { ICONS } from './icons.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
-import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackMsAt } from './track-mapping.ts'
+import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
 
 const iconSlot = (name: string, fallback: string) => `<slot name="${name}">${fallback}</slot>`
 
@@ -303,7 +303,10 @@ export class SegnaviaTrack extends SegnaviaControl {
     const list = event.currentTarget as HTMLElement
     const rect = list.getBoundingClientRect()
     const timeline = deckTimeline(this.controller.state.deck as NonNullable<DeckState['deck']>)
-    void this.controller.seek(trackMsAt(event.clientX - rect.left, rect.width, timeline, this.controller.state.direction)).catch(() => {})
+    const target = trackTargetAt(event.clientX - rect.left, rect.width, timeline, this.controller.state.direction)
+    const action =
+      target.localMs === null ? this.controller.go(target.index) : this.controller.seek((timeline.slides[target.index]?.startMs ?? 0) + target.localMs)
+    void action.catch(() => {})
   }
 
   private onKey = (event: KeyboardEvent) => {
