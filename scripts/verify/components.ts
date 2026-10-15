@@ -19,7 +19,7 @@ export async function verifyComponents(h: Harness) {
     'a standalone presentation control defaults to window mode',
     await page.locator('segnavia-stage').evaluate((stage) => stage.hasAttribute('data-presenting')),
   )
-  await presentation.locator('button').click()
+  await page.locator('segnavia-stage').evaluate((stage: HTMLElement & { controller: { stopPresenting(): void } }) => stage.controller.stopPresenting())
   await presentation.evaluate((control) => control.setAttribute('mode', 'native'))
 
   await page.locator('segnavia-step[to="next"] button').click()
