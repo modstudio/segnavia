@@ -9,6 +9,7 @@ export const PLAYER_CSS = `${TOKENS_CSS}
   font-size:15px;line-height:1.45}
 :host(:not([theme])){color-scheme:light dark}
 :host(:fullscreen){border-radius:0}
+/* Keep this specific overlay: BASE_CSS's zero-specificity rule loses to the player's relative positioning. */
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
 .player{display:flex;flex-direction:column;height:100%;min-height:inherit}
@@ -24,7 +25,7 @@ segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
 segnavia-track{inline-size:100%}
-.control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--segnavia-play-size,48px)}
+.control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--_play-size)}
 .start,.centre,.end{display:flex;align-items:center;gap:4px}.centre{grid-column:2}.end{justify-self:end;min-inline-size:0}.start{justify-self:start}
 .time-separator{color:var(--_muted)}
 .time-separator[hidden]{display:none}

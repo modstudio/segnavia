@@ -7,6 +7,7 @@
 //   --segnavia-bg  --segnavia-surface  --segnavia-ink  --segnavia-muted
 //   --segnavia-line  --segnavia-accent  --segnavia-accent-ink
 //   --segnavia-radius  --segnavia-font  --segnavia-caption-size
+//   --segnavia-control-size  --segnavia-play-size
 //
 // Logical properties throughout, so every component mirrors in right to left.
 
