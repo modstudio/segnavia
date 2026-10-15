@@ -261,6 +261,7 @@ Rule 4 is the unbuilt fallback for a nested composite whose layers do not share
 one axis: rasterize only the effect region from Chromium while retaining later
 content as vector. When built it is an opt-in export option that is off by
 default; the suite currently has no document that needs it.
+This opt-in default is Shmuel's 2026-10-15 ruling.
 
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The

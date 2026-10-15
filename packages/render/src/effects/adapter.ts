@@ -14,6 +14,7 @@ import {
   resolvedColorSpace,
 } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
+import { replaceRanges, streamDictionary } from './content-replacement.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
 import { type EffectsReport, GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
@@ -24,15 +25,18 @@ interface Rule1Plan {
   image: PDFRawStream
   mask: PDFDict
 }
+interface Rule1Candidate {
+  facts: SoftMaskFacts
+  plan?: Rule1Plan
+}
 interface EffectsState {
   applied: WeakSet<PDFDict>
   appliedRuleC: number
   budget: ContentBudget
   document: PDFDocument
   masks: Set<PDFDict>
-  plans: WeakMap<PDFDict, Rule1Plan>
-  ruleCChecked: WeakSet<PDFRawStream>
-  ruleCPlans: WeakMap<PDFRawStream, RuleCPlan>
+  rule1Candidates: WeakMap<PDFDict, Rule1Candidate>
+  ruleCCandidates: WeakMap<PDFRawStream, ReturnType<typeof ruleCPlan>>
   ruleCMasks: WeakSet<PDFDict>
 }
 
@@ -92,7 +96,7 @@ function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict
   const contents = groupContents(state.document, source, resources, state.budget)
   const image = contents.image
   const nested = hasNestedMask(state.document, resources)
-  const decision = softMaskAction({
+  const facts: SoftMaskFacts = {
     backdrop: blackBackdrop(mask) ? 'black' : 'other',
     colorSpace: group && resolvedColorSpace(state.document, resolved(state.document, group.get(key('CS')))).kind === 'gray' ? 'gray' : 'other',
     contents: contents.kind,
@@ -101,12 +105,10 @@ function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict
     oneAxis: 'unknown',
     subtype: nameOf(mask.get(key('S'))) === 'Luminosity' ? 'luminosity' : 'other',
     transfer: !mask.has(key('TR')) || nameOf(resolved(state.document, mask.get(key('TR')))) === 'Identity' ? 'identity' : 'other',
-  })
-  const bbox = numbers(source.dict.lookupMaybe(key('BBox'), PDFArray))
-  if (decision === 'rule1' && image && bbox?.length === 4) {
-    const plan = { bbox, image, mask }
-    state.plans.set(graphicsState, plan)
   }
+  const bbox = numbers(source.dict.lookupMaybe(key('BBox'), PDFArray))
+  const plan = image && bbox?.length === 4 ? { bbox, image, mask } : undefined
+  state.rule1Candidates.set(graphicsState, { facts, plan })
 }
 
 function cleanRule1GraphicsState(graphicsState: PDFDict): boolean {
@@ -195,56 +197,39 @@ function xObjectName(resources: PDFDict, image: PDFRef): string {
   return name
 }
 
-function streamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
-  const dictionary: Record<string, PDFObject> = { Filter: key('Fl' + 'ateDecode') }
-  for (const [name, value] of stream.dict.entries()) {
-    const label = name.toString().slice(1)
-    if (!['Filter', 'DecodeP' + 'arms', 'Length'].includes(label)) dictionary[label] = value
-  }
-  return dictionary
+function cachedRuleCCandidate(state: EffectsState, form: PDFRawStream): ReturnType<typeof ruleCPlan> {
+  const cached = state.ruleCCandidates.get(form)
+  if (cached) return cached
+  const found = ruleCPlan(state.document, form, state.budget)
+  state.ruleCCandidates.set(form, found)
+  return found
 }
 
-function replaceRanges(bytes: Uint8Array, replacements: Array<{ end: number; start: number; text: string }>): Uint8Array {
-  const encoder = new TextEncoder()
-  let length = bytes.length
-  for (const item of replacements) length += encoder.encode(item.text).length - (item.end - item.start)
-  const output = new Uint8Array(length)
-  let inputAt = 0
-  let outputAt = 0
-  for (const item of replacements) {
-    output.set(bytes.subarray(inputAt, item.start), outputAt)
-    outputAt += item.start - inputAt
-    const inserted = encoder.encode(item.text)
-    output.set(inserted, outputAt)
-    outputAt += inserted.length
-    inputAt = item.end
-  }
-  output.set(bytes.subarray(inputAt), outputAt)
-  return output
-}
-
-function ruleCReplacement(
+function ruleCCandidate(
   state: EffectsState,
   next: ContentOperation | undefined,
   graphicsState: PDFDict | undefined,
   resources: PDFDict,
-  printMatrix: number[],
-): { end: number; text: string } | undefined {
+): { facts: SoftMaskFacts; plan?: RuleCPlan } | undefined {
   if (!graphicsState || next?.operator !== 'Do' || next.operands.length !== 1 || next.operands[0]?.kind !== 'name') return undefined
   const xObjects = resources.lookupMaybe(key('XObject'), PDFDict)
   const form = resolved(state.document, xObjects?.get(PDFName.of(next.operands[0].raw.slice(1))))
   if (!(form instanceof PDFRawStream) || nameOf(form.dict.get(key('Subtype'))) !== 'Form') return undefined
-  if (!state.ruleCChecked.has(form)) {
-    state.ruleCChecked.add(form)
-    const candidate = ruleCPlan(state.document, form, state.budget)
-    const decision = softMaskAction(ruleCFacts(state, graphicsState, candidate))
-    if (decision === 'ruleC' && candidate.plan) state.ruleCPlans.set(form, candidate.plan)
-  }
-  const plan = state.ruleCPlans.get(form)
+  const candidate = cachedRuleCCandidate(state, form)
+  return { facts: ruleCFacts(state, graphicsState, candidate), plan: candidate.plan }
+}
+
+function ruleCReplacement(
+  state: EffectsState,
+  next: ContentOperation,
+  graphicsState: PDFDict,
+  resources: PDFDict,
+  printMatrix: number[],
+  plan: RuleCPlan,
+): { end: number; text: string } | undefined {
   const opacity = graphicsState.has(key('ca')) ? finiteNumberEntry(graphicsState, 'ca') : 1
-  const built =
-    plan && opacity !== undefined && Number.isFinite(opacity) ? buildRuleCImage(state.document, plan, opacity, state.budget, printMatrix) : undefined
-  if (!plan || !built) return undefined
+  const built = opacity !== undefined ? buildRuleCImage(state.document, plan, opacity, state.budget, printMatrix) : undefined
+  if (!built) return undefined
   const name = xObjectName(resources, built.image)
   const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
   for (const mask of plan.masks) state.ruleCMasks.add(mask)
@@ -289,6 +274,42 @@ function advanceGraphics(operation: ContentOperation, current: ContentGraphics, 
   return { ...current, color: colorFrom(operation) ?? current.color }
 }
 
+function effectReplacement(
+  state: EffectsState,
+  next: ContentOperation | undefined,
+  following: ContentOperation | undefined,
+  graphicsState: PDFDict,
+  resources: PDFDict,
+  graphics: ContentGraphics,
+): { consumed: number; end: number; text: string } | undefined {
+  const ruleC = ruleCCandidate(state, next, graphicsState, resources)
+  const rule1 = state.rule1Candidates.get(graphicsState)
+  const candidate = ruleC?.facts.nested ? ruleC : rule1
+  if (!candidate) return undefined
+  const decision = softMaskAction(candidate.facts)
+  if (decision === 'ruleC' && ruleC?.plan && next) {
+    const replacement = ruleCReplacement(state, next, graphicsState, resources, graphics.matrix, ruleC.plan)
+    return replacement ? { consumed: 1, ...replacement } : undefined
+  }
+  const plan = rule1?.plan
+  if (
+    decision !== 'rule1' ||
+    !plan ||
+    !graphics.color ||
+    !next ||
+    !following ||
+    next.operator !== 're' ||
+    !['f', 'f*', 'F'].includes(following.operator) ||
+    !matchingRectangle(next, plan.bbox)
+  )
+    return undefined
+  const image = effectImage(state, plan, graphics.color)
+  const name = xObjectName(resources, image)
+  const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
+  state.applied.add(plan.mask)
+  return { consumed: 2, end: following.end, text: `q ${right - left} 0 0 ${bottom - top} ${left} ${top} cm /${name} Do Q` }
+}
+
 function rewriteContent(
   state: EffectsState,
   object: PDFObject,
@@ -311,28 +332,11 @@ function rewriteContent(
     const operand = namedOperand(operation, 'gs')
     if (!operand) continue
     const graphicsState = dictionaryOf(resolved(state.document, graphicsStates?.get(PDFName.of(operand.raw.slice(1)))))
-    const ruleC = ruleCReplacement(state, operations[index + 1], graphicsState, resources, graphics.matrix)
-    if (ruleC) {
-      replacements.push({ start: operand.start, ...ruleC })
-      index++
-      continue
-    }
-    if (!graphics.color) continue
-    const plan = graphicsState ? state.plans.get(graphicsState) : undefined
-    const rectangle = operations[index + 1]
-    const fill = operations[index + 2]
-    if (!plan || !rectangle || !fill || rectangle.operator !== 're' || !['f', 'f*', 'F'].includes(fill.operator) || !matchingRectangle(rectangle, plan.bbox))
-      continue
-    const image = effectImage(state, plan, graphics.color)
-    const name = xObjectName(resources, image)
-    const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
-    replacements.push({
-      start: operand.start,
-      end: fill.end,
-      text: `q ${right - left} 0 0 ${bottom - top} ${left} ${top} cm /${name} Do Q`,
-    })
-    state.applied.add(plan.mask)
-    index += 2
+    if (!graphicsState) continue
+    const replacement = effectReplacement(state, operations[index + 1], operations[index + 2], graphicsState, resources, graphics)
+    if (!replacement) continue
+    replacements.push({ start: operand.start, ...replacement })
+    index += replacement.consumed
   }
   if (replacements.length === 0) return
   const replacement = state.document.context.stream(deflateSync(replaceRanges(bytes, replacements)), streamDictionary(stream))
@@ -348,9 +352,8 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
     budget: { decodedBytes: 0 },
     document,
     masks: new Set(),
-    plans: new WeakMap(),
-    ruleCChecked: new WeakSet(),
-    ruleCPlans: new WeakMap(),
+    rule1Candidates: new WeakMap(),
+    ruleCCandidates: new WeakMap(),
     ruleCMasks: new WeakSet(),
   }
   walkPressGraph(document, {

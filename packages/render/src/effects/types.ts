@@ -1,7 +1,7 @@
 /**
  * Counts the implemented rewrites. Rule 2 is unbuilt, Rule 3 is left out
  * because measurements show it is ineffective, and Rule 4 is unbuilt and
- * will be opt-in and off by default when implemented.
+ * will be opt-in and off by default when implemented (Shmuel, 2026-10-15).
  */
 export interface EffectsReport {
   /** Luminosity masks rewritten from a grayscale image group to a direct image alpha mask. */
