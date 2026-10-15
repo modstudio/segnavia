@@ -1,4 +1,4 @@
-import { Deck, type DeckInput } from './index.ts'
+import { Deck, type DeckInput } from './deck.ts'
 
 type SlideInput = DeckInput['slides'][number]
 type SlideFields = Omit<SlideInput, 'content'>
