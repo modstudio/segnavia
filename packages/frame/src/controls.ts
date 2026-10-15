@@ -37,7 +37,7 @@ export class SegnaviaMute extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-mute', ICONS.volume)}${iconSlot('icon-unmute', ICONS.muted)}</button>`
+    return `<button part="button">${iconSlot('icon-mute', ICONS.mute)}${iconSlot('icon-unmute', ICONS.unmute)}</button>`
   }
   protected render(state: DeckState) {
     this.hidden = !deckHasNarration(state)
@@ -154,7 +154,7 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-enter-presentation', ICONS.enterFullscreen)}${iconSlot('icon-exit-presentation', ICONS.exitFullscreen)}</button>`
+    return `<button part="button">${iconSlot('icon-enter-presentation', ICONS.enterPresentation)}${iconSlot('icon-exit-presentation', ICONS.exitPresentation)}</button>`
   }
   protected render(_state: DeckState) {
     const windowMode = this.getAttribute('mode') !== 'native'
