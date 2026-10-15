@@ -65,8 +65,9 @@ export function timedClock(slide: Slide, audioSrc: string | null): Clock {
   let running = true
   let audioPlaying = false
   let audioEnded = false
+  let mediaEnabled = true
   const playAudio = () => {
-    if (running) void audio.play().catch(() => {})
+    if (running && mediaEnabled) void audio.play().catch(() => {})
   }
   audio.addEventListener('playing', () => {
     audioPlaying = true
@@ -112,7 +113,9 @@ export function timedClock(slide: Slide, audioSrc: string | null): Clock {
     elapsed,
     progress: () => (duration === 0 ? 1 : elapsed() / duration),
     pause: () => {
+      mediaEnabled = false
       position = elapsed()
+      mediaEnabled = true
       running = false
       audio.pause()
     },

@@ -1,6 +1,12 @@
-import { expect, test } from 'bun:test'
+import { afterEach, expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
+
+const realAudio = globalThis.Audio
+
+afterEach(() => {
+  Object.defineProperty(globalThis, 'Audio', { configurable: true, value: realAudio })
+})
 
 test('play restarts an ended deck in either playback mode', async () => {
   for (const playback of ['step', 'continuous'] as const) {
@@ -113,4 +119,33 @@ test('play restarts from an untimed last slide without ending again', async () =
   await controller.play()
   expect(controller.state.index).toBe(0)
   expect(ends).toBe(0)
+})
+
+test('seeking a paused controller into recorded narration stays silent', async () => {
+  let plays = 0
+  class FakeAudio extends EventTarget {
+    currentTime = 0
+    muted = false
+    pause() {}
+    play() {
+      plays++
+      return Promise.resolve()
+    }
+  }
+  Object.defineProperty(globalThis, 'Audio', { configurable: true, value: FakeAudio })
+  const controller = new DeckController({ hash: null, base: 'https://example.com/deck.json' })
+  await controller.load({
+    title: 'T',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: '' }, holdMs: 100 },
+      {
+        id: 'b',
+        content: { kind: 'html', html: '' },
+        narration: { text: 'hello', words: [], durationMs: 500, audio: 'a.mp3', live: false, cues: [] },
+      },
+    ],
+  })
+  await controller.seek(350)
+  expect(controller.state.playing).toBe(false)
+  expect(plays).toBe(0)
 })

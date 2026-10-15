@@ -314,8 +314,8 @@ export class DeckController extends EventTarget {
     const audio = narration?.audio ? this.url(narration.audio) : null
     this.clock = this.options.clock ? this.options.clock(slide, audio) : narration?.live ? speechClock(slide, narration.voice) : timedClock(slide, audio)
     this.clock.muted = this.current.muted
-    this.clock.seek(position)
     if (!this.current.playing) this.clock.pause()
+    this.clock.seek(position)
     this.scheduleTick()
   }
 
