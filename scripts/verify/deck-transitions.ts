@@ -4,6 +4,7 @@ interface TransitionHost {
   controller: { go(index: number): Promise<void> }
   stage: HTMLElement
   loadTransition(kind: 'none' | 'fade' | 'slide', scripts: 'refuse' | 'sandboxed', dir?: 'ltr' | 'rtl'): Promise<void>
+  loadHeldNeighbor(): Promise<void>
 }
 
 interface TransitionSample {
@@ -18,7 +19,6 @@ interface TransitionSample {
   last: number
   target: string | null
   stableWindow: boolean | null
-  loadsAfterStart: number
 }
 
 export async function verifyDeckTransitions(h: Harness) {
@@ -34,7 +34,7 @@ export async function verifyDeckTransitions(h: Harness) {
   const refusedSamples = samples.filter((sample) => sample.scripts === 'refuse')
   check(
     'deck host: refused-script fade and slide preserve the loaded neighbor document',
-    refusedSamples.every((sample) => sample.stableWindow === true && sample.loadsAfterStart === 0),
+    refusedSamples.every((sample) => sample.stableWindow === true),
     JSON.stringify(refusedSamples),
   )
 
@@ -62,7 +62,7 @@ export async function verifyDeckTransitions(h: Harness) {
   const neighbor = await neighborWindowFacts(h)
   check(
     'deck host: animated refused turns replenish and reuse the next neighbor',
-    neighbor.mounted && neighbor.sameWindow && neighbor.loadsAfterStart === 0 && neighbor.addedDuringSecondTurn === 0,
+    neighbor.mounted && neighbor.sameWindow && neighbor.addedDuringSecondTurn === 0,
     JSON.stringify(neighbor),
   )
 
@@ -71,6 +71,13 @@ export async function verifyDeckTransitions(h: Harness) {
     'deck host: interrupting a refused neighbor before motion keeps its document',
     precommit.sameWindow && precommit.target === 'transition-3',
     JSON.stringify(precommit),
+  )
+
+  const held = await heldNeighborFacts(h)
+  check(
+    'deck host: a turn waits for a loading neighbor, then animates its existing painted frame',
+    held.waited && held.animated && held.sameWindow && held.emptyFrames === 0 && held.addedFrames === 0,
+    JSON.stringify(held),
   )
 }
 
@@ -133,8 +140,6 @@ async function neighborWindowFacts(h: Harness) {
     await waitFor(() => Boolean(stage.querySelector('[data-slide-id="transition-3"] iframe')))
     const neighbor = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-3"] iframe')
     const before = neighbor?.contentWindow
-    let loadsAfterStart = 0
-    neighbor?.addEventListener('load', () => loadsAfterStart++)
     let addedDuringSecondTurn = 0
     const observer = new MutationObserver((records) => {
       addedDuringSecondTurn += records.reduce(
@@ -149,7 +154,6 @@ async function neighborWindowFacts(h: Harness) {
     return {
       mounted: Boolean(neighbor),
       sameWindow: Boolean(before) && neighbor?.contentWindow === before,
-      loadsAfterStart,
       addedDuringSecondTurn,
     }
   })
@@ -189,6 +193,83 @@ async function precommitInterruptionFacts(h: Harness) {
   })
 }
 
+async function heldNeighborFacts(h: Harness) {
+  await h.page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+    const stage = document.querySelector('#deck') as HTMLElement
+    await host.loadHeldNeighbor()
+    const frame = stage.querySelector<HTMLIFrameElement>('[data-slide-id="held"] iframe')
+    const facts = {
+      frame,
+      frameWindow: frame?.contentWindow,
+      animated: false,
+      emptyFrames: 0,
+      addedFrames: 0,
+      sampling: true,
+    }
+    ;(window as unknown as { __heldNeighborFacts: typeof facts }).__heldNeighborFacts = facts
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        facts.addedFrames += [...record.addedNodes].filter(
+          (node) => node instanceof HTMLIFrameElement || (node instanceof Element && Boolean(node.querySelector('iframe'))),
+        ).length
+        if ((record.target as HTMLElement).dataset.transition) facts.animated = true
+      }
+    })
+    observer.observe(stage, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-transition'] })
+    const sample = () => {
+      if (!facts.sampling) return observer.disconnect()
+      const stageBox = stage.getBoundingClientRect()
+      const painted = [...stage.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')].some((canvas) => {
+        const style = getComputedStyle(canvas)
+        const box = canvas.getBoundingClientRect()
+        return Number(style.opacity) > 0 && box.right > stageBox.left && box.left < stageBox.right
+      })
+      if (!painted) facts.emptyFrames++
+      requestAnimationFrame(sample)
+    }
+    requestAnimationFrame(sample)
+    void host.controller.go(1)
+  })
+  await h.page.waitForTimeout(100)
+  const waited = await h.page.evaluate(
+    () =>
+      document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'held-start' &&
+      !document.querySelector('#deck [data-slide-id="held"][data-transition]'),
+  )
+  h.releaseHeldFrames()
+  await h.page.waitForFunction(
+    () => document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'held' && !document.querySelector('#deck [data-transition]'),
+  )
+  const result = await h.page.evaluate((didWait) => {
+    const facts = (
+      window as unknown as {
+        __heldNeighborFacts: {
+          frame: HTMLIFrameElement | null
+          frameWindow: Window | null | undefined
+          animated: boolean
+          emptyFrames: number
+          addedFrames: number
+          sampling: boolean
+        }
+      }
+    ).__heldNeighborFacts
+    facts.sampling = false
+    return {
+      waited: didWait,
+      animated: facts.animated,
+      sameWindow: Boolean(facts.frameWindow) && facts.frame?.contentWindow === facts.frameWindow,
+      emptyFrames: facts.emptyFrames,
+      addedFrames: facts.addedFrames,
+    }
+  }, waited)
+  await h.page.evaluate(async () => {
+    const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+    await host.loadTransition('none', 'refuse')
+  })
+  return result
+}
+
 async function sampleTransition(
   h: Harness,
   kind: 'fade' | 'slide',
@@ -203,8 +284,6 @@ async function sampleTransition(
       const stage = document.querySelector('#deck') as HTMLElement
       const incomingFrame = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-2"] iframe')
       const incomingWindow = selectedScripts === 'refuse' ? incomingFrame?.contentWindow : null
-      let loadsAfterStart = 0
-      if (selectedScripts === 'refuse') incomingFrame?.addEventListener('load', () => loadsAfterStart++)
       const values: number[] = []
       const facts = { emptyFrames: 0, observedKind: null as string | null }
       const hasPaintedCanvas = () => {
@@ -257,7 +336,6 @@ async function sampleTransition(
         last,
         target: stage.querySelector('[data-active]')?.getAttribute('data-slide-id') ?? null,
         stableWindow: selectedScripts === 'refuse' ? Boolean(incomingWindow) && incomingFrame?.contentWindow === incomingWindow : null,
-        loadsAfterStart,
       }
     },
     { selectedKind: kind, selectedScripts: scripts },
@@ -274,7 +352,22 @@ async function prepareTransition(
   await h.page.evaluate(
     async ({ selectedKind, selectedScripts, selectedDirection, hostOverride }) => {
       const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
+      const stage = document.querySelector('#deck') as HTMLElement
+      let neighborLoad: Promise<void> | null = null
+      const observer = new MutationObserver((records) => {
+        for (const node of records.flatMap((record) => [...record.addedNodes])) {
+          if (!(node instanceof Element)) continue
+          const frame = node.matches('[data-slide-id="transition-2"]')
+            ? node.querySelector<HTMLIFrameElement>('iframe')
+            : node.querySelector<HTMLIFrameElement>('[data-slide-id="transition-2"] iframe')
+          if (frame) neighborLoad = new Promise((resolve) => frame.addEventListener('load', () => resolve(), { once: true }))
+        }
+      })
+      if (selectedScripts === 'refuse') observer.observe(stage, { childList: true, subtree: true })
       await host.loadTransition(selectedKind, selectedScripts, selectedDirection)
+      await Promise.resolve()
+      if (neighborLoad) await neighborLoad
+      observer.disconnect()
       if (hostOverride) {
         host.stage.setAttribute('transition', hostOverride.kind)
         host.stage.setAttribute('transition-duration', String(hostOverride.duration))

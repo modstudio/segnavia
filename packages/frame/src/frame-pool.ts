@@ -21,8 +21,32 @@ interface PendingTurn {
   cancel: () => void
 }
 
+class FrameEntry {
+  canvas!: HTMLElement
+  loaded = false
+  private loadWaiters = new Set<() => void>()
+
+  constructor(readonly value: ContentValue) {}
+
+  markLoaded() {
+    if (this.loaded) return
+    this.loaded = true
+    for (const waiter of this.loadWaiters) waiter()
+    this.loadWaiters.clear()
+  }
+
+  waitForLoad(waiter: () => void): () => void {
+    if (this.loaded) {
+      waiter()
+      return () => {}
+    }
+    this.loadWaiters.add(waiter)
+    return () => this.loadWaiters.delete(waiter)
+  }
+}
+
 export class FramePool {
-  private entries = new Map<string, { canvas: HTMLElement; value: ContentValue }>()
+  private entries = new Map<string, FrameEntry>()
   private turn = 0
   private deck: DeckState['deck'] = null
   private pending: PendingTurn | null = null
@@ -101,12 +125,17 @@ export class FramePool {
       hostOverride: options.transition,
       reducedMotion: options.reducedMotion,
     })
-    if (transition.kind === 'none') return deck.scripts === 'sandboxed' && this.updateSandboxed(state, controller, options)
-
     const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     const existing = this.entries.get(slide.id)
-    const ready = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
-    this.startSwap(state, controller, options, activeId, fromIndex, transition, ready)
+    const reused = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
+    const ready = reused && existing?.loaded === true
+    if (transition.kind === 'none') {
+      if (deck.scripts === 'sandboxed') return this.updateSandboxed(state, controller, options)
+      if (ready || !reused) return false
+      this.startSwap(state, controller, options, activeId, fromIndex, null, true)
+      return true
+    }
+    this.startSwap(state, controller, options, activeId, fromIndex, transition, reused)
     return true
   }
 
@@ -146,14 +175,16 @@ export class FramePool {
     activeId: string,
     fromIndex: number,
     transition: TurnTransition | null,
-    ready: boolean,
+    reused: boolean,
   ) {
     const slide = state.slide
     if (!slide || !state.content) return
     this.turn++
     const incoming = this.add(state.index, state.content, state, controller, options, false)
     if (!incoming) return
-    this.beginSwap(slide.id, activeId, incoming, controller, options, transition, ready)
+    const entry = this.entries.get(slide.id)
+    if (!entry) return
+    this.beginSwap(slide.id, activeId, entry, controller, options, transition, reused)
     this.retain(state, fromIndex, options.neighbors)
     this.sync(state, options.frameTitle)
     if (!incoming.isConnected) this.host.append(incoming)
@@ -162,19 +193,20 @@ export class FramePool {
   private beginSwap(
     id: string,
     visibleId: string,
-    incoming: HTMLElement,
+    entry: FrameEntry,
     controller: DeckController,
     options: PoolOptions,
     transition: TurnTransition | null,
-    ready: boolean,
+    reused: boolean,
   ) {
-    const media = incoming.querySelector('iframe, img')
+    const incoming = entry.canvas
     let firstFrame = 0
     let secondFrame = 0
     let timeout = 0
     let settled = false
     let animationTimeout = 0
     let animationFrame = 0
+    let stopWaiting = () => {}
     const finish = () => {
       if (settled || this.pending?.id !== id) return
       settled = true
@@ -202,23 +234,27 @@ export class FramePool {
       })
     }
     const painted = () => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = 0
+      }
       firstFrame = requestAnimationFrame(() => {
         secondFrame = requestAnimationFrame(animate)
       })
     }
     const cleanup = () => {
-      media?.removeEventListener('load', painted)
+      stopWaiting()
       if (firstFrame) cancelAnimationFrame(firstFrame)
       if (secondFrame) cancelAnimationFrame(secondFrame)
       if (timeout) clearTimeout(timeout)
       if (animationTimeout) clearTimeout(animationTimeout)
       if (animationFrame) cancelAnimationFrame(animationFrame)
     }
-    if (ready) painted()
-    else media?.addEventListener('load', painted, { once: true })
+    if (entry.loaded) painted()
+    else stopWaiting = entry.waitForLoad(painted)
     // Measured complete turns in local Chromium stay below 100 ms; 250 ms leaves
     // more than twice that headroom without letting a broken frame stall a turn.
-    if (!ready) timeout = window.setTimeout(transition ? animate : finish, TURN_SWAP_TIMEOUT_MS)
+    if (!entry.loaded) timeout = window.setTimeout(transition ? animate : finish, TURN_SWAP_TIMEOUT_MS)
     this.pending = {
       id,
       visibleId,
@@ -239,7 +275,7 @@ export class FramePool {
           incoming.inert = false
           this.mountWindow(controller.state, controller, options)
           this.changed()
-        } else if (!ready) {
+        } else if (!reused) {
           settled = true
           cleanup()
           incoming.remove()
@@ -312,8 +348,12 @@ export class FramePool {
     const existing = this.entries.get(slide.id)
     const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     if (existing && sameContent(existing.value, comparable)) return existing.canvas
-    const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle)
-    this.entries.set(slide.id, { canvas, value: comparable })
+    const entry = new FrameEntry(comparable)
+    const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle, () => {
+      entry.markLoaded()
+    })
+    entry.canvas = canvas
+    this.entries.set(slide.id, entry)
     if (existing) existing.canvas.replaceWith(canvas)
     else if (mount) this.host.append(canvas)
     return canvas

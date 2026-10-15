@@ -91,7 +91,7 @@ library names a host.
    cancels speech while paced timing finishes the slide. Pause preserves the
    position. On each frame the controller publishes slide and deck elapsed
    time, total time, progress, word and annotations.
-6. With `neighbors` and `scripts: 'refuse'`, the stage keys frames by slide id and keeps the selected slide plus its previous and next slide. Hidden neighbors are inert. A turn reveals the already-running neighbor without changing its document. A deck with `scripts: 'sandboxed'` mounts no neighbors because a running author script in a hidden frame could take the page's keyboard focus. On a turn it loads the incoming frame invisibly above the outgoing frame, then swaps after the load event and two parent animation frames; a bounded timeout completes a stalled load. The deck's `transition` (`{ kind: 'none' | 'fade' | 'slide', duration }`) chooses the turn's motion, an absent setting meaning an instant turn, and a host's `transition` property or attributes override it. A fade or slide transition runs while both frames are present, after a refused-script neighbor is revealed or after the incoming frame is ready on the swap path, and the outgoing frame remains until motion ends. Slide direction follows the deck's inline direction. Reduced motion, `none`, and a zero duration settle instantly. A later turn finishes running motion and starts from the frame then visible, while a turn during loading cancels a frame created for the pending turn and leaves a reused neighbor mounted. Reloading a reordered deck keeps the selected id and its frame; removing it keeps the old position, clamped into the new bounds. Reloading replaces a mounted frame when its resolved content, scripts mode, host CSS or extra CSP changes, while keeping the selected id and leaving the address unchanged.
+6. With `neighbors` and `scripts: 'refuse'`, the stage keys frames by slide id and keeps the selected slide plus its previous and next slide. Hidden neighbors are inert. A turn reveals the already-running neighbor without changing its document; if that neighbor is still loading, the turn waits for it or the bounded swap timeout. A deck with `scripts: 'sandboxed'` mounts no neighbors because a running author script in a hidden frame could take the page's keyboard focus. On a turn it loads the incoming frame invisibly above the outgoing frame, then swaps after the load event and two parent animation frames; a bounded timeout completes a stalled load. The deck's `transition` (`{ kind: 'none' | 'fade' | 'slide', duration }`) chooses the turn's motion, an absent setting meaning an instant turn, and a host's `transition` property or attributes override it. A fade or slide transition runs while both frames are present, after a refused-script neighbor is revealed or after the incoming frame is ready on the swap path, and the outgoing frame remains until motion ends. Slide direction follows the deck's inline direction. Reduced motion, `none`, and a zero duration settle instantly. A later turn finishes running motion and starts from the frame then visible, while a turn during loading cancels a frame created for the pending turn and leaves a reused neighbor mounted. Reloading a reordered deck keeps the selected id and its frame; removing it keeps the old position, clamped into the new bounds. Reloading replaces a mounted frame when its resolved content, scripts mode, host CSS or extra CSP changes, while keeping the selected id and leaving the address unchanged.
 7. A first load reads an exact `#slide-N`, clamped to the deck's bounds. `go`, keys and live hash changes navigate directly and replace the address rather than adding history.
 8. In page-key mode, arrows and page keys work outside form fields, Space has no deck action, and Escape ends an in-window presentation. `m` toggles mute, `c` toggles viewer-controlled captions, and `f` returns `present` for the host to handle. These three letters are ignored when typed into an input, textarea, select or editable element, in the page listener, the player and keys relayed from a slide frame. `present(element)` marks the chosen element with `data-presenting`, locks body overflow and uses `--segnavia-backdrop`; `stopPresenting`, stage disconnection and controller destruction restore it. `<segnavia-fullscreen mode="window">` uses this path, while its default remains native fullscreen.
 9. `fit="viewport"` scales from the stage's unscaled inline space and `window.innerHeight`, subtracting its block-start edge and `reserve` at both block edges. While presenting it uses the presented element's block size. It reports `{ scale, width, height }` through `fitted` and `segnavia-fit`; window, visual-viewport and stage resizes trigger a new measurement.
@@ -245,6 +245,41 @@ same placements, preserving backgrounds. A grid of two columns and three rows
 is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
+
+**Effects in PDF readers.** Chromium writes CSS shadows and blurs as
+luminosity soft masks. Rule 1 rewrites a mask whose transparency group paints
+one grayscale image over the default black backdrop: the masked constant-color
+rectangle becomes an image whose direct alpha soft mask is that grayscale
+image. Rule C handles a nested-mask composite when every varying color and
+coverage layer is a shading along one shared affine axis. It samples color and
+combined coverage every 0.5 pt along that axis into an interpolated,
+one-sample-wide RGB image and DeviceGray image soft mask, then replaces only
+the composite's paint. Shading types, functions, coordinates and matrices,
+the mask chain and constant opacity must all be established from the PDF;
+otherwise the composite stays as Chromium wrote it.
+
+Both rules hold every graphics state a rewrite depends on to one allow-list,
+including the states set inside a mask group or a nested form. A `gs` adds
+its keys to the state already in effect, so each state is read merged with
+the earlier ones under the same `q`. A form must have no `/Matrix` or the
+identity. A graphics state may set only `/Type`, `/SMask`, a finite `/ca`,
+`/CA` 1 and `/BM /Normal`. Rule C bakes an outer or alpha-mask `/ca` into its
+coverage. A `/ca` other than 1 on the image Rule 1 copies, or on a Rule C
+color or luminosity layer, keeps the mask as written.
+
+`effects: false` preserves Chromium's masks; an absent `effects` option enables
+the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
+and a count of masks kept as written. The effects rewrite
+runs before the press rewrite, which converts generated Rule 1 images and Rule
+C's RGB samples to CMYK without reporting them as authored RGB images.
+
+Rule 2, for vector mask groups, is unbuilt because the corrected reader
+measurements do not show a defect that needs it. Rule 3 is left out because
+measurements showed that combining nested masks did not fix the reader defect.
+Rule 4 is the unbuilt fallback for a nested composite whose layers do not share
+one axis: rasterize only the effect region from Chromium while retaining later
+content as vector. When built it is an opt-in export option that is off by
+default; the suite currently has no document that needs it.
 
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The
