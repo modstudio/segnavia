@@ -63,6 +63,12 @@ describe('timeline', () => {
     expect(slideStateAt(slide, 100).phase).toBe('narration')
     expect(slideStateAt(slide, 2300)).toEqual({ word: 4, shown: [1], phase: 'after' })
   })
+
+  test('untimed slides have a distinct phase from timed holds', () => {
+    const content = { kind: 'html' as const, html: '' }
+    expect(slideStateAt({ id: 'untimed', content }, 0).phase).toBe('untimed')
+    expect(slideStateAt({ id: 'hold', content, holdMs: 500 }, 0).phase).toBe('hold')
+  })
   test('a pause keeps the word just spoken, so the caption never blanks', () => {
     expect(wordAt(narration, 350)).toBe(0)
     expect(wordAt(narration, 1000)).toBe(2)

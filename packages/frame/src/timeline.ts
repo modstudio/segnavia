@@ -10,7 +10,7 @@ export interface Moment {
   ended: boolean
 }
 
-export type SlidePhase = 'before' | 'narration' | 'after' | 'hold'
+export type SlidePhase = 'before' | 'narration' | 'after' | 'hold' | 'untimed'
 
 export interface SlideMoment {
   word: number | null
@@ -72,7 +72,7 @@ export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosi
 
 export function slideStateAt(slide: Slide, ms: number): SlideMoment {
   const position = Math.max(0, ms)
-  if (!slide.narration) return { word: null, shown: [], phase: 'hold' }
+  if (!slide.narration) return { word: null, shown: [], phase: slide.holdMs === undefined ? 'untimed' : 'hold' }
   const { beforeMs } = phaseBounds(slide)
   if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
   const narrationMs = position - beforeMs

@@ -80,7 +80,8 @@ library names a host.
    reads `holdMs` for an unnarrated slide. Without either narration or a hold
    the slide is untimed. `deckTimeline` gives every slide its start and
    duration, marks untimed entries and totals timed durations; pure
-   `slideStateAt` gives export and playback the same word, cues and phase.
+   `slideStateAt` gives export and playback the same word, cues and phase,
+   including a distinct `untimed` phase for slides without a duration.
 5. A timed slide gets a positionable clock. `timedClock` uses wall time for
    before, after and hold phases, audio time during recorded narration, and
    narration timing if playback is refused. `speechClock` uses browser speech
