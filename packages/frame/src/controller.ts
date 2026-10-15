@@ -339,10 +339,9 @@ export class DeckController extends EventTarget {
     if (!clock || !slide || !deck) return
     const slideElapsedMs = clock.elapsed()
     let moment = slideStateAt(slide, slideElapsedMs)
-    if (slide.narration?.live) {
-      const word = clock.word()
-      moment = { ...moment, word, shown: annotationsAt(slide.narration.cues, word) }
-    }
+    const live = slide.narration?.live ? slide.narration : null
+    const word = live ? clock.word() : moment.word
+    if (live) moment = { ...moment, word, shown: annotationsAt(live.cues, word) }
     const startMs = deckTimeline(deck).slides[this.current.index]?.startMs ?? 0
     this.current = {
       ...this.current,
