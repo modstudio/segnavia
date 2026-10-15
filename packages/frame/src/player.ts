@@ -147,12 +147,8 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private togglePresentation() {
-    const mode = this.getAttribute('presentation')
-    if (mode === 'off') return
-    if (mode === 'native') {
-      void (document.fullscreenElement === this ? document.exitFullscreen() : this.requestFullscreen())
-    } else if (this.controller.state.presenting) this.controller.stopPresenting()
-    else this.controller.present(this)
+    if (this.getAttribute('presentation') === 'off') return
+    ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).toggle()
   }
 
   private update(state: DeckState) {

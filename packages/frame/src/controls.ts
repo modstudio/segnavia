@@ -168,6 +168,9 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     )
   }
   protected clicked() {
+    this.toggle()
+  }
+  toggle() {
     const target = this.target()
     if (!target) return
     if (this.getAttribute('mode') !== 'native') {
