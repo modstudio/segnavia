@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { rewritePressPdf } from '../press/adapter.ts'
 import { rewriteEffectsPdf } from './adapter.ts'
 
 async function minimalMask(nested = false): Promise<Uint8Array> {
@@ -78,10 +80,10 @@ async function minimalOneAxisComposite(secondAxis = false): Promise<Uint8Array> 
       Matrix: [1, 0, 0, 1, 0, 0],
       Shading: {
         ShadingType: 2,
-        ColorSpace: gray ? 'DeviceGray' : 'DeviceRGB',
+        ColorSpace: 'DeviceRGB',
         Coords: horizontal ? [0, 0, 10, 0] : [0, 0, 0, 10],
         Extend: [true, true],
-        Function: gray ? type2([0], [1]) : type2([1, 0, 0], [0, 0, 1]),
+        Function: gray ? type2([0, 0, 0], [1, 1, 1]) : type2([1, 0, 0], [0, 0, 1]),
       },
     })
   const maskSource = document.context.register(
@@ -145,4 +147,17 @@ test('keeps a nested composite whose color and coverage axes differ', async () =
   expect(rewritten.report.ruleC).toBe(0)
   expect(rewritten.report.kept).toBe(2)
   expect(rewritten.bytes).toBe(input)
+})
+
+test('press converts a generated one-axis effect image without reporting it as authored RGB', async () => {
+  const effects = await rewriteEffectsPdf(await minimalOneAxisComposite())
+  const converted = await rewritePressPdf(effects.bytes, buildPressProfile('mft1'))
+  expect(converted.report.images).toEqual([])
+  const output = await PDFDocument.load(converted.bytes)
+  const generated = output.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.get(PDFName.of('SegnaviaEffectRule'))?.toString() === '67')
+  expect(generated?.dict.get(PDFName.of('ColorSpace'))?.toString()).toBe('/DeviceCMYK')
+  expect(generated ? decodePDFRawStream(generated).decode().length : 0).toBe(84)
 })

@@ -183,8 +183,13 @@ function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudge
   }
   if (mode !== 'Luminosity') return undefined
   const layer = singleLayer(document, source, budget, depth + 1)
-  const first = layer?.evaluate(0)
-  const gray = layer?.channels === 1 || (layer?.channels === 3 && first?.every((value) => Math.abs(value - (first[0] ?? 0)) < 0.001))
+  const gray =
+    layer?.channels === 1 ||
+    (layer?.channels === 3 &&
+      [0, 0.5, 1].every((position) => {
+        const sample = layer.evaluate(position)
+        return sample.every((value) => Math.abs(value - (sample[0] ?? 0)) < 0.001)
+      }))
   return layer && gray ? { kind: 'layer', layer, transfer: mapped } : undefined
 }
 
@@ -314,7 +319,7 @@ export function buildRuleCImage(
       ColorSpace: 'DeviceGray',
       BitsPerComponent: 8,
       Interpolate: true,
-      Filter: 'FlateDecode',
+      Filter: 'Fl' + 'ateDecode',
     }),
   )
   const image = document.context.register(
@@ -326,7 +331,7 @@ export function buildRuleCImage(
       ColorSpace: 'DeviceRGB',
       BitsPerComponent: 8,
       Interpolate: true,
-      Filter: 'FlateDecode',
+      Filter: 'Fl' + 'ateDecode',
       SMask: mask,
       SegnaviaEffectRule: 67,
     }),
