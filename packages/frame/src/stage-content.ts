@@ -13,6 +13,7 @@ export function stageCanvas(
   css: string,
   csp: string,
   frameTitle: FrameTitle,
+  loaded: () => void,
 ): HTMLElement {
   const { width, height } = deck.size
   const canvas = document.createElement('div')
@@ -27,6 +28,7 @@ export function stageCanvas(
     iframe.className = 'segnavia-stage__frame'
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.title = frameTitle(deck.title, index + 1)
+    iframe.addEventListener('load', loaded, { once: true })
     if (content.kind === 'html') {
       iframe.srcdoc = frameDocument(content.html, {
         scripts: deck.scripts,
@@ -42,6 +44,7 @@ export function stageCanvas(
   } else {
     const image = document.createElement('img')
     image.className = 'segnavia-stage__image'
+    image.addEventListener('load', loaded, { once: true })
     image.src = controller.url(content.src)
     image.alt = content.kind === 'image' ? content.alt : content.shot.title
     image.dir = firstStrongDirection(image.alt) ?? 'auto'
