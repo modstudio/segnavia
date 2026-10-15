@@ -32,7 +32,7 @@ import type {
 export interface RuntimeElementDescriptor {
   tag: `segnavia-${string}`
   properties: readonly string[]
-  events: Readonly<Record<string, string>>
+  events: Readonly<Partial<Record<string, string>>>
 }
 
 export interface ElementDescriptor<E extends HTMLElement, P extends object> extends RuntimeElementDescriptor {
@@ -45,7 +45,7 @@ export interface ElementDescriptor<E extends HTMLElement, P extends object> exte
 function element<E extends HTMLElement, P extends object>(
   tag: `segnavia-${string}`,
   properties: readonly Extract<keyof P, string>[],
-  events: Readonly<Partial<Record<Extract<keyof P, `on${string}`>, string>>> = {},
+  events: Readonly<Partial<Record<Extract<keyof P, `on${string}`>, string>>>,
 ): ElementDescriptor<E, P> {
   return { tag, properties, events }
 }
@@ -53,27 +53,24 @@ function element<E extends HTMLElement, P extends object>(
 const controlProperties = ['controller', 'labels'] as const
 
 export const ELEMENTS = {
-  player: element<SegnaviaPlayer, PlayerProps>(
-    'segnavia-player',
-    ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition'],
-    { onSegnaviaLabels: 'segnavia-labels' },
-  ),
-  stage: element<SegnaviaStage, StageProps>(
-    'segnavia-stage',
-    ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'],
-    { onSegnaviaController: 'segnavia-controller', onSegnaviaFit: 'segnavia-fit' },
-  ),
-  play: element<SegnaviaPlay, PlayProps>('segnavia-play', controlProperties),
-  step: element<SegnaviaStep, StepProps>('segnavia-step', controlProperties),
-  track: element<SegnaviaTrack, TrackProps>('segnavia-track', controlProperties),
-  counter: element<SegnaviaCounter, CounterProps>('segnavia-counter', controlProperties),
-  time: element<SegnaviaTime, TimeProps>('segnavia-time', controlProperties),
-  mute: element<SegnaviaMute, MuteProps>('segnavia-mute', controlProperties),
-  captions: element<SegnaviaCaptions, CaptionsProps>('segnavia-captions', controlProperties),
-  caption: element<SegnaviaCaption, CaptionProps>('segnavia-caption', controlProperties),
-  notes: element<SegnaviaNotes, NotesProps>('segnavia-notes', controlProperties),
-  fullscreen: element<SegnaviaFullscreen, FullscreenProps>('segnavia-fullscreen', [...controlProperties, 'targetElement']),
-  rail: element<SegnaviaRail, RailProps>('segnavia-rail', [...controlProperties, 'mountMargin']),
+  player: element<SegnaviaPlayer, PlayerProps>('segnavia-player', ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition'], {
+    onSegnaviaLabels: 'segnavia-labels',
+  }),
+  stage: element<SegnaviaStage, StageProps>('segnavia-stage', ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'], {
+    onSegnaviaController: 'segnavia-controller',
+    onSegnaviaFit: 'segnavia-fit',
+  }),
+  play: element<SegnaviaPlay, PlayProps>('segnavia-play', controlProperties, {}),
+  step: element<SegnaviaStep, StepProps>('segnavia-step', controlProperties, {}),
+  track: element<SegnaviaTrack, TrackProps>('segnavia-track', controlProperties, {}),
+  counter: element<SegnaviaCounter, CounterProps>('segnavia-counter', controlProperties, {}),
+  time: element<SegnaviaTime, TimeProps>('segnavia-time', controlProperties, {}),
+  mute: element<SegnaviaMute, MuteProps>('segnavia-mute', controlProperties, {}),
+  captions: element<SegnaviaCaptions, CaptionsProps>('segnavia-captions', controlProperties, {}),
+  caption: element<SegnaviaCaption, CaptionProps>('segnavia-caption', controlProperties, {}),
+  notes: element<SegnaviaNotes, NotesProps>('segnavia-notes', controlProperties, {}),
+  fullscreen: element<SegnaviaFullscreen, FullscreenProps>('segnavia-fullscreen', [...controlProperties, 'targetElement'], {}),
+  rail: element<SegnaviaRail, RailProps>('segnavia-rail', [...controlProperties, 'mountMargin'], {}),
 } as const
 
 export type AnyElementDescriptor = RuntimeElementDescriptor

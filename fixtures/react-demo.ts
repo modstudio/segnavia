@@ -1,4 +1,4 @@
-import type { DeckController } from '@segnavia/frame'
+import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { Player, useAuthoring } from '@segnavia/react'
 import { createElement, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -8,9 +8,9 @@ const facts = { changes: 0, saves: [] as string[] }
 function App() {
   const [rail, setRail] = useState(false)
   const [configured, setConfigured] = useState(false)
-  const player = useRef<HTMLElement & { controller: DeckController }>(null)
+  const player = useRef<SegnaviaPlayer>(null)
   const authoring = useAuthoring(
-    player as never,
+    player,
     {
       saveNotes: async ({ notes }) => {
         facts.saves.push(notes)

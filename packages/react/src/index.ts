@@ -1,6 +1,7 @@
 import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
 import '@segnavia/frame/player'
+import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, type RefObject, useEffect, useRef, useState } from 'react'
 import { type AnyElementDescriptor, ELEMENTS, type ElementFor, type PropsFor } from './elements.ts'
 import { syncElementProps } from './react-props.ts'
@@ -67,18 +68,14 @@ export function useDeckController(ref: RefObject<ElementWithController | null>):
   return controller
 }
 
-export function useAuthoring(
-  playerRef: RefObject<(HTMLElement & { controller: DeckController }) | null>,
-  handlers: AuthoringHandlers,
-  options?: AuthoringOptions,
-): AuthoringController | null {
+export function useAuthoring(playerRef: RefObject<SegnaviaPlayer | null>, handlers: AuthoringHandlers, options?: AuthoringOptions): AuthoringController | null {
   const [controller, setController] = useState<AuthoringController | null>(null)
   const initialHandlers = useRef(handlers)
   const initialOptions = useRef(options)
   useEffect(() => {
     const player = playerRef.current
     if (!player) return
-    const attached = attachAuthoring(player as never, initialHandlers.current, initialOptions.current)
+    const attached = attachAuthoring(player, initialHandlers.current, initialOptions.current)
     setController(attached)
     return () => {
       attached.detach()
