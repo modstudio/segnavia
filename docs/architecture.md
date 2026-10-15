@@ -249,16 +249,18 @@ the mask chain and constant opacity must all be established from the PDF;
 otherwise the composite stays as Chromium wrote it.
 
 `effects: false` preserves Chromium's masks; an absent `effects` option enables
-the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts,
-the reserved rules 2 through 4, and masks kept as written. The effects rewrite
+the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
+and a count of masks kept as written. The effects rewrite
 runs before the press rewrite, which converts generated Rule 1 images and Rule
 C's RGB samples to CMYK without reporting them as authored RGB images.
 
-Vector mask groups are kept because the corrected reader measurements do not
-show a defect that needs rule 2. Rule 4 is the documented fallback for a nested
-composite whose layers do not share one axis: rasterize only the effect region
-from Chromium while retaining later content as vector. It is not built because
-the suite currently has no document that needs it.
+Rule 2, for vector mask groups, is unbuilt because the corrected reader
+measurements do not show a defect that needs it. Rule 3 is left out because
+measurements showed that combining nested masks did not fix the reader defect.
+Rule 4 is the unbuilt fallback for a nested composite whose layers do not share
+one axis: rasterize only the effect region from Chromium while retaining later
+content as vector. When built it is an opt-in export option that is off by
+default; the suite currently has no document that needs it.
 
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The

@@ -4,6 +4,8 @@ import { applyAffine, IDENTITY_MATRIX } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { chargeShadingSamples, MAX_SHADING_SAMPLES, SHADING_SAMPLE_SPACING_PT } from '../press/sample-shading.ts'
+import { functionEvaluator } from './function-evaluator.ts'
+import { GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
 
 const key = (name: string): PDFName => PDFName.of(name)
 const resolved = (document: PDFDocument, object: PDFObject | undefined): PDFObject | undefined =>
@@ -18,7 +20,7 @@ interface Axis {
   end: { x: number; y: number }
   start: { x: number; y: number }
 }
-type Coverage = { kind: 'constant'; value: number } | { kind: 'layer'; layer: Layer; transfer: 'identity' | 'invert' }
+type Coverage = { kind: 'constant'; value: number } | { kind: 'layer'; layer: Layer; opacity: number; transfer: 'identity' | 'invert' }
 interface Paint {
   graphicsState?: PDFDict
   operation: ContentOperation
@@ -32,6 +34,10 @@ export interface RuleCPlan {
   masks: PDFDict[]
 }
 export type RuleCFacts = 'shared' | 'different' | 'non-shading'
+export interface RuleCCandidate {
+  oneAxis: RuleCFacts
+  plan?: RuleCPlan
+}
 
 function arrayNumbers(dictionary: PDFDict, label: string): number[] | undefined {
   const array = dictionary.lookupMaybe(key(label), PDFArray)
@@ -47,42 +53,6 @@ function arrayNumbers(dictionary: PDFDict, label: string): number[] | undefined 
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(1, value))
-}
-
-function functionEvaluator(document: PDFDocument, object: PDFObject | undefined, channels: number): ((input: number) => number[]) | undefined {
-  const fn = dictionaryOf(resolved(document, object))
-  if (!fn) return undefined
-  const type = numberOf(fn, 'FunctionType')
-  const domain = arrayNumbers(fn, 'Domain') ?? [0, 1]
-  if (domain.length !== 2 || domain[0] === domain[1]) return undefined
-  if (type === 2) {
-    const from = arrayNumbers(fn, 'C0') ?? [0]
-    const to = arrayNumbers(fn, 'C1') ?? [1]
-    const exponent = numberOf(fn, 'N')
-    if (from.length !== channels || to.length !== channels || exponent === undefined) return undefined
-    return (input) => {
-      const value = clamp((input - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) ** exponent
-      return from.map((start, index) => start + ((to[index] ?? start) - start) * value)
-    }
-  }
-  if (type !== 3) return undefined
-  const functions = fn.lookupMaybe(key('Functions'), PDFArray)
-  const bounds = arrayNumbers(fn, 'Bounds') ?? []
-  const encode = arrayNumbers(fn, 'Encode') ?? []
-  if (!functions || functions.size() !== bounds.length + 1 || encode.length !== functions.size() * 2) return undefined
-  const children = Array.from({ length: functions.size() }, (_, index) => functionEvaluator(document, functions.get(index), channels))
-  if (children.some((child) => !child)) return undefined
-  return (input) => {
-    const value = Math.max(domain[0] ?? 0, Math.min(domain[1] ?? 1, input))
-    let index = bounds.findIndex((bound) => value < bound)
-    if (index < 0) index = bounds.length
-    const low = index === 0 ? (domain[0] ?? 0) : (bounds[index - 1] ?? 0)
-    const high = index === bounds.length ? (domain[1] ?? 1) : (bounds[index] ?? 1)
-    const encodedLow = encode[index * 2] ?? 0
-    const encodedHigh = encode[index * 2 + 1] ?? 1
-    const mapped = high === low ? encodedLow : encodedLow + ((value - low) / (high - low)) * (encodedHigh - encodedLow)
-    return (children[index] as (input: number) => number[])(mapped)
-  }
 }
 
 function axialLayer(document: PDFDocument, pattern: PDFDict): Layer | undefined {
@@ -167,7 +137,19 @@ function mappedCoverage(coverage: Coverage, mapped: 'identity' | 'invert'): Cove
   if (mapped === 'identity') return coverage
   return coverage.kind === 'constant'
     ? { kind: 'constant', value: 1 - coverage.value }
-    : { kind: 'layer', layer: coverage.layer, transfer: coverage.transfer === 'identity' ? 'invert' : 'identity' }
+    : { ...coverage, transfer: coverage.transfer === 'identity' ? 'invert' : 'identity' }
+}
+
+function constantAlpha(graphicsState: PDFDict | undefined): number | undefined {
+  if (!graphicsState?.has(key('ca'))) return 1
+  const object = graphicsState.get(key('ca'))
+  const value = object instanceof PDFRef ? graphicsState.context.lookup(object) : object
+  const number = value instanceof PDFNumber ? value.asNumber() : undefined
+  return number !== undefined && Number.isFinite(number) ? number : undefined
+}
+
+function scaledCoverage(coverage: Coverage, opacity: number): Coverage {
+  return coverage.kind === 'constant' ? { kind: 'constant', value: coverage.value * opacity } : { ...coverage, opacity: coverage.opacity * opacity }
 }
 
 function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudget, masks: PDFDict[], depth: number): Coverage | undefined {
@@ -190,7 +172,7 @@ function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudge
         const sample = layer.evaluate(position)
         return sample.every((value) => Math.abs(value - (sample[0] ?? 0)) < 0.001)
       }))
-  return layer && gray ? { kind: 'layer', layer, transfer: mapped } : undefined
+  return layer && gray ? { kind: 'layer', layer, opacity: 1, transfer: mapped } : undefined
 }
 
 function alphaCoverage(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, masks: PDFDict[], depth = 0): Coverage | undefined {
@@ -199,11 +181,22 @@ function alphaCoverage(document: PDFDocument, stream: PDFRawStream, budget: Cont
   if (items.length !== 1) return undefined
   const item = items[0]
   if (!item) return undefined
+  const opacity = constantAlpha(item.graphicsState)
+  if (opacity === undefined) return undefined
   const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
-  if (mask) return maskCoverage(document, mask, budget, masks, depth)
-  if (item.xObject instanceof PDFRawStream) return alphaCoverage(document, item.xObject, budget, masks, depth + 1)
-  if (item.pattern instanceof PDFRawStream) return alphaCoverage(document, item.pattern, budget, masks, depth + 1)
-  return item.pattern instanceof PDFDict || ['f', 'f*', 'F'].includes(item.operation.operator) ? { kind: 'constant', value: 1 } : undefined
+  if (mask) {
+    const found = maskCoverage(document, mask, budget, masks, depth)
+    return found ? scaledCoverage(found, opacity) : undefined
+  }
+  if (item.xObject instanceof PDFRawStream) {
+    const found = alphaCoverage(document, item.xObject, budget, masks, depth + 1)
+    return found ? scaledCoverage(found, opacity) : undefined
+  }
+  if (item.pattern instanceof PDFRawStream) {
+    const found = alphaCoverage(document, item.pattern, budget, masks, depth + 1)
+    return found ? scaledCoverage(found, opacity) : undefined
+  }
+  return item.pattern instanceof PDFDict || ['f', 'f*', 'F'].includes(item.operation.operator) ? { kind: 'constant', value: opacity } : undefined
 }
 
 function sameAxis(left: Axis, right: Axis): boolean {
@@ -220,34 +213,48 @@ function compositeCoverage(document: PDFDocument, items: Paint[], budget: Conten
   const masks: PDFDict[] = []
   const coverage: Coverage[] = []
   for (const item of items) {
+    const opacity = constantAlpha(item.graphicsState)
     const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
     const source = resolved(document, mask?.get(key('G')))
-    if (!mask || !(source instanceof PDFRawStream) || nameOf(mask.get(key('S'))) !== 'Alpha') return undefined
+    if (opacity === undefined || !mask || !(source instanceof PDFRawStream) || nameOf(mask.get(key('S'))) !== 'Alpha') return undefined
     masks.push(mask)
     const found = alphaCoverage(document, source, budget, masks)
     const mapped = transfer(document, mask)
     if (!found || !mapped) return undefined
-    coverage.push(mappedCoverage(found, mapped))
+    coverage.push(scaledCoverage(mappedCoverage(found, mapped), opacity))
   }
   return { coverage, masks }
 }
 
-export function ruleCPlan(document: PDFDocument, form: PDFRawStream, budget: ContentBudget): { facts: RuleCFacts; plan?: RuleCPlan } {
-  if (!simplePaintStream(form, budget)) return { facts: 'non-shading' }
+function candidate(oneAxis: RuleCFacts, plan?: RuleCPlan): RuleCCandidate {
+  return { oneAxis, plan }
+}
+
+export function ruleCPlan(document: PDFDocument, form: PDFRawStream, budget: ContentBudget): RuleCCandidate {
+  if (!simplePaintStream(form, budget)) return candidate('non-shading')
   const bbox = arrayNumbers(form.dict, 'BBox')
+  const matrix = form.dict.has(key('Matrix')) ? arrayNumbers(form.dict, 'Matrix') : IDENTITY_MATRIX
   const items = paints(document, form, undefined, budget)
-  if (bbox?.length !== 4 || items.length < 1 || items.some((item) => !(item.xObject instanceof PDFRawStream))) return { facts: 'non-shading' }
+  if (
+    bbox?.length !== 4 ||
+    matrix?.length !== 6 ||
+    matrix.some((value, index) => value !== IDENTITY_MATRIX[index]) ||
+    items.length < 1 ||
+    items.some((item) => !(item.xObject instanceof PDFRawStream))
+  )
+    return candidate('non-shading')
   const colorObject = items[0]?.xObject
-  if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return { facts: 'non-shading' }
+  if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return candidate('non-shading')
   const color = colorObject instanceof PDFRawStream ? singleLayer(document, colorObject, budget) : undefined
-  if (color?.channels !== 3 || items.some((item) => item.xObject !== colorObject)) return { facts: 'non-shading' }
+  if (color?.channels !== 3 || items.some((item) => item.xObject !== colorObject)) return candidate('non-shading')
   const combined = compositeCoverage(document, items, budget)
-  if (!combined) return { facts: 'non-shading' }
+  if (!combined) return candidate('non-shading')
   const { coverage, masks } = combined
   const layers = coverage.filter((value): value is Extract<Coverage, { kind: 'layer' }> => value.kind === 'layer')
-  if (layers.length === 0) return { facts: 'non-shading' }
-  if (layers.some(({ layer }) => !sameAxis(color.axis, layer.axis))) return { facts: 'different' }
-  return { facts: 'shared', plan: { bbox, color, coverage, masks } }
+  if (layers.length === 0) return candidate('non-shading')
+  if (layers.some(({ layer }) => !sameAxis(color.axis, layer.axis))) return candidate('different')
+  const plan = { bbox, color, coverage, masks }
+  return candidate('shared', plan)
 }
 
 function positionOnAxis(axis: Axis, x: number, y: number): number {
@@ -306,6 +313,7 @@ export function buildRuleCImage(
     for (const coverage of plan.coverage) {
       let value = coverage.kind === 'constant' ? coverage.value : (coverage.layer.evaluate(positionOnAxis(coverage.layer.axis, x, y))[0] ?? 0)
       if (coverage.kind === 'layer' && coverage.transfer === 'invert') value = 1 - value
+      if (coverage.kind === 'layer') value *= coverage.opacity
       alpha = alpha + clamp(value) * (1 - alpha)
     }
     gray[rows - row - 1] = Math.round(clamp(alpha * opacity) * 255)
@@ -333,7 +341,7 @@ export function buildRuleCImage(
       Interpolate: true,
       Filter: 'Fl' + 'ateDecode',
       SMask: mask,
-      SegnaviaEffectRule: 67,
+      [GENERATED_EFFECT_IMAGE_KEY]: true,
     }),
   )
   return { image, matrix: [vx * (vmax - vmin), vy * (vmax - vmin), ux * (amax - amin), uy * (amax - amin), vx * vmin + ux * amin, vy * vmin + uy * amin] }

@@ -2,6 +2,7 @@ import { deflateSync } from 'node:zlib'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import type { Color3, Profile } from '../color/types.ts'
+import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor, pressColor } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
@@ -144,13 +145,13 @@ function convertRuleCImage(state: RewriteState, image: PDFRawStream, width: numb
 }
 
 function convertEffectImage(state: RewriteState, image: PDFRawStream): void {
-  const rule = numberOf(image.dict, 'SegnaviaEffectRule')
-  if ((rule !== 1 && rule !== 67) || resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace')))).kind !== 'rgb') return
+  if (!image.dict.has(key(GENERATED_EFFECT_IMAGE_KEY)) || resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace')))).kind !== 'rgb')
+    return
   const width = numberOf(image.dict, 'Width') ?? refuse('effect image Width missing', 'a positive Width number')
   const height = numberOf(image.dict, 'Height') ?? refuse('effect image Height missing', 'a positive Height number')
   if (width <= 0 || height <= 0) refuse('effect image dimensions', 'positive Width and Height numbers')
   const dictionary = streamDictionary(image)
-  if (rule === 67) {
+  if (!image.dict.has(key('SegnaviaEffectColor'))) {
     convertRuleCImage(state, image, width, height, dictionary)
     return
   }

@@ -14,9 +14,9 @@ import {
   resolvedColorSpace,
 } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
-import { softMaskAction } from './policy.ts'
+import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
-import type { EffectsReport } from './types.ts'
+import { type EffectsReport, GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
 
 type PaintColor = { space: 'DeviceCMYK' | 'DeviceGray' | 'DeviceRGB'; values: number[] }
 interface Rule1Plan {
@@ -29,7 +29,6 @@ interface EffectsState {
   appliedRuleC: number
   budget: ContentBudget
   document: PDFDocument
-  maskPlans: WeakMap<PDFDict, Rule1Plan>
   masks: Set<PDFDict>
   plans: WeakMap<PDFDict, Rule1Plan>
   ruleCChecked: WeakSet<PDFRawStream>
@@ -88,11 +87,6 @@ function groupContents(
 }
 
 function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict, source: PDFRawStream, resources: PDFDict | undefined): void {
-  if (state.masks.has(mask)) {
-    const plan = state.maskPlans.get(mask)
-    if (plan) state.plans.set(graphicsState, plan)
-    return
-  }
   state.masks.add(mask)
   const group = source.dict.lookupMaybe(key('Group'), PDFDict)
   const contents = groupContents(state.document, source, resources, state.budget)
@@ -102,16 +96,34 @@ function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict
     backdrop: blackBackdrop(mask) ? 'black' : 'other',
     colorSpace: group && resolvedColorSpace(state.document, resolved(state.document, group.get(key('CS')))).kind === 'gray' ? 'gray' : 'other',
     contents: contents.kind,
+    graphicsState: cleanRule1GraphicsState(graphicsState) ? 'clean' : 'extra',
     nested,
     oneAxis: 'unknown',
     subtype: nameOf(mask.get(key('S'))) === 'Luminosity' ? 'luminosity' : 'other',
+    transfer: !mask.has(key('TR')) || nameOf(resolved(state.document, mask.get(key('TR')))) === 'Identity' ? 'identity' : 'other',
   })
   const bbox = numbers(source.dict.lookupMaybe(key('BBox'), PDFArray))
   if (decision === 'rule1' && image && bbox?.length === 4) {
     const plan = { bbox, image, mask }
-    state.maskPlans.set(mask, plan)
     state.plans.set(graphicsState, plan)
   }
+}
+
+function cleanRule1GraphicsState(graphicsState: PDFDict): boolean {
+  for (const [name] of graphicsState.entries()) {
+    const label = name.toString().slice(1)
+    if (label === 'Type' || label === 'SMask') continue
+    if ((label === 'ca' || label === 'CA') && finiteNumberEntry(graphicsState, label) === 1) continue
+    return false
+  }
+  return true
+}
+
+function finiteNumberEntry(dictionary: PDFDict, label: string): number | undefined {
+  const object = dictionary.get(key(label))
+  const value = object instanceof PDFRef ? dictionary.context.lookup(object) : object
+  const number = value instanceof PDFNumber ? value.asNumber() : undefined
+  return number !== undefined && Number.isFinite(number) ? number : undefined
 }
 
 function numericOperands(operation: ContentOperation, count: number): number[] | undefined {
@@ -164,7 +176,7 @@ function effectImage(state: EffectsState, plan: Rule1Plan, color: PaintColor): P
       BitsPerComponent: 1,
       Filter: 'Fl' + 'ateDecode',
       SMask: softMask,
-      SegnaviaEffectRule: 1,
+      [GENERATED_EFFECT_IMAGE_KEY]: true,
       SegnaviaEffectColor: color.values,
     }),
   )
@@ -225,18 +237,13 @@ function ruleCReplacement(
   if (!state.ruleCChecked.has(form)) {
     state.ruleCChecked.add(form)
     const candidate = ruleCPlan(state.document, form, state.budget)
-    const decision = softMaskAction({
-      backdrop: 'other',
-      colorSpace: 'other',
-      contents: 'other',
-      nested: true,
-      oneAxis: candidate.facts,
-      subtype: 'other',
-    })
+    const decision = softMaskAction(ruleCFacts(state, graphicsState, candidate))
     if (decision === 'ruleC' && candidate.plan) state.ruleCPlans.set(form, candidate.plan)
   }
   const plan = state.ruleCPlans.get(form)
-  const built = plan ? buildRuleCImage(state.document, plan, numberOf(graphicsState, 'ca') ?? 1, state.budget, printMatrix) : undefined
+  const opacity = graphicsState.has(key('ca')) ? finiteNumberEntry(graphicsState, 'ca') : 1
+  const built =
+    plan && opacity !== undefined && Number.isFinite(opacity) ? buildRuleCImage(state.document, plan, opacity, state.budget, printMatrix) : undefined
   if (!plan || !built) return undefined
   const name = xObjectName(resources, built.image)
   const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
@@ -245,6 +252,20 @@ function ruleCReplacement(
   return {
     end: next.end,
     text: `q ${left} ${bottom} ${right - left} ${top - bottom} re W n ${built.matrix.join(' ')} cm /${name} Do Q`,
+  }
+}
+
+function ruleCFacts(state: EffectsState, graphicsState: PDFDict, candidate: ReturnType<typeof ruleCPlan>): SoftMaskFacts {
+  const masks = candidate.plan?.masks ?? []
+  return {
+    backdrop: masks.length > 0 && masks.every(blackBackdrop) ? 'black' : 'other',
+    colorSpace: candidate.oneAxis === 'shared' ? 'gray' : 'other',
+    contents: 'vector',
+    graphicsState: cleanRule1GraphicsState(graphicsState) ? 'clean' : 'extra',
+    nested: masks.length > 1,
+    oneAxis: candidate.oneAxis,
+    subtype: 'other',
+    transfer: masks.every((mask) => !mask.has(key('TR')) || nameOf(resolved(state.document, mask.get(key('TR')))) === 'Identity') ? 'identity' : 'other',
   }
 }
 
@@ -326,7 +347,6 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
     appliedRuleC: 0,
     budget: { decodedBytes: 0 },
     document,
-    maskPlans: new WeakMap(),
     masks: new Set(),
     plans: new WeakMap(),
     ruleCChecked: new WeakSet(),
@@ -353,7 +373,7 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
   for (const mask of state.masks) if (state.applied.has(mask)) rule1++
   let kept = 0
   for (const mask of state.masks) if (!state.applied.has(mask) && !state.ruleCMasks.has(mask)) kept++
-  return { rule1, ruleC: state.appliedRuleC, rule2: 0, rule3: 0, rule4: 0, kept }
+  return { rule1, ruleC: state.appliedRuleC, kept }
 }
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
