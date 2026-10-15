@@ -1,6 +1,7 @@
 import { inflateSync } from 'node:zlib'
+import { neighborTurnFacts } from './deck-host-waits.ts'
 import { verifyDeckTransitions } from './deck-transitions.ts'
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const STAGE = '#deck'
 
@@ -11,17 +12,7 @@ export async function verifyDeckHost(h: Harness) {
   await page.waitForFunction(() => document.querySelectorAll('#deck iframe').length === 2)
   check('deck host: a 40-slide first window mounts two frames', (await page.locator(`${STAGE} iframe`).count()) === 2)
 
-  const turn = await page.evaluate(async () => {
-    const stage = document.querySelector('#deck') as HTMLElement & { controller: { go(index: number): Promise<void> } }
-    const next = stage.querySelector('[data-slide-id="slide-2"] iframe') as HTMLIFrameElement
-    next.dataset.identity = 'kept'
-    const srcdoc = next.srcdoc
-    await stage.controller.go(1)
-    return {
-      count: stage.querySelectorAll('iframe').length,
-      same: stage.querySelector('[data-active] iframe') === next && next.dataset.identity === 'kept' && next.srcdoc === srcdoc,
-    }
-  })
+  const turn = await neighborTurnFacts(h)
   check('deck host: a turn reveals the unchanged neighbor frame and mounts three', turn.same && turn.count === 3, JSON.stringify(turn))
 
   const reorder = await page.evaluate(async () => {
@@ -90,6 +81,7 @@ export async function verifyDeckHost(h: Harness) {
     overflow: document.body.style.overflow,
   }))
   await page.locator('#notes').dispatchEvent('keydown', { key: 'Escape' })
+  await h.waitFor('#deck-root', (data) => data.presenting === undefined, { timeout: BOUNDED_WAIT_MS })
   const pageExit = await page.evaluate(() => ({
     restored: document.body.style.overflow,
     ended: !document.querySelector('#deck-root')?.hasAttribute('data-presenting'),
@@ -97,6 +89,7 @@ export async function verifyDeckHost(h: Harness) {
   await page.locator('#present').click()
   await h.clickFrame(`${STAGE} [data-active] iframe`)
   await page.keyboard.press('Escape')
+  await h.waitFor('#deck-root', (data) => data.presenting === undefined, { timeout: BOUNDED_WAIT_MS })
   const relayEnded = await page.evaluate(() => !document.querySelector('#deck-root')?.hasAttribute('data-presenting'))
   await page.locator('#present').click()
   const removedOverflow = await page.evaluate(() => {

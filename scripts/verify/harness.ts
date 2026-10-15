@@ -8,6 +8,7 @@ import { type Browser, chromium, type Page } from 'playwright-core'
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const SITE = path.join(ROOT, 'out/site')
 export const EVIDENCE = path.join(ROOT, 'out/evidence')
+export const BOUNDED_WAIT_MS = 5000
 
 export interface Harness {
   page: Page
