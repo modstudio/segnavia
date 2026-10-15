@@ -130,8 +130,7 @@ export class SegnaviaPlayer extends HTMLElement {
     const presentation = mode === 'native' || mode === 'off' ? mode : 'window'
     const control = this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen
     control.hidden = presentation === 'off'
-    if (presentation === 'window') control.setAttribute('mode', 'window')
-    else control.removeAttribute('mode')
+    control.setAttribute('mode', presentation === 'native' ? 'native' : 'window')
   }
 
   private togglePresentation() {

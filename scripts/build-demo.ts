@@ -304,7 +304,7 @@ writeFileSync(
     <div class="host-ui"><segnavia-stage id="stage" src="deck.json" hash="off"></segnavia-stage>
       <segnavia-caption for="stage"></segnavia-caption>
       <nav><segnavia-play for="stage"></segnavia-play><button id="mine">My own button</button><segnavia-step to="next" for="stage"></segnavia-step>
-        <segnavia-track for="stage"></segnavia-track><segnavia-counter for="stage"></segnavia-counter><segnavia-fullscreen for="stage"></segnavia-fullscreen></nav></div>
+        <segnavia-track for="stage"></segnavia-track><segnavia-counter for="stage"></segnavia-counter><segnavia-fullscreen for="stage" mode="native"></segnavia-fullscreen></nav></div>
     <script type="module">
       await customElements.whenDefined('segnavia-stage')
       document.getElementById('mine').onclick = () => document.getElementById('stage').controller.go(3)

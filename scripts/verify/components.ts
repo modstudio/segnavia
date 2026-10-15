@@ -12,6 +12,16 @@ export async function verifyComponents(h: Harness) {
   await page.waitForTimeout(200)
   check('a component finds its stage by id and reads its state', (await page.locator('segnavia-counter span').textContent()) === '1 / 4')
 
+  const presentation = page.locator('segnavia-fullscreen')
+  await presentation.evaluate((control) => control.removeAttribute('mode'))
+  await presentation.locator('button').click()
+  check(
+    'a standalone presentation control defaults to window mode',
+    await page.locator('segnavia-stage').evaluate((stage) => stage.hasAttribute('data-presenting')),
+  )
+  await presentation.locator('button').click()
+  await presentation.evaluate((control) => control.setAttribute('mode', 'native'))
+
   await page.locator('segnavia-step[to="next"] button').click()
   await h.waitFor('segnavia-stage', (d) => d.slide === '2')
   check('a styled step drives the stage', (await h.state('segnavia-stage')).slide === '2')

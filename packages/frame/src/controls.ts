@@ -5,7 +5,7 @@
 //   <segnavia-play for="stage">             play and pause
 //   <segnavia-step to="next" for="stage">   previous or next, mirrored in right to left
 //   <segnavia-counter for="stage">          "3 / 4", left to right in any direction
-//   <segnavia-fullscreen target="box">      full screen for the element named, or the stage
+//   <segnavia-fullscreen target="box">      window presentation for the element named, or the stage
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'
@@ -157,7 +157,7 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     return `<button part="button">${iconSlot('icon-enter-presentation', ICONS.enterFullscreen)}${iconSlot('icon-exit-presentation', ICONS.exitFullscreen)}</button>`
   }
   protected render(_state: DeckState) {
-    const windowMode = this.getAttribute('mode') === 'window'
+    const windowMode = this.getAttribute('mode') !== 'native'
     const full = windowMode ? _state.presenting : document.fullscreenElement !== null && document.fullscreenElement === this.target()
     const button = this.root.querySelector('button') as HTMLButtonElement
     ;(this.root.querySelector('[name="icon-enter-presentation"]') as HTMLSlotElement).hidden = full
@@ -170,7 +170,7 @@ export class SegnaviaFullscreen extends SegnaviaControl {
   protected clicked() {
     const target = this.target()
     if (!target) return
-    if (this.getAttribute('mode') === 'window') {
+    if (this.getAttribute('mode') !== 'native') {
       if (this.controller?.state.presenting) this.controller.stopPresenting()
       else if (target instanceof HTMLElement) this.controller?.present(target)
       return
