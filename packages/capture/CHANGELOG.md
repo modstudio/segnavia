@@ -1,5 +1,53 @@
 # @segnavia/capture
 
+## 0.4.0
+
+### Minor Changes
+
+- ### `@segnavia/format`
+
+  - Adds language-aware long-document schemas and validation, including the `Book` value.
+  - Adds Arabic, Roman, Hebrew and symbol numbering helpers.
+  - Adds portable pronunciation lexicons.
+
+  ### `@segnavia/html`
+
+  - Keeps the HTML package aligned with the shared 0.4.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/frame`
+
+  - The finished player gains a configurable two-row control bar. The track is on top. Below it come the time, then previous, play and next centered, then the host's actions, mute, captions, notes and presentation.
+  - Adds the styled controls `<segnavia-time>`, `<segnavia-mute>` and `<segnavia-captions>`.
+  - In continuous playback the track is one seekable timeline. Each slide gets a share proportional to its length, with visible breaks between slides. It can be clicked, dragged or used as a slider from the keyboard.
+  - Adds the player attributes `playback`, `captions` and `presentation` (`window`, `native` or `off`). They are observed whenever they are set.
+  - Adds the `actions` and `below` slots for host content, and exported parts for every control and caption word state (`word-current`, `word-spoken`).
+  - Presentation switches the player to its dark color scheme.
+  - The controls use Lucide icons, copied in, with their ISC license in `THIRD-PARTY-NOTICES`; there is no new dependency.
+    - The optional entry `@segnavia/frame/icons` exports them for headless hosts, and the headless entry does not include them.
+    - Every icon can be replaced through a named slot (`icon-play`, `icon-mute`, ...).
+  - `PlayerLabels` gains keys for the new controls. A partial labels object falls back to English for any missing key.
+  - Behavior change: `<segnavia-fullscreen>` and the player now present in the window by default. Browser fullscreen is opt-in with `mode="native"` or `presentation="native"`.
+
+  ### `@segnavia/voice`
+
+  - Adds pronunciation dictionaries for the ElevenLabs provider and publishes a lexicon to ElevenLabs as a dictionary.
+  - Providers without dictionary support fall back to respelling from the lexicon.
+
+  ### `@segnavia/render`
+
+  - A single-page PDF now clips sideways overflow at the page edge instead of shrinking the page.
+
+  ### `@segnavia/capture`
+
+  - Keeps the capture package aligned with the shared 0.4.0 package release; it has no package-specific API changes.
+
+### Patch Changes
+
+- Updated dependencies
+  - @segnavia/format@0.4.0
+  - @segnavia/frame@0.4.0
+  - @segnavia/render@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
