@@ -15,6 +15,7 @@ import type { SegnaviaControl } from './control.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { ICONS } from './controls-style.ts'
+import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 import { handlePlayerKey } from './player-key.ts'
 import { PLAYER_CSS } from './player-style.ts'
@@ -23,17 +24,21 @@ import type { HostTransition } from './transition.ts'
 
 const LAYOUT = `<div class="player" part="player">
   <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage></div><segnavia-notes part="notes"></segnavia-notes></div>
-  <segnavia-caption part="caption"></segnavia-caption>
+  <segnavia-caption part="caption" exportparts="caption,word,word-spoken,word-current"></segnavia-caption>
   <div class="bar" part="bar">
-    <segnavia-play></segnavia-play><segnavia-step to="previous"></segnavia-step><segnavia-step to="next"></segnavia-step>
-    <segnavia-track></segnavia-track><segnavia-counter></segnavia-counter>
-    <button class="notes-toggle" data-act="notes" hidden>${ICONS.notes}</button><segnavia-fullscreen></segnavia-fullscreen>
-  </div></div>`
+    <segnavia-track exportparts="track,segment"></segnavia-track>
+    <div class="control-row">
+      <div class="start"><segnavia-counter exportparts="count:counter"></segnavia-counter><span class="time-separator">·</span><segnavia-time exportparts="time"></segnavia-time></div>
+      <div class="centre"><segnavia-step to="previous" exportparts="button:previous-button,button:step-button"></segnavia-step><segnavia-play exportparts="button:play-button"></segnavia-play><segnavia-step to="next" exportparts="button:next-button,button:step-button"></segnavia-step></div>
+      <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button"></segnavia-mute><segnavia-captions exportparts="button:captions-button"></segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${ICONS.notes}</button><segnavia-fullscreen exportparts="button:presentation-button"></segnavia-fullscreen></div>
+    </div>
+  </div><div class="below"><slot name="below"></slot></div></div>`
 
-const COMPONENTS = 'segnavia-play,segnavia-step,segnavia-track,segnavia-counter,segnavia-fullscreen,segnavia-caption,segnavia-notes'
+const COMPONENTS =
+  'segnavia-play,segnavia-step,segnavia-track,segnavia-counter,segnavia-time,segnavia-mute,segnavia-captions,segnavia-fullscreen,segnavia-caption,segnavia-notes'
 
 export class SegnaviaPlayer extends HTMLElement {
-  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration']
+  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -42,7 +47,14 @@ export class SegnaviaPlayer extends HTMLElement {
   constructor() {
     super()
     const hash = this.getAttribute('hash')
-    this.controller = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch') })
+    const playback = this.getAttribute('playback')
+    const captions = this.getAttribute('captions')
+    this.controller = new DeckController({
+      hash: hash === 'off' ? null : (hash ?? 'slide-'),
+      prefetch: this.hasAttribute('prefetch'),
+      playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
+      captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
+    })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
     for (const control of this.controls()) control.controller = this.controller
@@ -75,6 +87,10 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.css = css
   }
 
+  set cspExtra(csp: string) {
+    this.stage.cspExtra = csp
+  }
+
   get transition(): HostTransition | undefined {
     return this.stage.transition
   }
@@ -87,12 +103,14 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
     this.passTransitionAttributes()
+    this.configurePresentation()
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
     if (name === 'src' && value) void this.controller.loadUrl(value)
     if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
+    if (name === 'presentation') this.configurePresentation()
   }
 
   private passTransitionAttributes() {
@@ -105,6 +123,24 @@ export class SegnaviaPlayer extends HTMLElement {
 
   private controls(): SegnaviaControl[] {
     return [...this.root.querySelectorAll<SegnaviaControl>(COMPONENTS)]
+  }
+
+  private configurePresentation() {
+    const mode = this.getAttribute('presentation')
+    const presentation = mode === 'native' || mode === 'off' ? mode : 'window'
+    const control = this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen
+    control.hidden = presentation === 'off'
+    if (presentation === 'window') control.setAttribute('mode', 'window')
+    else control.removeAttribute('mode')
+  }
+
+  private togglePresentation() {
+    const mode = this.getAttribute('presentation')
+    if (mode === 'off') return
+    if (mode === 'native') {
+      void (document.fullscreenElement === this ? document.exitFullscreen() : this.requestFullscreen())
+    } else if (this.controller.state.presenting) this.controller.stopPresenting()
+    else this.controller.present(this)
   }
 
   private update(state: DeckState) {
@@ -133,6 +169,11 @@ export class SegnaviaPlayer extends HTMLElement {
   // The stage handles keys pressed on it. Elsewhere in the player, paging keys
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
+    if (event.key.toLowerCase() === 'f' && !isEditableLetterShortcut(event.key, event.composedPath()[0])) {
+      event.preventDefault()
+      this.togglePresentation()
+      return
+    }
     handlePlayerKey(this.controller, this.stage, event)
   }
 }

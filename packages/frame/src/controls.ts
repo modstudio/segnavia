@@ -71,7 +71,7 @@ export class SegnaviaCaptions extends SegnaviaControl {
 
 export class SegnaviaPlay extends SegnaviaControl {
   protected styles() {
-    return `${TOKENS_CSS}${BUTTON_CSS}button{inline-size:40px;block-size:40px;border-radius:50%;background:var(--_accent);color:var(--_accent-ink)}
+    return `${TOKENS_CSS}${BUTTON_CSS}button{inline-size:var(--_play-size);block-size:var(--_play-size);border-radius:50%;background:var(--_accent);color:var(--_accent-ink)}
       button:hover{background:color-mix(in srgb,var(--_accent) 85%,var(--_ink))}`
   }
   protected markup() {
@@ -152,11 +152,14 @@ export class SegnaviaFullscreen extends SegnaviaControl {
     return '<button part="button"></button>'
   }
   protected render(_state: DeckState) {
-    const full =
-      this.getAttribute('mode') === 'window' ? _state.presenting : document.fullscreenElement !== null && document.fullscreenElement === this.target()
+    const windowMode = this.getAttribute('mode') === 'window'
+    const full = windowMode ? _state.presenting : document.fullscreenElement !== null && document.fullscreenElement === this.target()
     const button = this.root.querySelector('button') as HTMLButtonElement
     button.innerHTML = full ? ICONS.exitFullscreen : ICONS.enterFullscreen
-    button.setAttribute('aria-label', full ? this.labels.exitFullscreen : this.labels.enterFullscreen)
+    button.setAttribute(
+      'aria-label',
+      windowMode ? (full ? this.labels.exitPresentation : this.labels.enterPresentation) : full ? this.labels.exitFullscreen : this.labels.enterFullscreen,
+    )
   }
   protected clicked() {
     const target = this.target()

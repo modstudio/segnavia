@@ -44,7 +44,6 @@ export class DeckController extends EventTarget {
   get captionsPolicy(): 'on' | 'off' | 'viewer' {
     return this.options.captions ?? this.current.deck?.captions ?? 'viewer'
   }
-
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }

@@ -21,6 +21,8 @@ export const TOKENS_CSS = `
   --_accent-ink:var(--segnavia-accent-ink,light-dark(#fff,#0f1013));
   --_radius:var(--segnavia-radius,12px);
   --_font:var(--segnavia-font,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Hebrew","Noto Sans Arabic",sans-serif);
+  --_control-size:var(--segnavia-control-size,36px);
+  --_play-size:var(--segnavia-play-size,48px);
   font-family:var(--_font);color:var(--_ink);
 }
 :host([theme="light"]){color-scheme:light}
@@ -31,7 +33,7 @@ export const TOKENS_CSS = `
 
 export const BUTTON_CSS = `
 :host{display:inline-flex}
-button{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:36px;block-size:36px;border-radius:10px;color:var(--_ink);cursor:pointer}
+button{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
 button:hover{background:var(--_line)}
 button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
 button[disabled]{opacity:.35;cursor:default;background:none}
