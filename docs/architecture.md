@@ -254,6 +254,17 @@ is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
+**Sideways overflow.** On screen, content that overflows a page sideways is
+clipped at the page edge. Chromium's print path instead shrinks the whole page
+to fit it. A render at a fixed size (a page with a fixed width and height and
+no print paper, each deck slide, each imposed piece) therefore prints with
+paint containment on its root, so the overflow is clipped as on screen and the
+page keeps its own scale. A growing or fluid page, a page printed on paper, and
+the deck's printable document print without it, because containment applied
+before a growing page is measured drops absolutely positioned content from its
+height, and on a print of several pages it stops a fixed element repeating on
+every page. Those prints still shrink when their content overflows sideways.
+
 **Effects in PDF readers.** Chromium writes CSS shadows and blurs as
 luminosity soft masks. Rule 1 rewrites a mask whose transparency group paints
 one grayscale image over the default black backdrop: the masked constant-color
