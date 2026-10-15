@@ -26,7 +26,7 @@ segnavia-caption[data-empty]{display:block}
 .bar{display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
 segnavia-track{inline-size:100%}
 .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--_play-size)}
-.start,.centre,.end{display:flex;align-items:center;gap:4px}.centre{grid-column:2}.end{justify-self:end;min-inline-size:0}.start{justify-self:start}
+.start,.center,.end{display:flex;align-items:center;gap:4px}.center{grid-column:2}.end{justify-self:end;min-inline-size:0}.start{justify-self:start}
 .time-separator{color:var(--_muted)}
 .time-separator[hidden]{display:none}
 segnavia-counter{padding-inline:6px}

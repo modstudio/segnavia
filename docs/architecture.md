@@ -70,11 +70,11 @@ library names a host.
 
 ## Player surface
 
-The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attributes, `controller`, `resolveSlide`, `css`, `cspExtra`, `labels` and the `transition` property. Its control track occupies the first bar row. The second row keeps previous, play and next centred between time at the start and actions, mute, captions, notes and presentation at the end. At narrow container widths it removes secondary chrome without moving play.
+The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attributes, `controller`, `resolveSlide`, `css`, `cspExtra`, `labels` and the `transition` property. Its control track occupies the first bar row. The second row keeps previous, play and next centered between time at the start and actions, mute, captions, notes and presentation at the end. At narrow container widths it removes secondary chrome without moving play.
 
-The `actions` slot accepts any host element before the built-in end controls. Slotted buttons receive the player's icon-button size, shape, colour, hover and focus treatment by default through the `--segnavia-*` tokens; host styles can override that default. The `below` slot keeps arbitrary host chrome beneath the bar and hides it while presenting.
+The `actions` slot accepts any host element before the built-in end controls. Slotted buttons receive the player's icon-button size, shape, color, hover and focus treatment by default through the `--segnavia-*` tokens; host styles can override that default. The `below` slot keeps arbitrary host chrome beneath the bar and hides it while presenting.
 
-The styled controls use copied Lucide icons under the ISC licence; attribution and the applicable licence texts ship in `@segnavia/frame`'s `THIRD-PARTY-NOTICES`.
+The styled controls use copied Lucide icons under the ISC license; attribution and the applicable license texts ship in `@segnavia/frame`'s `THIRD-PARTY-NOTICES`.
 Headless hosts can import the typed SVG strings individually from `@segnavia/frame/icons`; the headless entry does not include them.
 Every built-in icon can instead be supplied as slotted content. The player forwards `icon-play`, `icon-pause`, `icon-previous`, `icon-next`, `icon-mute`, `icon-unmute`, `icon-captions-on`, `icon-captions-off`, `icon-enter-presentation`, `icon-exit-presentation` and `icon-notes` to the matching control; the same slots work directly on standalone controls.
 

@@ -146,9 +146,9 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
         segment.getBoundingClientRect(),
       )
       return {
-        centred: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
-        centreVisible: [previousBox, playBox, nextBox].every((box) => box.width > 0 && box.height > 0),
-        centreClear: nextBox.right <= endBox.left,
+        centered: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
+        centerVisible: [previousBox, playBox, nextBox].every((box) => box.width > 0 && box.height > 0),
+        centerClear: nextBox.right <= endBox.left,
         segmentCount: segmentBoxes.length,
         segmentsSeparated: segmentBoxes.every((box, index) => index === 0 || box.left > (segmentBoxes[index - 1]?.right ?? box.left)),
         counter: getComputedStyle(counter).display,
@@ -156,10 +156,10 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
         presentation: getComputedStyle(presentation).display,
       }
     })
-    check(`${mode} bar keeps play centred at ${width}px`, geometry.centred, JSON.stringify(geometry))
+    check(`${mode} bar keeps play centered at ${width}px`, geometry.centered, JSON.stringify(geometry))
     check(
       `${mode} bar shows previous, play and next without overlapping the end group at ${width}px`,
-      geometry.centreVisible && geometry.centreClear,
+      geometry.centerVisible && geometry.centerClear,
       JSON.stringify(geometry),
     )
     if (mode === 'continuous' && width === 960) {

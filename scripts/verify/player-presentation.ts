@@ -75,7 +75,7 @@ export async function verifyWindowPresentation(h: Harness) {
   await page.waitForTimeout(200)
   const restoredCaption = await captionAppearance(h)
   check(
-    'Escape restores the caption colours and font size',
+    'Escape restores the caption colors and font size',
     JSON.stringify(restoredCaption) === JSON.stringify(normalCaption),
     JSON.stringify({ normalCaption, restoredCaption }),
   )
