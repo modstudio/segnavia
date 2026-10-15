@@ -12,6 +12,7 @@
 
 import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
+import { deckHasNarration } from './control-values.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { ICONS } from './icons.ts'
@@ -162,7 +163,7 @@ export class SegnaviaPlayer extends HTMLElement {
     player.lang = deck.lang ?? ''
     player.setAttribute('aria-label', this.words.player)
     player.classList.toggle('notes-closed', !open)
-    player.classList.toggle('silent', !deck.slides.some((slide) => slide.narration))
+    player.classList.toggle('silent', !deckHasNarration(state))
     this.setAttribute('role', 'region')
     ;(this.root.querySelector('.screen') as HTMLElement).style.setProperty('--ratio', String(deck.size.width / deck.size.height))
     const toggle = this.root.querySelector('.notes-toggle') as HTMLElement
