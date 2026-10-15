@@ -5,6 +5,7 @@ import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import { containFixedPageOverflow } from './overflow-containment.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 
@@ -36,6 +37,7 @@ function nameSlideError(error: unknown, id: string): never {
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
+  const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
@@ -55,7 +57,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
             {
               viewport: deck.size,
               scripts: deck.scripts === 'sandboxed',
-              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css }),
+              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss }),
               boundMs: opts.boundMs,
             },
             {
@@ -87,7 +89,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
 }
 
 async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
-  const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
+  const css = containFixedPageOverflow(`${services.fontFaces(opts)}${opts.css ?? ''}`)
   const imposed = impose(imposition, deck.slides.length)
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
