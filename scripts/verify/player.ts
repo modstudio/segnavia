@@ -184,11 +184,57 @@ async function verifyContinuousPlayer(h: Harness) {
   await captions.click()
   check('CC toggles with aria-pressed', (await captions.getAttribute('aria-pressed')) === 'false')
 
+  const beforePresentation = await page.locator(PLAYER).evaluate((player) => {
+    const rect = player.getBoundingClientRect()
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, position: getComputedStyle(player).position, overflow: document.body.style.overflow }
+  })
   await page.locator(`${PLAYER} segnavia-stage`).focus()
   await page.keyboard.press('f')
-  check('f enters window presentation by default', await page.locator(PLAYER).evaluate((player) => player.hasAttribute('data-presenting')))
+  const presented = await page.locator(PLAYER).evaluate((player) => {
+    const rect = player.getBoundingClientRect()
+    return {
+      marked: player.hasAttribute('data-presenting'),
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
+      position: getComputedStyle(player).position,
+      zIndex: getComputedStyle(player).zIndex,
+      overflow: document.body.style.overflow,
+    }
+  })
+  check(
+    'f enters window presentation by default and covers the viewport',
+    presented.marked &&
+      presented.x === 0 &&
+      presented.y === 0 &&
+      presented.width === presented.viewportWidth &&
+      presented.height === presented.viewportHeight &&
+      presented.position === 'fixed' &&
+      presented.zIndex === '2147483647' &&
+      presented.overflow === 'hidden',
+    JSON.stringify(presented),
+  )
   await page.keyboard.press('Escape')
-  check('Escape leaves window presentation', await page.locator(PLAYER).evaluate((player) => !player.hasAttribute('data-presenting')))
+  const restored = await page.locator(PLAYER).evaluate((player) => {
+    const rect = player.getBoundingClientRect()
+    return {
+      marked: player.hasAttribute('data-presenting'),
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      position: getComputedStyle(player).position,
+      overflow: document.body.style.overflow,
+    }
+  })
+  check(
+    'Escape leaves window presentation and restores its geometry',
+    !restored.marked && JSON.stringify(restored) === JSON.stringify({ marked: false, ...beforePresentation }),
+    JSON.stringify({ beforePresentation, restored }),
+  )
 
   await captions.click()
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { go(index: number): Promise<void>; play(): Promise<void> } }) => {
