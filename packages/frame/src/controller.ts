@@ -166,6 +166,7 @@ export class DeckController extends EventTarget {
     } else this.startClock(this.current.slideElapsedMs)
     this.emit()
   }
+
   pause() {
     this.cancel?.()
     this.cancel = null
