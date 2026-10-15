@@ -217,7 +217,11 @@ export async function verifyRailAuthoring(h: Harness) {
     await Promise.resolve()
     holder.serializedSaves = []
     const readding = holder.authoring.update(
-      { saveNotes: async ({ notes }) => holder.serializedSaves?.push(notes) },
+      {
+        saveNotes: async ({ notes }) => {
+          holder.serializedSaves?.push(notes)
+        },
+      },
       { notesMaxLength: 4321 },
     )
     holder.authoringFacts.releaseNotes()
