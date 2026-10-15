@@ -91,8 +91,36 @@ export async function verifyPlayer(h: Harness) {
 
   await verifyScripted(h)
   await verifyPrefetch(h)
+  await verifyDynamicPlayerOptions(h)
   await verifyPrint(h)
   await verifyContinuousPlayer(h)
+}
+
+async function verifyDynamicPlayerOptions(h: Harness) {
+  const { page, check } = h
+  const state = await page.evaluate(async (src) => {
+    const player = document.createElement('segnavia-player') as HTMLElement & {
+      controller: EventTarget & { state: { deck: unknown; playback: string; captionsVisible: boolean }; destroy: () => void }
+    }
+    player.setAttribute('playback', 'continuous')
+    player.setAttribute('captions', 'off')
+    document.body.append(player)
+    const loaded = new Promise<void>((resolve) => {
+      player.controller.addEventListener('change', () => {
+        if (player.controller.state.deck) resolve()
+      })
+    })
+    player.setAttribute('src', src)
+    await loaded
+    const result = {
+      playback: player.controller.state.playback,
+      captionsVisible: player.controller.state.captionsVisible,
+    }
+    player.controller.destroy()
+    player.remove()
+    return result
+  }, h.url('deck.json'))
+  check('player policy attributes set before src override the loaded deck', state.playback === 'continuous' && !state.captionsVisible, JSON.stringify(state))
 }
 
 async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
