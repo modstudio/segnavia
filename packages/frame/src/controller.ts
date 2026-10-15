@@ -41,6 +41,10 @@ export class DeckController extends EventTarget {
     return this.options.keys ?? 'stage'
   }
 
+  get captionsPolicy(): 'on' | 'off' | 'viewer' {
+    return this.options.captions ?? this.current.deck?.captions ?? 'viewer'
+  }
+
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }
@@ -212,7 +216,7 @@ export class DeckController extends EventTarget {
   }
 
   setCaptionsVisible(visible: boolean) {
-    if ((this.options.captions ?? this.current.deck?.captions ?? 'viewer') !== 'viewer') return
+    if (this.captionsPolicy !== 'viewer') return
     this.settings.captionsVisible = visible
     this.current = { ...this.current, captionsVisible: visible }
     this.persistSettings()

@@ -9,9 +9,63 @@
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'
+import { deckHasNarration, formatTime } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, ICONS, TOKENS_CSS } from './controls-style.ts'
 import { slideDurationMs } from './timeline.ts'
+
+export class SegnaviaTime extends SegnaviaControl {
+  protected styles() {
+    return `${TOKENS_CSS}:host{display:inline-block;font-variant-numeric:tabular-nums;color:var(--_muted);font-size:13px;white-space:nowrap}`
+  }
+  protected markup() {
+    return '<span part="time" dir="ltr" aria-live="polite"></span>'
+  }
+  protected render(state: DeckState) {
+    const duration = state.slide ? slideDurationMs(state.slide) : null
+    const elapsed = state.playback === 'continuous' ? state.elapsedMs : state.slideElapsedMs
+    const total = state.playback === 'continuous' ? state.totalMs : duration
+    ;(this.root.querySelector('span') as HTMLElement).textContent = total === null || total === 0 ? '' : this.labels.time(formatTime(elapsed), formatTime(total))
+  }
+}
+
+export class SegnaviaMute extends SegnaviaControl {
+  protected styles() {
+    return `${TOKENS_CSS}${BUTTON_CSS}`
+  }
+  protected markup() {
+    return '<button part="button"></button>'
+  }
+  protected render(state: DeckState) {
+    this.hidden = !deckHasNarration(state)
+    const button = this.root.querySelector('button') as HTMLButtonElement
+    button.innerHTML = state.muted ? ICONS.muted : ICONS.volume
+    button.setAttribute('aria-label', state.muted ? this.labels.unmute : this.labels.mute)
+    button.setAttribute('aria-pressed', String(state.muted))
+  }
+  protected clicked() {
+    if (this.controller) this.controller.setMuted(!this.controller.state.muted)
+  }
+}
+
+export class SegnaviaCaptions extends SegnaviaControl {
+  protected styles() {
+    return `${TOKENS_CSS}${BUTTON_CSS}`
+  }
+  protected markup() {
+    return '<button part="button"></button>'
+  }
+  protected render(state: DeckState) {
+    this.hidden = !deckHasNarration(state) || this.controller?.captionsPolicy !== 'viewer'
+    const button = this.root.querySelector('button') as HTMLButtonElement
+    button.innerHTML = ICONS.captions
+    button.setAttribute('aria-label', state.captionsVisible ? this.labels.hideCaptions : this.labels.showCaptions)
+    button.setAttribute('aria-pressed', String(state.captionsVisible))
+  }
+  protected clicked() {
+    if (this.controller) this.controller.setCaptionsVisible(!this.controller.state.captionsVisible)
+  }
+}
 
 export class SegnaviaPlay extends SegnaviaControl {
   protected styles() {

@@ -51,4 +51,7 @@ export const ICONS = {
   notes: icon('<path d="M5 6h14M5 11h14M5 16h9"/>'),
   enterFullscreen: icon('<path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/>'),
   exitFullscreen: icon('<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'),
+  volume: icon('<path d="M5 10v4h3l4 3V7l-4 3H5M16 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>'),
+  muted: icon('<path d="M5 10v4h3l4 3V7l-4 3H5M16 10l4 4M20 10l-4 4"/>'),
+  captions: icon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 10a2 2 0 1 0 0 4M18 10a2 2 0 1 0 0 4"/>'),
 }
