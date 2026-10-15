@@ -21,6 +21,7 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { handlePlayerKey } from './player-key.ts'
 import { PLAYER_CSS } from './player-style.ts'
+import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 import type { HostTransition } from './transition.ts'
@@ -71,7 +72,7 @@ export class SegnaviaPlayer extends HTMLElement {
     })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
-    for (const control of this.controls()) control.controller = this.controller
+    for (const control of this.controls()) if (control.tagName !== 'SEGNAVIA-RAIL' || this.rail) control.controller = this.controller
     ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).targetElement = this
     this.controller.addEventListener('change', (event) => this.update((event as CustomEvent<DeckState>).detail))
     this.controller.addEventListener('exit', () => {
@@ -136,6 +137,7 @@ export class SegnaviaPlayer extends HTMLElement {
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
+    if (name === 'rail') this.configureRail()
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
     if (name === 'presentation') void this.configurePresentation()
   }
@@ -154,6 +156,13 @@ export class SegnaviaPlayer extends HTMLElement {
 
   private controls(): SegnaviaControl[] {
     return [...this.root.querySelectorAll<SegnaviaControl>(COMPONENTS)]
+  }
+
+  private configureRail() {
+    const rail = this.root.querySelector('segnavia-rail') as SegnaviaRail
+    rail.controller = this.rail ? this.controller : null
+    if (!this.rail) rail.shadowRoot?.querySelector('ol')?.replaceChildren()
+    else rail.refresh()
   }
 
   private async configurePresentation() {

@@ -56,6 +56,12 @@ export class SegnaviaRail extends SegnaviaControl {
   protected render(state: DeckState) {
     const deck = state.deck
     if (!deck) return
+    const root = this.getRootNode()
+    if (root instanceof ShadowRoot && root.host.tagName === 'SEGNAVIA-PLAYER' && !root.host.hasAttribute('rail')) {
+      this.observer?.disconnect()
+      this.root.querySelector('ol')?.replaceChildren()
+      return
+    }
     this.dir = state.direction
     this.setAttribute('aria-label', this.labels.rail)
     this.reconcile(state)
@@ -65,6 +71,10 @@ export class SegnaviaRail extends SegnaviaControl {
     }
     this.syncSelection(state)
     this.observe(state)
+  }
+
+  refresh() {
+    if (this.controller?.state.deck) this.render(this.controller.state)
   }
 
   protected clicked(event: Event) {

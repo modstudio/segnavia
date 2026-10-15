@@ -36,7 +36,7 @@ export async function verifyRailAuthoring(h: Harness) {
   await h.waitFor(PLAYER, (data) => data.slide === '2')
   check('thumbnail click navigates', (await h.state(PLAYER)).slide === '2')
   await second.focus()
-  await second.press('ArrowDown')
+  await second.press('ArrowRight')
   await page.keyboard.press('Enter')
   await h.waitFor(PLAYER, (data) => data.slide === '3')
   check('thumbnail arrows and Enter navigate', (await h.state(PLAYER)).slide === '3')
@@ -44,10 +44,26 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.setViewportSize({ width: 1000, height: 816 })
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
-  const first = page.locator(`${PLAYER} segnavia-rail button[data-index="0"]`)
-  const secondAuthoring = page.locator(`${PLAYER} segnavia-rail button[data-index="1"]`)
-  await first.dragTo(secondAuthoring)
-  await page.waitForTimeout(50)
+  await page.locator(PLAYER).evaluate((player) => {
+    const root = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
+    const first = root?.querySelector<HTMLButtonElement>('button[data-index="0"]')
+    const second = root?.querySelector<HTMLButtonElement>('button[data-index="1"]')
+    if (!first || !second) throw new Error('The reorder thumbnails were not ready.')
+    const transfer = new DataTransfer()
+    first.dispatchEvent(new DragEvent('dragstart', { bubbles: true, composed: true, dataTransfer: transfer }))
+    const box = second.getBoundingClientRect()
+    second.dispatchEvent(
+      new DragEvent('dragover', { bubbles: true, composed: true, dataTransfer: transfer, clientX: box.left + box.width / 2, clientY: box.bottom - 1 }),
+    )
+    second.dispatchEvent(
+      new DragEvent('drop', { bubbles: true, composed: true, dataTransfer: transfer, clientX: box.left + box.width / 2, clientY: box.bottom - 1 }),
+    )
+  })
+  await page.waitForFunction(
+    () =>
+      (document.querySelector('segnavia-player') as HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }).controller.state.deck
+        .slides[0]?.id === 'second',
+  )
   let ids = await page
     .locator(PLAYER)
     .evaluate((player: HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }) =>
@@ -92,7 +108,8 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.waitForFunction(() => 'reactSetRail' in window && document.querySelector('segnavia-player'))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
   await page.waitForFunction(() => document.querySelector('segnavia-player')?.hasAttribute('rail'))
-  const reactLabel = await page.locator(PLAYER).getAttribute('aria-label')
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  const reactLabel = await page.locator(`${PLAYER} .player`).getAttribute('aria-label')
   check(
     'React renders the player and applies a later prop update',
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
