@@ -6,7 +6,7 @@ import { type ControllerOptions, type DeckState, initialDeckState, type Resolved
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
-import { annotationsAt, deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
+import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
@@ -337,13 +337,17 @@ export class DeckController extends EventTarget {
     const slide = this.current.slide
     const deck = this.current.deck
     if (!clock || !slide || !deck) return
-    const word = clock.word()
     const slideElapsedMs = clock.elapsed()
+    let moment = slideStateAt(slide, slideElapsedMs)
+    if (slide.narration?.live) {
+      const word = clock.word()
+      moment = { ...moment, word, shown: annotationsAt(slide.narration.cues, word) }
+    }
     const startMs = deckTimeline(deck).slides[this.current.index]?.startMs ?? 0
     this.current = {
       ...this.current,
-      word,
-      shown: slide.narration ? annotationsAt(slide.narration.cues, word) : [],
+      word: moment.word,
+      shown: moment.shown,
       progress: clock.progress(),
       slideElapsedMs,
       elapsedMs: startMs + slideElapsedMs,

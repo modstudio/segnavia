@@ -97,10 +97,10 @@ describe('deck controller', () => {
     await controller.load(deck)
     await controller.go(1)
     await controller.play()
-    ;(clocks[0] as { word: number | null }).word = 0
+    ;(clocks[0] as { elapsed: number }).elapsed = 0
     await tick()
     expect(controller.state.shown).toEqual([])
-    ;(clocks[0] as { word: number | null }).word = 1
+    ;(clocks[0] as { elapsed: number }).elapsed = 100
     await tick()
     expect(controller.state.shown).toEqual([0])
     controller.pause()
@@ -385,9 +385,9 @@ describe('controller events', () => {
     await controller.load(deck)
     await controller.go(1)
     await controller.play()
-    ;(clocks[0] as { word: number | null }).word = 0
+    ;(clocks[0] as { elapsed: number }).elapsed = 0
     await tick()
-    ;(clocks[0] as { word: number | null }).word = 1
+    ;(clocks[0] as { elapsed: number }).elapsed = 100
     await tick()
     expect(details.slice(-2).map((detail) => detail.annotations)).toEqual([[], [0]])
   })
