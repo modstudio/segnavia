@@ -1,4 +1,5 @@
 import type { DeckState } from './controller-types.ts'
+import { slideDurationMs } from './timeline.ts'
 
 export function formatTime(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
@@ -10,4 +11,17 @@ export function formatTime(ms: number): string {
 
 export function deckHasNarration(state: Pick<DeckState, 'deck'>): boolean {
   return state.deck?.slides.some((slide) => slide.narration !== undefined) ?? false
+}
+
+export function timeValues(state: DeckState): { elapsedMs: number; totalMs: number } | null {
+  if (state.playback === 'continuous') {
+    const timed = state.deck?.slides.some((slide) => slideDurationMs(slide) !== null) ?? false
+    return timed ? { elapsedMs: state.elapsedMs, totalMs: state.totalMs } : null
+  }
+  const totalMs = state.slide ? slideDurationMs(state.slide) : null
+  return totalMs === null ? null : { elapsedMs: state.slideElapsedMs, totalMs }
+}
+
+export function captionsControlVisible(state: Pick<DeckState, 'deck'>, policy: 'on' | 'off' | 'viewer'): boolean {
+  return policy === 'viewer' && deckHasNarration(state)
 }

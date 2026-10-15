@@ -9,7 +9,7 @@
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'
-import { deckHasNarration, formatTime } from './control-values.ts'
+import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, ICONS, TOKENS_CSS } from './controls-style.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
@@ -23,11 +23,9 @@ export class SegnaviaTime extends SegnaviaControl {
     return '<span part="time" dir="ltr" aria-live="polite"></span>'
   }
   protected render(state: DeckState) {
-    const duration = state.slide ? slideDurationMs(state.slide) : null
-    const elapsed = state.playback === 'continuous' ? state.elapsedMs : state.slideElapsedMs
-    const total = state.playback === 'continuous' ? state.totalMs : duration
-    ;(this.root.querySelector('span') as HTMLElement).textContent =
-      total === null || total === 0 ? '' : this.labels.time(formatTime(elapsed), formatTime(total))
+    const values = timeValues(state)
+    this.hidden = values === null
+    ;(this.root.querySelector('span') as HTMLElement).textContent = values ? this.labels.time(formatTime(values.elapsedMs), formatTime(values.totalMs)) : ''
   }
 }
 
@@ -58,7 +56,7 @@ export class SegnaviaCaptions extends SegnaviaControl {
     return '<button part="button"></button>'
   }
   protected render(state: DeckState) {
-    this.hidden = !deckHasNarration(state) || this.controller?.captionsPolicy !== 'viewer'
+    this.hidden = !captionsControlVisible(state, this.controller?.captionsPolicy ?? 'viewer')
     const button = this.root.querySelector('button') as HTMLButtonElement
     button.innerHTML = ICONS.captions
     button.setAttribute('aria-label', state.captionsVisible ? this.labels.hideCaptions : this.labels.showCaptions)

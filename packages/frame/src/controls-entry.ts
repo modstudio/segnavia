@@ -8,7 +8,7 @@ import { STYLED_ELEMENTS } from './styled-elements.ts'
 
 export { SegnaviaCaption, SegnaviaNotes } from './caption.ts'
 export { SegnaviaControl } from './control.ts'
-export { deckHasNarration, formatTime } from './control-values.ts'
+export { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
 export { SegnaviaCaptions, SegnaviaCounter, SegnaviaFullscreen, SegnaviaMute, SegnaviaPlay, SegnaviaStep, SegnaviaTime, SegnaviaTrack } from './controls.ts'
 export { ICONS, TOKENS_CSS } from './controls-style.ts'
 export * from './index.ts'

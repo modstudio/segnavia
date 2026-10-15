@@ -159,6 +159,8 @@ export class SegnaviaPlayer extends HTMLElement {
     toggle.hidden = !deck.slides.some((slide) => slide.notes)
     toggle.setAttribute('aria-label', open ? this.words.hideNotes : this.words.showNotes)
     toggle.setAttribute('aria-pressed', String(open))
+    const time = this.root.querySelector('segnavia-time') as HTMLElement
+    ;(this.root.querySelector('.time-separator') as HTMLElement).hidden = time.hidden
     this.dataset.slide = String(state.index + 1)
     this.dataset.playing = String(state.playing)
     this.dataset.word = state.word === null ? '' : String(state.word)

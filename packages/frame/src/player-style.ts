@@ -25,6 +25,7 @@ segnavia-track{inline-size:100%}
 .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--segnavia-play-size,48px)}
 .start,.centre,.end{display:flex;align-items:center;gap:4px}.centre{grid-column:2}.end{justify-self:end;min-inline-size:0}.start{justify-self:start}
 .time-separator{color:var(--_muted)}
+.time-separator[hidden]{display:none}
 segnavia-counter{padding-inline:6px}
 .notes-toggle{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:36px;block-size:36px;border-radius:10px;color:var(--_ink);cursor:pointer}
 .notes-toggle:hover{background:var(--_line)}
