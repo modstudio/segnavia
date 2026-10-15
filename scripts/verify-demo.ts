@@ -12,12 +12,14 @@ import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
 import { verifyPapers } from './verify/papers.ts'
 import { verifyPlayer } from './verify/player.ts'
+import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyRtl } from './verify/rtl.ts'
 
 const h = await openHarness()
 try {
   verifyCapture(h)
   await verifyPlayer(h)
+  await verifyRailAuthoring(h)
   await verifyPages(h)
   await verifyPapers(h)
   await verifyRtl(h)
