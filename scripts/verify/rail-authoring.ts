@@ -80,6 +80,30 @@ export async function verifyRailAuthoring(h: Harness) {
     )
   check('a rejected keyboard reorder rolls back', ids.join(',') === 'second,probe', ids.join(','))
 
+  await page.setViewportSize({ width: 408, height: 816 })
+  await page.goto(h.url('authoring-rtl.html'))
+  await page.waitForFunction(() => 'authoring' in window)
+  const rtlDrag = await page.locator(PLAYER).evaluate(async (player) => {
+    const root = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
+    const first = root?.querySelector<HTMLButtonElement>('button[data-index="0"]')
+    const second = root?.querySelector<HTMLButtonElement>('button[data-index="1"]')
+    if (!first || !second) throw new Error('The RTL reorder thumbnails were not ready.')
+    const transfer = new DataTransfer()
+    first.dispatchEvent(new DragEvent('dragstart', { bubbles: true, composed: true, dataTransfer: transfer }))
+    const box = second.getBoundingClientRect()
+    second.dispatchEvent(new DragEvent('dragover', { bubbles: true, composed: true, dataTransfer: transfer, clientX: box.left + 1 }))
+    const marker = second.dataset.insert
+    second.dispatchEvent(new DragEvent('drop', { bubbles: true, composed: true, dataTransfer: transfer, clientX: box.left + 1 }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const slides = (player as HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }).controller.state.deck.slides
+    return { marker, ids: slides.map((slide) => slide.id).join(',') }
+  })
+  check('RTL pointer drag uses the logical after side', rtlDrag.marker === 'after' && rtlDrag.ids === 'second,probe', JSON.stringify(rtlDrag))
+
+  await page.setViewportSize({ width: 1000, height: 816 })
+  await page.goto(h.url('authoring.html'))
+  await page.waitForFunction(() => 'authoring' in window)
+
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
   await notes.fill('Draft one')
   await page.waitForTimeout(700)

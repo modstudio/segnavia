@@ -236,7 +236,11 @@ export class AuthoringController extends EventTarget {
     event.preventDefault()
     const horizontal = getComputedStyle(this.rail?.shadowRoot.querySelector('ol') as Element).flexDirection === 'row'
     const rect = button.getBoundingClientRect()
-    const after = horizontal ? event.clientX >= rect.left + rect.width / 2 : event.clientY >= rect.top + rect.height / 2
+    const after = horizontal
+      ? this.player.controller.state.direction === 'rtl'
+        ? event.clientX < rect.left + rect.width / 2
+        : event.clientX >= rect.left + rect.width / 2
+      : event.clientY >= rect.top + rect.height / 2
     for (const item of this.buttons()) item.removeAttribute('data-insert')
     button.dataset.insert = after ? 'after' : 'before'
   }

@@ -20,11 +20,16 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
     ],
   })
   writeFileSync(path.join(site, 'deck-probe.json'), JSON.stringify(probe))
+  writeFileSync(path.join(site, 'deck-probe-rtl.json'), JSON.stringify({ ...probe, dir: 'rtl' }))
   writeFileSync(
     path.join(site, 'authoring.html'),
     shell(
       '<input id="unprotected"><segnavia-player id="player" rail src="deck-probe.json" hash="off"></segnavia-player><script type="module" src="authoring-demo.js"></script>',
     ),
+  )
+  writeFileSync(
+    path.join(site, 'authoring-rtl.html'),
+    shell('<segnavia-player id="player" rail src="deck-probe-rtl.json" hash="off"></segnavia-player><script type="module" src="authoring-demo.js"></script>'),
   )
   writeFileSync(
     path.join(site, 'react.html'),
