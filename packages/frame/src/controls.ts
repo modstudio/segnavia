@@ -11,7 +11,8 @@
 import { SegnaviaControl } from './control.ts'
 import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
-import { BUTTON_CSS, ICONS, TOKENS_CSS } from './controls-style.ts'
+import { BUTTON_CSS, TOKENS_CSS } from './controls-style.ts'
+import { ICONS } from './icons.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { trackMsAt } from './track-mapping.ts'
 
@@ -58,7 +59,7 @@ export class SegnaviaCaptions extends SegnaviaControl {
   protected render(state: DeckState) {
     this.hidden = !captionsControlVisible(state, this.controller?.captionsPolicy ?? 'viewer')
     const button = this.root.querySelector('button') as HTMLButtonElement
-    button.innerHTML = ICONS.captions
+    button.innerHTML = state.captionsVisible ? ICONS.captionsOn : ICONS.captionsOff
     button.setAttribute('aria-label', state.captionsVisible ? this.labels.hideCaptions : this.labels.showCaptions)
     button.setAttribute('aria-pressed', String(state.captionsVisible))
   }
