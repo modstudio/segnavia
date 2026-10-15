@@ -128,6 +128,12 @@ export async function verifyPapers(h: Harness) {
     JSON.stringify(rtl),
   )
 
+  await page.waitForFunction(() => {
+    const messages = (window as Window & { __messages?: string[] }).__messages ?? []
+    const frames = document.querySelectorAll('iframe').length
+    return frames > 0 && messages.filter((message) => message === 'segnavia:ready').length >= frames
+  })
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   const firstFrame = page.locator('#first iframe').first()
   const frameBox = await firstFrame.boundingBox()
   if (!frameBox) throw new Error('The first label frame has no box.')
