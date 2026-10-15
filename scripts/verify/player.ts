@@ -154,6 +154,7 @@ async function verifyContinuousPlayer(h: Harness) {
   const mute = page.locator(`${PLAYER} segnavia-mute button`)
   await mute.click()
   check('mute toggles with aria-pressed', (await mute.getAttribute('aria-pressed')) === 'true')
+  await mute.click()
   const captions = page.locator(`${PLAYER} segnavia-captions button`)
   await captions.click()
   check('CC toggles with aria-pressed', (await captions.getAttribute('aria-pressed')) === 'false')
