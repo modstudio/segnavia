@@ -120,6 +120,14 @@ direction:
 - **Paced timing** pauses at Hebrew and Arabic punctuation as at Latin, and
   cue words match without niqqud.
 
+## Long documents
+
+A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and mirrored top, bottom, inner and outer margins are required. It contains optional front-matter sections and one or more chapters; either may carry HTML, and chapters may replace their title in running heads. Front-matter sections can opt out of the table of contents, and contents page numbers can be omitted.
+
+Page numbering is set separately for front matter and the body, while footnote and endnote markers have their own settings. Hebrew (`he` or `iw`) defaults to Arabic front-matter numbers, Hebrew body numbers and Hebrew footnote markers. Other languages default to lower-case Roman front-matter numbers, Arabic body numbers and symbol footnote markers. Endnote markers default to Arabic in every language. Footnotes restart by chapter unless set to run through the book; endnotes belong at the end of the book unless a paginated book places them at the end of each chapter.
+
+A paginated book without a page is refused. Front matter and the body cannot use the same numbering system, footnotes and endnotes cannot use the same marker when both kinds occur, chapter endnotes require paginated mode, and page margins must leave a text area. Laying out the content, numbering its pages and placing its notes belong to the continuous-mode and paginated-mode work that this value feeds.
+
 ## How a shot is made
 
 1. `capture` launches Chromium, calls `host.open`, and runs each selected

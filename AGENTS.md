@@ -68,6 +68,8 @@ isolated, direction resolved by `resolveDirection` from `dir`, then `lang`,
 then the first strong letter. A new place that shows text says how it
 handles direction.
 
+Hebrew books and seforim are a first-class use, not a localization. Their conventions are requirements a general layout tool misses, so a feature that numbers, notes or paginates text is designed and tested for them from the start (Design direction, in the doc store).
+
 ## Security invariants
 
 - Author HTML is always shown in a frame sandboxed without same-origin.

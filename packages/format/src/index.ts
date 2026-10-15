@@ -3,10 +3,12 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
+import { BookShape } from './book.ts'
 import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
+export * from './book.ts'
 export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export {
   fitPage,
@@ -20,6 +22,7 @@ export {
   type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
+export * from './numbering.ts'
 export {
   MARK_GAP_MM,
   MARK_LENGTH_MM,
@@ -383,6 +386,7 @@ export function exceedsLimits(deck: Deck, limits: DeckLimits): string[] {
 
 export function jsonSchemas() {
   return {
+    book: z.toJSONSchema(BookShape, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
