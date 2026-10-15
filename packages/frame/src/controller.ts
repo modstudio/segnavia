@@ -184,7 +184,7 @@ export class DeckController extends EventTarget {
     const entry = timeline.slides[index]
     if (!entry) return
     const wasPlaying = this.current.playing
-    await this.show(index, true)
+    if (!(await this.show(index, true))) return
     if (untimed) {
       this.current = { ...this.current, playing: false, elapsedMs: entry.startMs, slideElapsedMs: 0, progress: 0 }
       this.emit()
@@ -238,14 +238,14 @@ export class DeckController extends EventTarget {
     return action
   }
 
-  private async show(index = this.current.index, commitNavigation = false) {
+  private async show(index = this.current.index, commitNavigation = false): Promise<boolean> {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
     this.stopClock()
     const content = await this.resolve(slide, index)
     // A newer show began while this one resolved; it owns the state.
-    if (shown !== this.shows) return
+    if (shown !== this.shows) return false
     if (commitNavigation) {
       this.current = { ...this.current, index }
       const prefix = this.options.hash
@@ -261,8 +261,8 @@ export class DeckController extends EventTarget {
     this.emit()
     this.dispatchEvent(new CustomEvent('slide', { detail: { index } }))
     this.prefetch()
+    return true
   }
-
   private prefetch() {
     const deck = this.current.deck
     if (!this.options.prefetch || !deck) return
