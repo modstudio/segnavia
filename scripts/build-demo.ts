@@ -240,7 +240,7 @@ writeFileSync(
     `<style>segnavia-player::part(word-current){outline:3px solid rgb(255, 0, 255)}</style><segnavia-player playback="continuous" src="deck.json">${playerChrome}</segnavia-player>`,
   ),
 )
-writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off"></segnavia-player>'))
+writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off" presentation="native"></segnavia-player>'))
 // Labels are the host's to translate; the Hebrew page passes its own.
 writeFileSync(
   path.join(SITE, 'he.html'),
