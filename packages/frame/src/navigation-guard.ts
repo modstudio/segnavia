@@ -1,20 +1,31 @@
-const guards = new WeakMap<EventTarget, () => Promise<void>>()
-const running = new WeakMap<EventTarget, Promise<void>>()
+const navigationGuardKey = Symbol.for('@segnavia/frame/navigation-guard')
+
+interface NavigationGuardState {
+  guard?: () => Promise<void>
+  running?: Promise<void>
+}
+
+function state(target: EventTarget): NavigationGuardState {
+  const values = target as EventTarget & Record<symbol, NavigationGuardState>
+  return (values[navigationGuardKey] ??= {})
+}
 
 export function setNavigationGuard(target: EventTarget, guard: (() => Promise<void>) | null) {
-  if (guard) guards.set(target, guard)
-  else guards.delete(target)
+  const guarded = state(target)
+  if (guard) guarded.guard = guard
+  else delete guarded.guard
 }
 
 export function runNavigationGuard(target: EventTarget): Promise<void> {
-  const guard = guards.get(target)
+  const guarded = state(target)
+  const guard = guarded.guard
   if (!guard) return Promise.resolve()
-  const active = running.get(target)
+  const active = guarded.running
   if (active) return active
   const next = Promise.resolve().then(guard)
-  running.set(target, next)
+  guarded.running = next
   const clear = () => {
-    if (running.get(target) === next) running.delete(target)
+    if (guarded.running === next) delete guarded.running
   }
   void next.then(clear, clear)
   return next
