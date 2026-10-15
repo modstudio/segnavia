@@ -126,7 +126,7 @@ A `Book` is either continuous, where the screen is one scrolling flow, or pagina
 
 Page numbering is set separately for front matter and the body, while footnote and endnote markers have their own settings. Hebrew (`he` or `iw`) defaults to Arabic front-matter numbers, Hebrew body numbers and Hebrew footnote markers. Other languages default to lower-case Roman front-matter numbers, Arabic body numbers and symbol footnote markers. Endnote markers default to Arabic in every language. Footnotes restart by chapter unless set to run through the book; endnotes belong at the end of the book unless a paginated book places them at the end of each chapter.
 
-A paginated book without a page is refused. Front matter and the body cannot use the same numbering system, footnotes and endnotes cannot use the same marker when both kinds occur, chapter endnotes require paginated mode, and page margins must leave a text area. Laying out the content, numbering its pages and placing its notes belong to the continuous-mode and paginated-mode work that this value feeds.
+A paginated book without a page is refused. Front matter and the body cannot use the same numbering system, chapter endnotes require paginated mode, and page margins must leave a text area. The remaining refusal depends on content: once the HTML reader knows that both footnotes and endnotes are used, it applies `noteMarkerIssues` to require different markers; `Book.parse` cannot apply that rule without scanning HTML. Laying out the content, numbering its pages and placing its notes belong to the continuous-mode and paginated-mode work that this value feeds.
 
 ## How a shot is made
 

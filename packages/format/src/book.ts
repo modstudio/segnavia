@@ -1,7 +1,8 @@
 import { z } from 'zod'
-import { Direction, Paper, type Paper as PaperType, Scripts, type Scripts as ScriptsType } from './index.ts'
+import { Direction } from './direction.ts'
 import { NoteMarker, NumberSystem } from './numbering.ts'
-import { sheetMm } from './paper.ts'
+import { Paper, sheetMm } from './paper.ts'
+import { Scripts } from './scripts.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
@@ -21,7 +22,7 @@ export const Chapter = z.object({
 export type Chapter = z.infer<typeof Chapter>
 
 export const BookPage = z.object({
-  paper: z.lazy(() => Paper) as z.ZodType<PaperType>,
+  paper: Paper,
   orientation: z.enum(['portrait', 'landscape']).default('portrait'),
   margin: z.object({
     top: z.number().nonnegative(),
@@ -36,8 +37,8 @@ export const BookShape = z.object({
   title: z.string(),
   mode: BookMode,
   page: BookPage.optional(),
-  scripts: (z.lazy(() => Scripts) as z.ZodType<ScriptsType>).default('refuse'),
-  dir: (z.lazy(() => Direction) as z.ZodType<z.infer<typeof Direction>>).optional(),
+  scripts: Scripts.default('refuse'),
+  dir: Direction.optional(),
   lang: z.string().optional(),
   frontMatter: z.array(BookSection).default([]),
   chapters: z.array(Chapter).min(1),
@@ -121,6 +122,8 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
 export type Book = z.infer<typeof Book>
 export type BookInput = z.input<typeof Book>
 
+// This is the one Book refusal that depends on chapter content. The HTML
+// reader applies it once it knows which note kinds are used; Book.parse cannot.
 export function noteMarkerIssues(book: Book, used: { footnotes: boolean; endnotes: boolean }): string[] {
   if (!used.footnotes || !used.endnotes || book.footnotes.marker !== book.endnotes.marker) return []
   return [`footnote and endnote markers are both ${book.footnotes.marker}; the two must differ when both kinds are used`]

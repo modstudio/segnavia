@@ -16,7 +16,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 
 | Need | Package |
 |---|---|
-| The shared shapes: page, slide, deck, narration, cue, shot, manifest, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
+| The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
 | Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, step or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
 | Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |

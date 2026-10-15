@@ -1,4 +1,12 @@
-import type { Paper, Print } from './index.ts'
+import { z } from 'zod'
+import type { Print } from './index.ts'
+
+export const NAMED_PAPERS = ['letter', 'legal', 'tabloid', 'a3', 'a4', 'a5'] as const
+export const Paper = z.union([
+  z.enum(NAMED_PAPERS),
+  z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in', 'pt']) }),
+])
+export type Paper = z.infer<typeof Paper>
 
 export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
