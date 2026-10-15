@@ -62,6 +62,11 @@
       "types": "./dist/controls-entry.d.ts",
       "default": "./dist/controls-entry.js"
     },
+    "./authoring": {
+      "@segnavia/source": "./src/authoring.ts",
+      "types": "./dist/authoring.d.ts",
+      "default": "./dist/authoring.js"
+    },
     "./icons": {
       "@segnavia/source": "./src/icons.ts",
       "types": "./dist/icons.d.ts",
