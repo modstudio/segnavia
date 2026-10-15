@@ -100,6 +100,7 @@ async function minimalOneAxisComposite(
     layers?: number
     matrix?: number[]
     outerGraphicsState?: Record<string, unknown>
+    patternMatrix?: number[]
     secondAxis?: boolean
   } = {},
 ): Promise<Uint8Array> {
@@ -124,7 +125,7 @@ async function minimalOneAxisComposite(
     document.context.obj({
       Type: 'Pattern',
       PatternType: 2,
-      Matrix: [2, 0, 0, 2, 0, 0],
+      Matrix: options.patternMatrix ?? [1, 0, 0, 1, 0, 0],
       Shading: {
         ShadingType: 2,
         ColorSpace: 'DeviceRGB',
@@ -191,6 +192,11 @@ test('rewrites a nested one-axis shading composite as an interpolated image pair
   expect(effect?.dict.get(PDFName.of('Width'))?.toString()).toBe('1')
   expect(effect?.dict.has(PDFName.of('SMask'))).toBe(true)
   expect(effect?.dict.get(PDFName.of('Interpolate'))?.toString()).toBe('true')
+})
+
+test('does not treat a shading pattern Matrix as a Form XObject Matrix', async () => {
+  const rewritten = await rewriteEffectsPdf(await minimalOneAxisComposite({ patternMatrix: [2, 0, 0, 2, 0, 0] }))
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 1, kept: 0 })
 })
 
 test('keeps a nested composite whose color and coverage axes differ', async () => {
