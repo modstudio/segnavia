@@ -7,7 +7,11 @@ interface NavigationGuardState {
 
 function state(target: EventTarget): NavigationGuardState {
   const values = target as EventTarget & Record<symbol, NavigationGuardState>
-  return (values[navigationGuardKey] ??= {})
+  const existing = values[navigationGuardKey]
+  if (existing) return existing
+  const created: NavigationGuardState = {}
+  values[navigationGuardKey] = created
+  return created
 }
 
 export function setNavigationGuard(target: EventTarget, guard: (() => Promise<void>) | null) {

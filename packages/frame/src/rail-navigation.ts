@@ -8,3 +8,8 @@ export function railSelection(current: number, key: string, count: number, horiz
   if (horizontal && key === 'ArrowRight') offset = direction === 'rtl' ? -1 : 1
   return Math.max(0, Math.min(count - 1, current + offset))
 }
+
+export function railMoveTarget(fromIndex: number, overIndex: number, after: boolean, count: number): number {
+  const insertion = overIndex + (after ? 1 : 0)
+  return Math.max(0, Math.min(count - 1, insertion > fromIndex ? insertion - 1 : insertion))
+}

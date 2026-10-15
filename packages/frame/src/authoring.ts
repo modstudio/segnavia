@@ -1,9 +1,8 @@
-import type { TextDirection } from '@segnavia/format'
-import { type MoveSlideHandler, moveSlideOptimistically, railMoveTarget } from './authoring-move.ts'
+import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
 import { setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
-import type { SegnaviaStage } from './stage.ts'
+import type { SegnaviaRail } from './rail.ts'
 
 const NOTES_CSS = `<style data-segnavia-authoring>
 [data-authoring-notes]{display:grid;gap:6px;padding:12px;border-block-start:1px solid var(--_line);background:var(--_surface)}
@@ -39,26 +38,15 @@ export interface DirtyChangeDetail {
   dirty: boolean
 }
 
-interface RailElement extends HTMLElement {
-  shadowRoot: ShadowRoot
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
-}
-
-function keyboardMove(key: string, index: number, count: number, horizontal: boolean, direction: TextDirection): number {
-  if (!horizontal) return key === 'ArrowUp' ? index - 1 : key === 'ArrowDown' ? index + 1 : index
-  if (key === 'ArrowLeft') return index + (direction === 'rtl' ? 1 : -1)
-  if (key === 'ArrowRight') return index + (direction === 'rtl' ? -1 : 1)
-  return Math.max(0, Math.min(count - 1, index))
 }
 
 export class AuthoringController extends EventTarget {
   private pendingMove = false
   private stopped = false
-  private dragFrom: number | null = null
-  private rail: RailElement | null = null
+  private rail: SegnaviaRail | null = null
+  private unsubscribeReorder: (() => void) | null = null
   private notes: NotesSaveQueue | null = null
   private notesRoot: HTMLElement | null = null
   private notesSlideId: string | null = null
@@ -116,14 +104,10 @@ export class AuthoringController extends EventTarget {
   }
 
   private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {
-    const root = this.player.shadowRoot
-    const below = root?.querySelector('.below')
-    if (!root || !below) return
-    root.prepend(document.createRange().createContextualFragment(NOTES_CSS))
     const notes = document.createElement('div')
     notes.dataset.authoringNotes = ''
-    notes.innerHTML = '<label><span></span><textarea part="notes-editor" dir="auto"></textarea></label><div data-authoring-status aria-live="polite"></div>'
-    below.prepend(notes)
+    notes.innerHTML = `${NOTES_CSS}<label><span></span><textarea part="notes-editor" dir="auto"></textarea></label><div data-authoring-status aria-live="polite"></div>`
+    this.player.authoringMount().prepend(notes)
     this.notesRoot = notes
     const field = notes.querySelector('textarea') as HTMLTextAreaElement
     field.maxLength = this.options.notesMaxLength
@@ -161,7 +145,6 @@ export class AuthoringController extends EventTarget {
     this.notesRoot?.remove()
     this.notesRoot = null
     this.notesSlideId = null
-    this.player.shadowRoot?.querySelector('style[data-segnavia-authoring]')?.remove()
     this.refuseStageScripts(false)
   }
 
@@ -203,106 +186,20 @@ export class AuthoringController extends EventTarget {
   }
 
   private refuseStageScripts(refused: boolean) {
-    const stage = this.player.shadowRoot?.querySelector('segnavia-stage') as SegnaviaStage | null
-    stage?.setAuthoringScriptsRefused(refused)
+    this.player.setAuthoringScriptsRefused(refused)
   }
 
   private attachReorder() {
-    this.player.controller.addEventListener('change', this.configureReorder)
-    this.configureReorder()
+    this.rail = this.player.authoringRail()
+    this.rail.setReorderEnabled(true)
+    this.unsubscribeReorder = this.rail.subscribeReorder(({ fromIndex, toIndex }) => void this.move(fromIndex, toIndex))
   }
 
   private detachReorder() {
-    this.player.controller.removeEventListener('change', this.configureReorder)
-    this.removeRailListeners()
-  }
-
-  private configureReorder = () => {
-    const next = this.player.shadowRoot?.querySelector('segnavia-rail') as RailElement | null
-    if (next !== this.rail) {
-      this.removeRailListeners()
-      this.rail = next
-      const root = next?.shadowRoot
-      root?.addEventListener('keydown', this.onKey as EventListener)
-      root?.addEventListener('dragstart', this.onDragStart as EventListener)
-      root?.addEventListener('dragover', this.onDragOver as EventListener)
-      root?.addEventListener('drop', this.onDrop as EventListener)
-      root?.addEventListener('dragend', this.onDragEnd)
-    }
-    for (const button of this.buttons()) button.draggable = true
-  }
-
-  private buttons(): HTMLButtonElement[] {
-    return [...(this.rail?.shadowRoot.querySelectorAll<HTMLButtonElement>('button[data-index]') ?? [])]
-  }
-
-  private removeRailListeners() {
-    const root = this.rail?.shadowRoot
-    root?.removeEventListener('keydown', this.onKey as EventListener)
-    root?.removeEventListener('dragstart', this.onDragStart as EventListener)
-    root?.removeEventListener('dragover', this.onDragOver as EventListener)
-    root?.removeEventListener('drop', this.onDrop as EventListener)
-    root?.removeEventListener('dragend', this.onDragEnd)
-    for (const button of this.buttons()) {
-      button.draggable = false
-      button.removeAttribute('data-insert')
-    }
+    this.unsubscribeReorder?.()
+    this.unsubscribeReorder = null
+    this.rail?.setReorderEnabled(false)
     this.rail = null
-  }
-
-  private onKey = (event: KeyboardEvent) => {
-    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || this.pendingMove) return
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    const state = this.player.controller.state
-    if (!button || !state.deck) return
-    const horizontal = getComputedStyle(this.rail?.shadowRoot.querySelector('ol') as Element).flexDirection === 'row'
-    const from = Number(button.dataset.index)
-    const to = keyboardMove(event.key, from, state.deck.slides.length, horizontal, state.direction)
-    if (to < 0 || to >= state.deck.slides.length || to === from) return
-    event.preventDefault()
-    void this.move(from, to)
-  }
-
-  private onDragStart = (event: DragEvent) => {
-    if (this.pendingMove) return event.preventDefault()
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (!button) return
-    this.dragFrom = Number(button.dataset.index)
-    event.dataTransfer?.setData('text/plain', button.dataset.index ?? '')
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  }
-
-  private onDragOver = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (this.dragFrom === null || !button) return
-    event.preventDefault()
-    const horizontal = getComputedStyle(this.rail?.shadowRoot.querySelector('ol') as Element).flexDirection === 'row'
-    const rect = button.getBoundingClientRect()
-    const after = horizontal
-      ? this.player.controller.state.direction === 'rtl'
-        ? event.clientX < rect.left + rect.width / 2
-        : event.clientX >= rect.left + rect.width / 2
-      : event.clientY >= rect.top + rect.height / 2
-    for (const item of this.buttons()) item.removeAttribute('data-insert')
-    button.dataset.insert = after ? 'after' : 'before'
-  }
-
-  private onDrop = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    const count = this.player.controller.state.deck?.slides.length ?? 0
-    if (this.dragFrom === null || !button || !count) return
-    event.preventDefault()
-    const to = railMoveTarget(this.dragFrom, Number(button.dataset.index), button.dataset.insert === 'after', count)
-    const from = this.dragFrom
-    this.clearDrag()
-    void this.move(from, to)
-  }
-
-  private onDragEnd = () => this.clearDrag()
-
-  private clearDrag() {
-    this.dragFrom = null
-    for (const button of this.buttons()) button.removeAttribute('data-insert')
   }
 
   private async move(fromIndex: number, toIndex: number) {
@@ -310,6 +207,7 @@ export class AuthoringController extends EventTarget {
     const slideId = this.player.controller.state.deck?.slides[fromIndex]?.id
     if (!handler || !slideId || this.pendingMove || fromIndex === toIndex) return
     this.pendingMove = true
+    this.rail?.setReorderEnabled(false)
     try {
       await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler)
     } catch (error) {
@@ -317,7 +215,7 @@ export class AuthoringController extends EventTarget {
       this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
     } finally {
       this.pendingMove = false
-      this.configureReorder()
+      this.rail?.setReorderEnabled(true)
     }
   }
 }

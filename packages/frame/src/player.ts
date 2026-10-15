@@ -123,6 +123,18 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.transition = value
   }
 
+  authoringMount(): HTMLElement {
+    return this.root.querySelector('.below') as HTMLElement
+  }
+
+  authoringRail(): SegnaviaRail {
+    return this.root.querySelector('segnavia-rail') as SegnaviaRail
+  }
+
+  setAuthoringScriptsRefused(refused: boolean) {
+    this.stage.setAuthoringScriptsRefused(refused)
+  }
+
   connectedCallback() {
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
@@ -161,7 +173,7 @@ export class SegnaviaPlayer extends HTMLElement {
   private configureRail() {
     const rail = this.root.querySelector('segnavia-rail') as SegnaviaRail
     rail.controller = this.rail ? this.controller : null
-    if (!this.rail) rail.shadowRoot?.querySelector('ol')?.replaceChildren()
+    if (!this.rail) rail.clearItems()
     else rail.refresh()
   }
 
