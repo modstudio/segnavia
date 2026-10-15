@@ -18,6 +18,11 @@ export interface SlideMoment {
   phase: SlidePhase
 }
 
+export interface PhaseBounds {
+  beforeMs: number
+  narrationEndMs: number
+}
+
 export interface TimelineSlide {
   startMs: number
   durationMs: number | null
@@ -38,6 +43,11 @@ export interface TimelinePosition {
 export function slideDurationMs(slide: Slide): number | null {
   if (slide.narration) return (slide.beforeMs ?? 0) + slide.narration.durationMs + (slide.afterMs ?? 0)
   return slide.holdMs ?? null
+}
+
+export function phaseBounds(slide: Pick<Slide, 'beforeMs' | 'narration'>): PhaseBounds {
+  const beforeMs = slide.beforeMs ?? 0
+  return { beforeMs, narrationEndMs: beforeMs + (slide.narration?.durationMs ?? 0) }
 }
 
 export function deckTimeline(deck: Pick<Deck, 'slides'>): DeckTimeline {
@@ -63,7 +73,7 @@ export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosi
 export function slideStateAt(slide: Slide, ms: number): SlideMoment {
   const position = Math.max(0, ms)
   if (!slide.narration) return { word: null, shown: [], phase: 'hold' }
-  const beforeMs = slide.beforeMs ?? 0
+  const { beforeMs } = phaseBounds(slide)
   if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
   const narrationMs = position - beforeMs
   if (narrationMs < slide.narration.durationMs) {

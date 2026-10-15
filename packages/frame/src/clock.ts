@@ -2,7 +2,7 @@
 // while narration plays; pauses around it and unnarrated holds use wall time.
 
 import type { Narration, Slide } from '@segnavia/format'
-import { slideDurationMs, slideStateAt, wordAtOffset, wordOffsets } from './timeline.ts'
+import { phaseBounds, slideDurationMs, slideStateAt, wordAtOffset, wordOffsets } from './timeline.ts'
 
 export interface Clock {
   word(): number | null
@@ -63,8 +63,7 @@ export function timedClock(value: Slide | Narration, audioSrc: string | null): C
   if (!audioSrc || !slide.narration) return wallClock(slide)
   const audio = new Audio(audioSrc)
   const duration = slideDurationMs(slide) ?? 0
-  const beforeMs = slide.beforeMs ?? 0
-  const narrationEnd = beforeMs + slide.narration.durationMs
+  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide)
   let position = 0
   let anchor = performance.now()
   let running = true
@@ -154,8 +153,7 @@ export function speechClock(value: Slide | Narration, voiceName?: string): Clock
   const synth = window.speechSynthesis
   const offsets = wordOffsets(narration.text)
   const duration = slideDurationMs(slide) ?? 0
-  const beforeMs = slide.beforeMs ?? 0
-  const narrationEnd = beforeMs + narration.durationMs
+  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide)
   const utterance = new SpeechSynthesisUtterance(narration.text)
   if (narration.lang) utterance.lang = narration.lang
   const voice = voiceName ? synth.getVoices().find((candidate) => candidate.name === voiceName) : undefined

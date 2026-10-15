@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, type Narration } from '@segnavia/format'
-import { deckTimeline, momentAt, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
+import { deckTimeline, momentAt, phaseBounds, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 
 const narration: Narration = {
   text: 'Choose New class, then Create.',
@@ -58,6 +58,7 @@ describe('timeline', () => {
 
   test('slide state has no word before narration and keeps the last word after it', () => {
     const slide = { id: 'a', content: { kind: 'html' as const, html: '' }, narration, beforeMs: 100, afterMs: 200 }
+    expect(phaseBounds(slide)).toEqual({ beforeMs: 100, narrationEndMs: 2300 })
     expect(slideStateAt(slide, 99)).toEqual({ word: null, shown: [], phase: 'before' })
     expect(slideStateAt(slide, 100).phase).toBe('narration')
     expect(slideStateAt(slide, 2300)).toEqual({ word: 4, shown: [1], phase: 'after' })
