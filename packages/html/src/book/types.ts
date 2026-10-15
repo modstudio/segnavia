@@ -13,6 +13,12 @@ export interface BookSectionInfo {
   runningHead?: string
 }
 
+export type BookPrintPart = 'front' | 'body'
+
+export function bookPrintPart(kind: BookSectionInfo['kind']): BookPrintPart {
+  return kind === 'front' || kind === 'contents' ? 'front' : 'body'
+}
+
 export interface BookHeading {
   id: string
   level: number

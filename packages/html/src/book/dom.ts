@@ -42,19 +42,6 @@ export function append(parent: ParentNode, addition: ChildNode): void {
   linkChildren(parent)
 }
 
-export function descendants(nodes: ChildNode[]): Element[] {
-  const found: Element[] = []
-  const visit = (children: ChildNode[]) => {
-    for (const child of children) {
-      if (!isTag(child)) continue
-      found.push(child)
-      visit(child.children)
-    }
-  }
-  visit(nodes)
-  return found
-}
-
 export function textContent(node: ChildNode, omitNotes = false): string {
   if ('data' in node) return node.data
   if (!('children' in node)) return ''

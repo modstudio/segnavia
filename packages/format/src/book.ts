@@ -23,6 +23,10 @@ export type BookContents = z.infer<typeof BookContents>
 export const BookFrontMatterEntry = z.union([BookSection, BookContents])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
+export function isBookContents(entry: BookFrontMatterEntry): entry is BookContents {
+  return 'kind' in entry && entry.kind === 'contents'
+}
+
 export const Chapter = z.object({
   title: z.string(),
   html: z.string(),
@@ -70,7 +74,7 @@ export const BookShape = z.object({
       title: z.string().optional(),
     })
     .default({ placement: 'book' }),
-  rightHandOpenings: z.boolean().default(false),
+  rectoOpenings: z.boolean().default(false),
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
@@ -93,7 +97,7 @@ const ResolvedBook = BookShape.transform((book) => {
 })
 
 export const Book = ResolvedBook.superRefine((book, ctx) => {
-  const contentsPositions = book.frontMatter.flatMap((entry, index) => ('kind' in entry && entry.kind === 'contents' ? [index + 1] : []))
+  const contentsPositions = book.frontMatter.flatMap((entry, index) => (isBookContents(entry) ? [index + 1] : []))
   if (contentsPositions.length > 1) {
     ctx.addIssue({
       code: 'custom',

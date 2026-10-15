@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { type BookInput, formatNumber } from '@segnavia/format'
+import { type BookInput, formatNumber, MM_PER_PT } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
 
@@ -44,7 +44,7 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
     {
       title: hebrew ? 'פרק ראשון' : 'Chapter One',
       runningHead: runningHeads[0],
-      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1</div>`,
+      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
     },
     { title: hebrew ? 'פרק שני' : 'Chapter Two', runningHead: runningHeads[1], html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` },
     {
@@ -60,14 +60,14 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
       mode: 'continuous',
       lang: hebrew ? 'he' : 'en',
       page: { paper: 'a5', orientation: 'portrait', margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
-      rightHandOpenings: true,
+      rectoOpenings: true,
       frontMatter: [
         { title: hebrew ? 'פתיחה' : 'Front', html: `<p>FRONT${tag}</p>` },
         { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
       ],
       chapters,
     },
-    css: ':where(body){font:12px serif}:where(.topics h2,.topics h3){font-size:1px;line-height:1px;margin:0}:where(.second-page){break-before:page}:where(.segnavia-contents-entry){line-height:8mm}',
+    css: ':where(body){font:12px serif}:where(.topics h2,.topics h3){font-size:1px;line-height:1px;margin:0}:where(.second-page){break-before:page}:where(.margin-probe){display:flex;justify-content:space-between;direction:ltr}:where(.segnavia-contents-entry){line-height:8mm}',
     contentsTitle: hebrew ? 'תוכן' : 'Contents',
     frontTitle: hebrew ? 'פתיחה' : 'Front',
     frontMarker: `FRONT${tag}`,
@@ -202,6 +202,20 @@ function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPag
   })
 }
 
+function bodyTextMargins(fixture: Fixture, bboxes: BboxPage[], frontPages: number) {
+  const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
+  return [1, 2].map((bodyPage) => {
+    const page = bboxes[frontPages + bodyPage - 1]
+    const left = page?.words.find((word) => word.text === `MARGIN-L-${tag}-${bodyPage}`)
+    const right = page?.words.find((word) => word.text === `MARGIN-R-${tag}-${bodyPage}`)
+    return {
+      bodyPage,
+      left: (left?.xMin ?? Number.NaN) * MM_PER_PT,
+      right: ((page?.width ?? Number.NaN) - (right?.xMax ?? Number.NaN)) * MM_PER_PT,
+    }
+  })
+}
+
 async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture, check: Check): Promise<void> {
   const bytes = await renderer.bookPdf(fixture.book, { css: fixture.css, effects: false })
   const file = path.join(work, `book-${fixture.key}.pdf`)
@@ -213,6 +227,8 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   const frontPages = frontPageCount(fixture, pages)
   const map = pageMap(fixture, pages, bboxes, frontPages)
   console.log(`BOOK MAP [${fixture.key}] ${JSON.stringify(map.map(({ opening: _, ...page }) => page))}`)
+  const textMargins = bodyTextMargins(fixture, bboxes, frontPages)
+  console.log(`BOOK TEXT MARGINS [${fixture.key}] ${JSON.stringify(textMargins)}`)
 
   check(
     `${fixture.key} book page count is its front plus body pages`,
@@ -261,6 +277,24 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
     return shouldBeLeft ? folio.xMax < (bboxes[index]?.width ?? 0) / 2 : folio.xMin > (bboxes[index]?.width ?? 0) / 2
   })
   check(`${fixture.key} folios sit at the physical outer edge`, positionsOk)
+  const expectedMargins =
+    fixture.key === 'hebrew'
+      ? [
+          [14, 22],
+          [22, 14],
+        ]
+      : [
+          [22, 14],
+          [14, 22],
+        ]
+  const marginsOk = textMargins.every(
+    (margin, index) => Math.abs(margin.left - (expectedMargins[index]?.[0] ?? 0)) < 1.5 && Math.abs(margin.right - (expectedMargins[index]?.[1] ?? 0)) < 1.5,
+  )
+  check(
+    `${fixture.key} first two body pages put the inner text margin on the recto and verso spine edges`,
+    marginsOk,
+    textMargins.map((margin) => `${margin.bodyPage}:${margin.left.toFixed(2)}mm/${margin.right.toFixed(2)}mm`).join(', '),
+  )
 }
 
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {

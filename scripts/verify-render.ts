@@ -12,6 +12,7 @@ import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
@@ -105,6 +106,7 @@ try {
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
   await renderer.pageImage({ html })
   await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
+  await verifyBookOffline(renderer, origin)
   const deck = {
     title: 'Offline deck',
     scripts: 'sandboxed' as const,
@@ -140,7 +142,7 @@ try {
     renderer.deckPdf(deck, { imposition: handoutImposition }),
   ])
   check(
-    'renders reach no server, including top-level deck slides in slides, notes and handout layouts',
+    'renders reach no server, including book chapter and note resources and top-level deck slides in slides, notes and handout layouts',
     hits === 0 && deckPdfs.every((pdf) => pdf.length > 0),
     `requests=${hits}`,
   )

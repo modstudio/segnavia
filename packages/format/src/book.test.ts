@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, jsonSchemas, noteMarkerIssues } from './index.ts'
+import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -47,7 +47,7 @@ describe('book', () => {
       numbering: { frontMatter: 'roman-lower', body: 'arabic' },
       footnotes: { marker: 'symbols', restart: 'chapter' },
       endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
-      rightHandOpenings: false,
+      rectoOpenings: false,
       contents: { pageNumbers: true, depth: 2 },
     })
   })
@@ -67,7 +67,10 @@ describe('book', () => {
   })
 
   test('front matter accepts a contents entry and refuses a second one by position', () => {
-    expect(Book.parse(input({ frontMatter: [{ kind: 'contents', title: 'On this page' }] })).frontMatter).toEqual([{ kind: 'contents', title: 'On this page' }])
+    const [contents] = Book.parse(input({ frontMatter: [{ kind: 'contents', title: 'On this page' }] })).frontMatter
+    expect(contents).toEqual({ kind: 'contents', title: 'On this page' })
+    expect(contents && isBookContents(contents)).toBe(true)
+    expect(isBookContents({ html: '<p>Preface</p>', contents: true })).toBe(false)
     const result = Book.safeParse(input({ frontMatter: [{ kind: 'contents' }, { html: '<p>Foreword</p>' }, { kind: 'contents' }] }))
     expect(result.error?.issues[0]).toMatchObject({ path: ['frontMatter'] })
     expect(result.error?.issues[0]?.message).toContain('positions 1 and 3')

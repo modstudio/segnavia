@@ -107,6 +107,22 @@ describe('book document', () => {
     expect(result.issues).toEqual(['footnote and endnote markers are both arabic; the two must differ when both kinds are used'])
   })
 
+  test('reports duplicate listed heading ids and collisions with generated ids by section', () => {
+    const repeated = bookDocument(Book.parse(input({ chapters: [chapter('One', '<h2 id="topic">First</h2>'), chapter('Two', '<h2 id="topic">Second</h2>')] })))
+    expect(repeated.issues).toEqual([
+      'destination id topic is used in both One (segnavia-chapter-1) and Two (segnavia-chapter-2); listed heading and generated destination ids must be unique',
+    ])
+
+    const generated = bookDocument(
+      Book.parse(
+        input({ chapters: [chapter('One', '<h2 id="segnavia-fn-2-1">Topic</h2>'), chapter('Two', '<p>Text<span data-note="footnote">Note</span></p>')] }),
+      ),
+    )
+    expect(generated.issues).toEqual([
+      'destination id segnavia-fn-2-1 is used in both One (segnavia-chapter-1) and Two (segnavia-chapter-2); listed heading and generated destination ids must be unique',
+    ])
+  })
+
   test("uses a Hebrew book's resolved endnotes title and direction", () => {
     const result = bookDocument(Book.parse(input({ lang: 'he', chapters: [chapter('א', '<p><span data-note="endnote">ה</span></p>')] })))
     expect(result.html).toContain('<h1 class="segnavia-endnotes-title" dir="rtl">הערות</h1>')
@@ -136,6 +152,16 @@ describe('book document', () => {
     const body = bookDocument(book, { part: 'body', targets: true }).html
     for (const id of ['segnavia-chapter-1', 'topic', 'segnavia-fn-1-1', 'segnavia-fnref-1-1', 'segnavia-en-1', 'segnavia-enref-1']) {
       expect(body).toContain(`href="#${id}"`)
+    }
+  })
+
+  test('writes geometry-only contents list layout for levels one through six', () => {
+    const html = bookDocument(Book.parse(input({ frontMatter: [{ kind: 'contents' }] }))).html
+    expect(html).toContain(':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}')
+    expect(html).toContain(':where(.segnavia-contents-entry){display:flex}')
+    expect(html).toContain(':where(.segnavia-contents-page){margin-inline-start:auto}')
+    for (let level = 2; level <= 6; level += 1) {
+      expect(html).toContain(`:where(.segnavia-contents-entry[data-level="${level}"]){padding-inline-start:${level - 1}em}`)
     }
   })
 })

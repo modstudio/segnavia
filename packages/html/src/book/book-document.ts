@@ -1,12 +1,13 @@
-import { type Book, type BookSection, noteMarkerIssues, resolveDirection } from '@segnavia/format'
+import { type Book, type BookSection, isBookContents, noteMarkerIssues, resolveDirection } from '@segnavia/format'
 import { type ChildNode, type Document, isTag } from 'domhandler'
-import { parse, serialize } from '../sanitize.ts'
-import { descendants, element, linkChildren, text, textContent } from './dom.ts'
+import { elements, parse, serialize } from '../sanitize.ts'
+import { element, linkChildren, text, textContent } from './dom.ts'
 import { noteState, transformNotes } from './notes.ts'
-import type { BookDocument, BookDocumentOptions, BookHeading, BookSectionInfo } from './types.ts'
+import { type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
 
+// The front/body selectors here agree with bookPrintPart, the source of print membership.
 const PRINT_CSS =
-  '@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}'
+  ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}'
 
 interface BuiltSection {
   info: BookSectionInfo
@@ -44,7 +45,7 @@ function chapterSection(chapter: Book['chapters'][number], index: number): Built
 
 function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
   let generated = 0
-  return descendants(section.node.children).flatMap((heading): BookHeading[] => {
+  return elements(section.node.children).flatMap((heading): BookHeading[] => {
     const match = /^h([2-6])$/.exec(heading.name)
     if (!match || heading.attribs['data-contents'] === 'exclude') return []
     const level = Number(match[1])
@@ -76,15 +77,26 @@ function addContents(book: Book, section: BuiltSection, headings: BookHeading[],
 }
 
 function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
-  const ids = sections.flatMap((section) => [
-    section.info.id,
-    ...descendants(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : [])),
-  ])
+  const ids = sections.flatMap((section) => [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))])
   return element(
     'div',
     { class: 'segnavia-targets', 'aria-hidden': 'true' },
     [...new Set(ids)].map((id) => element('a', { href: `#${id}` }, [text('\u200b')])),
   )
+}
+
+function duplicateIdIssues(sections: BuiltSection[], headings: BookHeading[]): string[] {
+  const listed = new Set(headings.map((heading) => heading.id))
+  const occurrences = new Map<string, BookSectionInfo[]>()
+  for (const section of sections) {
+    const ids = [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))]
+    for (const id of ids) occurrences.set(id, [...(occurrences.get(id) ?? []), section.info])
+  }
+  return [...occurrences].flatMap(([id, owners]) => {
+    if (!listed.has(id) || owners.length < 2) return []
+    const named = owners.slice(0, 2).map((owner) => `${owner.title ?? owner.id} (${owner.id})`)
+    return [`destination id ${id} is used in both ${named[0]} and ${named[1]}; listed heading and generated destination ids must be unique`]
+  })
 }
 
 function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[]): BuiltSection {
@@ -114,7 +126,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   let contents: BuiltSection | undefined
 
   for (const entry of book.frontMatter) {
-    if (!('html' in entry)) {
+    if (isBookContents(entry)) {
       contents = contentsSection(entry.title)
       sections.push(contents)
       continue
@@ -137,11 +149,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs))
   if (contents) addContents(book, contents, headings, options)
 
-  const visible = sections.filter((section) => {
-    if (options.part === 'front') return section.info.kind === 'front' || section.info.kind === 'contents'
-    if (options.part === 'body') return section.info.kind === 'chapter' || section.info.kind === 'endnotes'
-    return true
-  })
+  const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind) === options.part)
   const document = parse('') as Document
   document.children = [
     element('style', {}, [text(PRINT_CSS)]),
@@ -153,6 +161,6 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     html: serialize(document),
     sections: sections.map((section) => section.info),
     headings,
-    issues: noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
+    issues: [...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }), ...duplicateIdIssues(sections, headings)],
   }
 }

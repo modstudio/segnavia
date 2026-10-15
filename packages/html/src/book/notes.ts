@@ -1,6 +1,7 @@
 import { type Book, noteMarker } from '@segnavia/format'
 import { type ChildNode, type Element, isTag } from 'domhandler'
-import { append, descendants, element, insertAfter, replace, text } from './dom.ts'
+import { elements } from '../sanitize.ts'
+import { append, element, insertAfter, replace, text } from './dom.ts'
 
 const BLOCKS = new Set(['p', 'li', 'blockquote', 'dd', 'dt', 'figcaption', 'td', 'th', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article'])
 const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
@@ -82,7 +83,7 @@ function transformEndnote(note: Element, book: Book, state: NoteState): void {
 
 export function transformNotes(root: Element, book: Book, chapter: number, state: NoteState): void {
   const blocks = new Map<Element, Element>()
-  const notes = descendants(root.children).filter(
+  const notes = elements(root.children).filter(
     (node) => node.name === 'span' && (node.attribs['data-note'] === 'footnote' || node.attribs['data-note'] === 'endnote'),
   )
   for (const note of notes) {

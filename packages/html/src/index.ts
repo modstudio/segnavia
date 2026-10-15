@@ -6,7 +6,8 @@ import { elements, parse } from './sanitize.ts'
 
 export { BINDINGS, bindingNames, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
-export type { BookDocument, BookDocumentOptions, BookHeading, BookSectionInfo } from './book/types.ts'
+export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
+export { bookPrintPart } from './book/types.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
 
 // How a page runs, decided only by what it holds: plain, filled from data,

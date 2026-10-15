@@ -1,5 +1,5 @@
 import { Book, type BookInput, formatNumber, resolveDirection, sheetMm } from '@segnavia/format'
-import { type BookDocument, type BookHeading, type BookSectionInfo, bookDocument } from '@segnavia/html'
+import { type BookDocument, type BookHeading, type BookSectionInfo, bookDocument, bookPrintPart } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { type MarginPage, marginDocument } from './book-margins.ts'
@@ -35,14 +35,13 @@ function requireTargets(part: PrintedPart, expected: string[]): void {
   }
 }
 
-const frontSections = (sections: BookSectionInfo[]) => sections.filter((section) => section.kind === 'front' || section.kind === 'contents')
-const bodySections = (sections: BookSectionInfo[]) => sections.filter((section) => section.kind === 'chapter' || section.kind === 'endnotes')
+const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') => sections.filter((section) => bookPrintPart(section.kind) === part)
 
 function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookDestination>) {
   const ids: string[] = []
   const predicted = new Map<string, number>()
   let blanks = 0
-  for (const section of bodySections(sections)) {
+  for (const section of sectionsFor(sections, 'body')) {
     const original = destinations.get(section.id)?.page
     if (original === undefined) throw new RenderRefusedError(`The first body print has no destination for ${section.id}.`)
     let page = original + blanks
@@ -110,8 +109,35 @@ function marginsFor(
 function placeholderNumbers(book: Book, document: BookDocument, lastBodyPage: number): Record<string, string> {
   const body = formatNumber(Math.max(1, lastBodyPage), book.numbering.body)
   const front = formatNumber(Math.max(1, book.frontMatter.length), book.numbering.frontMatter)
-  const kinds = new Map(document.sections.map((section) => [section.id, section.kind]))
-  return Object.fromEntries(document.headings.map((heading) => [heading.id, kinds.get(heading.sectionId) === 'front' ? front : body]))
+  const placeholder = [...front].length > [...body].length ? front : body
+  return Object.fromEntries(document.headings.map((heading) => [heading.id, placeholder]))
+}
+
+function destinationMoved(left: BookDestination, right: BookDestination): boolean {
+  return left.page !== right.page || left.x !== right.x || left.y !== right.y
+}
+
+function destinationOwner(id: string, destination: BookDestination, sections: BookSectionInfo[], destinations: Map<string, BookDestination>): string {
+  const owner = sections
+    .flatMap((section) => {
+      const start = destinations.get(section.id)
+      return start && start.page <= destination.page ? [{ section, start }] : []
+    })
+    .sort((left, right) => left.start.page - right.start.page)
+    .at(-1)?.section
+  return owner ? `${owner.title ?? owner.id} (${owner.id})` : id
+}
+
+function verifyFrontDestinations(expected: PrintedPart, actual: PrintedPart, ids: string[], sections: BookSectionInfo[]): void {
+  for (const id of ids) {
+    const before = expected.destinations.get(id)
+    const after = actual.destinations.get(id)
+    if (!before || !after || !destinationMoved(before, after)) continue
+    const owner = destinationOwner(id, before, sections, expected.destinations)
+    throw new RenderRefusedError(
+      `Front destination ${id} in ${owner} moved from page ${before.page} at ${before.x},${before.y} to page ${after.page} at ${after.x},${after.y}.`,
+    )
+  }
 }
 
 function finalNumbers(book: Book, headings: BookHeading[], front: PrintedPart, body: PrintedPart): Record<string, string> {
@@ -131,18 +157,18 @@ async function printBody(book: Book, options: RenderOptions, adapter: BookPdfAda
   if (firstDocument.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${firstDocument.issues.join('; ')}.`)
   let part = await inspect(await adapter.print(firstDocument.html, book, options))
   requireTargets(part, hashTargets(firstDocument))
-  const plan = book.rightHandOpenings ? planBlanks(firstDocument.sections, part.destinations) : { ids: [], predicted: new Map<string, number>() }
-  if (book.rightHandOpenings) {
+  const plan = book.rectoOpenings ? planBlanks(firstDocument.sections, part.destinations) : { ids: [], predicted: new Map<string, number>() }
+  if (book.rectoOpenings) {
     const finalDocument = bookDocument(book, { part: 'body', targets: true, blankBefore: plan.ids })
     part = await inspect(await adapter.print(finalDocument.html, book, options))
     requireTargets(part, hashTargets(finalDocument))
-    verifyStarts('body', bodySections(firstDocument.sections), plan.predicted, part.destinations)
+    verifyStarts('body', sectionsFor(firstDocument.sections, 'body'), plan.predicted, part.destinations)
   }
   return { document: firstDocument, part, blankBefore: plan.ids }
 }
 
 async function printFront(book: Book, source: BookDocument, body: PrintedPart, options: RenderOptions, adapter: BookPdfAdapter) {
-  const sections = frontSections(source.sections)
+  const sections = sectionsFor(source.sections, 'front')
   if (sections.length === 0) return { part: { pages: 0, destinations: new Map() } as PrintedPart, trailingBlank: false }
   const placeholder = placeholderNumbers(book, source, body.pages)
   const provisionalDocument = bookDocument(book, { part: 'front', targets: true, crossLinks: true, pageNumbers: placeholder })
@@ -152,8 +178,8 @@ async function printFront(book: Book, source: BookDocument, body: PrintedPart, o
   const finalDocument = bookDocument(book, { part: 'front', targets: true, crossLinks: true, pageNumbers: numbers })
   const final = await inspect(await adapter.print(finalDocument.html, book, options))
   requireTargets(final, hashTargets(finalDocument))
-  verifyStarts('front', sections, new Map(sections.map((section) => [section.id, provisional.destinations.get(section.id)?.page ?? 0])), final.destinations)
-  const trailingBlank = book.rightHandOpenings && final.pages % 2 === 1
+  verifyFrontDestinations(provisional, final, hashTargets(provisionalDocument), sections)
+  const trailingBlank = book.rectoOpenings && final.pages % 2 === 1
   return { part: trailingBlank ? await appendBlank(final) : final, trailingBlank }
 }
 
@@ -186,10 +212,10 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
   const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
   const marginPages = [
-    ...marginsFor(book, frontSections(printedBody.document.sections), front.destinations, front.pages, 0, frontBlankPages, book.numbering.frontMatter),
+    ...marginsFor(book, sectionsFor(printedBody.document.sections, 'front'), front.destinations, front.pages, 0, frontBlankPages, book.numbering.frontMatter),
     ...marginsFor(
       book,
-      bodySections(printedBody.document.sections),
+      sectionsFor(printedBody.document.sections, 'body'),
       printedBody.part.destinations,
       printedBody.part.pages,
       front.pages,

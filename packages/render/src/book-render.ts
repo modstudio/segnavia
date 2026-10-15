@@ -1,4 +1,4 @@
-import { type Book, type BookInput, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import type { Page as Tab } from 'playwright-core'
 import { marginCss } from './book-margins.ts'
@@ -34,7 +34,7 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
           html: frameDocument(html, {
             scripts: marginLayer ? 'refuse' : book.scripts,
             nonce: newNonce(),
-            dir: book.dir,
+            dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
             lang: book.lang,
             css,
             relayKeys: false,
