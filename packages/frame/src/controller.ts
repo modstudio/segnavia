@@ -155,11 +155,11 @@ export class DeckController extends EventTarget {
     if (this.current.index > 0) await this.go(this.current.index - 1)
   }
 
-  // Pressed on a static slide, play moves on to the next one and plays it.
   async play(): Promise<void> {
+    const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
-    if (this.current.index === (this.current.deck?.slides.length ?? 0) - 1 && this.clock?.ended()) return this.go(0)
-    if (!this.current.slide || slideDurationMs(this.current.slide) === null) return this.next()
+    if (slide && index + 1 === deck?.slides.length && (this.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
+    if (!slide || slideDurationMs(slide) === null) return this.next()
     if (this.clock) {
       this.clock.resume()
       this.scheduleTick()

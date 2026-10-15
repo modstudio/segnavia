@@ -63,3 +63,54 @@ test('play restarts an ended deck in either playback mode', async () => {
     expect(ends).toBe(1)
   }
 })
+
+test('play restarts from an untimed last slide without ending again', async () => {
+  let ended = false
+  let pending: (() => void) | null = null
+  const controller = new DeckController({
+    hash: null,
+    playback: 'continuous',
+    clock: (): Clock => ({
+      word: () => null,
+      ended: () => ended,
+      elapsed: () => 0,
+      progress: () => (ended ? 1 : 0),
+      pause: () => {},
+      resume: () => {},
+      seek: () => {},
+      muted: false,
+      stop: () => {},
+    }),
+    schedule: (tick) => {
+      pending = tick
+      return () => {
+        pending = null
+      }
+    },
+  })
+  let ends = 0
+  controller.addEventListener('end', () => ends++)
+  await controller.load({
+    title: 'T',
+    slides: [
+      {
+        id: 'a',
+        content: { kind: 'html', html: '' },
+        narration: { text: 'hello', words: [{ text: 'hello', startMs: 0, endMs: 80 }], durationMs: 1000, audio: null, live: false, cues: [] },
+      },
+      { id: 'b', content: { kind: 'html', html: '' } },
+    ],
+  })
+  await controller.play()
+  ended = true
+  const tick = pending as (() => void) | null
+  pending = null
+  tick?.()
+  await Bun.sleep(0)
+  expect(controller.state.index).toBe(1)
+  expect(ends).toBe(0)
+
+  await controller.play()
+  expect(controller.state.index).toBe(0)
+  expect(ends).toBe(0)
+})
