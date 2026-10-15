@@ -57,11 +57,12 @@ describe('timeline', () => {
   })
 
   test('a cue shows from its word until the word that ends it, and not after', () => {
-    expect(momentAt(narration, 399).annotations).toEqual([])
-    expect(momentAt(narration, 400).annotations).toEqual([0])
-    expect(momentAt(narration, 1099).annotations).toEqual([0])
-    expect(momentAt(narration, 1100).annotations).toEqual([])
-    expect(momentAt(narration, 1500).annotations).toEqual([1])
+    const slide = { id: 'a', content: { kind: 'html' as const, html: '' }, narration }
+    expect(slideStateAt(slide, 399).shown).toEqual([])
+    expect(slideStateAt(slide, 400).shown).toEqual([0])
+    expect(slideStateAt(slide, 1099).shown).toEqual([0])
+    expect(slideStateAt(slide, 1100).shown).toEqual([])
+    expect(slideStateAt(slide, 1500).shown).toEqual([1])
   })
 
   test('the slide ends at its duration, not at its last word', () => {

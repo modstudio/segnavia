@@ -77,8 +77,8 @@ export function annotationsAt(cues: Cue[], word: number | null): number[] {
 }
 
 export function momentAt(narration: Narration, ms: number): Moment {
-  const word = wordAt(narration, ms)
-  return { word, annotations: annotationsAt(narration.cues, word), ended: ms >= narration.durationMs }
+  const state = slideStateAt({ id: '', content: { kind: 'html', html: '' }, narration }, ms)
+  return { word: state.word, annotations: state.shown, ended: ms >= narration.durationMs }
 }
 
 export function words(text: string): string[] {
