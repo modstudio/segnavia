@@ -248,6 +248,15 @@ the composite's paint. Shading types, functions, coordinates and matrices,
 the mask chain and constant opacity must all be established from the PDF;
 otherwise the composite stays as Chromium wrote it.
 
+Both rules hold every graphics state a rewrite depends on to one allow-list,
+including the states set inside a mask group or a nested form. A `gs` adds
+its keys to the state already in effect, so each state is read merged with
+the earlier ones under the same `q`. A form must have no `/Matrix` or the
+identity. A graphics state may set only `/Type`, `/SMask`, a finite `/ca`,
+`/CA` 1 and `/BM /Normal`. Rule C bakes an outer or alpha-mask `/ca` into its
+coverage. A `/ca` other than 1 on the image Rule 1 copies, or on a Rule C
+color or luminosity layer, keeps the mask as written.
+
 `effects: false` preserves Chromium's masks; an absent `effects` option enables
 the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
 and a count of masks kept as written. The effects rewrite
