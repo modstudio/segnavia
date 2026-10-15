@@ -19,6 +19,11 @@ export interface VoiceProvider {
   synthesize(text: string, voice?: string): Promise<Speech>
 }
 
+export interface PronunciationDictionary {
+  id: string
+  versionId?: string
+}
+
 export function splitWords(text: string): string[] {
   return text.split(/\s+/).filter(Boolean)
 }
@@ -73,14 +78,34 @@ export function pacedProvider(options: { wordsPerMinute?: number } = {}): VoiceP
 
 // The key is read when a synthesis runs, never when the module loads, and is
 // never written anywhere.
-export function elevenLabsProvider(options: { apiKey: () => string; voice: string; model?: string }): VoiceProvider {
+export function elevenLabsProvider(options: {
+  apiKey: () => string
+  voice: string
+  model?: string
+  pronunciationDictionaries?: readonly PronunciationDictionary[]
+}): VoiceProvider {
+  const dictionaries = options.pronunciationDictionaries ?? []
+  if (dictionaries.length > 3) throw new Error(`ElevenLabs accepts at most 3 pronunciation dictionaries; received ${dictionaries.length}.`)
+  const baseId = `elevenlabs-${options.model ?? 'eleven_multilingual_v2'}-${options.voice}`
+  const dictionaryId = dictionaries.length > 0 ? `-${JSON.stringify(dictionaries.map(({ id, versionId }) => [id, versionId ?? null]))}` : ''
   return {
-    id: `elevenlabs-${options.model ?? 'eleven_multilingual_v2'}-${options.voice}`,
+    id: `${baseId}${dictionaryId}`,
     async synthesize(text, voice = options.voice) {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
         method: 'POST',
         headers: { 'xi-api-key': options.apiKey(), 'content-type': 'application/json' },
-        body: JSON.stringify({ text, model_id: options.model ?? 'eleven_multilingual_v2' }),
+        body: JSON.stringify({
+          text,
+          model_id: options.model ?? 'eleven_multilingual_v2',
+          ...(dictionaries.length > 0
+            ? {
+                pronunciation_dictionary_locators: dictionaries.map(({ id, versionId }) => ({
+                  pronunciation_dictionary_id: id,
+                  ...(versionId === undefined ? {} : { version_id: versionId }),
+                })),
+              }
+            : {}),
+        }),
       })
       if (!response.ok) throw new Error(`ElevenLabs refused the synthesis: ${response.status} ${await response.text()}`)
       const body = (await response.json()) as {
@@ -89,7 +114,13 @@ export function elevenLabsProvider(options: { apiKey: () => string; voice: strin
       }
       const { characters, character_start_times_seconds: starts, character_end_times_seconds: ends } = body.alignment
       const words = wordsFromCharacters(characters, starts, ends)
-      return { words, durationMs: Math.round((ends.at(-1) ?? 0) * 1000) + 300, audio: { bytes: Buffer.from(body.audio_base64, 'base64'), extension: 'mp3' } }
+      const scriptWords = splitWords(text)
+      const captionWords = words.length === scriptWords.length ? words.map((word, index) => ({ ...word, text: scriptWords[index] ?? word.text })) : words
+      return {
+        words: captionWords,
+        durationMs: Math.round((ends.at(-1) ?? 0) * 1000) + 300,
+        audio: { bytes: Buffer.from(body.audio_base64, 'base64'), extension: 'mp3' },
+      }
     },
   }
 }
