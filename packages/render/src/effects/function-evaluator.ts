@@ -21,38 +21,35 @@ function numbers(dictionary: PDFDict, label: string): number[] | undefined {
 
 const clamp = (value: number): number => Math.max(0, Math.min(1, value))
 
-export function functionEvaluator(
-  document: PDFDocument,
-  object: PDFObject | undefined,
-  channels: number,
-  path = new WeakSet<PDFDict>(),
-  depth = 0,
-): ((input: number) => number[]) | undefined {
-  const fn = dictionaryOf(resolved(document, object))
-  if (!fn || depth > MAX_EFFECT_FUNCTION_DEPTH || path.has(fn)) return undefined
-  const type = numberOf(fn, 'FunctionType')
-  const domain = numbers(fn, 'Domain') ?? [0, 1]
-  if (domain.length !== 2 || domain[0] === domain[1]) return undefined
-  if (type === 2) {
-    const from = numbers(fn, 'C0') ?? [0]
-    const to = numbers(fn, 'C1') ?? [1]
-    const exponent = numberOf(fn, 'N')
-    if (from.length !== channels || to.length !== channels || exponent === undefined) return undefined
-    return (input) => {
-      const value = clamp((input - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) ** exponent
-      return from.map((start, index) => start + ((to[index] ?? start) - start) * value)
-    }
+type Evaluator = (input: number) => number[]
+interface FunctionContext {
+  channels: number
+  document: PDFDocument
+  memo: WeakMap<PDFDict, Evaluator | undefined>
+  path: WeakSet<PDFDict>
+}
+
+function exponentialEvaluator(fn: PDFDict, channels: number, domain: number[]): Evaluator | undefined {
+  const from = numbers(fn, 'C0') ?? [0]
+  const to = numbers(fn, 'C1') ?? [1]
+  const exponent = numberOf(fn, 'N')
+  if (from.length !== channels || to.length !== channels || exponent === undefined) return undefined
+  return (input) => {
+    const value = clamp((input - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) ** exponent
+    return from.map((start, index) => start + ((to[index] ?? start) - start) * value)
   }
-  if (type !== 3) return undefined
+}
+
+function stitchingEvaluator(context: FunctionContext, fn: PDFDict, domain: number[], depth: number): Evaluator | undefined {
   const functions = fn.lookupMaybe(key('Functions'), PDFArray)
   const bounds = numbers(fn, 'Bounds') ?? []
   const encode = numbers(fn, 'Encode') ?? []
   if (!functions || functions.size() > MAX_EFFECT_FUNCTION_CHILDREN || functions.size() !== bounds.length + 1 || encode.length !== functions.size() * 2)
     return undefined
-  path.add(fn)
-  const children: Array<((input: number) => number[]) | undefined> = []
-  for (let index = 0; index < functions.size(); index++) children.push(functionEvaluator(document, functions.get(index), channels, path, depth + 1))
-  path.delete(fn)
+  context.path.add(fn)
+  const children: Array<Evaluator | undefined> = []
+  for (let index = 0; index < functions.size(); index++) children.push(buildEvaluator(context, functions.get(index), depth + 1))
+  context.path.delete(fn)
   if (children.some((child) => !child)) return undefined
   return (input) => {
     const value = Math.max(domain[0] ?? 0, Math.min(domain[1] ?? 1, input))
@@ -63,6 +60,22 @@ export function functionEvaluator(
     const encodedLow = encode[index * 2] ?? 0
     const encodedHigh = encode[index * 2 + 1] ?? 1
     const mapped = high === low ? encodedLow : encodedLow + ((value - low) / (high - low)) * (encodedHigh - encodedLow)
-    return (children[index] as (input: number) => number[])(mapped)
+    return (children[index] as Evaluator)(mapped)
   }
+}
+
+function buildEvaluator(context: FunctionContext, object: PDFObject | undefined, depth: number): Evaluator | undefined {
+  const fn = dictionaryOf(resolved(context.document, object))
+  if (!fn || depth > MAX_EFFECT_FUNCTION_DEPTH || context.path.has(fn)) return undefined
+  if (context.memo.has(fn)) return context.memo.get(fn)
+  const domain = numbers(fn, 'Domain') ?? [0, 1]
+  if (domain.length !== 2 || domain[0] === domain[1]) return undefined
+  const type = numberOf(fn, 'FunctionType')
+  const evaluator = type === 2 ? exponentialEvaluator(fn, context.channels, domain) : type === 3 ? stitchingEvaluator(context, fn, domain, depth) : undefined
+  context.memo.set(fn, evaluator)
+  return evaluator
+}
+
+export function functionEvaluator(document: PDFDocument, object: PDFObject | undefined, channels: number): Evaluator | undefined {
+  return buildEvaluator({ channels, document, memo: new WeakMap(), path: new WeakSet() }, object, 0)
 }

@@ -3,8 +3,9 @@ import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject
 import { applyAffine, IDENTITY_MATRIX } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, resolvedColorSpace } from '../press/pdf-objects.ts'
-import { chargeShadingSamples, MAX_SHADING_SAMPLES, SHADING_SAMPLE_SPACING_PT } from '../press/sample-shading.ts'
+import { chargeShadingSamples, MAX_DOCUMENT_CALCULATOR_OPERATIONS, MAX_SHADING_SAMPLES, SHADING_SAMPLE_SPACING_PT } from '../press/sample-shading.ts'
 import { functionEvaluator } from './function-evaluator.ts'
+import { type EffectStructure, effectFormStructure, effectGraphicsStateStructure, effectOpacity } from './structure.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
 
 const key = (name: string): PDFName => PDFName.of(name)
@@ -35,9 +36,16 @@ export interface RuleCPlan {
 }
 export type RuleCFacts = 'shared' | 'different' | 'non-shading'
 export interface RuleCCandidate {
+  nested: boolean
   oneAxis: RuleCFacts
   plan?: RuleCPlan
+  structure: EffectStructure
 }
+interface RuleCContext {
+  structure: EffectStructure
+}
+
+export const MAX_EFFECT_COVERAGE_LAYERS = 4096
 
 function arrayNumbers(dictionary: PDFDict, label: string): number[] | undefined {
   const array = dictionary.lookupMaybe(key(label), PDFArray)
@@ -111,18 +119,28 @@ function paints(document: PDFDocument, stream: PDFRawStream, inherited: PDFDict 
   return result
 }
 
-function singleLayer(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, depth = 0): Layer | undefined {
+function inspectForm(context: RuleCContext, stream: PDFRawStream): void {
+  if (effectFormStructure(stream.dict) === 'other') context.structure = 'other'
+}
+
+function inspectGraphicsState(context: RuleCContext, graphicsState: PDFDict | undefined): void {
+  if (effectGraphicsStateStructure(graphicsState) === 'other') context.structure = 'other'
+}
+
+function singleLayer(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, context: RuleCContext, depth = 0): Layer | undefined {
+  inspectForm(context, stream)
   if (depth > 12 || !simplePaintStream(stream, budget)) return undefined
   const items = paints(document, stream, undefined, budget)
+  for (const item of items) inspectGraphicsState(context, item.graphicsState)
   if (items.length !== 1 || items[0]?.graphicsState?.has(key('SMask'))) return undefined
   const item = items[0]
   if (!item) return undefined
   if (item.pattern instanceof PDFDict) {
     const axial = axialLayer(document, item.pattern)
     if (axial) return axial
-    if (item.pattern instanceof PDFRawStream) return singleLayer(document, item.pattern, budget, depth + 1)
+    if (item.pattern instanceof PDFRawStream) return singleLayer(document, item.pattern, budget, context, depth + 1)
   }
-  return item.xObject instanceof PDFRawStream ? singleLayer(document, item.xObject, budget, depth + 1) : undefined
+  return item.xObject instanceof PDFRawStream ? singleLayer(document, item.xObject, budget, context, depth + 1) : undefined
 }
 
 function transfer(document: PDFDocument, mask: PDFDict): 'identity' | 'invert' | undefined {
@@ -140,19 +158,18 @@ function mappedCoverage(coverage: Coverage, mapped: 'identity' | 'invert'): Cove
     : { ...coverage, transfer: coverage.transfer === 'identity' ? 'invert' : 'identity' }
 }
 
-function constantAlpha(graphicsState: PDFDict | undefined): number | undefined {
-  if (!graphicsState?.has(key('ca'))) return 1
-  const object = graphicsState.get(key('ca'))
-  const value = object instanceof PDFRef ? graphicsState.context.lookup(object) : object
-  const number = value instanceof PDFNumber ? value.asNumber() : undefined
-  return number !== undefined && Number.isFinite(number) ? number : undefined
-}
-
 function scaledCoverage(coverage: Coverage, opacity: number): Coverage {
   return coverage.kind === 'constant' ? { kind: 'constant', value: coverage.value * opacity } : { ...coverage, opacity: coverage.opacity * opacity }
 }
 
-function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudget, masks: PDFDict[], depth: number): Coverage | undefined {
+function maskCoverage(
+  document: PDFDocument,
+  mask: PDFDict,
+  budget: ContentBudget,
+  masks: PDFDict[],
+  context: RuleCContext,
+  depth: number,
+): Coverage | undefined {
   masks.push(mask)
   const source = resolved(document, mask.get(key('G')))
   if (!(source instanceof PDFRawStream)) return undefined
@@ -160,11 +177,11 @@ function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudge
   const mapped = transfer(document, mask)
   if (!mapped) return undefined
   if (mode === 'Alpha') {
-    const coverage = alphaCoverage(document, source, budget, masks, depth + 1)
+    const coverage = alphaCoverage(document, source, budget, masks, context, depth + 1)
     return coverage ? mappedCoverage(coverage, mapped) : undefined
   }
   if (mode !== 'Luminosity') return undefined
-  const layer = singleLayer(document, source, budget, depth + 1)
+  const layer = singleLayer(document, source, budget, context, depth + 1)
   const gray =
     layer?.channels === 1 ||
     (layer?.channels === 3 &&
@@ -175,25 +192,34 @@ function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudge
   return layer && gray ? { kind: 'layer', layer, opacity: 1, transfer: mapped } : undefined
 }
 
-function alphaCoverage(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, masks: PDFDict[], depth = 0): Coverage | undefined {
+function alphaCoverage(
+  document: PDFDocument,
+  stream: PDFRawStream,
+  budget: ContentBudget,
+  masks: PDFDict[],
+  context: RuleCContext,
+  depth = 0,
+): Coverage | undefined {
+  inspectForm(context, stream)
   if (depth > 12 || !simplePaintStream(stream, budget)) return undefined
   const items = paints(document, stream, undefined, budget)
+  for (const found of items) inspectGraphicsState(context, found.graphicsState)
   if (items.length !== 1) return undefined
   const item = items[0]
   if (!item) return undefined
-  const opacity = constantAlpha(item.graphicsState)
+  const opacity = effectOpacity(item.graphicsState)
   if (opacity === undefined) return undefined
   const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
   if (mask) {
-    const found = maskCoverage(document, mask, budget, masks, depth)
+    const found = maskCoverage(document, mask, budget, masks, context, depth)
     return found ? scaledCoverage(found, opacity) : undefined
   }
   if (item.xObject instanceof PDFRawStream) {
-    const found = alphaCoverage(document, item.xObject, budget, masks, depth + 1)
+    const found = alphaCoverage(document, item.xObject, budget, masks, context, depth + 1)
     return found ? scaledCoverage(found, opacity) : undefined
   }
   if (item.pattern instanceof PDFRawStream) {
-    const found = alphaCoverage(document, item.pattern, budget, masks, depth + 1)
+    const found = alphaCoverage(document, item.pattern, budget, masks, context, depth + 1)
     return found ? scaledCoverage(found, opacity) : undefined
   }
   return item.pattern instanceof PDFDict || ['f', 'f*', 'F'].includes(item.operation.operator) ? { kind: 'constant', value: opacity } : undefined
@@ -209,16 +235,23 @@ function sameAxis(left: Axis, right: Axis): boolean {
   return Math.abs((right.start.x - left.start.x) * ly - (right.start.y - left.start.y) * lx) <= scale * 0.0001
 }
 
-function compositeCoverage(document: PDFDocument, items: Paint[], budget: ContentBudget): { coverage: Coverage[]; masks: PDFDict[] } | undefined {
+function compositeCoverage(
+  document: PDFDocument,
+  items: Paint[],
+  budget: ContentBudget,
+  context: RuleCContext,
+): { coverage: Coverage[]; masks: PDFDict[] } | undefined {
+  if (items.length > MAX_EFFECT_COVERAGE_LAYERS) return undefined
   const masks: PDFDict[] = []
   const coverage: Coverage[] = []
   for (const item of items) {
-    const opacity = constantAlpha(item.graphicsState)
+    inspectGraphicsState(context, item.graphicsState)
+    const opacity = effectOpacity(item.graphicsState)
     const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
     const source = resolved(document, mask?.get(key('G')))
     if (opacity === undefined || !mask || !(source instanceof PDFRawStream) || nameOf(mask.get(key('S'))) !== 'Alpha') return undefined
     masks.push(mask)
-    const found = alphaCoverage(document, source, budget, masks)
+    const found = alphaCoverage(document, source, budget, masks, context)
     const mapped = transfer(document, mask)
     if (!found || !mapped) return undefined
     coverage.push(scaledCoverage(mappedCoverage(found, mapped), opacity))
@@ -226,35 +259,31 @@ function compositeCoverage(document: PDFDocument, items: Paint[], budget: Conten
   return { coverage, masks }
 }
 
-function candidate(oneAxis: RuleCFacts, plan?: RuleCPlan): RuleCCandidate {
-  return { oneAxis, plan }
+function candidate(context: RuleCContext, nested: boolean, oneAxis: RuleCFacts, plan?: RuleCPlan): RuleCCandidate {
+  return { nested, oneAxis, plan, structure: context.structure }
 }
 
-export function ruleCPlan(document: PDFDocument, form: PDFRawStream, budget: ContentBudget): RuleCCandidate {
-  if (!simplePaintStream(form, budget)) return candidate('non-shading')
+export function ruleCPlan(document: PDFDocument, form: PDFRawStream, outerGraphicsState: PDFDict, budget: ContentBudget): RuleCCandidate {
+  const context: RuleCContext = { structure: 'allowed' }
+  inspectGraphicsState(context, outerGraphicsState)
+  inspectForm(context, form)
+  if (!simplePaintStream(form, budget)) return candidate(context, false, 'non-shading')
   const bbox = arrayNumbers(form.dict, 'BBox')
-  const matrix = form.dict.has(key('Matrix')) ? arrayNumbers(form.dict, 'Matrix') : IDENTITY_MATRIX
   const items = paints(document, form, undefined, budget)
-  if (
-    bbox?.length !== 4 ||
-    matrix?.length !== 6 ||
-    matrix.some((value, index) => value !== IDENTITY_MATRIX[index]) ||
-    items.length < 1 ||
-    items.some((item) => !(item.xObject instanceof PDFRawStream))
-  )
-    return candidate('non-shading')
+  const nested = items.some((item) => dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask')))) !== undefined)
+  if (bbox?.length !== 4 || items.length < 1 || items.some((item) => !(item.xObject instanceof PDFRawStream))) return candidate(context, nested, 'non-shading')
   const colorObject = items[0]?.xObject
-  if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return candidate('non-shading')
-  const color = colorObject instanceof PDFRawStream ? singleLayer(document, colorObject, budget) : undefined
-  if (color?.channels !== 3 || items.some((item) => item.xObject !== colorObject)) return candidate('non-shading')
-  const combined = compositeCoverage(document, items, budget)
-  if (!combined) return candidate('non-shading')
+  if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return candidate(context, nested, 'non-shading')
+  const color = singleLayer(document, colorObject, budget, context)
+  if (color?.channels !== 3 || items.some((item) => item.xObject !== colorObject)) return candidate(context, nested, 'non-shading')
+  const combined = compositeCoverage(document, items, budget, context)
+  if (!combined) return candidate(context, nested, 'non-shading')
   const { coverage, masks } = combined
   const layers = coverage.filter((value): value is Extract<Coverage, { kind: 'layer' }> => value.kind === 'layer')
-  if (layers.length === 0) return candidate('non-shading')
-  if (layers.some(({ layer }) => !sameAxis(color.axis, layer.axis))) return candidate('different')
+  if (layers.length === 0) return candidate(context, nested, 'non-shading')
+  if (layers.some(({ layer }) => !sameAxis(color.axis, layer.axis))) return candidate(context, nested, 'different')
   const plan = { bbox, color, coverage, masks }
-  return candidate('shared', plan)
+  return candidate(context, nested, 'shared', plan)
 }
 
 function positionOnAxis(axis: Axis, x: number, y: number): number {
@@ -296,7 +325,9 @@ export function buildRuleCImage(
   const printScale = Math.hypot(printEnd.x - printStart.x, printEnd.y - printStart.y) / length
   const rows = Math.ceil(((amax - amin) * printScale) / SHADING_SAMPLE_SPACING_PT) + 1
   if (rows > MAX_SHADING_SAMPLES) return undefined
-  chargeShadingSamples(budget, rows, 0)
+  const operations = rows * (1 + plan.coverage.length)
+  if ((budget.calculatorOperations ?? 0) + operations > MAX_DOCUMENT_CALCULATOR_OPERATIONS) return undefined
+  chargeShadingSamples(budget, rows, operations)
   const rgb = new Uint8Array(rows * 3)
   const gray = new Uint8Array(rows)
   for (let row = 0; row < rows; row++) {

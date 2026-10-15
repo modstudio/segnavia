@@ -3,8 +3,11 @@ import { decodePDFRawStream, PDFArray, type PDFDict, PDFDocument, PDFName, PDFRa
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../press/adapter.ts'
 import { rewriteEffectsPdf } from './adapter.ts'
+import { MAX_EFFECT_COVERAGE_LAYERS } from './rule-c.ts'
 
-async function minimalMask(options: { graphicsState?: Record<string, unknown>; nested?: boolean; transfer?: 'invert' } = {}): Promise<Uint8Array> {
+async function minimalMask(
+  options: { graphicsState?: Record<string, unknown>; matrix?: number[]; nested?: boolean; transfer?: 'invert' } = {},
+): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const image = document.context.register(
     document.context.stream(Uint8Array.of(0, 64, 128, 255), {
@@ -22,6 +25,7 @@ async function minimalMask(options: { graphicsState?: Record<string, unknown>; n
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [10, 20, 12, 22],
+      ...(options.matrix ? { Matrix: options.matrix } : {}),
       Group: { Type: 'Group', S: 'Transparency', CS: 'DeviceGray', I: true },
       Resources: {
         XObject: { Coverage: image },
@@ -72,9 +76,9 @@ test('keeps nested masks in Chromium form', async () => {
 })
 
 test.each([
-  ['non-default fill alpha', { graphicsState: { ca: 0.6667 } }],
   ['blend mode', { graphicsState: { BM: 'Multiply' } }],
   ['non-identity transfer', { transfer: 'invert' as const }],
+  ['non-identity form Matrix', { matrix: [1, 0, 0, 1, 5, 5] }],
 ])('keeps a Rule 1 mask with %s', async (_label, options) => {
   const input = await minimalMask(options)
   const rewritten = await rewriteEffectsPdf(input)
@@ -82,8 +86,22 @@ test.each([
   expect(rewritten.bytes).toBe(input)
 })
 
+test('preserves an allowed Rule 1 fill alpha', async () => {
+  const rewritten = await rewriteEffectsPdf(await minimalMask({ graphicsState: { ca: 0.6667, BM: 'Normal' } }))
+  expect(rewritten.report).toEqual({ rule1: 1, ruleC: 0, kept: 0 })
+  expect(pageContent(await PDFDocument.load(rewritten.bytes))).toContain('/SegnaviaEffectOpacity1 gs')
+})
+
 async function minimalOneAxisComposite(
-  options: { functionShape?: 'cycle' | 'deep'; innerAlpha?: number | string; matrix?: number[]; secondAxis?: boolean } = {},
+  options: {
+    colorMatrix?: number[]
+    functionShape?: 'cycle' | 'deep'
+    innerAlpha?: number | string
+    layers?: number
+    matrix?: number[]
+    outerGraphicsState?: Record<string, unknown>
+    secondAxis?: boolean
+  } = {},
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const type2 = (from: number[], to: number[]) => document.context.obj({ FunctionType: 2, Domain: [0, 1], C0: from, C1: to, N: 1 })
@@ -138,11 +156,12 @@ async function minimalOneAxisComposite(
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
+      ...(options.colorMatrix ? { Matrix: options.colorMatrix } : {}),
       Resources: { Pattern: { Color: pattern(false, false, true) } },
     }),
   )
   const composite = document.context.register(
-    document.context.stream('/Alpha gs /Color Do', {
+    document.context.stream(Array.from({ length: options.layers ?? 1 }, () => '/Alpha gs /Color Do').join(' '), {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
@@ -151,7 +170,10 @@ async function minimalOneAxisComposite(
     }),
   )
   const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Resources'), document.context.obj({ ExtGState: { Opacity: { ca: 0.55 } }, XObject: { Composite: composite } }))
+  page.node.set(
+    PDFName.of('Resources'),
+    document.context.obj({ ExtGState: { Opacity: { ca: 0.55, BM: 'Normal', ...options.outerGraphicsState } }, XObject: { Composite: composite } }),
+  )
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Opacity gs /Composite Do')))
   return document.save()
 }
@@ -183,6 +205,27 @@ test('keeps a nested one-axis composite with a non-identity form Matrix', async 
   const input = await minimalOneAxisComposite({ matrix: [1, 0, 0, 1, 5, 5] })
   const rewritten = await rewriteEffectsPdf(input)
   expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C with a non-identity nested color form Matrix', async () => {
+  const input = await minimalOneAxisComposite({ colorMatrix: [1, 0, 0, 1, 5, 5] })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C with an unsupported outer graphics-state entry', async () => {
+  const input = await minimalOneAxisComposite({ outerGraphicsState: { BM: 'Multiply' } })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C before evaluating more than the coverage-layer cap', async () => {
+  const input = await minimalOneAxisComposite({ layers: MAX_EFFECT_COVERAGE_LAYERS + 1 })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report.ruleC).toBe(0)
   expect(rewritten.bytes).toBe(input)
 })
 

@@ -5,11 +5,10 @@ const imageMask: SoftMaskFacts = {
   backdrop: 'black',
   colorSpace: 'gray',
   contents: 'single-image',
-  graphicsState: 'clean',
   nested: false,
   oneAxis: 'unknown',
+  structure: 'allowed',
   subtype: 'luminosity',
-  transfer: 'identity',
 }
 
 test('selects rule 1 for one grayscale image over black', () => {
@@ -23,8 +22,7 @@ test.each([
   ['non-black backdrop', { ...imageMask, backdrop: 'other' as const }],
   ['non-gray group', { ...imageMask, colorSpace: 'other' as const }],
   ['alpha mask', { ...imageMask, subtype: 'other' as const }],
-  ['mask with a transfer function', { ...imageMask, transfer: 'other' as const }],
-  ['mask ExtGState with another setting', { ...imageMask, graphicsState: 'extra' as const }],
+  ['mask chain with unsupported structure', { ...imageMask, structure: 'other' as const }],
 ] as const)('keeps a %s', (_label, facts) => {
   expect(softMaskAction(facts)).toBe('keep')
 })
