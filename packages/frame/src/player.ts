@@ -20,6 +20,7 @@ import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { handlePlayerKey } from './player-key.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaStage } from './stage.ts'
+import { STYLED_ELEMENTS } from './styled-elements.ts'
 import type { HostTransition } from './transition.ts'
 
 const LAYOUT = `<div class="player" part="player">
@@ -34,8 +35,9 @@ const LAYOUT = `<div class="player" part="player">
     </div>
   </div><div class="below"><slot name="below"></slot></div></div>`
 
-const COMPONENTS =
-  'segnavia-play,segnavia-step,segnavia-track,segnavia-counter,segnavia-time,segnavia-mute,segnavia-captions,segnavia-fullscreen,segnavia-caption,segnavia-notes'
+const COMPONENTS = Object.values(STYLED_ELEMENTS)
+  .filter((tag) => tag !== STYLED_ELEMENTS.player)
+  .join(',')
 
 export class SegnaviaPlayer extends HTMLElement {
   static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
