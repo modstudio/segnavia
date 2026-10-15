@@ -75,6 +75,7 @@ The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attribu
 The `actions` slot accepts any host element before the built-in end controls. Slotted buttons receive the player's icon-button size, shape, colour, hover and focus treatment by default through the `--segnavia-*` tokens; host styles can override that default. The `below` slot keeps arbitrary host chrome beneath the bar and hides it while presenting.
 
 The styled controls use copied Lucide icons under the ISC licence; attribution and the applicable licence texts ship in `@segnavia/frame`'s `THIRD-PARTY-NOTICES`.
+Headless hosts can import the typed SVG strings individually from `@segnavia/frame/icons`; the headless entry does not include them.
 
 Every inner styling hook crosses the player shadow boundary. The stable exported parts are `play-button`, `step-button`, `previous-button`, `next-button`, `track`, `segment`, `counter`, `time`, `mute-button`, `captions-button`, `presentation-button`, `notes-button`, `caption`, `word`, `word-spoken` and `word-current`; the existing player-level `player`, `stage`, `notes`, `caption` and `bar` parts remain. Control sizing reads `--segnavia-control-size` and `--segnavia-play-size` in addition to the existing tokens.
 

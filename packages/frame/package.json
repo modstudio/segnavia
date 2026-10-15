@@ -62,6 +62,11 @@
       "types": "./dist/controls-entry.d.ts",
       "default": "./dist/controls-entry.js"
     },
+    "./icons": {
+      "@segnavia/source": "./src/icons.ts",
+      "types": "./dist/icons.d.ts",
+      "default": "./dist/icons.js"
+    },
     "./browser/headless": {
       "@segnavia/source": "./src/index.ts",
       "types": "./dist/index.d.ts",

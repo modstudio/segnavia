@@ -27,7 +27,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
-    serverSafe: ['src/svg.ts', 'src/timeline.ts', 'src/bridge.ts', 'src/print-document.ts', 'src/styled-elements.ts'],
+    serverSafe: ['src/svg.ts', 'src/timeline.ts', 'src/bridge.ts', 'src/print-document.ts', 'src/styled-elements.ts', 'src/icons.ts'],
   },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
   render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', 'playwright-core', 'pdf-lib'] },
