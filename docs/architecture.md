@@ -237,22 +237,28 @@ combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
 **Effects in PDF readers.** Chromium writes CSS shadows and blurs as
-luminosity soft masks. Every PDF render rewrites a mask whose transparency
-group paints one grayscale image over the default black backdrop: the masked
-constant-color rectangle becomes an image whose direct alpha soft mask is that
-grayscale image. This avoids the luminosity-group interpretation that differs
-between PDF readers. `effects: false` preserves Chromium's masks; an absent
-`effects` option enables the rewrite, and `effects.report` receives counts for
-rules 1 through 4 and masks kept as written. The effects rewrite runs before
-the press rewrite, which converts the generated color image with the rest of
-the finished PDF.
+luminosity soft masks. Rule 1 rewrites a mask whose transparency group paints
+one grayscale image over the default black backdrop: the masked constant-color
+rectangle becomes an image whose direct alpha soft mask is that grayscale
+image. Rule C handles a nested-mask composite when every varying color and
+coverage layer is a shading along one shared affine axis. It samples color and
+combined coverage every 0.5 pt along that axis into an interpolated,
+one-sample-wide RGB image and DeviceGray image soft mask, then replaces only
+the composite's paint. Shading types, functions, coordinates and matrices,
+the mask chain and constant opacity must all be established from the PDF;
+otherwise the composite stays as Chromium wrote it.
+
+`effects: false` preserves Chromium's masks; an absent `effects` option enables
+the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts,
+the reserved rules 2 through 4, and masks kept as written. The effects rewrite
+runs before the press rewrite, which converts generated Rule 1 images and Rule
+C's RGB samples to CMYK without reporting them as authored RGB images.
 
 Vector mask groups are kept because the corrected reader measurements do not
-show a defect that needs rule 2. Nested masks are also kept: rasterizing only
-their mask groups at 300 dpi left the poster's CoreGraphics result at mean
-35.28 and p99 121 while growing it to 572,287 bytes, beyond the size bar, so
-rule 3 is not applied. Rasterizing a complete effect region would require a
-PDF rasterizer that the library does not carry, so rule 4 is not built.
+show a defect that needs rule 2. Rule 4 is the documented fallback for a nested
+composite whose layers do not share one axis: rasterize only the effect region
+from Chromium while retaining later content as vector. It is not built because
+the suite currently has no document that needs it.
 
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The

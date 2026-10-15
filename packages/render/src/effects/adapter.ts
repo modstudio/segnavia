@@ -1,6 +1,7 @@
 import { deflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
+import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import {
   type ContentBudget,
@@ -14,6 +15,7 @@ import {
 } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
 import { softMaskAction } from './policy.ts'
+import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
 import type { EffectsReport } from './types.ts'
 
 type PaintColor = { space: 'DeviceCMYK' | 'DeviceGray' | 'DeviceRGB'; values: number[] }
@@ -24,11 +26,15 @@ interface Rule1Plan {
 }
 interface EffectsState {
   applied: WeakSet<PDFDict>
+  appliedRuleC: number
   budget: ContentBudget
   document: PDFDocument
   maskPlans: WeakMap<PDFDict, Rule1Plan>
   masks: Set<PDFDict>
   plans: WeakMap<PDFDict, Rule1Plan>
+  ruleCChecked: WeakSet<PDFRawStream>
+  ruleCPlans: WeakMap<PDFRawStream, RuleCPlan>
+  ruleCMasks: WeakSet<PDFDict>
 }
 
 const key = (name: string): PDFName => PDFName.of(name)
@@ -97,6 +103,7 @@ function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict
     colorSpace: group && resolvedColorSpace(state.document, resolved(state.document, group.get(key('CS')))).kind === 'gray' ? 'gray' : 'other',
     contents: contents.kind,
     nested,
+    oneAxis: 'unknown',
     subtype: nameOf(mask.get(key('S'))) === 'Luminosity' ? 'luminosity' : 'other',
   })
   const bbox = numbers(source.dict.lookupMaybe(key('BBox'), PDFArray))
@@ -204,6 +211,63 @@ function replaceRanges(bytes: Uint8Array, replacements: Array<{ end: number; sta
   return output
 }
 
+function ruleCReplacement(
+  state: EffectsState,
+  next: ContentOperation | undefined,
+  graphicsState: PDFDict | undefined,
+  resources: PDFDict,
+  printMatrix: number[],
+): { end: number; text: string } | undefined {
+  if (!graphicsState || next?.operator !== 'Do' || next.operands.length !== 1 || next.operands[0]?.kind !== 'name') return undefined
+  const xObjects = resources.lookupMaybe(key('XObject'), PDFDict)
+  const form = resolved(state.document, xObjects?.get(PDFName.of(next.operands[0].raw.slice(1))))
+  if (!(form instanceof PDFRawStream) || nameOf(form.dict.get(key('Subtype'))) !== 'Form') return undefined
+  if (!state.ruleCChecked.has(form)) {
+    state.ruleCChecked.add(form)
+    const candidate = ruleCPlan(state.document, form, state.budget)
+    const decision = softMaskAction({
+      backdrop: 'other',
+      colorSpace: 'other',
+      contents: 'other',
+      nested: true,
+      oneAxis: candidate.facts,
+      subtype: 'other',
+    })
+    if (decision === 'ruleC' && candidate.plan) state.ruleCPlans.set(form, candidate.plan)
+  }
+  const plan = state.ruleCPlans.get(form)
+  const built = plan ? buildRuleCImage(state.document, plan, numberOf(graphicsState, 'ca') ?? 1, state.budget, printMatrix) : undefined
+  if (!plan || !built) return undefined
+  const name = xObjectName(resources, built.image)
+  const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
+  for (const mask of plan.masks) state.ruleCMasks.add(mask)
+  state.appliedRuleC++
+  return {
+    end: next.end,
+    text: `q ${left} ${bottom} ${right - left} ${top - bottom} re W n ${built.matrix.join(' ')} cm /${name} Do Q`,
+  }
+}
+
+function namedOperand(operation: ContentOperation, operator: string): ContentOperation['operands'][number] | undefined {
+  const operand = operation.operands[0]
+  return operation.operator === operator && operation.operands.length === 1 && operand?.kind === 'name' ? operand : undefined
+}
+
+interface ContentGraphics {
+  color: PaintColor | undefined
+  matrix: number[]
+}
+
+function advanceGraphics(operation: ContentOperation, current: ContentGraphics, stack: ContentGraphics[]): ContentGraphics {
+  if (operation.operator === 'q') {
+    stack.push(current)
+    return current
+  }
+  if (operation.operator === 'Q') return stack.pop() ?? { color: undefined, matrix: IDENTITY_MATRIX }
+  if (operation.operator === 'cm') return { ...current, matrix: multiplyAffine(current.matrix, numericOperands(operation, 6) ?? IDENTITY_MATRIX) }
+  return { ...current, color: colorFrom(operation) ?? current.color }
+}
+
 function rewriteContent(
   state: EffectsState,
   object: PDFObject,
@@ -217,26 +281,32 @@ function rewriteContent(
   visitContentOperations(bytes, (operation) => operations.push(operation))
   const graphicsStates = resources.lookupMaybe(key('ExtGState'), PDFDict)
   const replacements: Array<{ end: number; start: number; text: string }> = []
-  const stack: Array<PaintColor | undefined> = []
-  let color: PaintColor | undefined
+  const stack: ContentGraphics[] = []
+  let graphics: ContentGraphics = { color: undefined, matrix: IDENTITY_MATRIX }
   for (let index = 0; index < operations.length; index++) {
     const operation = operations[index]
     if (!operation) continue
-    if (operation.operator === 'q') stack.push(color)
-    else if (operation.operator === 'Q') color = stack.pop()
-    else color = colorFrom(operation) ?? color
-    if (operation.operator !== 'gs' || operation.operands.length !== 1 || operation.operands[0]?.kind !== 'name' || !color) continue
-    const graphicsState = dictionaryOf(resolved(state.document, graphicsStates?.get(PDFName.of(operation.operands[0].raw.slice(1)))))
+    graphics = advanceGraphics(operation, graphics, stack)
+    const operand = namedOperand(operation, 'gs')
+    if (!operand) continue
+    const graphicsState = dictionaryOf(resolved(state.document, graphicsStates?.get(PDFName.of(operand.raw.slice(1)))))
+    const ruleC = ruleCReplacement(state, operations[index + 1], graphicsState, resources, graphics.matrix)
+    if (ruleC) {
+      replacements.push({ start: operand.start, ...ruleC })
+      index++
+      continue
+    }
+    if (!graphics.color) continue
     const plan = graphicsState ? state.plans.get(graphicsState) : undefined
     const rectangle = operations[index + 1]
     const fill = operations[index + 2]
     if (!plan || !rectangle || !fill || rectangle.operator !== 're' || !['f', 'f*', 'F'].includes(fill.operator) || !matchingRectangle(rectangle, plan.bbox))
       continue
-    const image = effectImage(state, plan, color)
+    const image = effectImage(state, plan, graphics.color)
     const name = xObjectName(resources, image)
     const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
     replacements.push({
-      start: operation.operands[0].start,
+      start: operand.start,
       end: fill.end,
       text: `q ${right - left} 0 0 ${bottom - top} ${left} ${top} cm /${name} Do Q`,
     })
@@ -253,11 +323,15 @@ function rewriteContent(
 export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
   const state: EffectsState = {
     applied: new WeakSet(),
+    appliedRuleC: 0,
     budget: { decodedBytes: 0 },
     document,
     maskPlans: new WeakMap(),
     masks: new Set(),
     plans: new WeakMap(),
+    ruleCChecked: new WeakSet(),
+    ruleCPlans: new WeakMap(),
+    ruleCMasks: new WeakSet(),
   }
   walkPressGraph(document, {
     content: () => undefined,
@@ -277,14 +351,16 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
   })
   let rule1 = 0
   for (const mask of state.masks) if (state.applied.has(mask)) rule1++
-  return { rule1, rule2: 0, rule3: 0, rule4: 0, kept: state.masks.size - rule1 }
+  let kept = 0
+  for (const mask of state.masks) if (!state.applied.has(mask) && !state.ruleCMasks.has(mask)) kept++
+  return { rule1, ruleC: state.appliedRuleC, rule2: 0, rule3: 0, rule4: 0, kept }
 }
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
   try {
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     const report = rewriteEffectsDocument(document)
-    return { bytes: report.rule1 === 0 ? bytes : await document.save(), report }
+    return { bytes: report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')

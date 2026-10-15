@@ -209,7 +209,7 @@ export function sampleShadingToCmyk(
   return samples
 }
 
-function chargeSamples(budget: ContentBudget, samples: number, operations: number): void {
+export function chargeShadingSamples(budget: ContentBudget, samples: number, operations: number): void {
   const bytes = samples * SAMPLE_CHANNELS * SAMPLE_BYTES
   if (!Number.isFinite(samples) || samples < 0 || !Number.isFinite(bytes) || bytes < 0)
     refuse(`document shading samples ${samples}`, 'a finite non-negative sample count and byte charge')
@@ -252,7 +252,7 @@ export function replaceType1Function(
   const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const samples = size.n * size.m
   const operations = samples * staticOperatorCount(program)
-  chargeSamples(budget, samples, operations)
+  chargeShadingSamples(budget, samples, operations)
   const data = sampleShadingToCmyk(program, domain, size, convert)
   const replacement = document.context.stream(deflateSync(data), {
     FunctionType: 0,

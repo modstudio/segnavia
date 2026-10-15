@@ -6,6 +6,7 @@ const imageMask: SoftMaskFacts = {
   colorSpace: 'gray',
   contents: 'single-image',
   nested: false,
+  oneAxis: 'unknown',
   subtype: 'luminosity',
 }
 
@@ -14,11 +15,16 @@ test('selects rule 1 for one grayscale image over black', () => {
 })
 
 test.each([
-  ['nested mask', { ...imageMask, nested: true }],
+  ['nested mask on different axes', { ...imageMask, nested: true, oneAxis: 'different' as const }],
+  ['nested mask with non-shading coverage', { ...imageMask, nested: true, oneAxis: 'non-shading' as const }],
   ['vector mask group', { ...imageMask, contents: 'vector' as const }],
   ['non-black backdrop', { ...imageMask, backdrop: 'other' as const }],
   ['non-gray group', { ...imageMask, colorSpace: 'other' as const }],
   ['alpha mask', { ...imageMask, subtype: 'other' as const }],
 ] as const)('keeps a %s', (_label, facts) => {
   expect(softMaskAction(facts)).toBe('keep')
+})
+
+test('selects rule C for a nested composite on one shared axis', () => {
+  expect(softMaskAction({ ...imageMask, nested: true, oneAxis: 'shared' })).toBe('ruleC')
 })
