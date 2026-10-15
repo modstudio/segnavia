@@ -64,6 +64,15 @@ function pageContent(document: PDFDocument): string {
     .join('\n')
 }
 
+function generatedEffectMaskSamples(document: PDFDocument): Uint8Array {
+  const effect = document.context
+    .enumerateIndirectObjects()
+    .map(([, object]) => object)
+    .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('SegnaviaGeneratedEffect')))
+  const mask = effect ? document.context.lookup(effect.dict.get(PDFName.of('SMask'))) : undefined
+  return mask instanceof PDFRawStream ? decodePDFRawStream(mask).decode() : new Uint8Array()
+}
+
 test('rewrites a grayscale-image luminosity mask as a direct image soft mask', async () => {
   const rewritten = await rewriteEffectsPdf(await minimalMask())
   expect(rewritten.report).toEqual({ rule1: 1, ruleC: 0, kept: 0 })
@@ -278,6 +287,13 @@ test('keeps Rule C when an earlier graphics state supplies a non-normal blend mo
   expect(rewritten.bytes).toBe(input)
 })
 
+test('bakes alpha supplied by an earlier graphics state in Rule C', async () => {
+  const rewritten = await rewriteEffectsPdf(await minimalOneAxisComposite({ priorGraphicsState: { ca: 0.25 } }))
+  const samples = generatedEffectMaskSamples(await PDFDocument.load(rewritten.bytes))
+  expect(Math.max(...samples)).toBeLessThanOrEqual(36)
+  expect(Math.max(...samples)).toBeGreaterThanOrEqual(34)
+})
+
 test('keeps Rule C when a luminosity layer has non-unit alpha', async () => {
   const input = await minimalOneAxisComposite({ layerAlpha: 0.5 })
   const rewritten = await rewriteEffectsPdf(input)
@@ -302,12 +318,7 @@ test('keeps Rule C before evaluating more than the coverage-layer cap', async ()
 test('multiplies nested constant alpha into Rule C coverage', async () => {
   const rewritten = await rewriteEffectsPdf(await minimalOneAxisComposite({ innerAlpha: 0.25 }))
   const output = await PDFDocument.load(rewritten.bytes)
-  const effect = output.context
-    .enumerateIndirectObjects()
-    .map(([, object]) => object)
-    .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('SegnaviaGeneratedEffect')))
-  const mask = effect ? output.context.lookup(effect.dict.get(PDFName.of('SMask'))) : undefined
-  const samples = mask instanceof PDFRawStream ? decodePDFRawStream(mask).decode() : new Uint8Array()
+  const samples = generatedEffectMaskSamples(output)
   expect(Math.max(...samples)).toBeLessThanOrEqual(36)
   expect(Math.max(...samples)).toBeGreaterThanOrEqual(34)
 })
