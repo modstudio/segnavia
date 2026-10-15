@@ -1,11 +1,17 @@
-// The styled controls: play, step, counter, full screen and the slide track.
-// Each is one finished piece a host can place anywhere, alone or beside its
-// own controls; the player is a layout of them.
+// The styled controls: play, step, counter, time, mute, captions, caption,
+// notes, presentation and the slide track. Each is one finished piece a host
+// can place anywhere, alone or beside its own controls; the player is a layout
+// of them.
 //
 //   <segnavia-play for="stage">             play and pause
 //   <segnavia-step to="next" for="stage">   previous or next, mirrored in right to left
 //   <segnavia-counter for="stage">          "3 / 4", left to right in any direction
-//   <segnavia-fullscreen target="box">      window presentation for the element named, or the stage
+//   <segnavia-time for="stage">             elapsed and total time
+//   <segnavia-mute for="stage">             mute narration
+//   <segnavia-captions for="stage">         show or hide viewer captions
+//   <segnavia-caption for="stage">          narration text and current word
+//   <segnavia-notes for="stage">            notes for the current slide
+//   <segnavia-fullscreen target="box">      window presentation by default, native with mode="native"
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'

@@ -42,7 +42,7 @@ something else.
 | **Controller** | `DeckController`: the headless deck. It holds slide and deck time, playing state, word, annotations, progress, direction, playback mode, mute and caption visibility, and answers keys. It renders nothing. |
 | **Stage** | `<segnavia-stage>`: shows the controller's current slide, scaled to fit, and brings no appearance of its own. |
 | **Paper** | `<segnavia-paper>`: shows one paper of imposed pages, scaled to fit, and brings no appearance of its own. |
-| **Styled component** | One finished control (`<segnavia-play>`, `-step`, `-track`, `-counter`, `-caption`, `-notes`, `-fullscreen`). It finds its deck by `for`, by its `controller` property, or from the nearest ancestor that has one. |
+| **Styled component** | One finished control (`<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen`). It finds its deck by `for`, by its `controller` property, or from the nearest ancestor that has one. Fullscreen presents in-window by default and offers native browser fullscreen through `mode="native"`. |
 | **Player** | `<segnavia-player>`: the finished player, a layout of the styled components around a stage. |
 | **Reading direction** | The deck's direction, from its `dir`, else its `lang`, else its title's first strong letter. Paging keys and the skin follow it. |
 | **Bridge** | The small script of the library's own that runs inside every frame. It relays paging keys, reports height and signals when the frame is painted. |
