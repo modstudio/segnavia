@@ -47,3 +47,28 @@ test('a superseded seek cannot overwrite the newer seek position', async () => {
   expect(controller.state.slide?.id).toBe('a')
   expect(controller.state.slideElapsedMs).toBe(100)
 })
+
+test('a failed seek pauses playback and reports the target slide once', async () => {
+  const controller = new DeckController({
+    hash: null,
+    resolveSlide: (slide, index) => {
+      if (index === 1) throw new Error('signed URL expired')
+      return slide.content
+    },
+  })
+  await controller.load({
+    title: 'T',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'a' }, holdMs: 1000 },
+      { id: 'b', content: { kind: 'html', html: 'b' }, holdMs: 1000 },
+    ],
+  })
+  await controller.play()
+  const errors: Array<{ index: number; message: string }> = []
+  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail))
+
+  await expect(controller.seek(1400)).rejects.toThrow('signed URL expired')
+
+  expect(controller.state.playing).toBe(false)
+  expect(errors).toEqual([{ index: 1, message: 'signed URL expired' }])
+})

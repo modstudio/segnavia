@@ -4,6 +4,7 @@ import { playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
+import { navigationError } from './navigation-error.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -107,13 +108,7 @@ export class DeckController extends EventTarget {
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
-    try {
-      await this.show(index, true)
-    } catch (error) {
-      if (this.current.playing) this.pause()
-      this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
-      throw error
-    }
+    await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
 
   contentFor(index: number): Promise<ResolvedContent> {
@@ -188,7 +183,7 @@ export class DeckController extends EventTarget {
     const entry = timeline.slides[index]
     if (!entry) return
     const wasPlaying = this.current.playing
-    if (!(await this.show(index, true))) return
+    if (!(await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error)))) return
     if (untimed) {
       this.current = { ...this.current, playing: false, elapsedMs: entry.startMs, slideElapsedMs: 0, progress: 0 }
       this.emit()

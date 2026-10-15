@@ -303,7 +303,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     const list = event.currentTarget as HTMLElement
     const rect = list.getBoundingClientRect()
     const timeline = deckTimeline(this.controller.state.deck as NonNullable<DeckState['deck']>)
-    void this.controller.seek(trackMsAt(event.clientX - rect.left, rect.width, timeline, this.controller.state.direction))
+    void this.controller.seek(trackMsAt(event.clientX - rect.left, rect.width, timeline, this.controller.state.direction)).catch(() => {})
   }
 
   private onKey = (event: KeyboardEvent) => {
@@ -320,11 +320,11 @@ export class SegnaviaTrack extends SegnaviaControl {
     } else if (event.key === 'PageUp' || event.key === 'PageDown') {
       const offset = event.key === 'PageUp' ? -1 : 1
       event.preventDefault()
-      void controller.go(Math.max(0, Math.min(timeline.slides.length - 1, state.index + offset)))
+      void controller.go(Math.max(0, Math.min(timeline.slides.length - 1, state.index + offset))).catch(() => {})
       return
     }
     if (target === null) return
     event.preventDefault()
-    void controller.seek(Math.max(0, Math.min(state.totalMs, target)))
+    void controller.seek(Math.max(0, Math.min(state.totalMs, target))).catch(() => {})
   }
 }
