@@ -37,7 +37,7 @@ export class SegnaviaMute extends SegnaviaControl {
     return `${TOKENS_CSS}${BUTTON_CSS}`
   }
   protected markup() {
-    return `<button part="button">${iconSlot('icon-mute', ICONS.muted)}${iconSlot('icon-unmute', ICONS.volume)}</button>`
+    return `<button part="button">${iconSlot('icon-mute', ICONS.volume)}${iconSlot('icon-unmute', ICONS.muted)}</button>`
   }
   protected render(state: DeckState) {
     this.hidden = !deckHasNarration(state)
