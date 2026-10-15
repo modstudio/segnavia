@@ -79,6 +79,41 @@ export async function verifyWindowPresentation(h: Harness) {
     JSON.stringify(restoredCaption) === JSON.stringify(normalCaption),
     JSON.stringify({ normalCaption, restoredCaption }),
   )
+
+  await page.locator(`${PLAYER} segnavia-stage`).focus()
+  await page.keyboard.press('f')
+  await page.locator(PLAYER).evaluate((player) => player.setAttribute('presentation', 'off'))
+  const disabled = await presentationState(h)
+  check(
+    'changing window presentation to off exits before hiding the control',
+    !disabled.presenting && !disabled.marked && disabled.overflow !== 'hidden' && disabled.controlHidden,
+    JSON.stringify(disabled),
+  )
+
+  await page.locator(PLAYER).evaluate((player) => player.setAttribute('presentation', 'window'))
+  await page.locator(`${PLAYER} segnavia-stage`).focus()
+  await page.keyboard.press('f')
+  await page.locator(PLAYER).evaluate((player) => player.setAttribute('presentation', 'native'))
+  const native = await presentationState(h)
+  check(
+    'changing window presentation to native exits before changing control mode',
+    !native.presenting && !native.marked && native.overflow !== 'hidden' && native.controlMode === 'native',
+    JSON.stringify(native),
+  )
+  await page.locator(PLAYER).evaluate((player) => player.removeAttribute('presentation'))
+}
+
+async function presentationState(h: Harness) {
+  return h.page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { state: { presenting: boolean } } }) => {
+    const control = player.shadowRoot?.querySelector('segnavia-fullscreen') as HTMLElement
+    return {
+      presenting: player.controller.state.presenting,
+      marked: player.hasAttribute('data-presenting'),
+      overflow: document.body.style.overflow,
+      controlHidden: control.hidden,
+      controlMode: control.getAttribute('mode'),
+    }
+  })
 }
 
 async function seekToCaptionStates(h: Harness) {

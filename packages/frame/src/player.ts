@@ -106,7 +106,7 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
     this.passTransitionAttributes()
-    this.configurePresentation()
+    void this.configurePresentation()
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
@@ -117,7 +117,7 @@ export class SegnaviaPlayer extends HTMLElement {
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
-    if (name === 'presentation') this.configurePresentation()
+    if (name === 'presentation') void this.configurePresentation()
   }
 
   private passPlayerOptions() {
@@ -141,10 +141,12 @@ export class SegnaviaPlayer extends HTMLElement {
     return [...this.root.querySelectorAll<SegnaviaControl>(COMPONENTS)]
   }
 
-  private configurePresentation() {
+  private async configurePresentation() {
     const mode = this.getAttribute('presentation')
     const presentation = mode === 'native' || mode === 'off' ? mode : 'window'
     const control = this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen
+    if (presentation !== 'window' && this.controller.state.presenting) this.controller.stopPresenting()
+    if (presentation !== 'native' && document.fullscreenElement === this) await document.exitFullscreen()
     control.hidden = presentation === 'off'
     control.setAttribute('mode', presentation === 'native' ? 'native' : 'window')
   }
