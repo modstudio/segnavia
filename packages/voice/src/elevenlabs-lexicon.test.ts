@@ -44,9 +44,9 @@ describe('ElevenLabs lexicon publishing', () => {
             phoneme: 'ɹuːt',
             alphabet: 'ipa',
             case_sensitive: true,
-            word_boundary: true,
+            word_boundaries: true,
           },
-          { type: 'alias', string_to_replace: 'SQL', alias: 'sequel', case_sensitive: true, word_boundary: true },
+          { type: 'alias', string_to_replace: 'SQL', alias: 'sequel', case_sensitive: true, word_boundaries: true },
         ],
       },
     })
@@ -66,7 +66,7 @@ describe('ElevenLabs lexicon publishing', () => {
     })
     expect(request).toEqual({
       url: 'https://api.elevenlabs.io/v1/pronunciation-dictionaries/dictionary-a/set-rules',
-      body: { rules: [{ type: 'alias', string_to_replace: 'route', alias: 'root', case_sensitive: true, word_boundary: true }] },
+      body: { rules: [{ type: 'alias', string_to_replace: 'route', alias: 'root', case_sensitive: true, word_boundaries: true }] },
     })
   })
 

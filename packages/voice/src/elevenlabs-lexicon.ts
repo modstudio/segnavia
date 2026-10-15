@@ -6,7 +6,7 @@ type AliasRule = {
   string_to_replace: string
   alias: string
   case_sensitive: true
-  word_boundary: true
+  word_boundaries: true
 }
 
 type PhonemeRule = {
@@ -15,7 +15,7 @@ type PhonemeRule = {
   phoneme: string
   alphabet: 'ipa'
   case_sensitive: true
-  word_boundary: true
+  word_boundaries: true
 }
 
 export async function publishElevenLabsLexicon(options: {
@@ -36,9 +36,9 @@ export async function publishElevenLabsLexicon(options: {
           phoneme: entry.ipa,
           alphabet: 'ipa',
           case_sensitive: true,
-          word_boundary: true,
+          word_boundaries: true,
         }
-      : { type: 'alias', string_to_replace: entry.term, alias: entry.say, case_sensitive: true, word_boundary: true },
+      : { type: 'alias', string_to_replace: entry.term, alias: entry.say, case_sensitive: true, word_boundaries: true },
   )
   const updating = options.dictionaryId !== undefined
   const path = updating ? `pronunciation-dictionaries/${encodeURIComponent(options.dictionaryId ?? '')}/set-rules` : 'pronunciation-dictionaries/add-from-rules'
