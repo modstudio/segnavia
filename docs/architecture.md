@@ -64,6 +64,7 @@ library names a host.
 | press profile | render options | The ICC profile of the press, as bytes, and a report callback for authored RGB images left unchanged and conversion counts read back from the output. |
 | `convert`, proof image, gamut report (designed, not built) | render options | A future hook may supply a full converter for the finished PDF, with a proof and out-of-gamut colors for a host to show. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
+| `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 
 ## How a deck plays
