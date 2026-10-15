@@ -49,3 +49,5 @@ slot[hidden]{display:none}
 slot::slotted(*){inline-size:20px;block-size:20px}
 [dir="rtl"] .mirror{transform:scaleX(-1)}
 `
+
+export const READOUT_CSS = ':host{display:inline-block;font-variant-numeric:tabular-nums;color:var(--_muted);font-size:13px;white-space:nowrap}'

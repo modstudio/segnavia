@@ -17,7 +17,7 @@
 import { SegnaviaControl } from './control.ts'
 import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
-import { BUTTON_CSS, TOKENS_CSS } from './controls-style.ts'
+import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
@@ -26,7 +26,7 @@ const icon = (root: ShadowRoot, name: IconName) => root.querySelector(`[name="${
 
 export class SegnaviaTime extends SegnaviaControl {
   protected styles() {
-    return `${TOKENS_CSS}:host{display:inline-block;font-variant-numeric:tabular-nums;color:var(--_muted);font-size:13px;white-space:nowrap}`
+    return `${TOKENS_CSS}${READOUT_CSS}`
   }
   protected markup() {
     return '<span part="time" dir="ltr" aria-live="polite"></span>'
@@ -126,7 +126,7 @@ export class SegnaviaStep extends SegnaviaControl {
 
 export class SegnaviaCounter extends SegnaviaControl {
   protected styles() {
-    return `${TOKENS_CSS}:host{display:inline-block;font-variant-numeric:tabular-nums;color:var(--_muted);font-size:13px;white-space:nowrap}`
+    return `${TOKENS_CSS}${READOUT_CSS}`
   }
   // A neutral slash between digits reorders in a right to left context, so the
   // count is isolated left to right.
