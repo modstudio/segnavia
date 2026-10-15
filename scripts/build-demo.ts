@@ -243,7 +243,6 @@ writeFileSync(
 )
 writeFileSync(path.join(SITE, 'icons.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${testIcons}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off" presentation="native"></segnavia-player>'))
-// Labels are the host's to translate; the Hebrew page passes its own.
 writeFileSync(
   path.join(SITE, 'he.html'),
   shell(`<segnavia-player id="player" src="deck-he.json" notes theme="light"></segnavia-player>
