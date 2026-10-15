@@ -7,6 +7,10 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Word } from '@segnavia/format'
+import { remapCaptionWords } from './captions.ts'
+
+export { publishElevenLabsLexicon } from './elevenlabs-lexicon.ts'
+export { lexiconProvider } from './lexicon-provider.ts'
 
 export interface Speech {
   words: Word[]
@@ -112,10 +116,8 @@ export function elevenLabsProvider(options: {
       }
       const { characters, character_start_times_seconds: starts, character_end_times_seconds: ends } = body.alignment
       const words = wordsFromCharacters(characters, starts, ends)
-      const scriptWords = splitWords(text)
-      const captionWords = words.length === scriptWords.length ? words.map((word, index) => ({ ...word, text: scriptWords[index] ?? word.text })) : words
       return {
-        words: captionWords,
+        words: remapCaptionWords(words, text),
         durationMs: Math.round((ends.at(-1) ?? 0) * 1000) + 300,
         audio: { bytes: Buffer.from(body.audio_base64, 'base64'), extension: 'mp3' },
       }
