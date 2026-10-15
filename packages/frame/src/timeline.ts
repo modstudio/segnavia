@@ -29,6 +29,12 @@ export interface DeckTimeline {
   totalMs: number
 }
 
+export interface TimelinePosition {
+  index: number
+  localMs: number
+  untimed: boolean
+}
+
 export function slideDurationMs(slide: Slide): number | null {
   if (slide.narration) return (slide.beforeMs ?? 0) + slide.narration.durationMs + (slide.afterMs ?? 0)
   return slide.holdMs ?? null
@@ -43,6 +49,15 @@ export function deckTimeline(deck: Pick<Deck, 'slides'>): DeckTimeline {
     return entry
   })
   return { slides, totalMs }
+}
+
+export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosition {
+  const target = Math.max(0, Math.min(timeline.totalMs, deckMs))
+  let index = timeline.slides.findIndex((entry) => entry.untimed && entry.startMs === target)
+  if (index < 0) index = timeline.slides.findIndex((entry) => entry.durationMs !== null && target >= entry.startMs && target < entry.startMs + entry.durationMs)
+  if (index < 0) index = Math.max(0, timeline.slides.length - 1)
+  const entry = timeline.slides[index]
+  return { index, localMs: entry?.untimed ? 0 : target - (entry?.startMs ?? 0), untimed: entry?.untimed ?? true }
 }
 
 export function slideStateAt(slide: Slide, ms: number): SlideMoment {

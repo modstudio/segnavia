@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, type Narration } from '@segnavia/format'
-import { deckTimeline, momentAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
+import { deckTimeline, momentAt, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 
 const narration: Narration = {
   text: 'Choose New class, then Create.',
@@ -39,6 +39,21 @@ describe('timeline', () => {
       ],
       totalMs: 3000,
     })
+  })
+
+  test('a deck position resolves to its slide and local offset', () => {
+    const timeline = {
+      slides: [
+        { startMs: 0, durationMs: 500, untimed: false },
+        { startMs: 500, durationMs: null, untimed: true },
+        { startMs: 500, durationMs: 300, untimed: false },
+      ],
+      totalMs: 800,
+    }
+    expect(positionAt(timeline, 250)).toEqual({ index: 0, localMs: 250, untimed: false })
+    expect(positionAt(timeline, 500)).toEqual({ index: 1, localMs: 0, untimed: true })
+    expect(positionAt(timeline, 600)).toEqual({ index: 2, localMs: 100, untimed: false })
+    expect(positionAt(timeline, 900)).toEqual({ index: 2, localMs: 300, untimed: false })
   })
 
   test('slide state has no word before narration and keeps the last word after it', () => {

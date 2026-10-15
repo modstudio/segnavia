@@ -6,7 +6,7 @@ import { type ControllerOptions, type DeckState, initialDeckState, type Resolved
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
-import { annotationsAt, deckTimeline, slideDurationMs } from './timeline.ts'
+import { annotationsAt, deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
@@ -179,23 +179,19 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck
     if (!deck) return
     const timeline = deckTimeline(deck)
-    const target = Math.max(0, Math.min(timeline.totalMs, deckMs))
-    let index = timeline.slides.findIndex((entry) => entry.untimed && entry.startMs === target)
-    if (index < 0)
-      index = timeline.slides.findIndex((entry) => entry.durationMs !== null && target >= entry.startMs && target < entry.startMs + entry.durationMs)
-    if (index < 0) index = Math.max(0, timeline.slides.length - 1)
+    const { index, localMs, untimed } = positionAt(timeline, deckMs)
     const entry = timeline.slides[index]
     if (!entry) return
     const wasPlaying = this.current.playing
     await this.show(index, true)
-    if (entry.untimed) {
+    if (untimed) {
       this.current = { ...this.current, playing: false, elapsedMs: entry.startMs, slideElapsedMs: 0, progress: 0 }
       this.emit()
       return
     }
     const slide = deck.slides[index]
     if (!slide) return
-    const local = slide.narration?.live && target > entry.startMs ? 0 : target - entry.startMs
+    const local = slide.narration?.live && localMs > 0 ? 0 : localMs
     if (!this.clock) this.startClock(local)
     else this.clock.seek(local)
     if (!wasPlaying) this.pause()
