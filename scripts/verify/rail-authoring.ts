@@ -148,6 +148,25 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.waitForTimeout(700)
   const status = await page.locator(`${PLAYER} [data-authoring-status]`).textContent()
   check('a rejected note remains with Try again and the error', status?.includes('Try again') === true && status.includes('Notes refused'), status ?? '')
+  const removal = await page.evaluate(async () => {
+    const holder = window as unknown as {
+      authoring: { update(handlers: { moveSlide(input: unknown): Promise<void> }): Promise<void> }
+      authoringFacts: { errors: number }
+    }
+    const before = holder.authoringFacts.errors
+    await holder.authoring.update({ moveSlide: async () => {} })
+    const root = document.querySelector('segnavia-player')?.shadowRoot
+    return {
+      errors: holder.authoringFacts.errors - before,
+      text: (root?.querySelector('textarea') as HTMLTextAreaElement | null)?.value,
+      status: root?.querySelector('[data-authoring-status]')?.textContent,
+    }
+  })
+  check(
+    'removing notes after a failed final flush keeps the draft and retry editor',
+    removal.errors === 1 && removal.text === 'Rejected draft' && removal.status?.includes('Try again') === true,
+    JSON.stringify(removal),
+  )
 
   await page.locator('#unprotected').focus()
   await page.waitForTimeout(80)

@@ -53,11 +53,11 @@ describe('notes save queue', () => {
     )
     queue.seed('a', 'old')
     queue.edit('a', 'new')
-    await queue.flush('a')
+    expect(await queue.flush('a')).toBe(false)
     expect(queue.state('a')).toMatchObject({ text: 'new', status: 'error', message: 'Offline' })
     expect(queue.dirty).toBe(true)
     reject = false
-    await queue.retry('a')
+    expect(await queue.retry('a')).toBe(true)
     expect(queue.state('a')).toMatchObject({ text: 'new', status: 'saved' })
     expect(queue.dirty).toBe(false)
   })

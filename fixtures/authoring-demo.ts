@@ -6,7 +6,7 @@ await new Promise<void>((resolve) => {
   if (player.controller.state.deck) resolve()
   else player.controller.addEventListener('change', () => player.controller.state.deck && resolve(), { once: true })
 })
-const facts = { moves: [] as unknown[], saves: [] as unknown[], rejectMove: false, rejectNotes: false, dirty: [] as boolean[] }
+const facts = { moves: [] as unknown[], saves: [] as unknown[], rejectMove: false, rejectNotes: false, dirty: [] as boolean[], errors: 0 }
 const authoring = attachAuthoring(player as never, {
   async moveSlide(input) {
     facts.moves.push(input)
@@ -18,4 +18,5 @@ const authoring = attachAuthoring(player as never, {
   },
 })
 authoring.addEventListener('dirty-change', (event) => facts.dirty.push((event as CustomEvent<{ dirty: boolean }>).detail.dirty))
+authoring.addEventListener('authoring-error', () => facts.errors++)
 Object.assign(window, { authoring, authoringFacts: facts })

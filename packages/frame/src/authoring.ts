@@ -84,8 +84,9 @@ export class AuthoringController extends EventTarget {
     const hasMove = Boolean(handlers.moveSlide)
     const hasNotes = Boolean(handlers.saveNotes)
     if (hadNotes && !hasNotes) {
-      await this.notes?.flushAll()
+      const saved = await this.notes?.flushAll()
       if (this.stopped) return
+      if (saved === false) return
       this.detachNotes()
     }
     this.handlers = handlers

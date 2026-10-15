@@ -15,7 +15,7 @@ interface Entry extends NotesSaveState {
   saved: string
   version: number
   timer: number | null
-  saves: Map<number, Promise<void>>
+  saves: Map<number, Promise<boolean>>
 }
 
 const browserTimers: Timers = {
@@ -72,21 +72,23 @@ export class NotesSaveQueue {
     this.notify(slideId)
   }
 
-  async flush(slideId: string): Promise<void> {
+  async flush(slideId: string): Promise<boolean> {
     const entry = this.entry(slideId)
     if (entry.timer !== null) {
       this.timers.clear(entry.timer)
       entry.timer = null
     }
-    if (entry.text === entry.saved) return
-    await this.start(slideId, entry.version)
+    if (entry.text === entry.saved) return true
+    const saved = await this.start(slideId, entry.version)
+    return saved && entry.text === entry.saved
   }
 
-  async flushAll(): Promise<void> {
-    await Promise.all([...this.entries.keys()].map((slideId) => this.flush(slideId)))
+  async flushAll(): Promise<boolean> {
+    const results = await Promise.all([...this.entries.keys()].map((slideId) => this.flush(slideId)))
+    return results.every(Boolean)
   }
 
-  retry(slideId: string): Promise<void> {
+  retry(slideId: string): Promise<boolean> {
     return this.start(slideId, this.entry(slideId).version)
   }
 
@@ -100,7 +102,7 @@ export class NotesSaveQueue {
     return entry
   }
 
-  private start(slideId: string, version: number): Promise<void> {
+  private start(slideId: string, version: number): Promise<boolean> {
     const entry = this.entry(slideId)
     const existing = entry.saves.get(version)
     if (existing) return existing
@@ -110,15 +112,17 @@ export class NotesSaveQueue {
     this.notify(slideId)
     const saving = this.save({ slideId, notes: text })
       .then(() => {
-        if (entry.version !== version) return
+        if (entry.version !== version) return true
         entry.saved = text
         entry.status = 'saved'
+        return true
       })
       .catch((error: unknown) => {
-        if (entry.version !== version) return
+        if (entry.version !== version) return false
         entry.status = 'error'
         entry.message = message(error)
         this.failed(slideId, error)
+        return false
       })
       .finally(() => {
         entry.saves.delete(version)
