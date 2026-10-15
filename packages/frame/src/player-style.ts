@@ -12,12 +12,15 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 /* Keep this specific overlay: BASE_CSS's zero-specificity rule loses to the player's relative positioning. */
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
-.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;height:100%;min-height:inherit}
+.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
-.screen{flex:1;min-width:0;container-type:size;display:grid;place-items:center;padding:16px 16px 8px}
-segnavia-stage{width:min(100cqw,100cqh * var(--ratio,1.7778));height:auto;border-radius:calc(var(--_radius) - 4px);
+.screen{flex:1;min-width:0;container-type:inline-size;display:block;padding-block-end:8px}
+segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
+:host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
+:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:size;display:grid;place-items:center;padding:16px 16px 8px}
+:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:min(100cqw,100cqh * var(--ratio,1.7778))}
 segnavia-stage:focus-visible{outline:2px solid var(--_accent);outline-offset:3px}
 segnavia-notes{inline-size:clamp(200px,28%,340px);border-inline-start:1px solid var(--_line);padding:16px 18px;overflow:auto;background:var(--_surface)}
 .notes-closed segnavia-notes{display:none}
@@ -46,7 +49,7 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
 :host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below"}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "rail" "below";grid-template-rows:auto auto auto auto auto}
-  .body{min-block-size:auto}.screen{container-type:normal;display:block;padding:12px 12px 4px}segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
+  .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
   segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}}
 @container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end{--segnavia-control-size:28px;gap:0}}
 `

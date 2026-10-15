@@ -39,6 +39,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   playback?: 'step' | 'continuous'
   captions?: 'on' | 'off' | 'viewer'
   presentation?: 'window' | 'native' | 'off'
+  fit?: 'width' | 'height'
   transitionDuration?: number
 }
 

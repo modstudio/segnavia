@@ -17,8 +17,42 @@ async function railGeometry(h: Harness, file: string) {
   })
 }
 
+async function playerGeometry(h: Harness, file: string, width: number) {
+  await h.page.setViewportSize({ width, height: 816 })
+  await h.page.goto(h.url(file))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  return h.page.locator(PLAYER).evaluate((player) => {
+    const stage = player.shadowRoot?.querySelector('segnavia-stage') as HTMLElement
+    const screen = player.shadowRoot?.querySelector('.screen') as HTMLElement
+    const playerBox = player.getBoundingClientRect()
+    const stageBox = stage.getBoundingClientRect()
+    const screenBox = screen.getBoundingClientRect()
+    return {
+      player: { width: playerBox.width, height: playerBox.height },
+      screen: { width: screenBox.width, height: screenBox.height },
+      stage: { width: stageBox.width, height: stageBox.height },
+    }
+  })
+}
+
 export async function verifyRailAuthoring(h: Harness) {
   const { page, check } = h
+  for (const width of [1280, 360]) {
+    const flow = await playerGeometry(h, 'flow.html', width)
+    check(
+      `an unsized ${width}px player fills its inline size at 16:9`,
+      Math.abs(flow.stage.width - flow.player.width) <= 2 && Math.abs(flow.stage.width / flow.stage.height - 16 / 9) < 0.01,
+      JSON.stringify(flow),
+    )
+  }
+  const sized = await playerGeometry(h, 'index.html', 1280)
+  check('a height-sized player keeps its slide inside the available screen', sized.stage.height <= sized.screen.height, JSON.stringify(sized))
+  const flowRail = await playerGeometry(h, 'flow-rail.html', 1280)
+  check(
+    'an unsized player with a rail fills the remaining slide area at 16:9',
+    Math.abs(flowRail.stage.width - flowRail.screen.width) <= 2 && Math.abs(flowRail.stage.width / flowRail.stage.height - 16 / 9) < 0.01,
+    JSON.stringify(flowRail),
+  )
   await page.setViewportSize({ width: 1000, height: 816 })
   const ltr = await railGeometry(h, 'rail.html')
   check('rail sits at inline start in LTR', ltr.rail.right <= ltr.screen.left, JSON.stringify(ltr))

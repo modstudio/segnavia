@@ -3,6 +3,10 @@ import path from 'node:path'
 import { Deck } from '@segnavia/format'
 
 export async function buildAuthoringDemo(root: string, site: string, shell: (body: string, script?: string) => string) {
+  const flowShell = (rail = false) =>
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0}body{padding:24px;box-sizing:border-box}</style></head><body><segnavia-player${rail ? ' rail' : ''} src="deck.json"></segnavia-player><script type="module" src="segnavia-player.js"></script></body></html>`
+  writeFileSync(path.join(site, 'flow.html'), flowShell())
+  writeFileSync(path.join(site, 'flow-rail.html'), flowShell(true))
   writeFileSync(path.join(site, 'rail.html'), shell('<segnavia-player id="player" rail src="deck.json"></segnavia-player>'))
   writeFileSync(path.join(site, 'rail-rtl.html'), shell('<segnavia-player id="player" rail src="deck-he.json"></segnavia-player>'))
   const probe = Deck.parse({

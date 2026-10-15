@@ -4,7 +4,7 @@
 // none of it uses the headless stage and controller.
 //
 // Attributes: src, theme, notes, hash, prefetch, transition,
-// transition-duration, playback, captions and presentation. Properties:
+// transition-duration, playback, captions, presentation and fit. Properties:
 // controller, resolveSlide, css, cspExtra, labels and transition. The actions
 // and below slots add host chrome. Parts expose the player, stage, notes,
 // caption, bar, controls, track segments and caption words. Data attributes

@@ -25,6 +25,7 @@ function App() {
   return createElement(Player, {
     ref: player,
     src: 'deck.json',
+    fit: 'height',
     rail,
     labels: { player: 'React player' },
     onClick: () => facts.changes++,
