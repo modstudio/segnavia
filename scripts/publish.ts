@@ -1,4 +1,4 @@
-// Packs and publishes the six packages, safely resumable after a partial release.
+// Packs and publishes the seven packages, safely resumable after a partial release.
 
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
