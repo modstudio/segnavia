@@ -102,19 +102,32 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
       const player = document.querySelector('segnavia-player') as HTMLElement
       const root = player.shadowRoot as ShadowRoot
       const play = root.querySelector('segnavia-play')?.shadowRoot?.querySelector('button') as HTMLElement
+      const previous = root.querySelector('segnavia-step[to="previous"]')?.shadowRoot?.querySelector('button') as HTMLElement
+      const next = root.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLElement
+      const end = root.querySelector('.end') as HTMLElement
       const counter = root.querySelector('segnavia-counter') as HTMLElement
       const notes = root.querySelector('segnavia-notes') as HTMLElement
       const presentation = root.querySelector('segnavia-fullscreen') as HTMLElement
       const playerBox = player.getBoundingClientRect()
       const playBox = play.getBoundingClientRect()
+      const previousBox = previous.getBoundingClientRect()
+      const nextBox = next.getBoundingClientRect()
+      const endBox = end.getBoundingClientRect()
       return {
         centred: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
+        centreVisible: [previousBox, playBox, nextBox].every((box) => box.width > 0 && box.height > 0),
+        centreClear: nextBox.right <= endBox.left,
         counter: getComputedStyle(counter).display,
         notes: getComputedStyle(notes).display,
         presentation: getComputedStyle(presentation).display,
       }
     })
     check(`${mode} bar keeps play centred at ${width}px`, geometry.centred, JSON.stringify(geometry))
+    check(
+      `${mode} bar shows previous, play and next without overlapping the end group at ${width}px`,
+      geometry.centreVisible && geometry.centreClear,
+      JSON.stringify(geometry),
+    )
     if (width === 560) check('560px bar hides its counter and notes panel', geometry.counter === 'none' && geometry.notes === 'none', JSON.stringify(geometry))
     if (width === 360) check('360px bar hides presentation', geometry.presentation === 'none', JSON.stringify(geometry))
     await h.evidence(`player-${mode}-${width}.png`)

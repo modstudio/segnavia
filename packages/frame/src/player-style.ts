@@ -36,5 +36,5 @@ segnavia-counter{padding-inline:6px}
 :host([data-presenting]) .below{display:none}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .body{flex:none}.screen{container-type:normal;display:block;padding:12px 12px 4px}segnavia-stage{width:100%}segnavia-caption{min-block-size:0}}
-@container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}}
+@container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end{--segnavia-control-size:28px;gap:0}}
 `
