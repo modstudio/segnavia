@@ -10,7 +10,7 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 :host(:not([theme])){color-scheme:light dark}
 :host(:fullscreen){border-radius:0}
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
-  border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden}
+  border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
 .player{display:flex;flex-direction:column;height:100%;min-height:inherit}
 .body{flex:1;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:size;display:grid;place-items:center;padding:16px 16px 8px}
