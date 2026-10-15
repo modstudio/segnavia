@@ -15,6 +15,7 @@ import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import type { PressReport } from './press/types.ts'
+import { SINGLE_PAGE_PRINT_CSS } from './print-css.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -262,7 +263,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   function pageDocument(page: Page, options: RenderOptions, printing = false): string {
-    const css = `${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
+    const css = `${printing && !page.print ? SINGLE_PAGE_PRINT_CSS : ''}${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
 
@@ -304,7 +305,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       nonce: newNonce(),
       dir: page.dir,
       lang: page.lang,
-      css,
+      css: `${SINGLE_PAGE_PRINT_CSS}${css}`,
       relayKeys: false,
       reportHeight: false,
     })
