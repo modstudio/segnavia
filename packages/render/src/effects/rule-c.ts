@@ -115,6 +115,11 @@ function operations(stream: PDFRawStream, budget: ContentBudget): ContentOperati
   return found
 }
 
+function simplePaintStream(stream: PDFRawStream, budget: ContentBudget): boolean {
+  const source = new TextDecoder('latin1').decode(decodeContent(stream, budget))
+  return !/[()]/.test(source) && !/(?:^|\s)(?:BT|ET|Tj|TJ)(?:\s|$)/.test(source)
+}
+
 function paints(document: PDFDocument, stream: PDFRawStream, inherited: PDFDict | undefined, budget: ContentBudget): Paint[] {
   const resources = stream.dict.lookupMaybe(key('Resources'), PDFDict) ?? inherited
   const states = resources?.lookupMaybe(key('ExtGState'), PDFDict)
@@ -137,7 +142,7 @@ function paints(document: PDFDocument, stream: PDFRawStream, inherited: PDFDict 
 }
 
 function singleLayer(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, depth = 0): Layer | undefined {
-  if (depth > 12) return undefined
+  if (depth > 12 || !simplePaintStream(stream, budget)) return undefined
   const items = paints(document, stream, undefined, budget)
   if (items.length !== 1 || items[0]?.graphicsState?.has(key('SMask'))) return undefined
   const item = items[0]
@@ -184,7 +189,7 @@ function maskCoverage(document: PDFDocument, mask: PDFDict, budget: ContentBudge
 }
 
 function alphaCoverage(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, masks: PDFDict[], depth = 0): Coverage | undefined {
-  if (depth > 12) return undefined
+  if (depth > 12 || !simplePaintStream(stream, budget)) return undefined
   const items = paints(document, stream, undefined, budget)
   if (items.length !== 1) return undefined
   const item = items[0]
@@ -223,10 +228,12 @@ function compositeCoverage(document: PDFDocument, items: Paint[], budget: Conten
 }
 
 export function ruleCPlan(document: PDFDocument, form: PDFRawStream, budget: ContentBudget): { facts: RuleCFacts; plan?: RuleCPlan } {
+  if (!simplePaintStream(form, budget)) return { facts: 'non-shading' }
   const bbox = arrayNumbers(form.dict, 'BBox')
   const items = paints(document, form, undefined, budget)
   if (bbox?.length !== 4 || items.length < 1 || items.some((item) => !(item.xObject instanceof PDFRawStream))) return { facts: 'non-shading' }
   const colorObject = items[0]?.xObject
+  if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return { facts: 'non-shading' }
   const color = colorObject instanceof PDFRawStream ? singleLayer(document, colorObject, budget) : undefined
   if (color?.channels !== 3 || items.some((item) => item.xObject !== colorObject)) return { facts: 'non-shading' }
   const combined = compositeCoverage(document, items, budget)
