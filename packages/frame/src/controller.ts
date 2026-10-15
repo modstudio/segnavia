@@ -1,6 +1,6 @@
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
-import { playerOptionState } from './controller-options.ts'
+import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
@@ -39,7 +39,7 @@ export class DeckController extends EventTarget {
     return this.options.keys ?? 'stage'
   }
   get captionsPolicy(): 'on' | 'off' | 'viewer' {
-    return this.options.captions ?? this.current.deck?.captions ?? 'viewer'
+    return captionsPolicy(this.current.deck, this.options)
   }
 
   setPlayerOptions(options: Pick<ControllerOptions, 'playback' | 'captions'>) {
@@ -91,9 +91,7 @@ export class DeckController extends EventTarget {
     this.prefetched.clear()
     this.shots.clear()
     const direction = resolveDirection(deck.dir, deck.lang, deck.title)
-    const playback = this.options.playback ?? deck.playback ?? 'step'
-    const captions = this.options.captions ?? deck.captions ?? 'viewer'
-    const captionsVisible = captions === 'on' ? true : captions === 'off' ? false : this.settings.captionsVisible
+    const playerOptions = playerOptionState(deck, this.settings.captionsVisible, this.options)
     const index = wasOpen
       ? indexAfterReload(
           oldIds,
@@ -101,7 +99,7 @@ export class DeckController extends EventTarget {
           selectedId,
         )
       : (this.hashIndex(deck) ?? 0)
-    this.current = { ...this.current, deck, direction, playback, captionsVisible, playing: false, index, totalMs: deckTimeline(deck).totalMs }
+    this.current = { ...this.current, ...playerOptions, deck, direction, playing: false, index, totalMs: deckTimeline(deck).totalMs }
     await this.show(index)
   }
 
