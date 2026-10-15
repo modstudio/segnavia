@@ -27,7 +27,7 @@ export async function verifyComponents(h: Harness) {
   check('a styled step drives the stage', (await h.state('segnavia-stage')).slide === '2')
   await page.locator('segnavia-play button').click()
   await h.waitFor('segnavia-stage', (d) => d.word !== '' && Number(d.word) >= 2, { timeout: 10000 })
-  const active = await page.locator('segnavia-caption .active').textContent()
+  const active = await page.locator('segnavia-caption .word-current').textContent()
   check('the styled caption lights the spoken word', Boolean(active), active ?? '')
   const pause = await page.locator('segnavia-play button').getAttribute('aria-label')
   check('the play control reflects playing', pause === 'Pause', pause ?? '')

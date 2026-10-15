@@ -224,7 +224,7 @@ async function verifyContinuousPlayer(h: Harness) {
     await player.controller.play()
   })
   await h.waitFor(PLAYER, (d) => d.word !== '')
-  const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.active`).evaluate((word) => getComputedStyle(word).outlineColor)
+  const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.word-current`).evaluate((word) => getComputedStyle(word).outlineColor)
   check('a ::part(word-current) host style applies', wordOutline === 'rgb(255, 0, 255)', wordOutline)
   await verifySlottedPlayIcons(h)
 }

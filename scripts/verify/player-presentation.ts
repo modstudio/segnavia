@@ -139,9 +139,9 @@ async function captionAppearance(h: Harness) {
     const caption = player.shadowRoot?.querySelector('segnavia-caption') as HTMLElement
     const captionRoot = caption.shadowRoot as ShadowRoot
     const words = {
-      spoken: captionRoot.querySelector('.spoken') as HTMLElement,
-      current: captionRoot.querySelector('.active') as HTMLElement,
-      upcoming: captionRoot.querySelector('span:not(.spoken):not(.active)') as HTMLElement,
+      spoken: captionRoot.querySelector('.word-spoken') as HTMLElement,
+      current: captionRoot.querySelector('.word-current') as HTMLElement,
+      upcoming: captionRoot.querySelector('span:not(.word-spoken):not(.word-current)') as HTMLElement,
     }
     const pixel = (value: string) => {
       const canvas = document.createElement('canvas')
