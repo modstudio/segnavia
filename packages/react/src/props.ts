@@ -1,4 +1,4 @@
-import type { ControllerOptions, DeckController, HostTransition, SegnaviaStage, StageReserve } from '@segnavia/frame'
+import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, StageReserve } from '@segnavia/frame'
 import type {
   PlayerLabels,
   SegnaviaCaption,
@@ -17,6 +17,7 @@ import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
 type ElementProps<E extends HTMLElement> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
+type CustomEventProp<D = unknown> = (event: CustomEvent<D>) => void
 type ControlProps<E extends HTMLElement> = ElementProps<E> & {
   controller?: DeckController | null
   labels?: Partial<PlayerLabels>
@@ -40,6 +41,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   presentation?: 'window' | 'native' | 'off'
   fit?: 'width' | 'height'
   transitionDuration?: number
+  onSegnaviaLabels?: CustomEventProp
 }
 
 export interface StageProps extends ElementProps<SegnaviaStage> {
@@ -56,6 +58,8 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   neighbors?: boolean
   unstyled?: boolean
   transitionDuration?: number
+  onSegnaviaController?: CustomEventProp
+  onSegnaviaFit?: CustomEventProp<FittedSize>
 }
 
 export type PlayProps = ControlProps<SegnaviaPlay>

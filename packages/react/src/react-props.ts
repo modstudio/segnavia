@@ -1,15 +1,4 @@
-const PROPERTY_NAMES = new Set([
-  'labels',
-  'css',
-  'cspExtra',
-  'resolveSlide',
-  'controller',
-  'transition',
-  'reserve',
-  'frameTitle',
-  'targetElement',
-  'mountMargin',
-])
+import type { RuntimeElementDescriptor } from './elements.ts'
 
 function attributeName(name: string): string {
   if (name === 'className') return 'class'
@@ -24,21 +13,27 @@ function eventName(name: string): string {
     .toLowerCase()
 }
 
-export function syncElementProps(element: HTMLElement, props: Record<string, unknown>, previous: Record<string, unknown>): () => void {
+export function syncElementProps(
+  descriptor: RuntimeElementDescriptor,
+  element: HTMLElement,
+  props: Record<string, unknown>,
+  previous: Record<string, unknown>,
+): () => void {
   const cleanups: Array<() => void> = []
+  const properties = new Set(descriptor.properties)
   for (const name of new Set([...Object.keys(previous), ...Object.keys(props)])) {
     if (name === 'children' || name === 'ref' || name === 'key') continue
     const value = props[name]
     if (/^on[A-Z]/.test(name)) {
       if (typeof value === 'function') {
         const listener = value as EventListener
-        const type = eventName(name)
+        const type = descriptor.events[name] ?? eventName(name)
         element.addEventListener(type, listener)
         cleanups.push(() => element.removeEventListener(type, listener))
       }
       continue
     }
-    if (PROPERTY_NAMES.has(name)) {
+    if (properties.has(name)) {
       ;(element as unknown as Record<string, unknown>)[name] = value
       continue
     }

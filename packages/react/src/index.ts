@@ -2,21 +2,7 @@ import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
 import '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, type RefObject, useEffect, useRef, useState } from 'react'
-import type {
-  CaptionProps,
-  CaptionsProps,
-  CounterProps,
-  FullscreenProps,
-  MuteProps,
-  NotesProps,
-  PlayerProps,
-  PlayProps,
-  RailProps,
-  StageProps,
-  StepProps,
-  TimeProps,
-  TrackProps,
-} from './props.ts'
+import { type AnyElementDescriptor, ELEMENTS, type ElementFor, type PropsFor } from './elements.ts'
 import { syncElementProps } from './react-props.ts'
 
 type ElementWithController = HTMLElement & { controller?: DeckController | null }
@@ -26,7 +12,9 @@ function assignRef<T>(ref: Ref<T>, value: T | null) {
   else if (ref) ref.current = value
 }
 
-export function createComponent<T extends HTMLElement, P extends { children?: ReactNode }>(tag: string) {
+export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
+  type T = ElementFor<D>
+  type P = PropsFor<D> & { children?: ReactNode }
   return forwardRef<T, P>(function SegnaviaReactComponent(props, forwardedRef) {
     const element = useRef<T | null>(null)
     const previous = useRef<Record<string, unknown>>({})
@@ -34,12 +22,12 @@ export function createComponent<T extends HTMLElement, P extends { children?: Re
     useEffect(() => {
       if (!element.current) return
       const next = values as Record<string, unknown>
-      const cleanup = syncElementProps(element.current, next, previous.current)
+      const cleanup = syncElementProps(descriptor, element.current, next, previous.current)
       previous.current = next
       return cleanup
     })
     return createElement(
-      tag,
+      descriptor.tag,
       {
         ref: (node: T | null) => {
           element.current = node
@@ -51,19 +39,19 @@ export function createComponent<T extends HTMLElement, P extends { children?: Re
   })
 }
 
-export const Player = createComponent<HTMLElement & { controller: DeckController }, PlayerProps>('segnavia-player')
-export const Stage = createComponent<ElementWithController, StageProps>('segnavia-stage')
-export const Play = createComponent<ElementWithController, PlayProps>('segnavia-play')
-export const Step = createComponent<ElementWithController, StepProps>('segnavia-step')
-export const Track = createComponent<ElementWithController, TrackProps>('segnavia-track')
-export const Counter = createComponent<ElementWithController, CounterProps>('segnavia-counter')
-export const Time = createComponent<ElementWithController, TimeProps>('segnavia-time')
-export const Mute = createComponent<ElementWithController, MuteProps>('segnavia-mute')
-export const Captions = createComponent<ElementWithController, CaptionsProps>('segnavia-captions')
-export const Caption = createComponent<ElementWithController, CaptionProps>('segnavia-caption')
-export const Notes = createComponent<ElementWithController, NotesProps>('segnavia-notes')
-export const Fullscreen = createComponent<ElementWithController, FullscreenProps>('segnavia-fullscreen')
-export const Rail = createComponent<ElementWithController, RailProps>('segnavia-rail')
+export const Player = createComponent(ELEMENTS.player)
+export const Stage = createComponent(ELEMENTS.stage)
+export const Play = createComponent(ELEMENTS.play)
+export const Step = createComponent(ELEMENTS.step)
+export const Track = createComponent(ELEMENTS.track)
+export const Counter = createComponent(ELEMENTS.counter)
+export const Time = createComponent(ELEMENTS.time)
+export const Mute = createComponent(ELEMENTS.mute)
+export const Captions = createComponent(ELEMENTS.captions)
+export const Caption = createComponent(ELEMENTS.caption)
+export const Notes = createComponent(ELEMENTS.notes)
+export const Fullscreen = createComponent(ELEMENTS.fullscreen)
+export const Rail = createComponent(ELEMENTS.rail)
 
 export function useDeckController(ref: RefObject<ElementWithController | null>): DeckController | null {
   const [controller, setController] = useState<DeckController | null>(null)
