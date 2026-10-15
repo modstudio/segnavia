@@ -21,7 +21,7 @@ function numbers(dictionary: PDFDict, label: string): number[] | undefined {
 
 const clamp = (value: number): number => Math.max(0, Math.min(1, value))
 
-type Evaluator = (input: number) => number[]
+type Evaluator = ((input: number) => number[]) & { cost: number }
 interface FunctionContext {
   channels: number
   document: PDFDocument
@@ -34,10 +34,13 @@ function exponentialEvaluator(fn: PDFDict, channels: number, domain: number[]): 
   const to = numbers(fn, 'C1') ?? [1]
   const exponent = numberOf(fn, 'N')
   if (from.length !== channels || to.length !== channels || exponent === undefined) return undefined
-  return (input) => {
-    const value = clamp((input - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) ** exponent
-    return from.map((start, index) => start + ((to[index] ?? start) - start) * value)
-  }
+  return Object.assign(
+    (input: number) => {
+      const value = clamp((input - (domain[0] ?? 0)) / ((domain[1] ?? 1) - (domain[0] ?? 0))) ** exponent
+      return from.map((start, index) => start + ((to[index] ?? start) - start) * value)
+    },
+    { cost: 1 },
+  )
 }
 
 function stitchingEvaluator(context: FunctionContext, fn: PDFDict, domain: number[], depth: number): Evaluator | undefined {
@@ -51,17 +54,22 @@ function stitchingEvaluator(context: FunctionContext, fn: PDFDict, domain: numbe
   for (let index = 0; index < functions.size(); index++) children.push(buildEvaluator(context, functions.get(index), depth + 1))
   context.path.delete(fn)
   if (children.some((child) => !child)) return undefined
-  return (input) => {
-    const value = Math.max(domain[0] ?? 0, Math.min(domain[1] ?? 1, input))
-    let index = bounds.findIndex((bound) => value < bound)
-    if (index < 0) index = bounds.length
-    const low = index === 0 ? (domain[0] ?? 0) : (bounds[index - 1] ?? 0)
-    const high = index === bounds.length ? (domain[1] ?? 1) : (bounds[index] ?? 1)
-    const encodedLow = encode[index * 2] ?? 0
-    const encodedHigh = encode[index * 2 + 1] ?? 1
-    const mapped = high === low ? encodedLow : encodedLow + ((value - low) / (high - low)) * (encodedHigh - encodedLow)
-    return (children[index] as Evaluator)(mapped)
-  }
+  const evaluators = children as Evaluator[]
+  const cost = bounds.length + evaluators.reduce((sum, child) => sum + child.cost, 0)
+  return Object.assign(
+    (input: number) => {
+      const value = Math.max(domain[0] ?? 0, Math.min(domain[1] ?? 1, input))
+      let index = bounds.findIndex((bound) => value < bound)
+      if (index < 0) index = bounds.length
+      const low = index === 0 ? (domain[0] ?? 0) : (bounds[index - 1] ?? 0)
+      const high = index === bounds.length ? (domain[1] ?? 1) : (bounds[index] ?? 1)
+      const encodedLow = encode[index * 2] ?? 0
+      const encodedHigh = encode[index * 2 + 1] ?? 1
+      const mapped = high === low ? encodedLow : encodedLow + ((value - low) / (high - low)) * (encodedHigh - encodedLow)
+      return (evaluators[index] as Evaluator)(mapped)
+    },
+    { cost },
+  )
 }
 
 function buildEvaluator(context: FunctionContext, object: PDFObject | undefined, depth: number): Evaluator | undefined {

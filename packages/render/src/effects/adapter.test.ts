@@ -6,7 +6,13 @@ import { rewriteEffectsPdf } from './adapter.ts'
 import { MAX_EFFECT_COVERAGE_LAYERS } from './rule-c.ts'
 
 async function minimalMask(
-  options: { graphicsState?: Record<string, unknown>; matrix?: number[]; nested?: boolean; transfer?: 'invert' } = {},
+  options: {
+    graphicsState?: Record<string, unknown>
+    innerGraphicsState?: Record<string, unknown>
+    matrix?: number[]
+    nested?: boolean
+    transfer?: 'invert'
+  } = {},
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const image = document.context.register(
@@ -21,7 +27,7 @@ async function minimalMask(
   )
   const nestedMask = document.context.register(document.context.obj({ S: 'Alpha', G: document.context.stream('', { BBox: [0, 0, 1, 1] }) }))
   const form = document.context.register(
-    document.context.stream('q 2 0 0 -2 10 22 cm /Coverage Do Q', {
+    document.context.stream(`q 2 0 0 -2 10 22 cm ${options.innerGraphicsState ? '/Inner gs ' : ''}/Coverage Do Q`, {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [10, 20, 12, 22],
@@ -29,7 +35,14 @@ async function minimalMask(
       Group: { Type: 'Group', S: 'Transparency', CS: 'DeviceGray', I: true },
       Resources: {
         XObject: { Coverage: image },
-        ...(options.nested ? { ExtGState: { Nested: { SMask: nestedMask } } } : {}),
+        ...(options.nested || options.innerGraphicsState
+          ? {
+              ExtGState: {
+                ...(options.nested ? { Nested: { SMask: nestedMask } } : {}),
+                ...(options.innerGraphicsState ? { Inner: options.innerGraphicsState } : {}),
+              },
+            }
+          : {}),
       },
     }),
   )
@@ -92,15 +105,33 @@ test('preserves an allowed Rule 1 fill alpha', async () => {
   expect(pageContent(await PDFDocument.load(rewritten.bytes))).toContain('/SegnaviaEffectOpacity1 gs')
 })
 
+test.each([
+  ['non-unit alpha', { ca: 0.5 }],
+  ['non-normal blend mode', { BM: 'Multiply' }],
+])('keeps a Rule 1 image painted with %s', async (_label, innerGraphicsState) => {
+  const input = await minimalMask({ innerGraphicsState })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 1 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('rewrites a Rule 1 image painted with identity graphics state', async () => {
+  const rewritten = await rewriteEffectsPdf(await minimalMask({ innerGraphicsState: { ca: 1, BM: 'Normal' } }))
+  expect(rewritten.report).toEqual({ rule1: 1, ruleC: 0, kept: 0 })
+})
+
 async function minimalOneAxisComposite(
   options: {
     colorMatrix?: number[]
+    colorAlpha?: number
     functionShape?: 'cycle' | 'deep'
     innerAlpha?: number | string
+    layerAlpha?: number
     layers?: number
     matrix?: number[]
     outerGraphicsState?: Record<string, unknown>
     patternMatrix?: number[]
+    priorGraphicsState?: Record<string, unknown>
     secondAxis?: boolean
   } = {},
 ): Promise<Uint8Array> {
@@ -135,11 +166,14 @@ async function minimalOneAxisComposite(
       },
     })
   const maskSource = document.context.register(
-    document.context.stream('/Pattern cs /Fade scn 0 0 10 10 re f', {
+    document.context.stream(`${options.layerAlpha === undefined ? '' : '/Layer gs '}/Pattern cs /Fade scn 0 0 10 10 re f`, {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
-      Resources: { Pattern: { Fade: pattern(true, options.secondAxis) } },
+      Resources: {
+        ...(options.layerAlpha === undefined ? {} : { ExtGState: { Layer: { ca: options.layerAlpha } } }),
+        Pattern: { Fade: pattern(true, options.secondAxis) },
+      },
     }),
   )
   const luminosity = document.context.register(document.context.obj({ S: 'Luminosity', G: maskSource }))
@@ -153,22 +187,31 @@ async function minimalOneAxisComposite(
   )
   const alpha = document.context.register(document.context.obj({ S: 'Alpha', G: alphaSource }))
   const color = document.context.register(
-    document.context.stream('/Pattern cs /Color scn 0 0 10 10 re f', {
+    document.context.stream(`${options.colorAlpha === undefined ? '' : '/Layer gs '}/Pattern cs /Color scn 0 0 10 10 re f`, {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
       ...(options.colorMatrix ? { Matrix: options.colorMatrix } : {}),
-      Resources: { Pattern: { Color: pattern(false, false, true) } },
+      Resources: {
+        ...(options.colorAlpha === undefined ? {} : { ExtGState: { Layer: { ca: options.colorAlpha } } }),
+        Pattern: { Color: pattern(false, false, true) },
+      },
     }),
   )
   const composite = document.context.register(
-    document.context.stream(Array.from({ length: options.layers ?? 1 }, () => '/Alpha gs /Color Do').join(' '), {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      ...(options.matrix ? { Matrix: options.matrix } : {}),
-      Resources: { ExtGState: { Alpha: { SMask: alpha } }, XObject: { Color: color } },
-    }),
+    document.context.stream(
+      Array.from({ length: options.layers ?? 1 }, () => `${options.priorGraphicsState ? '/Prior gs ' : ''}/Alpha gs /Color Do`).join(' '),
+      {
+        Type: 'XObject',
+        Subtype: 'Form',
+        BBox: [0, 0, 10, 10],
+        ...(options.matrix ? { Matrix: options.matrix } : {}),
+        Resources: {
+          ExtGState: { ...(options.priorGraphicsState ? { Prior: options.priorGraphicsState } : {}), Alpha: { SMask: alpha } },
+          XObject: { Color: color },
+        },
+      },
+    ),
   )
   const page = document.addPage([10, 10])
   page.node.set(
@@ -223,6 +266,27 @@ test('keeps Rule C with a non-identity nested color form Matrix', async () => {
 
 test('keeps Rule C with an unsupported outer graphics-state entry', async () => {
   const input = await minimalOneAxisComposite({ outerGraphicsState: { BM: 'Multiply' } })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C when an earlier graphics state supplies a non-normal blend mode', async () => {
+  const input = await minimalOneAxisComposite({ priorGraphicsState: { BM: 'Multiply' } })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C when a luminosity layer has non-unit alpha', async () => {
+  const input = await minimalOneAxisComposite({ layerAlpha: 0.5 })
+  const rewritten = await rewriteEffectsPdf(input)
+  expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
+  expect(rewritten.bytes).toBe(input)
+})
+
+test('keeps Rule C when a color layer has non-unit alpha', async () => {
+  const input = await minimalOneAxisComposite({ colorAlpha: 0.5 })
   const rewritten = await rewriteEffectsPdf(input)
   expect(rewritten.report).toEqual({ rule1: 0, ruleC: 0, kept: 2 })
   expect(rewritten.bytes).toBe(input)

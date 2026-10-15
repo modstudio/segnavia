@@ -42,6 +42,8 @@ test('builds each dictionary in a repeated stitching DAG once', async () => {
     }) as unknown as typeof dictionary.lookupMaybe
   }
 
-  expect(functionEvaluator(document, child, 1)).toBeDefined()
+  const evaluator = functionEvaluator(document, child, 1)
+  expect(evaluator).toBeDefined()
+  expect(evaluator?.cost).toBe(131071)
   expect(builds).toBe(dictionaries.length)
 })

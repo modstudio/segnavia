@@ -5,7 +5,16 @@ import { type ContentOperation, visitContentOperations } from '../press/content.
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { chargeShadingSamples, MAX_DOCUMENT_CALCULATOR_OPERATIONS, MAX_SHADING_SAMPLES, SHADING_SAMPLE_SPACING_PT } from '../press/sample-shading.ts'
 import { functionEvaluator } from './function-evaluator.ts'
-import { type EffectStructure, effectFormStructure, effectGraphicsStateStructure, effectOpacity } from './structure.ts'
+import {
+  advanceEffectGraphicsState,
+  type EffectGraphicsState,
+  type EffectStructure,
+  EMPTY_EFFECT_GRAPHICS_STATE,
+  effectFormStructure,
+  effectGraphicsStateOpacity,
+  effectGraphicsStateStructure,
+  effectGraphicsStateValue,
+} from './structure.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
 
 const key = (name: string): PDFName => PDFName.of(name)
@@ -15,6 +24,7 @@ const resolved = (document: PDFDocument, object: PDFObject | undefined): PDFObje
 interface Layer {
   axis: Axis
   channels: number
+  cost: number
   evaluate: (position: number) => number[]
 }
 interface Axis {
@@ -23,7 +33,7 @@ interface Axis {
 }
 type Coverage = { kind: 'constant'; value: number } | { kind: 'layer'; layer: Layer; opacity: number; transfer: 'identity' | 'invert' }
 interface Paint {
-  graphicsState?: PDFDict
+  graphicsState: EffectGraphicsState
   operation: ContentOperation
   pattern?: PDFObject
   xObject?: PDFObject
@@ -83,6 +93,7 @@ function axialLayer(document: PDFDocument, pattern: PDFDict): Layer | undefined 
   return {
     axis: { start, end },
     channels,
+    cost: evaluate.cost,
     evaluate: (position) => evaluate((domain[0] ?? 0) + position * ((domain[1] ?? 1) - (domain[0] ?? 0))).map(clamp),
   }
 }
@@ -103,15 +114,16 @@ function paints(document: PDFDocument, stream: PDFRawStream, inherited: PDFDict 
   const states = resources?.lookupMaybe(key('ExtGState'), PDFDict)
   const patterns = resources?.lookupMaybe(key('Pattern'), PDFDict)
   const xObjects = resources?.lookupMaybe(key('XObject'), PDFDict)
-  const stack: Array<{ graphicsState?: PDFDict; pattern?: PDFObject }> = []
-  let graphicsState: PDFDict | undefined
+  const stack: Array<PDFObject | undefined> = []
+  const graphicsStack: EffectGraphicsState[] = []
+  let graphicsState = EMPTY_EFFECT_GRAPHICS_STATE
   let pattern: PDFObject | undefined
   const result: Paint[] = []
   for (const operation of operations(stream, budget)) {
     const name = operation.operands.at(-1)?.kind === 'name' ? operation.operands.at(-1)?.raw.slice(1) : undefined
-    if (operation.operator === 'q') stack.push({ graphicsState, pattern })
-    else if (operation.operator === 'Q') ({ graphicsState, pattern } = stack.pop() ?? {})
-    else if (operation.operator === 'gs' && name) graphicsState = dictionaryOf(resolved(document, states?.get(key(name))))
+    graphicsState = advanceEffectGraphicsState(document, operation, states, graphicsState, graphicsStack)
+    if (operation.operator === 'q') stack.push(pattern)
+    else if (operation.operator === 'Q') pattern = stack.pop()
     else if (['scn', 'SCN'].includes(operation.operator) && name) pattern = resolved(document, patterns?.get(key(name)))
     else if (operation.operator === 'Do' && name) result.push({ graphicsState, operation, xObject: resolved(document, xObjects?.get(key(name))) })
     else if (['f', 'f*', 'F'].includes(operation.operator)) result.push({ graphicsState, operation, pattern })
@@ -123,8 +135,8 @@ function inspectForm(context: RuleCContext, stream: PDFRawStream): void {
   if (nameOf(stream.dict.get(key('Subtype'))) === 'Form' && effectFormStructure(stream.dict) === 'other') context.structure = 'other'
 }
 
-function inspectGraphicsState(context: RuleCContext, graphicsState: PDFDict | undefined): void {
-  if (effectGraphicsStateStructure(graphicsState) === 'other') context.structure = 'other'
+function inspectGraphicsState(context: RuleCContext, graphicsState: EffectGraphicsState): void {
+  if (graphicsState.structure === 'other') context.structure = 'other'
 }
 
 function singleLayer(document: PDFDocument, stream: PDFRawStream, budget: ContentBudget, context: RuleCContext, depth = 0): Layer | undefined {
@@ -132,9 +144,10 @@ function singleLayer(document: PDFDocument, stream: PDFRawStream, budget: Conten
   if (depth > 12 || !simplePaintStream(stream, budget)) return undefined
   const items = paints(document, stream, undefined, budget)
   for (const item of items) inspectGraphicsState(context, item.graphicsState)
-  if (items.length !== 1 || items[0]?.graphicsState?.has(key('SMask'))) return undefined
+  if (items.length !== 1 || effectGraphicsStateValue(items[0]?.graphicsState ?? EMPTY_EFFECT_GRAPHICS_STATE, 'SMask')) return undefined
   const item = items[0]
   if (!item) return undefined
+  if (effectGraphicsStateOpacity(item.graphicsState) !== 1) return undefined
   if (item.pattern instanceof PDFDict) {
     const axial = axialLayer(document, item.pattern)
     if (axial) return axial
@@ -207,9 +220,9 @@ function alphaCoverage(
   if (items.length !== 1) return undefined
   const item = items[0]
   if (!item) return undefined
-  const opacity = effectOpacity(item.graphicsState)
+  const opacity = effectGraphicsStateOpacity(item.graphicsState)
   if (opacity === undefined) return undefined
-  const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
+  const mask = dictionaryOf(resolved(document, effectGraphicsStateValue(item.graphicsState, 'SMask')))
   if (mask) {
     const found = maskCoverage(document, mask, budget, masks, context, depth)
     return found ? scaledCoverage(found, opacity) : undefined
@@ -246,8 +259,8 @@ function compositeCoverage(
   const coverage: Coverage[] = []
   for (const item of items) {
     inspectGraphicsState(context, item.graphicsState)
-    const opacity = effectOpacity(item.graphicsState)
-    const mask = dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask'))))
+    const opacity = effectGraphicsStateOpacity(item.graphicsState)
+    const mask = dictionaryOf(resolved(document, effectGraphicsStateValue(item.graphicsState, 'SMask')))
     const source = resolved(document, mask?.get(key('G')))
     if (opacity === undefined || !mask || !(source instanceof PDFRawStream) || nameOf(mask.get(key('S'))) !== 'Alpha') return undefined
     masks.push(mask)
@@ -265,12 +278,12 @@ function candidate(context: RuleCContext, nested: boolean, oneAxis: RuleCFacts, 
 
 export function ruleCPlan(document: PDFDocument, form: PDFRawStream, outerGraphicsState: PDFDict, budget: ContentBudget): RuleCCandidate {
   const context: RuleCContext = { structure: 'allowed' }
-  inspectGraphicsState(context, outerGraphicsState)
+  if (effectGraphicsStateStructure(outerGraphicsState) === 'other') context.structure = 'other'
   inspectForm(context, form)
   if (!simplePaintStream(form, budget)) return candidate(context, false, 'non-shading')
   const bbox = arrayNumbers(form.dict, 'BBox')
   const items = paints(document, form, undefined, budget)
-  const nested = items.some((item) => dictionaryOf(resolved(document, item.graphicsState?.get(key('SMask')))) !== undefined)
+  const nested = items.some((item) => dictionaryOf(resolved(document, effectGraphicsStateValue(item.graphicsState, 'SMask'))) !== undefined)
   if (bbox?.length !== 4 || items.length < 1 || items.some((item) => !(item.xObject instanceof PDFRawStream))) return candidate(context, nested, 'non-shading')
   const colorObject = items[0]?.xObject
   if (!(colorObject instanceof PDFRawStream) || nameOf(colorObject.dict.get(key('Subtype'))) !== 'Form') return candidate(context, nested, 'non-shading')
@@ -325,7 +338,8 @@ export function buildRuleCImage(
   const printScale = Math.hypot(printEnd.x - printStart.x, printEnd.y - printStart.y) / length
   const rows = Math.ceil(((amax - amin) * printScale) / SHADING_SAMPLE_SPACING_PT) + 1
   if (rows > MAX_SHADING_SAMPLES) return undefined
-  const operations = rows * (1 + plan.coverage.length)
+  const evaluationCost = plan.color.cost + plan.coverage.reduce((sum, coverage) => sum + (coverage.kind === 'layer' ? coverage.layer.cost : 0), 0)
+  const operations = rows * evaluationCost
   if ((budget.calculatorOperations ?? 0) + operations > MAX_DOCUMENT_CALCULATOR_OPERATIONS) return undefined
   chargeShadingSamples(budget, rows, operations)
   const rgb = new Uint8Array(rows * 3)

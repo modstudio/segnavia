@@ -1,35 +1,33 @@
 import { deflateSync } from 'node:zlib'
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
-import {
-  type ContentBudget,
-  decodeContent,
-  dictionaryOf,
-  MAX_CONTENT_BYTES,
-  MAX_DOCUMENT_CONTENT_BYTES,
-  nameOf,
-  numberOf,
-  resolvedColorSpace,
-} from '../press/pdf-objects.ts'
+import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
 import { replaceRanges, streamDictionary } from './content-replacement.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
+import { type PaintColor, type Rule1Plan, rule1EffectImage } from './rule-1.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
-import { type EffectStructure, effectFormStructure, effectGraphicsStateStructure, effectOpacity } from './structure.ts'
-import { type EffectsReport, GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
+import {
+  advanceEffectGraphicsState,
+  type EffectGraphicsState,
+  type EffectStructure,
+  EMPTY_EFFECT_GRAPHICS_STATE,
+  effectFormStructure,
+  effectGraphicsStateOpacity,
+  effectGraphicsStateStructure,
+  effectOpacity,
+} from './structure.ts'
+import type { EffectsReport } from './types.ts'
 
-type PaintColor = { space: 'DeviceCMYK' | 'DeviceGray' | 'DeviceRGB'; values: number[] }
-interface Rule1Plan {
-  bbox: number[]
-  image: PDFRawStream
-  mask: PDFDict
-  opacity: number
-}
 interface Rule1Candidate {
-  facts: SoftMaskFacts
+  backdrop: SoftMaskFacts['backdrop']
+  colorSpace: SoftMaskFacts['colorSpace']
+  contents: SoftMaskFacts['contents']
   plan?: Rule1Plan
+  structure: SoftMaskFacts['structure']
+  subtype: SoftMaskFacts['subtype']
 }
 interface EffectsState {
   applied: WeakSet<PDFDict>
@@ -75,20 +73,31 @@ function groupContents(
   source: PDFRawStream,
   resources: PDFDict | undefined,
   budget: ContentBudget,
-): { image?: PDFRawStream; kind: 'single-image' | 'vector' | 'other' } {
+): { image?: PDFRawStream; kind: 'single-image' | 'vector' | 'other'; structure: EffectStructure } {
   const operations: ContentOperation[] = []
   visitContentOperations(decodeContent(source, budget), (operation) => operations.push(operation))
+  const states = resources?.lookupMaybe(key('ExtGState'), PDFDict)
+  const stack: EffectGraphicsState[] = []
+  let graphicsState = EMPTY_EFFECT_GRAPHICS_STATE
+  let structure: EffectStructure = 'allowed'
+  let paintState = EMPTY_EFFECT_GRAPHICS_STATE
+  for (const operation of operations) {
+    graphicsState = advanceEffectGraphicsState(document, operation, states, graphicsState, stack)
+    if (graphicsState.structure === 'other') structure = 'other'
+    if (operation.operator === 'Do') paintState = graphicsState
+  }
   const paints = operations.filter(({ operator }) => ['Do', 'sh', 'f', 'f*', 'F', 'S', 'B', 'B*', 'b', 'b*'].includes(operator))
   if (paints.length !== 1 || paints[0]?.operator !== 'Do' || paints[0].operands.length !== 1 || paints[0].operands[0]?.kind !== 'name') {
-    return { kind: paints.some(({ operator }) => operator !== 'Do') ? 'vector' : 'other' }
+    return { kind: paints.some(({ operator }) => operator !== 'Do') ? 'vector' : 'other', structure: 'other' }
   }
   const xObjects = resources?.lookupMaybe(key('XObject'), PDFDict)
   const image = resolved(document, xObjects?.get(PDFName.of(paints[0].operands[0].raw.slice(1))))
-  if (!(image instanceof PDFRawStream) || nameOf(image.dict.get(key('Subtype'))) !== 'Image') return { kind: 'vector' }
+  if (!(image instanceof PDFRawStream) || nameOf(image.dict.get(key('Subtype'))) !== 'Image') return { kind: 'vector', structure: 'other' }
   if (resolvedColorSpace(document, resolved(document, image.dict.get(key('ColorSpace')))).kind !== 'gray' || image.dict.has(key('SMask'))) {
-    return { kind: 'other' }
+    return { kind: 'other', structure: 'other' }
   }
-  return { image, kind: 'single-image' }
+  if (effectGraphicsStateOpacity(paintState) !== 1) structure = 'other'
+  return { image, kind: 'single-image', structure }
 }
 
 function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict, source: PDFRawStream, resources: PDFDict | undefined): void {
@@ -98,23 +107,35 @@ function classifyMask(state: EffectsState, graphicsState: PDFDict, mask: PDFDict
   const image = contents.image
   const nested = hasNestedMask(state.document, resources)
   const opacity = effectOpacity(graphicsState)
-  const facts: SoftMaskFacts = {
+  const structure = rule1Structure(state.document, graphicsState, mask, source, contents.structure, nested)
+  const candidate: Rule1Candidate = {
     backdrop: blackBackdrop(mask) ? 'black' : 'other',
     colorSpace: group && resolvedColorSpace(state.document, resolved(state.document, group.get(key('CS')))).kind === 'gray' ? 'gray' : 'other',
     contents: contents.kind,
-    nested,
-    oneAxis: 'unknown',
-    structure: rule1Structure(state.document, graphicsState, mask, source),
+    structure,
     subtype: nameOf(mask.get(key('S'))) === 'Luminosity' ? 'luminosity' : 'other',
   }
   const bbox = numbers(source.dict.lookupMaybe(key('BBox'), PDFArray))
   const plan = image && bbox?.length === 4 && opacity !== undefined ? { bbox, image, mask, opacity } : undefined
-  state.rule1Candidates.set(graphicsState, { facts, plan })
+  state.rule1Candidates.set(graphicsState, { ...candidate, plan })
 }
 
-function rule1Structure(document: PDFDocument, graphicsState: PDFDict, mask: PDFDict, source: PDFRawStream): EffectStructure {
+function rule1Structure(
+  document: PDFDocument,
+  graphicsState: PDFDict,
+  mask: PDFDict,
+  source: PDFRawStream,
+  contents: EffectStructure,
+  nested: boolean,
+): EffectStructure {
   const transfer = !mask.has(key('TR')) || nameOf(resolved(document, mask.get(key('TR')))) === 'Identity'
-  return transfer && effectGraphicsStateStructure(graphicsState) === 'allowed' && effectFormStructure(source.dict) === 'allowed' ? 'allowed' : 'other'
+  return transfer &&
+    !nested &&
+    contents === 'allowed' &&
+    effectGraphicsStateStructure(graphicsState) === 'allowed' &&
+    effectFormStructure(source.dict) === 'allowed'
+    ? 'allowed'
+    : 'other'
 }
 
 function finiteNumberEntry(dictionary: PDFDict, label: string): number | undefined {
@@ -143,41 +164,6 @@ function colorFrom(operation: ContentOperation): PaintColor | undefined {
   if (!definition) return undefined
   const values = numericOperands(operation, definition[1])
   return values ? { space: definition[0], values } : undefined
-}
-
-function chargePixels(budget: ContentBudget, bytes: number): void {
-  if (bytes > MAX_CONTENT_BYTES)
-    throw new RenderRefusedError(`The PDF has unsupported effect image longer than ${MAX_CONTENT_BYTES} bytes; supported: at most ${MAX_CONTENT_BYTES} bytes.`)
-  budget.decodedBytes += bytes
-  if (budget.decodedBytes > MAX_DOCUMENT_CONTENT_BYTES)
-    throw new RenderRefusedError(
-      `The PDF has unsupported total decoded content length ${budget.decodedBytes}; supported: at most ${MAX_DOCUMENT_CONTENT_BYTES} bytes.`,
-    )
-}
-
-function effectImage(state: EffectsState, plan: Rule1Plan, color: PaintColor): PDFRef {
-  const width = numberOf(plan.image.dict, 'Width')
-  const height = numberOf(plan.image.dict, 'Height')
-  if (!width || !height) throw new RenderRefusedError('The PDF has unsupported grayscale mask image dimensions; supported: positive Width and Height numbers.')
-  const palette = color.values.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255))
-  const length = Math.ceil(width / 8) * height
-  chargePixels(state.budget, length)
-  const bytes = new Uint8Array(length)
-  const softMask = state.document.context.getObjectRef(plan.image) ?? plan.image
-  return state.document.context.register(
-    state.document.context.stream(deflateSync(bytes), {
-      Type: 'XObject',
-      Subtype: 'Image',
-      Width: width,
-      Height: height,
-      ColorSpace: ['Indexed', color.space, 0, PDFHexString.of(Buffer.from(palette).toString('hex'))],
-      BitsPerComponent: 1,
-      Filter: 'Fl' + 'ateDecode',
-      SMask: softMask,
-      [GENERATED_EFFECT_IMAGE_KEY]: true,
-      SegnaviaEffectColor: color.values,
-    }),
-  )
 }
 
 function xObjectName(resources: PDFDict, image: PDFRef): string {
@@ -273,13 +259,13 @@ function effectReplacement(
   const rule1 = state.rule1Candidates.get(graphicsState)
   if (!rule1 && !ruleC?.nested) return undefined
   const facts: SoftMaskFacts = {
-    backdrop: rule1?.facts.backdrop ?? 'other',
-    colorSpace: rule1?.facts.colorSpace ?? 'other',
-    contents: rule1?.facts.contents ?? 'other',
-    nested: ruleC?.nested ?? rule1?.facts.nested ?? false,
-    oneAxis: ruleC?.nested ? ruleC.oneAxis : (rule1?.facts.oneAxis ?? 'unknown'),
-    structure: ruleC?.nested ? ruleC.structure : (rule1?.facts.structure ?? 'other'),
-    subtype: rule1?.facts.subtype ?? 'other',
+    backdrop: rule1?.backdrop ?? 'other',
+    colorSpace: rule1?.colorSpace ?? 'other',
+    contents: rule1?.contents ?? 'other',
+    nested: ruleC?.nested ?? false,
+    oneAxis: ruleC?.nested ? ruleC.oneAxis : 'unknown',
+    structure: ruleC?.nested ? ruleC.structure : (rule1?.structure ?? 'other'),
+    subtype: rule1?.subtype ?? 'other',
   }
   const decision = softMaskAction(facts)
   if (decision === 'ruleC' && ruleC?.plan && next) {
@@ -298,7 +284,7 @@ function effectReplacement(
     !matchingRectangle(next, plan.bbox)
   )
     return undefined
-  const image = effectImage(state, plan, graphics.color)
+  const image = rule1EffectImage(state.document, state.budget, plan, graphics.color)
   const name = xObjectName(resources, image)
   const opacityName = opacityGraphicsStateName(resources, plan.opacity)
   const [left = 0, bottom = 0, right = 0, top = 0] = plan.bbox
