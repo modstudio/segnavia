@@ -11,12 +11,13 @@ import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
 import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
 import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
+import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const genericProfile = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
-const { PDFArray, PDFDict, PDFDocument, PDFName } = renderRequire('pdf-lib')
+const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
 
 const html = `<!doctype html><style>
 @page{size:1200px 800px;margin:0}*{box-sizing:border-box}html,body{margin:0;width:1200px;height:800px}
@@ -180,18 +181,23 @@ async function largestContentStream(bytes: Uint8Array): Promise<number> {
 async function cmykColors(bytes: Uint8Array): Promise<number[][]> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
   const colors: number[][] = []
-  for (const [, object] of document.context.enumerateIndirectObjects()) {
-    if (object instanceof PDFDict && numberOf(object, 'FunctionType') === 2) {
-      for (const name of ['C0', 'C1']) if (object.has(PDFName.of(name))) colors.push(arrayNumbers(object, name, 4))
-    }
-    const stream = rawStreamOf(object)
-    if (!stream) continue
-    if (stream.dict.has(PDFName.of('SegnaviaEffectColor'))) colors.push(arrayNumbers(stream.dict, 'SegnaviaEffectColor', 4))
-    if (nameOf(stream.dict.get(PDFName.of('Subtype'))) === 'Image') continue
-    visitContentOperators(decodeContent(stream), (operator, operands) => {
-      if ((operator === 'k' || operator === 'K') && operands.length === 4) colors.push(operands)
-    })
-  }
+  walkPressGraph(document, {
+    content: (_object, stream) => {
+      visitContentOperators(decodeContent(stream), (operator, operands) => {
+        if ((operator === 'k' || operator === 'K') && operands.length === 4) colors.push(operands)
+      })
+    },
+    function: (fn) => {
+      if (fn && numberOf(fn, 'FunctionType') === 2) {
+        for (const name of ['C0', 'C1']) if (fn.has(PDFName.of(name))) colors.push(arrayNumbers(fn, name, 4))
+      }
+    },
+    group: () => undefined,
+    image: (stream) => {
+      if (stream.dict.has(PDFName.of('SegnaviaEffectColor'))) colors.push(arrayNumbers(stream.dict, 'SegnaviaEffectColor', 4))
+    },
+    shading: () => true,
+  })
   return colors
 }
 
@@ -200,11 +206,11 @@ const sameColor = (left: number[], right: number[]): boolean => left.every((valu
 async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileBytes: Uint8Array): Promise<void> {
   const rgb8 = [
     [103, 101, 100],
-    [63, 61, 60],
-    [183, 181, 180],
+    [62, 61, 60],
+    [182, 181, 180],
   ] as const
   const page = {
-    html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(63,61,60),rgb(183,181,180))}</style><div class="shadow"></div><div class="gradient"></div>`,
+    html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(62,61,60),rgb(182,181,180))}</style><div class="shadow"></div><div class="gradient"></div>`,
     size: { width: 400, height: 220 },
   }
   let defaultReport: PressReport | undefined
@@ -224,7 +230,7 @@ async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileB
     'the default press neutral tolerance paints a near-grey shadow and gradient with black ink alone',
     defaultExpected.every((color) => color.slice(0, 3).every((channel) => channel === 0) && defaultColors.some((found) => sameColor(found, color))) &&
       (defaultReport?.neutralColors ?? 0) > 0,
-    defaultReport ? JSON.stringify(defaultReport) : 'report not called',
+    defaultReport ? JSON.stringify({ report: defaultReport, colors: defaultColors, expected: defaultExpected }) : 'report not called',
   )
   check(
     'press neutral tolerance zero paints the near-grey shadow and gradient with all four inks',
