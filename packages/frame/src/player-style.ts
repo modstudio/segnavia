@@ -33,6 +33,9 @@ segnavia-counter{padding-inline:6px}
 .notes-toggle svg{inline-size:20px;block-size:20px}
 .notes-toggle[hidden]{display:none}
 ::slotted([slot="actions"]){flex:none}
+slot[name="actions"]::slotted(button){all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
+slot[name="actions"]::slotted(button:hover){background:var(--_line)}
+slot[name="actions"]::slotted(button:focus-visible){outline:2px solid var(--_accent);outline-offset:1px}
 :host([data-presenting]) .below{display:none}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .body{flex:none}.screen{container-type:normal;display:block;padding:12px 12px 4px}segnavia-stage{width:100%}segnavia-caption{min-block-size:0}}

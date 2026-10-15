@@ -232,7 +232,7 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
 }
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body}<script type="module" src="${script}"></script></body></html>`
-const playerChrome = `<button slot="actions" id="host-action">Share</button>`
+const playerChrome = `<button slot="actions" id="host-action" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg></button>`
 writeFileSync(path.join(SITE, 'index.html'), shell(`<segnavia-player src="deck.json">${playerChrome}</segnavia-player>`))
 writeFileSync(
   path.join(SITE, 'continuous.html'),

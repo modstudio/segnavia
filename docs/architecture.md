@@ -72,6 +72,8 @@ library names a host.
 
 The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attributes, `controller`, `resolveSlide`, `css`, `cspExtra`, `labels` and the `transition` property. Its control track occupies the first bar row. The second row keeps previous, play and next centred between time at the start and actions, mute, captions, notes and presentation at the end. At narrow container widths it removes secondary chrome without moving play.
 
+The `actions` slot accepts any host element before the built-in end controls. Slotted buttons receive the player's icon-button size, shape, colour, hover and focus treatment by default through the `--segnavia-*` tokens; host styles can override that default. The `below` slot keeps arbitrary host chrome beneath the bar and hides it while presenting.
+
 Every inner styling hook crosses the player shadow boundary. The stable exported parts are `play-button`, `step-button`, `previous-button`, `next-button`, `track`, `segment`, `counter`, `time`, `mute-button`, `captions-button`, `presentation-button`, `notes-button`, `caption`, `word`, `word-spoken` and `word-current`; the existing player-level `player`, `stage`, `notes`, `caption` and `bar` parts remain. Control sizing reads `--segnavia-control-size` and `--segnavia-play-size` in addition to the existing tokens.
 
 ## How a deck plays
