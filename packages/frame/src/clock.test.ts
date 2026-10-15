@@ -81,7 +81,6 @@ describe('slide clock', () => {
       lang = ''
       voice = null
       onboundary: ((event: { name: string; charIndex: number }) => void) | null = null
-      constructor(_text: string) {}
     }
     Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } })
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: synth } })
@@ -96,5 +95,33 @@ describe('slide clock', () => {
     clock.seek(300)
     expect(clock.elapsed()).toBe(0)
     expect(cancellations).toBeGreaterThan(1)
+  })
+
+  test('seeking live speech while paused stays silent until resume', () => {
+    let speeches = 0
+    const synth = {
+      cancel: () => {},
+      speak: () => speeches++,
+      pause: () => {},
+      resume: () => {},
+      getVoices: () => [],
+    }
+    class FakeUtterance {
+      lang = ''
+      voice = null
+      onboundary: ((event: { name: string; charIndex: number }) => void) | null = null
+    }
+    Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => 0 } })
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: synth } })
+    Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance })
+    const narration = { text: 'hello', words: [], durationMs: 500, audio: null, live: true, cues: [] }
+    const clock = speechClock(slide({ narration }), undefined)
+    clock.pause()
+    clock.seek(300)
+    clock.word()
+    clock.elapsed()
+    expect(speeches).toBe(0)
+    clock.resume()
+    expect(speeches).toBe(1)
   })
 })

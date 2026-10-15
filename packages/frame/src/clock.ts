@@ -177,7 +177,7 @@ export function speechClock(value: Slide | Narration, voiceName?: string): Clock
   utterance.onend = finishSpeech
   utterance.onerror = finishSpeech
   const begin = () => {
-    if (speaking || abandoned) return
+    if (!running || speaking || abandoned) return
     speaking = true
     synth.cancel()
     synth.speak(utterance)
@@ -194,7 +194,6 @@ export function speechClock(value: Slide | Narration, voiceName?: string): Clock
     if (!abandoned && !speechDone && position >= beforeMs) return Math.min(narrationEnd, wall)
     return Math.min(duration, wall)
   }
-  if (beforeMs === 0) begin()
   return {
     word: () => {
       const now = elapsed()
@@ -214,6 +213,7 @@ export function speechClock(value: Slide | Narration, voiceName?: string): Clock
       anchor = performance.now()
       running = true
       if (speaking && !abandoned) synth.resume()
+      else if (position >= beforeMs) begin()
     },
     seek: () => {
       synth.cancel()
