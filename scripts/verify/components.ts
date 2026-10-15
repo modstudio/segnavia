@@ -12,12 +12,22 @@ export async function verifyComponents(h: Harness) {
   await page.waitForTimeout(200)
   check('a component finds its stage by id and reads its state', (await page.locator('segnavia-counter span').textContent()) === '1 / 4')
 
+  const presentation = page.locator('segnavia-fullscreen')
+  await presentation.evaluate((control) => control.removeAttribute('mode'))
+  await presentation.locator('button').click()
+  check(
+    'a standalone presentation control defaults to window mode',
+    await page.locator('segnavia-stage').evaluate((stage) => stage.hasAttribute('data-presenting')),
+  )
+  await page.locator('segnavia-stage').evaluate((stage: HTMLElement & { controller: { stopPresenting(): void } }) => stage.controller.stopPresenting())
+  await presentation.evaluate((control) => control.setAttribute('mode', 'native'))
+
   await page.locator('segnavia-step[to="next"] button').click()
   await h.waitFor('segnavia-stage', (d) => d.slide === '2')
   check('a styled step drives the stage', (await h.state('segnavia-stage')).slide === '2')
   await page.locator('segnavia-play button').click()
   await h.waitFor('segnavia-stage', (d) => d.word !== '' && Number(d.word) >= 2, { timeout: 10000 })
-  const active = await page.locator('segnavia-caption .active').textContent()
+  const active = await page.locator('segnavia-caption .word-current').textContent()
   check('the styled caption lights the spoken word', Boolean(active), active ?? '')
   const pause = await page.locator('segnavia-play button').getAttribute('aria-label')
   check('the play control reflects playing', pause === 'Pause', pause ?? '')

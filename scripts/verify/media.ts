@@ -85,8 +85,15 @@ export async function verifyMedia(h: Harness) {
 
   await page.locator(`${PLAYER} segnavia-fullscreen button`).click()
   await page.waitForFunction(() => document.fullscreenElement !== null, null, { timeout: 5000 }).catch(() => {})
-  const full = await page.evaluate(() => document.fullscreenElement?.tagName ?? 'none')
-  check('the full-screen control makes the player full screen', full === 'SEGNAVIA-PLAYER', full)
+  const full = await page.evaluate(() => ({
+    element: document.fullscreenElement?.tagName ?? 'none',
+    mode: document.querySelector('segnavia-player')?.getAttribute('presentation'),
+  }))
+  check(
+    'an explicit native presentation makes the player browser-fullscreen',
+    full.element === 'SEGNAVIA-PLAYER' && full.mode === 'native',
+    JSON.stringify(full),
+  )
   await page.keyboard.press('Escape')
 
   await page.goto(h.url(''))
@@ -103,7 +110,8 @@ export async function verifyMedia(h: Harness) {
     .locator('h1')
     .evaluate((h1) => getComputedStyle(h1).color)
   check("the host's style reaches inside a slide", color === 'rgb(1, 2, 3)', color)
-  await page.addStyleTag({ content: 'segnavia-player::part(bar){background:rgb(4, 5, 6)} segnavia-player{--segnavia-accent:rgb(200, 0, 100)}' })
+  await page.goto(h.url('parts.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
   await page.mouse.move(0, 0)
   const part = await page.evaluate(() => {
     const root = (document.querySelector('segnavia-player') as HTMLElement).shadowRoot as ShadowRoot

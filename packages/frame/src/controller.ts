@@ -1,16 +1,15 @@
-// The headless deck owns slides, play, cues, timing and keys. It answers keys in the deck's
-// reading direction. It renders nothing; hosts draw from `state` and `change`.
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
+import { navigationError } from './navigation-error.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
-
 export class DeckController extends EventTarget {
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
@@ -36,25 +35,31 @@ export class DeckController extends EventTarget {
   get state(): DeckState {
     return this.current
   }
-
   get keys(): 'stage' | 'page' {
     return this.options.keys ?? 'stage'
   }
+  get captionsPolicy(): 'on' | 'off' | 'viewer' {
+    return captionsPolicy(this.current.deck, this.options)
+  }
 
+  setPlayerOptions(options: Pick<ControllerOptions, 'playback' | 'captions'>) {
+    Object.assign(this.options, options)
+    const deck = this.current.deck
+    if (!deck) return
+    this.current = { ...this.current, ...playerOptionState(deck, this.settings.captionsVisible, this.options) }
+    this.emit()
+  }
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }
-
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
-
   destroy() {
     this.stopPresenting()
     this.stopClock()
     this.disconnectWindow()
   }
-
   // A stage suspends these global listeners while it is disconnected. A host
   // may use the same pair when the controller temporarily has no live view.
   connectWindow() {
@@ -63,7 +68,6 @@ export class DeckController extends EventTarget {
     if (this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
     this.listening = true
   }
-
   disconnectWindow() {
     if (!hasWindow || !this.listening) return
     window.removeEventListener('hashchange', this.onHash)
@@ -87,8 +91,7 @@ export class DeckController extends EventTarget {
     this.prefetched.clear()
     this.shots.clear()
     const direction = resolveDirection(deck.dir, deck.lang, deck.title)
-    const playback = this.options.playback ?? deck.playback ?? 'step'
-    const captionsVisible = deck.captions === 'on' ? true : deck.captions === 'off' ? false : this.settings.captionsVisible
+    const playerOptions = playerOptionState(deck, this.settings.captionsVisible, this.options)
     const index = wasOpen
       ? indexAfterReload(
           oldIds,
@@ -96,20 +99,14 @@ export class DeckController extends EventTarget {
           selectedId,
         )
       : (this.hashIndex(deck) ?? 0)
-    this.current = { ...this.current, deck, direction, playback, captionsVisible, playing: false, index, totalMs: deckTimeline(deck).totalMs }
+    this.current = { ...this.current, ...playerOptions, deck, direction, playing: false, index, totalMs: deckTimeline(deck).totalMs }
     await this.show(index)
   }
 
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
-    try {
-      await this.show(index, true)
-    } catch (error) {
-      if (this.current.playing) this.pause()
-      this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
-      throw error
-    }
+    await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
 
   contentFor(index: number): Promise<ResolvedContent> {
@@ -184,7 +181,7 @@ export class DeckController extends EventTarget {
     const entry = timeline.slides[index]
     if (!entry) return
     const wasPlaying = this.current.playing
-    if (!(await this.show(index, true))) return
+    if (!(await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error)))) return
     if (untimed) {
       this.current = { ...this.current, playing: false, elapsedMs: entry.startMs, slideElapsedMs: 0, progress: 0 }
       this.emit()
@@ -211,7 +208,7 @@ export class DeckController extends EventTarget {
   }
 
   setCaptionsVisible(visible: boolean) {
-    if ((this.current.deck?.captions ?? 'viewer') !== 'viewer') return
+    if (this.captionsPolicy !== 'viewer') return
     this.settings.captionsVisible = visible
     this.current = { ...this.current, captionsVisible: visible }
     this.persistSettings()
@@ -243,7 +240,13 @@ export class DeckController extends EventTarget {
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
     this.stopClock()
-    const content = await this.resolve(slide, index)
+    let content: ResolvedContent
+    try {
+      content = await this.resolve(slide, index)
+    } catch (error) {
+      if (shown !== this.shows) return false
+      throw error
+    }
     // A newer show began while this one resolved; it owns the state.
     if (shown !== this.shows) return false
     if (commitNavigation) {

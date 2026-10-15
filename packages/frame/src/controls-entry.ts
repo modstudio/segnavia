@@ -3,16 +3,19 @@
 
 import './index.ts'
 import { SegnaviaCaption, SegnaviaNotes } from './caption.ts'
-import { SegnaviaCounter, SegnaviaFullscreen, SegnaviaPlay, SegnaviaStep, SegnaviaTrack } from './controls.ts'
+import { SegnaviaCaptions, SegnaviaCounter, SegnaviaFullscreen, SegnaviaMute, SegnaviaPlay, SegnaviaStep, SegnaviaTime, SegnaviaTrack } from './controls.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 
 export { SegnaviaCaption, SegnaviaNotes } from './caption.ts'
 export { SegnaviaControl } from './control.ts'
-export { SegnaviaCounter, SegnaviaFullscreen, SegnaviaPlay, SegnaviaStep, SegnaviaTrack } from './controls.ts'
-export { ICONS, TOKENS_CSS } from './controls-style.ts'
+export { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
+export { SegnaviaCaptions, SegnaviaCounter, SegnaviaFullscreen, SegnaviaMute, SegnaviaPlay, SegnaviaStep, SegnaviaTime, SegnaviaTrack } from './controls.ts'
+export { TOKENS_CSS } from './controls-style.ts'
+export { ICONS } from './icons.ts'
 export * from './index.ts'
 export { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
+export { trackMsAt } from './track-mapping.ts'
 
 const COMPONENTS: Array<[string, CustomElementConstructor]> = [
   [STYLED_ELEMENTS.play, SegnaviaPlay],
@@ -20,6 +23,9 @@ const COMPONENTS: Array<[string, CustomElementConstructor]> = [
   [STYLED_ELEMENTS.counter, SegnaviaCounter],
   [STYLED_ELEMENTS.fullscreen, SegnaviaFullscreen],
   [STYLED_ELEMENTS.track, SegnaviaTrack],
+  [STYLED_ELEMENTS.time, SegnaviaTime],
+  [STYLED_ELEMENTS.mute, SegnaviaMute],
+  [STYLED_ELEMENTS.captions, SegnaviaCaptions],
   [STYLED_ELEMENTS.caption, SegnaviaCaption],
   [STYLED_ELEMENTS.notes, SegnaviaNotes],
 ]

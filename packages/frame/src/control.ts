@@ -5,7 +5,7 @@
 // nearest ancestor that has one, so it works beside a host's own controls.
 
 import type { DeckController, DeckState } from './controller.ts'
-import { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
+import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 
 interface HasController {
   controller: DeckController | null
@@ -36,8 +36,8 @@ export abstract class SegnaviaControl extends HTMLElement {
     return this.words
   }
 
-  set labels(labels: PlayerLabels) {
-    this.words = labels
+  set labels(labels: Partial<PlayerLabels>) {
+    this.words = playerLabels(labels)
     if (this.bound?.state.deck) this.render(this.bound.state)
   }
 

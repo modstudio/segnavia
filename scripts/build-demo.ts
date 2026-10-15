@@ -221,8 +221,7 @@ writeFileSync(path.join(SITE, 'page-rtl.json'), JSON.stringify(hebrewPage))
 writeFileSync(path.join(SITE, 'page-rtl-div.json'), JSON.stringify(rightToLeftDivPage))
 writeFileSync(path.join(SITE, 'page-fixed.json'), JSON.stringify(fixedPage))
 writeFileSync(path.join(SITE, 'page-postcard.json'), JSON.stringify(postcardPage))
-// Each browser bundle contains its layer and every layer beneath it, so a
-// page loads exactly one of the files the package ships.
+// Each browser bundle contains its layer and every layer beneath it, so a page loads exactly one shipped file.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
   exports: Record<string, { default: string }>
 }
@@ -232,9 +231,15 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
 }
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body}<script type="module" src="${script}"></script></body></html>`
-writeFileSync(path.join(SITE, 'index.html'), shell('<segnavia-player src="deck.json"></segnavia-player>'))
-writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off"></segnavia-player>'))
-// Labels are the host's to translate; the Hebrew page passes its own.
+const playerChrome = `<button slot="actions" id="host-action" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg></button>`
+const testIcons = `<svg slot="icon-play" data-custom-icon="play" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg><svg slot="icon-pause" data-custom-icon="pause" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>`
+const partStyles =
+  '<style>segnavia-player{--segnavia-accent:rgb(200, 0, 100)}segnavia-player::part(bar){background:rgb(4, 5, 6)}segnavia-player::part(word-current){outline:3px solid rgb(255, 0, 255)}</style>'
+writeFileSync(path.join(SITE, 'index.html'), shell(`<segnavia-player src="deck.json">${playerChrome}</segnavia-player>`))
+writeFileSync(path.join(SITE, 'continuous.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${playerChrome}</segnavia-player>`))
+writeFileSync(path.join(SITE, 'icons.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${testIcons}</segnavia-player>`))
+writeFileSync(path.join(SITE, 'parts.html'), shell(`${partStyles}<segnavia-player playback="continuous" src="deck.json"></segnavia-player>`))
+writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off" presentation="native"></segnavia-player>'))
 writeFileSync(
   path.join(SITE, 'he.html'),
   shell(`<segnavia-player id="player" src="deck-he.json" notes theme="light"></segnavia-player>
@@ -245,6 +250,8 @@ writeFileSync(
         slide: (n, total) => 'שקופית ' + n + ' מתוך ' + total, notes: 'הערות', showNotes: 'הצגת הערות',
         frameTitle: (title, n) => title + ' — שקופית ' + n,
         hideNotes: 'הסתרת הערות', enterFullscreen: 'מסך מלא', exitFullscreen: 'יציאה ממסך מלא', player: 'נגן שקופיות',
+        mute: 'השתקה', unmute: 'ביטול השתקה', showCaptions: 'הצגת כתוביות', hideCaptions: 'הסתרת כתוביות',
+        seek: 'חיפוש', time: (elapsed, total) => elapsed + ' / ' + total, enterPresentation: 'מצגת', exitPresentation: 'יציאה ממצגת',
       }
     </script>`),
 )
@@ -295,7 +302,7 @@ writeFileSync(
     <div class="host-ui"><segnavia-stage id="stage" src="deck.json" hash="off"></segnavia-stage>
       <segnavia-caption for="stage"></segnavia-caption>
       <nav><segnavia-play for="stage"></segnavia-play><button id="mine">My own button</button><segnavia-step to="next" for="stage"></segnavia-step>
-        <segnavia-track for="stage"></segnavia-track><segnavia-counter for="stage"></segnavia-counter><segnavia-fullscreen for="stage"></segnavia-fullscreen></nav></div>
+        <segnavia-track for="stage"></segnavia-track><segnavia-counter for="stage"></segnavia-counter><segnavia-fullscreen for="stage" mode="native"></segnavia-fullscreen></nav></div>
     <script type="module">
       await customElements.whenDefined('segnavia-stage')
       document.getElementById('mine').onclick = () => document.getElementById('stage').controller.go(3)

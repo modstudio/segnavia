@@ -5,6 +5,9 @@ export const STYLED_ELEMENTS = {
   counter: 'segnavia-counter',
   fullscreen: 'segnavia-fullscreen',
   track: 'segnavia-track',
+  time: 'segnavia-time',
+  mute: 'segnavia-mute',
+  captions: 'segnavia-captions',
   caption: 'segnavia-caption',
   notes: 'segnavia-notes',
 } as const

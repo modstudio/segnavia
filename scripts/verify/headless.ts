@@ -21,6 +21,8 @@ export async function verifyHeadless(h: Harness) {
     loaded.styled.length === 0 && !loaded.shadow,
     JSON.stringify(loaded),
   )
+  const bundle = await (await page.request.get(h.url('segnavia.js'))).text()
+  check('the headless bundle contains no built-in icon markup', !bundle.includes('Lucide') && !bundle.includes('M5 5a2 2'), `${bundle.length} bytes`)
   const look = await page.locator('segnavia-stage').evaluate((stage) => {
     const style = getComputedStyle(stage)
     return { border: style.borderTopColor, radius: style.borderTopLeftRadius }

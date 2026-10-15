@@ -7,6 +7,7 @@ import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
+import { verifyWindowPresentation } from './player-presentation.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -21,6 +22,7 @@ export async function verifyPlayer(h: Harness) {
 
   await page.goto(h.url(''))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
+  await verifyControlBar(h, 'step')
   let s = await h.state(PLAYER)
   check('opens on the static title slide, not playing', s.slide === '1' && s.playing === 'false')
   const frame = await page.locator(`${PLAYER} iframe`).evaluate((iframe: HTMLIFrameElement) => ({
@@ -89,7 +91,169 @@ export async function verifyPlayer(h: Harness) {
 
   await verifyScripted(h)
   await verifyPrefetch(h)
+  await verifyDynamicPlayerOptions(h)
   await verifyPrint(h)
+  await verifyContinuousPlayer(h)
+}
+
+async function verifyDynamicPlayerOptions(h: Harness) {
+  const { page, check } = h
+  const state = await page.evaluate(async (src) => {
+    const player = document.createElement('segnavia-player') as HTMLElement & {
+      controller: EventTarget & { state: { deck: unknown; playback: string; captionsVisible: boolean }; destroy: () => void }
+    }
+    player.setAttribute('playback', 'continuous')
+    player.setAttribute('captions', 'off')
+    document.body.append(player)
+    const loaded = new Promise<void>((resolve) => {
+      player.controller.addEventListener('change', () => {
+        if (player.controller.state.deck) resolve()
+      })
+    })
+    player.setAttribute('src', src)
+    await loaded
+    const result = {
+      playback: player.controller.state.playback,
+      captionsVisible: player.controller.state.captionsVisible,
+    }
+    player.controller.destroy()
+    player.remove()
+    return result
+  }, h.url('deck.json'))
+  check('player policy attributes set before src override the loaded deck', state.playback === 'continuous' && !state.captionsVisible, JSON.stringify(state))
+}
+
+async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
+  const { page, check } = h
+  for (const width of [960, 560, 360]) {
+    await page.setViewportSize({ width: width + 48, height: 816 })
+    const geometry = await page.evaluate(() => {
+      const player = document.querySelector('segnavia-player') as HTMLElement
+      const root = player.shadowRoot as ShadowRoot
+      const play = root.querySelector('segnavia-play')?.shadowRoot?.querySelector('button') as HTMLElement
+      const previous = root.querySelector('segnavia-step[to="previous"]')?.shadowRoot?.querySelector('button') as HTMLElement
+      const next = root.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLElement
+      const end = root.querySelector('.end') as HTMLElement
+      const counter = root.querySelector('segnavia-counter') as HTMLElement
+      const notes = root.querySelector('segnavia-notes') as HTMLElement
+      const presentation = root.querySelector('segnavia-fullscreen') as HTMLElement
+      const playerBox = player.getBoundingClientRect()
+      const playBox = play.getBoundingClientRect()
+      const previousBox = previous.getBoundingClientRect()
+      const nextBox = next.getBoundingClientRect()
+      const endBox = end.getBoundingClientRect()
+      const segmentBoxes = [...(root.querySelector('segnavia-track')?.shadowRoot?.querySelectorAll('.segment') ?? [])].map((segment) =>
+        segment.getBoundingClientRect(),
+      )
+      return {
+        centered: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
+        centerVisible: [previousBox, playBox, nextBox].every((box) => box.width > 0 && box.height > 0),
+        centerClear: nextBox.right <= endBox.left,
+        segmentCount: segmentBoxes.length,
+        segmentsSeparated: segmentBoxes.every((box, index) => index === 0 || box.left > (segmentBoxes[index - 1]?.right ?? box.left)),
+        counter: getComputedStyle(counter).display,
+        notes: getComputedStyle(notes).display,
+        presentation: getComputedStyle(presentation).display,
+      }
+    })
+    check(`${mode} bar keeps play centered at ${width}px`, geometry.centered, JSON.stringify(geometry))
+    check(
+      `${mode} bar shows previous, play and next without overlapping the end group at ${width}px`,
+      geometry.centerVisible && geometry.centerClear,
+      JSON.stringify(geometry),
+    )
+    if (mode === 'continuous' && width === 960) {
+      check(
+        'continuous track shows one separated segment per slide at 960px',
+        geometry.segmentCount === 4 && geometry.segmentsSeparated,
+        JSON.stringify(geometry),
+      )
+    }
+    if (width === 560) check('560px bar hides its counter and notes panel', geometry.counter === 'none' && geometry.notes === 'none', JSON.stringify(geometry))
+    if (width === 360) check('360px bar hides presentation', geometry.presentation === 'none', JSON.stringify(geometry))
+    await h.evidence(`player-${mode}-${width}.png`)
+  }
+  await page.setViewportSize({ width: 1280, height: 816 })
+}
+
+async function verifyContinuousPlayer(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('continuous.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
+  await verifyControlBar(h, 'continuous')
+  check('an actions slot button appears in the end group', await page.locator('#host-action').isVisible())
+
+  const track = page.locator(`${PLAYER} segnavia-track ol`)
+  const box = await track.boundingBox()
+  if (!box) throw new Error('The continuous track has no box.')
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height / 2)
+  await page.waitForTimeout(50)
+  const clicked = await page
+    .locator(PLAYER)
+    .evaluate((player: HTMLElement & { controller: { state: { elapsedMs: number; totalMs: number } } }) => player.controller.state)
+  check(
+    'clicking the continuous track seeks deck time',
+    clicked.elapsedMs > clicked.totalMs * 0.35 && clicked.elapsedMs < clicked.totalMs * 0.65,
+    JSON.stringify(clicked),
+  )
+  await track.focus()
+  const beforeKey = clicked.elapsedMs
+  await track.press('ArrowRight')
+  await page.waitForTimeout(50)
+  const afterKey = await page
+    .locator(PLAYER)
+    .evaluate((player: HTMLElement & { controller: { state: { elapsedMs: number } } }) => player.controller.state.elapsedMs)
+  check('continuous slider arrows seek five seconds', Math.abs(afterKey - beforeKey - 5000) < 50, `${beforeKey} -> ${afterKey}`)
+
+  const mute = page.locator(`${PLAYER} segnavia-mute button`)
+  await mute.click()
+  check('mute toggles with aria-pressed', (await mute.getAttribute('aria-pressed')) === 'true')
+  await mute.click()
+  const captions = page.locator(`${PLAYER} segnavia-captions button`)
+  await captions.click()
+  check('CC toggles with aria-pressed', (await captions.getAttribute('aria-pressed')) === 'false')
+  await captions.click()
+  await verifyWindowPresentation(h)
+
+  await page.goto(h.url('parts.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
+  const partsCaptions = page.locator(`${PLAYER} segnavia-captions button`)
+  if ((await partsCaptions.getAttribute('aria-pressed')) === 'false') await partsCaptions.click()
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { go(index: number): Promise<void>; play(): Promise<void> } }) => {
+    await player.controller.go(1)
+    await player.controller.play()
+  })
+  await h.waitFor(PLAYER, (d) => d.word !== '')
+  const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.word-current`).evaluate((word) => getComputedStyle(word).outlineColor)
+  check('a ::part(word-current) host style applies', wordOutline === 'rgb(255, 0, 255)', wordOutline)
+  await verifySlottedPlayIcons(h)
+}
+
+async function verifySlottedPlayIcons(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('icons.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
+  const activeIcon = () =>
+    page.locator(PLAYER).evaluate((player) => {
+      const play = player.shadowRoot?.querySelector('segnavia-play')
+      const active = play?.shadowRoot?.querySelector<HTMLSlotElement>('slot:not([hidden])')
+      const forwarded = active?.assignedElements()[0] as HTMLSlotElement | undefined
+      return {
+        slot: active?.name ?? '',
+        custom: forwarded?.assignedElements()[0]?.getAttribute('data-custom-icon') ?? '',
+      }
+    })
+  const stopped = await activeIcon()
+  check('a player play-icon slot replaces the built-in icon', stopped.slot === 'icon-play' && stopped.custom === 'play', JSON.stringify(stopped))
+  await page.locator(`${PLAYER} segnavia-play button`).click()
+  await h.waitFor(PLAYER, (d) => d.playing === 'true')
+  const playing = await activeIcon()
+  check(
+    'the slotted play icon changes to the slotted pause icon while playing',
+    playing.slot === 'icon-pause' && playing.custom === 'pause',
+    JSON.stringify(playing),
+  )
+  await page.locator(`${PLAYER} segnavia-play button`).click()
 }
 
 async function verifyScripted(h: Harness) {

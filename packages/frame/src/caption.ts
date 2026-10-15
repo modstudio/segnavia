@@ -18,8 +18,8 @@ export class SegnaviaCaption extends SegnaviaControl {
     return `${TOKENS_CSS}:host{display:block;font-size:var(--segnavia-caption-size,clamp(15px,1.5vw + 8px,20px));line-height:1.5;
         text-align:var(--segnavia-caption-align,center);color:var(--_muted)}
       p{margin:0;unicode-bidi:plaintext}
-      .spoken{color:var(--_ink)}
-      .active{color:var(--_ink);background:color-mix(in srgb,var(--_accent) 28%,transparent);border-radius:4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--_accent) 28%,transparent)}
+      .word-spoken{color:var(--_ink)}
+      .word-current{color:var(--_ink);background:color-mix(in srgb,var(--_accent) 28%,transparent);border-radius:4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--_accent) 28%,transparent)}
       @media (prefers-reduced-motion:no-preference){span{transition:color .12s,background-color .12s}}`
   }
   protected markup() {
@@ -51,7 +51,9 @@ export class SegnaviaCaption extends SegnaviaControl {
       }
     }
     line.querySelectorAll('span').forEach((span, index) => {
-      span.className = state.word === null || index > state.word ? '' : index === state.word ? 'active' : 'spoken'
+      const mark = index === state.word ? 'current' : state.word !== null && index < state.word ? 'spoken' : null
+      span.className = mark ? `word-${mark}` : ''
+      span.setAttribute('part', `word${mark ? ` word-${mark}` : ''}`)
     })
   }
 }

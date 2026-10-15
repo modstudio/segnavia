@@ -16,6 +16,14 @@ export interface PlayerLabels {
   hideNotes: string
   enterFullscreen: string
   exitFullscreen: string
+  mute: string
+  unmute: string
+  showCaptions: string
+  hideCaptions: string
+  seek: string
+  time: (elapsed: string, total: string) => string
+  enterPresentation: string
+  exitPresentation: string
   player: string
 }
 
@@ -32,5 +40,17 @@ export const ENGLISH_LABELS: PlayerLabels = {
   hideNotes: 'Hide notes',
   enterFullscreen: 'Full screen',
   exitFullscreen: 'Exit full screen',
+  mute: 'Mute',
+  unmute: 'Unmute',
+  showCaptions: 'Show captions',
+  hideCaptions: 'Hide captions',
+  seek: 'Seek',
+  time: (elapsed, total) => `${elapsed} / ${total}`,
+  enterPresentation: 'Present',
+  exitPresentation: 'Exit presentation',
   player: 'Slide player',
+}
+
+export function playerLabels(labels: Partial<PlayerLabels>): PlayerLabels {
+  return { ...ENGLISH_LABELS, ...labels }
 }
