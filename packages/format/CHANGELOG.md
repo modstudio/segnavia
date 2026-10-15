@@ -1,5 +1,41 @@
 # @segnavia/format
 
+## 0.3.0
+
+### Minor Changes
+
+- ### `@segnavia/format`
+
+  - Adds an optional deck `transition` (fade or slide). Turns stay instant when it is absent.
+  - Adds optional slide timing (`beforeMs`, `afterMs`, `holdMs`) and optional deck `playback` (`step` or `continuous`) and `captions` (`on`, `off` or `viewer`). None has a default.
+
+  ### `@segnavia/html`
+
+  - Keeps the HTML package aligned with the shared 0.3.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/frame`
+
+  - Plays a deck's transition on each turn. A host overrides it on the stage with the `transition` and `transition-duration` attributes or the `transition` property, where `'none'` turns transitions off.
+  - The stage turns onto a neighbor slide only once that slide has loaded.
+  - Adds pure deck timelines, continuous playback, seek, pause and resume, and persisted viewer mute and caption settings.
+  - Adds the `m`, `c` and `f` keys for mute, captions and presentation. They are ignored while typing in an editable field.
+  - Breaking: the `ControllerOptions.clock` callback now receives `(slide, audio)` instead of `(narration, audio)`.
+  - Breaking: `momentAt(...).annotations` is now `number[] | null`, where `null` means every annotation shows (a slide without narration).
+  - Behavior change for existing hosts: pause keeps the position, and Play resumes from it rather than restarting the slide. Play after the deck has ended restarts from the first slide.
+
+  ### `@segnavia/voice`
+
+  - Keeps the voice package aligned with the shared 0.3.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/render`
+
+  - Adds the `effects` render option, on by default. It rewrites how Chromium writes CSS shadows, blurs and fades into the PDF, so that Apple Preview and Adobe draw them like the screen, and leaves a mask exactly as written when it cannot redraw it exactly. `effects: false` turns it off, and `effects.report` receives counts of rewritten and kept masks.
+  - The `press` option now converts conic and repeating gradients to CMYK by sampling their shading.
+
+  ### `@segnavia/capture`
+
+  - Keeps the capture package aligned with the shared 0.3.0 package release; it has no package-specific API changes.
+
 ## 0.2.0
 
 ### Minor Changes
