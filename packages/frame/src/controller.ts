@@ -1,7 +1,6 @@
-// The headless deck owns slides, play, cues, timing and keys. It answers keys in the deck's
-// reading direction. It renders nothing; hosts draw from `state` and `change`.
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
@@ -10,7 +9,6 @@ import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt 
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
-
 export class DeckController extends EventTarget {
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
@@ -36,28 +34,31 @@ export class DeckController extends EventTarget {
   get state(): DeckState {
     return this.current
   }
-
   get keys(): 'stage' | 'page' {
     return this.options.keys ?? 'stage'
   }
-
   get captionsPolicy(): 'on' | 'off' | 'viewer' {
     return this.options.captions ?? this.current.deck?.captions ?? 'viewer'
+  }
+
+  setPlayerOptions(options: Pick<ControllerOptions, 'playback' | 'captions'>) {
+    Object.assign(this.options, options)
+    const deck = this.current.deck
+    if (!deck) return
+    this.current = { ...this.current, ...playerOptionState(deck, this.settings.captionsVisible, this.options) }
+    this.emit()
   }
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }
-
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
-
   destroy() {
     this.stopPresenting()
     this.stopClock()
     this.disconnectWindow()
   }
-
   // A stage suspends these global listeners while it is disconnected. A host
   // may use the same pair when the controller temporarily has no live view.
   connectWindow() {
@@ -66,7 +67,6 @@ export class DeckController extends EventTarget {
     if (this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
     this.listening = true
   }
-
   disconnectWindow() {
     if (!hasWindow || !this.listening) return
     window.removeEventListener('hashchange', this.onHash)

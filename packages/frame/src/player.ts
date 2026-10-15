@@ -38,7 +38,7 @@ const COMPONENTS =
   'segnavia-play,segnavia-step,segnavia-track,segnavia-counter,segnavia-time,segnavia-mute,segnavia-captions,segnavia-fullscreen,segnavia-caption,segnavia-notes'
 
 export class SegnaviaPlayer extends HTMLElement {
-  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation']
+  static observedAttributes = ['src', 'notes', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -107,10 +107,23 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
-    if (name === 'src' && value) void this.controller.loadUrl(value)
+    if (name === 'src' && value) {
+      this.passPlayerOptions()
+      void this.controller.loadUrl(value)
+    }
+    if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
     if (name === 'presentation') this.configurePresentation()
+  }
+
+  private passPlayerOptions() {
+    const playback = this.getAttribute('playback')
+    const captions = this.getAttribute('captions')
+    this.controller.setPlayerOptions({
+      playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
+      captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
+    })
   }
 
   private passTransitionAttributes() {
