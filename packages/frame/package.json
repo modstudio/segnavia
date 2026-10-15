@@ -52,6 +52,11 @@
       "types": "./dist/styled-elements.d.ts",
       "default": "./dist/styled-elements.js"
     },
+    "./headless-elements": {
+      "@segnavia/source": "./src/headless-elements.ts",
+      "types": "./dist/headless-elements.d.ts",
+      "default": "./dist/headless-elements.js"
+    },
     "./player": {
       "@segnavia/source": "./src/player-entry.ts",
       "types": "./dist/player-entry.d.ts",

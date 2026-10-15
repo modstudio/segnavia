@@ -7,21 +7,24 @@
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaStage } from './stage.ts'
+import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 
 export { BASE_CSS } from './base-style.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'
 export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'
 export { type FitInputs, type FittedSize, fitSheet } from './fit.ts'
 export { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+export { HEADLESS_ELEMENT_NAMES, HEADLESS_ELEMENTS } from './headless-elements.ts'
 export { type DeckAction, keyAction } from './keys.ts'
 export { SegnaviaPage } from './page.ts'
 export { SegnaviaPaper } from './paper.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
 export { SegnaviaStage, type StageReserve } from './stage.ts'
+export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
 export { deckTimeline, momentAt, phaseBounds, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 export { type HostTransition, type TransitionAxis, type TurnDirection, type TurnTransition, transitionFor } from './transition.ts'
 
-if (!customElements.get('segnavia-stage')) customElements.define('segnavia-stage', SegnaviaStage)
-if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
-if (!customElements.get('segnavia-paper')) customElements.define('segnavia-paper', SegnaviaPaper)
+if (!customElements.get(HEADLESS_ELEMENTS.stage)) customElements.define(HEADLESS_ELEMENTS.stage, SegnaviaStage)
+if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
+if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)

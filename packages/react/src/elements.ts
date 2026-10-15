@@ -12,7 +12,9 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
+import { HEADLESS_ELEMENTS } from '@segnavia/frame/headless-elements'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
+import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
   CaptionProps,
   CaptionsProps,
@@ -53,24 +55,24 @@ function element<E extends HTMLElement, P extends object>(
 const controlProperties = ['controller', 'labels'] as const
 
 export const ELEMENTS = {
-  player: element<SegnaviaPlayer, PlayerProps>('segnavia-player', ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition'], {
+  player: element<SegnaviaPlayer, PlayerProps>(STYLED_ELEMENTS.player, ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition'], {
     onSegnaviaLabels: 'segnavia-labels',
   }),
-  stage: element<SegnaviaStage, StageProps>('segnavia-stage', ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'], {
+  stage: element<SegnaviaStage, StageProps>(HEADLESS_ELEMENTS.stage, ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'], {
     onSegnaviaController: 'segnavia-controller',
     onSegnaviaFit: 'segnavia-fit',
   }),
-  play: element<SegnaviaPlay, PlayProps>('segnavia-play', controlProperties, {}),
-  step: element<SegnaviaStep, StepProps>('segnavia-step', controlProperties, {}),
-  track: element<SegnaviaTrack, TrackProps>('segnavia-track', controlProperties, {}),
-  counter: element<SegnaviaCounter, CounterProps>('segnavia-counter', controlProperties, {}),
-  time: element<SegnaviaTime, TimeProps>('segnavia-time', controlProperties, {}),
-  mute: element<SegnaviaMute, MuteProps>('segnavia-mute', controlProperties, {}),
-  captions: element<SegnaviaCaptions, CaptionsProps>('segnavia-captions', controlProperties, {}),
-  caption: element<SegnaviaCaption, CaptionProps>('segnavia-caption', controlProperties, {}),
-  notes: element<SegnaviaNotes, NotesProps>('segnavia-notes', controlProperties, {}),
-  fullscreen: element<SegnaviaFullscreen, FullscreenProps>('segnavia-fullscreen', [...controlProperties, 'targetElement'], {}),
-  rail: element<SegnaviaRail, RailProps>('segnavia-rail', [...controlProperties, 'mountMargin'], {}),
+  play: element<SegnaviaPlay, PlayProps>(STYLED_ELEMENTS.play, controlProperties, {}),
+  step: element<SegnaviaStep, StepProps>(STYLED_ELEMENTS.step, controlProperties, {}),
+  track: element<SegnaviaTrack, TrackProps>(STYLED_ELEMENTS.track, controlProperties, {}),
+  counter: element<SegnaviaCounter, CounterProps>(STYLED_ELEMENTS.counter, controlProperties, {}),
+  time: element<SegnaviaTime, TimeProps>(STYLED_ELEMENTS.time, controlProperties, {}),
+  mute: element<SegnaviaMute, MuteProps>(STYLED_ELEMENTS.mute, controlProperties, {}),
+  captions: element<SegnaviaCaptions, CaptionsProps>(STYLED_ELEMENTS.captions, controlProperties, {}),
+  caption: element<SegnaviaCaption, CaptionProps>(STYLED_ELEMENTS.caption, controlProperties, {}),
+  notes: element<SegnaviaNotes, NotesProps>(STYLED_ELEMENTS.notes, controlProperties, {}),
+  fullscreen: element<SegnaviaFullscreen, FullscreenProps>(STYLED_ELEMENTS.fullscreen, [...controlProperties, 'targetElement'], {}),
+  rail: element<SegnaviaRail, RailProps>(STYLED_ELEMENTS.rail, [...controlProperties, 'mountMargin'], {}),
 } as const
 
 export type AnyElementDescriptor = RuntimeElementDescriptor
