@@ -1,3 +1,7 @@
+import { z } from 'zod'
+
+export const Direction = z.enum(['ltr', 'rtl', 'auto'])
+
 // Text direction from content, for the places the library writes text it did
 // not author: captions, labels, filled-in values, notes. The rule is the
 // Unicode one: the first strong letter decides.

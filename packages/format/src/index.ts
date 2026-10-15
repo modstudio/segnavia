@@ -3,11 +3,15 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { BookShape } from './book.ts'
+import { Direction } from './direction.ts'
+import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { Scripts } from './scripts.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
-export { firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
+export { Book, type BookInput, BookMode, BookPage, BookSection, Chapter, noteMarkerIssues } from './book.ts'
+export { Direction, firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
 export {
   fitPage,
   type Imposed,
@@ -20,11 +24,14 @@ export {
   type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
+export * from './numbering.ts'
 export {
   MARK_GAP_MM,
   MARK_LENGTH_MM,
   MM_PER_PT,
+  NAMED_PAPERS,
   PAPER_MM,
+  Paper,
   type PaperBox,
   PX_PER_MM,
   printBoxes,
@@ -34,6 +41,7 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
@@ -43,20 +51,6 @@ export const Size = z.object({
   height: z.number().int().positive(),
 })
 export type Size = z.infer<typeof Size>
-
-// What an author's own scripts may do. `refuse` never runs them; `sandboxed`
-// runs them in a frame with an opaque origin that cannot reach its host.
-export const Scripts = z.enum(['refuse', 'sandboxed'])
-export type Scripts = z.infer<typeof Scripts>
-
-export const Direction = z.enum(['ltr', 'rtl', 'auto'])
-
-export const NAMED_PAPERS = ['letter', 'legal', 'tabloid', 'a3', 'a4', 'a5'] as const
-export const Paper = z.union([
-  z.enum(NAMED_PAPERS),
-  z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in', 'pt']) }),
-])
-export type Paper = z.infer<typeof Paper>
 
 export const Margin = z.object({
   top: z.number().nonnegative().default(0),
@@ -383,6 +377,7 @@ export function exceedsLimits(deck: Deck, limits: DeckLimits): string[] {
 
 export function jsonSchemas() {
   return {
+    book: z.toJSONSchema(BookShape, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),

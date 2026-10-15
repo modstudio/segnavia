@@ -22,6 +22,12 @@ something else.
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
 | **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and narration. A narrated slide may pause for `beforeMs` and `afterMs`; an unnarrated slide may have `holdMs`. Each timing is 0–600000 milliseconds. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set), with optional `playback` (`step` or `continuous`) and caption policy (`on`, `off` or `viewer`). |
+| **Book** | A long document made of optional front matter and one or more chapters, in continuous or paginated mode. |
+| **Chapter** | A titled part of a book, with HTML and an optional replacement title for its running head. |
+| **Front matter** | The optional parts before a book's chapters. Each part can have a title and can opt out of the table of contents. |
+| **Book page** | The trim, orientation and mirrored margins used by a paginated book. |
+| **Number system** | The Arabic, lower- or upper-case Roman, or Hebrew system used for book page numbers and note markers. |
+| **Note marker** | The number system or symbol sequence that identifies a footnote or endnote. |
 | **Untimed slide** | A slide with neither narration nor `holdMs`. Playback stops there until Play advances. |
 | **Timed slide** | A narrated slide or an unnarrated slide with `holdMs`. Its clock advances to the next slide when it ends. |
 | **Deck timeline** | Each slide's deck-wide start and duration plus the timed total. Untimed slides are marked and add zero to the total. |
@@ -50,4 +56,4 @@ something else.
 | sheet | One host's design system uses it for the side-panel component. The legacy render limit name `maxSheets` counts PDF pages; a two-sided paper counts as two. |
 | surface | One host uses it for which app you are in. |
 | tutorial, video | A deck that plays is still a deck. A tutorial is not a separate thing. |
-| paper, as a property of a page | A page has no paper. Paper belongs only to its print setting. |
+| paper, as a property of a page | A `Page` has no paper; paper belongs only to its print setting. A paginated `Book` names its trim on its book page. |
