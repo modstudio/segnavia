@@ -7,6 +7,16 @@ import type { TextDirection } from '@segnavia/format'
 
 export type DeckAction = 'next' | 'previous' | 'toggle' | 'exit' | 'mute' | 'captions' | 'present'
 
+export function isEditableTarget(target: unknown): boolean {
+  if (!target || typeof target !== 'object') return false
+  const element = target as { isContentEditable?: boolean; tagName?: string }
+  return element.isContentEditable === true || element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT'
+}
+
+export function isEditableLetterShortcut(key: string, target: unknown): boolean {
+  return (key === 'm' || key === 'c' || key === 'f') && isEditableTarget(target)
+}
+
 export function keyAction(key: string, direction: TextDirection): DeckAction | null {
   switch (key) {
     case 'PageDown':

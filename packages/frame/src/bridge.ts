@@ -44,7 +44,8 @@ function bridgeScript(options: FrameOptions): string {
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
-document.addEventListener('keydown',function(e){if(keys.indexOf(e.key)!==-1){post({type:'${MESSAGE.key}',key:e.key});}});
+var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
+document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
 ${
   options.reportHeight === false
     ? ''

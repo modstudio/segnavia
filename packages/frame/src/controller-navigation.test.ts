@@ -53,6 +53,22 @@ describe('page keys', () => {
     await controller.next()
     expect(controller.state.index).toBe(1)
   })
+
+  test('letter shortcuts do not fire from editable targets', () => {
+    const controller = new DeckController({ hash: null, keys: 'page', persist: false })
+    let prevented = false
+    const event = {
+      defaultPrevented: false,
+      key: 'm',
+      target: { tagName: 'INPUT', isContentEditable: false },
+      preventDefault: () => {
+        prevented = true
+      },
+    } as unknown as KeyboardEvent
+    ;(controller as unknown as { onPageKey: (event: KeyboardEvent) => void }).onPageKey(event)
+    expect(controller.state.muted).toBe(false)
+    expect(prevented).toBe(false)
+  })
 })
 
 describe('in-window presentation', () => {

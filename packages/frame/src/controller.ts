@@ -4,7 +4,7 @@ import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide 
 import { type Clock, speechClock, timedClock } from './clock.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
-import { type DeckAction, keyAction } from './keys.ts'
+import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -388,12 +388,8 @@ export class DeckController extends EventTarget {
     if (event.defaultPrevented) return
     const target = event.target
     const action = keyAction(event.key, this.current.direction)
-    if (
-      (action === 'next' || action === 'previous') &&
-      target instanceof HTMLElement &&
-      (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
-    )
-      return
+    if (isEditableLetterShortcut(event.key, target)) return
+    if ((action === 'next' || action === 'previous') && isEditableTarget(target)) return
     if (this.key(event.key)) event.preventDefault()
   }
 }
