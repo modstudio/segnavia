@@ -50,8 +50,8 @@ export async function verifyWindowPresentation(h: Harness) {
     JSON.stringify(presentedCaption.contrast),
   )
   check(
-    'the caption grows with the presentation viewport',
-    presentedCaption.fontSize > normalCaption.fontSize,
+    'presentation keeps the caption font size unchanged',
+    presentedCaption.fontSize === normalCaption.fontSize,
     `${normalCaption.fontSize}px -> ${presentedCaption.fontSize}px`,
   )
   await page.keyboard.press('Escape')
@@ -75,7 +75,7 @@ export async function verifyWindowPresentation(h: Harness) {
   await page.waitForTimeout(200)
   const restoredCaption = await captionAppearance(h)
   check(
-    'Escape restores the caption colours and size',
+    'Escape restores the caption colours and font size',
     JSON.stringify(restoredCaption) === JSON.stringify(normalCaption),
     JSON.stringify({ normalCaption, restoredCaption }),
   )
