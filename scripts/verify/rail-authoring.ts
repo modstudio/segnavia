@@ -244,7 +244,15 @@ export async function verifyRailAuthoring(h: Harness) {
   )
 
   await page.goto(h.url('react.html'))
-  await page.waitForFunction(() => 'reactSetRail' in window && document.querySelector('segnavia-player'))
+  await page.waitForFunction(() => 'reactMount' in window)
+  await page.evaluate(() => (window as unknown as { reactMount(): void }).reactMount())
+  await page.waitForFunction(() => document.querySelector('segnavia-player'))
+  await page.waitForFunction(() => {
+    const holder = window as unknown as { reactDeckController?: unknown }
+    const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
+    return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
+  })
+  check('React hooks attach when the player mounts after the first render', await page.locator(`${PLAYER} textarea[part="notes-editor"]`).isVisible())
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
   await page.waitForFunction(() => document.querySelector('segnavia-player')?.hasAttribute('rail'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
@@ -267,6 +275,25 @@ export async function verifyRailAuthoring(h: Harness) {
     'React authoring updates preserve a debounced draft',
     authoringUpdate.text === 'React draft' && authoringUpdate.maxLength === 1234 && authoringUpdate.saves.join(',') === 'React draft',
     JSON.stringify(authoringUpdate),
+  )
+  const replacement = await page.evaluate(async () => {
+    const holder = window as unknown as { reactReplace(): void; reactDeckController?: unknown }
+    const oldPlayer = document.querySelector('segnavia-player')
+    holder.reactReplace()
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+    const newPlayer = document.querySelector('segnavia-player')
+    return {
+      replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
+      oldDetached: oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null,
+      newAttached: Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')),
+      controllerFollowed: holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller,
+    }
+  })
+  check(
+    'React keyed replacement follows the new player',
+    replacement.replaced && replacement.oldDetached && replacement.newAttached && replacement.controllerFollowed,
+    JSON.stringify(replacement),
   )
   const detached = await page.evaluate(() => {
     const holder = window as unknown as { reactPlayer: HTMLElement; reactUnmount(): void }

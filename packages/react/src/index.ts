@@ -2,7 +2,7 @@ import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
 import '@segnavia/frame/player'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
-import { createElement, forwardRef, type ReactNode, type Ref, type RefObject, useEffect, useRef, useState } from 'react'
+import { createElement, forwardRef, type ReactNode, type Ref, useCallback, useEffect, useRef, useState } from 'react'
 import { type AnyElementDescriptor, ELEMENTS, type ElementFor, type PropsFor } from './elements.ts'
 import { syncElementProps } from './react-props.ts'
 
@@ -20,6 +20,13 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
     const element = useRef<T | null>(null)
     const previous = useRef<Record<string, unknown>>({})
     const { children, ...values } = props
+    const setElement = useCallback(
+      (node: T | null) => {
+        element.current = node
+        assignRef(forwardedRef, node)
+      },
+      [forwardedRef],
+    )
     useEffect(() => {
       if (!element.current) return
       const next = values as Record<string, unknown>
@@ -30,10 +37,7 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
     return createElement(
       descriptor.tag,
       {
-        ref: (node: T | null) => {
-          element.current = node
-          assignRef(forwardedRef, node)
-        },
+        ref: setElement,
       },
       children as ReactNode,
     )
@@ -54,34 +58,35 @@ export const Notes = createComponent(ELEMENTS.notes)
 export const Fullscreen = createComponent(ELEMENTS.fullscreen)
 export const Rail = createComponent(ELEMENTS.rail)
 
-export function useDeckController(ref: RefObject<ElementWithController | null>): DeckController | null {
+export function useDeckController(element: ElementWithController | null): DeckController | null {
   const [controller, setController] = useState<DeckController | null>(null)
   const [, render] = useState(0)
   useEffect(() => {
-    const next = ref.current?.controller ?? null
+    const next = element?.controller ?? null
     setController(next)
     if (!next) return
     const changed = () => render((value) => value + 1)
     next.addEventListener('change', changed)
     return () => next.removeEventListener('change', changed)
-  }, [ref.current])
+  }, [element])
   return controller
 }
 
-export function useAuthoring(playerRef: RefObject<SegnaviaPlayer | null>, handlers: AuthoringHandlers, options?: AuthoringOptions): AuthoringController | null {
+export function useAuthoring(player: SegnaviaPlayer | null, handlers: AuthoringHandlers, options?: AuthoringOptions): AuthoringController | null {
   const [controller, setController] = useState<AuthoringController | null>(null)
-  const initialHandlers = useRef(handlers)
-  const initialOptions = useRef(options)
+  const latestHandlers = useRef(handlers)
+  const latestOptions = useRef(options)
+  latestHandlers.current = handlers
+  latestOptions.current = options
   useEffect(() => {
-    const player = playerRef.current
     if (!player) return
-    const attached = attachAuthoring(player, initialHandlers.current, initialOptions.current)
+    const attached = attachAuthoring(player, latestHandlers.current, latestOptions.current)
     setController(attached)
     return () => {
       attached.detach()
       setController(null)
     }
-  }, [playerRef.current])
+  }, [player])
   useEffect(() => {
     void controller?.update(handlers, options)
   }, [controller, handlers, options])
