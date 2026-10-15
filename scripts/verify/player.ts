@@ -236,7 +236,8 @@ async function verifyContinuousPlayer(h: Harness) {
     JSON.stringify({ beforePresentation, restored }),
   )
 
-  await captions.click()
+  await page.goto(h.url('parts.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { go(index: number): Promise<void>; play(): Promise<void> } }) => {
     await player.controller.go(1)
     await player.controller.play()
