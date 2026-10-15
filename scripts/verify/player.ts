@@ -21,6 +21,7 @@ export async function verifyPlayer(h: Harness) {
 
   await page.goto(h.url(''))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
+  await verifyControlBar(h, 'step')
   let s = await h.state(PLAYER)
   check('opens on the static title slide, not playing', s.slide === '1' && s.playing === 'false')
   const frame = await page.locator(`${PLAYER} iframe`).evaluate((iframe: HTMLIFrameElement) => ({
@@ -90,6 +91,87 @@ export async function verifyPlayer(h: Harness) {
   await verifyScripted(h)
   await verifyPrefetch(h)
   await verifyPrint(h)
+  await verifyContinuousPlayer(h)
+}
+
+async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
+  const { page, check } = h
+  for (const width of [960, 560, 360]) {
+    await page.setViewportSize({ width: width + 48, height: 816 })
+    const geometry = await page.evaluate(() => {
+      const player = document.querySelector('segnavia-player') as HTMLElement
+      const root = player.shadowRoot as ShadowRoot
+      const play = root.querySelector('segnavia-play')?.shadowRoot?.querySelector('button') as HTMLElement
+      const counter = root.querySelector('segnavia-counter') as HTMLElement
+      const notes = root.querySelector('segnavia-notes') as HTMLElement
+      const presentation = root.querySelector('segnavia-fullscreen') as HTMLElement
+      const playerBox = player.getBoundingClientRect()
+      const playBox = play.getBoundingClientRect()
+      return {
+        centred: Math.abs(playBox.left + playBox.width / 2 - (playerBox.left + playerBox.width / 2)) < 1,
+        counter: getComputedStyle(counter).display,
+        notes: getComputedStyle(notes).display,
+        presentation: getComputedStyle(presentation).display,
+      }
+    })
+    check(`${mode} bar keeps play centred at ${width}px`, geometry.centred, JSON.stringify(geometry))
+    if (width === 560) check('560px bar hides its counter and notes panel', geometry.counter === 'none' && geometry.notes === 'none', JSON.stringify(geometry))
+    if (width === 360) check('360px bar hides presentation', geometry.presentation === 'none', JSON.stringify(geometry))
+    await h.evidence(`player-${mode}-${width}.png`)
+  }
+  await page.setViewportSize({ width: 1280, height: 816 })
+}
+
+async function verifyContinuousPlayer(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('continuous.html'))
+  await h.waitFor(PLAYER, (d) => d.slide === '1')
+  await verifyControlBar(h, 'continuous')
+  check('an actions slot button appears in the end group', await page.locator('#host-action').isVisible())
+
+  const track = page.locator(`${PLAYER} segnavia-track ol`)
+  const box = await track.boundingBox()
+  if (!box) throw new Error('The continuous track has no box.')
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height / 2)
+  await page.waitForTimeout(50)
+  const clicked = await page
+    .locator(PLAYER)
+    .evaluate((player: HTMLElement & { controller: { state: { elapsedMs: number; totalMs: number } } }) => player.controller.state)
+  check(
+    'clicking the continuous track seeks deck time',
+    clicked.elapsedMs > clicked.totalMs * 0.35 && clicked.elapsedMs < clicked.totalMs * 0.65,
+    JSON.stringify(clicked),
+  )
+  await track.focus()
+  const beforeKey = clicked.elapsedMs
+  await track.press('ArrowRight')
+  await page.waitForTimeout(50)
+  const afterKey = await page
+    .locator(PLAYER)
+    .evaluate((player: HTMLElement & { controller: { state: { elapsedMs: number } } }) => player.controller.state.elapsedMs)
+  check('continuous slider arrows seek five seconds', Math.abs(afterKey - beforeKey - 5000) < 50, `${beforeKey} -> ${afterKey}`)
+
+  const mute = page.locator(`${PLAYER} segnavia-mute button`)
+  await mute.click()
+  check('mute toggles with aria-pressed', (await mute.getAttribute('aria-pressed')) === 'true')
+  const captions = page.locator(`${PLAYER} segnavia-captions button`)
+  await captions.click()
+  check('CC toggles with aria-pressed', (await captions.getAttribute('aria-pressed')) === 'false')
+
+  await page.locator(`${PLAYER} segnavia-stage`).focus()
+  await page.keyboard.press('f')
+  check('f enters window presentation by default', await page.locator(PLAYER).evaluate((player) => player.hasAttribute('data-presenting')))
+  await page.keyboard.press('Escape')
+  check('Escape leaves window presentation', await page.locator(PLAYER).evaluate((player) => !player.hasAttribute('data-presenting')))
+
+  await captions.click()
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { go(index: number): Promise<void>; play(): Promise<void> } }) => {
+    await player.controller.go(1)
+    await player.controller.play()
+  })
+  await h.waitFor(PLAYER, (d) => d.word !== '')
+  const wordOutline = await page.locator(`${PLAYER} segnavia-caption span.active`).evaluate((word) => getComputedStyle(word).outlineColor)
+  check('a ::part(word-current) host style applies', wordOutline === 'rgb(255, 0, 255)', wordOutline)
 }
 
 async function verifyScripted(h: Harness) {

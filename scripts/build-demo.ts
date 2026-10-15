@@ -232,7 +232,14 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
 }
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body}<script type="module" src="${script}"></script></body></html>`
-writeFileSync(path.join(SITE, 'index.html'), shell('<segnavia-player src="deck.json"></segnavia-player>'))
+const playerChrome = `<button slot="actions" id="host-action">Share</button>`
+writeFileSync(path.join(SITE, 'index.html'), shell(`<segnavia-player src="deck.json">${playerChrome}</segnavia-player>`))
+writeFileSync(
+  path.join(SITE, 'continuous.html'),
+  shell(
+    `<style>segnavia-player::part(word-current){outline:3px solid rgb(255, 0, 255)}</style><segnavia-player playback="continuous" src="deck.json">${playerChrome}</segnavia-player>`,
+  ),
+)
 writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off"></segnavia-player>'))
 // Labels are the host's to translate; the Hebrew page passes its own.
 writeFileSync(
