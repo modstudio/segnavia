@@ -4,10 +4,10 @@
 // its own controls never loads it. A server imports the pure entry points
 // instead (`/bridge`, `/svg`, `/timeline`, `/print-document`).
 
+import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaStage } from './stage.ts'
-import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 
 export { BASE_CSS } from './base-style.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'

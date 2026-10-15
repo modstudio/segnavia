@@ -13,6 +13,17 @@ function eventName(name: string): string {
     .toLowerCase()
 }
 
+function syncValue(element: HTMLElement, properties: Set<string>, name: string, value: unknown, previous: unknown) {
+  if (Object.is(value, previous)) return
+  if (properties.has(name)) {
+    ;(element as unknown as Record<string, unknown>)[name] = value
+    return
+  }
+  const attribute = attributeName(name)
+  if (value === false || value === null || value === undefined) element.removeAttribute(attribute)
+  else element.setAttribute(attribute, value === true ? '' : String(value))
+}
+
 export function syncElementProps(
   descriptor: RuntimeElementDescriptor,
   element: HTMLElement,
@@ -33,13 +44,7 @@ export function syncElementProps(
       }
       continue
     }
-    if (properties.has(name)) {
-      ;(element as unknown as Record<string, unknown>)[name] = value
-      continue
-    }
-    const attribute = attributeName(name)
-    if (value === false || value === null || value === undefined) element.removeAttribute(attribute)
-    else element.setAttribute(attribute, value === true ? '' : String(value))
+    syncValue(element, properties, name, value, previous[name])
   }
   return () => {
     for (const cleanup of cleanups) cleanup()

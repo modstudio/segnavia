@@ -18,15 +18,19 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
   type P = PropsFor<D> & { children?: ReactNode }
   return forwardRef<T, P>(function SegnaviaReactComponent(props, forwardedRef) {
     const element = useRef<T | null>(null)
+    const forwarded = useRef(forwardedRef)
     const previous = useRef<Record<string, unknown>>({})
     const { children, ...values } = props
-    const setElement = useCallback(
-      (node: T | null) => {
-        element.current = node
-        assignRef(forwardedRef, node)
-      },
-      [forwardedRef],
-    )
+    const setElement = useCallback((node: T | null) => {
+      element.current = node
+      assignRef(forwarded.current, node)
+    }, [])
+    useEffect(() => {
+      if (forwarded.current === forwardedRef) return
+      assignRef(forwarded.current, null)
+      forwarded.current = forwardedRef
+      assignRef(forwardedRef, element.current)
+    }, [forwardedRef])
     useEffect(() => {
       if (!element.current) return
       const next = values as Record<string, unknown>
