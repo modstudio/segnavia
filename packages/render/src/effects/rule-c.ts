@@ -120,7 +120,7 @@ function paints(document: PDFDocument, stream: PDFRawStream, inherited: PDFDict 
 }
 
 function inspectForm(context: RuleCContext, stream: PDFRawStream): void {
-  if (effectFormStructure(stream.dict) === 'other') context.structure = 'other'
+  if (nameOf(stream.dict.get(key('Subtype'))) === 'Form' && effectFormStructure(stream.dict) === 'other') context.structure = 'other'
 }
 
 function inspectGraphicsState(context: RuleCContext, graphicsState: PDFDict | undefined): void {

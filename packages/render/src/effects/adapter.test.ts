@@ -124,7 +124,7 @@ async function minimalOneAxisComposite(
     document.context.obj({
       Type: 'Pattern',
       PatternType: 2,
-      Matrix: [1, 0, 0, 1, 0, 0],
+      Matrix: [2, 0, 0, 2, 0, 0],
       Shading: {
         ShadingType: 2,
         ColorSpace: 'DeviceRGB',
