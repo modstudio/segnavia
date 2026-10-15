@@ -181,6 +181,7 @@ export class DeckController extends EventTarget {
     const { index, localMs, untimed } = positionAt(timeline, deckMs)
     const entry = timeline.slides[index]
     if (!entry) return
+    if (index !== this.current.index) await runNavigationGuard(this)
     const wasPlaying = this.current.playing
     if (!(await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error)))) return
     if (untimed) {
@@ -199,7 +200,6 @@ export class DeckController extends EventTarget {
       this.emit()
     }
   }
-
   setMuted(muted: boolean) {
     this.settings.muted = muted
     if (this.clock) this.clock.muted = muted

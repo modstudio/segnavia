@@ -12,6 +12,7 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
   const probe = Deck.parse({
     title: 'Focus probe',
     scripts: 'sandboxed',
+    playback: 'continuous',
     slides: [
       {
         id: 'probe',
@@ -19,8 +20,9 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
           kind: 'html',
           html: '<input id="thief"><output id="keys">0</output><script>let keys=0;setInterval(()=>document.getElementById("thief").focus(),20);addEventListener("keydown",()=>document.getElementById("keys").textContent=String(++keys))</script>',
         },
+        holdMs: 1000,
       },
-      { id: 'second', content: { kind: 'html', html: '<h1>Second</h1>' } },
+      { id: 'second', content: { kind: 'html', html: '<h1>Second</h1>' }, holdMs: 1000 },
     ],
   })
   writeFileSync(path.join(site, 'deck-probe.json'), JSON.stringify(probe))

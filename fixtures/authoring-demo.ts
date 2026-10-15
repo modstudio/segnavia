@@ -6,7 +6,16 @@ await new Promise<void>((resolve) => {
   if (player.controller.state.deck) resolve()
   else player.controller.addEventListener('change', () => player.controller.state.deck && resolve(), { once: true })
 })
-const facts = { moves: [] as unknown[], saves: [] as unknown[], rejectMove: false, rejectNotes: false, dirty: [] as boolean[], errors: 0 }
+const facts = {
+  moves: [] as unknown[],
+  saves: [] as unknown[],
+  rejectMove: false,
+  rejectNotes: false,
+  deferNotes: false,
+  releaseNotes: () => {},
+  dirty: [] as boolean[],
+  errors: 0,
+}
 const authoring = attachAuthoring(player as never, {
   async moveSlide(input) {
     facts.moves.push(input)
@@ -14,6 +23,7 @@ const authoring = attachAuthoring(player as never, {
   },
   async saveNotes(input) {
     facts.saves.push(input)
+    if (facts.deferNotes) await new Promise<void>((resolve) => (facts.releaseNotes = resolve))
     if (facts.rejectNotes) throw new Error('Notes refused')
   },
 })

@@ -34,3 +34,33 @@ test('concurrent navigations wait for the same running guard', async () => {
   await Promise.all([first, second])
   expect(controller.state.index).not.toBe(0)
 })
+
+test('cross-slide seek awaits the navigation guard but same-slide seek does not', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.load({
+    title: 'T',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 },
+      { id: 'b', content: { kind: 'html', html: '' }, holdMs: 500 },
+    ],
+  })
+  let guards = 0
+  let release = () => {}
+  setNavigationGuard(
+    controller,
+    () =>
+      new Promise<void>((resolve) => {
+        guards++
+        release = resolve
+      }),
+  )
+  await controller.seek(250)
+  expect(guards).toBe(0)
+  const seeking = controller.seek(750)
+  await Promise.resolve()
+  expect(guards).toBe(1)
+  expect(controller.state.index).toBe(0)
+  release()
+  await seeking
+  expect(controller.state.index).toBe(1)
+})

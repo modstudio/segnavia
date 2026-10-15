@@ -143,6 +143,25 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.waitForTimeout(700)
   const facts = await page.evaluate(() => (window as unknown as { authoringFacts: { saves: unknown[]; dirty: boolean[] } }).authoringFacts)
   check('notes autosave and emit dirty changes', facts.saves.length === 1 && facts.dirty.includes(true) && facts.dirty.includes(false), JSON.stringify(facts))
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = true))
+  await notes.fill('Track draft')
+  const track = page.locator(`${PLAYER} segnavia-track ol`)
+  const trackBox = await track.boundingBox()
+  if (!trackBox) throw new Error('The authoring continuous track has no box.')
+  await page.mouse.click(trackBox.x + trackBox.width * 0.75, trackBox.y + trackBox.height / 2)
+  await page.waitForTimeout(50)
+  const beforeTrackSave = (await h.state(PLAYER)).slide
+  await page.evaluate(() => (window as unknown as { authoringFacts: { releaseNotes(): void } }).authoringFacts.releaseNotes())
+  await h.waitFor(PLAYER, (data) => data.slide === '2')
+  check('a continuous track seek waits for the pending notes save', beforeTrackSave === '1' && (await h.state(PLAYER)).slide === '2', beforeTrackSave)
+  await page.evaluate(() => {
+    const holder = window as unknown as {
+      authoringFacts: { deferNotes: boolean }
+    }
+    holder.authoringFacts.deferNotes = false
+    return (document.querySelector('segnavia-player') as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(0)
+  })
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
   await page.evaluate(() => ((window as unknown as { authoringFacts: { rejectNotes: boolean } }).authoringFacts.rejectNotes = true))
   await notes.fill('Rejected draft')
   await page.waitForTimeout(700)
