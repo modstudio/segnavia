@@ -19,7 +19,8 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
 | Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, step or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
-| Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
+| Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
+| The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
 | A finished player, a layout of those components: `<segnavia-player>` | `@segnavia/frame/player` |
 | Pages, slides and decks to PDF or PNG/WebP/JPEG, offline, at their own size or on paper | `@segnavia/render` |
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
