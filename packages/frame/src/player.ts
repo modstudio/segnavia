@@ -3,12 +3,13 @@
 // that wants only some of it places the components itself; a host that wants
 // none of it uses the headless stage and controller.
 //
-// Attributes: src · theme (auto | light | dark; auto by default) · notes
-// (open the notes) · hash ("off" to leave the address alone) · prefetch ·
-// transition · transition-duration. Properties: controller, resolveSlide,
-// css, labels, transition. Data attributes mirror
-// the state for styling: data-slide, data-playing, data-word, data-shown,
-// data-direction.
+// Attributes: src, theme, notes, hash, prefetch, transition,
+// transition-duration, playback, captions and presentation. Properties:
+// controller, resolveSlide, css, cspExtra, labels and transition. The actions
+// and below slots add host chrome. Parts expose the player, stage, notes,
+// caption, bar, controls, track segments and caption words. Data attributes
+// mirror the state for styling: data-slide, data-playing, data-word,
+// data-shown and data-direction.
 
 import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
