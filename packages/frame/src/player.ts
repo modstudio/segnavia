@@ -91,6 +91,7 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.frameTitle = this.words.frameTitle
     for (const control of this.controls()) control.labels = this.words
     if (this.controller.state.deck) this.update(this.controller.state)
+    this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
 
   set resolveSlide(resolve: DeckController['resolveSlide']) {

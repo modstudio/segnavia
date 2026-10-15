@@ -12,6 +12,10 @@ export interface PlayerLabels {
   frameTitle: FrameTitle
   slides: string
   rail: string
+  editNotes: string
+  savingNotes: string
+  savedNotes: string
+  tryNotesAgain: string
   notes: string
   showNotes: string
   hideNotes: string
@@ -37,6 +41,10 @@ export const ENGLISH_LABELS: PlayerLabels = {
   frameTitle: defaultFrameTitle,
   slides: 'Slides',
   rail: 'Slides',
+  editNotes: 'Edit notes',
+  savingNotes: 'Saving…',
+  savedNotes: 'Saved',
+  tryNotesAgain: 'Try again',
   notes: 'Notes',
   showNotes: 'Show notes',
   hideNotes: 'Hide notes',

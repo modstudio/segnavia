@@ -5,6 +5,7 @@ import { type ControllerOptions, type DeckState, initialDeckState, type Resolved
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
+import { runNavigationGuard } from './navigation-guard.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -83,6 +84,7 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
+    if (this.current.deck) await runNavigationGuard(this)
     if (base) this.options.base = base
     const deck = Deck.parse(input)
     const wasOpen = this.current.deck !== null
@@ -106,6 +108,7 @@ export class DeckController extends EventTarget {
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
+    if (index !== this.current.index) await runNavigationGuard(this)
     await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
 
