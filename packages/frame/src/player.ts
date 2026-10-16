@@ -15,7 +15,6 @@ import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
-import { resumeController, suspendController } from './controller-connection.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
@@ -165,7 +164,6 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   connectedCallback() {
-    resumeController(this.controller)
     this.resize.observe(this)
     window.addEventListener('resize', this.scheduleMeasure)
     window.addEventListener('orientationchange', this.scheduleMeasure)
@@ -184,7 +182,6 @@ export class SegnaviaPlayer extends HTMLElement {
     window.removeEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.removeEventListener('resize', this.scheduleMeasure)
     this.overlay.dispose()
-    suspendController(this.controller)
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {

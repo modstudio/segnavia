@@ -183,6 +183,10 @@ async function verifyRemoval(h: Harness) {
     .evaluate(async (player: HTMLElement & { controller: { play(): Promise<void>; state: { playing: boolean; slideElapsedMs: number } } }) => {
       const controller = player.controller
       await controller.play()
+      let pausedChanges = 0
+      controller.addEventListener('change', (event) => {
+        if (!(event as CustomEvent<{ playing: boolean }>).detail.playing) pausedChanges++
+      })
       await new Promise((resolve) => setTimeout(resolve, 200))
       player.remove()
       const removedAt = controller.state.slideElapsedMs
@@ -192,11 +196,11 @@ async function verifyRemoval(h: Harness) {
       const reinsertedPaused = !controller.state.playing
       await controller.play()
       await new Promise((resolve) => setTimeout(resolve, 200))
-      return { removedAt, stoppedAt, reinsertedPaused, resumedAt: controller.state.slideElapsedMs }
+      return { removedAt, stoppedAt, reinsertedPaused, resumedAt: controller.state.slideElapsedMs, pausedChanges }
     })
   check(
     'removing a playing player stops time and reinserting leaves it paused and reusable',
-    Math.abs(result.stoppedAt - result.removedAt) < 1 && result.reinsertedPaused && result.resumedAt > result.stoppedAt,
+    Math.abs(result.stoppedAt - result.removedAt) < 1 && result.reinsertedPaused && result.resumedAt > result.stoppedAt && result.pausedChanges === 1,
     JSON.stringify(result),
   )
 }
