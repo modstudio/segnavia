@@ -1,5 +1,18 @@
 # @segnavia/react
 
+## 0.8.0
+
+### Minor Changes
+
+- 26b6621: Add a script-refusing, viewport-lazy slide thumbnail element for deck covers, with a matching React component.
+
+### Patch Changes
+
+- Updated dependencies [20bd5e6]
+- Updated dependencies [26b6621]
+- Updated dependencies [591c819]
+  - @segnavia/frame@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
