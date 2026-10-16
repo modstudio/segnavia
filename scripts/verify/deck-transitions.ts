@@ -319,7 +319,7 @@ async function sampleTransition(
           recordIncoming()
           if (!hasPaintedCanvas()) facts.emptyFrames++
           const last = values.at(-1)
-          const reachedEnd = facts.observedKind === 'fade' ? (last ?? 0) > 0.8 : facts.observedKind === 'slide' && Math.abs(last ?? 100) < 1
+          const reachedEnd = facts.observedKind === 'fade' ? Math.abs(1 - (last ?? 0)) < 0.001 : facts.observedKind === 'slide' && Math.abs(last ?? 100) < 0.001
           const settled = stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-2' && !stage.querySelector('[data-transition]')
           if (reachedEnd || (settled && !facts.observedKind) || performance.now() - started >= boundedWaitMs) resolve()
           else requestAnimationFrame(sample)
