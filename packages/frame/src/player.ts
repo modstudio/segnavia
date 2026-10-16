@@ -15,6 +15,7 @@ import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
+import { resumeController, suspendController } from './controller-connection.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
@@ -136,10 +137,15 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   connectedCallback() {
+    resumeController(this.controller)
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
     this.passTransitionAttributes()
     void this.configurePresentation()
+  }
+
+  disconnectedCallback() {
+    suspendController(this.controller)
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
