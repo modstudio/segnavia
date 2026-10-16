@@ -4,8 +4,9 @@ const PLAYER = 'segnavia-player'
 
 interface Geometry {
   player: { width: number; height: number }
-  stage: { width: number; height: number }
-  bar: { bottom: number; opacity: string }
+  stage: { top: number; right: number; bottom: number; left: number; width: number; height: number }
+  rail: { top: number; right: number; bottom: number; left: number; width: number; height: number }
+  bar: { top: number; right: number; bottom: number; left: number; opacity: string }
 }
 
 async function geometry(h: Harness): Promise<Geometry> {
@@ -13,13 +14,15 @@ async function geometry(h: Harness): Promise<Geometry> {
     const root = player.shadowRoot as ShadowRoot
     const box = (element: Element) => {
       const rect = element.getBoundingClientRect()
-      return { width: rect.width, height: rect.height }
+      return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height }
     }
     const bar = root.querySelector('.bar') as HTMLElement
+    const barBox = box(bar)
     return {
       player: box(player),
       stage: box(root.querySelector('segnavia-stage') as HTMLElement),
-      bar: { bottom: bar.getBoundingClientRect().bottom, opacity: getComputedStyle(bar).opacity },
+      rail: box(root.querySelector('segnavia-rail') as HTMLElement),
+      bar: { ...barBox, opacity: getComputedStyle(bar).opacity },
     }
   })
 }
@@ -127,6 +130,20 @@ export async function verifyPlayerLayout(h: Harness) {
   boxes = await geometry(h)
   check('Tab focus reveals overlay controls', boxes.bar.opacity === '1', JSON.stringify(boxes))
 
+  await page.locator(PLAYER).evaluate((player) => player.setAttribute('rail', ''))
+  await page.waitForTimeout(200)
+  boxes = await geometry(h)
+  check(
+    'wide overlay rail sits at inline start beside the slide',
+    boxes.rail.right <= boxes.stage.left && Math.abs(boxes.player.height - boxes.stage.height) < 1,
+    JSON.stringify(boxes),
+  )
+  check(
+    'wide overlay bar stays within the slide instead of the rail',
+    boxes.bar.left >= boxes.stage.left && boxes.bar.right <= boxes.stage.right && boxes.bar.bottom <= boxes.stage.bottom,
+    JSON.stringify(boxes),
+  )
+
   await page.setViewportSize({ width: 360, height: 720 })
   await page.goto(h.url('layout-overlay.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
@@ -134,6 +151,15 @@ export async function verifyPlayerLayout(h: Harness) {
   boxes = await geometry(h)
   check('overlay keeps the player and slide the same height at 360px', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
   await h.evidence('player-overlay-360x720.png')
+
+  await page.locator(PLAYER).evaluate((player) => player.setAttribute('rail', ''))
+  await page.waitForTimeout(200)
+  boxes = await geometry(h)
+  check(
+    'narrow overlay rail stacks below the slide',
+    boxes.rail.top >= boxes.stage.bottom && Math.abs(boxes.player.height - boxes.stage.height - boxes.rail.height) < 1,
+    JSON.stringify(boxes),
+  )
   await verifyRemoval(h)
 }
 
