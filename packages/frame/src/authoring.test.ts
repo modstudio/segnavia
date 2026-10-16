@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { AuthoringController } from './authoring.ts'
+import { DeckController } from './controller.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 
 class PlayerStub extends EventTarget {
@@ -60,4 +61,36 @@ describe('authoring detach', () => {
     await expect(controller.detach()).resolves.toBeUndefined()
     expect(errors).toEqual([{ operation: 'notes', slideId: 'a', message: 'Offline', error: expect.any(Error) }])
   })
+})
+
+test('a rejected reorder rolls back a frozen deck and reports the move error', async () => {
+  const deckController = new DeckController({ hash: null })
+  await deckController.load({
+    title: 'Deck',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'A' } },
+      { id: 'b', content: { kind: 'html', html: 'B' } },
+    ],
+  })
+  Object.freeze(deckController.state.deck)
+  const rail = {
+    setReorderEnabled() {},
+    subscribeReorder: () => () => {},
+  }
+  const player = Object.assign(new EventTarget(), {
+    controller: deckController,
+    authoringRail: () => rail,
+  })
+  const authoring = new AuthoringController(
+    player as never,
+    { moveSlide: async () => Promise.reject(new Error('Move refused')) },
+    { notesMaxLength: 20_000 },
+  )
+  const errors: Array<{ message: string }> = []
+  authoring.addEventListener('authoring-error', (event) => errors.push((event as CustomEvent).detail))
+
+  await (authoring as unknown as { move(fromIndex: number, toIndex: number): Promise<void> }).move(0, 1)
+
+  expect(deckController.state.deck?.slides.map((slide) => slide.id)).toEqual(['a', 'b'])
+  expect(errors).toEqual([{ message: 'Move refused', operation: 'move', slideId: 'a', error: expect.any(Error) }])
 })
