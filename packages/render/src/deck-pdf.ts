@@ -1,6 +1,6 @@
 import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
-import { fitImage } from '@segnavia/frame/image-fit'
+import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
@@ -52,21 +52,21 @@ async function placeRenderedImages(tab: Tab): Promise<void> {
       }
     }),
   )
-  const placements = facts.map((fact) => (fact.image.width > 0 && fact.image.height > 0 ? fitImage(fact.slide, fact.image, fact.fit as ImageFit) : null))
+  const styles = facts.map((fact) => {
+    if (fact.image.width <= 0 || fact.image.height <= 0) return null
+    return imageLayerStyles(fact.image, fitImage(fact.slide, fact.image, fact.fit as ImageFit))
+  })
   await layers.evaluateAll((elements, values) => {
     elements.forEach((element, index) => {
-      const placement = values[index]
-      if (!placement) return
+      const styles = values[index]
+      if (!styles) return
       const layer = element as HTMLElement
       const image = layer.querySelector('img') as HTMLImageElement | null
       if (!image) return
-      layer.style.width = `${image.naturalWidth}px`
-      layer.style.height = `${image.naturalHeight}px`
-      image.style.width = `${image.naturalWidth}px`
-      image.style.height = `${image.naturalHeight}px`
-      layer.style.transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
+      Object.assign(layer.style, styles.layer)
+      Object.assign(image.style, styles.image)
     })
-  }, placements)
+  }, styles)
 }
 
 async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sheets: number; exceeded: boolean }> {

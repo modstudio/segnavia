@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationFocusBox, fitImage } from './image-fit.ts'
+import { annotationFocusBox, fitImage, imageLayerStyles } from './image-fit.ts'
 
 const slide = { width: 1280, height: 720 }
 const tall = { width: 1280, height: 2400 }
@@ -31,6 +31,22 @@ describe('fitImage', () => {
 
   test('uses cover when focus has no annotations', () => {
     expect(fitImage(slide, tall, 'focus')).toEqual(fitImage(slide, tall, 'cover'))
+  })
+})
+
+describe('imageLayerStyles', () => {
+  test('projects natural dimensions and placement into layer and image styles', () => {
+    expect(imageLayerStyles(tall, { scale: 0.3, x: 448, y: 0 })).toEqual({
+      layer: {
+        width: '1280px',
+        height: '2400px',
+        transform: 'translate(448px,0px) scale(0.3)',
+      },
+      image: {
+        width: '1280px',
+        height: '2400px',
+      },
+    })
   })
 })
 

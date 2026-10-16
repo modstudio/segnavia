@@ -18,7 +18,7 @@ import {
   type Slide,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
-import { annotationFocusBox, fitImage, type ImagePlacement } from './image-fit.ts'
+import { annotationFocusBox, fitImage, type ImagePlacement, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
@@ -72,11 +72,9 @@ export function placePrintImages(target: Document | null): void {
     const slide = { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) }
     const size = { width: image.naturalWidth, height: image.naturalHeight }
     const placement = fitImage(slide, size, layer.dataset.fit as Deck['fit'])
-    layer.style.width = `${size.width}px`
-    layer.style.height = `${size.height}px`
-    image.style.width = `${size.width}px`
-    image.style.height = `${size.height}px`
-    layer.style.transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
+    const styles = imageLayerStyles(size, placement)
+    Object.assign(layer.style, styles.layer)
+    Object.assign(image.style, styles.image)
   })
 }
 

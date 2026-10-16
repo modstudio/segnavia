@@ -6,6 +6,24 @@ export interface ImagePlacement {
   y: number
 }
 
+export interface ImageLayerStyles {
+  layer: { width: string; height: string; transform: string }
+  image: { width: string; height: string }
+}
+
+export function imageLayerStyles(natural: Size, placement: ImagePlacement): ImageLayerStyles {
+  const width = `${natural.width}px`
+  const height = `${natural.height}px`
+  return {
+    layer: {
+      width,
+      height,
+      transform: `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`,
+    },
+    image: { width, height },
+  }
+}
+
 export function fitImage(slide: Size, image: Size, fit: ImageFit, focus?: Box): ImagePlacement {
   const contain = Math.min(slide.width / image.width, slide.height / image.height)
   const cover = Math.max(slide.width / image.width, slide.height / image.height)
