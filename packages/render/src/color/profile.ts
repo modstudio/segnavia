@@ -1,7 +1,7 @@
 import { fixed, need, signature, type TagBounds, u32 } from './binary.ts'
 import { destinationBlackPoint, detectSourceBlackPoint } from './black-point.ts'
-import { matrixTables, parseMab, parseMft, type TagRecord } from './tables.ts'
-import { type ColorTable, checked, type Profile, REVERSE_LUT, refuse } from './types.ts'
+import { grayTables, matrixTables, parseMab, parseMft, type TagRecord } from './tables.ts'
+import { type ChannelCount, type ColorTable, checked, type Profile, REVERSE_LUT, refuse } from './types.ts'
 
 // Every parsed table is backed by the profile bytes, so this ceiling also bounds table memory.
 export const MAX_PROFILE_BYTES = 32 * 1024 * 1024
@@ -19,7 +19,7 @@ function header(bytes: Uint8Array, view: DataView, bounds: TagBounds): Pick<Prof
   const profileClass = signature(bytes, 12, bounds)
   if (profileClass !== 'prtr' && profileClass !== 'mntr') refuse(`profile class ${JSON.stringify(profileClass)}`, 'prtr or mntr')
   const colorSpace = signature(bytes, 16, bounds)
-  if (colorSpace !== 'CMYK' && colorSpace !== 'RGB ') refuse(`color space ${JSON.stringify(colorSpace)}`, 'CMYK or RGB')
+  if (colorSpace !== 'CMYK' && colorSpace !== 'GRAY' && colorSpace !== 'RGB ') refuse(`color space ${JSON.stringify(colorSpace)}`, 'CMYK, GRAY, or RGB')
   const pcs = signature(bytes, 20, bounds)
   if (pcs !== 'Lab ' && pcs !== 'XYZ ') refuse(`PCS ${JSON.stringify(pcs)}`, 'Lab or XYZ')
   u32(view, 0, bounds)
@@ -44,15 +44,23 @@ function records(bytes: Uint8Array, view: DataView, bounds: TagBounds): Records 
   return result
 }
 
-function recordTable(bytes: Uint8Array, view: DataView, record: TagRecord, inputs: number, outputs: number): ColorTable {
+function recordTable(bytes: Uint8Array, view: DataView, record: TagRecord, inputs: ChannelCount, outputs: ChannelCount): ColorTable {
   if (record.type === 'mft1' || record.type === 'mft2') return parseMft(bytes, view, record, record.type, inputs, outputs)
   if (record.type === 'mAB ' || record.type === REVERSE_LUT) return parseMab(bytes, view, record, record.type, inputs, outputs)
   return refuse(`${record.name} tag type ${JSON.stringify(record.type)}`, `mft1, mft2, mAB , or ${REVERSE_LUT}`)
 }
 
-function table(bytes: Uint8Array, view: DataView, all: Records, names: string[], inputs: number, outputs: number): ColorTable {
+function table(bytes: Uint8Array, view: DataView, all: Records, names: string[], inputs: ChannelCount, outputs: ChannelCount): ColorTable {
   const name = names.find((candidate) => all[candidate])
   if (!name) refuse(`missing ${names.join('/')} tag`, names.join(' or '))
+  const record = all[name]
+  if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
+  return recordTable(bytes, view, record, inputs, outputs)
+}
+
+function optionalTable(bytes: Uint8Array, view: DataView, all: Records, names: string[], inputs: ChannelCount, outputs: ChannelCount): ColorTable | undefined {
+  const name = names.find((candidate) => all[candidate])
+  if (!name) return undefined
   const record = all[name]
   if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
   return recordTable(bytes, view, record, inputs, outputs)
@@ -65,12 +73,16 @@ export function readProfile(bytes: Uint8Array): Profile {
   const parsed = header(bytes, view, bounds),
     all = records(bytes, view, bounds)
   if (all.wtpt?.type !== 'XYZ ') refuse(`white point tag type ${JSON.stringify(all.wtpt?.type ?? 'missing')}`, 'XYZ ')
-  const channels = parsed.colorSpace === 'CMYK' ? 4 : 3
+  const channels = parsed.colorSpace === 'CMYK' ? 4 : parsed.colorSpace === 'GRAY' ? 1 : 3
   const matrix = parsed.colorSpace === 'RGB ' ? matrixTables(bytes, view, all) : undefined
-  const a2b = matrix?.a2b ?? table(bytes, view, all, ['A2B1', 'A2B0'], channels, 3)
-  const b2a = matrix?.b2a ?? table(bytes, view, all, ['B2A1', 'B2A0'], 3, channels)
-  const perceptualA2b = matrix?.a2b ?? table(bytes, view, all, ['A2B0', 'A2B1'], channels, 3)
-  const perceptualB2a = matrix?.b2a ?? table(bytes, view, all, ['B2A0', 'B2A1'], 3, channels)
+  const trcRecord = all.kTRC
+  const gray = parsed.colorSpace === 'GRAY' && trcRecord ? grayTables(bytes, view, trcRecord, parsed.pcs) : undefined
+  const select = (names: string[], inputs: ChannelCount, outputs: ChannelCount, fallback: ColorTable | undefined) =>
+    optionalTable(bytes, view, all, names, inputs, outputs) ?? fallback ?? table(bytes, view, all, names, inputs, outputs)
+  const a2b = matrix?.a2b ?? select(['A2B1', 'A2B0'], channels, 3, gray?.a2b)
+  const b2a = matrix?.b2a ?? select(['B2A1', 'B2A0'], 3, channels, gray?.b2a)
+  const perceptualA2b = matrix?.a2b ?? select(['A2B0', 'A2B1'], channels, 3, gray?.a2b)
+  const perceptualB2a = matrix?.b2a ?? select(['B2A0', 'B2A1'], 3, channels, gray?.b2a)
   const gamutRecord = all.gamt,
     gamut = gamutRecord ? recordTable(bytes, view, gamutRecord, 3, 1) : undefined
   const white = all.wtpt

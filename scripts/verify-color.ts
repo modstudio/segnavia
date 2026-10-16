@@ -1,27 +1,30 @@
 import type { Dirent, Stats } from 'node:fs'
-import { lstatSync, readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { buildProofTable, fastProof, fromPress, readProfile, toPress } from '../packages/render/src/color/index.ts'
-import { checked, color3, color4 } from '../packages/render/src/color/types.ts'
+import { buildProofTable, fastProof, fromGray, fromPress, proof, readProfile, toGray, toPress } from '../packages/render/src/color/index.ts'
+import { checked, color1, color3, color4 } from '../packages/render/src/color/types.ts'
 import * as reference from '../packages/render/test-fixtures/lcms/reference.ts'
 
-const roots = [
-  '/System/Library/ColorSync/Profiles',
-  '/Library/ColorSync/Profiles',
-  `${process.env.HOME}/Library/ColorSync/Profiles`,
-  '/Library/Application Support/Adobe/Color/Profiles',
-  '/Applications',
-]
+const roots = ['/System/Library/ColorSync/Profiles', '/Library/ColorSync/Profiles', `${process.env.HOME}/Library/ColorSync/Profiles`]
+
+const visitedDirectories = new Set<string>()
 
 function discover(candidate: string, explicit: boolean, found: Set<string>): void {
   let stat: Stats
   try {
-    stat = lstatSync(candidate)
+    stat = statSync(candidate)
   } catch {
     return
   }
-  if (stat.isSymbolicLink()) return
   if (stat.isDirectory()) {
+    let real: string
+    try {
+      real = realpathSync(candidate)
+    } catch {
+      return
+    }
+    if (visitedDirectories.has(real)) return
+    visitedDirectories.add(real)
     let entries: Dirent[]
     try {
       entries = readdirSync(candidate, { withFileTypes: true })
@@ -34,7 +37,10 @@ function discover(candidate: string, explicit: boolean, found: Set<string>): voi
   if (!explicit && !/\.(icc|icm)$/i.test(candidate)) return
   try {
     const bytes = readFileSync(candidate)
-    if (explicit || (bytes.toString('ascii', 12, 16) === 'prtr' && bytes.toString('ascii', 16, 20) === 'CMYK')) found.add(path.resolve(candidate))
+    const profileClass = bytes.toString('ascii', 12, 16),
+      colorSpace = bytes.toString('ascii', 16, 20)
+    if (explicit || ((profileClass === 'prtr' || profileClass === 'mntr') && (colorSpace === 'CMYK' || colorSpace === 'GRAY')))
+      found.add(path.resolve(candidate))
   } catch {}
 }
 
@@ -67,6 +73,7 @@ const passes = (value: Metrics) => value.maximum.every((maximum) => maximum <= 3
 const passesFast = (value: Metrics, oracle: Metrics) =>
   value.maximum.every((maximum, index) => maximum <= checked(oracle.maximum, index, 'oracle maximums') + 0.5) &&
   value.p99.every((p99, index) => p99 <= checked(oracle.p99, index, 'oracle percentiles') + 0.5)
+const describe = (value: Metrics) => `p99=${Math.max(...value.p99).toFixed(3)} max=${Math.max(...value.maximum).toFixed(3)}`
 
 const lcms = await reference.instantiate()
 const found = new Set<string>()
@@ -82,29 +89,34 @@ for (const pathname of [...found].sort()) {
       profile = readProfile(bytes)
     press = lcms.cmsOpenProfileFromMem(bytes, bytes.length)
     if (!press) throw new Error('LittleCMS refused to open the profile')
+    const gray = profile.colorSpace === 'GRAY'
     const flags = reference.cmsFLAGS_BLACKPOINTCOMPENSATION,
       exact = flags | reference.cmsFLAGS_NOOPTIMIZE | reference.cmsFLAGS_NOCACHE
-    const forward = lcms.cmsCreateTransform(srgb, reference.TYPE_RGB_DBL | 4, press, reference.TYPE_CMYK_DBL | 4, reference.INTENT_RELATIVE_COLORIMETRIC, exact)
-    const reverse = lcms.cmsCreateTransform(press, reference.TYPE_CMYK_DBL | 4, srgb, reference.TYPE_RGB_DBL | 4, reference.INTENT_RELATIVE_COLORIMETRIC, exact)
-    const forward8 = lcms.cmsCreateTransform(srgb, reference.TYPE_RGB_8, press, reference.TYPE_CMYK_8, reference.INTENT_RELATIVE_COLORIMETRIC, flags)
-    const reverse8 = lcms.cmsCreateTransform(press, reference.TYPE_CMYK_8, srgb, reference.TYPE_RGB_8, reference.INTENT_RELATIVE_COLORIMETRIC, flags)
+    const deviceDouble = gray ? reference.TYPE_GRAY_DBL : reference.TYPE_CMYK_DBL,
+      device8 = gray ? reference.TYPE_GRAY_8 : reference.TYPE_CMYK_8,
+      channels = gray ? 1 : 4
+    const forward = lcms.cmsCreateTransform(srgb, reference.TYPE_RGB_DBL | 4, press, deviceDouble | 4, reference.INTENT_RELATIVE_COLORIMETRIC, exact)
+    const reverse = lcms.cmsCreateTransform(press, deviceDouble | 4, srgb, reference.TYPE_RGB_DBL | 4, reference.INTENT_RELATIVE_COLORIMETRIC, exact)
+    const forward8 = lcms.cmsCreateTransform(srgb, reference.TYPE_RGB_8, press, device8, reference.INTENT_RELATIVE_COLORIMETRIC, flags)
+    const reverse8 = lcms.cmsCreateTransform(press, device8, srgb, reference.TYPE_RGB_8, reference.INTENT_RELATIVE_COLORIMETRIC, flags)
+    if (!forward || !reverse || !forward8 || !reverse8) throw new Error('LittleCMS refused to create a profile transform')
     transforms.push(forward, reverse, forward8, reverse8)
     const rgb = grid(3, 17),
-      cmyk = grid(4, 9)
+      device = grid(channels, gray ? 65 : 9)
     const oracleTo = lcms.cmsDoTransform(forward, Float32Array.from(rgb.flat()), rgb.length)
     const oracleFrom = lcms.cmsDoTransform(
       reverse,
-      Float32Array.from(cmyk.flat(), (value) => value * 100),
-      cmyk.length,
+      Float32Array.from(device.flat(), (value) => value * (gray ? 1 : 100)),
+      device.length,
     )
     const toResult = metrics(
-      rgb.map((value) => toPress(profile, color3(value, 'RGB grid point'))),
+      rgb.map((value) => (gray ? toGray(profile, color3(value, 'RGB grid point')) : toPress(profile, color3(value, 'RGB grid point')))),
       oracleTo,
-      4,
-      2.55,
+      channels,
+      gray ? 255 : 2.55,
     )
     const fromResult = metrics(
-      cmyk.map((value) => fromPress(profile, color4(value, 'CMYK grid point'))),
+      device.map((value) => (gray ? fromGray(profile, color1(value, 'gray grid point')) : fromPress(profile, color4(value, 'CMYK grid point')))),
       Float32Array.from(oracleFrom, (value) => Math.max(0, Math.min(1, value))),
       3,
       255,
@@ -120,6 +132,12 @@ for (const pathname of [...found].sort()) {
     )
     const exactCmyk = lcms.cmsDoTransform(forward, Float32Array.from(sample.flat()), sample.length)
     const exactProof = lcms.cmsDoTransform(reverse, exactCmyk, sample.length)
+    const proofResult = metrics(
+      sample.map((value) => proof(profile, color3(value, 'RGB sample'))),
+      exactProof,
+      3,
+      255,
+    )
     const bytesIn = Uint8Array.from(sample.flat(), (value) => Math.round(value * 255))
     const byteProof = lcms.cmsDoTransform(reverse8, lcms.cmsDoTransform(forward8, bytesIn, sample.length), sample.length)
     const oracleFast = metrics(
@@ -135,10 +153,10 @@ for (const pathname of [...found].sort()) {
       3,
       255,
     )
-    const results = { toPress: passes(toResult), fromPress: passes(fromResult), fastProof: passesFast(oursFast, oracleFast) }
+    const results = { output: passes(toResult), input: passes(fromResult), proof: !gray || passes(proofResult), fastProof: passesFast(oursFast, oracleFast) }
     if (!Object.values(results).every(Boolean)) failed = true
     console.log(
-      `${pathname} | v${profile.version} | A2B=${profile.a2b.encoding} B2A=${profile.b2a.encoding} gamut=${profile.gamut?.encoding ?? 'none'} | toPress=${results.toPress ? 'PASS' : 'FAIL'} fromPress=${results.fromPress ? 'PASS' : 'FAIL'} fastProof=${results.fastProof ? 'PASS' : 'FAIL'}`,
+      `${pathname} | ${profile.colorSpace.trim()} v${profile.version} | A2B=${profile.a2b.encoding} B2A=${profile.b2a.encoding} gamut=${profile.gamut?.encoding ?? 'none'} | output=${results.output ? 'PASS' : 'FAIL'} ${describe(toResult)} input=${results.input ? 'PASS' : 'FAIL'} ${describe(fromResult)}${gray ? ` proof=${results.proof ? 'PASS' : 'FAIL'} ${describe(proofResult)}` : ''} fastProof=${results.fastProof ? 'PASS' : 'FAIL'} ${describe(oursFast)}`,
     )
   } catch (error) {
     failed = true

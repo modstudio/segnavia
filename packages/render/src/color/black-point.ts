@@ -34,7 +34,7 @@ export function detectSourceBlackPoint(
   relativeA2b: ColorTable,
   perceptualB2a: ColorTable,
 ): Color3 {
-  if (colorSpace !== 'CMYK') return [0, 0, 0]
+  if (colorSpace !== 'CMYK' && colorSpace !== 'GRAY') return [0, 0, 0]
   const device = perceptualB2a.run(tableEncode(pcs, perceptualB2a.encoding, major, [0, 0, 0], false))
   const result = relativeA2b.run(device)
   const returned = tableDecode(pcs, relativeA2b.encoding, major, [
@@ -43,7 +43,8 @@ export function detectSourceBlackPoint(
     checked(result, 2, 'black-point A2B result'),
   ])
   const lab = pcs === 'Lab ' ? returned : xyzToLab(returned)
-  return [Math.min(50, lab[0]), 0, 0]
+  const black: Color3 = [Math.min(50, lab[0]), 0, 0]
+  return pcs === 'Lab ' ? black : labToXyz(black)
 }
 
 function quadraticRoot(x: number[], y: number[]): number {
@@ -82,12 +83,13 @@ export function destinationBlackPoint(
   relativeB2a: ColorTable,
   sourceBlack: Color3,
 ): Color3 {
-  if (colorSpace !== 'CMYK') return [...sourceBlack]
+  if (colorSpace !== 'CMYK' && colorSpace !== 'GRAY') return [...sourceBlack]
+  const sourceLab = pcs === 'Lab ' ? sourceBlack : xyzToLab(sourceBlack)
   const inputRamp: number[] = [],
     outputRamp: number[] = []
   for (let index = 0; index < 256; index++) {
     const lightness = (index * 100) / 255
-    const lab: Color3 = [lightness, Math.max(-50, Math.min(50, sourceBlack[1])), Math.max(-50, Math.min(50, sourceBlack[2]))]
+    const lab: Color3 = [lightness, Math.max(-50, Math.min(50, sourceLab[1])), Math.max(-50, Math.min(50, sourceLab[2]))]
     const value = pcs === 'Lab ' ? lab : labToXyz(lab)
     const device = relativeB2a.run(tableEncode(pcs, relativeB2a.encoding, major, value, false))
     const run = relativeA2b.run(device)
@@ -119,7 +121,8 @@ export function destinationBlackPoint(
       y.push(normalized)
     }
   }
-  return [x.length < 3 ? 0 : quadraticRoot(x, y), sourceBlack[1], sourceBlack[2]]
+  const result: Color3 = [x.length < 3 ? 0 : quadraticRoot(x, y), sourceLab[1], sourceLab[2]]
+  return pcs === 'Lab ' ? result : labToXyz(result)
 }
 
 export function compensateBlackPoint(profile: Profile, lab: Color3, reverse: boolean): Color3 {

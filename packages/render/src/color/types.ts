@@ -1,13 +1,15 @@
+export type Color1 = [number]
 export type Color3 = [number, number, number]
 export type Color4 = [number, number, number, number]
-export type Color = Color3 | Color4
+export type Color = Color1 | Color3 | Color4
+export type ChannelCount = 1 | 3 | 4
 export type Matrix3 = readonly [number, number, number, number, number, number, number, number, number]
 export type Curve = (value: number) => number
 export const REVERSE_LUT = 'mB' + 'A '
 
 export interface ColorTable {
-  inputChannels: number
-  outputChannels: number
+  inputChannels: ChannelCount
+  outputChannels: ChannelCount
   encoding: 'mft1' | 'mft2' | 'mAB ' | typeof REVERSE_LUT
   run(input: readonly number[]): number[]
 }
@@ -16,7 +18,7 @@ export interface Profile {
   version: string
   majorVersion: 2 | 4
   profileClass: 'prtr' | 'mntr'
-  colorSpace: 'CMYK' | 'RGB '
+  colorSpace: 'CMYK' | 'GRAY' | 'RGB '
   pcs: 'Lab ' | 'XYZ '
   whitePoint: Color3
   tags: Readonly<Record<string, string>>
@@ -47,6 +49,10 @@ export function checked<T>(values: ArrayLike<T>, index: number, structure: strin
 
 export function color3(values: ArrayLike<number>, structure: string): [number, number, number] {
   return [checked(values, 0, structure), checked(values, 1, structure), checked(values, 2, structure)]
+}
+
+export function color1(values: ArrayLike<number>, structure: string): [number] {
+  return [checked(values, 0, structure)]
 }
 
 export function color4(values: ArrayLike<number>, structure: string): [number, number, number, number] {

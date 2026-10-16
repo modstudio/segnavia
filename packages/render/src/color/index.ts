@@ -1,5 +1,5 @@
-export { fromPress, proof, toPress } from './engine.ts'
+export { fromGray, fromPress, proof, toGray, toPress } from './engine.ts'
 export { deltaE2000, outOfGamut } from './gamut.ts'
 export { readProfile } from './profile.ts'
 export { buildProofTable, fastProof, proofPixels } from './proof.ts'
-export type { Color, Color3, Color4, Profile, ProofTable } from './types.ts'
+export type { ChannelCount, Color, Color1, Color3, Color4, Profile, ProofTable } from './types.ts'

@@ -13,8 +13,10 @@ interface LittleCmsModule {
 
 export const TYPE_RGB_DBL = 4_456_472
 export const TYPE_CMYK_DBL = 4_587_552
+export const TYPE_GRAY_DBL = 4_390_920
 export const TYPE_RGB_8 = 262_169
 export const TYPE_CMYK_8 = 393_249
+export const TYPE_GRAY_8 = 196_617
 export const INTENT_RELATIVE_COLORIMETRIC = 1
 export const cmsFLAGS_NOCACHE = 0x0040
 export const cmsFLAGS_NOOPTIMIZE = 0x0100

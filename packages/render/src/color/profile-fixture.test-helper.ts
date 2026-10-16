@@ -1,6 +1,7 @@
 import { type Color3, type Color4, checked, color3, color4 } from './types.ts'
 
 type Encoding = 'mft1' | 'mft2'
+export type GrayEncoding = Encoding | 'mBA ' | 'trc-gamma' | 'trc-sampled' | 'trc-para'
 
 const align4 = (value: number) => (value + 3) & ~3
 const signature = (bytes: Uint8Array, offset: number, value: string) => bytes.set(new TextEncoder().encode(value), offset)
@@ -77,7 +78,7 @@ function lut(encoding: Encoding, inputs: number, outputs: number, points: number
   return bytes
 }
 
-function profile(tags: Array<[string, Uint8Array]>): Uint8Array {
+function profile(tags: Array<[string, Uint8Array]>, colorSpace = 'CMYK', pcs = 'Lab ', major: 2 | 4 = 2): Uint8Array {
   const tableEnd = 132 + tags.length * 12
   let cursor = align4(tableEnd)
   const offsets = tags.map(([, data]) => {
@@ -88,11 +89,11 @@ function profile(tags: Array<[string, Uint8Array]>): Uint8Array {
   const bytes = new Uint8Array(cursor),
     view = new DataView(bytes.buffer)
   view.setUint32(0, bytes.length, false)
-  bytes[8] = 2
+  bytes[8] = major
   bytes[9] = 0x20
   signature(bytes, 12, 'prtr')
-  signature(bytes, 16, 'CMYK')
-  signature(bytes, 20, 'Lab ')
+  signature(bytes, 16, colorSpace)
+  signature(bytes, 20, pcs)
   signature(bytes, 36, 'acsp')
   signature(bytes, 40, 'APPL')
   view.setUint32(64, 1, false)
@@ -109,6 +110,59 @@ function profile(tags: Array<[string, Uint8Array]>): Uint8Array {
     bytes.set(data, checked(offsets, index, 'profile tag offsets'))
   })
   return bytes
+}
+
+function curveTag(kind: 'gamma' | 'sampled' | 'para', floor = 0): Uint8Array {
+  if (kind === 'para') {
+    const bytes = new Uint8Array(16),
+      view = new DataView(bytes.buffer)
+    signature(bytes, 0, 'para')
+    view.setUint16(8, 0, false)
+    fixed(view, 12, 2.2)
+    return bytes
+  }
+  const count = kind === 'gamma' ? 1 : 33
+  const bytes = new Uint8Array(12 + count * 2),
+    view = new DataView(bytes.buffer)
+  signature(bytes, 0, 'curv')
+  view.setUint32(8, count, false)
+  if (kind === 'gamma') view.setUint16(12, Math.round(2.2 * 256), false)
+  else
+    for (let index = 0; index < count; index++) view.setUint16(12 + index * 2, Math.round((floor + (1 - floor) * (index / (count - 1)) ** 2.2) * 65_535), false)
+  return bytes
+}
+
+const grayFromPcs = (encoded: number[], pcs: 'Lab ' | 'XYZ ') => {
+  // LittleCMS gives monochrome Lab profiles normalized L*, while XYZ profiles use Y.
+  const luminance = pcs === 'XYZ ' ? checked(encoded, 1, 'fixture XYZ input') * (65_535 / 32_768) : checked(encoded, 0, 'fixture Lab input')
+  return Math.max(0, Math.min(1, luminance)) ** (1 / 2.2)
+}
+
+function mbaGray(pcs: 'Lab ' | 'XYZ '): Uint8Array {
+  const points = 65,
+    bytes = new Uint8Array(32 + 20 + points ** 3),
+    view = new DataView(bytes.buffer)
+  signature(bytes, 0, 'mBA ')
+  bytes[8] = 3
+  bytes[9] = 1
+  view.setUint32(24, 32, false)
+  bytes.fill(points, 32, 35)
+  bytes[48] = 1
+  let cursor = 52
+  for (let first = 0; first < points; first++)
+    for (let second = 0; second < points; second++)
+      for (let third = 0; third < points; third++)
+        bytes[cursor++] = Math.round(grayFromPcs([first / (points - 1), second / (points - 1), third / (points - 1)], pcs) * 255)
+  return bytes
+}
+
+export function buildGrayProfile(encoding: GrayEncoding, pcs: 'Lab ' | 'XYZ ' = 'XYZ ', floor = 0): Uint8Array {
+  const curveKind = encoding === 'trc-sampled' ? 'sampled' : encoding === 'trc-para' ? 'para' : 'gamma'
+  const tags: Array<[string, Uint8Array]> = [['kTRC', curveTag(curveKind, floor)]]
+  if (encoding === 'mft1' || encoding === 'mft2') tags.push(['B2A1', lut(encoding, 3, 1, 65, (input) => [grayFromPcs(input, pcs)])])
+  if (encoding === 'mBA ') tags.push(['B2A1', mbaGray(pcs)])
+  tags.push(['wtpt', xyzTag()])
+  return profile(tags, 'GRAY', pcs, 4)
 }
 
 function pressTags(
