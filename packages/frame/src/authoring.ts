@@ -1,6 +1,6 @@
 import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
-import { deckPreservesNotes, isInternalDeck, markInternalDeckInput, preserveNotesForLoad } from './deck-load-origin.ts'
+import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
 import { activeNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
@@ -253,8 +253,7 @@ export class AuthoringController extends EventTarget {
   }
 
   private loadInternalDeck = async (deck: Deck) => {
-    markInternalDeckInput(deck)
-    await this.player.controller.load(deck)
+    await this.player.controller[internalDeckLoad](deck)
   }
 }
 

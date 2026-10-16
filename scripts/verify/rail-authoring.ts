@@ -71,6 +71,20 @@ async function verifyReloadedNotes(h: Harness) {
     return { dirty: holder.authoring.dirty, events: holder.authoringFacts.dirty.length - before }
   })
   check('a clean reload adopts host notes without becoming dirty', (await notes.inputValue()) === 'Host clean' && !clean.dirty && clean.events === 0)
+  const forgedHostNotes = await page.evaluate(async () => {
+    const player = document.querySelector('segnavia-player') as HTMLElement & {
+      controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
+    }
+    const deck = player.controller.state.deck
+    const forged = Object.defineProperty(
+      { ...deck, slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host notes with old symbol' })) },
+      Symbol.for('@segnavia/frame/internal-deck-input'),
+      { value: true },
+    )
+    await player.controller.load(forged)
+    return (player.shadowRoot?.querySelector('textarea') as HTMLTextAreaElement | null)?.value
+  })
+  check('a host deck carrying the old provenance symbol still adopts its notes', forgedHostNotes === 'Host notes with old symbol', forgedHostNotes)
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = true))
   await notes.fill('Local reload draft')
   await page.evaluate(() => {
