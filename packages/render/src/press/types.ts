@@ -7,7 +7,7 @@ export interface PressImage {
 export type PressDestination = 'cmyk' | 'gray'
 
 export interface PressReport {
-  /** Device colour space written for press-ready vector and generated-image output. */
+  /** Device color space written for press-ready vector and generated-image output. */
   destination: PressDestination
   /** Authored raster images left in RGB, read back from the finished PDF. */
   images: PressImage[]

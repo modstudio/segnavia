@@ -1,0 +1,10 @@
+# Names from the PDF and ICC specifications, spelled as the specifications spell them.
+[default.extend-words]
+# FlateDecode, the PDF compression filter.
+flate = "flate"
+# DecodeParms, the PDF filter-parameters key.
+parms = "parms"
+# The Paeth predictor of the PNG filters PDF images use.
+paeth = "paeth"
+# The ICC mBA tag type, read as "m" and "BA".
+ba = "ba"
