@@ -1,5 +1,11 @@
 # @segnavia/html
 
+## 0.6.0
+
+### Patch Changes
+
+- @segnavia/format@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
