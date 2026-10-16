@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { type Harness, SITE } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -276,25 +276,31 @@ export async function verifyRailAuthoring(h: Harness) {
     authoringUpdate.text === 'React draft' && authoringUpdate.maxLength === 1234 && authoringUpdate.saves.join(',') === 'React draft',
     JSON.stringify(authoringUpdate),
   )
-  const replacement = await page.evaluate(async () => {
+  const oldPlayer = await page.locator(PLAYER).elementHandle()
+  await page.evaluate(() => {
     const holder = window as unknown as { reactReplace(): void; reactDeckController?: unknown }
-    const oldPlayer = document.querySelector('segnavia-player')
     holder.reactReplace()
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
-    const newPlayer = document.querySelector('segnavia-player')
-    return {
-      replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
-      oldDetached: oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null,
-      newAttached: Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')),
-      controllerFollowed: holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller,
-    }
   })
-  check(
-    'React keyed replacement follows the new player',
-    replacement.replaced && replacement.oldDetached && replacement.newAttached && replacement.controllerFollowed,
-    JSON.stringify(replacement),
-  )
+  // React publishes the new controller from an effect a render after the swap, so the facts are polled to a bound rather than read after a fixed number of frames.
+  const replacementFacts = () =>
+    page.evaluate((oldPlayer) => {
+      const holder = window as unknown as { reactDeckController?: unknown }
+      const newPlayer = document.querySelector('segnavia-player')
+      return {
+        replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
+        oldDetached: oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null,
+        newAttached: Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')),
+        controllerFollowed: holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller,
+      }
+    }, oldPlayer)
+  const followed = (facts: Awaited<ReturnType<typeof replacementFacts>>) => facts.replaced && facts.oldDetached && facts.newAttached && facts.controllerFollowed
+  const deadline = Date.now() + BOUNDED_WAIT_MS
+  let replacement = await replacementFacts()
+  while (!followed(replacement) && Date.now() < deadline) {
+    await page.waitForTimeout(50)
+    replacement = await replacementFacts()
+  }
+  check('React keyed replacement follows the new player', followed(replacement), JSON.stringify(replacement))
   const detached = await page.evaluate(() => {
     const holder = window as unknown as { reactPlayer: HTMLElement; reactUnmount(): void }
     const player = holder.reactPlayer
