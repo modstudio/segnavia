@@ -1,4 +1,4 @@
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -25,6 +25,16 @@ async function geometry(h: Harness): Promise<Geometry> {
       bar: { ...barBox, opacity: getComputedStyle(bar).opacity },
     }
   })
+}
+
+async function waitForBarOpacity(h: Harness, expected: '0' | '1'): Promise<Geometry> {
+  const deadline = Date.now() + BOUNDED_WAIT_MS
+  let boxes = await geometry(h)
+  while (boxes.bar.opacity !== expected && Date.now() < deadline) {
+    await h.page.waitForTimeout(Math.max(0, Math.min(50, deadline - Date.now())))
+    boxes = await geometry(h)
+  }
+  return boxes
 }
 
 export async function verifyPlayerLayout(h: Harness) {
@@ -131,16 +141,14 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
   await h.waitFor(PLAYER, (data) => data.playing === 'true')
   await page.waitForTimeout(3200)
-  boxes = await geometry(h)
+  boxes = await waitForBarOpacity(h, '0')
   check('overlay controls hide three seconds into playback', boxes.bar.opacity === '0', JSON.stringify(boxes))
   await page.mouse.move(400, 300)
-  await page.waitForTimeout(200)
-  boxes = await geometry(h)
+  boxes = await waitForBarOpacity(h, '1')
   check('pointer movement reveals overlay controls', boxes.bar.opacity === '1', JSON.stringify(boxes))
   await page.waitForTimeout(3200)
   await page.keyboard.press('Tab')
-  await page.waitForTimeout(200)
-  boxes = await geometry(h)
+  boxes = await waitForBarOpacity(h, '1')
   check('Tab focus reveals overlay controls', boxes.bar.opacity === '1', JSON.stringify(boxes))
 
   await page.locator(PLAYER).evaluate((player) => player.setAttribute('rail', ''))
