@@ -17,7 +17,7 @@
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));opacity:0;pointer-events:none}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:.5;pointer-events:auto;z-index:1}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){z-index:2}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration);transition-timing-function:ease;transition-property:opacity,translate}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="fade"][data-entering]){opacity:0}
