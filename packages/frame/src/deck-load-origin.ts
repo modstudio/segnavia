@@ -1,7 +1,7 @@
 import { Deck } from '@segnavia/format'
 
 const registryKey = Symbol.for('@segnavia/frame/deck-load-origin-registry')
-export const internalDeckLoad = Symbol('internal-deck-load')
+export const internalDeckLoad = Symbol.for('@segnavia/frame/internal-deck-load-method')
 
 interface DeckLoadOriginRegistry {
   internalDecks: WeakSet<Deck>
