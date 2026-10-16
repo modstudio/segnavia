@@ -64,7 +64,7 @@ library names a host.
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card; marks and folds are not built. |
-| press profile | render options | The ICC profile of the press, as bytes, and a report callback for authored RGB images left unchanged and conversion counts read back from the output. |
+| press profile | render options | The ICC profile of the press, as bytes, and a report callback for residual authored RGB images and conversion counts read back from the output. |
 | `convert`, proof image, gamut report (designed, not built) | render options | A future hook may supply a full converter for the finished PDF, with a proof and out-of-gamut colors for a host to show. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
@@ -316,7 +316,7 @@ color or luminosity layer, keeps the mask as written.
 the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
 and a count of masks kept as written. The effects rewrite
 runs before the press rewrite, which converts generated Rule 1 images and Rule
-C's RGB samples to CMYK without reporting them as authored RGB images.
+C's RGB samples to the destination space without reporting them as authored RGB images.
 
 Rule 2, for vector mask groups, is unbuilt because the corrected reader
 measurements do not show a defect that needs it. Rule 3 is left out because
@@ -336,9 +336,12 @@ through the profile. A black or near-neutral gray becomes black ink alone, so te
 prints sharp. `press.neutralTolerance` sets the largest channel difference treated
 as neutral in 8-bit units from 0 to 255 and defaults to 3; 0 keeps the exact-neutral
 rule, and every tolerance also snaps what that rule snaps. The black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
-group stays gray and a mask source keeps its declared space. Raster images,
-including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
-as the author supplied them and are the only RGB the result may retain.
+group stays gray and a mask source keeps its declared space. Under a CMYK
+destination, raster images, including images drawn by Type 3 glyphs such as
+color emoji, stay byte-for-byte as the author supplied them and are the only
+RGB the result may retain. Under a greyscale destination, supported supplied
+images are rewritten as DeviceGray through the profile; images inside mask
+sources instead use PDF luminosity so opacity does not receive dot gain.
 `press.report` receives their pixel dimensions and color-space kinds, plus
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF, and the number of conversions snapped to black by the configured
