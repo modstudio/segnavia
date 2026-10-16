@@ -1,4 +1,4 @@
-import type { SegnaviaStage } from '@segnavia/frame'
+import type { SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -27,6 +27,7 @@ import type {
   RailProps,
   StageProps,
   StepProps,
+  ThumbnailProps,
   TimeProps,
   TrackProps,
 } from './props.ts'
@@ -61,6 +62,9 @@ export const ELEMENTS = {
   stage: element<SegnaviaStage, StageProps>(HEADLESS_ELEMENTS.stage, ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'], {
     onSegnaviaController: 'segnavia-controller',
     onSegnaviaFit: 'segnavia-fit',
+  }),
+  thumbnail: element<SegnaviaThumbnail, ThumbnailProps>(HEADLESS_ELEMENTS.thumbnail, ['deck', 'index', 'resolveSlide', 'base', 'mountMargin'], {
+    onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
   }),
   play: element<SegnaviaPlay, PlayProps>(STYLED_ELEMENTS.play, controlProperties, {}),
   step: element<SegnaviaStep, StepProps>(STYLED_ELEMENTS.step, controlProperties, {}),

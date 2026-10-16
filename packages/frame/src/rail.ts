@@ -1,8 +1,7 @@
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
-import { defaultFrameTitle } from './frame-title.ts'
 import { railMoveTarget, railSelection } from './rail-navigation.ts'
-import { stageCanvas } from './stage-content.ts'
+import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
@@ -15,7 +14,7 @@ button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-of
 button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
 button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
 .number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
-.segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-shot-backdrop,transparent);pointer-events:none}
+.segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));pointer-events:none}
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 [data-annotation]{opacity:1}
@@ -172,8 +171,7 @@ export class SegnaviaRail extends SegnaviaControl {
       .contentFor(index)
       .then((content) => {
         if (!preview.isConnected || controller.state.deck?.slides[index]?.id !== slide.id) return
-        const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, '', '', defaultFrameTitle, () => {})
-        canvas.querySelector('iframe')?.setAttribute('sandbox', '')
+        const canvas = thumbnailCanvas(controller, deck, slide, index, content)
         preview.append(canvas)
         this.measure()
       })
@@ -185,7 +183,7 @@ export class SegnaviaRail extends SegnaviaControl {
     if (!deck) return
     for (const preview of this.root.querySelectorAll<HTMLElement>('.preview')) {
       const canvas = preview.firstElementChild as HTMLElement | null
-      if (canvas) canvas.style.transform = `scale(${preview.clientWidth / deck.size.width})`
+      if (canvas) canvas.style.transform = `scale(${thumbnailScale(preview.clientWidth, deck.size.width)})`
     }
   }
 

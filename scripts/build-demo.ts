@@ -20,6 +20,7 @@ import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
+import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 
@@ -138,7 +139,6 @@ const deck = Deck.parse({
   ],
 })
 
-// The same walkthrough in Hebrew, right to left, captured from the Hebrew app.
 const heList = publish('he.classes.list')
 const heForm = publish('he.classes.create.form')
 const heSummary = fill(
@@ -313,6 +313,7 @@ writeFileSync(
 )
 // Completely headless: no styles from the library at all, not even geometry.
 writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare" src="deck.json" hash="off" unstyled></segnavia-stage>', 'segnavia.js'))
+buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
 buildBookDemo(SITE)

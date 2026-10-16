@@ -17,10 +17,10 @@ test('a referenced shot carries its fit onto resolved content', async () => {
   try {
     const controller = new DeckController({ hash: null })
     await controller.load(
-      { title: 'T', fit: 'cover', slides: [{ id: 'a', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus' } }] },
+      { title: 'T', fit: 'cover', frame: true, slides: [{ id: 'a', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus', frame: false } }] },
       'https://example.com/deck.json',
     )
-    expect(controller.state.content).toMatchObject({ kind: 'shot', fit: 'focus' })
+    expect(controller.state.content).toMatchObject({ kind: 'shot', fit: 'focus', frame: false })
   } finally {
     globalThis.fetch = realFetch
   }
