@@ -17,6 +17,7 @@ something else.
 | **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |
 | **Imposition fit** | How a fixed page is shown in a cell of another shape: `contain` shows all of it, `cover` fills the cell and crops. |
+| **Counter-scale** | The PDF print scale that cancels Chromium's automatic shrink when content overflows sideways, capped at Chromium's measured maximum shrink of 1.5. |
 | **Stage fit** | Which space a stage fits its slide into: `box` uses the stage's own box, while `viewport` uses the available window after reserved room. |
 | **Press profile** | The CMYK or greyscale ICC profile of the press a piece is printed on. The host supplies it. A PDF render writes the matching CMYK or DeviceGray destination and embeds the profile as its output intent. Supplied images stay in RGB for CMYK and are converted through a greyscale profile for DeviceGray. |
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |

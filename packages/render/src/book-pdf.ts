@@ -4,22 +4,28 @@ import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { type MarginPage, marginDocument } from './book-margins.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './options.ts'
+import type { OverflowEntry, OverflowPart, RenderOptions } from './options.ts'
+
+export interface BookPrintOutput {
+  bytes: Uint8Array
+  overflow: OverflowEntry
+}
 
 export interface BookPdfAdapter {
-  print(html: string, book: Book, options: RenderOptions, marginLayer?: boolean): Promise<Uint8Array>
+  print(html: string, book: Book, options: RenderOptions, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>): Promise<BookPrintOutput>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
 interface PrintedPart {
   bytes?: Uint8Array
+  overflow?: OverflowEntry
   pages: number
   destinations: Map<string, BookDestination>
 }
 
-async function inspect(bytes: Uint8Array): Promise<PrintedPart> {
-  const document = await PDFDocument.load(bytes)
-  return { bytes, pages: document.getPageCount(), destinations: namedDestinations(document) }
+async function inspect(output: BookPrintOutput): Promise<PrintedPart> {
+  const document = await PDFDocument.load(output.bytes)
+  return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }
 }
 
 function hashTargets(document: BookDocument): string[] {
@@ -149,12 +155,12 @@ function finalNumbers(book: Book, headings: BookHeading[], front: PrintedPart, b
 async function printBody(book: Book, options: RenderOptions, adapter: BookPdfAdapter) {
   const firstDocument = bookDocument(book, { part: 'body', targets: true })
   if (firstDocument.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${firstDocument.issues.join('; ')}.`)
-  let part = await inspect(await adapter.print(firstDocument.html, book, options))
+  let part = await inspect(await adapter.print(firstDocument.html, book, options, 'body'))
   requireTargets(part, hashTargets(firstDocument))
   const plan = book.rectoOpenings ? planBlanks(firstDocument.sections, part.destinations) : { ids: [], predicted: new Map<string, number>() }
   if (book.rectoOpenings) {
     const finalDocument = bookDocument(book, { part: 'body', targets: true, blankBefore: plan.ids })
-    part = await inspect(await adapter.print(finalDocument.html, book, options))
+    part = await inspect(await adapter.print(finalDocument.html, book, options, 'body'))
     requireTargets(part, hashTargets(finalDocument))
     verifyStarts('body', sectionsFor(firstDocument.sections, 'body'), plan.predicted, part.destinations)
   }
@@ -170,7 +176,7 @@ async function printFront(book: Book, source: BookDocument, body: PrintedPart, o
   let final: PrintedPart | undefined
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const document = bookDocument(book, { part: 'front', targets: true, crossLinks: true, pageNumbers: numbers })
-    const printed = await inspect(await adapter.print(document.html, book, options))
+    const printed = await inspect(await adapter.print(document.html, book, options, 'front'))
     if (ids.length === 0) ids.push(...hashTargets(document))
     requireTargets(printed, ids)
     prints.push(printed)
@@ -231,8 +237,12 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
       book.numbering.body,
     ),
   ]
-  const marginBytes = await adapter.print(marginDocument(book, marginPages), book, options, true)
-  return adapter.finish(await join(front, printedBody.part, marginBytes), options)
+  const margin = await adapter.print(marginDocument(book, marginPages), book, options, 'margin')
+  const output = await adapter.finish(await join(front, printedBody.part, margin.bytes), options)
+  options.overflow?.report?.({
+    entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
+  })
+  return output
 }
 
 export function bookPageCss(book: Book, marginLayer = false): string {

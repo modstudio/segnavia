@@ -99,7 +99,7 @@ try {
   const big = await refusal(renderer.pagePdf({ html: `<p>${'words '.repeat(4000)}</p>` }, { limits: { maxBytes: 2000 } }))
   check('a PDF over the byte ceiling is refused, naming both sizes', /^refused: The PDF is \d+ bytes; the limit is 2000\.$/.test(big), big)
 
-  await verifyPageOverflow(renderer, work, check)
+  await verifyPageOverflow(renderer, work, check, CHROMIUM)
 
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`

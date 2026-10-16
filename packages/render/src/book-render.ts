@@ -2,9 +2,9 @@ import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from 
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import type { Page as Tab } from 'playwright-core'
 import { marginCss } from './book-margins.ts'
-import { bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { type BookPrintOutput, bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './options.ts'
+import type { OverflowPart, RenderOptions } from './options.ts'
 
 interface TabSetup {
   viewport: { width: number; height: number }
@@ -16,16 +16,17 @@ interface TabSetup {
 }
 
 export interface BrowserBookDependencies {
-  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0]): Promise<Uint8Array>
+  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>): Promise<BookPrintOutput>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
 export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   return renderBookPdf(input, options, {
-    print: (html: string, book: Book, renderOptions: RenderOptions, marginLayer = false) => {
+    print: (html: string, book: Book, renderOptions: RenderOptions, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>) => {
       if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
       const size = sheetMm(book.page)
+      const marginLayer = part === 'margin'
       const css = `${bookPageCss(book, marginLayer)}${marginLayer ? marginCss(book) : ''}${dependencies.fontFaces(renderOptions)}${renderOptions.css ?? ''}`
       return dependencies.render(
         {
@@ -51,6 +52,8 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         },
+        Math.round(size.width * PX_PER_MM),
+        part,
       )
     },
     finish: dependencies.finish,

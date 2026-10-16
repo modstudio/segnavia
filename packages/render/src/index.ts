@@ -11,7 +11,8 @@ import { browserJpegDecoder } from './browser-jpeg.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
-import type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
+import type { Font, ImageOptions, OverflowEntry, RenderLimits, RenderOptions } from './options.ts'
+import { printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -22,7 +23,7 @@ import type { JpegDecoder } from './press/image.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
-export type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
+export type { Font, ImageOptions, OverflowContribution, OverflowEntry, OverflowPart, OverflowReport, RenderLimits, RenderOptions } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 
 export const RENDER_BOUND_MS = 60_000
@@ -244,10 +245,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const image = captureImage
 
-  async function renderPagePdf(page: Page, opts: RenderOptions): Promise<Uint8Array> {
+  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number): Promise<{ bytes: Uint8Array; overflow?: OverflowEntry }> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page, undefined, true)
-    const pdf = await withTab(
+    return withTab(
       {
         viewport,
         scripts: page.scripts === 'sandboxed',
@@ -257,13 +258,21 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         beforeOutput: opts.beforeOutput,
       },
       async (tab) => {
-        if (page.print) return printPage(tab, page.print, opts.preferCssPageSize)
+        if (page.print) return printPage(tab, page.print, opts.preferCssPageSize, inputIndex)
         const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
         const height = fixedHeight ?? (await contentHeight(tab))
-        return tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: fixedHeight ? undefined : '1' })
+        if (fixedHeight !== null) {
+          return { bytes: await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), overflow: undefined }
+        }
+        return printWithOverflow(
+          tab,
+          viewport.width,
+          'page',
+          { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
+          inputIndex,
+        )
       },
     )
-    return pdf
   }
 
   async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions): Promise<Uint8Array> {
@@ -300,14 +309,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const renderer: Renderer = {
     bookPdf(input, opts = {}) {
       return renderBrowserBookPdf(input, opts, {
-        render: (setup, pdf) => withTab(setup, (tab) => tab.pdf(pdf)),
+        render: (setup, pdf, pageWidth, part) => withTab(setup, (tab) => printWithOverflow(tab, pageWidth, part, pdf)),
         fontFaces: (options) => fontFaces(options.fonts),
         finish: finishWithBrowser,
       })
     },
 
     async pagePdf(input, opts = {}) {
-      return finishWithBrowser(await renderPagePdf(Page.parse(input), opts), opts)
+      const printed = await renderPagePdf(Page.parse(input), opts)
+      const output = await finishWithBrowser(printed.bytes, opts)
+      if (printed.overflow) opts.overflow?.report?.({ entries: [printed.overflow] })
+      return output
     },
 
     async pageImage(input, opts = {}) {
@@ -333,7 +345,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     pagesPdf(inputs, opts = {}) {
       return renderPagesPdf(inputs, opts, {
-        pagePdf: renderPagePdf,
+        pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex),
         piecePdf: renderPiecePdf,
         fontFaces: (options) => fontFaces(options.fonts),
         finish: finishWithBrowser,

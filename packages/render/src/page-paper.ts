@@ -2,6 +2,8 @@ import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheet
 import { PDFDocument, PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
+import type { OverflowEntry } from './options.ts'
+import { printWithOverflow } from './overflow.ts'
 import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
@@ -60,17 +62,29 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   return document.save()
 }
 
-export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined): Promise<Uint8Array> {
+export async function printPage(
+  tab: Tab,
+  print: Print,
+  preferCssPageSize: boolean | undefined,
+  inputIndex?: number,
+): Promise<{ bytes: Uint8Array; overflow?: OverflowEntry }> {
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin
-    return tab.pdf({
-      width: `${mm.width}mm`,
-      height: `${mm.height}mm`,
-      printBackground: true,
-      preferCSSPageSize: preferCssPageSize ?? false,
-      margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
-    })
+    const pageWidth = Math.round(mm.width * PX_PER_MM)
+    return printWithOverflow(
+      tab,
+      pageWidth,
+      'page',
+      {
+        width: `${mm.width}mm`,
+        height: `${mm.height}mm`,
+        printBackground: true,
+        preferCSSPageSize: preferCssPageSize ?? false,
+        margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
+      },
+      inputIndex,
+    )
   }
 
   const boxes = printBoxes(print)
@@ -87,5 +101,5 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
     )
   }
-  return addPressBoxes(pdf, print)
+  return { bytes: await addPressBoxes(pdf, print), overflow: undefined }
 }

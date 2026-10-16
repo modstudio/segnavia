@@ -2,13 +2,14 @@ import { Imposition, type ImpositionInput, impose, Page, type PageInput, printPa
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import type { OverflowEntry } from './options.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: Page, options: RenderOptions): Promise<Uint8Array>
+  pagePdf(page: Page, options: RenderOptions, inputIndex: number): Promise<{ bytes: Uint8Array; overflow?: OverflowEntry }>
   piecePdf(page: Page, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
@@ -66,8 +67,14 @@ export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions,
   if (inputs.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   const pages = inputs.map((input) => Page.parse(input))
   if (!opts.imposition) {
-    const rendered = await Promise.all(pages.map((page) => services.pagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined })))
-    return services.finish(await joinPdfs(rendered), opts)
+    const rendered = await Promise.all(
+      pages.map((page, inputIndex) =>
+        services.pagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined, overflow: undefined }, inputIndex),
+      ),
+    )
+    const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
+    opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
+    return output
   }
   const imposition = Imposition.parse(opts.imposition)
   if (opts.preferCssPageSize) {
