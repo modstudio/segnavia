@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { buildProofTable, fromPress, type Profile, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { DEFAULT_NEUTRAL_TOLERANCE, pressColor, snapsToNeutral } from '../../packages/render/src/press/color-policy.ts'
 import {
   ALIGNMENT_SEARCH_RADIUS,
   ALIGNMENT_TOLERANCE,
@@ -81,8 +82,22 @@ export function glyphLineBoxes(file: string, width: number, height: number): Gly
 
 export const proofTable = (profileBytes: Uint8Array): ProofTable => buildProofTable(readProfile(profileBytes))
 
-export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable): void {
-  const proved = proofPixels(table, rgb(reference, width, height))
+export function proofPressPixels(profile: Profile, table: ProofTable, source: Uint8Array): Uint8ClampedArray {
+  const proved = proofPixels(table, source)
+  for (let offset = 0; offset < source.length; offset += 3) {
+    const rgb: [number, number, number] = [(source[offset] ?? 0) / 255, (source[offset + 1] ?? 0) / 255, (source[offset + 2] ?? 0) / 255]
+    if (!snapsToNeutral(rgb, DEFAULT_NEUTRAL_TOLERANCE)) continue
+    const proof = fromPress(profile, pressColor(profile, rgb))
+    proved[offset] = proof[0] * 255
+    proved[offset + 1] = proof[1] * 255
+    proved[offset + 2] = proof[2] * 255
+  }
+  return proved
+}
+
+export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable, profile?: Profile): void {
+  const source = rgb(reference, width, height)
+  const proved = profile?.colorSpace === 'CMYK' ? proofPressPixels(profile, table, source) : proofPixels(table, source)
   const result = Bun.spawnSync(
     ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
     { stdin: proved, stdout: 'pipe', stderr: 'pipe' },

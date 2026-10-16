@@ -124,6 +124,39 @@ export async function poppler(pdf: string, output: string, width: number, height
     : { reader: 'poppler', engine: engineName('poppler'), worked: false, error: result.error }
 }
 
+export async function pressPoppler(
+  pdf: string,
+  output: string,
+  width: number,
+  height: number,
+  profile: string,
+  colorSpace: 'cmyk' | 'gray',
+): Promise<ReaderResult> {
+  const base = output.replace(/\.png$/, '')
+  const sourceProfileFlag = colorSpace === 'cmyk' ? '-defaultcmykprofile' : '-defaultgrayprofile'
+  const result = ran([
+    'pdftoppm',
+    '-png',
+    '-singlefile',
+    '-cropbox',
+    '-scale-to-x',
+    String(width),
+    '-scale-to-y',
+    String(height),
+    sourceProfileFlag,
+    profile,
+    '-displayprofile',
+    SRGB_PROFILE,
+    pdf,
+    base,
+  ])
+  return result.ok
+    ? { reader: 'poppler', engine: engineName('poppler'), worked: true, image: output }
+    : { reader: 'poppler', engine: engineName('poppler'), worked: false, error: result.error }
+}
+
+export const pressDisplayProfile = SRGB_PROFILE
+
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), pdf, '--out', output])
   if (!result.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: result.error }

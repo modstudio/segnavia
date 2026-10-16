@@ -144,6 +144,11 @@ export interface FidelityRun {
     chromium: string
     profile?: string
     grayProfile?: string
+    pressRasterizer: {
+      displayProfile: string
+      cmykProfile?: string
+      grayProfile?: string
+    }
   }
   documents: DocumentResult[]
   posterEvidence?: PosterEvidence

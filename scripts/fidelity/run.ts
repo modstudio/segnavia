@@ -4,6 +4,7 @@ import path from 'node:path'
 import { type PageInput, Print, PX_PER_MM, printBoxes, printPadding, printProperties } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
+import { readProfile } from '../../packages/render/src/color/index.ts'
 import { processColorResidues } from '../verify/gray-residue.ts'
 import { measureBars } from './bars.ts'
 import {
@@ -21,7 +22,7 @@ import {
 import { alignmentOffset, cropImage, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
-import { poppler, READERS, readerPath, validateReaderProfile } from './readers.ts'
+import { poppler, pressDisplayProfile, pressPoppler, READERS, readerPath, validateReaderProfile } from './readers.ts'
 import { writeSummary } from './report.ts'
 import type { Box, Difference, DocumentResult, FidelityRun, PosterEvidence, ReaderResult, RegionResult } from './types.ts'
 
@@ -35,6 +36,7 @@ const renderer = await openRenderer({ executablePath, concurrency: 1 })
 const documents: DocumentResult[] = []
 const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
+const profile = profileBytes ? readProfile(profileBytes) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
 const defaultGrayProfile = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc'
 const grayProfilePath = process.env.SEGNAVIA_FIDELITY_GRAY_PROFILE ?? (existsSync(defaultGrayProfile) ? defaultGrayProfile : undefined)
@@ -197,7 +199,7 @@ try {
     let pressRaster: string | undefined
     let pressDifference: Difference | undefined
     let pressReason: string | undefined
-    if (profileBytes && table) {
+    if (profilePath && profileBytes && profile && table) {
       pressPdf = path.join(documentDirectory, `${fixture.id}-press.pdf`)
       const pressComparisonPdf = path.join(documentDirectory, 'press-comparison.pdf')
       pressProof = path.join(documentDirectory, 'screen-proof.png')
@@ -211,8 +213,8 @@ try {
           }),
         )
         await trimPdf(pressPdf, pressComparisonPdf)
-        proofImage(screen, pressProof, size.width, size.height, table)
-        const rendered = await poppler(pressComparisonPdf, pressRaster, size.width, size.height)
+        proofImage(screen, pressProof, size.width, size.height, table, profile)
+        const rendered = await pressPoppler(pressComparisonPdf, pressRaster, size.width, size.height, profilePath, 'cmyk')
         if (rendered.worked) pressDifference = difference(pressProof, pressRaster, size.width, size.height)
         else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
       } catch (error) {
@@ -231,7 +233,7 @@ try {
     let grayPressResidues: number | undefined
     let grayPressResidueErrors: string[] | undefined
     let grayPressReason: string | undefined
-    if (grayProfileBytes && grayTable) {
+    if (grayProfilePath && grayProfileBytes && grayTable) {
       grayPressPdf = path.join(documentDirectory, `${fixture.id}-press-gray.pdf`)
       const grayPressComparisonPdf = path.join(documentDirectory, 'press-gray-comparison.pdf')
       grayPressProof = path.join(documentDirectory, 'screen-proof-gray.png')
@@ -247,7 +249,7 @@ try {
         grayPressResidueErrors = residues.errors
         await trimPdf(grayPressPdf, grayPressComparisonPdf)
         proofImage(screen, grayPressProof, size.width, size.height, grayTable)
-        const rendered = await poppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height)
+        const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
         if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
         else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
       } catch (error) {
@@ -328,6 +330,11 @@ const run: FidelityRun = {
     chromium: executablePath,
     profile: profilePath,
     grayProfile: grayProfilePath,
+    pressRasterizer: {
+      displayProfile: pressDisplayProfile,
+      cmykProfile: profilePath,
+      grayProfile: grayProfilePath,
+    },
   },
   documents,
   posterEvidence,
