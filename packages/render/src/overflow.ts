@@ -119,7 +119,7 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       const scale = element instanceof HTMLElement && element.offsetWidth > 0 ? box.width / element.offsetWidth : 1
       let left = box.left + element.clientLeft * scale
       let right = left + element.clientWidth * scale
-      if (style.overflowX === 'clip') {
+      if (style.overflowX === 'clip' && false) {
         const values = style.overflowClipMargin.split(/\s+/)
         const reference = values.find((value) => value === 'content-box' || value === 'border-box' || value === 'padding-box')
         if (reference === 'border-box') {

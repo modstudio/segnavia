@@ -3,6 +3,8 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { MM_PER_PT, Page, PX_PER_MM, printBoxes } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
+import { chromium } from 'playwright-core'
+import { pageContentScale } from './pdf-content.ts'
 import { readPpm } from './pdf-raster.ts'
 
 const close = (left: number, right: number, tolerance: number) => Math.abs(left - right) <= tolerance
@@ -30,12 +32,19 @@ function ppmRedBounds(file: string): number[] | undefined {
   return right < left ? undefined : [left / 4, top / 4, (right + 1) / 4, (bottom + 1) / 4]
 }
 
-async function verifyClipMargin(renderer: Renderer, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+const clipMarginHtml = (width: number) =>
+  `<style>html,body{margin:0}.clip{position:fixed;width:400px;height:200px;overflow:clip;overflow-clip-margin:100px}.overflow{position:absolute;left:350px;width:${width}px;height:100px;background:black}</style><div class="clip"><div id="clip-margin-overflow" class="overflow"></div></div>`
+
+async function verifyClipMargin(
+  renderer: Renderer,
+  executablePath: string,
+  check: (what: string, ok: boolean, detail?: string) => void,
+): Promise<void> {
   let report: OverflowReport | undefined
   await renderer.pagePdf(
     {
-      html: '<style>html,body{margin:0}.clip{width:400px;height:200px;overflow:clip;overflow-clip-margin:100px}.overflow{position:absolute;left:350px;width:100px;height:100px}</style><div class="clip"><div id="clip-margin-overflow" class="overflow"></div></div>',
-      print: { paper: { width: 105.833333, height: 79.375, unit: 'mm' }, orientation: 'portrait' },
+      html: clipMarginHtml(100),
+      print: { paper: { width: 300, height: 225, unit: 'pt' }, orientation: 'landscape' },
     },
     { effects: false, overflow: { report: (value) => (report = value) } },
   )
@@ -45,9 +54,34 @@ async function verifyClipMargin(renderer: Renderer, check: (what: string, ok: bo
     (entry?.scale ?? 0) > 1 && entry?.elements.some((element) => element.locator === '#clip-margin-overflow') === true,
     `scale=${entry?.scale}, elements=${entry?.elements.map((element) => element.locator).join(',')}`,
   )
+
+  const browser = await chromium.launch({ executablePath })
+  try {
+    const rawScale = async (width: number) => {
+      const tab = await browser.newPage({ viewport: { width: 400, height: 300 } })
+      await tab.setContent(clipMarginHtml(width))
+      const scale = await pageContentScale(await tab.pdf({ width: '400px', height: '300px', printBackground: true }))
+      await tab.close()
+      return scale
+    }
+    const baseline = await rawScale(50)
+    const overflow = await rawScale(100)
+    check(
+      'Chromium shrinks content visible inside an overflow clip margin without a counter-scale',
+      overflow < baseline && close(baseline / overflow, 1.125, 0.000001),
+      `baseline=${baseline}, overflow=${overflow}, shrink=${baseline / overflow}`,
+    )
+  } finally {
+    await browser.close()
+  }
 }
 
-export async function verifyClippedBleed(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+export async function verifyClippedBleed(
+  renderer: Renderer,
+  work: string,
+  executablePath: string,
+  check: (what: string, ok: boolean, detail?: string) => void,
+): Promise<void> {
   const page = Page.parse({
     html: `<!doctype html><style>
       *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}body{overflow:hidden;position:relative}
@@ -125,5 +159,5 @@ export async function verifyClippedBleed(renderer: Renderer, work: string, check
     `scale=${scale}, boxes=${[actualBox('MediaBox'), actualBox('BleedBox'), actualBox('TrimBox')].map((box) => box?.join('/')).join(',')}, text=${actualText?.join('/')}/${expectedText.join('/')}, vertical offset=${textGeometry?.verticalOffset}pt, px/mm=${PX_PER_MM}`,
   )
 
-  await verifyClipMargin(renderer, check)
+  await verifyClipMargin(renderer, executablePath, check)
 }
