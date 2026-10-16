@@ -35,9 +35,9 @@ async function grayColors(bytes: Uint8Array): Promise<number[]> {
 export async function verifyGrayPress(renderer: Renderer, check: Check): Promise<void> {
   const bytes = existsSync(genericGrayProfile) ? new Uint8Array(readFileSync(genericGrayProfile)) : buildGrayProfile('trc-gamma')
   const profile = readProfile(bytes)
-  const mid = [107 / 255, 107 / 255, 107 / 255] as [number, number, number]
+  const mid = [0.4, 0.4, 0.4] as [number, number, number]
   const page = {
-    html: '<style>@page{size:400px 220px;margin:0}body{margin:24px;font:32px Arial;color:rgb(107,107,107)}.box{width:180px;height:80px;background:linear-gradient(90deg,#f20,#04e);box-shadow:12px 12px 9px #357}.mask{width:160px;height:50px;background:#468;mask-image:linear-gradient(90deg,transparent,black)}</style><p>Gray press</p><div class="box"></div><div class="mask"></div>',
+    html: '<style>@page{size:400px 220px;margin:0}body{margin:24px;font:32px Arial;color:rgb(102,102,102)}.box{width:180px;height:80px;background:linear-gradient(90deg,#f20,#04e);box-shadow:12px 12px 9px #357}.mask{width:160px;height:50px;background:#468;mask-image:linear-gradient(90deg,transparent,black)}</style><p>Gray press</p><div class="box"></div><div class="mask"></div>',
     size: { width: 400, height: 220 },
   }
   let report: PressReport | undefined
