@@ -45,16 +45,27 @@ export function paginateNotes(target: Document | null, maxSheets?: number): Note
     return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1
   }
   const take = (node: HTMLElement, text: string) => {
-    if (fits(node, text)) return text.length
-    const boundaries = [0]
-    if (typeof Intl.Segmenter === 'function') {
-      for (const part of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)) boundaries.push(part.index + part.segment.length)
-    } else {
-      let offset = 0
-      for (const point of text) {
-        offset += point.length
-        boundaries.push(offset)
+    const boundariesThrough = (length: number) => {
+      const prefix = text.slice(0, length)
+      const boundaries = [0]
+      if (typeof Intl.Segmenter === 'function') {
+        for (const part of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(prefix)) boundaries.push(part.index + part.segment.length)
+      } else {
+        let offset = 0
+        for (const point of prefix) {
+          offset += point.length
+          boundaries.push(offset)
+        }
       }
+      if (length < text.length) boundaries.pop()
+      return boundaries
+    }
+    let prefixLength = Math.min(1024, text.length)
+    let boundaries = boundariesThrough(prefixLength)
+    while (boundaries.length === 1 || fits(node, text.slice(0, boundaries.at(-1)))) {
+      if (prefixLength === text.length) return text.length
+      prefixLength = Math.min(prefixLength * 2, text.length)
+      boundaries = boundariesThrough(prefixLength)
     }
     let low = 0
     let high = boundaries.length - 1
