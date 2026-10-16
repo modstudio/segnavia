@@ -44,7 +44,8 @@ function annotationBounds(output: string, work: string, page: number) {
     right = Math.max(right, x)
     bottom = Math.max(bottom, y)
   }
-  return { left, top, right, bottom }
+  // Pixel indexes name samples; the far edges of their one-point cells are exclusive.
+  return { left, top, right: right + 1, bottom: bottom + 1 }
 }
 
 function verifyFitPdf(output: string, work: string, check: Check): void {
