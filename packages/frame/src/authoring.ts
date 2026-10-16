@@ -1,3 +1,4 @@
+import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
 import { setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
@@ -53,6 +54,8 @@ export class AuthoringController extends EventTarget {
   private updateGeneration = 0
   private updateTail = Promise.resolve()
   private detachPromise: Promise<void> | null = null
+  private renderedDeck: Deck | null = null
+  private internalLoad = false
 
   constructor(
     private player: SegnaviaPlayer,
@@ -133,9 +136,9 @@ export class AuthoringController extends EventTarget {
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, async () => {
+    setNavigationGuard(this.player.controller, async (reason) => {
       const slideId = this.player.controller.state.slide?.id
-      if (slideId) await this.notes?.flush(slideId, true)
+      if (slideId) await this.notes?.flush(slideId, reason === 'load' && !this.internalLoad)
     })
     this.renderNotes()
   }
@@ -149,6 +152,7 @@ export class AuthoringController extends EventTarget {
     this.notesRoot?.remove()
     this.notesRoot = null
     this.notesSlideId = null
+    this.renderedDeck = null
     this.refuseStageScripts(false)
   }
 
@@ -159,9 +163,13 @@ export class AuthoringController extends EventTarget {
     const label = this.notesRoot?.querySelector('label span')
     if (!slide || !field || !this.notes) return
     let visibleChanged = false
-    for (const deckSlide of deck?.slides ?? []) {
-      const adopted = this.notes.seed(deckSlide.id, deckSlide.notes ?? '')
-      if (deckSlide.id === slide.id) visibleChanged = adopted
+    const adoptDeck = deck !== this.renderedDeck && !this.internalLoad
+    this.renderedDeck = deck
+    if (adoptDeck) {
+      for (const deckSlide of deck?.slides ?? []) {
+        const adopted = this.notes.seed(deckSlide.id, deckSlide.notes ?? '')
+        if (deckSlide.id === slide.id) visibleChanged = adopted
+      }
     }
     if (this.notesSlideId !== slide.id || visibleChanged) {
       this.notesSlideId = slide.id
@@ -223,13 +231,22 @@ export class AuthoringController extends EventTarget {
     this.pendingMove = true
     this.rail?.setReorderEnabled(false)
     try {
-      await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler)
+      await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler, this.loadInternalDeck)
     } catch (error) {
       const detail: AuthoringErrorDetail = { operation: 'move', slideId, message: errorMessage(error), error }
       this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
     } finally {
       this.pendingMove = false
       this.rail?.setReorderEnabled(true)
+    }
+  }
+
+  private loadInternalDeck = async (deck: Deck) => {
+    this.internalLoad = true
+    try {
+      await this.player.controller.load(deck)
+    } finally {
+      this.internalLoad = false
     }
   }
 }

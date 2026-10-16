@@ -1,9 +1,11 @@
 const navigationGuardKey = Symbol.for('@segnavia/frame/navigation-guard')
 
 interface NavigationGuardState {
-  guard?: () => Promise<void>
+  guard?: (reason: NavigationGuardReason) => Promise<void>
   running?: Promise<void>
 }
+
+export type NavigationGuardReason = 'load' | 'navigate'
 
 function state(target: EventTarget): NavigationGuardState {
   const values = target as EventTarget & Record<symbol, NavigationGuardState>
@@ -14,19 +16,19 @@ function state(target: EventTarget): NavigationGuardState {
   return created
 }
 
-export function setNavigationGuard(target: EventTarget, guard: (() => Promise<void>) | null) {
+export function setNavigationGuard(target: EventTarget, guard: ((reason: NavigationGuardReason) => Promise<void>) | null) {
   const guarded = state(target)
   if (guard) guarded.guard = guard
   else delete guarded.guard
 }
 
-export function runNavigationGuard(target: EventTarget): Promise<void> {
+export function runNavigationGuard(target: EventTarget, reason: NavigationGuardReason = 'navigate'): Promise<void> {
   const guarded = state(target)
   const guard = guarded.guard
   if (!guard) return Promise.resolve()
   const active = guarded.running
   if (active) return active
-  const next = Promise.resolve().then(guard)
+  const next = Promise.resolve().then(() => guard(reason))
   guarded.running = next
   const clear = () => {
     if (guarded.running === next) delete guarded.running

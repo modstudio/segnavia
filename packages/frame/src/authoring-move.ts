@@ -9,6 +9,7 @@ export interface MoveSlideInput {
   toIndex: number
 }
 export type MoveSlideHandler = (input: MoveSlideInput) => Promise<void>
+type LoadDeck = (deck: Deck) => Promise<void>
 
 function reordered(deck: Deck, fromIndex: number, toIndex: number): Deck {
   const slides = [...deck.slides]
@@ -17,15 +18,21 @@ function reordered(deck: Deck, fromIndex: number, toIndex: number): Deck {
   slides.splice(toIndex, 0, slide)
   return { ...deck, slides }
 }
-export async function moveSlideOptimistically(controller: DeckController, fromIndex: number, toIndex: number, save: MoveSlideHandler): Promise<void> {
+export async function moveSlideOptimistically(
+  controller: DeckController,
+  fromIndex: number,
+  toIndex: number,
+  save: MoveSlideHandler,
+  load: LoadDeck = (deck) => controller.load(deck),
+): Promise<void> {
   const previous = controller.state.deck
   const slide = previous?.slides[fromIndex]
   if (!previous || !slide || toIndex < 0 || toIndex >= previous.slides.length || fromIndex === toIndex) return
   try {
-    await controller.load(reordered(previous, fromIndex, toIndex))
+    await load(reordered(previous, fromIndex, toIndex))
     await save({ slideId: slide.id, fromIndex, toIndex })
   } catch (error) {
-    await controller.load(previous)
+    await load(previous)
     throw error
   }
 }

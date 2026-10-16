@@ -40,6 +40,25 @@ async function verifyReloadedNotes(h: Harness) {
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
+  await notes.fill('PROBE saved by debounce')
+  await page.waitForFunction(() =>
+    (window as unknown as { authoringFacts: { saves: Array<{ notes: string }> } }).authoringFacts.saves.some(
+      (save) => save.notes === 'PROBE saved by debounce',
+    ),
+  )
+  await page.waitForTimeout(200)
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void>; previous(): Promise<void> } }) => {
+    await player.controller.next()
+    await player.controller.previous()
+  })
+  check('a slide turn after autosave keeps the saved notes', (await notes.inputValue()) === 'PROBE saved by debounce', await notes.inputValue())
+  await page.locator(`${PLAYER} segnavia-rail button[data-index="0"]`).press('Alt+ArrowDown')
+  await page.waitForFunction(
+    () =>
+      (document.querySelector('segnavia-player') as HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }).controller.state.deck
+        .slides[1]?.id === 'probe',
+  )
+  check('an optimistic reorder after autosave keeps the saved notes', (await notes.inputValue()) === 'PROBE saved by debounce', await notes.inputValue())
   const clean = await page.evaluate(async () => {
     const player = document.querySelector('segnavia-player') as HTMLElement & {
       controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }

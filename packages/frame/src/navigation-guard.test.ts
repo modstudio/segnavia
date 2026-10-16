@@ -64,3 +64,17 @@ test('cross-slide seek awaits the navigation guard but same-slide seek does not'
   await seeking
   expect(controller.state.index).toBe(1)
 })
+
+test('identifies host reloads separately from slide navigation', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.load(deck)
+  const reasons: string[] = []
+  setNavigationGuard(controller, async (reason) => {
+    reasons.push(reason)
+  })
+
+  await controller.next()
+  await controller.load(deck)
+
+  expect(reasons).toEqual(['navigate', 'load'])
+})

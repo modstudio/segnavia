@@ -82,7 +82,7 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
-    if (this.current.deck) await runNavigationGuard(this)
+    if (this.current.deck) await runNavigationGuard(this, 'load')
     if (base) this.options.base = base
     const deck = Deck.parse(input)
     const wasOpen = this.current.deck !== null
