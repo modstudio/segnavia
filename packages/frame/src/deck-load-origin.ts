@@ -1,33 +1,41 @@
 import { Deck } from '@segnavia/format'
 
-const internalInputs = new WeakSet<object>()
-const internalDecks = new WeakSet<Deck>()
-const preservedLoads = new WeakMap<Promise<void>, Set<string>>()
-const preservedDecks = new WeakMap<Deck, Set<string>>()
+const internalInputKey = Symbol.for('@segnavia/frame/internal-deck-input')
+const internalDeckKey = Symbol.for('@segnavia/frame/internal-deck')
+const preservedNotesKey = Symbol.for('@segnavia/frame/preserved-deck-notes')
+
+type Tagged = Record<symbol, unknown>
+
+function tag(target: object, key: symbol, value: unknown) {
+  Object.defineProperty(target, key, { configurable: true, value })
+}
 
 export function markInternalDeckInput(input: object) {
-  internalInputs.add(input)
+  tag(input, internalInputKey, true)
 }
 
 export function preserveNotesForLoad(load: Promise<void>, slideId: string) {
-  const slides = preservedLoads.get(load) ?? new Set<string>()
+  const tagged = load as Promise<void> & Tagged
+  const slides = (tagged[preservedNotesKey] as Set<string> | undefined) ?? new Set<string>()
   slides.add(slideId)
-  preservedLoads.set(load, slides)
+  tag(load, preservedNotesKey, slides)
 }
 
 export function parseDeckLoad(input: unknown, load?: Promise<void>): Deck {
-  const internal = typeof input === 'object' && input !== null && internalInputs.delete(input)
+  const taggedInput = typeof input === 'object' && input !== null ? (input as Tagged) : null
+  const internal = taggedInput?.[internalInputKey] === true
+  if (taggedInput) delete taggedInput[internalInputKey]
   const deck = Deck.parse(input)
-  if (internal) internalDecks.add(deck)
-  const preserved = load && preservedLoads.get(load)
-  if (preserved) preservedDecks.set(deck, preserved)
+  if (internal) tag(deck, internalDeckKey, true)
+  const preserved = load && ((load as Promise<void> & Tagged)[preservedNotesKey] as Set<string> | undefined)
+  if (preserved) tag(deck, preservedNotesKey, preserved)
   return deck
 }
 
 export function isInternalDeck(deck: Deck): boolean {
-  return internalDecks.has(deck)
+  return (deck as Deck & Tagged)[internalDeckKey] === true
 }
 
 export function deckPreservesNotes(deck: Deck, slideId: string): boolean {
-  return preservedDecks.get(deck)?.has(slideId) ?? false
+  return ((deck as Deck & Tagged)[preservedNotesKey] as Set<string> | undefined)?.has(slideId) ?? false
 }

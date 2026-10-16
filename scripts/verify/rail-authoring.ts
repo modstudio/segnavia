@@ -118,6 +118,7 @@ async function verifyReloadedNotes(h: Harness) {
   )
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferMove: boolean } }).authoringFacts.deferMove = true))
   await page.locator(`${PLAYER} segnavia-rail button[data-index="0"]`).press('Alt+ArrowDown')
+  await page.waitForFunction(() => (window as unknown as { authoringFacts: { movePending: boolean } }).authoringFacts.movePending)
   await page.evaluate(() => {
     const player = document.querySelector('segnavia-player') as HTMLElement & {
       controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }

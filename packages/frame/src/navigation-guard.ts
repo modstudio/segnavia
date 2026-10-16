@@ -1,5 +1,7 @@
 const navigationGuardKey = Symbol.for('@segnavia/frame/navigation-guard')
 
+export { parseDeckLoad } from './deck-load-origin.ts'
+
 interface NavigationGuardState {
   guard?: (reason: NavigationGuardReason) => Promise<void>
   running?: Promise<void>
