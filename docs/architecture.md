@@ -313,6 +313,26 @@ is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
+The notes layout belongs to the slide whose number it carries. It uses the
+slide's speaker notes when present and falls back to narration text only when
+speaker notes are absent. Its first paper carries the slide thumbnail and the
+start of the notes; overflow continues on notes-only papers marked with the
+same slide number and “continued”. The browser print document and `deckPdf`
+share that pagination and ownership, so a thumbnail is placed only on its
+slide's first notes paper and no notes are clipped. Library-written numbering
+and continuation text are isolated, while the notes resolve their own
+direction from their content.
+
+Every sandboxed slide document used for printing receives
+`print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
+putting those properties only on the containing print document cannot cross a
+frame boundary. The sandbox remains without same-origin access. Browser
+printing waits for slide readiness and fonts only until one shared deadline,
+then crosses a two-animation-frame paint barrier before opening the dialog.
+The off-screen host stays alive until `afterprint`, with a bounded fallback for
+engines that do not dispatch it; a host-provided print hook remains
+synchronous for deterministic integration paths.
+
 **Sideways overflow.** On screen, content that overflows a page sideways is
 clipped at the page edge. Chromium's print path instead shrinks the whole page
 to fit it. A render at a fixed size (a page with a fixed width and height and
