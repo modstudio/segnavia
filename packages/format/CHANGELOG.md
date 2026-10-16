@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.9.0
+
+### Minor Changes
+
+- 82b0071: Add opt-in responsive decks whose screen canvases reflow at the stage box size while rail thumbnails and print remain fixed.
+
 ## 0.8.0
 
 ### Minor Changes

@@ -1,5 +1,20 @@
 # @segnavia/render
 
+## 0.9.0
+
+### Minor Changes
+
+- 6e2b2dc: Flow long speaker notes onto owned continuation sheets, preserve print color intent inside slide frames, and bound browser print readiness and teardown.
+
+### Patch Changes
+
+- Updated dependencies [c495b99]
+- Updated dependencies [6e2b2dc]
+- Updated dependencies [82b0071]
+  - @segnavia/frame@0.9.0
+  - @segnavia/format@0.9.0
+  - @segnavia/html@0.9.0
+
 ## 0.8.0
 
 ### Patch Changes
