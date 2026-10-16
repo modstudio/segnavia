@@ -83,9 +83,10 @@ export function parseCurve(bytes: Uint8Array, view: DataView, offset: number, bo
 export function invertCurve(curve: Curve, target: number): number {
   let low = 0,
     high = 1
+  const descending = curve(0) > curve(1)
   for (let index = 0; index < 24; index++) {
     const middle = (low + high) / 2
-    if (curve(middle) < target) low = middle
+    if (descending ? curve(middle) > target : curve(middle) < target) low = middle
     else high = middle
   }
   return (low + high) / 2

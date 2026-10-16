@@ -1,7 +1,7 @@
 import { type Color3, type Color4, checked, color3, color4 } from './types.ts'
 
 type Encoding = 'mft1' | 'mft2'
-export type GrayEncoding = Encoding | 'mBA ' | 'trc-gamma' | 'trc-sampled' | 'trc-para'
+export type GrayEncoding = Encoding | 'mBA ' | 'trc-gamma' | 'trc-sampled' | 'trc-descending' | 'trc-para'
 
 const align4 = (value: number) => (value + 3) & ~3
 const signature = (bytes: Uint8Array, offset: number, value: string) => bytes.set(new TextEncoder().encode(value), offset)
@@ -112,7 +112,7 @@ function profile(tags: Array<[string, Uint8Array]>, colorSpace = 'CMYK', pcs = '
   return bytes
 }
 
-function curveTag(kind: 'gamma' | 'sampled' | 'para', floor = 0): Uint8Array {
+function curveTag(kind: 'gamma' | 'sampled' | 'descending' | 'para', floor = 0): Uint8Array {
   if (kind === 'para') {
     const bytes = new Uint8Array(16),
       view = new DataView(bytes.buffer)
@@ -128,7 +128,11 @@ function curveTag(kind: 'gamma' | 'sampled' | 'para', floor = 0): Uint8Array {
   view.setUint32(8, count, false)
   if (kind === 'gamma') view.setUint16(12, Math.round(2.2 * 256), false)
   else
-    for (let index = 0; index < count; index++) view.setUint16(12 + index * 2, Math.round((floor + (1 - floor) * (index / (count - 1)) ** 2.2) * 65_535), false)
+    for (let index = 0; index < count; index++) {
+      const input = index / (count - 1),
+        value = kind === 'descending' ? 1 - input : floor + (1 - floor) * input ** 2.2
+      view.setUint16(12 + index * 2, Math.round(value * 65_535), false)
+    }
   return bytes
 }
 
@@ -157,7 +161,7 @@ function mbaGray(pcs: 'Lab ' | 'XYZ '): Uint8Array {
 }
 
 export function buildGrayProfile(encoding: GrayEncoding, pcs: 'Lab ' | 'XYZ ' = 'XYZ ', floor = 0): Uint8Array {
-  const curveKind = encoding === 'trc-sampled' ? 'sampled' : encoding === 'trc-para' ? 'para' : 'gamma'
+  const curveKind = encoding === 'trc-sampled' ? 'sampled' : encoding === 'trc-descending' ? 'descending' : encoding === 'trc-para' ? 'para' : 'gamma'
   const tags: Array<[string, Uint8Array]> = [['kTRC', curveTag(curveKind, floor)]]
   if (encoding === 'mft1' || encoding === 'mft2') tags.push(['B2A1', lut(encoding, 3, 1, 65, (input) => [grayFromPcs(input, pcs)])])
   if (encoding === 'mBA ') tags.push(['B2A1', mbaGray(pcs)])

@@ -17,6 +17,7 @@ const models = [
 const grayModels = [
   { name: 'curv gamma with XYZ PCS', bytes: buildGrayProfile('trc-gamma', 'XYZ ') },
   { name: 'sampled curv with Lab PCS', bytes: buildGrayProfile('trc-sampled', 'Lab ') },
+  { name: 'descending curv with XYZ PCS', bytes: buildGrayProfile('trc-descending', 'XYZ ') },
   { name: 'para with XYZ PCS', bytes: buildGrayProfile('trc-para', 'XYZ ') },
   { name: 'mft1 with Lab PCS', bytes: buildGrayProfile('mft1', 'Lab ') },
   { name: 'mft2 with XYZ PCS', bytes: buildGrayProfile('mft2', 'XYZ ') },
