@@ -15,6 +15,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
     await renderer.deckPdf(
       {
         title: 'Long notes',
+        layout: 'fixed',
         fit: 'contain',
         frame: false,
         size: { width: 1280, height: 720 },
@@ -48,6 +49,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   await renderer.deckPdf(
     {
       title: 'Portrait notes',
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       scripts: 'refuse',
@@ -74,6 +76,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   await renderer.deckPdf(
     {
       title: 'Emoji notes',
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       scripts: 'refuse',
@@ -105,6 +108,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
     .deckPdf(
       {
         title: 'Limited notes',
+        layout: 'fixed',
         fit: 'contain',
         frame: false,
         scripts: 'refuse',

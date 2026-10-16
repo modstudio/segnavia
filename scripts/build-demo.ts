@@ -21,8 +21,10 @@ import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
+import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
+import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -139,6 +141,7 @@ const deck = Deck.parse({
   ],
 })
 
+// The same walkthrough in Hebrew, right to left, captured from the Hebrew app.
 const heList = publish('he.classes.list')
 const heForm = publish('he.classes.create.form')
 const heSummary = fill(
@@ -216,14 +219,8 @@ writeFileSync(
 )
 
 writeFileSync(path.join(SITE, 'deck.json'), JSON.stringify(deck, null, 2))
-// Each browser bundle contains its layer and every layer beneath it, so a page loads exactly one shipped file.
-const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
-  exports: Record<string, { default: string }>
-}
-for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([, entry]) => entry.default.startsWith('./dist/browser/'))) {
-  const out = name === './browser/headless' ? 'segnavia.js' : `segnavia-${name.replace('./browser/', '')}.js`
-  copyFileSync(path.join(ROOT, 'packages/frame', conditions.default), path.join(SITE, out))
-}
+writeResponsiveDemo(SITE)
+copyDemoBundles(ROOT, SITE)
 writeFitDemo(SITE)
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body.replaceAll('<segnavia-player', '<segnavia-player fit="height"')}<script type="module" src="${script}"></script></body></html>`

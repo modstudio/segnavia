@@ -16,6 +16,7 @@ import { verifyPapers } from './verify/papers.ts'
 import { verifyPlayer } from './verify/player.ts'
 import { verifyPlayerLayout } from './verify/player-layout.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
+import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
 
@@ -35,6 +36,7 @@ try {
   await verifyComponents(h)
   await verifyDeckHost(h)
   await verifyMedia(h)
+  await verifyResponsive(h)
   h.check('no errors in any page', h.errors.length === 0, h.errors.join('; '))
 } finally {
   await h.close()

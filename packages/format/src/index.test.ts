@@ -93,11 +93,20 @@ describe('deck', () => {
     expect(deck).toEqual({
       title: 'T',
       size: { width: 1280, height: 720 },
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       scripts: 'refuse',
       slides: [{ id: 's', content: { kind: 'html', html: '<p>x</p>' } }],
     })
+  })
+
+  test('deck layout defaults to fixed and accepts only fixed or responsive', () => {
+    const input = { title: 'T', slides: [{ id: 's', content: { kind: 'html' as const, html: '' } }] }
+    expect(Deck.parse(input).layout).toBe('fixed')
+    expect(Deck.parse({ ...input, layout: 'fixed' }).layout).toBe('fixed')
+    expect(Deck.parse({ ...input, layout: 'responsive' }).layout).toBe('responsive')
+    expect(Deck.safeParse({ ...input, layout: 'fluid' }).success).toBe(false)
   })
 
   test('a transition defaults its duration and validates the millisecond bounds', () => {
