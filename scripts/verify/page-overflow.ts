@@ -98,6 +98,31 @@ export async function verifyPageOverflow(
     )
   }
 
+  for (const [label, printOnly] of [
+    ['generated content', false],
+    ['print-media content', true],
+  ] as const) {
+    const media = printOnly ? '@media print{.wide::before{width:1200px}}' : ''
+    const width = printOnly ? 1 : 1200
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      {
+        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.wide{position:relative;width:1px;height:1px}.wide::before{content:'';position:absolute;left:0;width:${width}px;height:10px}${media}</style><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p><div class="wide"></div>`,
+        print: { paper, orientation: 'portrait' },
+      },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `overflow-${printOnly ? 'print-media' : 'generated'}`)
+    check(
+      `${label} overflow prints at true size and reports its complete scrollable overflow`,
+      close(facts.markerX, baselineFacts.markerX) &&
+        close(facts.markerY, baselineFacts.markerY) &&
+        facts.pages === baselineFacts.pages &&
+        close(report?.entries[0]?.clippedEnd ?? Number.NaN, 800),
+      `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${facts.pages}/${baselineFacts.pages}, clipped=${report?.entries[0]?.clippedEnd}`,
+    )
+  }
+
   const browser = await chromium.launch({ executablePath })
   try {
     const raw = async (width?: number) => {

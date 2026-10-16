@@ -2,8 +2,7 @@ import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheet
 import { PDFDocument, PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
-import type { OverflowEntry } from './options.ts'
-import { printWithOverflow } from './overflow.ts'
+import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
@@ -67,7 +66,7 @@ export async function printPage(
   print: Print,
   preferCssPageSize: boolean | undefined,
   inputIndex?: number,
-): Promise<{ bytes: Uint8Array; overflow?: OverflowEntry }> {
+): Promise<PrintResult<true>> {
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin

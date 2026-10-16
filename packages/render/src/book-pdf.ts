@@ -4,15 +4,11 @@ import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { type MarginPage, marginDocument } from './book-margins.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { OverflowEntry, OverflowPart, RenderOptions } from './options.ts'
-
-export interface BookPrintOutput {
-  bytes: Uint8Array
-  overflow: OverflowEntry
-}
+import type { OverflowEntry, RenderOptions } from './options.ts'
+import type { BookOverflowPart, PrintResult } from './overflow.ts'
 
 export interface BookPdfAdapter {
-  print(html: string, book: Book, options: RenderOptions, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>): Promise<BookPrintOutput>
+  print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart): Promise<PrintResult<true>>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
@@ -23,7 +19,7 @@ interface PrintedPart {
   destinations: Map<string, BookDestination>
 }
 
-async function inspect(output: BookPrintOutput): Promise<PrintedPart> {
+async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await PDFDocument.load(output.bytes)
   return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }
 }

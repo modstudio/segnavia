@@ -12,7 +12,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import type { Font, ImageOptions, OverflowEntry, RenderLimits, RenderOptions } from './options.ts'
-import { measureOverflow, printWithOverflow } from './overflow.ts'
+import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -245,7 +245,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const image = captureImage
 
-  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number): Promise<{ bytes: Uint8Array; overflow?: OverflowEntry }> {
+  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page, undefined, true)
     return withTab(

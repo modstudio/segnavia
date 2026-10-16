@@ -2,9 +2,10 @@ import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from 
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import type { Page as Tab } from 'playwright-core'
 import { marginCss } from './book-margins.ts'
-import { type BookPrintOutput, bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { OverflowPart, RenderOptions } from './options.ts'
+import type { RenderOptions } from './options.ts'
+import type { BookOverflowPart, PrintResult } from './overflow.ts'
 
 interface TabSetup {
   viewport: { width: number; height: number }
@@ -16,14 +17,14 @@ interface TabSetup {
 }
 
 export interface BrowserBookDependencies {
-  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>): Promise<BookPrintOutput>
+  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
 export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   return renderBookPdf(input, options, {
-    print: (html: string, book: Book, renderOptions: RenderOptions, part: Extract<OverflowPart, 'front' | 'body' | 'margin'>) => {
+    print: (html: string, book: Book, renderOptions: RenderOptions, part: BookOverflowPart) => {
       if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
       const size = sheetMm(book.page)
       const marginLayer = part === 'margin'

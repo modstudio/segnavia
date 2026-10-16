@@ -1,6 +1,12 @@
 import type { Page as Tab } from 'playwright-core'
 import type { OverflowContribution, OverflowEntry, OverflowPart } from './options.ts'
 
+export type BookOverflowPart = Extract<OverflowPart, 'front' | 'body' | 'margin'>
+
+export type PrintResult<Required extends boolean = false> = {
+  bytes: Uint8Array
+} & (Required extends true ? { overflow: OverflowEntry } : { overflow?: OverflowEntry })
+
 /**
  * Chromium's measured maximum print shrink; the 3x overflow demo check fails
  * if it changes. Chromium measures against the scaled page width, so using
@@ -13,12 +19,14 @@ export function counterScale(endOverflow: number): number {
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
+  await tab.emulateMedia({ media: 'print' })
   const measured = await tab.evaluate((width) => {
     const root = document.documentElement
     const extent = Math.max(root.scrollWidth, document.body?.scrollWidth ?? 0)
+    const endOverflow = Math.max(0, extent - root.clientWidth)
+    const rtl = getComputedStyle(root).direction === 'rtl'
     const contributions: OverflowContribution[] = []
     let clippedStart = 0
-    let clippedEnd = 0
     const locator = (element: Element) => {
       if (element.id) return `#${CSS.escape(element.id)}`
       const parts: string[] = []
@@ -35,10 +43,9 @@ export async function measureOverflow(tab: Tab, pageWidth: number, part: Overflo
     }
     for (const element of document.querySelectorAll('*')) {
       const box = element.getBoundingClientRect()
-      const elementStart = Math.max(0, -box.left)
-      const elementEnd = Math.max(0, box.right - width)
+      const elementStart = Math.max(0, rtl ? box.right - width : -box.left)
+      const elementEnd = Math.max(0, rtl ? -box.left : box.right - width)
       clippedStart = Math.max(clippedStart, elementStart)
-      clippedEnd = Math.max(clippedEnd, elementEnd)
       if ((elementStart > 0 || elementEnd > 0) && contributions.length < 20) {
         contributions.push({ locator: locator(element), clippedStart: elementStart, clippedEnd: elementEnd })
       }
@@ -47,7 +54,7 @@ export async function measureOverflow(tab: Tab, pageWidth: number, part: Overflo
       pageWidth: width,
       extent,
       clippedStart,
-      clippedEnd,
+      clippedEnd: endOverflow,
       elements: contributions,
     }
   }, pageWidth)
@@ -60,7 +67,7 @@ export async function printWithOverflow(
   part: OverflowPart,
   pdf: Parameters<Tab['pdf']>[0],
   inputIndex?: number,
-): Promise<{ bytes: Uint8Array; overflow: OverflowEntry }> {
+): Promise<PrintResult<true>> {
   const overflow = await measureOverflow(tab, pageWidth, part, inputIndex)
   return { bytes: await tab.pdf({ ...pdf, scale: counterScale(overflow.clippedEnd) }), overflow }
 }
