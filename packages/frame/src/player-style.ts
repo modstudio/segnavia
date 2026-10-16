@@ -31,6 +31,7 @@ segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{grid-area:bar;display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
 :host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "below";grid-template-rows:auto auto}
+:host([controls="overlay"]:not([data-presenting])){min-height:0}
 :host([controls="overlay"]:not([data-presenting])) .body,:host([controls="overlay"]:not([data-presenting])) segnavia-caption,
 :host([controls="overlay"]:not([data-presenting])) .bar{grid-area:body}
 :host([controls="overlay"]:not([data-presenting])) .body{z-index:0}

@@ -79,6 +79,8 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.setViewportSize({ width: 360, height: 720 })
   await page.goto(h.url('layout-overlay.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  boxes = await geometry(h)
+  check('overlay keeps the player and slide the same height at 360px', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
   await h.evidence('player-overlay-360x720.png')
   await verifyRemoval(h)
 }
