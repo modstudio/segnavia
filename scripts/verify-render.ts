@@ -1,7 +1,4 @@
-// Rendering and capture checks that need no viewer: the ready handshake,
-// limits, the offline rule under attack, embedded faces, house style, and a
-// capture run. The demo runs this file under both Bun and Node to prove both
-// runtimes against the repository source.
+// Rendering and capture checks that need no viewer, run under Bun and Node.
 
 import './source-guard.ts'
 import { execFileSync } from 'node:child_process'
@@ -15,6 +12,8 @@ import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { verifyBookOffline } from './verify/book-offline.ts'
+import { verifyBookRender } from './verify/book-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
@@ -107,6 +106,7 @@ try {
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
   await renderer.pageImage({ html })
   await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
+  await verifyBookOffline(renderer, origin)
   const deck = {
     title: 'Offline deck',
     scripts: 'sandboxed' as const,
@@ -142,7 +142,7 @@ try {
     renderer.deckPdf(deck, { imposition: handoutImposition }),
   ])
   check(
-    'renders reach no server, including top-level deck slides in slides, notes and handout layouts',
+    'renders reach no server, including book chapter and note resources and top-level deck slides in slides, notes and handout layouts',
     hits === 0 && deckPdfs.every((pdf) => pdf.length > 0),
     `requests=${hits}`,
   )
@@ -291,6 +291,7 @@ try {
   verifyPagesRender(output, work, check)
   verifyDeckRender(output, work, check)
   await verifyPressRender(renderer, work, check)
+  await verifyBookRender(renderer, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {

@@ -28,6 +28,7 @@
   "dependencies": {
     "@segnavia/format": "workspace:*",
     "@segnavia/frame": "workspace:*",
+    "@segnavia/html": "workspace:*",
     "playwright-core": "1.55.1",
     "pdf-lib": "^1.17.1"
   }

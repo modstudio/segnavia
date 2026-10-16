@@ -26,6 +26,7 @@
     }
   },
   "dependencies": {
+    "@segnavia/format": "workspace:*",
     "htmlparser2": "^10.0.0",
     "domhandler": "^5.0.3",
     "dom-serializer": "^2.0.0"

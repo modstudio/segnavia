@@ -23,7 +23,7 @@ export interface PackageRule {
 
 export const PACKAGES: Record<string, PackageRule> = {
   format: { runtime: 'universal', imports: ['zod'] },
-  html: { runtime: 'universal', imports: ['htmlparser2', 'domhandler', 'dom-serializer'] },
+  html: { runtime: 'universal', imports: ['@segnavia/format', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
@@ -31,7 +31,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
-  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', 'playwright-core', 'pdf-lib'] },
+  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }
 

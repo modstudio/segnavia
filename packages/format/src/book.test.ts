@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, jsonSchemas, noteMarkerIssues } from './index.ts'
+import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -11,14 +11,14 @@ describe('book', () => {
       expect(Book.parse(input({ lang }))).toMatchObject({
         numbering: { frontMatter: 'arabic', body: 'hebrew' },
         footnotes: { marker: 'hebrew', restart: 'chapter' },
-        endnotes: { marker: 'arabic', placement: 'book' },
+        endnotes: { marker: 'arabic', placement: 'book', title: 'הערות' },
       })
     }
     for (const lang of ['en', undefined]) {
       expect(Book.parse(input({ lang }))).toMatchObject({
         numbering: { frontMatter: 'roman-lower', body: 'arabic' },
         footnotes: { marker: 'symbols', restart: 'chapter' },
-        endnotes: { marker: 'arabic', placement: 'book' },
+        endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
       })
     }
   })
@@ -34,7 +34,7 @@ describe('book', () => {
     )
     expect(book.numbering).toEqual({ frontMatter: 'roman-upper', body: 'roman-lower' })
     expect(book.footnotes).toEqual({ marker: 'symbols', restart: 'book' })
-    expect(book.endnotes).toEqual({ marker: 'hebrew', placement: 'book' })
+    expect(book.endnotes).toEqual({ marker: 'hebrew', placement: 'book', title: 'הערות' })
   })
 
   test('a parsed book resolves every defaulted field', () => {
@@ -46,10 +46,35 @@ describe('book', () => {
       chapters: [chapter],
       numbering: { frontMatter: 'roman-lower', body: 'arabic' },
       footnotes: { marker: 'symbols', restart: 'chapter' },
-      endnotes: { marker: 'arabic', placement: 'book' },
-      rightHandOpenings: false,
-      contents: { pageNumbers: true },
+      endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
+      rectoOpenings: false,
+      contents: { pageNumbers: true, depth: 2 },
     })
+  })
+
+  test('contents depth defaults to two and accepts levels one through six', () => {
+    expect(Book.parse(input()).contents.depth).toBe(2)
+    expect(Book.parse(input({ contents: { depth: 1 } })).contents.depth).toBe(1)
+    expect(Book.parse(input({ contents: { depth: 6 } })).contents.depth).toBe(6)
+    expect(Book.safeParse(input({ contents: { depth: 0 } })).success).toBe(false)
+    expect(Book.safeParse(input({ contents: { depth: 7 } })).success).toBe(false)
+  })
+
+  test('endnotes title follows the language default and accepts an override', () => {
+    expect(Book.parse(input()).endnotes.title).toBe('Notes')
+    expect(Book.parse(input({ lang: 'iw' })).endnotes.title).toBe('הערות')
+    expect(Book.parse(input({ endnotes: { title: 'References' } })).endnotes.title).toBe('References')
+  })
+
+  test('front matter accepts a contents entry and refuses a second one by position', () => {
+    const [contents] = Book.parse(input({ frontMatter: [{ kind: 'contents', title: 'On this page' }] })).frontMatter
+    expect(contents).toEqual({ kind: 'contents', title: 'On this page' })
+    expect(contents && isBookContents(contents)).toBe(true)
+    expect(isBookContents({ html: '<p>Preface</p>', contents: true })).toBe(false)
+    const result = Book.safeParse(input({ frontMatter: [{ kind: 'contents' }, { html: '<p>Foreword</p>' }, { kind: 'contents' }] }))
+    expect(result.error?.issues[0]).toMatchObject({ path: ['frontMatter'] })
+    expect(result.error?.issues[0]?.message).toContain('positions 1 and 3')
+    expect(result.error?.issues[0]?.message).toContain('one must go')
   })
 
   test('a paginated book needs page', () => {

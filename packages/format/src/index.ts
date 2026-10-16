@@ -10,7 +10,7 @@ import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
-export { Book, type BookInput, BookMode, BookPage, BookSection, Chapter, noteMarkerIssues } from './book.ts'
+export { Book, BookContents, BookFrontMatterEntry, type BookInput, BookMode, BookPage, BookSection, Chapter, isBookContents, noteMarkerIssues } from './book.ts'
 export {
   Annotation,
   annotationCueIssues,
