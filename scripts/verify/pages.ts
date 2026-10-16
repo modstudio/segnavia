@@ -109,10 +109,31 @@ export async function verifyPages(h: Harness) {
     )
   }
   const sandboxedPage = page.frameLocator('#link-page-sandboxed iframe')
-  await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
-  await sandboxedPage.locator('#blocked').evaluate((link: HTMLElement) => link.click())
-  const prevented = await sandboxedPage.locator('body').evaluate(() => ({ scrollY, focused: (document.activeElement as HTMLElement | null)?.id ?? '' }))
-  check('an in-page link whose default the author prevents is left alone', prevented.scrollY === 0 && prevented.focused !== 'far', JSON.stringify(prevented))
+  for (const linkId of ['blocked', 'blocked-delegated']) {
+    await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
+    await sandboxedPage.locator(`#${linkId}`).evaluate((link: HTMLElement) => link.click())
+    const prevented = await sandboxedPage.locator('body').evaluate(() => ({ scrollY, focused: (document.activeElement as HTMLElement | null)?.id ?? '' }))
+    check(`an in-page link prevented by ${linkId} is left alone`, prevented.scrollY === 0 && prevented.focused !== 'far', JSON.stringify(prevented))
+  }
+  for (const [linkId, targetId] of [
+    ['jump-percent', 'far%'],
+    ['jump-cafe', 'café'],
+    ['jump-hebrew', 'פרק'],
+  ] as const) {
+    await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
+    await sandboxedPage.locator(`#${linkId}`).evaluate((link: HTMLElement) => link.click())
+    const facts = await sandboxedPage.locator('body').evaluate((_body, id) => {
+      const target = document.getElementById(id)
+      const box = target?.getBoundingClientRect()
+      return {
+        href: location.href,
+        present: Boolean(target),
+        visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
+        focused: document.activeElement === target,
+      }
+    }, targetId)
+    check(`an in-page link resolves ${linkId}`, facts.href === 'about:srcdoc' && facts.present && facts.visible && facts.focused, JSON.stringify(facts))
+  }
   const linkMessages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
   check(
     'in-page links add no message kind',
