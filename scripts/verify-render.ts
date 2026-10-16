@@ -342,9 +342,9 @@ try {
   const deckInfo = execFileSync('pdfinfo', [path.join(output, 'deck.pdf')], { encoding: 'utf8' })
   const notesText = execFileSync('pdftotext', [path.join(output, 'deck-notes.pdf'), '-'], { encoding: 'utf8' })
   check(
-    "a deck PDF has one sheet per slide and notes layout prints every slide's notes",
+    "a deck PDF has one sheet per slide and notes layout prefers every slide's speaker notes",
     /Pages:\s+4\b/.test(deckInfo) &&
-      ['Static title slide.', 'Everything starts on your class list.', 'Give the class a name', 'Review the finished class list.'].every((text) =>
+      ['Static title slide.', 'The class list is where every class starts.', 'Complete the class form.', 'Review the finished class list.'].every((text) =>
         notesText.includes(text),
       ),
   )

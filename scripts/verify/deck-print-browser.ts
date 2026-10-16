@@ -20,9 +20,9 @@ export async function verifyDeckPrintBrowser(h: Harness) {
         frames = win.document.querySelectorAll('iframe').length
         const sheet = win.document.querySelector<HTMLElement>('.sheet')
         const frame = win.document.querySelector<HTMLElement>('.sheet iframe')
-        const pageRule = [...(win.document.styleSheets[0]?.cssRules ?? [])].find((rule) => rule instanceof CSSPageRule)?.cssText ?? ''
+        const printHtml = win.document.documentElement.innerHTML
         slidePages =
-          pageRule.includes('1280px 720px') &&
+          printHtml.includes('@page{size:1280px 720px') &&
           sheet?.getBoundingClientRect().width === 1280 &&
           sheet.getBoundingClientRect().height === 720 &&
           frame?.getBoundingClientRect().width === 1280 &&
@@ -76,14 +76,14 @@ export async function verifyDeckPrintBrowser(h: Harness) {
           const continuation = noteSheets.filter((sheet) => sheet.hasAttribute('data-notes-continuation'))
           const slide = win.document.querySelector<HTMLElement>('.slide')
           const frame = win.document.querySelector<HTMLIFrameElement>('.slide iframe')
-          const pageRule = [...(win.document.styleSheets[0]?.cssRules ?? [])].find((rule) => rule instanceof CSSPageRule)?.cssText ?? ''
+          const printHtml = win.document.documentElement.innerHTML
           notesFacts = {
             sheets: noteSheets.length,
             continuations: continuation.length,
             lastLine: noteSheets.at(-1)?.textContent?.includes('Line 60: browser notes continue.') ?? false,
             owned: noteSheets.every((sheet) => sheet.dataset.slideIndex === '0'),
             notesOnly: continuation.every((sheet) => !sheet.querySelector('iframe')),
-            letter: pageRule.includes('215.9mm 279.4mm'),
+            letter: printHtml.includes('@page{size:215.9mm 279.4mm'),
             scaled: Math.abs((slide?.getBoundingClientRect().width ?? 0) - 722) < 1 && Math.abs((slide?.getBoundingClientRect().height ?? 0) - 407) < 1,
             sandboxed: frame?.sandbox.value === 'allow-scripts',
             exact: frame?.srcdoc.includes('print-color-adjust:exact') ?? false,
