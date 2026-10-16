@@ -19,7 +19,12 @@ async function frameFacts(h: Harness) {
     .locator('.segnavia-stage__canvas[data-active] iframe')
     .contentFrame()
     .locator('body')
-    .evaluate(() => ({ width: innerWidth, height: innerHeight, background: getComputedStyle(document.body).backgroundColor, text: document.body.textContent }))
+    .evaluate(() => ({
+      width: innerWidth,
+      height: innerHeight,
+      background: getComputedStyle(document.body).backgroundColor,
+      text: document.querySelector('output')?.textContent,
+    }))
 }
 
 export async function verifyResponsive(h: Harness) {
@@ -81,9 +86,10 @@ export async function verifyResponsive(h: Harness) {
   await h.page.locator('iframe').waitFor()
   await h.evidence('responsive-player-720x520.png')
   const playerFrame = await frameFacts(h)
-  const playerCanvas = await h.page
-    .locator('segnavia-player')
-    .evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => canvasFacts(player.shadowRoot.querySelector('segnavia-stage') as HTMLElement))
+  const playerCanvas = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
+    const canvas = player.shadowRoot.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
+    return { width: canvas?.clientWidth ?? 0, height: canvas?.clientHeight ?? 0, transform: canvas?.style.transform ?? '' }
+  })
   h.check(
     'a responsive height-fit player uses a full-width unscaled canvas and matching frame',
     playerCanvas.width === 720 &&

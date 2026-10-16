@@ -43,6 +43,7 @@ export class SegnaviaStage extends HTMLElement {
   private pool = new FramePool(this, () => this.measure())
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
+  private viewportBlockSize = false
 
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
@@ -201,11 +202,17 @@ export class SegnaviaStage extends HTMLElement {
       }
     } else {
       box = { width: this.clientWidth, height: this.clientHeight }
-      this.style.removeProperty('block-size')
+      if (this.viewportBlockSize) {
+        this.style.removeProperty('block-size')
+        this.viewportBlockSize = false
+      }
     }
     const layout = stageCanvasLayout(deck, box)
     const fitted: FittedSize = { scale: layout.scale, width: layout.size.width * layout.scale, height: layout.size.height * layout.scale }
-    if (this.fit === 'viewport') this.style.blockSize = `${fitted.height}px`
+    if (this.fit === 'viewport') {
+      this.style.blockSize = `${fitted.height}px`
+      this.viewportBlockSize = true
+    }
     for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) {
       layoutStageCanvas(item, layout.size)
       item.style.transform = `scale(${fitted.scale})`

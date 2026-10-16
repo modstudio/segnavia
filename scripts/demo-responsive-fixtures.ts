@@ -6,6 +6,7 @@ export function writeResponsiveDemo(site: string) {
   const deck = Deck.parse({
     title: 'Responsive deck',
     layout: 'responsive',
+    scripts: 'sandboxed',
     slides: [
       {
         id: 'responsive-html',
