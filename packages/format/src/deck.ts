@@ -15,6 +15,9 @@ export type Box = z.infer<typeof Box>
 
 export const Point = z.object({ x: z.number(), y: z.number() })
 
+export const ImageFit = z.enum(['contain', 'cover', 'width', 'focus'])
+export type ImageFit = z.infer<typeof ImageFit>
+
 // One annotation as measured on its element at capture time, in the shot's
 // CSS pixels. It belongs to the image it was measured on: a recapture that
 // moves the element moves the annotation with it.
@@ -88,11 +91,11 @@ export const SlideContent = z.discriminatedUnion('kind', [
   // HTML the host serves itself, under its own headers: a single-use ticket,
   // a CSP, a URL that expires.
   z.object({ kind: z.literal('url'), src: z.string() }),
-  z.object({ kind: z.literal('shot'), src: z.string(), shot: Shot }),
+  z.object({ kind: z.literal('shot'), src: z.string(), shot: Shot, fit: ImageFit.optional() }),
   // A shot named by its permanent address, resolved when the deck is shown,
   // so a recapture reaches every deck that names it.
-  z.object({ kind: z.literal('shot-ref'), href: z.string() }),
-  z.object({ kind: z.literal('image'), src: z.string(), alt: z.string() }),
+  z.object({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional() }),
+  z.object({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional() }),
 ])
 export type SlideContent = z.infer<typeof SlideContent>
 
@@ -113,6 +116,7 @@ export const DECK_SIZE = { width: 1280, height: 720 } as const
 export const DeckShape = z.object({
   title: z.string(),
   size: Size.default(DECK_SIZE),
+  fit: ImageFit.default('contain'),
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),

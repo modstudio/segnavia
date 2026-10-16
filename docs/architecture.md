@@ -180,6 +180,11 @@ A paginated book without a page is refused. More than one contents entry is refu
 
 ## How a shot is made
 
+The default capture viewport is 1280×720, the same aspect ratio and size as
+the default deck canvas. Capturing at the deck's aspect ratio therefore needs
+no fitting; image and shot fit is for captures whose shape intentionally
+differs from their deck.
+
 1. `capture` launches Chromium, calls `host.open`, and runs each selected
    flow in its own context.
 2. `flow.shot` settles the page and measures each annotation's element. A

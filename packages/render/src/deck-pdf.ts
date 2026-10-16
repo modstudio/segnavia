@@ -43,7 +43,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
     services.renderPdf(
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
-        scripts: deck.scripts === 'sandboxed',
+        scripts: true,
         html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
         beforeOutput: opts.beforeOutput,
@@ -102,7 +102,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,
-            scripts: deck.scripts === 'sandboxed',
+            scripts: slide.content.kind === 'html' ? deck.scripts === 'sandboxed' : true,
             html,
             boundMs: opts.boundMs,
           },

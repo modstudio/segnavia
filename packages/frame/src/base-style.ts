@@ -6,6 +6,7 @@
 //
 //   --segnavia-aspect            the stage's aspect ratio, set from the deck
 //   --segnavia-canvas            the slide canvas behind its content
+//   --segnavia-shot-backdrop     the canvas behind fitted images and shots
 //   --segnavia-annotation-color  rings, badges and arrows
 //   --segnavia-cue-fade          how long an annotation takes to appear
 //   --segnavia-transition-duration how long a deck turn takes
@@ -15,7 +16,7 @@
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-canvas,#fff);opacity:0;pointer-events:none}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-shot-backdrop,transparent);opacity:0;pointer-events:none}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){z-index:2}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration);transition-timing-function:ease;transition-property:opacity,translate}
@@ -27,8 +28,7 @@ export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-entering][data-running]){translate:0 0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-leaving][data-axis="right"][data-running]){translate:calc(-100% * var(--segnavia-transition-scale)) 0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="slide"][data-leaving][data-axis="left"][data-running]){translate:calc(100% * var(--segnavia-transition-scale)) 0}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > *){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__image){object-fit:contain}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas > iframe){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 :where(segnavia-stage:not([unstyled]) [data-annotation]){opacity:0;transition:opacity var(--segnavia-cue-fade,160ms)}
 :where(segnavia-stage:not([unstyled]) [data-annotation][data-shown]){opacity:1}

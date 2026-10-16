@@ -42,6 +42,11 @@
       "types": "./dist/bridge.d.ts",
       "default": "./dist/bridge.js"
     },
+    "./image-fit": {
+      "@segnavia/source": "./src/image-fit.ts",
+      "types": "./dist/image-fit.d.ts",
+      "default": "./dist/image-fit.js"
+    },
     "./print-document": {
       "@segnavia/source": "./src/print-document.ts",
       "types": "./dist/print-document.d.ts",

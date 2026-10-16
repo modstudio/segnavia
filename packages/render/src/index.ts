@@ -370,7 +370,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withTab(
         {
           viewport: deck.size,
-          scripts: deck.scripts === 'sandboxed',
+          scripts: true,
           scale: opts.scale,
           html,
           waitForReady: false,

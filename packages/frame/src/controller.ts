@@ -285,7 +285,7 @@ export class DeckController extends EventTarget {
     const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
     if (content.kind === 'shot') {
       this.assertCues(slide, content.shot.annotations.length)
-      return content
+      return slide.content.kind === 'shot-ref' && slide.content.fit ? { ...content, fit: slide.content.fit } : content
     }
     if (content.kind !== 'shot-ref') return content
     const href = this.url(content.href)
@@ -299,7 +299,7 @@ export class DeckController extends EventTarget {
     }
     const { src, shot } = await published
     this.assertCues(slide, shot.annotations.length)
-    return { kind: 'shot', src: new URL(src, href).href, shot }
+    return { kind: 'shot', src: new URL(src, href).href, shot, ...(content.fit ? { fit: content.fit } : {}) }
   }
 
   private assertCues(slide: Slide, annotationCount: number) {
