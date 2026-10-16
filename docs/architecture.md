@@ -20,7 +20,7 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 | Layer | What it is | Appearance |
 |---|---|---|
 | `DeckController` | All behavior: slides, play, seek, per-slide clocks, cues, viewer settings, keys in reading direction, exact and clamped `#slide-N` links, neighbor content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it; the `clock` option now receives `(slide, audio)` instead of `(narration, audio)`. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-book>` | Light DOM elements that show one slide, one page, one paper of imposed pages, or one continuous book in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. A book fills the box its host gives it and scrolls within its frame without growing to its content. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-book>` | Light DOM elements that show one slide, one page, one paper of imposed pages, or one continuous book in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. Image and shot content chooses `contain`, `cover`, `width` or annotation-aware `focus` fit, with a slide setting overriding the deck default. A book fills the box its host gives it and scrolls within its frame without growing to its content. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-time>`, `<segnavia-mute>`, `<segnavia-captions>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. The track is segmented in step playback and becomes one seek slider in continuous playback. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a two-row control bar around a stage, with time, notes, captions, sound, presentation, translatable labels and host chrome slots. `playback` and `captions` override the deck; `presentation` is `window` by default, or `native` or `off`. Its default `fit="contain"` keeps the whole player in the visible viewport when possible; `fit="width"` sizes from its inline space alone and `fit="height"` fits the stage inside a host-provided definite height. `controls="below"` keeps caption and controls after the slide; `controls="overlay"` places them over it. Presentation always keeps its existing height-fitted layout. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
@@ -29,9 +29,9 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
 the custom elements, but its server-safe entry points are the single source
-of the frame document, the annotation drawing, the timeline and the print
-document. The browser uses that frame-based print layout; the server uses its
-geometry while composing top-level renders.
+of the frame document, the annotation drawing, image-fit geometry, the timeline
+and the print document. The browser uses that frame-based print layout; the
+server uses its geometry while composing top-level renders.
 
 The seven packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
@@ -61,7 +61,7 @@ with `detail.message` when loading or validating an input fails.
 | `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized frame title. `defaultFrameTitle` supplies the English default, and the position is recomputed after a reorder. |
-| `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade, transition duration and transition fit scale. `--segnavia-fit-reserve` lets a player host reserve viewport height for fixed or sticky chrome, or content that must remain visible with a contained player, and `--segnavia-overlay-scrim` supplies the overlay caption and control scrim. |
+| `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade, transition duration and transition fit scale. `--segnavia-shot-backdrop` supplies the plain canvas behind contained images and shots. `--segnavia-fit-reserve` lets a player host reserve viewport height for fixed or sticky chrome, or content that must remain visible with a contained player, and `--segnavia-overlay-scrim` supplies the overlay caption and control scrim. |
 | `neighbors` | `<segnavia-stage>` | Whether previous and next frames remain mounted, inert and visually hidden when author scripts are refused. A deck with sandboxed scripts mounts no neighbors because a running author script in a hidden frame could take the page's keyboard focus; on a turn, its `data-incoming` frame loads invisibly above the `data-active` frame and replaces it after two parent animation frames. A bounded timeout completes a stalled swap, and a later turn cancels one still pending. Reloading an open deck rebuilds a mounted frame when its resolved content, scripts mode, host CSS or extra CSP changes, while keeping the selected id and leaving the address unchanged. The visible frame and its annotations keep the deck's direction. |
 | `transition`, `transition-duration` | `<segnavia-stage>`, `<segnavia-player>` | A host override for deck turns. Kind is `none`, `fade` or `slide`; duration is an integer from 0 to 2000 milliseconds. The object property takes precedence over the two independently read attributes. Invalid attribute values are ignored. Reduced-motion readers always receive an instant turn. |
 | `keys` | `DeckController` option | `'stage'` for stage-local keys or `'page'` for bounded page-wide arrows and page keys. In page mode, form fields retain arrows and page keys, while Escape still ends an in-window presentation. Arrows follow reading direction. |
@@ -110,7 +110,15 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    annotation that does not exist and a slide id used twice.
 2. For each slide shown, the controller runs `resolveSlide` if it is set. `contentFor(index)` does the same without navigating and shares the prefetch cache. A `shot-ref` is
    fetched as a `PublishedShot`, cached per address, and resolved relative to
-   that address.
+   that address. Its fit is copied to the resolved shot and overrides the deck's
+   fit, as does an inline image or shot's own fit; otherwise image and shot
+   content uses the deck's `contain` default. `fitImage` is the server-safe pure
+   geometry shared by the stage, rail and print document. `contain` centers the
+   whole image, `cover` centers a crop that fills the canvas, and `width` fills
+   its width from the top unless a short image needs vertical centering. `focus`
+   starts from `cover`, zooms out only enough to show the padded union of every
+   annotation ring, badge and arrow, and moves that focus into view while the
+   image covers the canvas wherever its dimensions permit.
 3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
    the policy admits only the bridge's nonce. The bridge handles in-page link
