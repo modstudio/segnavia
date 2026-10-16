@@ -9,20 +9,33 @@ export async function verifyReactAuthoring(h: Harness) {
   await page.evaluate(() => (window as unknown as { reactMount(): void }).reactMount())
   await page.waitForFunction(() => document.querySelector('segnavia-player'))
   await page.waitForFunction(() => {
-    const holder = window as unknown as { reactDeckController?: unknown }
+    const holder = window as unknown as { reactAuthoring?: unknown; reactDeckController?: unknown }
     const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
-    return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
+    return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactAuthoring && holder.reactDeckController === player?.controller
   })
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
+  await notes.fill('Strict replacement draft')
+  await page.evaluate(() => {
+    const holder = window as unknown as { reactAuthoring?: unknown; reactOldAuthoring?: unknown; reactReplaceAuthoring(): void }
+    holder.reactOldAuthoring = holder.reactAuthoring
+    holder.reactReplaceAuthoring()
+  })
+  await page.waitForFunction(() => {
+    const holder = window as unknown as { reactAuthoring?: unknown; reactOldAuthoring?: unknown }
+    return holder.reactAuthoring !== holder.reactOldAuthoring
+  })
   const strictModeMount = await page.evaluate(() => {
     const facts = (window as unknown as { reactFacts: { notesRoots: number[] } }).reactFacts
     return { current: document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll('[data-authoring-notes]').length, seen: facts.notesRoots }
   })
+  await page.evaluate(() => window.dispatchEvent(new Event('react-release-replacement')))
+  await page.waitForTimeout(0)
   check(
     'React hooks attach once when the player mounts under StrictMode',
-    strictModeMount.current === 1 && strictModeMount.seen.at(-1) === 1 && (await notes.isVisible()),
+    strictModeMount.current === 1 && !strictModeMount.seen.includes(2) && (await notes.isVisible()),
     JSON.stringify(strictModeMount),
   )
+  await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => {
     const holder = window as unknown as { reactSetTimeout?: typeof setTimeout }
     holder.reactSetTimeout = window.setTimeout
