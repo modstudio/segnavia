@@ -289,6 +289,7 @@ export async function verifyRailAuthoring(h: Harness) {
         return (
           Boolean(newPlayer && oldPlayer && oldPlayer !== newPlayer) &&
           oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null &&
+          Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')) &&
           holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller
         )
       },
