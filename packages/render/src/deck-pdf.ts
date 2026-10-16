@@ -69,6 +69,11 @@ async function placeRenderedImages(tab: Tab): Promise<void> {
   }, placements)
 }
 
+async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
+  if (maxSheets === undefined) return tab.evaluate(paginateNotes, null)
+  return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(maxSheets)})`)
+}
+
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
@@ -85,7 +90,10 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
-            await tab.evaluate(paginateNotes, null)
+            const pagination = await paginateRenderedNotes(tab, opts.limits?.maxSheets)
+            if (pagination.exceeded) {
+              throw new RenderRefusedError(`The PDF needs more than ${opts.limits?.maxSheets} sheets; the limit is ${opts.limits?.maxSheets}.`)
+            }
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }
           await opts.beforeOutput?.(tab)

@@ -31,9 +31,14 @@ export interface NotesDocumentOptions {
   slideBody: (slide: Slide) => string
 }
 
+export interface NotesPaginationResult {
+  sheets: number
+  exceeded: boolean
+}
+
 // This function touches the DOM only when called with a document, so importing
 // this module remains safe in the server renderer.
-export function paginateNotes(target: Document | null): void {
+export function paginateNotes(target: Document | null, maxSheets?: number): NotesPaginationResult {
   const printDocument = target ?? document
   const fits = (node: HTMLElement, text: string) => {
     node.textContent = text
@@ -87,7 +92,11 @@ export function paginateNotes(target: Document | null): void {
   printDocument.querySelectorAll('[data-notes-continuation]').forEach((sheet) => {
     sheet.remove()
   })
+  let sheets = printDocument.querySelectorAll('[data-notes-source]').length
+  if (maxSheets !== undefined && sheets > maxSheets) return { sheets, exceeded: true }
+  let exceeded = false
   printDocument.querySelectorAll<HTMLElement>('[data-notes-source]').forEach((sheet) => {
+    if (exceeded) return
     const notes = sheet.querySelector<HTMLElement>('.notes')
     if (!notes) return
     const source = sheet.dataset.notesText ?? notes.textContent ?? ''
@@ -97,15 +106,21 @@ export function paginateNotes(target: Document | null): void {
     rest = rest.slice(used)
     let after = sheet
     while (rest) {
+      if (maxSheets !== undefined && sheets >= maxSheets) {
+        exceeded = true
+        return
+      }
       const next = continuation(sheet.dataset.slideIndex ?? '', sheet.dataset.slideNumber ?? '')
       after.after(next)
       after = next
+      sheets++
       const continuationNotes = next.querySelector<HTMLElement>('.notes') as HTMLElement
       used = take(continuationNotes, rest)
       if (used === 0) throw new RangeError('The notes paper has no visible area for speaker notes.')
       rest = rest.slice(used)
     }
   })
+  return { sheets, exceeded }
 }
 
 export function notesDocument(deck: Deck, options: NotesDocumentOptions): string {

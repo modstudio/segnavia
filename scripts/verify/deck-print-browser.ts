@@ -116,6 +116,46 @@ export async function verifyDeckPrintBrowser(h: Harness) {
         },
       },
     )
+    const portraitNotes = 'Portrait notes stay entirely visible.'
+    let portraitFacts = { exact: false, visible: false, inside: false }
+    await lib.printDeck(
+      { ...deck, size: { width: 720, height: 1280 }, slides: [{ ...deck.slides[0], notes: portraitNotes }] },
+      {
+        layout: 'notes',
+        print: (win: Window) => {
+          const sheets = [...win.document.querySelectorAll<HTMLElement>('.sheet')]
+          const notes = sheets.map((sheet) => sheet.querySelector<HTMLElement>('.notes')).filter((item): item is HTMLElement => !!item)
+          const firstSheet = sheets[0]
+          const slide = firstSheet?.querySelector<HTMLElement>('.slide')
+          portraitFacts = {
+            exact: notes.map((item) => item.textContent).join('') === portraitNotes,
+            visible: notes.every((item) => item.scrollHeight <= item.clientHeight + 1 && item.scrollWidth <= item.clientWidth + 1),
+            inside: !!firstSheet && !!slide && slide.getBoundingClientRect().bottom < firstSheet.getBoundingClientRect().bottom,
+          }
+        },
+      },
+    )
+    const emojiNotes = '👨‍👩‍👧‍👦'.repeat(1_000)
+    let emojiFacts = { exact: false, intact: false, visible: false }
+    await lib.printDeck(
+      { ...deck, slides: [{ ...deck.slides[0], notes: emojiNotes }] },
+      {
+        layout: 'notes',
+        print: (win: Window) => {
+          const notes = [...win.document.querySelectorAll<HTMLElement>('.notes')]
+          emojiFacts = {
+            exact: notes.map((item) => item.textContent).join('') === emojiNotes,
+            intact: notes.every((item) => {
+              const text = item.textContent ?? ''
+              const first = text.charCodeAt(0)
+              const last = text.charCodeAt(text.length - 1)
+              return !(first >= 0xdc00 && first <= 0xdfff) && !(last >= 0xd800 && last <= 0xdbff)
+            }),
+            visible: notes.every((item) => item.scrollHeight <= item.clientHeight + 1 && item.scrollWidth <= item.clientWidth + 1),
+          }
+        },
+      },
+    )
     const removed = ![...document.querySelectorAll<HTMLIFrameElement>('body > iframe')].some((frame) => frame.style.left === '-20000px')
     const stalledStarted = performance.now()
     let stalledPrinted = false
@@ -147,6 +187,8 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       handoutMs: Math.round(performance.now() - handoutStarted),
       notesFacts,
       rtlFacts,
+      portraitFacts,
+      emojiFacts,
       removed,
       stalledPrinted,
       stalledRemoved,
@@ -181,6 +223,12 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     printed.rtlFacts.continuations > 0 && printed.rtlFacts.isolated,
     JSON.stringify(printed.rtlFacts),
   )
+  check(
+    'portrait deck notes remain complete and visible below the thumbnail',
+    Object.values(printed.portraitFacts).every(Boolean),
+    JSON.stringify(printed.portraitFacts),
+  )
+  check('emoji notes split without lone surrogate halves', Object.values(printed.emojiFacts).every(Boolean), JSON.stringify(printed.emojiFacts))
   check(
     'browser deck printing keeps the slide sandbox, injects exact color, and removes the hook host synchronously',
     printed.notesFacts.sandboxed && printed.notesFacts.exact && printed.removed,
