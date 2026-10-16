@@ -59,6 +59,7 @@
       "name": "@segnavia/html",
       "version": "0.4.0",
       "dependencies": {
+        "@segnavia/format": "workspace:*",
         "dom-serializer": "^2.0.0",
         "domhandler": "^5.0.3",
         "htmlparser2": "^10.0.0",
@@ -81,6 +82,7 @@
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
+        "@segnavia/html": "workspace:*",
         "pdf-lib": "^1.17.1",
         "playwright-core": "1.55.1",
       },
