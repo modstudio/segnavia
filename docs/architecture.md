@@ -319,9 +319,12 @@ speaker notes are absent. Its first paper carries the slide thumbnail and the
 start of the notes; overflow continues on notes-only papers marked with the
 same slide number and “continued”. The browser print document and `deckPdf`
 share that pagination and ownership, so a thumbnail is placed only on its
-slide's first notes paper and no notes are clipped. Library-written numbering
-and continuation text are isolated, while the notes resolve their own
-direction from their content.
+slide's first notes paper and no notes are clipped. The thumbnail is bounded by
+both paper axes so even a tall deck leaves a visible notes area. Library-written
+numbering and continuation text are isolated, while the notes resolve their own
+direction from their content. Browser hosts bound accepted notes before
+printing with `exceedsLimits` and `maxNotesBytes`; the renderer also stops notes
+pagination at its `maxSheets` limit.
 
 Every sandboxed slide document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;

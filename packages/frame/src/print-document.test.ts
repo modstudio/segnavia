@@ -58,6 +58,13 @@ describe('printableDeck', () => {
     expect(printable).toContain('<bdi dir="ltr">1</bdi>')
   })
 
+  test('leaves visible notes space below a portrait slide', () => {
+    const geometry = notesLayoutGeometry({ width: 720, height: 1280 })
+    const innerHeight = geometry.sheet.height - 96
+    expect(geometry.slide.height).toBeLessThan(innerHeight)
+    expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
+  })
+
   test('prints speaker notes before narration and falls back only when notes are absent', () => {
     const narration = (text: string) => ({ text, words: [], durationMs: 0, audio: null })
     const withBoth = Deck.parse({

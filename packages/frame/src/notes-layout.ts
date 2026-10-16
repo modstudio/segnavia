@@ -9,12 +9,16 @@ export interface NotesLayoutGeometry {
   slide: { x: number; y: number; width: number; height: number; scale: number }
 }
 
+const FIRST_SHEET_NOTES_SPACE = 128
+
 export function notesLayoutGeometry(size: Deck['size'], notesPaper: PrintInput = NOTES_PAPER): NotesLayoutGeometry {
   const paper = sheetMm(Print.parse(notesPaper))
   const sheet = { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM }
   const margin = 48
   const border = 1
-  const scale = (sheet.width - margin * 2) / size.width
+  const widthScale = (sheet.width - margin * 2) / size.width
+  const heightScale = (sheet.height - margin * 2 - border * 2 - FIRST_SHEET_NOTES_SPACE) / size.height
+  const scale = Math.min(widthScale, heightScale)
   return { sheet, border, slide: { x: margin + border, y: margin + border, width: size.width * scale, height: size.height * scale, scale } }
 }
 
@@ -49,7 +53,6 @@ export function paginateNotes(target: Document | null): void {
       const space = text.slice(0, end).search(/\s+\S*$/)
       if (space > 0) end = space
     }
-    if (end === 0) end = 1
     node.textContent = text.slice(0, end)
     return end
   }
@@ -89,6 +92,7 @@ export function paginateNotes(target: Document | null): void {
       after = next
       const continuationNotes = next.querySelector<HTMLElement>('.notes') as HTMLElement
       used = take(continuationNotes, rest)
+      if (used === 0) throw new RangeError('The notes paper has no visible area for speaker notes.')
       rest = rest.slice(used)
     }
   })
