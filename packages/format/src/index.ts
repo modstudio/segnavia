@@ -35,6 +35,7 @@ export {
   type DeckInput,
   type DeckLimits,
   exceedsLimits,
+  ImageFit,
   Manifest,
   Narration,
   Point,

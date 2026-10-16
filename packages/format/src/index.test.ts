@@ -23,6 +23,23 @@ const narration = (cues: Narration['cues']): Narration => ({
 })
 
 describe('deck', () => {
+  test('defaults image fit at the deck and keeps slide overrides', () => {
+    const parsed = Deck.parse({
+      title: 'Fits',
+      fit: 'cover',
+      slides: [
+        { id: 'plain', content: { kind: 'image', src: 'plain.png', alt: 'Plain' } },
+        { id: 'override', content: { kind: 'image', src: 'override.png', alt: 'Override', fit: 'width' } },
+        { id: 'reference', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus' } },
+      ],
+    })
+    expect(parsed.fit).toBe('cover')
+    expect(parsed.slides[0]?.content).toEqual({ kind: 'image', src: 'plain.png', alt: 'Plain' })
+    expect(parsed.slides[1]?.content).toEqual({ kind: 'image', src: 'override.png', alt: 'Override', fit: 'width' })
+    expect(parsed.slides[2]?.content).toEqual({ kind: 'shot-ref', href: 'shot.json', fit: 'focus' })
+    expect(Deck.parse({ title: 'Default', slides: [{ id: 'shot', content: { kind: 'shot-ref', href: 'shot.json' } }] }).fit).toBe('contain')
+  })
+
   test('slide timing is finite, bounded and belongs to the matching slide kind', () => {
     const base = { title: 'T', slides: [{ id: 's', content: { kind: 'html' as const, html: '' } }] }
     for (const field of ['beforeMs', 'afterMs'] as const) {
@@ -72,6 +89,7 @@ describe('deck', () => {
     expect(deck).toEqual({
       title: 'T',
       size: { width: 1280, height: 720 },
+      fit: 'contain',
       scripts: 'refuse',
       slides: [{ id: 's', content: { kind: 'html', html: '<p>x</p>' } }],
     })

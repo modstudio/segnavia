@@ -2,15 +2,82 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import { annotationFocusBox, fitImage } from '@segnavia/frame/image-fit'
 import { notesLayoutGeometry } from '@segnavia/frame/print-document'
 import { backgroundDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
+import { fitDeck, fitShot } from '../demo-fit-fixtures.ts'
 import { type Raster, rasterCssPixels, rasterMillimeters, rasterPdf } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const near = (actual: number, expected: number) => Math.abs(actual - expected) <= 3
 
+function annotationBounds(output: string, work: string, page: number, expected: { left: number; top: number; right: number; bottom: number }) {
+  const prefix = path.join(work, `fit-ring-${page}`)
+  execFileSync('pdftoppm', ['-r', '72', '-f', String(page), '-l', String(page), '-singlefile', path.join(output, 'fit-slides.pdf'), prefix])
+  const bytes = readFileSync(`${prefix}.ppm`)
+  let offset = 0
+  const token = () => {
+    while ((bytes[offset] ?? 0) <= 32) offset++
+    const start = offset
+    while ((bytes[offset] ?? 0) > 32) offset++
+    return bytes.subarray(start, offset).toString()
+  }
+  if (token() !== 'P6') throw new Error('The fit PDF raster is not a raw PPM.')
+  const width = Number(token())
+  const height = Number(token())
+  if (token() !== '255') throw new Error('The fit PDF raster is not 8-bit RGB.')
+  while ((bytes[offset] ?? 0) <= 32) offset++
+  let left = width
+  let top = height
+  let right = -1
+  let bottom = -1
+  for (let index = 0; index < width * height; index++) {
+    const red = bytes[offset + index * 3] ?? 0
+    const green = bytes[offset + index * 3 + 1] ?? 0
+    const blue = bytes[offset + index * 3 + 2] ?? 0
+    if (red < 140 || red < green * 1.35 || red < blue * 1.15) continue
+    const x = index % width
+    const y = Math.floor(index / width)
+    if (x < expected.left - 2 || x > expected.right + 2 || y < expected.top - 2 || y > expected.bottom + 2) continue
+    left = Math.min(left, x)
+    top = Math.min(top, y)
+    right = Math.max(right, x)
+    bottom = Math.max(bottom, y)
+  }
+  // Pixel indexes name samples; the far edges of their one-point cells are exclusive.
+  return { left, top, right: right + 1, bottom: bottom + 1 }
+}
+
+function verifyFitPdf(output: string, work: string, check: Check): void {
+  for (const [mode, page] of [
+    ['contain', 1],
+    ['focus', 4],
+  ] as const) {
+    const content = fitDeck.slides[page - 1]?.content
+    if (content?.kind !== 'shot') throw new Error(`The ${mode} fit fixture is missing.`)
+    const focus = annotationFocusBox(fitShot.size, fitShot.annotations)
+    const placement = fitImage(fitDeck.size, fitShot.size, content.fit ?? fitDeck.fit, focus)
+    const ring = fitShot.annotations[0]?.ring
+    if (!ring) throw new Error('The fit fixture has no ring.')
+    const stroke = (3 * placement.scale * 0.75) / 2
+    const expected = {
+      left: (placement.x + ring.x * placement.scale) * 0.75 - stroke,
+      top: (placement.y + ring.y * placement.scale) * 0.75 - stroke,
+      right: (placement.x + (ring.x + ring.width) * placement.scale) * 0.75 + stroke,
+      bottom: (placement.y + (ring.y + ring.height) * placement.scale) * 0.75 + stroke,
+    }
+    const actual = annotationBounds(output, work, page, expected)
+    check(
+      `the printed ${mode} ring follows the shared mapping within one point`,
+      Object.keys(expected).every((key) => Math.abs(actual[key as keyof typeof actual] - expected[key as keyof typeof expected]) <= 1),
+      `actual=${JSON.stringify(actual)}, expected=${JSON.stringify(expected)}`,
+    )
+  }
+}
+
 export function verifyDeckRender(output: string, work: string, check: Check): void {
+  verifyFitPdf(output, work, check)
   const imageRasters: Raster[] = []
   for (const scripts of ['refuse', 'sandboxed'] as const) {
     const slidesFile = `deck-backgrounds-${scripts}-slides`

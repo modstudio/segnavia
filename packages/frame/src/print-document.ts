@@ -21,6 +21,7 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
+import { annotationFocusBox, fitImage, type ImagePlacement } from './image-fit.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export interface PrintOptions {
@@ -67,6 +68,15 @@ export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, 
   })
 }
 
+function transformedMedia(width: number, height: number, src: string, alt: string, image: Deck['size'], placement: ImagePlacement, annotations = ''): string {
+  const transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
+  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div style="position:absolute;left:0;top:0;width:${image.width}px;height:${image.height}px;transform:${transform};transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="width:${image.width}px;height:${image.height}px;display:block">${annotations}</div></div>`
+}
+
+function naturalImage(width: number, height: number, src: string, alt: string, fit: Deck['fit']): string {
+  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div data-segnavia-image-layer data-slide-width="${width}" data-slide-height="${height}" data-fit="${fit}" style="position:absolute;left:0;top:0;transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" onload="segnaviaPlaceImage(this)" style="display:block"></div></div>`
+}
+
 function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
@@ -79,12 +89,20 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
     case 'url':
       return `<iframe sandbox="allow-scripts" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
     case 'image':
-      return `<img src="${escapeHtml(inline(content.src))}" alt="${escapeHtml(content.alt)}" style="width:${width}px;height:${height}px;object-fit:contain;display:block">`
-    case 'shot':
-      return `<div style="position:relative;width:${width}px;height:${height}px"><img src="${escapeHtml(inline(content.src))}" alt="${escapeHtml(content.shot.title)}" style="width:100%;height:100%;object-fit:contain;display:block">${annotationSvg(content.shot.size, content.shot.annotations)}</div>`
+      return naturalImage(width, height, escapeHtml(inline(content.src)), content.alt, content.fit ?? deck.fit)
+    case 'shot': {
+      const focus = annotationFocusBox(content.shot.size, content.shot.annotations)
+      const placement = fitImage(deck.size, content.shot.size, content.fit ?? deck.fit, focus)
+      const annotations = annotationSvg(content.shot.size, content.shot.annotations)
+      return transformedMedia(width, height, escapeHtml(inline(content.src)), content.shot.title, content.shot.size, placement, annotations)
+    }
     case 'shot-ref':
       throw new Error(`Slide "${slide.id}" names its shot by reference; resolve it before printing (resolveShots).`)
   }
+}
+
+function imageFitScript(): string {
+  return `<script>const segnaviaFitImage=${fitImage.toString()};function segnaviaPlaceImage(image){const layer=image.parentElement;const slide={width:Number(layer.dataset.slideWidth),height:Number(layer.dataset.slideHeight)};const size={width:image.naturalWidth,height:image.naturalHeight};const fit=segnaviaFitImage(slide,size,layer.dataset.fit);layer.style.width=size.width+'px';layer.style.height=size.height+'px';image.style.width=size.width+'px';image.style.height=size.height+'px';layer.style.transform='translate('+fit.x+'px,'+fit.y+'px) scale('+fit.scale+')'}</script>`
 }
 
 export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
@@ -94,7 +112,7 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-    return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+    return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style>${imageFitScript()}</head><body>${sheets.join('')}</body></html>`
   }
   const paper = sheetMm(Print.parse(options.notesPaper ?? NOTES_PAPER))
   const geometry = notesLayoutGeometry(deck.size, options.notesPaper)
@@ -107,7 +125,7 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     const notes = slide.narration?.text ?? slide.notes ?? ''
     return `<section class="sheet"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0">${slideBody(deck, slide, options)}</div></div><p class="number">${index + 1}</p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
   })
-  return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style></head><body>${sheets.join('')}</body></html>`
+  return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style>${imageFitScript()}</head><body>${sheets.join('')}</body></html>`
 }
 
 export interface PrintablePagesOptions {
@@ -123,14 +141,19 @@ export interface PrintablePagesDocument {
 
 const mm = (value: number) => `${value}mm`
 
-function imposedPaperDocument(imposed: Imposed, rootAttributes: string, placementBody: (paper: number, side: 'front' | 'back') => string): string {
+function imposedPaperDocument(
+  imposed: Imposed,
+  rootAttributes: string,
+  placementBody: (paper: number, side: 'front' | 'back') => string,
+  extraHead = '',
+): string {
   const papers = Array.from({ length: imposed.papers }, (_, paper) =>
     (['front', 'back'] as const)
       .slice(0, imposed.sides)
       .map((side) => `<section class="paper" data-side="${side}">${placementBody(paper, side)}</section>`)
       .join(''),
   ).join('')
-  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style>${extraHead}</head><body>${papers}</body></html>`
 }
 
 function placementBox(
@@ -177,7 +200,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   // Papers and placement boxes use physical coordinates; each slide frame
   // keeps its own direction while the document keeps the deck's direction.
   const rootAttributes = ` dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
-  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody), imposed }
+  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody, imageFitScript()), imposed }
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {

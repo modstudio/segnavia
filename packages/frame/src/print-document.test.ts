@@ -77,6 +77,31 @@ describe('printableDeck', () => {
     expect(printableDeck(deck, { nonce: 'known', imposition: undefined })).toBe(printableDeck(deck, { nonce: 'known' }))
   })
 
+  test('uses shared fitted-layer geometry for shots and natural image geometry after load', () => {
+    const tallShot = {
+      key: 'tall',
+      title: 'Tall shot',
+      file: 'tall.png',
+      size: { width: 1280, height: 2400 },
+      scale: 1,
+      capturedAt: 'now',
+      annotations: [{ ring: { x: 100, y: 2100, width: 200, height: 100 }, badge: null, arrow: null }],
+    }
+    const fitted = Deck.parse({
+      title: 'Fits',
+      slides: [
+        { id: 'shot', content: { kind: 'shot', src: 'tall.png', shot: tallShot, fit: 'focus' } },
+        { id: 'image', content: { kind: 'image', src: 'plain.png', alt: 'Plain image', fit: 'width' } },
+      ],
+    })
+    const html = printableDeck(fitted)
+    expect(html).toContain('transform:translate(0px,-1680px) scale(1)')
+    expect(html).toContain('viewBox="0 0 1280 2400"')
+    expect(html).toContain('data-fit="width"')
+    expect(html).toContain('onload="segnaviaPlaceImage(this)"')
+    expect(html).not.toContain('object-fit')
+  })
+
   test('builds two papers and every bleed box for seven slides on a two by three grid', () => {
     const seven = Deck.parse({
       ...deck,

@@ -15,9 +15,8 @@ button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-of
 button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
 button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
 .number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
-.segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:#fff;pointer-events:none}
-.segnavia-stage__canvas>*{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
-.segnavia-stage__image{object-fit:contain}
+.segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-shot-backdrop,transparent);pointer-events:none}
+.segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 [data-annotation]{opacity:1}
 @container (max-width:560px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px}
