@@ -145,7 +145,12 @@ export interface FidelityRun {
     profile?: string
     grayProfile?: string
     pressRasterizer: {
-      displayProfile: string
+      mode: 'ghostscript' | 'profiled-poppler'
+      engine: string
+      cmykSettings: string[]
+      graySettings: string[]
+      outputIntent: string
+      displayProfile?: string
       cmykProfile?: string
       grayProfile?: string
     }

@@ -157,6 +157,66 @@ export async function pressPoppler(
 
 export const pressDisplayProfile = SRGB_PROFILE
 
+export type PressRasterizer = 'ghostscript' | 'profiled-poppler'
+
+export function pressRasterizer(): PressRasterizer {
+  const configured = process.env.SEGNAVIA_FIDELITY_PRESS_RASTERIZER ?? 'ghostscript'
+  if (configured === 'ghostscript' || configured === 'profiled-poppler') return configured
+  throw new Error(`Unknown SEGNAVIA_FIDELITY_PRESS_RASTERIZER value "${configured}"; expected ghostscript or profiled-poppler.`)
+}
+
+export function pressRasterizerEngine(rasterizer: PressRasterizer): string {
+  return rasterizer === 'ghostscript' ? engineName('ghostscript') : engineName('poppler')
+}
+
+export function pressGhostscriptSettings(_profile: string, colorSpace: 'cmyk' | 'gray'): string[] {
+  return [
+    '-dUseCropBox',
+    '-dPDFFitPage',
+    `-sDEVICE=${colorSpace === 'cmyk' ? 'tiff32nc' : 'tiffgray'}`,
+    `-sDefaultRGBProfile=${SRGB_PROFILE}`,
+    '-dUsePDFX3Profile',
+    '-dRenderIntent=1',
+    '-dBlackPtComp=1',
+    '-dImageIntent=1',
+    '-dImageBlackPt=1',
+    '-dVectorIntent=1',
+    '-dVectorBlackPt=1',
+    '-dTextIntent=1',
+    '-dTextBlackPt=1',
+    '-sCompression=none',
+  ]
+}
+
+export async function pressGhostscript(
+  pdf: string,
+  output: string,
+  width: number,
+  height: number,
+  profile: string,
+  colorSpace: 'cmyk' | 'gray',
+): Promise<ReaderResult> {
+  if (!GHOSTSCRIPT) {
+    return { reader: 'ghostscript', engine: engineName('ghostscript'), worked: false, error: 'gs was not found in a standard Homebrew or system location.' }
+  }
+  const result = ran([
+    GHOSTSCRIPT,
+    '-dSAFER',
+    '-dBATCH',
+    '-dNOPAUSE',
+    ...pressGhostscriptSettings(profile, colorSpace),
+    `-r${READER_RASTER_DPI}`,
+    `-g${width}x${height}`,
+    '-dTextAlphaBits=4',
+    '-dGraphicsAlphaBits=4',
+    `-sOutputFile=${output}`,
+    pdf,
+  ])
+  return result.ok
+    ? { reader: 'ghostscript', engine: engineName('ghostscript'), worked: true, image: output }
+    : { reader: 'ghostscript', engine: engineName('ghostscript'), worked: false, error: result.error }
+}
+
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
   const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), pdf, '--out', output])
   if (!result.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: result.error }

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { buildProofTable, fromPress, type Profile, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { buildProofTable, fromGray, fromPress, type Profile, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
 import { DEFAULT_NEUTRAL_TOLERANCE, pressColor, snapsToNeutral } from '../../packages/render/src/press/color-policy.ts'
 import {
   ALIGNMENT_SEARCH_RADIUS,
@@ -11,6 +11,7 @@ import {
   MARKER_SIZE,
   SCALE,
 } from './config.ts'
+import { decodeDeviceTiff } from './tiff.ts'
 import type { Box, Difference, GlyphBox } from './types.ts'
 
 function command(args: string[]): Uint8Array {
@@ -98,6 +99,39 @@ export function proofPressPixels(profile: Profile, table: ProofTable, source: Ui
 export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable, profile?: Profile): void {
   const source = rgb(reference, width, height)
   const proved = profile?.colorSpace === 'CMYK' ? proofPressPixels(profile, table, source) : proofPixels(table, source)
+  const result = Bun.spawnSync(
+    ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
+    { stdin: proved, stdout: 'pipe', stderr: 'pipe' },
+  )
+  if (result.exitCode !== 0) throw new Error(`Could not make ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
+}
+
+export function deviceToSrgb(profile: Profile, source: Uint8Array): Uint8ClampedArray {
+  const channels = profile.colorSpace === 'CMYK' ? 4 : profile.colorSpace === 'GRAY' ? 1 : 0
+  if (!channels || source.length % channels !== 0) throw new Error(`Unexpected ${profile.colorSpace.trim()} device pixel byte length ${source.length}.`)
+  const result = new Uint8ClampedArray((source.length / channels) * 3)
+  for (let sourceOffset = 0, destinationOffset = 0; sourceOffset < source.length; sourceOffset += channels, destinationOffset += 3) {
+    const rgb =
+      channels === 4
+        ? fromPress(profile, [
+            (source[sourceOffset] ?? 0) / 255,
+            (source[sourceOffset + 1] ?? 0) / 255,
+            (source[sourceOffset + 2] ?? 0) / 255,
+            (source[sourceOffset + 3] ?? 0) / 255,
+          ])
+        : fromGray(profile, [(source[sourceOffset] ?? 0) / 255])
+    result[destinationOffset] = rgb[0] * 255
+    result[destinationOffset + 1] = rgb[1] * 255
+    result[destinationOffset + 2] = rgb[2] * 255
+  }
+  return result
+}
+
+export async function modelPressRaster(source: string, destination: string, width: number, height: number, profile: Profile): Promise<void> {
+  const channels = profile.colorSpace === 'CMYK' ? 4 : profile.colorSpace === 'GRAY' ? 1 : undefined
+  if (!channels) throw new Error(`Cannot model a ${profile.colorSpace.trim()} press raster.`)
+  const bytes = new Uint8Array(await Bun.file(source).arrayBuffer())
+  const proved = deviceToSrgb(profile, decodeDeviceTiff(bytes, width, height, channels))
   const result = Bun.spawnSync(
     ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
     { stdin: proved, stdout: 'pipe', stderr: 'pipe' },
