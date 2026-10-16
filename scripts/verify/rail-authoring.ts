@@ -367,7 +367,7 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.evaluate(() => (window as unknown as { reactUnmount(): void }).reactUnmount())
   await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Unmounted React draft'))
   const detached = await unmountedPlayer?.evaluate((player) => player.shadowRoot?.querySelector('[data-authoring-notes]') === null)
-  check('React unmount detaches authoring and saves a pending edit', detached)
+  check('React unmount detaches authoring and saves a pending edit', detached === true)
 
   const playerBundle = readFileSync(path.join(SITE, 'segnavia-player.js'), 'utf8')
   const controlsBundle = readFileSync(path.join(SITE, 'segnavia-controls.js'), 'utf8')
