@@ -1,15 +1,17 @@
-// The headless browser entry point: the controller, <segnavia-stage> and
-// <segnavia-page> and <segnavia-paper>, which bring no appearance of their own. The optional skin
-// is a separate entry point (`@segnavia/frame/player`), so a host that draws
-// its own controls never loads it. A server imports the pure entry points
-// instead (`/bridge`, `/svg`, `/timeline`, `/print-document`).
+// The headless browser entry point: the controller and the stage, page, paper
+// and book elements, which bring no appearance of their own. The optional
+// skin is a separate entry point (`@segnavia/frame/player`), so a host that
+// draws its own controls never loads it. A server imports the pure entry
+// points instead (`/bridge`, `/svg`, `/timeline`, `/print-document`).
 
+import { SegnaviaBook } from './book.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaStage } from './stage.ts'
 
 export { BASE_CSS } from './base-style.ts'
+export { SegnaviaBook } from './book.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'
 export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'
 export { type FitInputs, type FittedSize, fitSheet } from './fit.ts'
@@ -28,3 +30,4 @@ export { type HostTransition, type TransitionAxis, type TurnDirection, type Turn
 if (!customElements.get(HEADLESS_ELEMENTS.stage)) customElements.define(HEADLESS_ELEMENTS.stage, SegnaviaStage)
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)
+if (!customElements.get(HEADLESS_ELEMENTS.book)) customElements.define(HEADLESS_ELEMENTS.book, SegnaviaBook)

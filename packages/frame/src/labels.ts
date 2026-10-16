@@ -1,6 +1,7 @@
 // The words the styled components and the player say, in the host's
 // language. A host passes its own; these are the defaults.
 
+import { isHebrew } from '@segnavia/format'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 
 export interface PlayerLabels {
@@ -63,4 +64,8 @@ export const ENGLISH_LABELS: PlayerLabels = {
 
 export function playerLabels(labels: Partial<PlayerLabels>): PlayerLabels {
   return { ...ENGLISH_LABELS, ...labels }
+}
+
+export function bookLabel(lang: string | undefined): string {
+  return isHebrew(lang) ? 'ספר' : 'Book'
 }

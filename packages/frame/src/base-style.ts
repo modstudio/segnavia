@@ -1,4 +1,4 @@
-// The only styles the headless elements bring: the geometry a slide, page or paper
+// The only styles the headless elements bring: the geometry a slide, page, paper or book
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
 // borders, radius, type) is left entirely to the host; the few values that
@@ -36,6 +36,8 @@ export const BASE_CSS = `
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
+:where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
+:where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
 :where([data-presenting]),:where(:host([data-presenting])){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}

@@ -3,14 +3,28 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { BookShape } from './book.ts'
+import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Shot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
-export { Book, BookContents, BookFrontMatterEntry, type BookInput, BookMode, BookPage, BookSection, Chapter, isBookContents, noteMarkerIssues } from './book.ts'
+export {
+  Book,
+  BookContents,
+  BookFrontMatterEntry,
+  type BookInput,
+  BookMode,
+  BookPage,
+  BookSection,
+  BookView,
+  type BookViewInput,
+  Chapter,
+  isBookContents,
+  isHebrew,
+  noteMarkerIssues,
+} from './book.ts'
 export {
   Annotation,
   annotationCueIssues,
@@ -210,6 +224,7 @@ export type PageInput = z.input<typeof Page>
 export function jsonSchemas() {
   return {
     book: z.toJSONSchema(BookShape, { io: 'input' }),
+    bookView: z.toJSONSchema(BookView, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
     lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),
