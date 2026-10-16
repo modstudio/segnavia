@@ -6,6 +6,7 @@ const html = (authorPrevents: boolean) => `<!doctype html><html><body style="mar
 <a id="jump-percent" href="#far%">Jump to literal percent target</a>
 <a id="jump-cafe" href="#caf%C3%A9">Jump to encoded target</a>
 <a id="jump-hebrew" href="#פרק">Jump to Hebrew target</a>
+<a id="jump-missing" href="#nowhere">Jump to a missing target</a>
 ${authorPrevents ? '<a id="blocked" href="#far">Blocked by author</a><a id="blocked-delegated" href="#far">Blocked by delegated author handler</a>' : ''}
 <div style="height:700px"></div><h2 id="far">Far target</h2>
 <div style="height:500px"></div><h2 id="far%">Literal percent target</h2>

@@ -134,6 +134,16 @@ export async function verifyPages(h: Harness) {
     }, targetId)
     check(`an in-page link resolves ${linkId}`, facts.href === 'about:srcdoc' && facts.present && facts.visible && facts.focused, JSON.stringify(facts))
   }
+  await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
+  await sandboxedPage.locator('#jump-missing').evaluate((link: HTMLElement) => link.click())
+  const missing = await sandboxedPage
+    .locator('body')
+    .evaluate(() => ({ href: location.href, present: Boolean(document.getElementById('jump-missing')), scrollY }))
+  check(
+    'an in-page link to a missing target keeps the frame on its document',
+    missing.href === 'about:srcdoc' && missing.present && missing.scrollY === 0,
+    JSON.stringify(missing),
+  )
   const linkMessages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
   check(
     'in-page links add no message kind',

@@ -55,8 +55,9 @@ var href=link.getAttribute('href');if(!href||href.charAt(0)!=='#')return;
 var fragment=decodeFragment(href.slice(1));
 var target=document.getElementById(fragment);
 if(!target){var named=document.getElementsByTagName('a');for(var i=0;i<named.length;i++){if(named[i].getAttribute('name')===fragment){target=named[i];break;}}}
-if(!target&&(fragment===''||fragment.toLowerCase()==='top')){e.preventDefault();scrollTo(0,0);return;}
-if(!target)return;e.preventDefault();target.scrollIntoView();
+e.preventDefault();
+if(!target&&(fragment===''||fragment.toLowerCase()==='top')){scrollTo(0,0);return;}
+if(!target)return;target.scrollIntoView();
 if(target.focus){target.focus({preventScroll:true});if(document.activeElement!==target){if(!target.hasAttribute('tabindex'))target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}}
 });
 ${
