@@ -1,4 +1,4 @@
-import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, StageReserve } from '@segnavia/frame'
+import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, SegnaviaThumbnail, StageReserve } from '@segnavia/frame'
 import type {
   PlayerLabels,
   SegnaviaCaption,
@@ -61,6 +61,15 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   transitionDuration?: number
   onSegnaviaController?: CustomEventProp
   onSegnaviaFit?: CustomEventProp<FittedSize>
+}
+
+export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
+  deck?: SegnaviaThumbnail['deck']
+  index?: number
+  resolveSlide?: ControllerOptions['resolveSlide']
+  base?: string
+  mountMargin?: number
+  onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
 export type PlayProps = ControlProps<SegnaviaPlay>

@@ -1,8 +1,7 @@
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
-import { defaultFrameTitle } from './frame-title.ts'
 import { railMoveTarget, railSelection } from './rail-navigation.ts'
-import { stageCanvas } from './stage-content.ts'
+import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
@@ -172,8 +171,7 @@ export class SegnaviaRail extends SegnaviaControl {
       .contentFor(index)
       .then((content) => {
         if (!preview.isConnected || controller.state.deck?.slides[index]?.id !== slide.id) return
-        const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, '', '', defaultFrameTitle, () => {})
-        canvas.querySelector('iframe')?.setAttribute('sandbox', '')
+        const canvas = thumbnailCanvas(controller, deck, slide, index, content)
         preview.append(canvas)
         this.measure()
       })
@@ -185,7 +183,7 @@ export class SegnaviaRail extends SegnaviaControl {
     if (!deck) return
     for (const preview of this.root.querySelectorAll<HTMLElement>('.preview')) {
       const canvas = preview.firstElementChild as HTMLElement | null
-      if (canvas) canvas.style.transform = `scale(${preview.clientWidth / deck.size.width})`
+      if (canvas) canvas.style.transform = `scale(${thumbnailScale(preview.clientWidth, deck.size.width)})`
     }
   }
 

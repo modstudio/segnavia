@@ -17,6 +17,7 @@ import { verifyPlayer } from './verify/player.ts'
 import { verifyPlayerLayout } from './verify/player-layout.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyRtl } from './verify/rtl.ts'
+import { verifyThumbnail } from './verify/thumbnail.ts'
 
 const h = await openHarness()
 try {
@@ -29,6 +30,7 @@ try {
   await verifyPapers(h)
   await verifyRtl(h)
   await verifyHeadless(h)
+  await verifyThumbnail(h)
   await verifyImageFit(h)
   await verifyComponents(h)
   await verifyDeckHost(h)
