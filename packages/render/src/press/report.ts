@@ -35,14 +35,12 @@ function inspectImage(state: ReportState, image: PDFRawStream): void {
   state.report.images.push({ width, height, colorSpace: space.label as PressImage['colorSpace'] })
 }
 
-function inspectFunction(state: ReportState, fn: PDFDict | undefined, policy: FunctionDecision, mask: MaskContext): void {
-  if (state.report.destination === 'gray' && mask === 'alpha') return
+function inspectFunction(state: ReportState, fn: PDFDict | undefined, policy: FunctionDecision, _mask: MaskContext): void {
   if (policy.action === 'refuse') refuse(policy.found, policy.supported)
   if (fn && numberOf(fn, 'FunctionType') === 2) state.report.gradientStops += 2
 }
 
-function inspectShading(state: ReportState, shading: PDFDict, mask: MaskContext): boolean {
-  if (state.report.destination === 'gray' && mask === 'alpha') return false
+function inspectShading(state: ReportState, shading: PDFDict, _mask: MaskContext): boolean {
   if (state.shadings.has(shading)) return false
   state.shadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
@@ -63,7 +61,6 @@ function inspectShading(state: ReportState, shading: PDFDict, mask: MaskContext)
 }
 
 function inspectGroup(state: ReportState, owner: PDFDict, mask: MaskContext): void {
-  if (state.report.destination === 'gray' && mask === 'alpha') return
   const group = owner.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || state.groups.has(group)) return
   state.groups.add(group)
@@ -93,17 +90,14 @@ export async function inspectPressPdf(bytes: Uint8Array, requested?: 'cmyk' | 'g
     shadings: new WeakSet(),
   }
   walkPressGraph(document, {
-    content: (_object, stream, _replace, _resources, mask) => {
-      if (destination === 'gray' && mask === 'alpha') return
+    content: (_object, stream) => {
       const counts = inspectContent(decodeContent(stream, state.budget), destination)
       state.report.fills += counts.fills
       state.report.strokes += counts.strokes
     },
     function: (fn, decision, mask) => inspectFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => inspectGroup(state, owner, mask),
-    image: (image, mask) => {
-      if (destination === 'cmyk' || mask === 'none') inspectImage(state, image)
-    },
+    image: (image) => inspectImage(state, image),
     shading: (shading, _pattern, mask) => inspectShading(state, shading, mask),
   })
   return state.report

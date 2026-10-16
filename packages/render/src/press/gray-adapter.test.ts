@@ -124,7 +124,7 @@ test('a Type 1 shading becomes a one-channel sampled function', async () => {
   expect(sampled ? decodePDFRawStream(sampled).decode().length : 0).toBe(400)
 })
 
-test('gray luminosity masks use PDF luminosity while alpha masks stay byte-identical', async () => {
+test('gray mask sources use PDF luminosity without changing alpha opacity data', async () => {
   const document = await PDFDocument.create()
   const form = (content: string) =>
     document.context.register(
@@ -137,9 +137,10 @@ test('gray luminosity masks use PDF luminosity while alpha masks stay byte-ident
       }),
     )
   const luminositySource = form('0.2 0.4 0.6 rg')
-  const alphaSource = form('0.2 0.4 0.6 rg')
+  const alphaSource = form('0 0 0 rg')
+  const transfer = document.context.register(document.context.stream(Uint8Array.of(9, 8, 7), { FunctionType: 4 }))
   const luminosityMask = document.context.register(document.context.obj({ S: 'Luminosity', G: luminositySource }))
-  const alphaMask = document.context.register(document.context.obj({ S: 'Alpha', G: alphaSource }))
+  const alphaMask = document.context.register(document.context.obj({ S: 'Alpha', G: alphaSource, TR: transfer }))
   setResources(document, document.addPage([20, 20]), { ExtGState: { Lum: { SMask: luminosityMask }, Alpha: { SMask: alphaMask } } }, '/Lum gs /Alpha gs')
   const converted = await rewritePressPdf(await document.save(), profile)
   const output = await PDFDocument.load(converted.bytes)
@@ -147,6 +148,9 @@ test('gray luminosity masks use PDF luminosity while alpha masks stay byte-ident
   const alpha = output.context.lookup(alphaSource) as PDFRawStream
   expect(new TextDecoder().decode(decodePDFRawStream(lum).decode())).toContain('0.362 g')
   expect(lum.dict.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceGray')
-  expect(new TextDecoder().decode(decodePDFRawStream(alpha).decode())).toBe('0.2 0.4 0.6 rg')
-  expect(alpha.dict.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceRGB')
+  expect(new TextDecoder().decode(decodePDFRawStream(alpha).decode())).toContain('0 g')
+  expect(alpha.dict.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceGray')
+  const outputMask = output.context.lookup(alphaMask, PDFDict)
+  const outputTransfer = output.context.lookup(outputMask.get(PDFName.of('TR'))) as PDFRawStream
+  expect(outputTransfer.contents).toEqual(Uint8Array.of(9, 8, 7))
 })

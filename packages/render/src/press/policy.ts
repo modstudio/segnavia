@@ -43,7 +43,7 @@ export function contentFilter(names: string[] | undefined): ContentFilterDecisio
   return { ...decision('refuse', supported), encoding: 'unsupported' }
 }
 
-// A mask source keeps RGB because its luminosity or alpha values are interpreted by the mask; other RGB groups become CMYK.
+// RGB mask sources stay RGB for CMYK output, while every RGB group becomes DeviceGray for gray output.
 export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boolean, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
   if (destination === 'gray') {
     const supported = 'DeviceGray, DeviceRGB, or no declared space'

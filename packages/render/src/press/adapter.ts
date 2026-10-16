@@ -47,12 +47,10 @@ const refuse = (found: string, supported: string): never => {
 const resolved = (state: RewriteState, object: PDFObject | undefined): PDFObject | undefined =>
   object instanceof PDFRef ? state.document.context.lookup(object) : object
 const luminosity = ([red, green, blue]: Color3): Color1 => [0.3 * red + 0.59 * green + 0.11 * blue]
-const isGrayMask = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask === 'luminosity'
-const isUntouchedAlpha = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask === 'alpha'
+const isGrayMask = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask !== 'none'
 const converterFor = (state: RewriteState, mask: MaskContext): ((rgb: Color3) => Color) => (isGrayMask(state, mask) ? luminosity : state.convert)
 
 function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: FunctionDecision, mask: MaskContext): void {
-  if (isUntouchedAlpha(state, mask)) return
   if (policy.action === 'refuse') refuse(policy.found, policy.supported)
   if (!fn) return
   const type = numberOf(fn, 'FunctionType')
@@ -115,7 +113,6 @@ function convertType1Shading(state: RewriteState, shading: PDFDict, pattern: PDF
 }
 
 function convertShading(state: RewriteState, shading: PDFDict, pattern: PDFDict | undefined, mask: MaskContext): boolean {
-  if (isUntouchedAlpha(state, mask)) return false
   if (state.seenShadings.has(shading)) return false
   state.seenShadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
@@ -138,7 +135,6 @@ function convertShading(state: RewriteState, shading: PDFDict, pattern: PDFDict 
 }
 
 function convertGroup(state: RewriteState, owner: PDFDict, mask: MaskContext): void {
-  if (isUntouchedAlpha(state, mask)) return
   const group = owner.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || state.seenGroups.has(group)) return
   state.seenGroups.add(group)
@@ -152,13 +148,20 @@ function convertGroup(state: RewriteState, owner: PDFDict, mask: MaskContext): v
   }
 }
 
-function convertRuleCImage(state: RewriteState, image: PDFRawStream, width: number, height: number, dictionary: Record<string, PDFObject>): void {
+function convertRuleCImage(
+  state: RewriteState,
+  image: PDFRawStream,
+  width: number,
+  height: number,
+  dictionary: Record<string, PDFObject>,
+  convert: (rgb: Color3) => Color,
+): void {
   const source = decodeContent(image, state.budget)
   if (source.length !== width * height * 3) refuse('effect image sample length', 'three 8-bit RGB samples per pixel')
   const channels = state.destination === 'gray' ? 1 : 4
   const converted = new Uint8Array(width * height * channels)
   for (let pixel = 0; pixel < width * height; pixel++) {
-    const color = state.convert([(source[pixel * 3] ?? 0) / 255, (source[pixel * 3 + 1] ?? 0) / 255, (source[pixel * 3 + 2] ?? 0) / 255])
+    const color = convert([(source[pixel * 3] ?? 0) / 255, (source[pixel * 3 + 1] ?? 0) / 255, (source[pixel * 3 + 2] ?? 0) / 255])
     for (let channel = 0; channel < channels; channel++) converted[pixel * channels + channel] = Math.round(Math.max(0, Math.min(1, color[channel] ?? 0)) * 255)
   }
   dictionary.ColorSpace = key(state.destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK')
@@ -168,19 +171,19 @@ function convertRuleCImage(state: RewriteState, image: PDFRawStream, width: numb
 }
 
 function convertEffectImage(state: RewriteState, image: PDFRawStream, mask: MaskContext): void {
-  if (state.destination === 'gray' && mask !== 'none') return
   if (!image.dict.has(key(GENERATED_EFFECT_IMAGE_KEY)) || resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace')))).kind !== 'rgb')
     return
   const width = numberOf(image.dict, 'Width') ?? refuse('effect image Width missing', 'a positive Width number')
   const height = numberOf(image.dict, 'Height') ?? refuse('effect image Height missing', 'a positive Height number')
   if (width <= 0 || height <= 0) refuse('effect image dimensions', 'positive Width and Height numbers')
   const dictionary = streamDictionary(image)
+  const convert = converterFor(state, mask)
   if (!image.dict.has(key('SegnaviaEffectColor'))) {
-    convertRuleCImage(state, image, width, height, dictionary)
+    convertRuleCImage(state, image, width, height, dictionary, convert)
     return
   }
   const source = arrayNumbers(image.dict, 'SegnaviaEffectColor', 3) as Color3
-  const color = state.convert(source)
+  const color = convert(source)
   const palette = color.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255))
   dictionary.ColorSpace = state.document.context.obj([
     'Indexed',
@@ -230,7 +233,6 @@ function recordContentBounds(state: RewriteState, stream: PDFRawStream, resource
 }
 
 function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void, mask: MaskContext): void {
-  if (isUntouchedAlpha(state, mask)) return
   const bytes = decodeContent(stream, state.budget)
   const destination = state.destination
   const rewritten = rewriteContent(bytes, converterFor(state, mask), destination)
@@ -276,8 +278,8 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile, to
     beginContentsSequence: () => {
       state.sequence = createPaintedBoundsTracker(state.painted, state.shadingPainted)
     },
-    content: (_object, stream, _replace, resources, mask) => {
-      if (!isUntouchedAlpha(state, mask)) recordContentBounds(state, stream, resources, boundsBudget)
+    content: (_object, stream, _replace, resources) => {
+      recordContentBounds(state, stream, resources, boundsBudget)
     },
     endContentsSequence: () => {
       state.sequence = undefined
@@ -286,7 +288,7 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile, to
     group: () => undefined,
     image: () => undefined,
     replayPageContents: true,
-    shading: (shading, pattern, mask) => (isUntouchedAlpha(state, mask) ? false : indexShadingPattern(state, shading, pattern)),
+    shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
   })
   walkPressGraph(document, {
     content: (object, stream, replace, _resources, mask) => convertContent(state, object, stream, replace, mask),
