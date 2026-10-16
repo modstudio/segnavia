@@ -19,6 +19,7 @@ import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
+
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
 const SITE = path.join(OUT, 'site')
@@ -363,7 +364,6 @@ writeFileSync(
     '<div style="background:#fff;width:800px"><segnavia-page id="ticket"></segnavia-page></div><script type="module">await customElements.whenDefined("segnavia-page"); document.getElementById("ticket").showUrl("ticket-page.html")</script>',
   ),
 )
-
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {

@@ -29,6 +29,11 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto(h.url('layout-contain.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await page.waitForFunction(() => {
+    const player = document.querySelector('segnavia-player')
+    const bar = player?.shadowRoot?.querySelector('.bar')
+    return bar ? bar.getBoundingClientRect().bottom <= window.innerHeight : false
+  })
   let boxes = await geometry(h)
   check('contain keeps the control bar within a 1280 by 720 viewport', boxes.bar.bottom <= 720, JSON.stringify(boxes))
   await h.evidence('player-contain-1280x720.png')
