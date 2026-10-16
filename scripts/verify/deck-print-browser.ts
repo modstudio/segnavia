@@ -55,7 +55,8 @@ export async function verifyDeckPrintBrowser(h: Harness) {
         },
       },
     )
-    const longNotes = Array.from({ length: 60 }, (_, index) => `Line ${index + 1}: browser notes continue.`).join('\n')
+    const longToken = `https://example.invalid/${'unbroken'.repeat(30)}`
+    const longNotes = `${longToken}\n${Array.from({ length: 60 }, (_, index) => `Line ${index + 1}: browser notes continue.`).join('\n')}`
     let notesFacts = {
       sheets: 0,
       continuations: 0,
@@ -67,6 +68,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       sandboxed: false,
       exact: false,
       unclipped: false,
+      horizontallyUnclipped: false,
     }
     await lib.printDeck(
       { ...deck, slides: [{ ...deck.slides[0], id: 'long-notes', notes: longNotes }] },
@@ -92,6 +94,24 @@ export async function verifyDeckPrintBrowser(h: Harness) {
               const notes = sheet.querySelector<HTMLElement>('.notes')
               return notes ? notes.scrollHeight <= notes.clientHeight + 1 : false
             }),
+            horizontallyUnclipped: noteSheets.every((sheet) => {
+              const notes = sheet.querySelector<HTMLElement>('.notes')
+              return notes ? notes.scrollWidth <= notes.clientWidth + 1 : false
+            }),
+          }
+        },
+      },
+    )
+    let rtlFacts = { continuations: 0, isolated: false }
+    await lib.printDeck(
+      { ...deck, dir: 'rtl', slides: [{ ...deck.slides[0], notes: Array.from({ length: 60 }, (_, index) => `שורה ${index + 1}`).join('\n') }] },
+      {
+        layout: 'notes',
+        print: (win: Window) => {
+          const continuations = [...win.document.querySelectorAll<HTMLElement>('[data-notes-continuation]')]
+          rtlFacts = {
+            continuations: continuations.length,
+            isolated: continuations.every((sheet) => sheet.querySelector('.number > bdi[dir="ltr"]')?.textContent?.includes('(continued)')),
           }
         },
       },
@@ -126,6 +146,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       placements,
       handoutMs: Math.round(performance.now() - handoutStarted),
       notesFacts,
+      rtlFacts,
       removed,
       stalledPrinted,
       stalledRemoved,
@@ -148,11 +169,17 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       printed.notesFacts.continuations === printed.notesFacts.sheets - 1 &&
       printed.notesFacts.lastLine &&
       printed.notesFacts.unclipped &&
+      printed.notesFacts.horizontallyUnclipped &&
       printed.notesFacts.owned &&
       printed.notesFacts.notesOnly &&
       printed.notesFacts.letter &&
       printed.notesFacts.scaled,
     JSON.stringify(printed),
+  )
+  check(
+    'right-to-left notes isolate the slide number and continued marker',
+    printed.rtlFacts.continuations > 0 && printed.rtlFacts.isolated,
+    JSON.stringify(printed.rtlFacts),
   )
   check(
     'browser deck printing keeps the slide sandbox, injects exact color, and removes the hook host synchronously',

@@ -15,7 +15,7 @@ import {
   printableDeckDocument,
   printablePagesDocument,
 } from './print-document.ts'
-import { waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
+import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
@@ -48,7 +48,8 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     win.document.close()
     const frames = [...win.document.querySelectorAll('iframe')]
     const images = [...win.document.querySelectorAll('img')]
-    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, options.deadlineMs ?? SLIDES_READY_DEADLINE_MS))
+    const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
+    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
     const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
@@ -58,7 +59,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
     placePrintImages(win.document)
     paginateNotes(win.document)
-    await waitForPaint(win.requestAnimationFrame.bind(win))
+    await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
     if (options.print) await options.print(win)
     else {
       win.focus()

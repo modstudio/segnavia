@@ -33,7 +33,7 @@ export function paginateNotes(target: Document | null): void {
   const printDocument = target ?? document
   const fits = (node: HTMLElement, text: string) => {
     node.textContent = text
-    return node.scrollHeight <= node.clientHeight + 1
+    return node.scrollHeight <= node.clientHeight + 1 && node.scrollWidth <= node.clientWidth + 1
   }
   const take = (node: HTMLElement, text: string) => {
     if (fits(node, text)) return text.length
@@ -60,7 +60,10 @@ export function paginateNotes(target: Document | null): void {
     sheet.dataset.notesContinuation = ''
     const marker = printDocument.createElement('p')
     marker.className = 'number'
-    marker.textContent = `${number} (continued)`
+    const label = printDocument.createElement('bdi')
+    label.dir = 'ltr'
+    label.textContent = `${number} (continued)`
+    marker.append(label)
     const notes = printDocument.createElement('div')
     notes.className = 'notes'
     notes.dir = 'auto'
@@ -97,13 +100,11 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   const { width: sheetWidth, height: sheetHeight } = geometry.sheet
   const { x, width: slideWidth, height: slideHeight, scale } = geometry.slide
   const padding = x - geometry.border
-  const firstNotesHeight = sheetHeight - padding * 2 - slideHeight - geometry.border * 2 - 39
-  const continuationNotesHeight = sheetHeight - padding * 2 - 27
   const sheets = deck.slides.map((slide, index) => {
     const number = index + 1
-    return `<section class="sheet" data-notes-source data-slide-index="${index}" data-slide-number="${number}"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${deck.size.width}px;height:${deck.size.height}px;transform:scale(${scale});transform-origin:0 0">${options.slideBody(slide)}</div></div><p class="number">${number}</p><div class="notes" dir="auto">${escapeHtml(speakerNotes(slide))}</div></section>`
+    return `<section class="sheet" data-notes-source data-slide-index="${index}" data-slide-number="${number}"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${deck.size.width}px;height:${deck.size.height}px;transform:scale(${scale});transform-origin:0 0">${options.slideBody(slide)}</div></div><p class="number"><bdi dir="ltr">${number}</bdi></p><div class="notes" dir="auto">${escapeHtml(speakerNotes(slide))}</div></section>`
   })
   const root = `dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{height:${firstNotesHeight}px;overflow:hidden;white-space:pre-wrap}.continuation .number{margin:0 0 4px}.continuation .notes{height:${continuationNotesHeight}px}`
+  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif;display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
   return `<!doctype html><html ${root}><head><meta charset="utf-8"><style>${css}</style></head><body>${sheets.join('')}</body></html>`
 }

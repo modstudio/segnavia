@@ -39,6 +39,12 @@ test('the paint barrier crosses two animation frames', async () => {
   expect(painted).toBeTrue()
 })
 
+test('the paint barrier ends at its timeout when animation frames are suspended', async () => {
+  const started = performance.now()
+  await waitForPaint(() => 0, 5)
+  expect(performance.now() - started).toBeGreaterThanOrEqual(4)
+})
+
 test('afterprint ends the native print lifetime before the fallback', async () => {
   const win = new EventTarget() as Window
   Object.assign(win, { setTimeout, clearTimeout })

@@ -52,6 +52,10 @@ describe('printableDeck', () => {
     const printable = printableDeck(deck, { layout: 'notes' })
     expect(printable).toContain('box-sizing:border-box;padding:48px;')
     expect(printable).toContain('.slide{border:1px solid #ccc;')
+    expect(printable).toContain('display:flex;flex-direction:column')
+    expect(printable).toContain('.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;')
+    expect(printable).not.toMatch(/\.notes\{height:/)
+    expect(printable).toContain('<bdi dir="ltr">1</bdi>')
   })
 
   test('prints speaker notes before narration and falls back only when notes are absent', () => {

@@ -326,7 +326,8 @@ direction from their content.
 Every sandboxed slide document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
 putting those properties only on the containing print document cannot cross a
-frame boundary. Chromium still omits those backgrounds in printed output, so
+frame boundary. A URL slide keeps its own print styling; color-adjust injection
+covers only the slide documents the library builds. Chromium still omits those backgrounds in printed output, so
 the browser dialog is best effort and `deckPdf` is the faithful path. The
 sandbox remains without same-origin access. Browser printing waits for slide
 readiness and fonts only until one shared deadline, then crosses a
