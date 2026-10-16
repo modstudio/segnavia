@@ -180,7 +180,7 @@ async function verifyRemoval(h: Harness) {
   const { page, check } = h
   const result = await page
     .locator(PLAYER)
-    .evaluate(async (player: HTMLElement & { controller: { play(): Promise<void>; state: { playing: boolean; slideElapsedMs: number } } }) => {
+    .evaluate(async (player: HTMLElement & { controller: EventTarget & { play(): Promise<void>; state: { playing: boolean; slideElapsedMs: number } } }) => {
       const controller = player.controller
       await controller.play()
       let pausedChanges = 0
