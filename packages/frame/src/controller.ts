@@ -1,11 +1,11 @@
-import { annotationCueIssues, type Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
+import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
 import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
-import { parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
+import { runNavigationGuard } from './navigation-guard.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -73,6 +73,7 @@ export class DeckController extends EventTarget {
     window.removeEventListener('keydown', this.onPageKey)
     this.listening = false
   }
+
   async loadUrl(src: string): Promise<void> {
     const url = new URL(src, hasWindow ? location.href : undefined).href
     const response = await fetch(url)
@@ -81,10 +82,9 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
-    const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
-    if (guarded) await guarded
+    if (this.current.deck) await runNavigationGuard(this, 'load')
     if (base) this.options.base = base
-    const deck = parseDeckLoad(input, guarded)
+    const deck = Deck.parse(input)
     const wasOpen = this.current.deck !== null
     const oldIds = this.current.deck?.slides.map((slide) => slide.id) ?? []
     const selectedId = this.current.slide?.id ?? null

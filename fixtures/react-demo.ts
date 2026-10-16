@@ -3,7 +3,7 @@ import { Player, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
-const facts = { changes: 0, saves: [] as string[], notesRoots: [] as number[] }
+const facts = { changes: 0, deferNotes: false, releaseNotes: () => {}, saves: [] as string[], notesRoots: [] as number[] }
 
 function App() {
   const [rail, setRail] = useState(false)
@@ -17,6 +17,7 @@ function App() {
     {
       saveNotes: async ({ notes }) => {
         facts.saves.push(notes)
+        if (facts.deferNotes) await new Promise<void>((resolve) => (facts.releaseNotes = resolve))
       },
       moveSlide: configured ? async () => {} : undefined,
     },

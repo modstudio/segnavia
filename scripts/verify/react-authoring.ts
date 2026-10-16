@@ -23,12 +23,24 @@ export async function verifyReactAuthoring(h: Harness) {
     strictModeMount.current === 1 && strictModeMount.seen.at(-1) === 1 && (await notes.isVisible()),
     JSON.stringify(strictModeMount),
   )
+  await page.evaluate(() => ((window as unknown as { reactFacts: { deferNotes: boolean } }).reactFacts.deferNotes = true))
   await notes.fill('Strict mode navigation draft')
-  const navigationSaves = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
-    await player.controller.next()
-    return (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves
+  const navigation = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
+    const facts = (window as unknown as { reactFacts: { deferNotes: boolean; releaseNotes(): void; saves: string[] } }).reactFacts
+    let settled = false
+    const moving = player.controller.next().then(() => (settled = true))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const saves = [...facts.saves]
+    facts.deferNotes = false
+    facts.releaseNotes()
+    await moving
+    return { saves, settledBeforeRelease: settled }
   })
-  check('React StrictMode replacement keeps the navigation save guard', navigationSaves.includes('Strict mode navigation draft'), navigationSaves.join(','))
+  check(
+    'React StrictMode replacement keeps the navigation save guard',
+    navigation.saves.includes('Strict mode navigation draft') && !navigation.settledBeforeRelease,
+    JSON.stringify(navigation),
+  )
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
   await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))

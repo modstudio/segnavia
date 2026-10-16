@@ -1,7 +1,5 @@
 const navigationGuardKey = Symbol.for('@segnavia/frame/navigation-guard')
 
-export { parseDeckLoad } from './deck-load-origin.ts'
-
 interface NavigationGuardState {
   guard?: (reason: NavigationGuardReason) => Promise<void>
   running?: Promise<void>
@@ -18,12 +16,10 @@ function state(target: EventTarget): NavigationGuardState {
   return created
 }
 
-export function setNavigationGuard(target: EventTarget, guard: (reason: NavigationGuardReason) => Promise<void>): () => void {
+export function setNavigationGuard(target: EventTarget, guard: ((reason: NavigationGuardReason) => Promise<void>) | null) {
   const guarded = state(target)
-  guarded.guard = guard
-  return () => {
-    if (guarded.guard === guard) delete guarded.guard
-  }
+  if (guard) guarded.guard = guard
+  else delete guarded.guard
 }
 
 export function runNavigationGuard(target: EventTarget, reason: NavigationGuardReason = 'navigate'): Promise<void> {
@@ -31,7 +27,7 @@ export function runNavigationGuard(target: EventTarget, reason: NavigationGuardR
   const guard = guarded.guard
   if (!guard) return Promise.resolve()
   const active = guarded.running
-  if (active) return active.then(() => {})
+  if (active) return active
   const next = Promise.resolve().then(() => guard(reason))
   guarded.running = next
   const clear = () => {
@@ -39,8 +35,4 @@ export function runNavigationGuard(target: EventTarget, reason: NavigationGuardR
   }
   void next.then(clear, clear)
   return next
-}
-
-export function activeNavigationGuard(target: EventTarget): Promise<void> | undefined {
-  return state(target).running
 }

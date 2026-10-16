@@ -13,10 +13,10 @@ interface Timers {
 
 interface Entry extends NotesSaveState {
   saved: string
-  host: string
   version: number
   timer: number | null
   saves: Map<number, Promise<boolean>>
+  preserveNextSeed: boolean
 }
 
 const browserTimers: Timers = {
@@ -48,35 +48,29 @@ export class NotesSaveQueue {
     this.save = save
   }
 
-  hasLocalWork(slideId: string): boolean {
-    const entry = this.entry(slideId)
-    return entry.text !== entry.saved || entry.saves.size > 0
-  }
-
   seed(slideId: string, notes: string): boolean {
     const existing = this.entries.get(slideId)
     if (!existing) {
       this.entries.set(slideId, {
         text: notes,
         saved: notes,
-        host: notes,
         version: 0,
         timer: null,
         saves: new Map(),
+        preserveNextSeed: false,
         status: 'idle',
         message: '',
       })
       return true
     }
     if (existing.text !== existing.saved || existing.saves.size > 0) return false
-    if (existing.host === notes) return false
-    if (existing.text === notes) {
-      existing.host = notes
+    if (existing.preserveNextSeed) {
+      existing.preserveNextSeed = false
       return false
     }
+    if (existing.text === notes) return false
     existing.text = notes
     existing.saved = notes
-    existing.host = notes
     existing.status = 'idle'
     existing.message = ''
     this.notify(slideId)
@@ -102,13 +96,14 @@ export class NotesSaveQueue {
     this.notify(slideId)
   }
 
-  async flush(slideId: string): Promise<boolean> {
+  async flush(slideId: string, preserveNextSeed = false): Promise<boolean> {
     const entry = this.entry(slideId)
     if (entry.timer !== null) {
       this.timers.clear(entry.timer)
       entry.timer = null
     }
     if (entry.text === entry.saved) return true
+    if (preserveNextSeed) entry.preserveNextSeed = true
     const saved = await this.start(slideId, entry.version)
     return saved && entry.text === entry.saved
   }
