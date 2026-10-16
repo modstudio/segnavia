@@ -23,16 +23,14 @@ export async function verifyReactAuthoring(h: Harness) {
     strictModeMount.current === 1 && strictModeMount.seen.at(-1) === 1 && (await notes.isVisible()),
     JSON.stringify(strictModeMount),
   )
-  await page.evaluate(() => ((window as unknown as { reactFacts: { deferNotes: boolean } }).reactFacts.deferNotes = true))
   await notes.fill('Strict mode navigation draft')
   const navigation = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
-    const facts = (window as unknown as { reactFacts: { deferNotes: boolean; releaseNotes(): void; saves: string[] } }).reactFacts
+    const facts = (window as unknown as { reactFacts: { releaseStrictModeSave(): void; saves: string[] } }).reactFacts
     let settled = false
     const moving = player.controller.next().then(() => (settled = true))
     await new Promise((resolve) => setTimeout(resolve, 50))
     const saves = [...facts.saves]
-    facts.deferNotes = false
-    if (typeof facts.releaseNotes === 'function') facts.releaseNotes()
+    facts.releaseStrictModeSave()
     await moving
     return { saves, settledBeforeRelease: settled }
   })
