@@ -384,6 +384,19 @@ MiB) across all decoded content streams, and rewritten streams are compressed
 again before the PDF is saved. `MAX_OPERANDS` (32) bounds the operands retained
 while the tokenizer waits for an operator.
 
+Under a greyscale destination a supplied image may be DeviceRGB, DeviceGray,
+ICCBased with one or three components, or Indexed over one of those. It may be
+uncompressed, FlateDecode with no predictor or a PNG predictor, or DCTDecode,
+at 8 bits per component, or 1, 2, 4 or 8 for Indexed, with the default Decode
+array. Anything else is refused by name. A Flate image inflates to at most its
+exact decoded size. A JPEG that the renderer's browser cannot decode is refused
+with the browser's message. `MAX_IMAGE_PIXELS` (50 000 000) bounds one image,
+and `MAX_TOTAL_IMAGE_PIXELS` (400 000 000) bounds all images converted in one
+render. An image painted both normally and inside a mask source gets a profile
+variant for the page and a luminosity variant for the mask. One used only in
+mask sources is replaced by its luminosity variant. No RGB copy is left in the
+file either way.
+
 A proof image, a gamut report and a `convert` hook for a host-owned full
 converter remain designed, not built.
 
