@@ -124,7 +124,8 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    character rather than measured. That covers ordinary Latin, capitals and
    Hebrew, but a label made mostly of unusually wide glyphs can exceed the
    estimate and be cropped at its ends. When framing is enabled, a placement
-   that does not cover every slide edge is recomputed inside a 56 px inset and
+   that does not cover every slide edge is recomputed inside an inset that scales
+   with the slide's shorter side, using 56 px at the 720 px reference size, and
    its image receives counter-scaled rounded corners and a shadow. A covering
    image stays unframed, and the annotation layer remains unclipped. The styled
    player gives its stage and rail slide canvases a white background by default;

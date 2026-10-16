@@ -9,19 +9,28 @@ export interface ImagePlacement {
 
 export const FRAME_INSET = 56
 export const FRAME_RADIUS = 14
-export const FRAME_SHADOW = '0 4px 18px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.08)'
+export const FRAME_SHADOW_OFFSET = 4
+export const FRAME_SHADOW_BLUR = 18
+export const FRAME_HAIRLINE = 1
+export const FRAME_SHADOW_COLOR = 'rgba(15,23,42,.18)'
+export const FRAME_HAIRLINE_COLOR = 'rgba(15,23,42,.08)'
+export const FRAME_REFERENCE_SIZE = 720
+
+export function frameUnit(slide: Size): number {
+  return Math.min(slide.width, slide.height) / FRAME_REFERENCE_SIZE
+}
 
 export interface ImageFrameStyle {
   borderRadius: string
   boxShadow: string
 }
 
-export function imageFrameStyle(placement: ImagePlacement): ImageFrameStyle | undefined {
+export function imageFrameStyle(placement: ImagePlacement, slide: Size): ImageFrameStyle | undefined {
   if (!placement.framed) return undefined
-  const divide = (value: number) => value / placement.scale
+  const divide = (value: number) => (value * frameUnit(slide)) / placement.scale
   return {
     borderRadius: `${divide(FRAME_RADIUS)}px`,
-    boxShadow: `0 ${divide(4)}px ${divide(18)}px rgba(15,23,42,.18), 0 0 0 ${divide(1)}px rgba(15,23,42,.08)`,
+    boxShadow: `0 ${divide(FRAME_SHADOW_OFFSET)}px ${divide(FRAME_SHADOW_BLUR)}px ${FRAME_SHADOW_COLOR}, 0 0 0 ${divide(FRAME_HAIRLINE)}px ${FRAME_HAIRLINE_COLOR}`,
   }
 }
 
@@ -59,9 +68,10 @@ export function fitImage(slide: Size, image: Size, fit: ImageFit, focus?: Box, f
     placement.x + image.width * placement.scale >= slide.width - epsilon &&
     placement.y + image.height * placement.scale >= slide.height - epsilon
   if (!frame || covers) return placement
-  const inner = { width: slide.width - 2 * FRAME_INSET, height: slide.height - 2 * FRAME_INSET }
+  const inset = FRAME_INSET * frameUnit(slide)
+  const inner = { width: slide.width - 2 * inset, height: slide.height - 2 * inset }
   const framed = fitImage(inner, image, fit, focus)
-  return { ...framed, x: framed.x + FRAME_INSET, y: framed.y + FRAME_INSET, framed: true }
+  return { ...framed, x: framed.x + inset, y: framed.y + inset, framed: true }
 }
 
 // svg.ts renders arrow labels at 18 px, centered on the tail with the baseline 10 px above it.

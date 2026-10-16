@@ -14,6 +14,33 @@ describe('fitImage', () => {
     })
   })
 
+  test.each([100, 112])('keeps framed geometry valid on a %px square slide', (side) => {
+    const smallSlide = { width: side, height: side }
+    const image = { width: 200, height: 100 }
+    const placement = fitImage(smallSlide, image, 'contain', undefined, true)
+
+    expect(placement.scale).toBeGreaterThan(0)
+    expect(Number.isFinite(placement.scale)).toBe(true)
+    expect(placement.x).toBeGreaterThanOrEqual(0)
+    expect(placement.y).toBeGreaterThanOrEqual(0)
+    expect(placement.x + image.width * placement.scale).toBeLessThanOrEqual(side)
+    expect(placement.y + image.height * placement.scale).toBeLessThanOrEqual(side)
+
+    const style = imageFrameStyle(placement, smallSlide)
+    expect(style).toBeDefined()
+    for (const length of `${style?.borderRadius} ${style?.boxShadow}`.matchAll(/(-?(?:\d+(?:\.\d+)?|Infinity|NaN))px/g)) {
+      expect(Number(length[1])).toBeGreaterThan(0)
+      expect(Number.isFinite(Number(length[1]))).toBe(true)
+    }
+  })
+
+  test('scales the inset from the shorter slide side', () => {
+    const largeSlide = { width: 1920, height: 1080 }
+    const placement = fitImage(largeSlide, { width: 1920, height: 600 }, 'contain', undefined, true)
+
+    expect(placement.x).toBe(84)
+  })
+
   test('contains the whole image and centers its bands', () => {
     expect(fitImage(slide, tall, 'contain')).toEqual({ scale: 0.3, x: 448, y: 0, framed: false })
   })
@@ -65,15 +92,15 @@ describe('fitImage', () => {
 
 describe('imageFrameStyle', () => {
   test('counter-scales the radius and shadow and omits them when unframed', () => {
-    expect(imageFrameStyle({ scale: 1, x: 56, y: 56, framed: true })).toEqual({
+    expect(imageFrameStyle({ scale: 1, x: 56, y: 56, framed: true }, slide)).toEqual({
       borderRadius: '14px',
       boxShadow: '0 4px 18px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.08)',
     })
-    expect(imageFrameStyle({ scale: 0.3, x: 56, y: 56, framed: true })).toEqual({
+    expect(imageFrameStyle({ scale: 0.3, x: 56, y: 56, framed: true }, slide)).toEqual({
       borderRadius: '46.66666666666667px',
       boxShadow: '0 13.333333333333334px 60px rgba(15,23,42,.18), 0 0 0 3.3333333333333335px rgba(15,23,42,.08)',
     })
-    expect(imageFrameStyle({ scale: 1, x: 0, y: 0, framed: false })).toBeUndefined()
+    expect(imageFrameStyle({ scale: 1, x: 0, y: 0, framed: false }, slide)).toBeUndefined()
   })
 })
 

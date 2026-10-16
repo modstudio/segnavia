@@ -21,7 +21,21 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
-import { annotationFocusBox, FRAME_INSET, FRAME_RADIUS, fitImage, type ImagePlacement, imageFrameStyle } from './image-fit.ts'
+import {
+  annotationFocusBox,
+  FRAME_HAIRLINE,
+  FRAME_HAIRLINE_COLOR,
+  FRAME_INSET,
+  FRAME_RADIUS,
+  FRAME_REFERENCE_SIZE,
+  FRAME_SHADOW_BLUR,
+  FRAME_SHADOW_COLOR,
+  FRAME_SHADOW_OFFSET,
+  fitImage,
+  frameUnit,
+  type ImagePlacement,
+  imageFrameStyle,
+} from './image-fit.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export interface PrintOptions {
@@ -70,7 +84,7 @@ export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, 
 
 function transformedMedia(width: number, height: number, src: string, alt: string, image: Deck['size'], placement: ImagePlacement, annotations = ''): string {
   const transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
-  const frame = imageFrameStyle(placement)
+  const frame = imageFrameStyle(placement, { width, height })
   const imageStyle = frame ? `border-radius:${frame.borderRadius};box-shadow:${frame.boxShadow};` : ''
   return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div style="position:absolute;left:0;top:0;width:${image.width}px;height:${image.height}px;transform:${transform};transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="width:${image.width}px;height:${image.height}px;display:block;${imageStyle}">${annotations}</div></div>`
 }
@@ -104,7 +118,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 function imageFitScript(): string {
-  return `<script>const FRAME_INSET=${FRAME_INSET},FRAME_RADIUS=${FRAME_RADIUS};const segnaviaFitImage=${fitImage.toString()},segnaviaImageFrameStyle=${imageFrameStyle.toString()};function segnaviaPlaceImage(image){const layer=image.parentElement;const slide={width:Number(layer.dataset.slideWidth),height:Number(layer.dataset.slideHeight)};const size={width:image.naturalWidth,height:image.naturalHeight};const fit=segnaviaFitImage(slide,size,layer.dataset.fit,undefined,layer.dataset.frame==='true');layer.style.width=size.width+'px';layer.style.height=size.height+'px';image.style.width=size.width+'px';image.style.height=size.height+'px';layer.style.transform='translate('+fit.x+'px,'+fit.y+'px) scale('+fit.scale+')';Object.assign(image.style,segnaviaImageFrameStyle(fit))}</script>`
+  return `<script>const FRAME_INSET=${FRAME_INSET},FRAME_RADIUS=${FRAME_RADIUS},FRAME_SHADOW_OFFSET=${FRAME_SHADOW_OFFSET},FRAME_SHADOW_BLUR=${FRAME_SHADOW_BLUR},FRAME_HAIRLINE=${FRAME_HAIRLINE},FRAME_SHADOW_COLOR='${FRAME_SHADOW_COLOR}',FRAME_HAIRLINE_COLOR='${FRAME_HAIRLINE_COLOR}',FRAME_REFERENCE_SIZE=${FRAME_REFERENCE_SIZE};const frameUnit=${frameUnit.toString()},segnaviaFitImage=${fitImage.toString()},segnaviaImageFrameStyle=${imageFrameStyle.toString()};function segnaviaPlaceImage(image){const layer=image.parentElement;const slide={width:Number(layer.dataset.slideWidth),height:Number(layer.dataset.slideHeight)};const size={width:image.naturalWidth,height:image.naturalHeight};const fit=segnaviaFitImage(slide,size,layer.dataset.fit,undefined,layer.dataset.frame==='true');layer.style.width=size.width+'px';layer.style.height=size.height+'px';image.style.width=size.width+'px';image.style.height=size.height+'px';layer.style.transform='translate('+fit.x+'px,'+fit.y+'px) scale('+fit.scale+')';Object.assign(image.style,segnaviaImageFrameStyle(fit,slide))}</script>`
 }
 
 export function printableDeck(deck: Deck, options: PrintOptions = {}): string {

@@ -62,7 +62,7 @@ export function stageCanvas(
       layer.style.transform = `translate(${placement.x}px, ${placement.y}px) scale(${placement.scale})`
       image.style.inlineSize = `${imageSize.width}px`
       image.style.blockSize = `${imageSize.height}px`
-      Object.assign(image.style, imageFrameStyle(placement))
+      Object.assign(image.style, imageFrameStyle(placement, deck.size))
     }
     if (content.kind === 'image') {
       image.addEventListener(
