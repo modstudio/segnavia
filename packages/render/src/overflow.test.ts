@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, type ScaleMeasurement, solveScale } from './overflow.ts'
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, type ScaleMeasurement, solveScale } from './overflow.ts'
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {
   expect(
@@ -9,6 +9,14 @@ test('ancestor clip boxes limit the visible horizontal contribution', () => {
     ]),
   ).toEqual({ left: 0, right: 400 })
   expect(clippedHorizontalBox({ left: 420, right: 500 }, [{ left: 0, right: 400 }])).toBeUndefined()
+})
+
+test('an ancestor-clipped element is reported without raising the print scale', () => {
+  expect(horizontalOverflow({ left: 360, right: 460 }, [{ left: 0, right: 400 }], 400, false)).toEqual({
+    clippedStart: 0,
+    clippedEnd: 60,
+    rightOverflow: 0,
+  })
 })
 
 function solved(pageWidth: number, widthAt: (layoutWidth: number) => number): { scale: number; layouts: number[] } {

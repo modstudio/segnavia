@@ -68,6 +68,20 @@ export function clippedHorizontalBox(box: HorizontalBox, clips: readonly Horizon
   return visible.right > visible.left ? visible : undefined
 }
 
+export function horizontalOverflow(
+  box: HorizontalBox,
+  clips: readonly HorizontalBox[],
+  pageWidth: number,
+  rtl: boolean,
+): { clippedStart: number; clippedEnd: number; rightOverflow: number } {
+  const visible = clippedHorizontalBox(box, clips)
+  return {
+    clippedStart: Math.max(0, rtl ? box.right - pageWidth : -box.left),
+    clippedEnd: Math.max(0, rtl ? -box.left : box.right - pageWidth),
+    rightOverflow: visible ? Math.max(0, visible.right - pageWidth) : 0,
+  }
+}
+
 async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOverflow> {
   const measured = await tab.evaluate(() => {
     const root = document.documentElement
@@ -131,16 +145,12 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
   let clippedEnd = measured.endOverflow
   let rightOverflow = measured.rtl || measured.extentClipped ? 0 : measured.endOverflow
   for (const element of measured.elements) {
-    const rawEnd = Math.max(0, measured.rtl ? -element.box.left : element.box.right - pageWidth)
-    clippedEnd = Math.max(clippedEnd, rawEnd)
-    const box = clippedHorizontalBox(element.box, element.clips)
-    if (!box) continue
-    const elementStart = Math.max(0, measured.rtl ? box.right - pageWidth : -box.left)
-    const elementEnd = Math.max(0, measured.rtl ? -box.left : box.right - pageWidth)
-    clippedStart = Math.max(clippedStart, elementStart)
-    rightOverflow = Math.max(rightOverflow, box.right - pageWidth)
-    if ((elementStart > 0 || elementEnd > 0) && contributions.length < 20) {
-      contributions.push({ locator: element.locator, clippedStart: elementStart, clippedEnd: elementEnd })
+    const overflow = horizontalOverflow(element.box, element.clips, pageWidth, measured.rtl)
+    clippedStart = Math.max(clippedStart, overflow.clippedStart)
+    clippedEnd = Math.max(clippedEnd, overflow.clippedEnd)
+    rightOverflow = Math.max(rightOverflow, overflow.rightOverflow)
+    if ((overflow.clippedStart > 0 || overflow.clippedEnd > 0) && contributions.length < 20) {
+      contributions.push({ locator: element.locator, clippedStart: overflow.clippedStart, clippedEnd: overflow.clippedEnd })
     }
   }
   return {

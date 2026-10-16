@@ -132,8 +132,8 @@ export async function verifyPageOverflow(
   const overflowScale = await pageContentScale(overflowing)
   check(
     'a fixed page with sideways overflow prints at its own scale',
-    Math.abs(overflowScale - 3.125) < 0.000001 && Number(fixedReport?.entries[0]?.clippedEnd) > 0,
-    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.clippedEnd}`,
+    Math.abs(overflowScale - 3.125) < 0.000001 && fixedReport?.entries[0]?.elements.some((element) => element.clippedEnd > 0) === true,
+    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.elements.map((element) => element.clippedEnd)}`,
   )
 
   const paper = { width: 105.833333, height: 132.291667, unit: 'mm' as const }
