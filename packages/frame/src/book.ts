@@ -33,6 +33,9 @@ function sourceUrl(src: string): URL {
 export class SegnaviaBook extends HTMLElementBase {
   static observedAttributes = ['src']
   private currentView: BookView | null = null
+  private loadGeneration = 0
+  private loadController: AbortController | null = null
+  private latestInput: 'src' | 'view' | null = null
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
@@ -44,10 +47,33 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   async attributeChangedCallback(_: string, __: string | null, src: string | null) {
-    if (!src) return
-    const response = await fetch(sourceUrl(src))
-    if (!response.ok) throw new Error(`The book at ${src} answered ${response.status}.`)
-    this.view = await response.json()
+    const generation = ++this.loadGeneration
+    this.loadController?.abort()
+    this.loadController = null
+    if (!src) {
+      if (this.latestInput !== 'view') {
+        this.latestInput = 'src'
+        this.currentView = null
+        this.replaceChildren()
+      }
+      return
+    }
+    this.latestInput = 'src'
+    const controller = new AbortController()
+    this.loadController = controller
+    try {
+      const response = await fetch(sourceUrl(src), { signal: controller.signal })
+      if (!response.ok) throw new Error(`The book at ${src} answered ${response.status}.`)
+      const view = BookView.parse(await response.json())
+      if (generation !== this.loadGeneration) return
+      this.currentView = view
+      this.mount()
+    } catch (reason) {
+      if (generation !== this.loadGeneration) return
+      this.reportError(reason)
+    } finally {
+      if (generation === this.loadGeneration) this.loadController = null
+    }
   }
 
   get view(): BookView | null {
@@ -55,8 +81,22 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   set view(input: BookViewInput | unknown) {
-    this.currentView = BookView.parse(input)
+    ++this.loadGeneration
+    this.loadController?.abort()
+    this.loadController = null
+    this.latestInput = 'view'
+    const parsed = BookView.safeParse(input)
+    if (!parsed.success) {
+      this.reportError(parsed.error)
+      return
+    }
+    this.currentView = parsed.data
     this.mount()
+  }
+
+  private reportError(reason: unknown) {
+    const message = reason instanceof Error ? reason.message : String(reason)
+    this.dispatchEvent(new CustomEvent('error', { detail: { message } }))
   }
 
   private mount() {

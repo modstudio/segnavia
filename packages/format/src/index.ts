@@ -3,14 +3,28 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { BookShape } from './book.ts'
+import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Shot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
-export { Book, BookContents, BookFrontMatterEntry, type BookInput, BookMode, BookPage, BookSection, Chapter, isBookContents, noteMarkerIssues } from './book.ts'
+export {
+  Book,
+  BookContents,
+  BookFrontMatterEntry,
+  type BookInput,
+  BookMode,
+  BookPage,
+  BookSection,
+  BookView,
+  type BookViewInput,
+  Chapter,
+  isBookContents,
+  isHebrew,
+  noteMarkerIssues,
+} from './book.ts'
 export {
   Annotation,
   annotationCueIssues,
@@ -206,17 +220,6 @@ export const Page = z.object({
 })
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>
-
-// The host-built document and the book metadata a continuous book frame needs.
-export const BookView = z.object({
-  html: z.string(),
-  title: z.string().optional(),
-  dir: Direction.optional(),
-  lang: z.string().optional(),
-  scripts: Scripts.default('refuse'),
-})
-export type BookView = z.infer<typeof BookView>
-export type BookViewInput = z.input<typeof BookView>
 
 export function jsonSchemas() {
   return {

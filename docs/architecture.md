@@ -51,6 +51,8 @@ resolves its direction and shows it in one internally scrolling sandboxed
 frame; it does not import the HTML library or construct the book document.
 Contents and note links are ordinary in-page anchors handled inside the frame,
 and the bridge carries only its existing key, height and ready messages.
+The element emits `ready` when that bridge message arrives and emits `error`
+with `detail.message` when loading or validating an input fails.
 
 | Seam | Where | What the host supplies |
 |---|---|---|

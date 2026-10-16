@@ -78,7 +78,14 @@ export const BookShape = z.object({
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
-function isHebrew(lang: string | undefined): boolean {
+export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true }).extend({
+  title: BookShape.shape.title.optional(),
+  html: z.string(),
+})
+export type BookView = z.infer<typeof BookView>
+export type BookViewInput = z.input<typeof BookView>
+
+export function isHebrew(lang: string | undefined): boolean {
   const primary = lang?.split('-')[0]?.toLowerCase()
   return primary === 'he' || primary === 'iw'
 }
