@@ -61,12 +61,7 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   return document.save()
 }
 
-export async function printPage(
-  tab: Tab,
-  print: Print,
-  preferCssPageSize: boolean | undefined,
-  inputIndex?: number,
-): Promise<PrintResult<true>> {
+export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin

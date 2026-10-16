@@ -50,6 +50,31 @@ function pgmPixel(file: string, x: number, y: number): number {
   return bytes[offset + y * width + x] ?? 255
 }
 
+async function verifyRtlOverflow(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+  const baseline = await renderer.pagePdf({ html: flowingHtml(undefined, true), size: { width: 400, height: 'auto' }, dir: 'rtl' }, { effects: false })
+  const baselineFacts = pdfFacts(baseline, work, 'rtl-baseline')
+  for (const [label, leftward] of [
+    ['inline-start', false],
+    ['leftward inline-end', true],
+  ] as const) {
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      { html: flowingHtml(1200, leftward), size: { width: 400, height: 'auto' }, dir: 'rtl' },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `rtl-${leftward ? 'end' : 'start'}-overflow`)
+    const entry = report?.entries[0]
+    check(
+      `a right-to-left page clips ${label} overflow while keeping text at true size`,
+      close(facts.markerX, baselineFacts.markerX) &&
+        close(facts.markerY, baselineFacts.markerY) &&
+        close(leftward ? (entry?.clippedEnd ?? Number.NaN) : (entry?.clippedStart ?? Number.NaN), 800) &&
+        (leftward ? entry?.clippedStart === 0 : entry?.clippedEnd === 0),
+      `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, clipped=${entry?.clippedStart}/${entry?.clippedEnd}`,
+    )
+  }
+}
+
 export async function verifyPageOverflow(
   renderer: Renderer,
   work: string,
@@ -67,8 +92,8 @@ export async function verifyPageOverflow(
   const overflowScale = await pageContentScale(overflowing)
   check(
     'a fixed page with sideways overflow prints at its own scale',
-    Math.abs(overflowScale - 3.125) < 0.000001 && (fixedReport?.entries[0]?.clippedEnd ?? 0) > 0,
-    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.clippedEnd}`,
+    Math.abs(overflowScale - 3.125) < 0.000001 && fixedReport?.entries[0]?.elements.some((element) => element.clippedEnd > 0) === true,
+    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.elements.map((element) => element.clippedEnd)}`,
   )
 
   const paper = { width: 105.833333, height: 132.291667, unit: 'mm' as const }
@@ -160,22 +185,7 @@ export async function verifyPageOverflow(
     `marker=${growingOverflowFacts.markerX},${growingOverflowFacts.markerY}/${growingBaselineFacts.markerX},${growingBaselineFacts.markerY}, pages=${growingOverflowFacts.pages}/${growingBaselineFacts.pages}, clipped=${growingReport?.entries[0]?.clippedEnd}`,
   )
 
-  let rtlReport: OverflowReport | undefined
-  const rtlOverflow = await renderer.pagePdf(
-    { html: flowingHtml(1200, true), size: { width: 400, height: 'auto' }, dir: 'rtl' },
-    { effects: false, overflow: { report: (value) => (rtlReport = value) } },
-  )
-  const rtlBaseline = await renderer.pagePdf({ html: flowingHtml(undefined, true), size: { width: 400, height: 'auto' }, dir: 'rtl' }, { effects: false })
-  const rtlOverflowFacts = pdfFacts(rtlOverflow, work, 'rtl-overflow')
-  const rtlBaselineFacts = pdfFacts(rtlBaseline, work, 'rtl-baseline')
-  check(
-    'a right-to-left page clips inline-start overflow while keeping text at true size',
-    close(rtlOverflowFacts.markerX, rtlBaselineFacts.markerX) &&
-      close(rtlOverflowFacts.markerY, rtlBaselineFacts.markerY) &&
-      close(rtlReport?.entries[0]?.clippedStart ?? Number.NaN, 800) &&
-      rtlReport?.entries[0]?.clippedEnd === 0,
-    `marker=${rtlOverflowFacts.markerX},${rtlOverflowFacts.markerY}/${rtlBaselineFacts.markerX},${rtlBaselineFacts.markerY}, clipped=${rtlReport?.entries[0]?.clippedStart}/${rtlReport?.entries[0]?.clippedEnd}`,
-  )
+  await verifyRtlOverflow(renderer, work, check)
 
   const growing = await renderer.pagePdf(
     {

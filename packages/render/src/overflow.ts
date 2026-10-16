@@ -9,13 +9,14 @@ export type PrintResult<Required extends boolean = false> = {
 
 /**
  * Chromium's measured maximum print shrink; the 3x overflow demo check fails
- * if it changes. Chromium measures against the scaled page width, so using
- * this cap for any end overflow makes its capped shrink cancel the scale.
+ * if it changes. On the pinned build Chromium shrinks only for rightward
+ * overflow in a left-to-right root. It measures against the scaled page width,
+ * so using this cap makes its capped shrink cancel the scale.
  */
 export const CHROMIUM_MAX_SHRINK = 1.5
 
-export function counterScale(endOverflow: number): number {
-  return endOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
+export function counterScale(direction: 'ltr' | 'rtl', endOverflow: number): number {
+  return direction === 'ltr' && endOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
@@ -69,5 +70,6 @@ export async function printWithOverflow(
   inputIndex?: number,
 ): Promise<PrintResult<true>> {
   const overflow = await measureOverflow(tab, pageWidth, part, inputIndex)
-  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(overflow.clippedEnd) }), overflow }
+  const direction = await tab.evaluate(() => (getComputedStyle(document.documentElement).direction === 'rtl' ? 'rtl' : 'ltr'))
+  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(direction, overflow.clippedEnd) }), overflow }
 }
