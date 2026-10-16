@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Deck } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
+import { verifyDeckPrintBrowser } from './deck-print-browser.ts'
 import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
 import { verifyWindowPresentation } from './player-presentation.ts'
 
@@ -92,7 +93,7 @@ export async function verifyPlayer(h: Harness) {
   await verifyScripted(h)
   await verifyPrefetch(h)
   await verifyDynamicPlayerOptions(h)
-  await verifyPrint(h)
+  await verifyDeckPrintBrowser(h)
   await verifyContinuousPlayer(h)
 }
 
@@ -299,64 +300,4 @@ async function verifyPrefetch(h: Harness) {
   await page.waitForTimeout(300)
   const twice = [...new Set(minted)].filter((index) => minted.filter((m) => m === index).length > (index === 0 ? 2 : 1))
   check('prefetch resolves the next slide ahead, and the shown slide is never minted twice', minted.includes(2) && twice.length === 0, `minted=${minted}`)
-}
-
-async function verifyPrint(h: Harness) {
-  const { page, check } = h
-  await page.goto(h.url(''))
-  await h.waitFor(PLAYER, (d) => d.slide === '1')
-  const printed = await page.evaluate(async () => {
-    const bundle = '/segnavia.js'
-    const lib = (await import(bundle)) as { printDeck: (deck: unknown, options: unknown) => Promise<void> }
-    const deck = await (await fetch('/deck-print.json')).json()
-    const started = performance.now()
-    let sheets = 0
-    let frames = 0
-    await lib.printDeck(deck, {
-      print: (win: Window) => {
-        sheets = win.document.querySelectorAll('.sheet').length
-        frames = win.document.querySelectorAll('iframe').length
-      },
-    })
-    const ms = Math.round(performance.now() - started)
-    const slides = Array.from({ length: 7 }, (_, index) => ({
-      ...deck.slides[index % deck.slides.length],
-      id: `handout-${index}`,
-    }))
-    let papers = 0
-    let placements = 0
-    const handoutStarted = performance.now()
-    await lib.printDeck(
-      { ...deck, slides },
-      {
-        imposition: {
-          paper: 'letter',
-          orientation: 'portrait',
-          unit: 'mm',
-          columns: 2,
-          rows: 3,
-          cell: { width: 90, height: 70 },
-          margin: { top: 12, right: 12, bottom: 12, left: 12 },
-          gap: { column: 8, row: 8 },
-          bleed: 0,
-          fit: 'contain',
-        },
-        print: (win: Window) => {
-          papers = win.document.querySelectorAll('.paper').length
-          placements = win.document.querySelectorAll('.placement').length
-        },
-      },
-    )
-    return { sheets, frames, ms, papers, placements, handoutMs: Math.round(performance.now() - handoutStarted) }
-  })
-  check(
-    'printing from the browser waits for every slide to report ready, not for the deadline',
-    printed.sheets === 4 && printed.frames === 2 && printed.ms < 3500,
-    JSON.stringify(printed),
-  )
-  check(
-    'browser handout printing exposes two papers and seven placement boxes before the deadline',
-    printed.papers === 2 && printed.placements === 7 && printed.handoutMs < 3500,
-    JSON.stringify(printed),
-  )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
+import { annotationFocusBox, fitImage, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 
 const slide = { width: 1280, height: 720 }
 const tall = { width: 1280, height: 2400 }
@@ -101,6 +101,28 @@ describe('imageFrameStyle', () => {
       boxShadow: '0 13.333333333333334px 60px rgba(15,23,42,.18), 0 0 0 3.3333333333333335px rgba(15,23,42,.08)',
     })
     expect(imageFrameStyle({ scale: 1, x: 0, y: 0, framed: false }, slide)).toBeUndefined()
+  })
+})
+
+describe('imageLayerStyles', () => {
+  test('projects natural dimensions and placement into layer and image styles', () => {
+    expect(imageLayerStyles(tall, { scale: 0.3, x: 448, y: 0, framed: false })).toEqual({
+      layer: {
+        width: '1280px',
+        height: '2400px',
+        transform: 'translate(448px,0px) scale(0.3)',
+      },
+      image: {
+        width: '1280px',
+        height: '2400px',
+      },
+    })
+    expect(imageLayerStyles({ width: 1280, height: 400 }, { scale: 0.9125, x: 56, y: 177.5, framed: true }, slide).image).toEqual({
+      width: '1280px',
+      height: '400px',
+      borderRadius: '15.342465753424658px',
+      boxShadow: '0 4.383561643835616px 19.726027397260275px rgba(15,23,42,.18), 0 0 0 1.095890410958904px rgba(15,23,42,.08)',
+    })
   })
 })
 

@@ -1,6 +1,7 @@
-import { type Deck, fitPage, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
+import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
-import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
+import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
+import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -34,11 +35,53 @@ function nameSlideError(error: unknown, id: string): never {
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
 
+export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
+  return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
+}
+
+async function placeRenderedImages(tab: Tab): Promise<void> {
+  const layers = tab.locator('[data-segnavia-image-layer]')
+  const facts = await layers.evaluateAll((elements) =>
+    elements.map((element) => {
+      const layer = element as HTMLElement
+      const image = layer.querySelector('img') as HTMLImageElement | null
+      return {
+        slide: { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) },
+        image: { width: image?.naturalWidth ?? 0, height: image?.naturalHeight ?? 0 },
+        fit: layer.dataset.fit,
+        frame: layer.dataset.frame === 'true',
+      }
+    }),
+  )
+  const styles = facts.map((fact) => {
+    if (fact.image.width <= 0 || fact.image.height <= 0) return null
+    const placement = fitImage(fact.slide, fact.image, fact.fit as ImageFit, undefined, fact.frame)
+    return imageLayerStyles(fact.image, placement, fact.slide)
+  })
+  await layers.evaluateAll((elements, values) => {
+    elements.forEach((element, index) => {
+      const styles = values[index]
+      if (!styles) return
+      const layer = element as HTMLElement
+      const image = layer.querySelector('img') as HTMLImageElement | null
+      if (!image) return
+      Object.assign(layer.style, styles.layer)
+      Object.assign(image.style, styles.image)
+    })
+  }, styles)
+}
+
+async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
+  if (maxSheets === undefined) return tab.evaluate(paginateNotes, null)
+  return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(maxSheets)})`)
+}
+
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
+  let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
       {
@@ -46,7 +89,17 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         scripts: true,
         html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
-        beforeOutput: opts.beforeOutput,
+        beforeOutput: async (tab) => {
+          await placeRenderedImages(tab)
+          if (notesGeometry) {
+            const pagination = await paginateRenderedNotes(tab, opts.limits?.maxSheets)
+            if (pagination.exceeded) {
+              throw new RenderRefusedError(`The PDF needs more than ${opts.limits?.maxSheets} sheets; the limit is ${opts.limits?.maxSheets}.`)
+            }
+            pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
+          }
+          await opts.beforeOutput?.(tab)
+        },
       },
       { preferCSSPageSize: true, printBackground: true },
     ),
@@ -79,8 +132,10 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   const pages = output.getPages()
   const slideBox = notesGeometry?.slide ?? { x: 0, y: 0, width: deck.size.width, height: deck.size.height }
   const geometry = pdfPixelBox(slideBox, notesGeometry?.sheet.height ?? deck.size.height)
+  const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
-    const sheet = pages[item.index]
+    const pageIndex = notesGeometry ? (firstPages[item.index] ?? -1) : item.index
+    const sheet = pages[pageIndex < 0 ? item.index : pageIndex]
     if (!sheet) throw new Error(`The print document has no sheet for slide "${deck.slides[item.index]?.id ?? item.index}".`)
     const embedded = await embedOnePage(output, item.bytes, `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`)
     drawClippedPage(sheet, embedded, geometry, geometry)
@@ -105,6 +160,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             scripts: slide.content.kind === 'html' ? deck.scripts === 'sandboxed' : true,
             html,
             boundMs: opts.boundMs,
+            beforeOutput: slide.content.kind === 'image' ? placeRenderedImages : undefined,
           },
           {
             width: `${deck.size.width}px`,

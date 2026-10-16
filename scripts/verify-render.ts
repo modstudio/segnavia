@@ -1,5 +1,3 @@
-// Rendering and capture checks that need no viewer, run under Bun and Node.
-
 import './source-guard.ts'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -14,6 +12,7 @@ import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
+import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
@@ -310,9 +309,9 @@ try {
   const deckInfo = execFileSync('pdfinfo', [path.join(output, 'deck.pdf')], { encoding: 'utf8' })
   const notesText = execFileSync('pdftotext', [path.join(output, 'deck-notes.pdf'), '-'], { encoding: 'utf8' })
   check(
-    "a deck PDF has one sheet per slide and notes layout prints every slide's notes",
+    "a deck PDF has one sheet per slide and notes layout prefers every slide's speaker notes",
     /Pages:\s+4\b/.test(deckInfo) &&
-      ['Static title slide.', 'Everything starts on your class list.', 'Give the class a name', 'Review the finished class list.'].every((text) =>
+      ['Static title slide.', 'The class list is where every class starts.', 'Complete the class form.', 'Review the finished class list.'].every((text) =>
         notesText.includes(text),
       ),
   )
@@ -337,6 +336,7 @@ try {
     },
   )
   check('a right-to-left note under a left-to-right deck takes its own direction', notesDirection === 'rtl', notesDirection)
+  await verifyLongDeckNotes(renderer, work, check)
 
   const shots = path.join(work, 'shots')
   const run = await capture(

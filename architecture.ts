@@ -33,6 +33,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/bridge.ts',
       'src/fit.ts',
       'src/image-fit.ts',
+      'src/notes-layout.ts',
       'src/stage-layout.ts',
       'src/print-document.ts',
       'src/styled-elements.ts',
