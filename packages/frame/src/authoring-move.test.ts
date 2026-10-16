@@ -77,4 +77,28 @@ describe('authoring reorder', () => {
     expect(controller.state.index).toBe(0)
     expect(saves).toBe(0)
   })
+
+  test('does not roll back over a newer host deck when saving rejects', async () => {
+    const controller = new DeckController({ hash: null })
+    await controller.load(input)
+    let rejectSave = (_error: Error) => {}
+    const saving = moveSlideOptimistically(
+      controller,
+      0,
+      1,
+      () => new Promise<void>((_resolve, reject) => (rejectSave = reject)),
+    )
+    await Promise.resolve()
+    const host = {
+      ...input,
+      title: 'New host deck',
+      slides: input.slides.map((slide) => ({ ...slide, content: { ...slide.content, html: `Host ${slide.id}` } })),
+    }
+    await controller.load(host)
+    rejectSave(new Error('Move refused'))
+
+    await expect(saving).rejects.toThrow('Move refused')
+    expect(controller.state.deck?.title).toBe('New host deck')
+    expect(controller.state.deck?.slides[0]?.content).toEqual({ kind: 'html', html: 'Host a' })
+  })
 })

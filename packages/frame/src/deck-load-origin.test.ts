@@ -31,3 +31,16 @@ test('notes preservation is scoped to the guarded load promise', () => {
   expect(deckPreservesNotes(parseDeckLoad(input(), guarded), 'a')).toBe(true)
   expect(deckPreservesNotes(parseDeckLoad(input()), 'a')).toBe(false)
 })
+
+test('host deck inputs are never mutated for load provenance', () => {
+  const frozen = Object.freeze(input())
+  const deletionRefusing = new Proxy(input(), {
+    deleteProperty: () => false,
+  })
+  const oldInternalKey = Symbol.for('@segnavia/frame/internal-deck-input')
+  const forged = Object.defineProperty(input(), oldInternalKey, { value: true })
+
+  expect(parseDeckLoad(frozen).title).toBe('T')
+  expect(parseDeckLoad(deletionRefusing).title).toBe('T')
+  expect(isInternalDeck(parseDeckLoad(forged))).toBe(false)
+})
