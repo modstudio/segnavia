@@ -14,11 +14,21 @@ export async function verifyReactAuthoring(h: Harness) {
     return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
   })
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
-  check('React hooks attach once when the player mounts under StrictMode', (await notes.count()) === 1 && (await notes.isVisible()))
+  const strictModeMount = await page.evaluate(() => {
+    const facts = (window as unknown as { reactFacts: { notesRoots: number[] } }).reactFacts
+    return { current: document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll('[data-authoring-notes]').length, seen: facts.notesRoots }
+  })
+  check(
+    'React hooks attach once when the player mounts under StrictMode',
+    strictModeMount.current === 1 && strictModeMount.seen.at(-1) === 1 && (await notes.isVisible()),
+    JSON.stringify(strictModeMount),
+  )
   await notes.fill('Strict mode navigation draft')
-  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => player.controller.next())
-  await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Strict mode navigation draft'))
-  check('React StrictMode replacement keeps the navigation save guard', true)
+  const navigationSaves = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
+    await player.controller.next()
+    return (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves
+  })
+  check('React StrictMode replacement keeps the navigation save guard', navigationSaves.includes('Strict mode navigation draft'), navigationSaves.join(','))
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
   await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))

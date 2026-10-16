@@ -3,7 +3,7 @@ import { Player, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
-const facts = { changes: 0, saves: [] as string[] }
+const facts = { changes: 0, saves: [] as string[], notesRoots: [] as number[] }
 
 function App() {
   const [rail, setRail] = useState(false)
@@ -23,6 +23,7 @@ function App() {
     { notesMaxLength: configured ? 1234 : 20_000 },
   )
   useEffect(() => {
+    if (player) facts.notesRoots.push(player.shadowRoot?.querySelectorAll('[data-authoring-notes]').length ?? 0)
     Object.assign(window, {
       reactSetRail: setRail,
       reactConfigureAuthoring: () => setConfigured(true),
