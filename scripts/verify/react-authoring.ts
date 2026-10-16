@@ -7,10 +7,10 @@ export async function verifyReactAuthoring(h: Harness) {
   await page.goto(h.url('react.html'))
   await page.waitForFunction(() => 'reactMount' in window)
   await page.evaluate(() => (window as unknown as { reactMount(): void }).reactMount())
-  await page.waitForFunction(() => document.querySelector(PLAYER))
+  await page.waitForFunction(() => document.querySelector('segnavia-player'))
   await page.waitForFunction(() => {
     const holder = window as unknown as { reactDeckController?: unknown }
-    const player = document.querySelector(PLAYER) as HTMLElement & { controller?: unknown }
+    const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
     return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
   })
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
@@ -22,7 +22,7 @@ export async function verifyReactAuthoring(h: Harness) {
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
   await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
-  await page.waitForFunction(() => document.querySelector(PLAYER)?.hasAttribute('rail'))
+  await page.waitForFunction(() => document.querySelector('segnavia-player')?.hasAttribute('rail'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
   const reactLabel = await page.locator(`${PLAYER} .player`).getAttribute('aria-label')
   check(
@@ -34,7 +34,7 @@ export async function verifyReactAuthoring(h: Harness) {
   await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
   await page.waitForTimeout(700)
   const authoringUpdate = await page.evaluate(() => {
-    const field = document.querySelector(PLAYER)?.shadowRoot?.querySelector('textarea')
+    const field = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('textarea')
     const facts = (window as unknown as { reactFacts: { saves: string[] } }).reactFacts
     return { text: field?.value, maxLength: field?.maxLength, saves: facts.saves }
   })
@@ -48,7 +48,7 @@ export async function verifyReactAuthoring(h: Harness) {
   const replacementFacts = () =>
     page.evaluate((oldPlayer) => {
       const holder = window as unknown as { reactDeckController?: unknown }
-      const newPlayer = document.querySelector(PLAYER)
+      const newPlayer = document.querySelector('segnavia-player')
       return {
         replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
         oldDetached: oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null,

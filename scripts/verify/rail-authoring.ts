@@ -101,6 +101,7 @@ async function verifyReloadedNotes(h: Harness) {
     local === 'Local reload draft' && (await notes.inputValue()) === 'Host after settle',
     JSON.stringify({ local, settled: await notes.inputValue() }),
   )
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = false))
   await notes.fill('Draft before refused reload')
   const afterRefusal = await page.evaluate(async () => {
     const player = document.querySelector('segnavia-player') as HTMLElement & {
@@ -117,7 +118,10 @@ async function verifyReloadedNotes(h: Harness) {
     (window as unknown as { authoringFacts: { saves: Array<{ notes: string }> } }).authoringFacts.saves.some((save) => save.notes === 'Settled before reorder'),
   )
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferMove: boolean } }).authoringFacts.deferMove = true))
-  await page.locator(`${PLAYER} segnavia-rail button[data-index="0"]`).press('Alt+ArrowDown')
+  await page.evaluate(() => {
+    const holder = window as unknown as { authoring: { move(fromIndex: number, toIndex: number): Promise<void> }; authoringMove?: Promise<void> }
+    holder.authoringMove = holder.authoring.move(0, 1)
+  })
   await page.waitForFunction(() => (window as unknown as { authoringFacts: { movePending: boolean } }).authoringFacts.movePending)
   await page.evaluate(() => {
     const player = document.querySelector('segnavia-player') as HTMLElement & {
@@ -130,7 +134,10 @@ async function verifyReloadedNotes(h: Harness) {
     })
   })
   await page.evaluate(() => (window as unknown as { authoringFacts: { releaseMove(): void } }).authoringFacts.releaseMove())
-  await page.evaluate(() => (window as unknown as { concurrentHostLoad: Promise<void> }).concurrentHostLoad)
+  await page.evaluate(() => {
+    const holder = window as unknown as { concurrentHostLoad: Promise<void>; authoringMove: Promise<void> }
+    return Promise.all([holder.concurrentHostLoad, holder.authoringMove])
+  })
   check('a host reload during an optimistic reorder adopts host notes', (await notes.inputValue()) === 'Concurrent host notes', await notes.inputValue())
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferMove: boolean } }).authoringFacts.deferMove = false))
   await notes.fill('Detached draft')

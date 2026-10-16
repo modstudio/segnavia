@@ -73,7 +73,6 @@ export class DeckController extends EventTarget {
     window.removeEventListener('keydown', this.onPageKey)
     this.listening = false
   }
-
   async loadUrl(src: string): Promise<void> {
     const url = new URL(src, hasWindow ? location.href : undefined).href
     const response = await fetch(url)
