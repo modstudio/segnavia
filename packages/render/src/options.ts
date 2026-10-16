@@ -26,6 +26,8 @@ export interface OverflowEntry {
   clippedStart: number
   /** Pixels clipped beyond the inline end of the page. */
   clippedEnd: number
+  /** PDF scale used to preserve the print's true size. */
+  scale: number
   /** Up to twenty border boxes that extend beyond the page. */
   elements: OverflowContribution[]
 }

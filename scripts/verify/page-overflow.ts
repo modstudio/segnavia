@@ -9,6 +9,7 @@ interface PdfFacts {
   pages: number
   markerX: number
   markerY: number
+  markerWidth: number
   fixed: number
 }
 
@@ -17,11 +18,12 @@ function pdfFacts(bytes: Uint8Array, work: string, name: string): PdfFacts {
   writeFileSync(file, bytes)
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
   const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
-  const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>FLOW_MARKER<\/word>/)
+  const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)"[^>]*>FLOW_MARKER<\/word>/)
   return {
     pages: Number(info.match(/Pages:\s+(\d+)/)?.[1]),
     markerX: Number(marker?.[1]),
     markerY: Number(marker?.[2]),
+    markerWidth: Number(marker?.[3]) - Number(marker?.[1]),
     fixed: xml.match(/FIXED_MARKER/g)?.length ?? 0,
   }
 }
@@ -68,9 +70,47 @@ async function verifyRtlOverflow(renderer: Renderer, work: string, check: (what:
       `a right-to-left page clips ${label} overflow while keeping text at true size`,
       close(facts.markerX, baselineFacts.markerX) &&
         close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
         close(leftward ? (entry?.clippedEnd ?? Number.NaN) : (entry?.clippedStart ?? Number.NaN), 800) &&
         (leftward ? entry?.clippedStart === 0 : entry?.clippedEnd === 0),
       `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, clipped=${entry?.clippedStart}/${entry?.clippedEnd}`,
+    )
+  }
+}
+
+async function verifyAdaptiveOverflow(
+  renderer: Renderer,
+  work: string,
+  paper: { width: number; height: number; unit: 'mm' },
+  baseline: PdfFacts,
+  check: (what: string, ok: boolean, detail?: string) => void,
+): Promise<void> {
+  for (const [label, block] of [
+    ['page-relative padding', '<div style="width:100%;padding-inline-end:20px;height:20px"></div>'],
+    ['page-relative border', '<div style="width:100%;border:0.3px solid;height:20px"></div>'],
+    ['mixed page-relative and fixed', '<div style="width:100%;padding-inline-end:120px;height:20px"></div><div style="width:500px;height:20px"></div>'],
+  ] as const) {
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      {
+        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.fixed{position:fixed;top:8px;left:200px}</style><div class="fixed">FIXED_MARKER</div><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p>${block}`,
+        print: { paper, orientation: 'portrait' },
+      },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `overflow-${label.replaceAll(' ', '-')}`)
+    const entry = report?.entries[0]
+    check(
+      `${label} overflow uses a solved scale and keeps text and page breaks at true size`,
+      close(facts.markerX, baseline.markerX) &&
+        close(facts.markerY, baseline.markerY) &&
+        close(facts.markerWidth, baseline.markerWidth) &&
+        facts.pages === baseline.pages &&
+        facts.fixed === facts.pages &&
+        entry !== undefined &&
+        entry.scale >= 1 &&
+        entry.scale <= 1.5,
+      `marker=${facts.markerX},${facts.markerY},${facts.markerWidth}/${baseline.markerX},${baseline.markerY},${baseline.markerWidth}, pages=${facts.pages}/${baseline.pages}, fixed=${facts.fixed}, clipped=${entry?.clippedEnd}, scale=${entry?.scale}`,
     )
   }
 }
@@ -114,14 +154,17 @@ export async function verifyPageOverflow(
       `a ${label} overflow on a multi-page pagePdf keeps text, page breaks and repeated fixed content at true size`,
       close(facts.markerX, baselineFacts.markerX) &&
         close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
         facts.pages === baselineFacts.pages &&
         facts.fixed === facts.pages &&
         entry !== undefined &&
         close(entry.clippedEnd, width - 400) &&
         entry.clippedStart === 0,
-      `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${facts.pages}/${baselineFacts.pages}, fixed=${facts.fixed}, clipped=${entry?.clippedEnd}`,
+      `marker=${facts.markerX},${facts.markerY},${facts.markerWidth}/${baselineFacts.markerX},${baselineFacts.markerY},${baselineFacts.markerWidth}, pages=${facts.pages}/${baselineFacts.pages}, fixed=${facts.fixed}, clipped=${entry?.clippedEnd}, scale=${entry?.scale}`,
     )
   }
+
+  await verifyAdaptiveOverflow(renderer, work, paper, baselineFacts, check)
 
   let leftwardReport: OverflowReport | undefined
   const leftward = await renderer.pagePdf(
@@ -133,6 +176,7 @@ export async function verifyPageOverflow(
     'a left-to-right page clips leftward overflow without counter-scaling',
     close(leftwardFacts.markerX, baselineFacts.markerX) &&
       close(leftwardFacts.markerY, baselineFacts.markerY) &&
+      close(leftwardFacts.markerWidth, baselineFacts.markerWidth) &&
       leftwardFacts.pages === baselineFacts.pages &&
       close(leftwardReport?.entries[0]?.clippedStart ?? Number.NaN, 800) &&
       leftwardReport?.entries[0]?.clippedEnd === 0,
@@ -158,6 +202,7 @@ export async function verifyPageOverflow(
       `${label} overflow prints at true size and reports its complete scrollable overflow`,
       close(facts.markerX, baselineFacts.markerX) &&
         close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
         facts.pages === baselineFacts.pages &&
         close(report?.entries[0]?.clippedEnd ?? Number.NaN, 800),
       `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${facts.pages}/${baselineFacts.pages}, clipped=${report?.entries[0]?.clippedEnd}`,
@@ -196,6 +241,7 @@ export async function verifyPageOverflow(
     'a growing page with sideways overflow keeps text and page count at true size and reports clipping',
     close(growingOverflowFacts.markerX, growingBaselineFacts.markerX) &&
       close(growingOverflowFacts.markerY, growingBaselineFacts.markerY) &&
+      close(growingOverflowFacts.markerWidth, growingBaselineFacts.markerWidth) &&
       growingOverflowFacts.pages === growingBaselineFacts.pages &&
       close(growingReport?.entries[0]?.clippedEnd ?? Number.NaN, 800),
     `marker=${growingOverflowFacts.markerX},${growingOverflowFacts.markerY}/${growingBaselineFacts.markerX},${growingBaselineFacts.markerY}, pages=${growingOverflowFacts.pages}/${growingBaselineFacts.pages}, clipped=${growingReport?.entries[0]?.clippedEnd}`,

@@ -9,25 +9,56 @@ export type PrintResult<Required extends boolean = false> = {
 
 /**
  * Chromium's measured maximum print shrink; the 3x overflow demo check fails
- * if it changes. On the pinned build Chromium shrinks only for physical
- * rightward overflow. It measures against the scaled page width, so using this
- * cap makes its capped shrink cancel the scale. Rightward generated content in
- * an RTL root is a known limit: neither scroll extent nor element boxes expose it.
+ * if it changes. Chromium lays a scaled print out at the narrower width P / s,
+ * then shrinks it by at most this factor. The solved scale searches layout
+ * widths for the point where rightward content reaches P, and uses this exact
+ * cap when it is already reached at the narrowest layout. Rightward generated
+ * content in an RTL root is a known limit: neither scroll extent nor element
+ * boxes expose it.
  */
 export const CHROMIUM_MAX_SHRINK = 1.5
 
-export function counterScale(rightOverflow: number): number {
-  return rightOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
+export type ScaleMeasurement = Readonly<{ layoutWidth: number; contentWidth: number }>
+
+export type ScaleDecision = Readonly<{ scale: number } | { measure: number }>
+
+/** Decides the next layout to measure, or the print scale, from measured widths. */
+export function solveScale(pageWidth: number, measurements: readonly ScaleMeasurement[]): ScaleDecision {
+  const measured = new Map(measurements.map((measurement) => [measurement.layoutWidth, measurement.contentWidth]))
+  const atPage = measured.get(pageWidth)
+  if (atPage === undefined) return { measure: pageWidth }
+  if (atPage <= pageWidth) return { scale: 1 }
+
+  const narrowest = Math.ceil(pageWidth / CHROMIUM_MAX_SHRINK)
+  const atNarrowest = measured.get(narrowest)
+  if (atNarrowest === undefined) return { measure: narrowest }
+  if (atNarrowest >= pageWidth) return { scale: CHROMIUM_MAX_SHRINK }
+
+  let low = narrowest
+  let high = pageWidth
+  let lastSatisfied = pageWidth
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2)
+    const width = measured.get(middle)
+    if (width === undefined) return { measure: middle }
+    if (width >= pageWidth) {
+      high = middle
+      lastSatisfied = middle
+    } else {
+      low = middle
+    }
+  }
+  const layoutWidth = measured.get(high) !== undefined && (measured.get(high) as number) >= pageWidth ? high : lastSatisfied
+  return { scale: pageWidth / layoutWidth }
 }
 
-async function measuredOverflow(
-  tab: Tab,
-  pageWidth: number,
-  part: OverflowPart,
-  inputIndex?: number,
-): Promise<{ overflow: OverflowEntry; rightOverflow: number }> {
-  await tab.emulateMedia({ media: 'print' })
-  const measured = await tab.evaluate((width) => {
+interface MeasuredOverflow {
+  overflow: Omit<OverflowEntry, 'part' | 'inputIndex' | 'scale'>
+  rightOverflow: number
+}
+
+async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOverflow> {
+  return tab.evaluate((width) => {
     const root = document.documentElement
     const extent = Math.max(root.scrollWidth, document.body?.scrollWidth ?? 0)
     const endOverflow = Math.max(0, extent - root.clientWidth)
@@ -60,20 +91,25 @@ async function measuredOverflow(
       }
     }
     return {
-      pageWidth: width,
-      extent,
-      clippedStart,
-      clippedEnd: endOverflow,
-      elements: contributions,
+      overflow: {
+        pageWidth: width,
+        extent,
+        clippedStart,
+        clippedEnd: endOverflow,
+        elements: contributions,
+      },
       rightOverflow,
     }
   }, pageWidth)
-  const { rightOverflow, ...entry } = measured
-  return { overflow: { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...entry }, rightOverflow }
+}
+
+function overflowEntry(measured: MeasuredOverflow, scale: number, part: OverflowPart, inputIndex?: number): OverflowEntry {
+  return { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...measured.overflow, scale }
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
-  return (await measuredOverflow(tab, pageWidth, part, inputIndex)).overflow
+  await tab.emulateMedia({ media: 'print' })
+  return overflowEntry(await measuredOverflow(tab, pageWidth), 1, part, inputIndex)
 }
 
 export async function printWithOverflow(
@@ -83,6 +119,23 @@ export async function printWithOverflow(
   pdf: Parameters<Tab['pdf']>[0],
   inputIndex?: number,
 ): Promise<PrintResult<true>> {
-  const { overflow, rightOverflow } = await measuredOverflow(tab, pageWidth, part, inputIndex)
-  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(rightOverflow) }), overflow }
+  await tab.emulateMedia({ media: 'print' })
+  const viewport = tab.viewportSize()
+  if (!viewport) throw new Error('The print tab has no viewport.')
+  const measurements: ScaleMeasurement[] = []
+  let original: MeasuredOverflow | undefined
+  let decision: ScaleDecision = solveScale(pageWidth, measurements)
+  while ('measure' in decision) {
+    await tab.setViewportSize({ width: decision.measure, height: viewport.height })
+    const measured = await measuredOverflow(tab, decision.measure)
+    if (decision.measure === pageWidth) original = measured
+    measurements.push({ layoutWidth: decision.measure, contentWidth: decision.measure + measured.rightOverflow })
+    decision = solveScale(pageWidth, measurements)
+  }
+  await tab.setViewportSize(viewport)
+  if (!original) throw new Error('The page-width overflow measurement was not made.')
+  return {
+    bytes: await tab.pdf({ ...pdf, scale: decision.scale }),
+    overflow: overflowEntry(original, decision.scale, part, inputIndex),
+  }
 }

@@ -321,8 +321,13 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   const facts = (file: string) => {
     const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
     const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
-    const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>BOOK_FLOW_MARKER<\/word>/)
-    return { pages: Number(info.match(/Pages:\s+(\d+)/)?.[1]), x: Number(marker?.[1]), y: Number(marker?.[2]) }
+    const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)"[^>]*>BOOK_FLOW_MARKER<\/word>/)
+    return {
+      pages: Number(info.match(/Pages:\s+(\d+)/)?.[1]),
+      x: Number(marker?.[1]),
+      y: Number(marker?.[2]),
+      width: Number(marker?.[3]) - Number(marker?.[1]),
+    }
   }
   const baselineFacts = facts(baselineFile)
   const overflowFacts = facts(overflowFile)
@@ -331,6 +336,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
     'a book chapter with a too-wide table keeps text and page count at true size and reports only kept prints in output order',
     Math.abs(baselineFacts.x - overflowFacts.x) <= 1 &&
       Math.abs(baselineFacts.y - overflowFacts.y) <= 1 &&
+      Math.abs(baselineFacts.width - overflowFacts.width) <= 1 &&
       baselineFacts.pages === overflowFacts.pages &&
       report?.entries.map((entry) => entry.part).join(',') === 'body,margin' &&
       body !== undefined &&
