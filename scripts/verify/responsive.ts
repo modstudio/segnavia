@@ -27,6 +27,13 @@ async function frameFacts(h: Harness) {
     }))
 }
 
+const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => {
+  const root = player.shadowRoot
+  const stage = root.querySelector('segnavia-stage') as HTMLElement
+  const controls = ['segnavia-caption', '.bar'].reduce((height, selector) => height + (root.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0), 0)
+  return { player: player.clientHeight, stage: stage.clientHeight, controls }
+}
+
 export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-stage.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active] iframe').waitFor()
@@ -89,6 +96,19 @@ export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-player-height.html'))
   await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { controller?: { go(index: number): Promise<void> } }) => player.controller?.go(0))
   await h.page.locator('iframe').waitFor()
+  await h.page.waitForFunction(() => {
+    const player = document.querySelector<HTMLElement>('segnavia-player')
+    const root = player?.shadowRoot
+    const stage = root?.querySelector<HTMLElement>('segnavia-stage')
+    const controls = (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + (root?.querySelector<HTMLElement>('.bar')?.offsetHeight ?? 0)
+    return player && stage && Math.abs(stage.clientHeight - (player.clientHeight - controls)) <= 1
+  })
+  const wideHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts)
+  h.check(
+    'a 720 by 520 responsive height-fit player fills the height above its controls',
+    Math.abs(wideHeight.stage - (wideHeight.player - wideHeight.controls)) <= 1,
+    JSON.stringify(wideHeight),
+  )
   await h.evidence('responsive-player-720x520.png')
   const playerFrame = await frameFacts(h)
   const playerCanvas = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
@@ -109,5 +129,18 @@ export async function verifyResponsive(h: Harness) {
     host.style.blockSize = '640px'
   })
   await h.page.waitForFunction(() => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('.segnavia-stage__canvas')?.clientWidth === 360)
+  await h.page.waitForFunction(() => {
+    const player = document.querySelector<HTMLElement>('segnavia-player')
+    const root = player?.shadowRoot
+    const stage = root?.querySelector<HTMLElement>('segnavia-stage')
+    const controls = (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + (root?.querySelector<HTMLElement>('.bar')?.offsetHeight ?? 0)
+    return player && stage && Math.abs(stage.clientHeight - (player.clientHeight - controls)) <= 1
+  })
+  const narrowHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts)
+  h.check(
+    'a 360 by 640 responsive height-fit player fills the height above its controls',
+    Math.abs(narrowHeight.stage - (narrowHeight.player - narrowHeight.controls)) <= 1,
+    JSON.stringify(narrowHeight),
+  )
   await h.evidence('responsive-player-360x640.png')
 }

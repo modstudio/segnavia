@@ -1,3 +1,5 @@
+// Rendering and capture checks that need no viewer, run under Bun and Node.
+
 import './source-guard.ts'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -16,6 +18,7 @@ import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
+import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyPressRender } from './verify/press-render.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
@@ -31,41 +34,6 @@ const refusal = (work: Promise<unknown>) =>
     () => 'rendered',
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
-function readPgm(file: string): { width: number; height: number; pixels: Uint8Array } {
-  const bytes = readFileSync(file)
-  let offset = 0
-  const token = () => {
-    while (offset < bytes.length) {
-      if (bytes[offset] === 35) while (offset < bytes.length && bytes[offset] !== 10) offset++
-      else if ((bytes[offset] ?? 0) <= 32) offset++
-      else break
-    }
-    const start = offset
-    while (offset < bytes.length && (bytes[offset] ?? 0) > 32) offset++
-    return bytes.subarray(start, offset).toString()
-  }
-  if (token() !== 'P5') throw new Error(`The raster at ${file} is not a raw PGM.`)
-  const width = Number(token())
-  const height = Number(token())
-  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit grayscale.`)
-  while ((bytes[offset] ?? 0) <= 32) offset++
-  return { width, height, pixels: bytes.subarray(offset) }
-}
-
-function rasterValue(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
-  const x = Math.round(xMm / MM_PER_PT)
-  const y = Math.round(yMm / MM_PER_PT)
-  if (x < 0 || y < 0 || x >= raster.width || y >= raster.height) return 255
-  return raster.pixels[y * raster.width + x] ?? 255
-}
-
-function darkestNear(raster: ReturnType<typeof readPgm>, xMm: number, yMm: number): number {
-  let darkest = 255
-  for (const dx of [-1, 0, 1]) {
-    for (const dy of [-1, 0, 1]) darkest = Math.min(darkest, rasterValue(raster, xMm + dx * MM_PER_PT, yMm + dy * MM_PER_PT))
-  }
-  return darkest
-}
 
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
@@ -177,6 +145,7 @@ try {
   )
   const fullPageSize = imageSize(fullPageWebp)
   check('a full-page WebP pixel size reflects the chosen scale', fullPageSize?.width === 400 && fullPageSize.height === 600, JSON.stringify(fullPageSize))
+  // A right to left deck's notes: the scaled slide must stay inside its box.
   let overflow = Number.NaN
   await renderer.deckPdf(
     {

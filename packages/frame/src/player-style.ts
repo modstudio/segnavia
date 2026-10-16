@@ -69,6 +69,7 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
 :host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below"}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "rail" "below";grid-template-rows:auto auto auto auto auto}
+  :host([data-layout="responsive"][fit="height"]) .player,:host([data-layout="responsive"][data-presenting]) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto}
   :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "rail" "below";grid-template-rows:auto auto auto}
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
   segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}}
