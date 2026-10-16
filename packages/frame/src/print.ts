@@ -6,7 +6,16 @@
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { paperBoxSize } from './paper-geometry.ts'
-import { type PrintablePagesOptions, type PrintOptions, printableDeck, printableDeckDocument, printablePagesDocument } from './print-document.ts'
+import {
+  type PrintablePagesOptions,
+  type PrintOptions,
+  paginateNotes,
+  placePrintImages,
+  printableDeck,
+  printableDeckDocument,
+  printablePagesDocument,
+} from './print-document.ts'
+import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
@@ -32,6 +41,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
   // laid out, and its slides would then never report themselves painted.
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${options.width}px;height:${options.height}px;border:0;opacity:0;pointer-events:none`
   document.body.append(host)
+  let removeImageListeners = () => {}
   try {
     const win = host.contentWindow as Window
     win.document.open()
@@ -39,22 +49,37 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     win.document.close()
     const frames = [...win.document.querySelectorAll('iframe')]
     const images = [...win.document.querySelectorAll('img')]
-    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, options.deadlineMs ?? SLIDES_READY_DEADLINE_MS))
-    await printDocumentSettled(
+    const pendingNaturalImages = [...win.document.querySelectorAll<HTMLImageElement>('[data-segnavia-image-layer] img')].filter((image) => !image.complete)
+    const placeAfterLoad = () => placePrintImages(win.document)
+    pendingNaturalImages.forEach((image) => {
+      image.addEventListener('load', placeAfterLoad)
+    })
+    removeImageListeners = () => {
+      pendingNaturalImages.forEach((image) => {
+        image.removeEventListener('load', placeAfterLoad)
+      })
+    }
+    const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
+    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
+    const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
       images,
       deadline,
     )
-    await win.document.fonts?.ready
+    await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
+    placePrintImages(win.document)
+    paginateNotes(win.document)
+    await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
     if (options.print) await options.print(win)
     else {
       win.focus()
+      const afterPrint = waitForAfterPrint(win)
       win.print()
+      await afterPrint
     }
   } finally {
-    // The dialog is modal in every engine, so by the time print returns the
-    // document has been handed to the printer.
+    removeImageListeners()
     host.remove()
   }
 }

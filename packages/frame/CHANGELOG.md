@@ -1,5 +1,24 @@
 # @segnavia/frame
 
+## 0.8.0
+
+### Minor Changes
+
+- 20bd5e6: Add a deck-level framed-image option with per-slide overrides for images and shots.
+
+  Give slide canvases in the styled player a white, host-customizable backdrop while keeping headless stages transparent.
+
+- 26b6621: Add a script-refusing, viewport-lazy slide thumbnail element for deck covers, with a matching React component.
+- 591c819: `@segnavia/format` adds deck and slide fit options for image and shot content.
+
+  `@segnavia/frame` applies shared fit geometry to the stage, rail and print output.
+
+### Patch Changes
+
+- Updated dependencies [20bd5e6]
+- Updated dependencies [591c819]
+  - @segnavia/format@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@segnavia/frame",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -46,6 +46,11 @@
       "@segnavia/source": "./src/image-fit.ts",
       "types": "./dist/image-fit.d.ts",
       "default": "./dist/image-fit.js"
+    },
+    "./stage-layout": {
+      "@segnavia/source": "./src/stage-layout.ts",
+      "types": "./dist/stage-layout.d.ts",
+      "default": "./dist/stage-layout.js"
     },
     "./print-document": {
       "@segnavia/source": "./src/print-document.ts",

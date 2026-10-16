@@ -34,6 +34,25 @@ export function imageFrameStyle(placement: ImagePlacement, slide: Size): ImageFr
   }
 }
 
+export interface ImageLayerStyles {
+  layer: { width: string; height: string; transform: string }
+  image: { width: string; height: string; borderRadius?: string; boxShadow?: string }
+}
+
+export function imageLayerStyles(natural: Size, placement: ImagePlacement, slide?: Size): ImageLayerStyles {
+  const width = `${natural.width}px`
+  const height = `${natural.height}px`
+  const frame = slide ? imageFrameStyle(placement, slide) : undefined
+  return {
+    layer: {
+      width,
+      height,
+      transform: `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`,
+    },
+    image: { width, height, ...frame },
+  }
+}
+
 export function fitImage(slide: Size, image: Size, fit: ImageFit, focus?: Box, frame = false): ImagePlacement {
   const contain = Math.min(slide.width / image.width, slide.height / image.height)
   const cover = Math.max(slide.width / image.width, slide.height / image.height)

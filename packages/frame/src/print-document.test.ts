@@ -52,6 +52,50 @@ describe('printableDeck', () => {
     const printable = printableDeck(deck, { layout: 'notes' })
     expect(printable).toContain('box-sizing:border-box;padding:48px;')
     expect(printable).toContain('.slide{border:1px solid #ccc;')
+    expect(printable).toContain('display:flex;flex-direction:column')
+    expect(printable).toContain('.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;')
+    expect(printable).not.toMatch(/\.notes\{height:/)
+    expect(printable).toContain('<bdi dir="ltr">1</bdi>')
+  })
+
+  test('leaves visible notes space below a portrait slide', () => {
+    const geometry = notesLayoutGeometry({ width: 720, height: 1280 })
+    const innerHeight = geometry.sheet.height - 96
+    expect(geometry.slide.height).toBeLessThan(innerHeight)
+    expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
+  })
+
+  test('prints speaker notes before narration and falls back only when notes are absent', () => {
+    const narration = (text: string) => ({ text, words: [], durationMs: 0, audio: null })
+    const withBoth = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: 'Speaker notes win', narration: narration('Narration loses') }],
+    })
+    const withNarration = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: undefined, narration: narration('Narration fallback') }],
+    })
+    expect(printableDeck(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
+    expect(printableDeck(withBoth, { layout: 'notes' })).not.toContain('Narration loses')
+    expect(printableDeck(withNarration, { layout: 'notes' })).toContain('Narration fallback')
+  })
+
+  test('escapes notes without adding executable code to the print document', () => {
+    const unsafe = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: '<img src=x onerror=evil()> & final line' }],
+    })
+    const html = printableDeck(unsafe, { layout: 'notes' })
+    expect(html).toContain('&lt;img src=x onerror=evil()&gt; &amp; final line')
+    expect(html).not.toContain('<img src=x onerror=evil()>')
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('segnaviaNotesReady')
+  })
+
+  test('injects exact print color into each sandboxed slide document', () => {
+    const document = htmlSlideDocument(deck, '<style>body{background:red}</style>', { nonce: 'known' })
+    expect(document).toContain('print-color-adjust:exact')
+    expect(document).toContain('-webkit-print-color-adjust:exact')
   })
 
   test('builds the same top-level HTML slide document used by its frame', () => {
@@ -100,9 +144,10 @@ describe('printableDeck', () => {
     expect(html).toContain('transform:translate(0px,-1680px) scale(1)')
     expect(html).toContain('viewBox="0 0 1280 2400"')
     expect(html).toContain('data-fit="width"')
+    expect(html).not.toContain('onload=')
+    expect(html).not.toContain('<script>')
     expect(html).toContain('data-frame="true"')
     expect(html).toContain('border-radius:15.342465753424658px')
-    expect(html).toContain('onload="segnaviaPlaceImage(this)"')
     expect(html).not.toContain('object-fit')
   })
 

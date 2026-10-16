@@ -250,6 +250,7 @@ export class SegnaviaPlayer extends HTMLElement {
     player.setAttribute('aria-label', this.words.player)
     player.classList.toggle('notes-closed', !open)
     player.classList.toggle('silent', !deckHasNarration(state))
+    this.dataset.layout = deck.layout
     this.setAttribute('role', 'region')
     ;(this.root.querySelector('.screen') as HTMLElement).style.setProperty('--ratio', String(deck.size.width / deck.size.height))
     const toggle = this.root.querySelector('.notes-toggle') as HTMLElement
@@ -295,6 +296,13 @@ export class SegnaviaPlayer extends HTMLElement {
       (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
       (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)
     const reserve = (this.root.querySelector('.fit-reserve') as HTMLElement).offsetHeight
+    if (deck.layout === 'responsive') {
+      const height = Math.max(0, availableHeight - reserve)
+      screen.style.blockSize = `${height}px`
+      this.stage.style.inlineSize = '100%'
+      this.stage.style.blockSize = `${height}px`
+      return
+    }
     const size = containSlideSize({
       availableWidth: screen.clientWidth,
       availableHeight,

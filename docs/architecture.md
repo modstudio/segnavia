@@ -5,7 +5,7 @@
 ```
 format  ◄── html          (universal: browser and server)
   ▲
-  ├── frame               (browser; svg, timeline, bridge and print-document are server-safe)
+  ├── frame               (browser; svg, timeline, bridge, fit and print-document are server-safe)
   │     ▲
   │     └── react         (browser adapter; React is a peer dependency here only)
   │     ▲
@@ -29,8 +29,8 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
 the custom elements, but its server-safe entry points are the single source
-of the frame document, the annotation drawing, image-fit geometry, the timeline
-and the print document. The browser uses that frame-based print layout; the
+of the frame document, the annotation drawing, fit and image-fit geometry, the
+timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
 
 The seven packages are built as ESM JavaScript and declarations with tsdown;
@@ -108,7 +108,15 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
 ## How a deck plays
 
 1. The deck is parsed with `Deck.parse`, which refuses a cue naming a word or
-   annotation that does not exist and a slide id used twice.
+   annotation that does not exist and a slide id used twice. Its `layout` is
+   `fixed` by default or may opt into `responsive`. A fixed deck lays every
+   screen canvas out at `deck.size` and scales it to the stage. A responsive
+   deck instead lays its screen canvas and HTML frame out at the stage box's
+   rounded CSS-pixel size, at scale 1; a missing definite height falls back to
+   the deck aspect ratio. Image, shot, focus, frame and annotation geometry use
+   that responsive canvas size too. Rail thumbnails, standalone thumbnails and print/PDF canvases
+   remain fixed at `deck.size`, so a responsive deck's screen and PDF layouts
+   may differ.
 2. For each slide shown, the controller runs `resolveSlide` if it is set. `contentFor(index)` does the same without navigating and shares the prefetch cache. A `shot-ref` is
    fetched as a `PublishedShot`, cached per address, and resolved relative to
    that address. Its fit and frame settings are copied to the resolved shot and
@@ -155,7 +163,7 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
 6. With `neighbors` and `scripts: 'refuse'`, the stage keys frames by slide id and keeps the selected slide plus its previous and next slide. Hidden neighbors are inert. A turn reveals the already-running neighbor without changing its document; if that neighbor is still loading, the turn waits for it or the bounded swap timeout. A deck with `scripts: 'sandboxed'` mounts no neighbors because a running author script in a hidden frame could take the page's keyboard focus. On a turn it loads the incoming frame invisibly above the outgoing frame, then swaps after the load event and two parent animation frames; a bounded timeout completes a stalled load. The deck's `transition` (`{ kind: 'none' | 'fade' | 'slide', duration }`) chooses the turn's motion, an absent setting meaning an instant turn, and a host's `transition` property or attributes override it. A fade or slide transition runs while both frames are present, after a refused-script neighbor is revealed or after the incoming frame is ready on the swap path, and the outgoing frame remains until motion ends. Slide direction follows the deck's inline direction. Reduced motion, `none`, and a zero duration settle instantly. A later turn finishes running motion and starts from the frame then visible, while a turn during loading cancels a frame created for the pending turn and leaves a reused neighbor mounted. Reloading a reordered deck keeps the selected id and its frame; removing it keeps the old position, clamped into the new bounds. Reloading replaces a mounted frame when its resolved content, scripts mode, host CSS or extra CSP changes, while keeping the selected id and leaving the address unchanged.
 7. A first load reads an exact `#slide-N`, clamped to the deck's bounds. `go`, keys and live hash changes navigate directly and replace the address rather than adding history.
 8. In page-key mode, arrows and page keys work outside form fields, Space has no deck action, and Escape ends an in-window presentation. `m` toggles mute, `c` toggles viewer-controlled captions, and `f` returns `present` for the host to handle. These three letters are ignored when typed into an input, textarea, select or editable element, in the page listener, the player and keys relayed from a slide frame. `present(element)` marks the chosen element with `data-presenting`, locks body overflow and uses `--segnavia-backdrop`; `stopPresenting`, stage disconnection and controller destruction restore it. `<segnavia-fullscreen>` uses this window-presentation path by default; `mode="native"` opts into the browser Fullscreen API.
-9. `fit="viewport"` scales from the stage's unscaled inline space and `window.innerHeight`, subtracting its block-start edge and `reserve` at both block edges. While presenting it uses the presented element's block size. It reports `{ scale, width, height }` through `fitted` and `segnavia-fit`; window, visual-viewport and stage resizes trigger a new measurement.
+9. `fit="viewport"` scales from the stage's unscaled inline space and `window.innerHeight`, subtracting its block-start edge and `reserve` at both block edges. While presenting it uses the presented element's block size. It reports `{ scale, width, height }` through `fitted` and `segnavia-fit`; window, visual-viewport and stage resizes trigger a new measurement. A responsive player uses full width: `fit="height"` and presentation fill their available height, `fit="contain"` fills visual-viewport height minus `--segnavia-fit-reserve`, and `fit="width"` gets height from the deck aspect ratio. Fixed players retain their scaled sizing.
 10. When a timed slide ends, play advances in either playback mode. An untimed
     slide stops and waits; Play there advances to the next slide.
 
@@ -321,6 +329,34 @@ same placements, preserving backgrounds. A grid of two columns and three rows
 is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
+
+The notes layout belongs to the slide whose number it carries. It uses the
+slide's speaker notes when present and falls back to narration text only when
+speaker notes are absent. Its first paper carries the slide thumbnail and the
+start of the notes; overflow continues on notes-only papers marked with the
+same slide number and “continued”. The browser print document and `deckPdf`
+share that pagination and ownership, so a thumbnail is placed only on its
+slide's first notes paper and no notes are clipped. The thumbnail is bounded by
+both paper axes so even a tall deck leaves a visible notes area. Library-written
+numbering and continuation text are isolated, while the notes resolve their own
+direction from their content. Browser hosts bound accepted notes before
+printing with `exceedsLimits` and `maxNotesBytes`; the renderer also stops notes
+pagination at its `maxSheets` limit.
+
+Every sandboxed slide document used for printing receives
+`print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
+putting those properties only on the containing print document cannot cross a
+frame boundary. A URL slide keeps its own print styling; color-adjust injection
+covers only the slide documents the library builds. Chromium still omits those backgrounds in printed output, so
+the browser dialog is best effort and `deckPdf` is the faithful path. The
+sandbox remains without same-origin access. Browser printing waits for slide
+readiness and fonts only until one shared deadline, then crosses a
+two-animation-frame paint barrier before opening the dialog. The off-screen
+host stays alive until `afterprint`, with a bounded fallback for engines that
+do not dispatch it; a host-provided print hook remains synchronous for
+deterministic integration paths. The outer print document contains no inline
+script: host-context code paginates notes and places natural images after
+readiness, so a strict host content security policy cannot disable either.
 
 **Sideways overflow.** On screen, content that overflows a page sideways is
 clipped at the page edge. Chromium's print path instead shrinks the whole page

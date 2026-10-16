@@ -5,6 +5,17 @@ import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { annotationSvg } from './svg.ts'
 
+type CanvasSize = { width: number; height: number }
+const canvasLayouts = new WeakMap<HTMLElement, (size: CanvasSize) => void>()
+
+export function layoutStageCanvas(canvas: HTMLElement, size: CanvasSize) {
+  canvas.style.inlineSize = `${size.width}px`
+  canvas.style.blockSize = `${size.height}px`
+  canvas.style.marginBlockStart = `${-size.height / 2}px`
+  canvas.style.marginInlineStart = `${-size.width / 2}px`
+  canvasLayouts.get(canvas)?.(size)
+}
+
 export function stageCanvas(
   controller: DeckController,
   deck: Deck,
@@ -16,14 +27,9 @@ export function stageCanvas(
   frameTitle: FrameTitle,
   loaded: () => void,
 ): HTMLElement {
-  const { width, height } = deck.size
   const canvas = document.createElement('div')
   canvas.className = 'segnavia-stage__canvas'
   canvas.dataset.slideId = slide.id
-  canvas.style.inlineSize = `${width}px`
-  canvas.style.blockSize = `${height}px`
-  canvas.style.marginBlockStart = `${-height / 2}px`
-  canvas.style.marginInlineStart = `${-width / 2}px`
   canvas.style.overflow = 'hidden'
   if (content.kind === 'html' || content.kind === 'url') {
     const iframe = document.createElement('iframe')
@@ -54,27 +60,35 @@ export function stageCanvas(
     image.alt = content.kind === 'image' ? content.alt : content.shot.title
     image.dir = firstStrongDirection(image.alt) ?? 'auto'
     image.style.display = 'block'
-    const position = (imageSize: { width: number; height: number }) => {
+    let imageSize: CanvasSize | undefined = content.kind === 'image' ? undefined : content.shot.size
+    let slideSize: CanvasSize = deck.size
+    const position = () => {
+      if (!imageSize) return
       const focus = content.kind === 'shot' ? annotationFocusBox(imageSize, content.shot.annotations) : undefined
-      const placement = fitImage(deck.size, imageSize, content.fit ?? deck.fit, focus, content.frame ?? deck.frame)
+      const placement = fitImage(slideSize, imageSize, content.fit ?? deck.fit, focus, content.frame ?? deck.frame)
       layer.style.inlineSize = `${imageSize.width}px`
       layer.style.blockSize = `${imageSize.height}px`
       layer.style.transform = `translate(${placement.x}px, ${placement.y}px) scale(${placement.scale})`
       image.style.inlineSize = `${imageSize.width}px`
       image.style.blockSize = `${imageSize.height}px`
-      Object.assign(image.style, imageFrameStyle(placement, deck.size))
+      Object.assign(image.style, imageFrameStyle(placement, slideSize))
     }
+    canvasLayouts.set(canvas, (size) => {
+      slideSize = size
+      position()
+    })
     if (content.kind === 'image') {
       image.addEventListener(
         'load',
         () => {
-          position({ width: image.naturalWidth, height: image.naturalHeight })
+          imageSize = { width: image.naturalWidth, height: image.naturalHeight }
+          position()
           loaded()
         },
         { once: true },
       )
     } else {
-      position(content.shot.size)
+      position()
       image.addEventListener('load', loaded, { once: true })
     }
     image.src = controller.url(content.src)
@@ -91,5 +105,6 @@ export function stageCanvas(
     }
     canvas.append(layer)
   }
+  layoutStageCanvas(canvas, deck.size)
   return canvas
 }

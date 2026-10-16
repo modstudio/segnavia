@@ -351,6 +351,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
 
   const deck: Deck = {
     title: 'Press',
+    layout: 'fixed',
     fit: 'contain',
     frame: false,
     size: { width: 1200, height: 800 },
@@ -377,6 +378,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
 
   const longDeck: Deck = {
     title: 'Press content bound',
+    layout: 'fixed',
     fit: 'contain',
     frame: false,
     size: { width: 1200, height: 800 },
