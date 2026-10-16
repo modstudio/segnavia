@@ -34,8 +34,14 @@ async function grayColors(bytes: Uint8Array): Promise<number[]> {
 const forbiddenSpaces = new Set(['/DeviceRGB', '/DeviceCMYK', '/CalRGB'])
 const forbiddenOperators = new Set(['rg', 'RG', 'k', 'K'])
 
-async function processColorResidues(bytes: Uint8Array): Promise<string[]> {
+interface ColorResidues {
+  errors: string[]
+  found: string[]
+}
+
+async function processColorResidues(bytes: Uint8Array): Promise<ColorResidues> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  const errors: string[] = []
   const found = new Set<string>()
   const seen = new WeakSet<object>()
   const scanObject = (object: unknown): void => {
@@ -56,16 +62,28 @@ async function processColorResidues(bytes: Uint8Array): Promise<string[]> {
   for (const [, object] of document.context.enumerateIndirectObjects()) {
     if (object instanceof PDFRawStream) {
       if (nameOf(object.dict.get(PDFName.of('Subtype'))) === 'Image') continue
-      visitContentTokens(decodeContent(object), (operator, operands) => {
-        if (forbiddenOperators.has(operator)) found.add(operator)
-        for (const operand of operands) if (operand.kind === 'name' && forbiddenSpaces.has(operand.raw)) found.add(operand.raw)
-      })
       scanObject(object.dict)
       continue
     }
     scanObject(object)
   }
-  return [...found]
+  walkPressGraph(document, {
+    content: (object, stream) => {
+      try {
+        visitContentTokens(decodeContent(stream), (operator, operands) => {
+          if (forbiddenOperators.has(operator)) found.add(operator)
+          for (const operand of operands) if (operand.kind === 'name' && forbiddenSpaces.has(operand.raw)) found.add(operand.raw)
+        })
+      } catch (error) {
+        errors.push(`${object.toString()}: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    },
+    function: () => undefined,
+    group: () => undefined,
+    image: () => undefined,
+    shading: () => false,
+  })
+  return { errors, found: [...found] }
 }
 
 export async function verifyGrayPress(renderer: Renderer, check: Check): Promise<void> {
@@ -81,8 +99,8 @@ export async function verifyGrayPress(renderer: Renderer, check: Check): Promise
   const residues = await processColorResidues(output)
   check(
     'gray press has no RGB or CMYK operators or color-space names outside supplied images',
-    residues.length === 0,
-    `residues=${residues.join(',') || 'none'}`,
+    residues.found.length === 0 && residues.errors.length === 0,
+    `residues=${residues.found.join(',') || 'none'} parse errors=${residues.errors.join('; ') || 'none'}`,
   )
   const inspected = await inspectPressPdf(output)
   const colors = await grayColors(output)
