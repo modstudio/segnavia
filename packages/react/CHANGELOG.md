@@ -1,5 +1,20 @@
 # @segnavia/react
 
+## 0.9.0
+
+### Minor Changes
+
+- c495b99: Flush pending authoring notes on detach and adopt settled notes from reloaded decks.
+
+  React authoring cleanup now preserves pending notes when its player unmounts.
+
+### Patch Changes
+
+- Updated dependencies [c495b99]
+- Updated dependencies [6e2b2dc]
+- Updated dependencies [82b0071]
+  - @segnavia/frame@0.9.0
+
 ## 0.8.0
 
 ### Minor Changes

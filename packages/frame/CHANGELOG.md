@@ -1,5 +1,21 @@
 # @segnavia/frame
 
+## 0.9.0
+
+### Minor Changes
+
+- c495b99: Flush pending authoring notes on detach and adopt settled notes from reloaded decks.
+
+  React authoring cleanup now preserves pending notes when its player unmounts.
+
+- 6e2b2dc: Flow long speaker notes onto owned continuation sheets, preserve print color intent inside slide frames, and bound browser print readiness and teardown.
+- 82b0071: Add opt-in responsive decks whose screen canvases reflow at the stage box size while rail thumbnails and print remain fixed.
+
+### Patch Changes
+
+- Updated dependencies [82b0071]
+  - @segnavia/format@0.9.0
+
 ## 0.8.0
 
 ### Minor Changes
