@@ -32,6 +32,10 @@ export function writeResponsiveDemo(site: string) {
   )
   writeFileSync(path.join(site, 'responsive-fixed.html'), shell('<segnavia-stage src="deck.json" hash="off"></segnavia-stage>'))
   writeFileSync(
+    path.join(site, 'responsive-thumbnail.html'),
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0}segnavia-thumbnail{inline-size:320px}</style></head><body><segnavia-thumbnail></segnavia-thumbnail><script type="module" src="segnavia.js"></script><script type="module">await customElements.whenDefined(\'segnavia-thumbnail\');const thumbnail=document.querySelector(\'segnavia-thumbnail\');thumbnail.base=new URL(\'responsive-deck.json\',location.href).href;thumbnail.deck=await fetch(\'responsive-deck.json\').then(response=>response.json())</script></body></html>',
+  )
+  writeFileSync(
     path.join(site, 'responsive-player-contain.html'),
     '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0}segnavia-player{inline-size:100%;--segnavia-fit-reserve:40px}</style></head><body><segnavia-player src="responsive-deck.json" hash="off"></segnavia-player><script type="module" src="segnavia-player.js"></script></body></html>',
   )

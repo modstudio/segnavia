@@ -37,6 +37,17 @@ const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => 
 export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-stage.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active] iframe').waitFor()
+  await h.page
+    .locator('.segnavia-stage__canvas[data-active] iframe')
+    .contentFrame()
+    .locator('output')
+    .evaluate(
+      (output) =>
+        new Promise<void>((resolve) => {
+          const ready = () => (output.textContent === '720x520' ? resolve() : requestAnimationFrame(ready))
+          ready()
+        }),
+    )
   let canvas = await h.page.locator('segnavia-stage').evaluate(canvasFacts)
   let frame = await frameFacts(h)
   h.check(
@@ -83,9 +94,28 @@ export async function verifyResponsive(h: Harness) {
     JSON.stringify(fixed),
   )
 
+  await h.page.goto(h.url('responsive-thumbnail.html'))
+  await h.page.locator('segnavia-thumbnail').evaluate(
+    (thumbnail) =>
+      new Promise<void>((resolve) => {
+        const ready = () => (thumbnail.shadowRoot?.querySelector('.segnavia-stage__canvas') ? resolve() : requestAnimationFrame(ready))
+        ready()
+      }),
+  )
+  const thumbnail = await h.page.locator('segnavia-thumbnail').evaluate((element) => {
+    const canvas = element.shadowRoot?.querySelector<HTMLElement>('.segnavia-stage__canvas')
+    return { width: canvas?.clientWidth ?? 0, height: canvas?.clientHeight ?? 0, transform: canvas?.style.transform ?? '' }
+  })
+  h.check(
+    'a standalone thumbnail of a responsive deck keeps the scaled 1280 by 720 canvas',
+    thumbnail.width === 1280 && thumbnail.height === 720 && thumbnail.transform === 'scale(0.25)',
+    JSON.stringify(thumbnail),
+  )
+
   await h.page.setViewportSize({ width: 720, height: 600 })
   await h.page.goto(h.url('responsive-player-contain.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active]').waitFor()
+  await h.page.waitForFunction(() => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-stage')?.clientHeight === 560)
   const contain = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
     const stage = player.shadowRoot.querySelector('segnavia-stage') as HTMLElement
     return { width: stage.clientWidth, height: stage.clientHeight }

@@ -114,7 +114,7 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    deck instead lays its screen canvas and HTML frame out at the stage box's
    rounded CSS-pixel size, at scale 1; a missing definite height falls back to
    the deck aspect ratio. Image, shot, focus, frame and annotation geometry use
-   that responsive canvas size too. Rail thumbnails and print/PDF canvases
+   that responsive canvas size too. Rail thumbnails, standalone thumbnails and print/PDF canvases
    remain fixed at `deck.size`, so a responsive deck's screen and PDF layouts
    may differ.
 2. For each slide shown, the controller runs `resolveSlide` if it is set. `contentFor(index)` does the same without navigating and shares the prefetch cache. A `shot-ref` is
