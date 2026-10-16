@@ -30,8 +30,7 @@ function App() {
       reactReplace: () => setPlayerKey((value) => value + 1),
       reactPlayer: player,
       reactAuthoring: authoring,
-      reactDeckController:
-        playerKey === 0 ? deckController : (window as unknown as { reactDeckController?: unknown }).reactDeckController,
+      reactDeckController: deckController,
     })
   }, [authoring, deckController, player])
   if (!mounted) return null
