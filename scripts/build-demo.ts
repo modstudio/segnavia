@@ -16,9 +16,10 @@ import { buildAuthoringDemo } from './build-authoring-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
+import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
-import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
+import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -213,11 +214,6 @@ writeFileSync(
 )
 
 writeFileSync(path.join(SITE, 'deck.json'), JSON.stringify(deck, null, 2))
-writeFileSync(path.join(SITE, 'page.json'), JSON.stringify(fluidPage))
-writeFileSync(path.join(SITE, 'page-rtl.json'), JSON.stringify(hebrewPage))
-writeFileSync(path.join(SITE, 'page-rtl-div.json'), JSON.stringify(rightToLeftDivPage))
-writeFileSync(path.join(SITE, 'page-fixed.json'), JSON.stringify(fixedPage))
-writeFileSync(path.join(SITE, 'page-postcard.json'), JSON.stringify(postcardPage))
 // Each browser bundle contains its layer and every layer beneath it, so a page loads exactly one shipped file.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
   exports: Record<string, { default: string }>
@@ -315,12 +311,7 @@ writeFileSync(
 // Completely headless: no styles from the library at all, not even geometry.
 writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare" src="deck.json" hash="off" unstyled></segnavia-stage>', 'segnavia.js'))
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
-writeFileSync(
-  path.join(SITE, 'page.html'),
-  shell(
-    '<div style="background:#fff;max-width:900px"><segnavia-page id="fluid" src="page.json"></segnavia-page><segnavia-page id="rtl" src="page-rtl.json"></segnavia-page><segnavia-page id="rtl-div" src="page-rtl-div.json"></segnavia-page><segnavia-page id="fixed" src="page-fixed.json"></segnavia-page><segnavia-page id="postcard" src="page-postcard.json"></segnavia-page></div>',
-  ),
-)
+buildPageDemo(SITE, (body) => shell(body))
 buildPaperDemo(SITE)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })
