@@ -53,9 +53,42 @@ export async function verifyBooks(h: Harness) {
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
+      .evaluate(() => {
+          const events: string[] = []
+          Object.defineProperty(window, '__bookClickEvents', { value: events })
+          document.addEventListener(
+            'click',
+            (event) => {
+              const target = event.target as Element | null
+              events.push(`${target?.tagName ?? 'null'}${target?.id ? `#${target.id}` : ''}[prevented=${event.defaultPrevented}]`)
+              queueMicrotask(() => events.push(`after[prevented=${event.defaultPrevented}]`))
+            },
+            { capture: true },
+          )
+      })
+    const trace = async (label: string) => {
+      const frameState = await page
+        .frameLocator(`${frame} iframe`)
+        .locator('body')
+        .evaluate(() => ({
+          scrollY,
+          href: location.href,
+          active: document.activeElement ? `${document.activeElement.tagName}${document.activeElement.id ? `#${document.activeElement.id}` : ''}` : 'null',
+          events: [...((window as unknown as { __bookClickEvents: string[] }).__bookClickEvents ?? [])],
+        }))
+      const hostActive = await page.evaluate(() =>
+        document.activeElement ? `${document.activeElement.tagName}${document.activeElement.id ? `#${document.activeElement.id}` : ''}` : 'null',
+      )
+      console.log(`TRACE ${id} ${label} ${JSON.stringify({ frame: frameState, hostActive })}`)
+    }
+    await page
+      .frameLocator(`${frame} iframe`)
+      .locator('body')
       .evaluate(() => scrollTo(0, 0))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-top.png`) })
+    await trace('before contents')
     await page.frameLocator(`${frame} iframe`).locator('.segnavia-contents-entry a').first().click()
+    await trace('after contents')
     const contents = await inView(h, frame, '#segnavia-chapter-1 h1')
     const href = await page
       .frameLocator(`${frame} iframe`)
@@ -65,12 +98,18 @@ export async function verifyBooks(h: Harness) {
     check(`${id} contents scroll the chapter into the frame`, contents && href === 'about:srcdoc' && hostScroll === 0, JSON.stringify({ href, hostScroll }))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-contents.png`) })
 
+    await trace('before footnote')
     await page.frameLocator(`${frame} iframe`).locator('#segnavia-fnref-1-1').click()
+    await trace('after footnote')
     check(`${id} footnote marker brings its note into view`, await inView(h, frame, '#segnavia-fn-1-1'))
+    await trace('before footnote back')
     await page.frameLocator(`${frame} iframe`).locator('#segnavia-fn-1-1 a').click()
+    await trace('after footnote back')
     check(`${id} footnote back-link returns to its marker`, await inView(h, frame, '#segnavia-fnref-1-1'))
 
+    await trace('before endnote')
     await page.frameLocator(`${frame} iframe`).locator('#segnavia-enref-1').click()
+    await trace('after endnote')
     const endnote = await inView(h, frame, '#segnavia-en-1')
     const endSection = await inView(h, frame, '#segnavia-endnotes')
     check(`${id} endnote marker reaches the endnotes section`, endnote && endSection)

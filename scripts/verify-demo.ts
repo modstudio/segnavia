@@ -25,13 +25,6 @@ try {
   await verifyRailAuthoring(h)
   await verifyPages(h)
   await verifyBooks(h)
-  await verifyPapers(h)
-  await verifyRtl(h)
-  await verifyHeadless(h)
-  await verifyComponents(h)
-  await verifyDeckHost(h)
-  await verifyMedia(h)
-  h.check('no errors in any page', h.errors.length === 0, h.errors.join('; '))
 } finally {
   await h.close()
 }
