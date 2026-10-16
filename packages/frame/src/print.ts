@@ -41,6 +41,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
   // laid out, and its slides would then never report themselves painted.
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${options.width}px;height:${options.height}px;border:0;opacity:0;pointer-events:none`
   document.body.append(host)
+  let removeImageListeners = () => {}
   try {
     const win = host.contentWindow as Window
     win.document.open()
@@ -48,6 +49,16 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     win.document.close()
     const frames = [...win.document.querySelectorAll('iframe')]
     const images = [...win.document.querySelectorAll('img')]
+    const pendingNaturalImages = [...win.document.querySelectorAll<HTMLImageElement>('[data-segnavia-image-layer] img')].filter((image) => !image.complete)
+    const placeAfterLoad = () => placePrintImages(win.document)
+    pendingNaturalImages.forEach((image) => {
+      image.addEventListener('load', placeAfterLoad)
+    })
+    removeImageListeners = () => {
+      pendingNaturalImages.forEach((image) => {
+        image.removeEventListener('load', placeAfterLoad)
+      })
+    }
     const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
     const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
     const settled = printDocumentSettled(
@@ -68,6 +79,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
       await afterPrint
     }
   } finally {
+    removeImageListeners()
     host.remove()
   }
 }

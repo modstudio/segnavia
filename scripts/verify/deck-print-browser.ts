@@ -268,4 +268,44 @@ window.cspPrint=printDeck({title:'CSP print',size:{width:1280,height:720},slides
     !!csp && csp.continuations > 0 && csp.lastLine && csp.unclipped && csp.imagePlaced,
     JSON.stringify(csp),
   )
+
+  await page.route('**/late-print-image.svg', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800"><rect width="400" height="800" fill="teal"/></svg>',
+    })
+  })
+  const lateImage = await page.evaluate(async () => {
+    const bundle = '/segnavia.js'
+    const { printDeck } = (await import(bundle)) as { printDeck: (deck: unknown, options: unknown) => Promise<void> }
+    let facts = { placed: false, width: '', height: '', transform: '' }
+    await printDeck(
+      {
+        title: 'Late image print',
+        size: { width: 1280, height: 720 },
+        slides: [{ id: 'late-image', content: { kind: 'image', src: '/late-print-image.svg', alt: 'Late image', fit: 'contain' } }],
+      },
+      {
+        deadlineMs: 20,
+        print: async (win: Window) => {
+          const image = win.document.querySelector<HTMLImageElement>('[data-segnavia-image-layer] img')
+          if (image && !image.complete) await new Promise((resolve) => image.addEventListener('load', resolve, { once: true }))
+          const layer = win.document.querySelector<HTMLElement>('[data-segnavia-image-layer]')
+          facts = {
+            placed: layer?.style.transform === 'translate(460px, 0px) scale(0.9)',
+            width: layer?.style.width ?? '',
+            height: layer?.style.height ?? '',
+            transform: layer?.style.transform ?? '',
+          }
+        },
+      },
+    )
+    return facts
+  })
+  check(
+    'an image that loads after the print deadline is fitted before the print hook observes it',
+    lateImage.placed && lateImage.width === '400px' && lateImage.height === '800px',
+    JSON.stringify(lateImage),
+  )
 }
