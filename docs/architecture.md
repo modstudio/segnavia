@@ -117,8 +117,12 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    whole image, `cover` centers a crop that fills the canvas, and `width` fills
    its width from the top unless a short image needs vertical centering. `focus`
    starts from `cover`, zooms out only enough to show the padded union of every
-   annotation ring, badge and arrow, and moves that focus into view while the
-   image covers the canvas wherever its dimensions permit.
+   annotation ring, badge, arrow and arrow label, and moves that focus into view
+   while the image covers the canvas wherever its dimensions permit. The
+   geometry stays pure, so an arrow label's width is estimated at 0.6 em per
+   character rather than measured. That covers ordinary Latin, capitals and
+   Hebrew, but a label made mostly of unusually wide glyphs can exceed the
+   estimate and be cropped at its ends.
 3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
    the policy admits only the bridge's nonce. The bridge handles in-page link
