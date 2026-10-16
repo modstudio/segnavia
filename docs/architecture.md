@@ -335,7 +335,7 @@ inside Type 3 glyphs, and every axial or radial gradient stop are converted
 through the profile. A black or near-neutral gray becomes black ink alone, so text
 prints sharp. `press.neutralTolerance` sets the largest channel difference treated
 as neutral in 8-bit units from 0 to 255 and defaults to 3; 0 keeps the exact-neutral
-rule. The black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
+rule, and every tolerance also snaps what that rule snaps. The black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
 group stays gray and a mask source keeps its declared space. Raster images,
 including images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte
 as the author supplied them and are the only RGB the result may retain.
