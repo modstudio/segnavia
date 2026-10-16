@@ -28,6 +28,8 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
 | Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |
 
+`@segnavia/react` is versioned with the package group but held from npm until its one-time npm setup is complete.
+
 ## Quick look
 
 Four ways to use it, from bare to finished:
