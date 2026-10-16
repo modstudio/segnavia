@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
-import { assertNeutralTolerance, formatPdfNumber, pressColor } from './color-policy.ts'
+import { assertNeutralTolerance, formatPdfNumber, newlySnapsToNeutral, pressColor } from './color-policy.ts'
 
 const profile = readProfile(buildPressProfile('mft1'))
 
@@ -27,6 +27,17 @@ test.each([
 test('tolerance zero keeps the exact-neutral rule', () => {
   expect(pressColor(profile, [0.4, 0.4005, 0.4], 0).slice(0, 3)).toEqual([0, 0, 0])
   expect(pressColor(profile, [0.4, 0.402, 0.4], 0)).toEqual(toPress(profile, [0.4, 0.402, 0.4]))
+})
+
+test('a small positive tolerance still snaps every color the exact rule snaps', () => {
+  expect(pressColor(profile, [0.4, 0.4005, 0.4], 0.1).slice(0, 3)).toEqual([0, 0, 0])
+})
+
+test('only colors beyond the exact rule count as newly snapped', () => {
+  expect(newlySnapsToNeutral([0.4, 0.4, 0.4], 3)).toBe(false)
+  expect(newlySnapsToNeutral([0.4, 0.4005, 0.4], 0.1)).toBe(false)
+  expect(newlySnapsToNeutral([100 / 255, 101 / 255, 103 / 255], 3)).toBe(true)
+  expect(newlySnapsToNeutral([100 / 255, 101 / 255, 104 / 255], 3)).toBe(false)
 })
 
 test('a snapped near-grey derives black ink from the channel mean', () => {

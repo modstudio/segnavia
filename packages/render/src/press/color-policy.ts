@@ -10,14 +10,15 @@ export function assertNeutralTolerance(value: number): void {
     throw new RenderRefusedError(`The press neutral tolerance is ${String(value)}; supported: a finite number from 0 to 255.`)
 }
 
+// The exact-grey rule is a floor: any tolerance accepts every color it accepts.
 export function snapsToNeutral(rgb: Color3, tolerance: number): boolean {
   const spread = Math.max(...rgb) - Math.min(...rgb)
-  return spread <= (tolerance === 0 ? NEUTRAL_TOLERANCE : tolerance / 255) + Number.EPSILON
+  return spread <= Math.max(NEUTRAL_TOLERANCE, tolerance / 255) + Number.EPSILON
 }
 
+// A color snapped by the configured tolerance that the exact-grey rule alone would not snap.
 export function newlySnapsToNeutral(rgb: Color3, tolerance: number): boolean {
-  const spread = Math.max(...rgb) - Math.min(...rgb)
-  return spread > NEUTRAL_TOLERANCE && spread <= tolerance / 255 + Number.EPSILON
+  return snapsToNeutral(rgb, tolerance) && !snapsToNeutral(rgb, 0)
 }
 
 export function pressColor(profile: Profile, rgb: Color3, tolerance = DEFAULT_NEUTRAL_TOLERANCE): Color4 {
