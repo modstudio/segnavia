@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bridgeForHost, frameDocument, newNonce, RELAYED_KEYS } from './bridge.ts'
+import { bridgeForHost, frameDocument, MESSAGE, newNonce, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
   test('relays viewer and presentation shortcuts', () => {
@@ -33,6 +33,16 @@ describe('frame document', () => {
 
   test('sandboxed scripts carry no script policy, so the author code runs', () => {
     expect(frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })).not.toContain('script-src')
+  })
+
+  test('the bridge handles in-page links without expanding its message surface or policy', () => {
+    const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
+    expect(html).toContain("document.addEventListener('click'")
+    expect(html).toContain("href.charAt(0)!=='#'")
+    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.key, MESSAGE.height, MESSAGE.ready])
+    expect(html).toContain(
+      "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
+    )
   })
 
   test('direction and language land on the root the author declared, or one we supply', () => {

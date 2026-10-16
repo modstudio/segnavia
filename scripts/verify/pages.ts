@@ -79,6 +79,46 @@ export async function verifyPages(h: Harness) {
     .locator('html')
     .evaluate((root) => `${getComputedStyle(root).getPropertyValue('--segnavia-bleed')} ${getComputedStyle(root).getPropertyValue('--segnavia-safe')}`)
   check('a shown page exposes its print bleed and safe area', printProperties === '3mm 5mm', printProperties)
+
+  const linkFrames = ['#link-page-refuse iframe', '#link-page-sandboxed iframe', '#link-slide-refuse iframe', '#link-slide-sandboxed iframe']
+  for (const selector of linkFrames) await page.frameLocator(selector).locator('#jump').waitFor()
+  await page.evaluate(() => ((window as unknown as { __messages: string[] }).__messages.length = 0))
+  for (const selector of linkFrames) {
+    await page
+      .frameLocator(selector)
+      .locator('#jump')
+      .evaluate((link: HTMLElement) => link.click())
+    const facts = await page
+      .frameLocator(selector)
+      .locator('body')
+      .evaluate(() => {
+        const target = document.getElementById('far')
+        const box = target?.getBoundingClientRect()
+        return {
+          href: location.href,
+          present: Boolean(target),
+        visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
+          focused: document.activeElement === target,
+        box: box ? { top: box.top, bottom: box.bottom, viewport: innerHeight } : null,
+        }
+      })
+    check(
+      `an in-page link stays in and scrolls its ${selector}`,
+      facts.href === 'about:srcdoc' && facts.present && facts.visible && facts.focused,
+      JSON.stringify(facts),
+    )
+  }
+  const sandboxedPage = page.frameLocator('#link-page-sandboxed iframe')
+  await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
+  await sandboxedPage.locator('#blocked').evaluate((link: HTMLElement) => link.click())
+  const prevented = await sandboxedPage.locator('body').evaluate(() => ({ scrollY, focused: (document.activeElement as HTMLElement | null)?.id ?? '' }))
+  check('an in-page link whose default the author prevents is left alone', prevented.scrollY === 0 && prevented.focused !== 'far', JSON.stringify(prevented))
+  const linkMessages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
+  check(
+    'in-page links add no message kind',
+    linkMessages.every((type) => ['segnavia:key', 'segnavia:height', 'segnavia:ready'].includes(type)),
+    linkMessages.join(','),
+  )
   await page.screenshot({ path: `${process.cwd()}/out/evidence/5-pages.png`, fullPage: true })
 
   await page.goto(h.url('ticket.html'))
