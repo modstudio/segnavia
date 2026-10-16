@@ -5,7 +5,7 @@
 ```
 format  ◄── html          (universal: browser and server)
   ▲
-  ├── frame               (browser; svg, timeline, bridge and print-document are server-safe)
+  ├── frame               (browser; svg, timeline, bridge, fit and print-document are server-safe)
   │     ▲
   │     └── react         (browser adapter; React is a peer dependency here only)
   │     ▲
@@ -29,8 +29,8 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
 the custom elements, but its server-safe entry points are the single source
-of the frame document, the annotation drawing, image-fit geometry, the timeline
-and the print document. The browser uses that frame-based print layout; the
+of the frame document, the annotation drawing, fit and image-fit geometry, the
+timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
 
 The seven packages are built as ESM JavaScript and declarations with tsdown;

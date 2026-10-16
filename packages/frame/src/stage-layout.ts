@@ -1,4 +1,5 @@
 import type { Deck } from '@segnavia/format'
+import { fitSheet } from './fit.ts'
 
 export interface StageBox {
   width: number
@@ -17,7 +18,15 @@ export function stageCanvasLayout(deck: Pick<Deck, 'layout' | 'size'>, box: Stag
     const height = box.height && box.height > 0 ? Math.round(box.height) : Math.round(width * (deck.size.height / deck.size.width))
     return { size: { width, height }, scale: 1 }
   }
-  const byWidth = box.width / deck.size.width
-  const byHeight = box.height && box.height > 0 ? box.height / deck.size.height : byWidth
-  return { size: deck.size, scale: Math.max(0, Math.min(byWidth, byHeight)) }
+  const { scale } = fitSheet({
+    width: box.width,
+    height: box.height ?? 0,
+    paddingInlineStart: 0,
+    paddingInlineEnd: 0,
+    reserveBlockStart: 0,
+    reserveBlockEnd: 0,
+    sheetWidth: deck.size.width,
+    sheetHeight: deck.size.height,
+  })
+  return { size: deck.size, scale }
 }
