@@ -19,6 +19,14 @@ test('an ancestor-clipped element is reported without raising the print scale', 
   })
 })
 
+test('overflow visible through an ancestor clip margin raises the print scale', () => {
+  expect(horizontalOverflow({ left: 360, right: 460 }, [{ left: -100, right: 500 }], 400, false)).toEqual({
+    clippedStart: 0,
+    clippedEnd: 60,
+    rightOverflow: 60,
+  })
+})
+
 function solved(pageWidth: number, widthAt: (layoutWidth: number) => number): { scale: number; layouts: number[] } {
   const measurements: ScaleMeasurement[] = []
   const layouts: number[] = []

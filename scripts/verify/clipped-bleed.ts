@@ -1,35 +1,24 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { MM_PER_PT, Page, PX_PER_MM, printBoxes } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
+import { readPpm } from './pdf-raster.ts'
 
 const close = (left: number, right: number, tolerance: number) => Math.abs(left - right) <= tolerance
 
 function ppmRedBounds(file: string): number[] | undefined {
-  const bytes = readFileSync(file)
-  let offset = 0
-  const token = () => {
-    while ((bytes[offset] ?? 0) <= 32) offset++
-    const start = offset
-    while ((bytes[offset] ?? 0) > 32) offset++
-    return bytes.subarray(start, offset).toString()
-  }
-  if (token() !== 'P6') throw new Error(`The raster at ${file} is not a raw PPM.`)
-  const width = Number(token())
-  const height = Number(token())
-  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit RGB.`)
-  while ((bytes[offset] ?? 0) <= 32) offset++
+  const { width, height, pixels } = readPpm(file)
   let left = width
   let top = height
   let right = -1
   let bottom = -1
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const pixel = offset + (y * width + x) * 3
-      const red = bytes[pixel] ?? 255
-      const green = bytes[pixel + 1] ?? 255
-      const blue = bytes[pixel + 2] ?? 255
+      const pixel = (y * width + x) * 3
+      const red = pixels[pixel] ?? 255
+      const green = pixels[pixel + 1] ?? 255
+      const blue = pixels[pixel + 2] ?? 255
       if (red >= 110 && red <= 130 && green < 10 && blue < 10) {
         left = Math.min(left, x)
         top = Math.min(top, y)
@@ -39,6 +28,23 @@ function ppmRedBounds(file: string): number[] | undefined {
     }
   }
   return right < left ? undefined : [left / 4, top / 4, (right + 1) / 4, (bottom + 1) / 4]
+}
+
+async function verifyClipMargin(renderer: Renderer, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+  let report: OverflowReport | undefined
+  await renderer.pagePdf(
+    {
+      html: '<style>html,body{margin:0}.clip{width:400px;height:200px;overflow:clip;overflow-clip-margin:100px}.overflow{position:absolute;left:350px;width:100px;height:100px}</style><div class="clip"><div id="clip-margin-overflow" class="overflow"></div></div>',
+      print: { paper: { width: 105.833333, height: 79.375, unit: 'mm' }, orientation: 'portrait' },
+    },
+    { effects: false, overflow: { report: (value) => (report = value) } },
+  )
+  const entry = report?.entries[0]
+  check(
+    'visible overflow inside an overflow clip margin raises the scale and stays in the report',
+    (entry?.scale ?? 0) > 1 && entry?.elements.some((element) => element.locator === '#clip-margin-overflow') === true,
+    `scale=${entry?.scale}, elements=${entry?.elements.map((element) => element.locator).join(',')}`,
+  )
 }
 
 export async function verifyClippedBleed(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
@@ -118,4 +124,6 @@ export async function verifyClippedBleed(renderer: Renderer, work: string, check
       textGeometry.height,
     `scale=${scale}, boxes=${[actualBox('MediaBox'), actualBox('BleedBox'), actualBox('TrimBox')].map((box) => box?.join('/')).join(',')}, text=${actualText?.join('/')}/${expectedText.join('/')}, vertical offset=${textGeometry?.verticalOffset}pt, px/mm=${PX_PER_MM}`,
   )
+
+  await verifyClipMargin(renderer, check)
 }

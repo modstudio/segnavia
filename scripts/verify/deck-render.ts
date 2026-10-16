@@ -6,7 +6,7 @@ import { annotationFocusBox, fitImage } from '@segnavia/frame/image-fit'
 import { notesLayoutGeometry } from '@segnavia/frame/print-document'
 import { backgroundDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
 import { fitDeck, fitShot } from '../demo-fit-fixtures.ts'
-import { type Raster, rasterCssPixels, rasterMillimeters, rasterPdf } from './pdf-raster.ts'
+import { type Raster, rasterCssPixels, rasterMillimeters, rasterPdf, readPpm } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -21,27 +21,15 @@ function coloredBounds(
 ) {
   const prefix = path.join(work, `fit-${color}-${page}`)
   execFileSync('pdftoppm', ['-r', '72', '-f', String(page), '-l', String(page), '-singlefile', path.join(output, 'fit-slides.pdf'), prefix])
-  const bytes = readFileSync(`${prefix}.ppm`)
-  let offset = 0
-  const token = () => {
-    while ((bytes[offset] ?? 0) <= 32) offset++
-    const start = offset
-    while ((bytes[offset] ?? 0) > 32) offset++
-    return bytes.subarray(start, offset).toString()
-  }
-  if (token() !== 'P6') throw new Error('The fit PDF raster is not a raw PPM.')
-  const width = Number(token())
-  const height = Number(token())
-  if (token() !== '255') throw new Error('The fit PDF raster is not 8-bit RGB.')
-  while ((bytes[offset] ?? 0) <= 32) offset++
+  const { width, height, pixels } = readPpm(`${prefix}.ppm`)
   let left = width
   let top = height
   let right = -1
   let bottom = -1
   for (let index = 0; index < width * height; index++) {
-    const red = bytes[offset + index * 3] ?? 0
-    const green = bytes[offset + index * 3 + 1] ?? 0
-    const blue = bytes[offset + index * 3 + 2] ?? 0
+    const red = pixels[index * 3] ?? 0
+    const green = pixels[index * 3 + 1] ?? 0
+    const blue = pixels[index * 3 + 2] ?? 0
     if (color === 'red' ? red < 140 || red < green * 1.35 || red < blue * 1.15 : blue < 140 || blue < red * 1.35 || blue < green * 1.15) continue
     const x = index % width
     const y = Math.floor(index / width)

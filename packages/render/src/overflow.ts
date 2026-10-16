@@ -119,6 +119,20 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       const scale = element instanceof HTMLElement && element.offsetWidth > 0 ? box.width / element.offsetWidth : 1
       let left = box.left + element.clientLeft * scale
       let right = left + element.clientWidth * scale
+      if (style.overflowX === 'clip') {
+        const values = style.overflowClipMargin.split(/\s+/)
+        const reference = values.find((value) => value === 'content-box' || value === 'border-box' || value === 'padding-box')
+        if (reference === 'border-box') {
+          left = box.left
+          right = box.right
+        } else if (reference === 'content-box') {
+          left += Number.parseFloat(style.paddingLeft) * scale
+          right -= Number.parseFloat(style.paddingRight) * scale
+        }
+        const margin = values.map(Number.parseFloat).find(Number.isFinite) ?? 0
+        left -= margin * scale
+        right += margin * scale
+      }
       const legacy = style.clip.match(/^rect\((?:([^, ]+)[, ]+)(?:([^, ]+)[, ]+)(?:([^, ]+)[, ]+)([^, )]+)\)$/)
       if (legacy) {
         const length = (value: string | undefined, fallback: number) => (value && value !== 'auto' ? Number.parseFloat(value) * scale : fallback)
