@@ -57,15 +57,49 @@ interface MeasuredOverflow {
   rightOverflow: number
 }
 
+export interface HorizontalBox {
+  left: number
+  right: number
+}
+
+/** Returns the visible horizontal part of a box after ancestor clipping. */
+export function clippedHorizontalBox(box: HorizontalBox, clips: readonly HorizontalBox[]): HorizontalBox | undefined {
+  const visible = clips.reduce((current, clip) => ({ left: Math.max(current.left, clip.left), right: Math.min(current.right, clip.right) }), box)
+  return visible.right > visible.left ? visible : undefined
+}
+
+export function horizontalOverflow(
+  box: HorizontalBox,
+  clips: readonly HorizontalBox[],
+  pageWidth: number,
+  rtl: boolean,
+): { clippedStart: number; clippedEnd: number; rightOverflow: number } {
+  const visible = clippedHorizontalBox(box, clips)
+  return {
+    clippedStart: Math.max(0, rtl ? box.right - pageWidth : -box.left),
+    clippedEnd: Math.max(0, rtl ? -box.left : box.right - pageWidth),
+    rightOverflow: visible ? Math.max(0, visible.right - pageWidth) : 0,
+  }
+}
+
 async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOverflow> {
-  return tab.evaluate((width) => {
+  const measured = await tab.evaluate(() => {
     const root = document.documentElement
     const extent = Math.max(root.scrollWidth, document.body?.scrollWidth ?? 0)
     const endOverflow = Math.max(0, extent - root.clientWidth)
     const rtl = getComputedStyle(root).direction === 'rtl'
-    const contributions: OverflowContribution[] = []
-    let clippedStart = 0
-    let rightOverflow = rtl ? 0 : endOverflow
+    const clipsContent = (style: CSSStyleDeclaration) => {
+      const contain = style.contain.split(/\s+/)
+      return (
+        style.overflowX !== 'visible' ||
+        contain.includes('paint') ||
+        contain.includes('strict') ||
+        contain.includes('content') ||
+        style.clipPath !== 'none' ||
+        style.clip !== 'auto'
+      )
+    }
+    const extentClipped = [root, document.body].some((element) => element && clipsContent(getComputedStyle(element)))
     const locator = (element: Element) => {
       if (element.id) return `#${CSS.escape(element.id)}`
       const parts: string[] = []
@@ -80,27 +114,69 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       }
       return parts.join(' > ')
     }
-    for (const element of document.querySelectorAll('*')) {
+    const clipBox = (element: Element, style: CSSStyleDeclaration): HorizontalBox => {
       const box = element.getBoundingClientRect()
-      const elementStart = Math.max(0, rtl ? box.right - width : -box.left)
-      const elementEnd = Math.max(0, rtl ? -box.left : box.right - width)
-      clippedStart = Math.max(clippedStart, elementStart)
-      rightOverflow = Math.max(rightOverflow, box.right - width)
-      if ((elementStart > 0 || elementEnd > 0) && contributions.length < 20) {
-        contributions.push({ locator: locator(element), clippedStart: elementStart, clippedEnd: elementEnd })
+      const scale = element instanceof HTMLElement && element.offsetWidth > 0 ? box.width / element.offsetWidth : 1
+      let left = box.left + element.clientLeft * scale
+      let right = left + element.clientWidth * scale
+      if (style.overflowX === 'clip') {
+        const values = style.overflowClipMargin.split(/\s+/)
+        const reference = values.find((value) => value === 'content-box' || value === 'border-box' || value === 'padding-box')
+        if (reference === 'border-box') {
+          left = box.left
+          right = box.right
+        } else if (reference === 'content-box') {
+          left += Number.parseFloat(style.paddingLeft) * scale
+          right -= Number.parseFloat(style.paddingRight) * scale
+        }
+        const margin = values.map(Number.parseFloat).find(Number.isFinite) ?? 0
+        left -= margin * scale
+        right += margin * scale
       }
+      const legacy = style.clip.match(/^rect\((?:([^, ]+)[, ]+)(?:([^, ]+)[, ]+)(?:([^, ]+)[, ]+)([^, )]+)\)$/)
+      if (legacy) {
+        const length = (value: string | undefined, fallback: number) => (value && value !== 'auto' ? Number.parseFloat(value) * scale : fallback)
+        left = box.left + length(legacy[4], 0)
+        right = box.left + length(legacy[2], box.width)
+      }
+      return { left, right }
     }
-    return {
-      overflow: {
-        pageWidth: width,
-        extent,
-        clippedStart,
-        clippedEnd: endOverflow,
-        elements: contributions,
-      },
-      rightOverflow,
+    const elements = [...document.querySelectorAll('*')].map((element) => {
+      const box = element.getBoundingClientRect()
+      const clips: HorizontalBox[] = []
+      let ancestor = element.parentElement
+      while (ancestor) {
+        const style = getComputedStyle(ancestor)
+        if (clipsContent(style)) clips.push(clipBox(ancestor, style))
+        ancestor = ancestor.parentElement
+      }
+      return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
+    })
+    return { extent, endOverflow, extentClipped, rtl, elements }
+  })
+  const contributions: OverflowContribution[] = []
+  let clippedStart = 0
+  let clippedEnd = measured.endOverflow
+  let rightOverflow = measured.rtl || measured.extentClipped ? 0 : measured.endOverflow
+  for (const element of measured.elements) {
+    const overflow = horizontalOverflow(element.box, element.clips, pageWidth, measured.rtl)
+    clippedStart = Math.max(clippedStart, overflow.clippedStart)
+    clippedEnd = Math.max(clippedEnd, overflow.clippedEnd)
+    rightOverflow = Math.max(rightOverflow, overflow.rightOverflow)
+    if ((overflow.clippedStart > 0 || overflow.clippedEnd > 0) && contributions.length < 20) {
+      contributions.push({ locator: element.locator, clippedStart: overflow.clippedStart, clippedEnd: overflow.clippedEnd })
     }
-  }, pageWidth)
+  }
+  return {
+    overflow: {
+      pageWidth,
+      extent: measured.extent,
+      clippedStart,
+      clippedEnd,
+      elements: contributions,
+    },
+    rightOverflow,
+  }
 }
 
 function overflowEntry(measured: MeasuredOverflow, scale: number, part: OverflowPart, inputIndex?: number): OverflowEntry {

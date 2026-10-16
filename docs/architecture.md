@@ -372,14 +372,20 @@ and its measured maximum shrink of 1.5. The renderer searches integer layout
 widths between `ceil(P / 1.5)` and `P` for the narrowest width whose rightward
 content reaches `P`, then uses `P / width`; if content already reaches `P` at
 the narrowest layout it uses exactly 1.5. This accounts for page-relative
-content whose overflow changes with the layout width. Physical leftward
+content whose overflow changes with the layout width. Only content Chromium
+would show counts: an element clipped by an ancestor (one whose `overflow-x` is
+not `visible`, or with paint containment, a `clip-path` or a legacy `clip`)
+counts only up to that ancestor's clip edge, and under `overflow: clip` the edge
+extends by `overflow-clip-margin`. So content that runs into a page's own bleed
+and is clipped there prints at the screen's size. Physical leftward
 overflow is not shrunk and gets no counter-scale. In a right-to-left root,
 generated content overflowing rightward is a known limit because neither
 scroll extent nor element boxes expose it, so it cannot be detected. The
 content keeps its true size, overflow is clipped at the page edge, and fixed
 content can still repeat on every paper. The overflow report records the page
 width, extent, clipped amount at each edge, scale used and up to twenty
-contributing elements for every print retained in the output. The deck's
+contributing elements for every print retained in the output; it names an
+element that runs past the page even when an ancestor clips it. The deck's
 printable document does not counter-scale because its contained, fixed slides
 are the printed pieces.
 

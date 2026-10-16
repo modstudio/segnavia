@@ -9,6 +9,23 @@ export interface Raster {
   pixels: Uint8Array
 }
 
+export function readPpm(file: string): Raster {
+  const bytes = readFileSync(file)
+  let offset = 0
+  const token = () => {
+    while ((bytes[offset] ?? 0) <= 32) offset++
+    const start = offset
+    while ((bytes[offset] ?? 0) > 32) offset++
+    return bytes.subarray(start, offset).toString()
+  }
+  if (token() !== 'P6') throw new Error(`The raster at ${file} is not a raw PPM.`)
+  const width = Number(token())
+  const height = Number(token())
+  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit RGB.`)
+  while ((bytes[offset] ?? 0) <= 32) offset++
+  return { width, height, pixels: bytes.subarray(offset) }
+}
+
 export function readPgm(file: string): Raster {
   const bytes = readFileSync(file)
   let offset = 0

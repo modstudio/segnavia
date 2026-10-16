@@ -13,6 +13,7 @@ import { visitContentOperators } from '../../packages/render/src/press/content.t
 import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 import { verifyGrayPress } from './gray-press.ts'
+import { type Raster, readPpm } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -39,30 +40,7 @@ function reportOption(profile: Uint8Array, receive: (report: PressReport) => voi
   return { press: { profile, report: receive } }
 }
 
-interface Ppm {
-  height: number
-  pixels: Uint8Array
-  width: number
-}
-
-function readPpm(file: string): Ppm {
-  const bytes = readFileSync(file)
-  let offset = 0
-  const token = () => {
-    while ((bytes[offset] ?? 0) <= 32) offset++
-    const start = offset
-    while ((bytes[offset] ?? 0) > 32) offset++
-    return bytes.subarray(start, offset).toString()
-  }
-  if (token() !== 'P6') throw new Error(`The raster at ${file} is not a raw PPM.`)
-  const width = Number(token())
-  const height = Number(token())
-  if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit RGB.`)
-  while ((bytes[offset] ?? 0) <= 32) offset++
-  return { width, height, pixels: bytes.subarray(offset) }
-}
-
-function raster(work: string, name: string, bytes: Uint8Array): Ppm {
+function raster(work: string, name: string, bytes: Uint8Array): Raster {
   const pdf = path.join(work, `${name}.pdf`)
   const prefix = path.join(work, name)
   writeFileSync(pdf, bytes)
@@ -70,14 +48,14 @@ function raster(work: string, name: string, bytes: Uint8Array): Ppm {
   return readPpm(`${prefix}.ppm`)
 }
 
-function meanDifference(first: Ppm, second: Ppm): number {
+function meanDifference(first: Raster, second: Raster): number {
   if (first.width !== second.width || first.height !== second.height || first.pixels.length !== second.pixels.length) return Number.POSITIVE_INFINITY
   let difference = 0
   for (let index = 0; index < first.pixels.length; index++) difference += Math.abs((first.pixels[index] ?? 0) - (second.pixels[index] ?? 0))
   return difference / first.pixels.length
 }
 
-function pixelRgb(image: Ppm, x: number, y: number): [number, number, number] {
+function pixelRgb(image: Raster, x: number, y: number): [number, number, number] {
   const px = Math.min(image.width - 1, Math.max(0, Math.round(x)))
   const py = Math.min(image.height - 1, Math.max(0, Math.round(y)))
   const offset = (py * image.width + px) * 3
@@ -106,7 +84,7 @@ function proofRgb(press: ReturnType<typeof readProfile>, pixel: [number, number,
   return proof(press, [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]).map((value) => Math.round(value * 255)) as [number, number, number]
 }
 
-function conicAngleDelta(original: Ppm, converted: Ppm, cx: number, cy: number, radius: number, press: ReturnType<typeof readProfile>): number {
+function conicAngleDelta(original: Raster, converted: Raster, cx: number, cy: number, radius: number, press: ReturnType<typeof readProfile>): number {
   let max = 0
   for (let step = 0; step < 8; step++) {
     const angle = (step * Math.PI) / 4
@@ -117,7 +95,7 @@ function conicAngleDelta(original: Ppm, converted: Ppm, cx: number, cy: number, 
   return max
 }
 
-function regionProofStats(original: Ppm, converted: Ppm, region: Region, press: ReturnType<typeof readProfile>): { max: number; mean: number } {
+function regionProofStats(original: Raster, converted: Raster, region: Region, press: ReturnType<typeof readProfile>): { max: number; mean: number } {
   let difference = 0
   let max = 0
   let count = 0
