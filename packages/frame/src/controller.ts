@@ -280,7 +280,6 @@ export class DeckController extends EventTarget {
     this.prefetched.delete(slide.id)
     return ready ?? this.resolveFresh(slide, index)
   }
-
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
     const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
     if (content.kind === 'shot') {

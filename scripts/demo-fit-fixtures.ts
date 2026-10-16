@@ -55,6 +55,6 @@ export function writeFitDemo(site: string): void {
     `<!doctype html><html><head><meta charset="utf-8"><style>
     body{margin:0;padding:20px;background:#ddd;font:16px system-ui}main{display:grid;grid-template-columns:1fr 1fr;gap:20px}section{min-width:0}segnavia-player,segnavia-stage{inline-size:100%;aspect-ratio:16/9}
     #unstyled{display:block;position:relative;overflow:hidden}#unstyled .segnavia-stage__canvas{position:absolute;left:50%;top:50%;transform-origin:center}h1{font-size:18px;margin:0 0 8px}
-    </style></head><body><main><section><h1>Player</h1><segnavia-player id="player" src="deck-fit.json" hash="off" controls="overlay"></segnavia-player></section><section><h1>Unstyled stage</h1><segnavia-stage id="unstyled" src="deck-fit.json" hash="off" unstyled></segnavia-stage></section></main><script type="module" src="segnavia.js"></script></body></html>`,
+    </style></head><body><main><section><h1>Player</h1><segnavia-player id="player" src="deck-fit.json" hash="off" controls="overlay"></segnavia-player></section><section><h1>Unstyled stage</h1><segnavia-stage id="unstyled" src="deck-fit.json" hash="off" unstyled></segnavia-stage></section></main><script type="module" src="segnavia-player.js"></script></body></html>`,
   )
 }
