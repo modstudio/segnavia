@@ -13,6 +13,7 @@ import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildAuthoringDemo } from './build-authoring-demo.ts'
+import { buildBookDemo } from './build-book-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
@@ -312,6 +313,7 @@ writeFileSync(
 writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare" src="deck.json" hash="off" unstyled></segnavia-stage>', 'segnavia.js'))
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
+buildBookDemo(SITE)
 buildPaperDemo(SITE)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })

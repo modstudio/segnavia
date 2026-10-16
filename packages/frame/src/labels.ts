@@ -64,3 +64,8 @@ export const ENGLISH_LABELS: PlayerLabels = {
 export function playerLabels(labels: Partial<PlayerLabels>): PlayerLabels {
   return { ...ENGLISH_LABELS, ...labels }
 }
+
+export function bookLabel(lang: string | undefined): string {
+  const primary = lang?.split('-')[0]?.toLowerCase()
+  return primary === 'he' || primary === 'iw' ? 'ספר' : 'Book'
+}

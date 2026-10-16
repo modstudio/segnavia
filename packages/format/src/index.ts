@@ -207,9 +207,21 @@ export const Page = z.object({
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>
 
+// The host-built document and the book metadata a continuous book frame needs.
+export const BookView = z.object({
+  html: z.string(),
+  title: z.string().optional(),
+  dir: Direction.optional(),
+  lang: z.string().optional(),
+  scripts: Scripts.default('refuse'),
+})
+export type BookView = z.infer<typeof BookView>
+export type BookViewInput = z.input<typeof BookView>
+
 export function jsonSchemas() {
   return {
     book: z.toJSONSchema(BookShape, { io: 'input' }),
+    bookView: z.toJSONSchema(BookView, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
     lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),

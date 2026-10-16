@@ -13,8 +13,8 @@ describe('headless base styles', () => {
   })
 
   test('every selector excludes an unstyled root element', () => {
-    const selectors = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper)/g) ?? []
-    const exclusions = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper):not\(\[unstyled\]\)/g) ?? []
+    const selectors = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper|book)/g) ?? []
+    const exclusions = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper|book):not\(\[unstyled\]\)/g) ?? []
     expect(selectors.length).toBeGreaterThan(5)
     expect(exclusions).toHaveLength(selectors.length)
   })
