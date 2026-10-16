@@ -326,12 +326,14 @@ direction from their content.
 Every sandboxed slide document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
 putting those properties only on the containing print document cannot cross a
-frame boundary. The sandbox remains without same-origin access. Browser
-printing waits for slide readiness and fonts only until one shared deadline,
-then crosses a two-animation-frame paint barrier before opening the dialog.
-The off-screen host stays alive until `afterprint`, with a bounded fallback for
-engines that do not dispatch it; a host-provided print hook remains
-synchronous for deterministic integration paths.
+frame boundary. Chromium still omits those backgrounds in printed output, so
+the browser dialog is best effort and `deckPdf` is the faithful path. The
+sandbox remains without same-origin access. Browser printing waits for slide
+readiness and fonts only until one shared deadline, then crosses a
+two-animation-frame paint barrier before opening the dialog. The off-screen
+host stays alive until `afterprint`, with a bounded fallback for engines that
+do not dispatch it; a host-provided print hook remains synchronous for
+deterministic integration paths.
 
 **Sideways overflow.** On screen, content that overflows a page sideways is
 clipped at the page edge. Chromium's print path instead shrinks the whole page

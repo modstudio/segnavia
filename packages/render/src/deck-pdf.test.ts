@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
-import { renderDeckPdf } from './deck-pdf.ts'
+import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
@@ -17,6 +17,10 @@ const deck = Deck.parse({
     { id: 'html-slide', content: { kind: 'html', html: '<p>HTML</p>' } },
     { id: 'image-slide', content: { kind: 'image', src: 'image.png', alt: 'Image' } },
   ],
+})
+
+test('notes page ownership places each thumbnail only on its first sheet', () => {
+  expect(firstNotesPages([0, 0, 1, 1, 1, 2], 3)).toEqual([0, 2, 5])
 })
 
 test('deck PDF renders HTML slides separately and enforces only the composition', async () => {

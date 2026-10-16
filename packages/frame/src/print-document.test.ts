@@ -54,6 +54,40 @@ describe('printableDeck', () => {
     expect(printable).toContain('.slide{border:1px solid #ccc;')
   })
 
+  test('prints speaker notes before narration and falls back only when notes are absent', () => {
+    const narration = (text: string) => ({ text, words: [], durationMs: 0, audio: null })
+    const withBoth = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: 'Speaker notes win', narration: narration('Narration loses') }],
+    })
+    const withNarration = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: undefined, narration: narration('Narration fallback') }],
+    })
+    expect(printableDeck(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
+    expect(printableDeck(withBoth, { layout: 'notes' })).not.toContain('Narration loses')
+    expect(printableDeck(withNarration, { layout: 'notes' })).toContain('Narration fallback')
+  })
+
+  test('escapes notes and marks generated continuation sheets with their slide owner', () => {
+    const unsafe = Deck.parse({
+      ...deck,
+      slides: [{ ...deck.slides[0], notes: '<img src=x onerror=evil()> & final line' }],
+    })
+    const html = printableDeck(unsafe, { layout: 'notes' })
+    expect(html).toContain('&lt;img src=x onerror=evil()&gt; &amp; final line')
+    expect(html).not.toContain('<img src=x onerror=evil()>')
+    expect(html).toContain('sheet.dataset.slideIndex=owner')
+    expect(html).toContain("sheet.dataset.notesContinuation=''")
+    expect(html).toContain("marker.textContent=number+' (continued)'")
+  })
+
+  test('injects exact print color into each sandboxed slide document', () => {
+    const document = htmlSlideDocument(deck, '<style>body{background:red}</style>', { nonce: 'known' })
+    expect(document).toContain('print-color-adjust:exact')
+    expect(document).toContain('-webkit-print-color-adjust:exact')
+  })
+
   test('builds the same top-level HTML slide document used by its frame', () => {
     const document = htmlSlideDocument(deck, '<h1>Slide</h1>', { nonce: 'known', css: 'h1{color:red}' })
     const printable = printableDeck(deck, { nonce: 'known', css: 'h1{color:red}' })

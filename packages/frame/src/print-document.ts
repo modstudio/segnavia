@@ -10,19 +10,19 @@ import {
   type ImpositionInput,
   impose,
   type Page,
-  Print,
   type PrintInput,
-  PX_PER_MM,
   pagePlacementLayout,
   printPadding,
   printProperties,
   resolveDirection,
   type Slide,
-  sheetMm,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement } from './image-fit.ts'
+import { notesDocument } from './notes-layout.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
+
+export { notesLayoutGeometry } from './notes-layout.ts'
 
 export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
@@ -39,22 +39,7 @@ export interface PrintOptions {
   omitHtmlSlideFrames?: boolean
 }
 
-export const NOTES_PAPER: PrintInput = { paper: 'letter', orientation: 'portrait' }
-
-export interface NotesLayoutGeometry {
-  sheet: { width: number; height: number }
-  border: number
-  slide: { x: number; y: number; width: number; height: number; scale: number }
-}
-
-export function notesLayoutGeometry(size: Deck['size'], notesPaper: PrintInput = NOTES_PAPER): NotesLayoutGeometry {
-  const paper = sheetMm(Print.parse(notesPaper))
-  const sheet = { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM }
-  const margin = 48
-  const border = 1
-  const scale = (sheet.width - margin * 2) / size.width
-  return { sheet, border, slide: { x: margin + border, y: margin + border, width: size.width * scale, height: size.height * scale, scale } }
-}
+const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
 
 export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, html: string, options: { css?: string; nonce: string }): string {
   return frameDocument(html, {
@@ -62,7 +47,7 @@ export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, 
     nonce: options.nonce,
     dir: deck.dir,
     lang: deck.lang,
-    css: options.css,
+    css: `${PRINT_COLOR_CSS}${options.css ?? ''}`,
     reportHeight: false,
     relayKeys: false,
   })
@@ -114,18 +99,8 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
     return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style>${imageFitScript()}</head><body>${sheets.join('')}</body></html>`
   }
-  const paper = sheetMm(Print.parse(options.notesPaper ?? NOTES_PAPER))
-  const geometry = notesLayoutGeometry(deck.size, options.notesPaper)
-  const { width: sheetWidth, height: sheetHeight } = geometry.sheet
-  const { x, width: slideWidth, height: slideHeight, scale } = geometry.slide
-  const padding = x - geometry.border
-  // The thumbnail is laid out left to right whatever the deck's direction: it
-  // is scaled from its top-left corner, and the slide inside keeps its own.
-  const sheets = deck.slides.map((slide, index) => {
-    const notes = slide.narration?.text ?? slide.notes ?? ''
-    return `<section class="sheet"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0">${slideBody(deck, slide, options)}</div></div><p class="number">${index + 1}</p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
-  })
-  return `<!doctype html><html dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}><head><meta charset="utf-8"><style>@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{white-space:pre-wrap}</style>${imageFitScript()}</head><body>${sheets.join('')}</body></html>`
+  const document = notesDocument(deck, { notesPaper: options.notesPaper, slideBody: (slide) => slideBody(deck, slide, options) })
+  return document.replace('</head>', `${imageFitScript()}</head>`)
 }
 
 export interface PrintablePagesOptions {
@@ -213,7 +188,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     nonce: options.nonce ?? newNonce(),
     dir: page.dir,
     lang: page.lang,
-    css: `${properties}${padding}${options.css ?? ''}`,
+    css: `${PRINT_COLOR_CSS}${properties}${padding}${options.css ?? ''}`,
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,

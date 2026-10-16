@@ -34,11 +34,16 @@ function nameSlideError(error: unknown, id: string): never {
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
 
+export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
+  return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
+}
+
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
+  let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
       {
@@ -46,7 +51,13 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         scripts: true,
         html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
-        beforeOutput: opts.beforeOutput,
+        beforeOutput: async (tab) => {
+          if (notesGeometry) {
+            await tab.evaluate(() => (window as Window & { segnaviaNotesReady?: Promise<void> }).segnaviaNotesReady)
+            pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
+          }
+          await opts.beforeOutput?.(tab)
+        },
       },
       { preferCSSPageSize: true, printBackground: true },
     ),
@@ -79,8 +90,10 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   const pages = output.getPages()
   const slideBox = notesGeometry?.slide ?? { x: 0, y: 0, width: deck.size.width, height: deck.size.height }
   const geometry = pdfPixelBox(slideBox, notesGeometry?.sheet.height ?? deck.size.height)
+  const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
-    const sheet = pages[item.index]
+    const pageIndex = notesGeometry ? (firstPages[item.index] ?? -1) : item.index
+    const sheet = pages[pageIndex < 0 ? item.index : pageIndex]
     if (!sheet) throw new Error(`The print document has no sheet for slide "${deck.slides[item.index]?.id ?? item.index}".`)
     const embedded = await embedOnePage(output, item.bytes, `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`)
     drawClippedPage(sheet, embedded, geometry, geometry)
