@@ -102,6 +102,19 @@ export async function verifyPlayerLayout(h: Harness) {
   check('contain fills the available width at 360px', Math.abs(boxes.stage.width - 360) < 1, JSON.stringify(boxes))
   await h.evidence('player-contain-360x720.png')
 
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { load(deck: unknown): Promise<void> } }) => {
+    player.setAttribute('rail', '')
+    await player.controller.load({
+      title: 'Portrait rail layout',
+      size: { width: 480, height: 640 },
+      slides: [{ id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' } }],
+    })
+  })
+  await page.waitForTimeout(200)
+  boxes = await geometry(h)
+  check('narrow contain reserves room for a stacked rail row', boxes.player.height <= 640, JSON.stringify(boxes))
+
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto(h.url('layout-width.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')

@@ -288,10 +288,13 @@ export class SegnaviaPlayer extends HTMLElement {
     const viewport = window.visualViewport
     const availableHeight = viewport?.height ?? window.innerHeight
     const screenStyle = getComputedStyle(screen)
+    const rail = this.root.querySelector('segnavia-rail') as HTMLElement
+    const railHeight = this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0
     const chromeHeight =
       (this.controls === 'overlay'
         ? 0
         : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + (this.root.querySelector('.bar') as HTMLElement).offsetHeight) +
+      railHeight +
       (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
       (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)
     const reserve = (this.root.querySelector('.fit-reserve') as HTMLElement).offsetHeight
