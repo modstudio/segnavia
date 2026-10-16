@@ -23,21 +23,25 @@ const narration = (cues: Narration['cues']): Narration => ({
 })
 
 describe('deck', () => {
-  test('defaults image fit at the deck and keeps slide overrides', () => {
+  test('defaults image fit and frame at the deck and keeps slide overrides', () => {
     const parsed = Deck.parse({
       title: 'Fits',
       fit: 'cover',
+      frame: true,
       slides: [
-        { id: 'plain', content: { kind: 'image', src: 'plain.png', alt: 'Plain' } },
+        { id: 'plain', content: { kind: 'image', src: 'plain.png', alt: 'Plain', frame: false } },
         { id: 'override', content: { kind: 'image', src: 'override.png', alt: 'Override', fit: 'width' } },
-        { id: 'reference', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus' } },
+        { id: 'reference', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus', frame: true } },
       ],
     })
     expect(parsed.fit).toBe('cover')
-    expect(parsed.slides[0]?.content).toEqual({ kind: 'image', src: 'plain.png', alt: 'Plain' })
+    expect(parsed.frame).toBe(true)
+    expect(parsed.slides[0]?.content).toEqual({ kind: 'image', src: 'plain.png', alt: 'Plain', frame: false })
     expect(parsed.slides[1]?.content).toEqual({ kind: 'image', src: 'override.png', alt: 'Override', fit: 'width' })
-    expect(parsed.slides[2]?.content).toEqual({ kind: 'shot-ref', href: 'shot.json', fit: 'focus' })
-    expect(Deck.parse({ title: 'Default', slides: [{ id: 'shot', content: { kind: 'shot-ref', href: 'shot.json' } }] }).fit).toBe('contain')
+    expect(parsed.slides[2]?.content).toEqual({ kind: 'shot-ref', href: 'shot.json', fit: 'focus', frame: true })
+    const defaults = Deck.parse({ title: 'Default', slides: [{ id: 'shot', content: { kind: 'shot-ref', href: 'shot.json', frame: true } }] })
+    expect(defaults.fit).toBe('contain')
+    expect(defaults.frame).toBe(false)
   })
 
   test('slide timing is finite, bounded and belongs to the matching slide kind', () => {
@@ -90,6 +94,7 @@ describe('deck', () => {
       title: 'T',
       size: { width: 1280, height: 720 },
       fit: 'contain',
+      frame: false,
       scripts: 'refuse',
       slides: [{ id: 's', content: { kind: 'html', html: '<p>x</p>' } }],
     })

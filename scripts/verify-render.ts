@@ -98,9 +98,7 @@ try {
   check('a page running code that never calls pageReady is refused', silent.startsWith('refused: The page did not call window.pageReady()'), silent)
   const big = await refusal(renderer.pagePdf({ html: `<p>${'words '.repeat(4000)}</p>` }, { limits: { maxBytes: 2000 } }))
   check('a PDF over the byte ceiling is refused, naming both sizes', /^refused: The PDF is \d+ bytes; the limit is 2000\.$/.test(big), big)
-
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
-
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
@@ -110,6 +108,7 @@ try {
   const deck = {
     title: 'Offline deck',
     fit: 'contain' as const,
+    frame: false,
     scripts: 'sandboxed' as const,
     size: { width: 400, height: 200 },
     slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
@@ -180,13 +179,13 @@ try {
   )
   const fullPageSize = imageSize(fullPageWebp)
   check('a full-page WebP pixel size reflects the chosen scale', fullPageSize?.width === 400 && fullPageSize.height === 600, JSON.stringify(fullPageSize))
-
   // A right to left deck's notes: the scaled slide must stay inside its box.
   let overflow = Number.NaN
   await renderer.deckPdf(
     {
       title: 'כותרת',
       fit: 'contain',
+      frame: false,
       lang: 'he',
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
@@ -313,11 +312,11 @@ try {
     /^refused: A page with bleed or marks is one printed piece, but the content needs \d+ papers\./.test(tooTall),
     tooTall,
   )
-
   const slide = await renderer.slideImage(
     {
       title: 'T',
       fit: 'contain',
+      frame: false,
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
@@ -356,6 +355,7 @@ try {
     {
       title: 'English deck',
       fit: 'contain',
+      frame: false,
       size: { width: 400, height: 200 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }],

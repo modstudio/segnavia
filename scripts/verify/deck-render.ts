@@ -12,8 +12,14 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const near = (actual: number, expected: number) => Math.abs(actual - expected) <= 3
 
-function annotationBounds(output: string, work: string, page: number, expected: { left: number; top: number; right: number; bottom: number }) {
-  const prefix = path.join(work, `fit-ring-${page}`)
+function coloredBounds(
+  output: string,
+  work: string,
+  page: number,
+  expected: { left: number; top: number; right: number; bottom: number },
+  color: 'red' | 'blue',
+) {
+  const prefix = path.join(work, `fit-${color}-${page}`)
   execFileSync('pdftoppm', ['-r', '72', '-f', String(page), '-l', String(page), '-singlefile', path.join(output, 'fit-slides.pdf'), prefix])
   const bytes = readFileSync(`${prefix}.ppm`)
   let offset = 0
@@ -36,7 +42,7 @@ function annotationBounds(output: string, work: string, page: number, expected: 
     const red = bytes[offset + index * 3] ?? 0
     const green = bytes[offset + index * 3 + 1] ?? 0
     const blue = bytes[offset + index * 3 + 2] ?? 0
-    if (red < 140 || red < green * 1.35 || red < blue * 1.15) continue
+    if (color === 'red' ? red < 140 || red < green * 1.35 || red < blue * 1.15 : blue < 140 || blue < red * 1.35 || blue < green * 1.15) continue
     const x = index % width
     const y = Math.floor(index / width)
     if (x < expected.left - 2 || x > expected.right + 2 || y < expected.top - 2 || y > expected.bottom + 2) continue
@@ -67,13 +73,38 @@ function verifyFitPdf(output: string, work: string, check: Check): void {
       right: (placement.x + (ring.x + ring.width) * placement.scale) * 0.75 + stroke,
       bottom: (placement.y + (ring.y + ring.height) * placement.scale) * 0.75 + stroke,
     }
-    const actual = annotationBounds(output, work, page, expected)
+    const actual = coloredBounds(output, work, page, expected, 'red')
     check(
       `the printed ${mode} ring follows the shared mapping within one point`,
       Object.keys(expected).every((key) => Math.abs(actual[key as keyof typeof actual] - expected[key as keyof typeof expected]) <= 1),
       `actual=${JSON.stringify(actual)}, expected=${JSON.stringify(expected)}`,
     )
   }
+  const framed = fitImage(fitDeck.size, { width: 1280, height: 400 }, 'contain', undefined, true)
+  const expected = {
+    left: framed.x * 0.75,
+    top: framed.y * 0.75,
+    right: (framed.x + 1280 * framed.scale) * 0.75,
+    bottom: (framed.y + 400 * framed.scale) * 0.75,
+  }
+  const actual = coloredBounds(output, work, 5, expected, 'blue')
+  check(
+    'the printed framed image edges follow the shared mapping within one point',
+    Object.keys(expected).every((key) => Math.abs(actual[key as keyof typeof actual] - expected[key as keyof typeof expected]) <= 1),
+    `actual=${JSON.stringify(actual)}, expected=${JSON.stringify(expected)}`,
+  )
+  execFileSync('pdftoppm', [
+    '-png',
+    '-r',
+    '72',
+    '-f',
+    '5',
+    '-l',
+    '5',
+    '-singlefile',
+    path.join(output, 'fit-slides.pdf'),
+    path.join(process.cwd(), 'out/evidence/framed-print'),
+  ])
 }
 
 export function verifyDeckRender(output: string, work: string, check: Check): void {

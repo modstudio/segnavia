@@ -2,7 +2,7 @@ import { type Deck, firstStrongDirection, type Slide } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
-import { annotationFocusBox, fitImage } from './image-fit.ts'
+import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { annotationSvg } from './svg.ts'
 
 export function stageCanvas(
@@ -56,12 +56,13 @@ export function stageCanvas(
     image.style.display = 'block'
     const position = (imageSize: { width: number; height: number }) => {
       const focus = content.kind === 'shot' ? annotationFocusBox(imageSize, content.shot.annotations) : undefined
-      const placement = fitImage(deck.size, imageSize, content.fit ?? deck.fit, focus)
+      const placement = fitImage(deck.size, imageSize, content.fit ?? deck.fit, focus, content.frame ?? deck.frame)
       layer.style.inlineSize = `${imageSize.width}px`
       layer.style.blockSize = `${imageSize.height}px`
       layer.style.transform = `translate(${placement.x}px, ${placement.y}px) scale(${placement.scale})`
       image.style.inlineSize = `${imageSize.width}px`
       image.style.blockSize = `${imageSize.height}px`
+      Object.assign(image.style, imageFrameStyle(placement, deck.size))
     }
     if (content.kind === 'image') {
       image.addEventListener(

@@ -91,11 +91,11 @@ export const SlideContent = z.discriminatedUnion('kind', [
   // HTML the host serves itself, under its own headers: a single-use ticket,
   // a CSP, a URL that expires.
   z.object({ kind: z.literal('url'), src: z.string() }),
-  z.object({ kind: z.literal('shot'), src: z.string(), shot: Shot, fit: ImageFit.optional() }),
+  z.object({ kind: z.literal('shot'), src: z.string(), shot: Shot, fit: ImageFit.optional(), frame: z.boolean().optional() }),
   // A shot named by its permanent address, resolved when the deck is shown,
   // so a recapture reaches every deck that names it.
-  z.object({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional() }),
-  z.object({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional() }),
+  z.object({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
+  z.object({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
 ])
 export type SlideContent = z.infer<typeof SlideContent>
 
@@ -117,6 +117,7 @@ export const DeckShape = z.object({
   title: z.string(),
   size: Size.default(DECK_SIZE),
   fit: ImageFit.default('contain'),
+  frame: z.boolean().default(false),
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
