@@ -1,25 +1,34 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationFocusBox, fitImage } from './image-fit.ts'
+import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 
 const slide = { width: 1280, height: 720 }
 const tall = { width: 1280, height: 2400 }
 
 describe('fitImage', () => {
+  test('insets a framed contained image', () => {
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'contain', undefined, true)).toEqual({
+      scale: (1280 - 112) / 1280,
+      x: 56,
+      y: (720 - 400 * ((1280 - 112) / 1280)) / 2,
+      framed: true,
+    })
+  })
+
   test('contains the whole image and centers its bands', () => {
-    expect(fitImage(slide, tall, 'contain')).toEqual({ scale: 0.3, x: 448, y: 0 })
+    expect(fitImage(slide, tall, 'contain')).toEqual({ scale: 0.3, x: 448, y: 0, framed: false })
   })
 
   test('covers the slide with a centered crop', () => {
-    expect(fitImage(slide, tall, 'cover')).toEqual({ scale: 1, x: 0, y: -840 })
+    expect(fitImage(slide, tall, 'cover')).toEqual({ scale: 1, x: 0, y: -840, framed: false })
   })
 
   test('fills the width from the top and centers an image shorter than the slide', () => {
-    expect(fitImage(slide, tall, 'width')).toEqual({ scale: 1, x: 0, y: 0 })
-    expect(fitImage(slide, { width: 1280, height: 400 }, 'width')).toEqual({ scale: 1, x: 0, y: 160 })
+    expect(fitImage(slide, tall, 'width')).toEqual({ scale: 1, x: 0, y: 0, framed: false })
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'width')).toEqual({ scale: 1, x: 0, y: 160, framed: false })
   })
 
   test('moves a corner focus into view while preserving cover', () => {
-    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 })).toEqual({ scale: 1, x: 0, y: -1680 })
+    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 })).toEqual({ scale: 1, x: 0, y: -1680, framed: false })
   })
 
   test('zooms out toward contain when the focus is larger than the cover crop', () => {
@@ -31,6 +40,40 @@ describe('fitImage', () => {
 
   test('uses cover when focus has no annotations', () => {
     expect(fitImage(slide, tall, 'focus')).toEqual(fitImage(slide, tall, 'cover'))
+  })
+
+  test('does not frame placements that cover the slide', () => {
+    expect(fitImage(slide, tall, 'cover', undefined, true).framed).toBe(false)
+    expect(fitImage(slide, tall, 'width', undefined, true).framed).toBe(false)
+    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 }, true).framed).toBe(false)
+  })
+
+  test('frames a short width image', () => {
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'width', undefined, true)).toEqual({ scale: 0.9125, x: 56, y: 177.5, framed: true })
+  })
+
+  test('frames a focus placement that zooms out and keeps its focus inside the inset slide', () => {
+    const focus = { x: 100, y: 100, width: 1080, height: 2100 }
+    const placement = fitImage(slide, tall, 'focus', focus, true)
+    expect(placement.framed).toBe(true)
+    expect(focus.x * placement.scale + placement.x).toBeGreaterThanOrEqual(56 - 0.001)
+    expect(focus.y * placement.scale + placement.y).toBeGreaterThanOrEqual(56 - 0.001)
+    expect((focus.x + focus.width) * placement.scale + placement.x).toBeLessThanOrEqual(1280 - 56 + 0.001)
+    expect((focus.y + focus.height) * placement.scale + placement.y).toBeLessThanOrEqual(720 - 56 + 0.001)
+  })
+})
+
+describe('imageFrameStyle', () => {
+  test('counter-scales the radius and shadow and omits them when unframed', () => {
+    expect(imageFrameStyle({ scale: 1, x: 56, y: 56, framed: true })).toEqual({
+      borderRadius: '14px',
+      boxShadow: '0 4px 18px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.08)',
+    })
+    expect(imageFrameStyle({ scale: 0.3, x: 56, y: 56, framed: true })).toEqual({
+      borderRadius: '46.66666666666667px',
+      boxShadow: '0 13.333333333333334px 60px rgba(15,23,42,.18), 0 0 0 3.3333333333333335px rgba(15,23,42,.08)',
+    })
+    expect(imageFrameStyle({ scale: 1, x: 0, y: 0, framed: false })).toBeUndefined()
   })
 })
 

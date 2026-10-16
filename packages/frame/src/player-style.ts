@@ -20,6 +20,7 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 :host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center}
 segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
+segnavia-stage,segnavia-rail{--_segnavia-shot-backdrop:var(--segnavia-shot-backdrop,#fff)}
 :host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
 :host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:size;display:grid;place-items:center;padding:16px 16px 8px}
 :host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:min(100cqw,100cqh * var(--ratio,1.7778))}

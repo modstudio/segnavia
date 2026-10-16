@@ -352,6 +352,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   const deck: Deck = {
     title: 'Press',
     fit: 'contain',
+    frame: false,
     size: { width: 1200, height: 800 },
     scripts: 'sandboxed',
     slides: [{ id: 'press', content: { kind: 'html', html } }],
@@ -377,6 +378,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   const longDeck: Deck = {
     title: 'Press content bound',
     fit: 'contain',
+    frame: false,
     size: { width: 1200, height: 800 },
     scripts: 'refuse',
     slides: Array.from({ length: 24 }, (_, index) => ({

@@ -110,9 +110,10 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    annotation that does not exist and a slide id used twice.
 2. For each slide shown, the controller runs `resolveSlide` if it is set. `contentFor(index)` does the same without navigating and shares the prefetch cache. A `shot-ref` is
    fetched as a `PublishedShot`, cached per address, and resolved relative to
-   that address. Its fit is copied to the resolved shot and overrides the deck's
-   fit, as does an inline image or shot's own fit; otherwise image and shot
-   content uses the deck's `contain` default. `fitImage` is the server-safe pure
+   that address. Its fit and frame settings are copied to the resolved shot and
+   override the deck's settings, as do an inline image or shot's own settings;
+   otherwise image and shot content uses the deck's `contain` fit and unframed
+   default. `fitImage` is the server-safe pure
    geometry shared by the stage, rail and print document. `contain` centers the
    whole image, `cover` centers a crop that fills the canvas, and `width` fills
    its width from the top unless a short image needs vertical centering. `focus`
@@ -122,7 +123,13 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    geometry stays pure, so an arrow label's width is estimated at 0.6 em per
    character rather than measured. That covers ordinary Latin, capitals and
    Hebrew, but a label made mostly of unusually wide glyphs can exceed the
-   estimate and be cropped at its ends.
+   estimate and be cropped at its ends. When framing is enabled, a placement
+   that does not cover every slide edge is recomputed inside a 56 px inset and
+   its image receives counter-scaled rounded corners and a shadow. A covering
+   image stays unframed, and the annotation layer remains unclipped. The styled
+   player gives its stage and rail slide canvases a white background by default;
+   a host can set `--segnavia-shot-backdrop`, while the headless stage remains
+   transparent.
 3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
    the policy admits only the bridge's nonce. The bridge handles in-page link

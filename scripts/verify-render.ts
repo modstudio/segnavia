@@ -110,6 +110,7 @@ try {
   const deck = {
     title: 'Offline deck',
     fit: 'contain' as const,
+    frame: false,
     scripts: 'sandboxed' as const,
     size: { width: 400, height: 200 },
     slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
@@ -187,6 +188,7 @@ try {
     {
       title: 'כותרת',
       fit: 'contain',
+      frame: false,
       lang: 'he',
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
@@ -318,6 +320,7 @@ try {
     {
       title: 'T',
       fit: 'contain',
+      frame: false,
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
@@ -356,6 +359,7 @@ try {
     {
       title: 'English deck',
       fit: 'contain',
+      frame: false,
       size: { width: 400, height: 200 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }],
