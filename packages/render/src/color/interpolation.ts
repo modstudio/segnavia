@@ -40,6 +40,17 @@ export function multilinear(grid: Samples, points: number[], outputs: number, in
   return result
 }
 
+export function linearGrid(grid: Samples, points: number[], outputs: number, input: readonly number[]): number[] {
+  const count = checked(points, 0, 'CLUT dimensions')
+  const position = clamp(checked(input, 0, 'CLUT input')) * (count - 1)
+  const low = Math.min(count - 2, Math.floor(position))
+  const fraction = position - low
+  return Array.from({ length: outputs }, (_, channel) => {
+    const lower = grid.get(low * outputs + channel)
+    return lower + (grid.get((low + 1) * outputs + channel) - lower) * fraction
+  })
+}
+
 export function tetrahedral4(grid: Samples, points: number[], outputs: number, input: readonly number[]): number[] {
   const { base, fractions, stride } = layout(points, outputs, input)
   const order = [1, 2, 3].sort((a, b) => checked(fractions, b, 'CLUT fractions') - checked(fractions, a, 'CLUT fractions'))

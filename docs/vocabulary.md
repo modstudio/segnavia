@@ -18,7 +18,7 @@ something else.
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |
 | **Imposition fit** | How a fixed page is shown in a cell of another shape: `contain` shows all of it, `cover` fills the cell and crops. |
 | **Stage fit** | Which space a stage fits its slide into: `box` uses the stage's own box, while `viewport` uses the available window after reserved room. |
-| **Press profile** | The ICC profile of the press a piece is printed on. The host supplies it. With one, a PDF render converts supported vector color to CMYK, embeds the profile as its output intent, and reports authored RGB images left unchanged. |
+| **Press profile** | The CMYK or greyscale ICC profile of the press a piece is printed on. The host supplies it. A PDF render writes the matching CMYK or DeviceGray destination and embeds the profile as its output intent. Supplied images stay in RGB for CMYK and are converted through a greyscale profile for DeviceGray. |
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
 | **Slide** | A page with a fixed canvas that belongs to a deck, with optional notes and narration. A narrated slide may pause for `beforeMs` and `afterMs`; an unnarrated slide may have `holdMs`. Each timing is 0–600000 milliseconds. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set), with optional `playback` (`step` or `continuous`) and caption policy (`on`, `off` or `viewer`). |

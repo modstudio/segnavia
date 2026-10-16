@@ -119,10 +119,19 @@ export interface DocumentResult {
   pressPdf?: string
   pressProof?: string
   pressRaster?: string
+  pressDifference?: Difference
+  pressReason?: string
+  grayPressPdf?: string
+  grayPressProof?: string
+  grayPressRaster?: string
+  grayPressDifference?: Difference
+  grayPressResidues?: number
+  grayPressResidueErrors?: string[]
+  grayPressReason?: string
   bars: Record<BarId, BarResult<BarMeasurement>>
 }
 
-export type BarId = 'effects' | 'pressColor' | 'size'
+export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size'
 export type BarMeasurement = Difference | SizeMeasurement
 
 export interface FidelityRun {
@@ -134,6 +143,7 @@ export interface FidelityRun {
     thresholds: Record<BarId, Threshold | { multiple: number; absoluteBytes: number }>
     chromium: string
     profile?: string
+    grayProfile?: string
   }
   documents: DocumentResult[]
   posterEvidence?: PosterEvidence

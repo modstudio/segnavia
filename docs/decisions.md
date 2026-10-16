@@ -56,11 +56,12 @@ what it left in RGB. The engines that convert a whole PDF carry licenses an
 MIT library cannot bundle, so a full converter is the host's to pass in.
 
 **A render with a press profile refuses what it cannot convert.** Anything
-left in RGB besides an authored image would print in a color nobody chose, so
-content the rewrite does not know is a refusal that names it, not a line in a
-report.
+left in RGB would print in a color nobody chose, so content the rewrite does
+not know is a refusal that names it, not a line in a report. A CMYK press
+leaves authored images as supplied and reports them. A greyscale press
+converts them too, so nothing in its output is left in RGB.
 
-**A gradient the browser computes is sampled into the press's inks.** A conic or repeating gradient has no list of stops in the PDF, only a program; the render evaluates it and writes the samples in CMYK, so its stops and its blend print in press colors.
+**A gradient the browser computes is sampled into the press's inks.** A conic or repeating gradient has no list of stops in the PDF, only a program; the render evaluates it and writes the samples in the press's device space, CMYK or grey, so its stops and its blend print in press colors.
 
 **The library ships no catalogue of label stock.** Stock numbers differ by
 maker and country and change. A grid in millimeters describes any of them, so

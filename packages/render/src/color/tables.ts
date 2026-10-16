@@ -1,7 +1,7 @@
 import { align4, fixed, need, signature, type TagBounds, u16, u32 } from './binary.ts'
-import { interpolate, matrixInput, multilinear, type Samples, tetrahedral4 } from './interpolation.ts'
+import { interpolate, linearGrid, matrixInput, multilinear, type Samples, tetrahedral4 } from './interpolation.ts'
 import { invert3, matrix3 } from './spaces.ts'
-import { type ColorTable, type Curve, checked, clamp, type Matrix3, REVERSE_LUT, refuse } from './types.ts'
+import { type ChannelCount, type ColorTable, type Curve, checked, clamp, type Matrix3, REVERSE_LUT, refuse } from './types.ts'
 
 export interface TagRecord extends TagBounds {
   offset: number
@@ -80,6 +80,18 @@ export function parseCurve(bytes: Uint8Array, view: DataView, offset: number, bo
   return { curve: (value) => evaluate(parameters, value), size: 12 + count * 4 }
 }
 
+export function invertCurve(curve: Curve, target: number): number {
+  let low = 0,
+    high = 1
+  const descending = curve(0) > curve(1)
+  for (let index = 0; index < 24; index++) {
+    const middle = (low + high) / 2
+    if (descending ? curve(middle) > target : curve(middle) < target) low = middle
+    else high = middle
+  }
+  return (low + high) / 2
+}
+
 function curvesAt(bytes: Uint8Array, view: DataView, offset: number, count: number, bounds: TagBounds): Curve[] {
   const curves: Curve[] = []
   let cursor = offset
@@ -99,7 +111,7 @@ function channels(bytes: Uint8Array, offset: number, expectedInputs: number, exp
     refuse(`${bounds.name} channel count ${inputs}->${outputs}`, `${expectedInputs}->${expectedOutputs}`)
 }
 
-export function parseMft(bytes: Uint8Array, view: DataView, record: TagRecord, type: 'mft1' | 'mft2', inputs: number, outputs: number): ColorTable {
+export function parseMft(bytes: Uint8Array, view: DataView, record: TagRecord, type: 'mft1' | 'mft2', inputs: ChannelCount, outputs: ChannelCount): ColorTable {
   const { offset } = record
   need(offset, type === 'mft1' ? 48 : 52, record)
   channels(bytes, offset, inputs, outputs, record)
@@ -145,7 +157,12 @@ export function parseMft(bytes: Uint8Array, view: DataView, record: TagRecord, t
         ]
         current = matrix3(fixedMatrix, matrixInput(current))
       }
-      current = inputs === 3 ? multilinear(grid, points, outputs, current) : tetrahedral4(grid, points, outputs, current)
+      current =
+        inputs === 1
+          ? linearGrid(grid, points, outputs, current)
+          : inputs === 3
+            ? multilinear(grid, points, outputs, current)
+            : tetrahedral4(grid, points, outputs, current)
       return current.map((value, channel) => interpolate(checked(outputTables, channel, `${type} output tables`), value))
     },
   }
@@ -172,7 +189,14 @@ function mabGrid(bytes: Uint8Array, view: DataView, record: TagRecord, type: str
   }
 }
 
-export function parseMab(bytes: Uint8Array, view: DataView, record: TagRecord, type: 'mAB ' | typeof REVERSE_LUT, inputs: number, outputs: number): ColorTable {
+export function parseMab(
+  bytes: Uint8Array,
+  view: DataView,
+  record: TagRecord,
+  type: 'mAB ' | typeof REVERSE_LUT,
+  inputs: ChannelCount,
+  outputs: ChannelCount,
+): ColorTable {
   const { offset } = record
   need(offset, 32, record)
   channels(bytes, offset, inputs, outputs, record)
@@ -207,7 +231,13 @@ export function parseMab(bytes: Uint8Array, view: DataView, record: TagRecord, t
     )
   }
   const clut = (values: readonly number[]) =>
-    !grid ? [...values] : inputs === 3 ? multilinear(grid, points, outputs, values) : tetrahedral4(grid, points, outputs, values)
+    !grid
+      ? [...values]
+      : inputs === 1
+        ? linearGrid(grid, points, outputs, values)
+        : inputs === 3
+          ? multilinear(grid, points, outputs, values)
+          : tetrahedral4(grid, points, outputs, values)
   return {
     inputChannels: inputs,
     outputChannels: outputs,
@@ -247,16 +277,6 @@ export function matrixTables(bytes: Uint8Array, view: DataView, records: Record<
     checked(checked(columns, 2, 'colorants'), 2, 'blue'),
   ]
   const inverse = invert3(matrix)
-  const invertCurve = (curve: Curve, target: number) => {
-    let low = 0,
-      high = 1
-    for (let index = 0; index < 24; index++) {
-      const middle = (low + high) / 2
-      if (curve(middle) < target) low = middle
-      else high = middle
-    }
-    return (low + high) / 2
-  }
   return {
     a2b: {
       inputChannels: 3,
@@ -269,6 +289,34 @@ export function matrixTables(bytes: Uint8Array, view: DataView, records: Record<
       outputChannels: 3,
       encoding: REVERSE_LUT,
       run: (input) => matrix3(inverse, matrixInput(input)).map((value, index) => invertCurve(checked(curves, index, 'RGB curves'), value)),
+    },
+  }
+}
+
+export function grayTables(bytes: Uint8Array, view: DataView, record: TagRecord, pcs: 'Lab ' | 'XYZ '): { a2b: ColorTable; b2a: ColorTable } {
+  const curve = parseCurve(bytes, view, record.offset, record).curve
+  const scale = 32_768 / 65_535
+  return {
+    a2b: {
+      inputChannels: 1,
+      outputChannels: 3,
+      encoding: 'mAB ',
+      run(input) {
+        const luminance = curve(checked(input, 0, 'gray input'))
+        if (pcs === 'XYZ ') return [luminance * 0.9642 * scale, luminance * scale, luminance * 0.8249 * scale]
+        // LittleCMS treats a gray TRC in Lab PCS as normalized L*, rather than converting its result from Y.
+        return [luminance, 128 / 255, 128 / 255]
+      },
+    },
+    b2a: {
+      inputChannels: 3,
+      outputChannels: 1,
+      encoding: REVERSE_LUT,
+      run(input) {
+        // LittleCMS inverts PCS Y for XYZ, but normalized L* for Lab gray profiles.
+        const luminance = pcs === 'XYZ ' ? checked(input, 1, 'gray PCS input') / scale : checked(input, 0, 'gray PCS input')
+        return [invertCurve(curve, luminance)]
+      },
     },
   }
 }

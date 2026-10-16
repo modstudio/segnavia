@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import * as reference from '../../test-fixtures/lcms/reference.ts'
-import { fromPress, proof, toPress } from './engine.ts'
+import { fromPress, proof, toGray, toPress } from './engine.ts'
 import { outOfGamut } from './gamut.ts'
 import { MAX_PROFILE_BYTES, MAX_PROFILE_TAGS, readProfile } from './profile.ts'
-import { buildPressProfile } from './profile-fixture.test-helper.ts'
+import { buildGrayProfile, buildPressProfile } from './profile-fixture.test-helper.ts'
 import { buildProofTable, fastProof, proofPixels } from './proof.ts'
-import { srgbToLab, tableEncode } from './spaces.ts'
+import { labToXyz, srgbToLab, tableEncode } from './spaces.ts'
 import { checked, color3, color4 } from './types.ts'
 
 const lcms = await reference.instantiate()
@@ -13,6 +13,16 @@ const models = [
   { name: 'mft1', bytes: buildPressProfile('mft1') },
   { name: 'mft2', bytes: buildPressProfile('mft2') },
   { name: 'light black', bytes: buildPressProfile('mft2', 0.16) },
+]
+const grayModels = [
+  { name: 'curv gamma with XYZ PCS', bytes: buildGrayProfile('trc-gamma', 'XYZ ') },
+  { name: 'sampled curv with Lab PCS', bytes: buildGrayProfile('trc-sampled', 'Lab ') },
+  { name: 'descending curv with XYZ PCS', bytes: buildGrayProfile('trc-descending', 'XYZ ') },
+  { name: 'para with XYZ PCS', bytes: buildGrayProfile('trc-para', 'XYZ ') },
+  { name: 'mft1 with Lab PCS', bytes: buildGrayProfile('mft1', 'Lab ') },
+  { name: 'mft2 with XYZ PCS', bytes: buildGrayProfile('mft2', 'XYZ ') },
+  { name: 'mBA with Lab PCS', bytes: buildGrayProfile('mBA ', 'Lab ') },
+  { name: 'light black', bytes: buildGrayProfile('trc-sampled', 'XYZ ', 0.12) },
 ]
 
 function grid(dimensions: number, divisions: number): number[][] {
@@ -97,6 +107,56 @@ describe('press color against LittleCMS', () => {
     })
 })
 
+describe('gray color against LittleCMS', () => {
+  for (const model of grayModels)
+    test(model.name, () => {
+      const profile = readProfile(model.bytes)
+      const gray = lcms.cmsOpenProfileFromMem(model.bytes, model.bytes.length)
+      expect(gray).not.toBe(0)
+      const srgb = lcms.cmsCreate_sRGBProfile()
+      const flags = reference.cmsFLAGS_BLACKPOINTCOMPENSATION | reference.cmsFLAGS_NOOPTIMIZE | reference.cmsFLAGS_NOCACHE
+      const forward = lcms.cmsCreateTransform(
+        srgb,
+        reference.TYPE_RGB_DBL | 4,
+        gray,
+        reference.TYPE_GRAY_DBL | 4,
+        reference.INTENT_RELATIVE_COLORIMETRIC,
+        flags,
+      )
+      const reverse = lcms.cmsCreateTransform(
+        gray,
+        reference.TYPE_GRAY_DBL | 4,
+        srgb,
+        reference.TYPE_RGB_DBL | 4,
+        reference.INTENT_RELATIVE_COLORIMETRIC,
+        flags,
+      )
+      const rgb = grid(3, 9)
+      const oracleGray = lcms.cmsDoTransform(forward, Float32Array.from(rgb.flat()), rgb.length)
+      const oracleProof = lcms.cmsDoTransform(reverse, oracleGray, rgb.length)
+      expectWithinBar(
+        errors(
+          rgb.map((value) => toGray(profile, color3(value, 'RGB grid point'))),
+          oracleGray,
+          1,
+          255,
+        ),
+      )
+      expectWithinBar(
+        errors(
+          rgb.map((value) => proof(profile, color3(value, 'RGB grid point'))),
+          oracleProof,
+          3,
+          255,
+        ),
+      )
+      lcms.cmsDeleteTransform(forward)
+      lcms.cmsDeleteTransform(reverse)
+      lcms.cmsCloseProfile(srgb)
+      lcms.cmsCloseProfile(gray)
+    })
+})
+
 test('the light-black conversion applies black point compensation', () => {
   const profile = readProfile(checked(models, 2, 'profile models').bytes)
   const withoutCompensation = color4(
@@ -108,25 +168,34 @@ test('the light-black conversion applies black point compensation', () => {
   ).toBeGreaterThan(3 / 255)
 })
 
-test('fast proof stays close to exact proof', () => {
-  const profile = readProfile(checked(models, 1, 'profile models').bytes),
-    table = buildProofTable(profile)
-  let seed = 0x5e6e61
-  for (let index = 0; index < 400; index++) {
-    const rgb = color3(
-      Array.from({ length: 3 }, () => {
-        seed ^= seed << 13
-        seed ^= seed >>> 17
-        seed ^= seed << 5
-        return (seed >>> 0) / 4_294_967_295
-      }),
-      'random RGB sample',
-    )
-    // A 65-point table measured below 2.3 bytes on this fixed sample; three bytes include float and platform variation.
-    const exact = proof(profile, rgb)
-    expect(Math.max(...fastProof(table, rgb).map((value, channel) => Math.abs(value - checked(exact, channel, 'exact proof')) * 255))).toBeLessThanOrEqual(3)
+test('the gray light-black conversion applies black point compensation', () => {
+  const profile = readProfile(checked(grayModels, grayModels.length - 1, 'gray profile models').bytes)
+  const rgb: [number, number, number] = [0.2, 0.2, 0.2]
+  const withoutCompensation = profile.b2a.run(tableEncode(profile.pcs, profile.b2a.encoding, profile.majorVersion, labToXyz(srgbToLab(rgb)), true))
+  expect(Math.abs(checked(toGray(profile, rgb), 0, 'gray result') - checked(withoutCompensation, 0, 'uncompensated B2A result'))).toBeGreaterThan(3 / 255)
+})
+
+test('fast proof stays close to exact CMYK and gray proof', () => {
+  for (const bytes of [checked(models, 1, 'profile models').bytes, checked(grayModels, 0, 'gray profile models').bytes]) {
+    const profile = readProfile(bytes),
+      table = buildProofTable(profile)
+    let seed = 0x5e6e61
+    for (let index = 0; index < 400; index++) {
+      const rgb = color3(
+        Array.from({ length: 3 }, () => {
+          seed ^= seed << 13
+          seed ^= seed >>> 17
+          seed ^= seed << 5
+          return (seed >>> 0) / 4_294_967_295
+        }),
+        'random RGB sample',
+      )
+      // A 65-point table measured below 2.3 bytes on this fixed sample; three bytes include float and platform variation.
+      const exact = proof(profile, rgb)
+      expect(Math.max(...fastProof(table, rgb).map((value, channel) => Math.abs(value - checked(exact, channel, 'exact proof')) * 255))).toBeLessThanOrEqual(3)
+    }
+    expect(proofPixels(table, Uint8Array.from([0, 127, 255]))).toHaveLength(3)
   }
-  expect(proofPixels(table, Uint8Array.from([0, 127, 255]))).toHaveLength(3)
 })
 
 test('gamut tolerance distinguishes a preserved neutral from an unreachable saturated color', () => {
@@ -205,7 +274,7 @@ test('refusals identify every unsupported profile property', () => {
   const cases: Array<[number, number[] | string, RegExp]> = [
     [8, [5], /ICC version 5/],
     [12, 'scnr', /profile class "scnr"/],
-    [16, 'GRAY', /color space "GRAY"/],
+    [16, 'Luv ', /color space "Luv ".*CMYK, GRAY, or RGB/],
     [20, 'Luv ', /PCS "Luv "/],
   ]
   for (const [offset, replacement, message] of cases) {

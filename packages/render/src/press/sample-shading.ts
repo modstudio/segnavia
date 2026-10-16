@@ -1,6 +1,6 @@
 import { deflateSync } from 'node:zlib'
 import { PDFArray, type PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRef } from 'pdf-lib'
-import type { Color3, Color4 } from '../color/types.ts'
+import type { Color, Color3, Color4 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { applyAffine, IDENTITY_MATRIX, invertAffine, multiplyAffine } from './affine.ts'
 import { evaluateCalculator, parseCalculator, staticOperatorCount } from './calculator.ts'
@@ -63,8 +63,8 @@ export function unpackRgb8(key: number): Color3 {
   return [(key >> 16) / 255, ((key >> 8) & 255) / 255, (key & 255) / 255]
 }
 
-export function createSamplingColorConverter(convert: (rgb: Color3) => Color4): { convert: (rgb: Color3) => Color4; size: () => number } {
-  const cache = new Map<number, Color4>()
+export function createSamplingColorConverter(convert: (rgb: Color3) => Color): { convert: (rgb: Color3) => Color; size: () => number } {
+  const cache = new Map<number, Color>()
   return {
     size: () => cache.size,
     convert: (rgb) => {
@@ -186,11 +186,21 @@ export function sampleShadingToCmyk(
   size: { n: number; m: number },
   convert: (rgb: Color3) => Color4,
 ): Uint8Array {
+  return sampleShading(program, domain, size, convert, 4)
+}
+
+export function sampleShading(
+  program: ReturnType<typeof parseCalculator>,
+  domain: readonly number[],
+  size: { n: number; m: number },
+  convert: (rgb: Color3) => Color,
+  channels: 1 | 4,
+): Uint8Array {
   const x0 = domain[0] ?? 0
   const x1 = domain[1] ?? 0
   const y0 = domain[2] ?? 0
   const y1 = domain[3] ?? 0
-  const samples = new Uint8Array(size.n * size.m * SAMPLE_CHANNELS * SAMPLE_BYTES)
+  const samples = new Uint8Array(size.n * size.m * channels * SAMPLE_BYTES)
   const toCmyk = createSamplingColorConverter(convert).convert
   let offset = 0
   for (let j = 0; j < size.m; j++) {
@@ -209,8 +219,8 @@ export function sampleShadingToCmyk(
   return samples
 }
 
-export function chargeShadingSamples(budget: ContentBudget, samples: number, operations: number): void {
-  const bytes = samples * SAMPLE_CHANNELS * SAMPLE_BYTES
+export function chargeShadingSamples(budget: ContentBudget, samples: number, operations: number, channels: 1 | 4 = 4): void {
+  const bytes = samples * channels * SAMPLE_BYTES
   if (!Number.isFinite(samples) || samples < 0 || !Number.isFinite(bytes) || bytes < 0)
     refuse(`document shading samples ${samples}`, 'a finite non-negative sample count and byte charge')
   if (!Number.isFinite(operations) || operations < 0) refuse(`document calculator operations ${operations}`, 'a finite non-negative operator count')
@@ -235,11 +245,12 @@ export function replaceType1Function(
   document: PDFDocument,
   shading: PDFDict,
   pattern: PDFDict | undefined,
-  convert: (rgb: Color3) => Color4,
+  convert: (rgb: Color3) => Color,
   budget: ContentBudget,
   painted?: PatternPaint,
   sampleDomain?: readonly number[],
   sampleSize?: { n: number; m: number },
+  channels: 1 | 4 = 4,
 ): { n: number; m: number } {
   const existing = shading.get(PDFName.of('Function'))
   const stream = rawStreamOf(resolved(document, existing))
@@ -252,12 +263,12 @@ export function replaceType1Function(
   const program = parseCalculator(new TextDecoder('latin1').decode(decodeContent(stream, budget)))
   const samples = size.n * size.m
   const operations = samples * staticOperatorCount(program)
-  chargeShadingSamples(budget, samples, operations)
-  const data = sampleShadingToCmyk(program, domain, size, convert)
+  chargeShadingSamples(budget, samples, operations, channels)
+  const data = sampleShading(program, domain, size, convert, channels)
   const replacement = document.context.stream(deflateSync(data), {
     FunctionType: 0,
     Domain: domain,
-    Range: [0, 1, 0, 1, 0, 1, 0, 1],
+    Range: Array.from({ length: channels }, () => [0, 1]).flat(),
     Size: [size.n, size.m],
     BitsPerSample: SHADING_BITS_PER_SAMPLE,
     Order: 1,

@@ -31,6 +31,10 @@ export interface BarFacts {
   worstRegion: Difference
   pressDifference?: Difference
   pressReason?: string
+  grayPressDifference?: Difference
+  grayPressResidues?: number
+  grayPressResidueErrors?: string[]
+  grayPressReason?: string
   size: SizeMeasurement
 }
 
@@ -76,6 +80,29 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       return Boolean(value && value.mean <= PRESS_COLOR_THRESHOLD.mean && value.p99 <= PRESS_COLOR_THRESHOLD.p99)
     },
     reason: (measured, { pressReason }) => (measured ? undefined : (pressReason ?? 'The press measurement is missing.')),
+    format: differenceFormat(PRESS_COLOR_THRESHOLD),
+  },
+  {
+    id: 'grayPressColor',
+    title: 'Gray press color',
+    threshold: PRESS_COLOR_THRESHOLD,
+    measure: ({ grayPressDifference }) => grayPressDifference,
+    pass: (measured, { grayPressResidues, grayPressResidueErrors }) => {
+      const value = measured as Difference | undefined
+      return Boolean(
+        value &&
+          value.mean <= PRESS_COLOR_THRESHOLD.mean &&
+          value.p99 <= PRESS_COLOR_THRESHOLD.p99 &&
+          grayPressResidues === 0 &&
+          grayPressResidueErrors?.length === 0,
+      )
+    },
+    reason: (measured, { grayPressReason, grayPressResidues, grayPressResidueErrors }) => {
+      if (!measured) return grayPressReason ?? 'The gray press measurement is missing.'
+      if (grayPressResidueErrors?.length) return `Gray residue scan errors: ${grayPressResidueErrors.join('; ')}`
+      if (grayPressResidues) return `${grayPressResidues} RGB or CMYK residues remain.`
+      return undefined
+    },
     format: differenceFormat(PRESS_COLOR_THRESHOLD),
   },
   {

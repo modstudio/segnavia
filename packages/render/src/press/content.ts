@@ -1,7 +1,8 @@
-import type { Color3, Color4 } from '../color/types.ts'
+import type { Color, Color3 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { formatPdfNumber } from './color-policy.ts'
 import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
+import type { PressDestination } from './types.ts'
 
 export const MAX_CONTENT_NESTING = 64
 // Color operators need at most four operands and Chromium's largest observed operator, cm, uses six; 32 leaves room without unbounded retention.
@@ -138,7 +139,7 @@ function inlineHeader(source: string, at: number): { colorSpace?: string; id: nu
   }
   return refusal('truncated BI operator', 'an ID and EI pair')
 }
-function inlineImageEnd(source: string, at: number): number {
+function inlineImageEnd(source: string, at: number, destination: PressDestination): number {
   const { colorSpace, id, imageMask } = inlineHeader(source, at)
   const match = /[\0\t\n\f\r ]EI(?=[\0\t\n\f\r ()<>[\]{}/%]|$)/g
   match.lastIndex = id
@@ -147,6 +148,7 @@ function inlineImageEnd(source: string, at: number): number {
   const name = colorSpace?.startsWith('/') ? colorSpace.slice(1) : undefined
   const policy = inlineImageAction(name, imageMask)
   if (policy.action === 'refuse') refusal(`BI operator with color space ${policy.label}`, policy.supported)
+  if (destination === 'gray' && policy.kind === 'cmyk') refusal(`BI operator with color space ${policy.label}`, 'RGB or gray input for a greyscale press')
   return end.index + end[0].length
 }
 function skippedConstruct(source: string, cursor: number): number | undefined {
@@ -162,50 +164,63 @@ function numeric(operands: Token[], count: number, operator: string): number[] {
   if (operands.length !== count || operands.some((token) => token.kind !== 'number')) refusal(`${operator} operator operands`, `${count} numeric operands`)
   return operands.map((token) => Number(token.raw))
 }
-function replacement(token: Token, operands: Token[], values: Color4): Replacement {
-  const operator = token.raw === 'rg' || token.raw === 'g' ? 'k' : 'K'
+function replacement(token: Token, operands: Token[], values: Color): Replacement {
+  const operator = values.length === 1 ? (token.raw === token.raw.toLowerCase() ? 'g' : 'G') : token.raw === token.raw.toLowerCase() ? 'k' : 'K'
   return { start: operands[0]?.start ?? token.start, end: token.end, text: `${values.map(formatPdfNumber).join(' ')} ${operator}` }
 }
-function replaceRgb(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts): Replacement {
+function replaceRgb(token: Token, operands: Token[], convert: (rgb: Color3) => Color, counts: ContentCounts): Replacement {
   const [red = 0, green = 0, blue = 0] = numeric(operands, 3, token.raw)
   counts[token.raw === 'rg' ? 'fills' : 'strokes']++
   return replacement(token, operands, convert([red, green, blue]))
 }
-function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts): Replacement {
+function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => Color, counts: ContentCounts): Replacement {
   const [gray = 0] = numeric(operands, 1, token.raw)
   counts[token.raw === 'g' ? 'fills' : 'strokes']++
   return replacement(token, operands, convert([gray, gray, gray]))
 }
-function validateSpace(token: Token, operands: Token[]): void {
+function validateSpace(token: Token, operands: Token[], destination: PressDestination): void {
   if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
   const name = operands[0].raw.slice(1)
-  const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name)
+  const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name, false, destination)
   if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
 }
-function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
+function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision, destination: PressDestination): void {
   if (policy.action !== 'refuse') return
   const operator = token.raw
   if (operator === 'cs' || operator === 'CS') {
-    validateSpace(token, operands)
+    validateSpace(token, operands, destination)
     return
   }
   if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN')
     refusal(`${operator} operator with numeric operands`, policy.supported)
-  refusal(`${operator === 'g' || operator === 'G' ? 'gray' : 'RGB'} color operator ${operator} after conversion`, policy.supported)
+  const color = operator === 'g' || operator === 'G' ? 'gray' : operator === 'k' || operator === 'K' ? 'CMYK' : 'RGB'
+  refusal(`${color} color operator ${operator} after conversion`, policy.supported)
 }
-function colorOperator(token: Token, operands: Token[], convert: (rgb: Color3) => Color4, counts: ContentCounts, inspect: boolean): Replacement | undefined {
+function colorOperator(
+  token: Token,
+  operands: Token[],
+  convert: (rgb: Color3) => Color,
+  counts: ContentCounts,
+  inspect: boolean,
+  destination: PressDestination,
+): Replacement | undefined {
   const operator = token.raw
   if (!isContentColorOperator(operator)) return undefined
   const patternName = operands.length === 1 && operands[0]?.kind === 'name'
-  const policy = contentOperatorAction(operator, inspect, undefined, patternName)
-  enforceOperatorPolicy(token, operands, policy)
+  const policy = contentOperatorAction(operator, inspect, undefined, patternName, destination)
+  enforceOperatorPolicy(token, operands, policy, destination)
   if (operator === 'rg' || operator === 'RG') {
     return replaceRgb(token, operands, convert, counts)
   }
   if (operator === 'g' || operator === 'G') {
+    if (inspect && destination === 'gray') {
+      numeric(operands, 1, operator)
+      counts[operator === 'g' ? 'fills' : 'strokes']++
+      return undefined
+    }
     return replaceGray(token, operands, convert, counts)
   }
-  if (operator === 'cs' || operator === 'CS') validateSpace(token, operands)
+  if (operator === 'cs' || operator === 'CS') validateSpace(token, operands, destination)
   else if (operator === 'k' || operator === 'K') {
     numeric(operands, 4, operator)
     counts[operator === 'k' ? 'fills' : 'strokes']++
@@ -215,8 +230,9 @@ function colorOperator(token: Token, operands: Token[], convert: (rgb: Color3) =
 
 function scan(
   source: string,
-  convert: (rgb: Color3) => Color4,
+  convert: (rgb: Color3) => Color,
   inspect: boolean,
+  destination: PressDestination,
   visit?: (found: Replacement) => void,
   operatorVisit?: (operator: Token, operands: Token[]) => void,
 ): ContentCounts {
@@ -236,11 +252,11 @@ function scan(
     }
     cursor = token.end
     if (token.raw === 'BI') {
-      cursor = inlineImageEnd(source, cursor)
+      cursor = inlineImageEnd(source, cursor, destination)
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
-      const found = colorOperator(token, operands, convert, counts, inspect)
+      const found = colorOperator(token, operands, convert, counts, inspect, destination)
       if (found) visit?.(found)
       operands = []
     } else {
@@ -260,6 +276,7 @@ export function visitContentOperations(bytes: Uint8Array, visit: (operation: Con
     decoder.decode(bytes),
     () => [0, 0, 0, 0],
     false,
+    'cmyk',
     undefined,
     (operator, operands) => {
       visit({
@@ -283,14 +300,19 @@ export function visitContentOperators(bytes: Uint8Array, visit: (operator: strin
   })
 }
 
-export function inspectContent(bytes: Uint8Array): ContentCounts {
-  return scan(decoder.decode(bytes), () => refusal('RGB color operator after conversion', 'CMYK operators'), true)
+export function inspectContent(bytes: Uint8Array, destination: PressDestination = 'cmyk'): ContentCounts {
+  return scan(
+    decoder.decode(bytes),
+    () => refusal('RGB color operator after conversion', `${destination === 'gray' ? 'gray' : 'CMYK'} operators`),
+    true,
+    destination,
+  )
 }
-export function rewriteContent(bytes: Uint8Array, convert: (rgb: Color3) => Color4): ContentRewrite {
+export function rewriteContent(bytes: Uint8Array, convert: (rgb: Color3) => Color, destination: PressDestination = 'cmyk'): ContentRewrite {
   const source = decoder.decode(bytes)
   let outputLength = bytes.length
   let changed = false
-  const counts = scan(source, convert, false, (found) => {
+  const counts = scan(source, convert, false, destination, (found) => {
     changed = true
     outputLength += encoder.encode(found.text).length - (found.end - found.start)
   })
@@ -298,7 +320,7 @@ export function rewriteContent(bytes: Uint8Array, convert: (rgb: Color3) => Colo
   const output = new Uint8Array(outputLength)
   let inputAt = 0
   let outputAt = 0
-  scan(source, convert, false, (found) => {
+  scan(source, convert, false, destination, (found) => {
     const untouched = bytes.subarray(inputAt, found.start)
     output.set(untouched, outputAt)
     outputAt += untouched.length
