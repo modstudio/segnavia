@@ -16,9 +16,11 @@ import { ensureBaseStyle } from './base-style.ts'
 import { MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
-import { type FittedSize, fitSheet } from './fit.ts'
+import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import { layoutStageCanvas } from './stage-content.ts'
+import { stageCanvasLayout } from './stage-layout.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
@@ -41,6 +43,7 @@ export class SegnaviaStage extends HTMLElement {
   private pool = new FramePool(this, () => this.measure())
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
+  private viewportBlockSize = false
 
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
@@ -162,6 +165,7 @@ export class SegnaviaStage extends HTMLElement {
     const deck = state.deck
     if (!deck || !state.content) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
+    this.dataset.layout = deck.layout
     const shownState = this.authoringRefusesScripts && deck.scripts !== 'refuse' ? { ...state, deck: { ...deck, scripts: 'refuse' as const } } : state
     this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,
@@ -187,28 +191,30 @@ export class SegnaviaStage extends HTMLElement {
     const deck = this.attached?.state.deck
     const canvas = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     if (!deck || !canvas) return
-    let fitted: FittedSize
+    let box: { width: number; height: number }
     if (this.fit === 'viewport') {
       const style = getComputedStyle(this)
       const presenting = this.closest<HTMLElement>('[data-presenting]')
       const blockAvailable = presenting ? presenting.clientHeight : window.innerHeight - this.getBoundingClientRect().top
-      fitted = fitSheet({
-        width: this.clientWidth,
-        height: blockAvailable,
-        paddingInlineStart: Number.parseFloat(style.paddingInlineStart) || 0,
-        paddingInlineEnd: Number.parseFloat(style.paddingInlineEnd) || 0,
-        reserveBlockStart: this.room.blockStart ?? 0,
-        reserveBlockEnd: this.room.blockEnd ?? 0,
-        sheetWidth: deck.size.width,
-        sheetHeight: deck.size.height,
-      })
-      this.style.blockSize = `${fitted.height}px`
+      box = {
+        width: Math.max(0, this.clientWidth - (Number.parseFloat(style.paddingInlineStart) || 0) - (Number.parseFloat(style.paddingInlineEnd) || 0)),
+        height: Math.max(0, blockAvailable - (this.room.blockStart ?? 0) - (this.room.blockEnd ?? 0)),
+      }
     } else {
-      const scale = Math.min(this.clientWidth / deck.size.width, this.clientHeight / deck.size.height)
-      fitted = { scale, width: deck.size.width * scale, height: deck.size.height * scale }
-      this.style.removeProperty('block-size')
+      box = { width: this.clientWidth, height: this.clientHeight }
+      if (this.viewportBlockSize) {
+        this.style.removeProperty('block-size')
+        this.viewportBlockSize = false
+      }
+    }
+    const layout = stageCanvasLayout(deck, box)
+    const fitted: FittedSize = { scale: layout.scale, width: layout.size.width * layout.scale, height: layout.size.height * layout.scale }
+    if (this.fit === 'viewport') {
+      this.style.blockSize = `${fitted.height}px`
+      this.viewportBlockSize = true
     }
     for (const item of this.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')) {
+      layoutStageCanvas(item, layout.size)
       item.style.transform = `scale(${fitted.scale})`
       item.style.setProperty('--segnavia-transition-scale', String(fitted.scale))
     }
