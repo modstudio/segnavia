@@ -1,5 +1,3 @@
-// Rendering and capture checks that need no viewer, run under Bun and Node.
-
 import './source-guard.ts'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -14,6 +12,7 @@ import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
+import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
@@ -368,30 +367,7 @@ try {
     },
   )
   check('a right-to-left note under a left-to-right deck takes its own direction', notesDirection === 'rtl', notesDirection)
-
-  const longNotes = Array.from({ length: 60 }, (_, index) => `Line ${index + 1}: rendered notes continue.`).join('\n')
-  const longNotesFile = path.join(work, 'deck-long-notes.pdf')
-  writeFileSync(
-    longNotesFile,
-    await renderer.deckPdf(
-      {
-        title: 'Long notes',
-        fit: 'contain',
-        size: { width: 1280, height: 720 },
-        scripts: 'refuse',
-        slides: [{ id: 'long', content: { kind: 'html', html: '<p>Thumbnail only once</p>' }, notes: longNotes }],
-      },
-      { layout: 'notes' },
-    ),
-  )
-  const longNotesInfo = execFileSync('pdfinfo', [longNotesFile], { encoding: 'utf8' })
-  const longNotesText = execFileSync('pdftotext', [longNotesFile, '-'], { encoding: 'utf8' })
-  const thumbnailOccurrences = longNotesText.match(/Thumbnail only once/g)?.length ?? 0
-  check(
-    'deckPdf flows 60 note lines onto continuation pages and owns the thumbnail only on the first',
-    /Pages:\s+2\b/.test(longNotesInfo) && longNotesText.includes('Line 60: rendered notes continue.') && thumbnailOccurrences === 1,
-    `${longNotesInfo.match(/Pages:\s+\d+/)?.[0] ?? 'page count absent'}, last=${longNotesText.includes('Line 60: rendered notes continue.')}, thumbnail=${thumbnailOccurrences}`,
-  )
+  await verifyLongDeckNotes(renderer, work, check)
 
   const shots = path.join(work, 'shots')
   const run = await capture(
