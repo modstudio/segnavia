@@ -6,7 +6,7 @@ import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { convertedImageCount, convertSuppliedImage, createImageState, type JpegDecoder } from './image.ts'
+import { convertedImageCount, convertSuppliedImage, createImageState, type ImageState, type JpegDecoder } from './image.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
@@ -308,6 +308,52 @@ function addOutputIntent(document: PDFDocument, profile: Uint8Array, channels: 1
   document.catalog.set(key('OutputIntents'), document.context.obj([intentRef]))
 }
 
+interface SuppliedImageUse {
+  image: PDFRawStream
+  mask: MaskContext
+  replace: (object: PDFObject) => void
+}
+
+function replaceSourceImage(document: PDFDocument, image: PDFRawStream, uses: SuppliedImageUse[], replacement: PDFRawStream): void {
+  const reference = document.context.getObjectRef(image)
+  if (reference) document.context.assign(reference, replacement)
+  else for (const use of uses) use.replace(replacement)
+}
+
+async function convertImageUses(state: ImageState, image: PDFRawStream, uses: SuppliedImageUse[]): Promise<void> {
+  const normal = uses.filter((use) => use.mask === 'none')
+  const masks = uses.filter((use) => use.mask !== 'none')
+  if (normal.length > 0) {
+    const replacement = await convertSuppliedImage(state, image, 'none')
+    if (!replacement) return
+    replaceSourceImage(state.document, image, normal, replacement)
+  }
+  if (masks.length === 0) return
+  const replacement = await convertSuppliedImage(state, image, masks[0]?.mask ?? 'luminosity')
+  if (!replacement) return
+  if (normal.length === 0) replaceSourceImage(state.document, image, masks, replacement)
+  else {
+    const reference = state.document.context.getObjectRef(replacement) ?? state.document.context.register(replacement)
+    for (const use of masks) use.replace(reference)
+  }
+}
+
+async function convertGrayImages(document: PDFDocument, profile: Profile, decodeJpeg?: JpegDecoder): Promise<number> {
+  const state = createImageState(document, profile, decodeJpeg)
+  const images: SuppliedImageUse[] = []
+  walkPressGraph(document, {
+    content: () => undefined,
+    function: () => undefined,
+    group: () => undefined,
+    image: (image, mask, replace) => images.push({ image, mask, replace }),
+    shading: () => false,
+  })
+  const uses = new Map<PDFRawStream, SuppliedImageUse[]>()
+  for (const found of images) uses.set(found.image, [...(uses.get(found.image) ?? []), found])
+  for (const [image, found] of uses) await convertImageUses(state, image, found)
+  return convertedImageCount(state)
+}
+
 export async function rewritePressPdf(
   bytes: Uint8Array,
   profileBytes: Uint8Array,
@@ -321,29 +367,7 @@ export async function rewritePressPdf(
     const counts = rewritePressDocument(document, profile, tolerance)
     let convertedImages = 0
     const destination = pressDestination(profile)
-    if (destination === 'gray') {
-      const imageState = createImageState(document, profile, decodeJpeg)
-      const images: Array<{ image: PDFRawStream; mask: MaskContext; replace: (object: PDFObject) => void }> = []
-      walkPressGraph(document, {
-        content: () => undefined,
-        function: () => undefined,
-        group: () => undefined,
-        image: (image, mask, replace) => images.push({ image, mask, replace }),
-        shading: () => false,
-      })
-      for (const found of images) {
-        const replacement = await convertSuppliedImage(imageState, found.image, found.mask)
-        if (!replacement) continue
-        if (found.mask !== 'none') {
-          found.replace(document.context.getObjectRef(replacement) ?? document.context.register(replacement))
-          continue
-        }
-        const reference = document.context.getObjectRef(found.image)
-        if (reference) document.context.assign(reference, replacement)
-        else found.replace(replacement)
-      }
-      convertedImages = convertedImageCount(imageState)
-    }
+    if (destination === 'gray') convertedImages = await convertGrayImages(document, profile, decodeJpeg)
     addOutputIntent(document, profileBytes, destination === 'gray' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
     const report = await inspectPressPdf(output, destination)

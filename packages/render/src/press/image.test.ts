@@ -142,6 +142,30 @@ test('an image in an alpha-mask form uses PDF luminosity and keeps opacity data'
   expect((output.context.lookup(transfer) as PDFRawStream).contents).toEqual(Uint8Array.of(9, 8, 7))
 })
 
+test('an image used only in a luminosity mask leaves no RGB image object', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(51, 102, 153))
+  const form = document.context.register(
+    document.context.stream('/I Do', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+      Resources: { XObject: { I: image } },
+      Group: { S: 'Transparency', CS: 'DeviceRGB' },
+    }),
+  )
+  const smask = document.context.register(document.context.obj({ S: 'Luminosity', G: form }))
+  const page = document.addPage([10, 10])
+  page.node.set(key('Resources'), document.context.obj({ ExtGState: { Mask: { SMask: smask } } }))
+  page.node.set(key('Contents'), document.context.register(document.context.stream('/Mask gs')))
+
+  const converted = await rewritePressPdf(await document.save(), profileBytes)
+  const images = await outputImages(converted.bytes)
+  expect(images).toHaveLength(1)
+  expect(images[0]?.dict.get(key('ColorSpace'))?.toString()).toBe('/DeviceGray')
+  expect(decodePDFRawStream(images[0] as PDFRawStream).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+})
+
 test('converts an image object referenced twice only once', async () => {
   const document = await PDFDocument.create()
   const image = addImage(document, Uint8Array.of(51, 102, 153))

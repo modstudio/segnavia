@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { visitContentTokens } from '../../packages/render/src/press/content.ts'
-import { decodeContent, nameOf } from '../../packages/render/src/press/pdf-objects.ts'
+import { decodeContent } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
@@ -37,7 +37,6 @@ export async function processColorResidues(bytes: Uint8Array): Promise<ColorResi
   }
   for (const [, object] of document.context.enumerateIndirectObjects()) {
     if (object instanceof PDFRawStream) {
-      if (nameOf(object.dict.get(PDFName.of('Subtype'))) === 'Image') continue
       scanObject(object.dict)
       continue
     }
