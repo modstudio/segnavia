@@ -1,22 +1,40 @@
 import path from 'node:path'
-import { EVIDENCE, type Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, EVIDENCE, type Harness } from './harness.ts'
 
 const EXISTING_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready'])
 
+// A jump scrolls at once, but a late layout change can land between a click and the read, so the read retries to a bound.
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
-  return h.page
-    .frameLocator(`${frame} iframe`)
-    .locator(selector)
-    .evaluate((element) => {
-      const box = element.getBoundingClientRect()
-      return box.bottom > 0 && box.top < innerHeight
-    })
+  const read = () =>
+    h.page
+      .frameLocator(`${frame} iframe`)
+      .locator(selector)
+      .evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return box.bottom > 0 && box.top < innerHeight
+      })
+  const deadline = Date.now() + BOUNDED_WAIT_MS
+  let visible = await read()
+  while (!visible && Date.now() < deadline) {
+    await h.page.waitForTimeout(50)
+    visible = await read()
+  }
+  return visible
 }
 
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
   await Promise.all(['#book-en', '#book-he'].map((book) => page.frameLocator(`${book} iframe`).locator('.segnavia-contents-list').waitFor()))
+  // A click aims at a marker one letter wide, so the text must be in its final fonts before any click.
+  await Promise.all(
+    ['#book-en', '#book-he'].map((book) =>
+      page
+        .frameLocator(`${book} iframe`)
+        .locator('body')
+        .evaluate(() => document.fonts.ready.then(() => true)),
+    ),
+  )
 
   const geometry = await page.evaluate(() => ({
     heights: ['book-en', 'book-he'].map((id) => document.getElementById(id)?.getBoundingClientRect().height),
