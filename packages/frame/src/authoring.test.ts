@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { AuthoringController } from './authoring.ts'
+import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
 import { DeckController } from './controller.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 
@@ -81,16 +81,61 @@ test('a rejected reorder rolls back a frozen deck and reports the move error', a
     controller: deckController,
     authoringRail: () => rail,
   })
-  const authoring = new AuthoringController(
-    player as never,
-    { moveSlide: async () => Promise.reject(new Error('Move refused')) },
-    { notesMaxLength: 20_000 },
-  )
-  const errors: Array<{ message: string }> = []
+  const authoring = new AuthoringController(player as never, { moveSlide: async () => Promise.reject(new Error('Move refused')) }, { notesMaxLength: 20_000 })
+  const errors: AuthoringErrorDetail[] = []
   authoring.addEventListener('authoring-error', (event) => errors.push((event as CustomEvent).detail))
 
   await (authoring as unknown as { move(fromIndex: number, toIndex: number): Promise<void> }).move(0, 1)
 
   expect(deckController.state.deck?.slides.map((slide) => slide.id)).toEqual(['a', 'b'])
+  expect(errors).toEqual([{ message: 'Move refused', operation: 'move', slideId: 'a', error: expect.any(Error) }])
+})
+
+test('a rejected reorder does not replace a newer host deck and reports the move error', async () => {
+  const deckController = new DeckController({ hash: null })
+  await deckController.load({
+    title: 'Deck',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'A' } },
+      { id: 'b', content: { kind: 'html', html: 'B' } },
+    ],
+  })
+  let rejectMove = (_error: Error) => {}
+  let markMoveStarted = () => {}
+  const moveStarted = new Promise<void>((resolve) => (markMoveStarted = resolve))
+  const rail = {
+    setReorderEnabled() {},
+    subscribeReorder: () => () => {},
+  }
+  const player = Object.assign(new EventTarget(), {
+    controller: deckController,
+    authoringRail: () => rail,
+  })
+  const authoring = new AuthoringController(
+    player as never,
+    {
+      moveSlide: () => {
+        markMoveStarted()
+        return new Promise<void>((_resolve, reject) => (rejectMove = reject))
+      },
+    },
+    { notesMaxLength: 20_000 },
+  )
+  const errors: AuthoringErrorDetail[] = []
+  authoring.addEventListener('authoring-error', (event) => errors.push((event as CustomEvent).detail))
+
+  const moving = (authoring as unknown as { move(fromIndex: number, toIndex: number): Promise<void> }).move(0, 1)
+  await moveStarted
+  await deckController.load({
+    title: 'New host deck',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'Host A' } },
+      { id: 'b', content: { kind: 'html', html: 'Host B' } },
+    ],
+  })
+  rejectMove(new Error('Move refused'))
+  await moving
+
+  expect(deckController.state.deck?.title).toBe('New host deck')
   expect(errors).toEqual([{ message: 'Move refused', operation: 'move', slideId: 'a', error: expect.any(Error) }])
 })

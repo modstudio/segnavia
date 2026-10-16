@@ -28,11 +28,13 @@ export async function moveSlideOptimistically(
   const previous = controller.state.deck
   const slide = previous?.slides[fromIndex]
   if (!previous || !slide || toIndex < 0 || toIndex >= previous.slides.length || fromIndex === toIndex) return
+  let optimistic: Deck | null = null
   try {
     await load(reordered(previous, fromIndex, toIndex))
+    optimistic = controller.state.deck
     await save({ slideId: slide.id, fromIndex, toIndex })
   } catch (error) {
-    await load(previous)
+    if (optimistic === null || controller.state.deck === optimistic) await load(previous)
     throw error
   }
 }
