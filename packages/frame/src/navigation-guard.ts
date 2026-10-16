@@ -38,3 +38,7 @@ export function runNavigationGuard(target: EventTarget, reason: NavigationGuardR
   void next.then(clear, clear)
   return next
 }
+
+export function activeNavigationGuard(target: EventTarget): Promise<void> | undefined {
+  return state(target).running
+}

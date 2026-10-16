@@ -48,6 +48,11 @@ export class NotesSaveQueue {
     this.save = save
   }
 
+  hasLocalWork(slideId: string): boolean {
+    const entry = this.entry(slideId)
+    return entry.text !== entry.saved || entry.saves.size > 0
+  }
+
   seed(slideId: string, notes: string): boolean {
     const existing = this.entries.get(slideId)
     if (!existing) {

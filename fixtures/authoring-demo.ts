@@ -10,6 +10,8 @@ const facts = {
   moves: [] as unknown[],
   saves: [] as unknown[],
   rejectMove: false,
+  deferMove: false,
+  releaseMove: () => {},
   rejectNotes: false,
   deferNotes: false,
   releaseNotes: () => {},
@@ -19,6 +21,7 @@ const facts = {
 const authoring = attachAuthoring(player as never, {
   async moveSlide(input) {
     facts.moves.push(input)
+    if (facts.deferMove) await new Promise<void>((resolve) => (facts.releaseMove = resolve))
     if (facts.rejectMove) throw new Error('Move refused')
   },
   async saveNotes(input) {

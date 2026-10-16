@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
+import { type Harness, SITE } from './harness.ts'
+import { verifyReactAuthoring } from './react-authoring.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -98,8 +99,39 @@ async function verifyReloadedNotes(h: Harness) {
   check(
     'a reload preserves local work once, then adopts host notes after it settles',
     local === 'Local reload draft' && (await notes.inputValue()) === 'Host after settle',
+    JSON.stringify({ local, settled: await notes.inputValue() }),
   )
-  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = false))
+  await notes.fill('Draft before refused reload')
+  const afterRefusal = await page.evaluate(async () => {
+    const player = document.querySelector('segnavia-player') as HTMLElement & {
+      controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
+    }
+    await player.controller.load({}).catch(() => {})
+    const deck = player.controller.state.deck
+    await player.controller.load({ ...deck, slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host after refused reload' })) })
+    return (player.shadowRoot?.querySelector('textarea') as HTMLTextAreaElement | null)?.value ?? ''
+  })
+  check('a refused reload does not preserve local notes into the next host reload', afterRefusal === 'Host after refused reload', afterRefusal)
+  await notes.fill('Settled before reorder')
+  await page.waitForFunction(() =>
+    (window as unknown as { authoringFacts: { saves: Array<{ notes: string }> } }).authoringFacts.saves.some((save) => save.notes === 'Settled before reorder'),
+  )
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferMove: boolean } }).authoringFacts.deferMove = true))
+  await page.locator(`${PLAYER} segnavia-rail button[data-index="0"]`).press('Alt+ArrowDown')
+  await page.evaluate(() => {
+    const player = document.querySelector('segnavia-player') as HTMLElement & {
+      controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
+    }
+    const deck = player.controller.state.deck
+    ;(window as unknown as { concurrentHostLoad: Promise<void> }).concurrentHostLoad = player.controller.load({
+      ...deck,
+      slides: deck.slides.map((slide) => ({ ...slide, notes: 'Concurrent host notes' })),
+    })
+  })
+  await page.evaluate(() => (window as unknown as { authoringFacts: { releaseMove(): void } }).authoringFacts.releaseMove())
+  await page.evaluate(() => (window as unknown as { concurrentHostLoad: Promise<void> }).concurrentHostLoad)
+  check('a host reload during an optimistic reorder adopts host notes', (await notes.inputValue()) === 'Concurrent host notes', await notes.inputValue())
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferMove: boolean } }).authoringFacts.deferMove = false))
   await notes.fill('Detached draft')
   const detached = await page.evaluate(async () => {
     const holder = window as unknown as { authoring: { detach(): Promise<void> }; authoringFacts: { saves: Array<{ notes: string }> } }
@@ -322,81 +354,7 @@ export async function verifyRailAuthoring(h: Harness) {
   )
 
   await verifyReloadedNotes(h)
-
-  await page.goto(h.url('react.html'))
-  await page.waitForFunction(() => 'reactMount' in window)
-  await page.evaluate(() => (window as unknown as { reactMount(): void }).reactMount())
-  await page.waitForFunction(() => document.querySelector('segnavia-player'))
-  await page.waitForFunction(() => {
-    const holder = window as unknown as { reactDeckController?: unknown }
-    const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
-    return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
-  })
-  check(
-    'React hooks attach once when the player mounts under StrictMode',
-    (await page.locator(`${PLAYER} textarea[part="notes-editor"]`).count()) === 1 &&
-      (await page.locator(`${PLAYER} textarea[part="notes-editor"]`).isVisible()),
-  )
-  await page.locator(`${PLAYER} textarea[part="notes-editor"]`).fill('Strict mode navigation draft')
-  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => player.controller.next())
-  await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Strict mode navigation draft'))
-  check('React StrictMode replacement keeps the navigation save guard', true)
-  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
-  await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
-  await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
-  await page.waitForFunction(() => document.querySelector('segnavia-player')?.hasAttribute('rail'))
-  await h.waitFor(PLAYER, (data) => data.slide === '1')
-  const reactLabel = await page.locator(`${PLAYER} .player`).getAttribute('aria-label')
-  check(
-    'React renders the player and applies a later prop update',
-    reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
-    reactLabel ?? '',
-  )
-  const reactNotes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
-  await reactNotes.fill('React draft')
-  await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
-  await page.waitForTimeout(700)
-  const authoringUpdate = await page.evaluate(() => {
-    const field = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('textarea')
-    const facts = (window as unknown as { reactFacts: { saves: string[] } }).reactFacts
-    return { text: field?.value, maxLength: field?.maxLength, saves: facts.saves }
-  })
-  check(
-    'React authoring updates preserve a debounced draft',
-    authoringUpdate.text === 'React draft' && authoringUpdate.maxLength === 1234 && authoringUpdate.saves.join(',') === 'React draft',
-    JSON.stringify(authoringUpdate),
-  )
-  const oldPlayer = await page.locator(PLAYER).elementHandle()
-  await page.evaluate(() => {
-    const holder = window as unknown as { reactReplace(): void; reactDeckController?: unknown }
-    holder.reactReplace()
-  })
-  // React publishes the new controller from an effect a render after the swap, so the facts are polled to a bound rather than read after a fixed number of frames.
-  const replacementFacts = () =>
-    page.evaluate((oldPlayer) => {
-      const holder = window as unknown as { reactDeckController?: unknown }
-      const newPlayer = document.querySelector('segnavia-player')
-      return {
-        replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
-        oldDetached: oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null,
-        newAttached: Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')),
-        controllerFollowed: holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller,
-      }
-    }, oldPlayer)
-  const followed = (facts: Awaited<ReturnType<typeof replacementFacts>>) => facts.replaced && facts.oldDetached && facts.newAttached && facts.controllerFollowed
-  const deadline = Date.now() + BOUNDED_WAIT_MS
-  let replacement = await replacementFacts()
-  while (!followed(replacement) && Date.now() < deadline) {
-    await page.waitForTimeout(50)
-    replacement = await replacementFacts()
-  }
-  check('React keyed replacement follows the new player', followed(replacement), JSON.stringify(replacement))
-  await page.locator(`${PLAYER} textarea[part="notes-editor"]`).fill('Unmounted React draft')
-  const unmountedPlayer = await page.locator(PLAYER).elementHandle()
-  await page.evaluate(() => (window as unknown as { reactUnmount(): void }).reactUnmount())
-  await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Unmounted React draft'))
-  const detached = await unmountedPlayer?.evaluate((player) => player.shadowRoot?.querySelector('[data-authoring-notes]') === null)
-  check('React unmount detaches authoring and saves a pending edit', detached === true)
+  await verifyReactAuthoring(h)
 
   const playerBundle = readFileSync(path.join(SITE, 'segnavia-player.js'), 'utf8')
   const controlsBundle = readFileSync(path.join(SITE, 'segnavia-controls.js'), 'utf8')

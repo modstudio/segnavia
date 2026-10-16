@@ -1,7 +1,7 @@
 import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
-import { isInternalDeck, markInternalDeckInput } from './deck-load-origin.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
+import { deckPreservesNotes, isInternalDeck, markInternalDeckInput, preserveNotesForLoad } from './deck-load-origin.ts'
+import { activeNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { SegnaviaRail } from './rail.ts'
@@ -138,9 +138,14 @@ export class AuthoringController extends EventTarget {
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    this.removeNavigationGuard = setNavigationGuard(this.player.controller, async () => {
+    this.removeNavigationGuard = setNavigationGuard(this.player.controller, async (reason) => {
       const slideId = this.player.controller.state.slide?.id
-      if (slideId) await this.notes?.flush(slideId)
+      if (!slideId) return
+      if (reason === 'load' && this.notes?.hasLocalWork(slideId)) {
+        const load = activeNavigationGuard(this.player.controller)
+        if (load) preserveNotesForLoad(load, slideId)
+      }
+      await this.notes?.flush(slideId)
     })
     this.renderNotes()
   }
@@ -171,6 +176,7 @@ export class AuthoringController extends EventTarget {
     this.renderedDeck = deck
     if (adoptDeck) {
       for (const deckSlide of deck?.slides ?? []) {
+        if (deckPreservesNotes(deck, deckSlide.id)) continue
         const hostNotes = deckSlide.notes ?? ''
         const adopted = this.notes.seed(deckSlide.id, hostNotes)
         if (deckSlide.id === slide.id) visibleChanged = adopted
