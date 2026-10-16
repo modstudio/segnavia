@@ -97,9 +97,9 @@ export async function verifyPages(h: Harness) {
         return {
           href: location.href,
           present: Boolean(target),
-        visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
+          visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
           focused: document.activeElement === target,
-        box: box ? { top: box.top, bottom: box.bottom, viewport: innerHeight } : null,
+          box: box ? { top: box.top, bottom: box.bottom, viewport: innerHeight } : null,
         }
       })
     check(
