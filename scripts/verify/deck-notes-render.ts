@@ -34,10 +34,11 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   )
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
   const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' })
+  const compactText = text.replaceAll(/\s/g, '')
   const thumbnails = text.match(/Thumbnail only once/g)?.length ?? 0
   check(
     'deckPdf flows 60 note lines onto continuation pages and owns the thumbnail only on the first',
-    /Pages:\s+[23]\b/.test(info) && text.includes('Line 60: rendered notes continue.') && text.includes(longToken) && thumbnails === 1 && notesFit,
-    `${info.match(/Pages:\s+\d+/)?.[0] ?? 'page count absent'}, last=${text.includes('Line 60: rendered notes continue.')}, token=${text.includes(longToken)}, thumbnail=${thumbnails}, fit=${notesFit}`,
+    /Pages:\s+[23]\b/.test(info) && text.includes('Line 60: rendered notes continue.') && compactText.includes(longToken) && thumbnails === 1 && notesFit,
+    `${info.match(/Pages:\s+\d+/)?.[0] ?? 'page count absent'}, last=${text.includes('Line 60: rendered notes continue.')}, token=${compactText.includes(longToken)}, thumbnail=${thumbnails}, fit=${notesFit}`,
   )
 }
