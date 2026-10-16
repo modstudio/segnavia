@@ -56,18 +56,19 @@ export async function verifyPageOverflow(
   check: (what: string, ok: boolean, detail?: string) => void,
   executablePath: string,
 ): Promise<void> {
+  let fixedReport: OverflowReport | undefined
   const overflowing = await renderer.pagePdf(
     {
       html: '<style>html,body{margin:0}.overflow{position:absolute;left:360px;top:80px;width:100px;height:100px;background:black;transform:rotate(20deg)}</style><div class="overflow"></div>',
       size: { width: 400, height: 300 },
     },
-    { effects: false },
+    { effects: false, overflow: { report: (value) => (fixedReport = value) } },
   )
   const overflowScale = await pageContentScale(overflowing)
   check(
     'a fixed page with sideways overflow prints at its own scale',
-    Math.abs(overflowScale - 3.125) < 0.000001,
-    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px`,
+    Math.abs(overflowScale - 3.125) < 0.000001 && (fixedReport?.entries[0]?.clippedEnd ?? 0) > 0,
+    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.clippedEnd}`,
   )
 
   const paper = { width: 105.833333, height: 132.291667, unit: 'mm' as const }

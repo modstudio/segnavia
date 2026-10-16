@@ -88,18 +88,24 @@ export async function printPage(
   }
 
   const boxes = printBoxes(print)
-  const pdf = await tab.pdf({
-    width: `${boxes.bleedBox.width}mm`,
-    height: `${boxes.bleedBox.height}mm`,
-    printBackground: true,
-    preferCSSPageSize: false,
-    margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-  })
-  const papers = (await PDFDocument.load(pdf)).getPageCount()
+  const printed = await printWithOverflow(
+    tab,
+    Math.round(boxes.bleedBox.width * PX_PER_MM),
+    'page',
+    {
+      width: `${boxes.bleedBox.width}mm`,
+      height: `${boxes.bleedBox.height}mm`,
+      printBackground: true,
+      preferCSSPageSize: false,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+    },
+    inputIndex,
+  )
+  const papers = (await PDFDocument.load(printed.bytes)).getPageCount()
   if (papers > 1) {
     throw new RenderRefusedError(
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
     )
   }
-  return { bytes: await addPressBoxes(pdf, print), overflow: undefined }
+  return { bytes: await addPressBoxes(printed.bytes, print), overflow: printed.overflow }
 }
