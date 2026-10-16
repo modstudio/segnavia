@@ -12,10 +12,12 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 /* Keep this specific overlay: BASE_CSS's zero-specificity rule loses to the player's relative positioning. */
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
+.fit-reserve{position:absolute;visibility:hidden;pointer-events:none;block-size:var(--segnavia-fit-reserve,0px)}
 .player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:inline-size;display:block;padding-block-end:8px}
+:host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center}
 segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
 :host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
