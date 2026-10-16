@@ -33,11 +33,11 @@ export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled]) [data-annotation]){opacity:0;transition:opacity var(--segnavia-cue-fade,160ms)}
 :where(segnavia-stage:not([unstyled]) [data-annotation][data-shown]){opacity:1}
 @media (prefers-reduced-motion:reduce){:where(segnavia-stage:not([unstyled]) [data-annotation]){transition:none}}
-:where(:host){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
-:where(:host [part~="thumbnail"]){position:absolute;inset:0;overflow:hidden;border-radius:inherit}
-:where(:host .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-thumbnail-canvas,transparent);pointer-events:none}
-:where(:host .segnavia-stage__canvas > iframe){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
-:where(:host .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
+:where(:host(segnavia-thumbnail)){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
+:where(:host(segnavia-thumbnail) [part~="thumbnail"]){position:absolute;inset:0;overflow:hidden;border-radius:inherit}
+:where(:host(segnavia-thumbnail) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-thumbnail-canvas,transparent);pointer-events:none}
+:where(:host(segnavia-thumbnail) .segnavia-stage__canvas > iframe){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
+:where(:host(segnavia-thumbnail) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
