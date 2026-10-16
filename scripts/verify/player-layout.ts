@@ -86,6 +86,7 @@ export async function verifyPlayerLayout(h: Harness) {
 
   await page.goto(h.url('layout-overlay.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await page.waitForTimeout(200)
   boxes = await geometry(h)
   check('overlay makes the player and slide the same height', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
   check('overlay controls are visible while paused', boxes.bar.opacity === '1', JSON.stringify(boxes))
@@ -108,6 +109,7 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.setViewportSize({ width: 360, height: 720 })
   await page.goto(h.url('layout-overlay.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await page.waitForTimeout(200)
   boxes = await geometry(h)
   check('overlay keeps the player and slide the same height at 360px', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
   await h.evidence('player-overlay-360x720.png')
