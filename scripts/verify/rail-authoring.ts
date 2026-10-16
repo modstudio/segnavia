@@ -80,6 +80,7 @@ async function verifyReloadedNotes(h: Harness) {
     'a reload preserves local work once, then adopts host notes after it settles',
     local === 'Local reload draft' && (await notes.inputValue()) === 'Host after settle',
   )
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = false))
   await notes.fill('Detached draft')
   const detached = await page.evaluate(async () => {
     const holder = window as unknown as { authoring: { detach(): Promise<void> }; authoringFacts: { saves: Array<{ notes: string }> } }
