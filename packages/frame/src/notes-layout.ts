@@ -41,14 +41,24 @@ export function paginateNotes(target: Document | null): void {
   }
   const take = (node: HTMLElement, text: string) => {
     if (fits(node, text)) return text.length
+    const boundaries = [0]
+    if (typeof Intl.Segmenter === 'function') {
+      for (const part of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)) boundaries.push(part.index + part.segment.length)
+    } else {
+      let offset = 0
+      for (const point of text) {
+        offset += point.length
+        boundaries.push(offset)
+      }
+    }
     let low = 0
-    let high = text.length
+    let high = boundaries.length - 1
     while (low < high) {
       const middle = Math.ceil((low + high) / 2)
-      if (fits(node, text.slice(0, middle))) low = middle
+      if (fits(node, text.slice(0, boundaries[middle]))) low = middle
       else high = middle - 1
     }
-    let end = low
+    let end = boundaries[low] ?? 0
     if (end > 0 && end < text.length) {
       const space = text.slice(0, end).search(/\s+\S*$/)
       if (space > 0) end = space
