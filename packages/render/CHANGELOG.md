@@ -1,5 +1,49 @@
 # @segnavia/render
 
+## 0.6.0
+
+### Minor Changes
+
+- ### `@segnavia/format`
+
+  - Keeps the format package aligned with the shared 0.6.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/html`
+
+  - Keeps the HTML package aligned with the shared 0.6.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/frame`
+
+  - Defaults to `fit="contain"`, sizing players to contain their slide and controls in the visible viewport.
+  - Adds `controls="overlay"` to overlay controls on the slide.
+  - Adds the `--segnavia-fit-reserve` and `--segnavia-overlay-scrim` tokens.
+  - Stops playback when a player or externally controlled stage disconnects.
+  - Behavior change: hosts that need 0.5.0's width-only sizing can set `fit="width"`.
+
+  ### `@segnavia/react`
+
+  - Its `fit` and `controls` props now use the frame's `PlayerFit` and `PlayerControls` types.
+  - The package is not yet published to npm.
+
+  ### `@segnavia/render`
+
+  - The press option accepts a greyscale ICC profile and writes a DeviceGray PDF through it.
+
+  ### `@segnavia/capture`
+
+  - Keeps the capture package aligned with the shared 0.6.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/voice`
+
+  - Keeps the voice package aligned with the shared 0.6.0 package release; it has no package-specific API changes.
+
+### Patch Changes
+
+- Updated dependencies
+  - @segnavia/frame@0.6.0
+  - @segnavia/format@0.6.0
+  - @segnavia/html@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
