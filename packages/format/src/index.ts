@@ -4,7 +4,7 @@
 
 import { z } from 'zod'
 import { BookShape, BookView } from './book.ts'
-import { DeckShape, Manifest, PublishedShot, Shot, Size } from './deck.ts'
+import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'

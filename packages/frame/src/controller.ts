@@ -1,11 +1,13 @@
-import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
+import { annotationCueIssues, type Deck, PublishedShot, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { stateForDeckLoad } from './controller-load.ts'
 import { captionsPolicy, playerOptionState, referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
-import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
+import { internalDeckLoad } from './deck-load-origin.ts'
+import { hashSlideIndex, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
-import { runNavigationGuard } from './navigation-guard.ts'
+import { parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -73,7 +75,6 @@ export class DeckController extends EventTarget {
     window.removeEventListener('keydown', this.onPageKey)
     this.listening = false
   }
-
   async loadUrl(src: string): Promise<void> {
     const url = new URL(src, hasWindow ? location.href : undefined).href
     const response = await fetch(url)
@@ -82,25 +83,23 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
-    if (this.current.deck) await runNavigationGuard(this)
+    await this.loadDeck(input, base, false)
+  }
+
+  async [internalDeckLoad](input: Deck): Promise<void> {
+    await this.loadDeck(input, undefined, true)
+  }
+
+  private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
+    const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
+    if (guarded) await guarded
     if (base) this.options.base = base
-    const deck = Deck.parse(input)
-    const wasOpen = this.current.deck !== null
-    const oldIds = this.current.deck?.slides.map((slide) => slide.id) ?? []
-    const selectedId = this.current.slide?.id ?? null
+    const deck = parseDeckLoad(input, guarded, internal)
     this.prefetched.clear()
     this.shots.clear()
-    const direction = resolveDirection(deck.dir, deck.lang, deck.title)
-    const playerOptions = playerOptionState(deck, this.settings.captionsVisible, this.options)
-    const index = wasOpen
-      ? indexAfterReload(
-          oldIds,
-          deck.slides.map((slide) => slide.id),
-          selectedId,
-        )
-      : (this.hashIndex(deck) ?? 0)
-    this.current = { ...this.current, ...playerOptions, deck, direction, playing: false, index, totalMs: deckTimeline(deck).totalMs }
-    await this.show(index)
+    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, this.hashIndex(deck))
+    this.current = { ...this.current, ...loaded }
+    await this.show(loaded.index)
   }
 
   async go(index: number): Promise<void> {

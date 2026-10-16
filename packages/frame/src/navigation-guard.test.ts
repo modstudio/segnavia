@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
+import { deckPreservesNotes, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
+import { activeNavigationGuard, runNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 
 const deck = {
   title: 'Guarded deck',
@@ -35,6 +36,46 @@ test('concurrent navigations wait for the same running guard', async () => {
   expect(controller.state.index).not.toBe(0)
 })
 
+test('concurrent loads have distinct provenance while awaiting one guard', async () => {
+  const target = new EventTarget()
+  let release = () => {}
+  setNavigationGuard(
+    target,
+    () =>
+      new Promise<void>((resolve) => {
+        const active = activeNavigationGuard(target)
+        if (active) preserveNotesForLoad(active, 'one')
+        release = resolve
+      }),
+  )
+
+  const first = runNavigationGuard(target, 'load')
+  const second = runNavigationGuard(target, 'load')
+  await Promise.resolve()
+
+  expect(first).not.toBe(second)
+  release()
+  await Promise.all([first, second])
+  expect(deckPreservesNotes(parseDeckLoad(deck, first), 'one')).toBe(true)
+  expect(deckPreservesNotes(parseDeckLoad(deck, second), 'one')).toBe(false)
+})
+
+test('an old guard disposer does not remove its replacement', async () => {
+  const target = new EventTarget()
+  const calls: string[] = []
+  const removeOld = setNavigationGuard(target, async () => {
+    calls.push('old')
+  })
+  setNavigationGuard(target, async () => {
+    calls.push('new')
+  })
+
+  removeOld()
+  await runNavigationGuard(target)
+
+  expect(calls).toEqual(['new'])
+})
+
 test('cross-slide seek awaits the navigation guard but same-slide seek does not', async () => {
   const controller = new DeckController({ hash: null, persist: false })
   await controller.load({
@@ -63,4 +104,18 @@ test('cross-slide seek awaits the navigation guard but same-slide seek does not'
   release()
   await seeking
   expect(controller.state.index).toBe(1)
+})
+
+test('identifies host reloads separately from slide navigation', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.load(deck)
+  const reasons: string[] = []
+  setNavigationGuard(controller, async (reason) => {
+    reasons.push(reason)
+  })
+
+  await controller.next()
+  await controller.load(deck)
+
+  expect(reasons).toEqual(['navigate', 'load'])
 })

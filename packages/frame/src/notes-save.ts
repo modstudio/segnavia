@@ -13,6 +13,7 @@ interface Timers {
 
 interface Entry extends NotesSaveState {
   saved: string
+  host: string
   version: number
   timer: number | null
   saves: Map<number, Promise<boolean>>
@@ -47,10 +48,39 @@ export class NotesSaveQueue {
     this.save = save
   }
 
-  seed(slideId: string, notes: string) {
-    if (!this.entries.has(slideId)) {
-      this.entries.set(slideId, { text: notes, saved: notes, version: 0, timer: null, saves: new Map(), status: 'idle', message: '' })
+  hasLocalWork(slideId: string): boolean {
+    const entry = this.entry(slideId)
+    return entry.text !== entry.saved || entry.saves.size > 0
+  }
+
+  seed(slideId: string, notes: string): boolean {
+    const existing = this.entries.get(slideId)
+    if (!existing) {
+      this.entries.set(slideId, {
+        text: notes,
+        saved: notes,
+        host: notes,
+        version: 0,
+        timer: null,
+        saves: new Map(),
+        status: 'idle',
+        message: '',
+      })
+      return true
     }
+    if (existing.text !== existing.saved || existing.saves.size > 0) return false
+    if (existing.host === notes) return false
+    if (existing.text === notes) {
+      existing.host = notes
+      return false
+    }
+    existing.text = notes
+    existing.saved = notes
+    existing.host = notes
+    existing.status = 'idle'
+    existing.message = ''
+    this.notify(slideId)
+    return true
   }
 
   state(slideId: string): NotesSaveState {
@@ -84,8 +114,16 @@ export class NotesSaveQueue {
   }
 
   async flushAll(): Promise<boolean> {
-    const results = await Promise.all([...this.entries.keys()].map((slideId) => this.flush(slideId)))
-    return results.every(Boolean)
+    for (const [slideId, entry] of this.entries) {
+      if (entry.timer !== null) {
+        this.timers.clear(entry.timer)
+        entry.timer = null
+      }
+      if (entry.text !== entry.saved) void this.start(slideId, entry.version)
+    }
+    const pending = [...this.entries.values()].flatMap((entry) => [...entry.saves.values()])
+    const results = await Promise.all(pending)
+    return results.every(Boolean) && !this.dirty
   }
 
   retry(slideId: string): Promise<boolean> {

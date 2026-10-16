@@ -1,5 +1,7 @@
+import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
+import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
+import { activeNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { SegnaviaRail } from './rail.ts'
@@ -52,6 +54,9 @@ export class AuthoringController extends EventTarget {
   private notesSlideId: string | null = null
   private updateGeneration = 0
   private updateTail = Promise.resolve()
+  private detachPromise: Promise<void> | null = null
+  private renderedDeck: Deck | null = null
+  private removeNavigationGuard: (() => void) | null = null
 
   constructor(
     private player: SegnaviaPlayer,
@@ -84,7 +89,7 @@ export class AuthoringController extends EventTarget {
       const saved = await this.notes?.flushAll()
       if (this.stopped || generation !== this.updateGeneration) return
       if (saved === false) return
-      this.detachNotes()
+      this.detachNotes()?.dispose()
     }
     this.handlers = handlers
     if (!hadMove && hasMove) this.attachReorder()
@@ -96,11 +101,18 @@ export class AuthoringController extends EventTarget {
     if (field) field.maxLength = this.options.notesMaxLength
   }
 
-  detach() {
-    if (this.stopped) return
+  detach(): Promise<void> {
+    if (this.detachPromise) return this.detachPromise
     this.stopped = true
     this.detachReorder()
-    this.detachNotes()
+    const notes = this.detachNotes()
+    this.detachPromise = this.finishDetach(notes)
+    return this.detachPromise
+  }
+
+  private async finishDetach(notes: NotesSaveQueue | null) {
+    await notes?.flushAll()
+    notes?.dispose()
   }
 
   private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {
@@ -122,39 +134,55 @@ export class AuthoringController extends EventTarget {
       (slideId) => {
         if (slideId === this.notesSlideId) this.renderNotesStatus()
       },
-      (slideId, error) => {
-        const detail: AuthoringErrorDetail = { operation: 'notes', slideId, message: errorMessage(error), error }
-        this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
-      },
+      this.notesFailed,
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, async () => {
+    this.removeNavigationGuard = setNavigationGuard(this.player.controller, async (reason) => {
       const slideId = this.player.controller.state.slide?.id
-      if (slideId) await this.notes?.flush(slideId)
+      if (!slideId) return
+      if (reason === 'load' && this.notes?.hasLocalWork(slideId)) {
+        const load = activeNavigationGuard(this.player.controller)
+        if (load) preserveNotesForLoad(load, slideId)
+      }
+      await this.notes?.flush(slideId)
     })
     this.renderNotes()
   }
 
-  private detachNotes() {
+  private detachNotes(): NotesSaveQueue | null {
+    const notes = this.notes
     this.player.controller.removeEventListener('change', this.renderNotes)
     this.player.removeEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, null)
-    this.notes?.dispose()
+    this.removeNavigationGuard?.()
+    this.removeNavigationGuard = null
     this.notes = null
     this.notesRoot?.remove()
     this.notesRoot = null
     this.notesSlideId = null
+    this.renderedDeck = null
     this.refuseStageScripts(false)
+    return notes
   }
 
   private renderNotes = () => {
     const slide = this.player.controller.state.slide
+    const deck = this.player.controller.state.deck
     const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
     const label = this.notesRoot?.querySelector('label span')
     if (!slide || !field || !this.notes) return
-    this.notes.seed(slide.id, slide.notes ?? '')
-    if (this.notesSlideId !== slide.id) {
+    let visibleChanged = false
+    const adoptDeck = deck !== this.renderedDeck && deck !== null && !isInternalDeck(deck)
+    this.renderedDeck = deck
+    if (adoptDeck) {
+      for (const deckSlide of deck?.slides ?? []) {
+        if (deckPreservesNotes(deck, deckSlide.id)) continue
+        const hostNotes = deckSlide.notes ?? ''
+        const adopted = this.notes.seed(deckSlide.id, hostNotes)
+        if (deckSlide.id === slide.id) visibleChanged = adopted
+      }
+    }
+    if (this.notesSlideId !== slide.id || visibleChanged) {
       this.notesSlideId = slide.id
       field.value = this.notes.state(slide.id).text
     }
@@ -185,6 +213,11 @@ export class AuthoringController extends EventTarget {
     if ((event.target as Element).closest('button') && this.notesSlideId) void this.notes?.retry(this.notesSlideId)
   }
 
+  private notesFailed = (slideId: string, error: unknown) => {
+    const detail: AuthoringErrorDetail = { operation: 'notes', slideId, message: errorMessage(error), error }
+    this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
+  }
+
   private refuseStageScripts(refused: boolean) {
     this.player.setAuthoringScriptsRefused(refused)
   }
@@ -209,7 +242,7 @@ export class AuthoringController extends EventTarget {
     this.pendingMove = true
     this.rail?.setReorderEnabled(false)
     try {
-      await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler)
+      await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler, this.loadInternalDeck)
     } catch (error) {
       const detail: AuthoringErrorDetail = { operation: 'move', slideId, message: errorMessage(error), error }
       this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
@@ -217,6 +250,10 @@ export class AuthoringController extends EventTarget {
       this.pendingMove = false
       this.rail?.setReorderEnabled(true)
     }
+  }
+
+  private loadInternalDeck = async (deck: Deck) => {
+    await this.player.controller[internalDeckLoad](deck)
   }
 }
 

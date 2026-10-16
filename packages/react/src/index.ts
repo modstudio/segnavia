@@ -88,7 +88,7 @@ export function useAuthoring(player: SegnaviaPlayer | null, handlers: AuthoringH
     const attached = attachAuthoring(player, latestHandlers.current, latestOptions.current)
     setController(attached)
     return () => {
-      attached.detach()
+      void attached.detach()
       setController(null)
     }
   }, [player])
