@@ -1,6 +1,6 @@
 import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
-import { captionsPolicy, playerOptionState } from './controller-options.ts'
+import { captionsPolicy, playerOptionState, referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
@@ -280,12 +280,12 @@ export class DeckController extends EventTarget {
     this.prefetched.delete(slide.id)
     return ready ?? this.resolveFresh(slide, index)
   }
-
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
     const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
     if (content.kind === 'shot') {
       this.assertCues(slide, content.shot.annotations.length)
-      return slide.content.kind === 'shot-ref' && slide.content.fit ? { ...content, fit: slide.content.fit } : content
+      if (slide.content.kind !== 'shot-ref') return content
+      return referenceOverrides(content, slide.content)
     }
     if (content.kind !== 'shot-ref') return content
     const href = this.url(content.href)
@@ -299,7 +299,7 @@ export class DeckController extends EventTarget {
     }
     const { src, shot } = await published
     this.assertCues(slide, shot.annotations.length)
-    return { kind: 'shot', src: new URL(src, href).href, shot, ...(content.fit ? { fit: content.fit } : {}) }
+    return resolvedPublishedShot(new URL(src, href).href, shot, content)
   }
 
   private assertCues(slide: Slide, annotationCount: number) {

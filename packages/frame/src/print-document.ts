@@ -18,7 +18,7 @@ import {
   type Slide,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
-import { annotationFocusBox, fitImage, type ImagePlacement, imageLayerStyles } from './image-fit.ts'
+import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
@@ -55,11 +55,13 @@ export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, 
 
 function transformedMedia(width: number, height: number, src: string, alt: string, image: Deck['size'], placement: ImagePlacement, annotations = ''): string {
   const transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
-  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div style="position:absolute;left:0;top:0;width:${image.width}px;height:${image.height}px;transform:${transform};transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="width:${image.width}px;height:${image.height}px;display:block">${annotations}</div></div>`
+  const frame = imageFrameStyle(placement, { width, height })
+  const imageStyle = frame ? `border-radius:${frame.borderRadius};box-shadow:${frame.boxShadow};` : ''
+  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div style="position:absolute;left:0;top:0;width:${image.width}px;height:${image.height}px;transform:${transform};transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="width:${image.width}px;height:${image.height}px;display:block;${imageStyle}">${annotations}</div></div>`
 }
 
-function naturalImage(width: number, height: number, src: string, alt: string, fit: Deck['fit']): string {
-  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div data-segnavia-image-layer data-slide-width="${width}" data-slide-height="${height}" data-fit="${fit}" style="position:absolute;left:0;top:0;transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="display:block"></div></div>`
+function naturalImage(width: number, height: number, src: string, alt: string, fit: Deck['fit'], frame: boolean): string {
+  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div data-segnavia-image-layer data-slide-width="${width}" data-slide-height="${height}" data-fit="${fit}" data-frame="${frame}" style="position:absolute;left:0;top:0;transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="display:block"></div></div>`
 }
 
 // Natural dimensions are available only after the print document's images
@@ -71,8 +73,8 @@ export function placePrintImages(target: Document | null): void {
     if (!image || image.naturalWidth <= 0 || image.naturalHeight <= 0) return
     const slide = { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) }
     const size = { width: image.naturalWidth, height: image.naturalHeight }
-    const placement = fitImage(slide, size, layer.dataset.fit as Deck['fit'])
-    const styles = imageLayerStyles(size, placement)
+    const placement = fitImage(slide, size, layer.dataset.fit as Deck['fit'], undefined, layer.dataset.frame === 'true')
+    const styles = imageLayerStyles(size, placement, slide)
     Object.assign(layer.style, styles.layer)
     Object.assign(image.style, styles.image)
   })
@@ -90,10 +92,10 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
     case 'url':
       return `<iframe sandbox="allow-scripts" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
     case 'image':
-      return naturalImage(width, height, escapeHtml(inline(content.src)), content.alt, content.fit ?? deck.fit)
+      return naturalImage(width, height, escapeHtml(inline(content.src)), content.alt, content.fit ?? deck.fit, content.frame ?? deck.frame)
     case 'shot': {
       const focus = annotationFocusBox(content.shot.size, content.shot.annotations)
-      const placement = fitImage(deck.size, content.shot.size, content.fit ?? deck.fit, focus)
+      const placement = fitImage(deck.size, content.shot.size, content.fit ?? deck.fit, focus, content.frame ?? deck.frame)
       const annotations = annotationSvg(content.shot.size, content.shot.annotations)
       return transformedMedia(width, height, escapeHtml(inline(content.src)), content.shot.title, content.shot.size, placement, annotations)
     }

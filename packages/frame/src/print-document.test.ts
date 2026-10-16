@@ -133,9 +133,11 @@ describe('printableDeck', () => {
     }
     const fitted = Deck.parse({
       title: 'Fits',
+      frame: true,
       slides: [
-        { id: 'shot', content: { kind: 'shot', src: 'tall.png', shot: tallShot, fit: 'focus' } },
+        { id: 'shot', content: { kind: 'shot', src: 'tall.png', shot: tallShot, fit: 'focus', frame: false } },
         { id: 'image', content: { kind: 'image', src: 'plain.png', alt: 'Plain image', fit: 'width' } },
+        { id: 'framed-shot', content: { kind: 'shot', src: 'wide.png', shot: { ...tallShot, size: { width: 1280, height: 400 }, annotations: [] } } },
       ],
     })
     const html = printableDeck(fitted)
@@ -144,6 +146,8 @@ describe('printableDeck', () => {
     expect(html).toContain('data-fit="width"')
     expect(html).not.toContain('onload=')
     expect(html).not.toContain('<script>')
+    expect(html).toContain('data-frame="true"')
+    expect(html).toContain('border-radius:15.342465753424658px')
     expect(html).not.toContain('object-fit')
   })
 

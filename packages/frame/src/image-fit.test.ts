@@ -1,25 +1,61 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationFocusBox, fitImage, imageLayerStyles } from './image-fit.ts'
+import { annotationFocusBox, fitImage, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 
 const slide = { width: 1280, height: 720 }
 const tall = { width: 1280, height: 2400 }
 
 describe('fitImage', () => {
+  test('insets a framed contained image', () => {
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'contain', undefined, true)).toEqual({
+      scale: (1280 - 112) / 1280,
+      x: 56,
+      y: (720 - 400 * ((1280 - 112) / 1280)) / 2,
+      framed: true,
+    })
+  })
+
+  test.each([100, 112])('keeps framed geometry valid on a %px square slide', (side) => {
+    const smallSlide = { width: side, height: side }
+    const image = { width: 200, height: 100 }
+    const placement = fitImage(smallSlide, image, 'contain', undefined, true)
+
+    expect(placement.scale).toBeGreaterThan(0)
+    expect(Number.isFinite(placement.scale)).toBe(true)
+    expect(placement.x).toBeGreaterThanOrEqual(0)
+    expect(placement.y).toBeGreaterThanOrEqual(0)
+    expect(placement.x + image.width * placement.scale).toBeLessThanOrEqual(side)
+    expect(placement.y + image.height * placement.scale).toBeLessThanOrEqual(side)
+
+    const style = imageFrameStyle(placement, smallSlide)
+    expect(style).toBeDefined()
+    for (const length of `${style?.borderRadius} ${style?.boxShadow}`.matchAll(/(-?(?:\d+(?:\.\d+)?|Infinity|NaN))px/g)) {
+      expect(Number(length[1])).toBeGreaterThan(0)
+      expect(Number.isFinite(Number(length[1]))).toBe(true)
+    }
+  })
+
+  test('scales the inset from the shorter slide side', () => {
+    const largeSlide = { width: 1920, height: 1080 }
+    const placement = fitImage(largeSlide, { width: 1920, height: 600 }, 'contain', undefined, true)
+
+    expect(placement.x).toBe(84)
+  })
+
   test('contains the whole image and centers its bands', () => {
-    expect(fitImage(slide, tall, 'contain')).toEqual({ scale: 0.3, x: 448, y: 0 })
+    expect(fitImage(slide, tall, 'contain')).toEqual({ scale: 0.3, x: 448, y: 0, framed: false })
   })
 
   test('covers the slide with a centered crop', () => {
-    expect(fitImage(slide, tall, 'cover')).toEqual({ scale: 1, x: 0, y: -840 })
+    expect(fitImage(slide, tall, 'cover')).toEqual({ scale: 1, x: 0, y: -840, framed: false })
   })
 
   test('fills the width from the top and centers an image shorter than the slide', () => {
-    expect(fitImage(slide, tall, 'width')).toEqual({ scale: 1, x: 0, y: 0 })
-    expect(fitImage(slide, { width: 1280, height: 400 }, 'width')).toEqual({ scale: 1, x: 0, y: 160 })
+    expect(fitImage(slide, tall, 'width')).toEqual({ scale: 1, x: 0, y: 0, framed: false })
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'width')).toEqual({ scale: 1, x: 0, y: 160, framed: false })
   })
 
   test('moves a corner focus into view while preserving cover', () => {
-    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 })).toEqual({ scale: 1, x: 0, y: -1680 })
+    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 })).toEqual({ scale: 1, x: 0, y: -1680, framed: false })
   })
 
   test('zooms out toward contain when the focus is larger than the cover crop', () => {
@@ -32,11 +68,45 @@ describe('fitImage', () => {
   test('uses cover when focus has no annotations', () => {
     expect(fitImage(slide, tall, 'focus')).toEqual(fitImage(slide, tall, 'cover'))
   })
+
+  test('does not frame placements that cover the slide', () => {
+    expect(fitImage(slide, tall, 'cover', undefined, true).framed).toBe(false)
+    expect(fitImage(slide, tall, 'width', undefined, true).framed).toBe(false)
+    expect(fitImage(slide, tall, 'focus', { x: 80, y: 2100, width: 200, height: 120 }, true).framed).toBe(false)
+  })
+
+  test('frames a short width image', () => {
+    expect(fitImage(slide, { width: 1280, height: 400 }, 'width', undefined, true)).toEqual({ scale: 0.9125, x: 56, y: 177.5, framed: true })
+  })
+
+  test('frames a focus placement that zooms out and keeps its focus inside the inset slide', () => {
+    const focus = { x: 100, y: 100, width: 1080, height: 2100 }
+    const placement = fitImage(slide, tall, 'focus', focus, true)
+    expect(placement.framed).toBe(true)
+    expect(focus.x * placement.scale + placement.x).toBeGreaterThanOrEqual(56 - 0.001)
+    expect(focus.y * placement.scale + placement.y).toBeGreaterThanOrEqual(56 - 0.001)
+    expect((focus.x + focus.width) * placement.scale + placement.x).toBeLessThanOrEqual(1280 - 56 + 0.001)
+    expect((focus.y + focus.height) * placement.scale + placement.y).toBeLessThanOrEqual(720 - 56 + 0.001)
+  })
+})
+
+describe('imageFrameStyle', () => {
+  test('counter-scales the radius and shadow and omits them when unframed', () => {
+    expect(imageFrameStyle({ scale: 1, x: 56, y: 56, framed: true }, slide)).toEqual({
+      borderRadius: '14px',
+      boxShadow: '0 4px 18px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.08)',
+    })
+    expect(imageFrameStyle({ scale: 0.3, x: 56, y: 56, framed: true }, slide)).toEqual({
+      borderRadius: '46.66666666666667px',
+      boxShadow: '0 13.333333333333334px 60px rgba(15,23,42,.18), 0 0 0 3.3333333333333335px rgba(15,23,42,.08)',
+    })
+    expect(imageFrameStyle({ scale: 1, x: 0, y: 0, framed: false }, slide)).toBeUndefined()
+  })
 })
 
 describe('imageLayerStyles', () => {
   test('projects natural dimensions and placement into layer and image styles', () => {
-    expect(imageLayerStyles(tall, { scale: 0.3, x: 448, y: 0 })).toEqual({
+    expect(imageLayerStyles(tall, { scale: 0.3, x: 448, y: 0, framed: false })).toEqual({
       layer: {
         width: '1280px',
         height: '2400px',
@@ -46,6 +116,12 @@ describe('imageLayerStyles', () => {
         width: '1280px',
         height: '2400px',
       },
+    })
+    expect(imageLayerStyles({ width: 1280, height: 400 }, { scale: 0.9125, x: 56, y: 177.5, framed: true }, slide).image).toEqual({
+      width: '1280px',
+      height: '400px',
+      borderRadius: '15.342465753424658px',
+      boxShadow: '0 4.383561643835616px 19.726027397260275px rgba(15,23,42,.18), 0 0 0 1.095890410958904px rgba(15,23,42,.08)',
     })
   })
 })

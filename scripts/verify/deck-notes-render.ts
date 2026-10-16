@@ -16,6 +16,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       {
         title: 'Long notes',
         fit: 'contain',
+        frame: false,
         size: { width: 1280, height: 720 },
         scripts: 'refuse',
         slides: [{ id: 'long', content: { kind: 'html', html: '<p>Thumbnail only once</p>' }, notes }],
@@ -48,6 +49,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
     {
       title: 'Portrait notes',
       fit: 'contain',
+      frame: false,
       scripts: 'refuse',
       size: { width: 720, height: 1280 },
       slides: [{ id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' }, notes: portraitNotes }],
@@ -73,6 +75,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
     {
       title: 'Emoji notes',
       fit: 'contain',
+      frame: false,
       scripts: 'refuse',
       size: { width: 1280, height: 720 },
       slides: [{ id: 'emoji', content: { kind: 'html', html: '<p>Emoji</p>' }, notes: emojiNotes }],
@@ -103,6 +106,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       {
         title: 'Limited notes',
         fit: 'contain',
+        frame: false,
         scripts: 'refuse',
         size: { width: 1280, height: 720 },
         slides: [{ id: 'limited', content: { kind: 'html', html: '<p>Limited</p>' }, notes: 'A line of notes.\n'.repeat(500) }],

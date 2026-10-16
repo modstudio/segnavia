@@ -65,7 +65,7 @@ async function checkStage(h: Harness, selector: string, mode: (typeof modes)[num
     height: 100 * scaleY,
   }
   h.check(
-    `${mode} maps the ring through the image transform in ${selector === '#styled' ? 'the styled' : 'the unstyled'} stage`,
+    `${mode} maps the ring through the image transform in ${selector === '#player segnavia-stage' ? 'the player' : 'the unstyled'} stage`,
     near(boxes.ring.left, expected.left) &&
       near(boxes.ring.top, expected.top) &&
       near(boxes.ring.width, expected.width) &&
@@ -74,7 +74,7 @@ async function checkStage(h: Harness, selector: string, mode: (typeof modes)[num
   checkMode(h, mode, boxes)
   if (mode === 'focus') {
     h.check(
-      `focus keeps the arrow label inside the ${selector === '#styled' ? 'styled' : 'unstyled'} canvas`,
+      `focus keeps the arrow label inside the ${selector === '#player segnavia-stage' ? 'player' : 'unstyled'} canvas`,
       boxes.label.left >= boxes.canvas.left - 1 &&
         boxes.label.top >= boxes.canvas.top - 1 &&
         boxes.label.right <= boxes.canvas.right + 1 &&
@@ -85,25 +85,55 @@ async function checkStage(h: Harness, selector: string, mode: (typeof modes)[num
 
 export async function verifyImageFit(h: Harness): Promise<void> {
   await h.page.goto(h.url('fit.html'))
-  await h.waitFor('#styled', (data) => data.slide === '1')
+  await h.waitFor('#player', (data) => data.slide === '1')
   await h.page.waitForFunction(
     () =>
-      [...document.querySelectorAll<HTMLImageElement>('segnavia-stage img')].length === 2 &&
-      [...document.querySelectorAll<HTMLImageElement>('segnavia-stage img')].every((image) => image.complete && image.naturalWidth > 0),
+      document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll('segnavia-stage img').length === 1 &&
+      [...(document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll<HTMLImageElement>('segnavia-stage img') ?? [])].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ) &&
+      [...document.querySelectorAll<HTMLImageElement>('#unstyled img')].every((image) => image.complete && image.naturalWidth > 0),
   )
   for (const [index, mode] of modes.entries()) {
-    await h.page.evaluate(
-      (next) =>
-        Promise.all(
-          [...document.querySelectorAll('segnavia-stage')].map((stage) =>
-            (stage as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(next),
-          ),
-        ),
-      index,
-    )
-    await h.waitFor('#styled', (data, slide) => data.slide === slide, { arg: String(index + 1) })
+    await Promise.all([
+      h.page
+        .locator('#player')
+        .evaluate((player, next) => (player as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(next), index),
+      h.page
+        .locator('#unstyled')
+        .evaluate((stage, next) => (stage as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(next), index),
+    ])
+    await h.waitFor('#player', (data, slide) => data.slide === slide, { arg: String(index + 1) })
     await h.waitFor('#unstyled', (data, slide) => data.slide === slide, { arg: String(index + 1) })
-    for (const selector of ['#styled', '#unstyled']) await checkStage(h, selector, mode)
+    for (const selector of ['#player segnavia-stage', '#unstyled']) await checkStage(h, selector, mode)
     await h.evidence(`fit-${mode}.png`)
   }
+  await Promise.all([
+    h.page.locator('#player').evaluate((player) => (player as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(4)),
+    h.page.locator('#unstyled').evaluate((stage) => (stage as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(4)),
+  ])
+  await h.waitFor('#player', (data) => data.slide === '5')
+  await h.waitFor('#unstyled', (data) => data.slide === '5')
+  const framed = await h.page.locator('#player segnavia-stage').evaluate((stage) => {
+    const canvas = stage.querySelector('.segnavia-stage__canvas') as HTMLElement
+    const image = stage.querySelector('img') as HTMLImageElement
+    const canvasBox = canvas.getBoundingClientRect()
+    const imageBox = image.getBoundingClientRect()
+    const style = getComputedStyle(image)
+    return {
+      inset: imageBox.left - canvasBox.left,
+      scale: canvasBox.width / 1280,
+      radius: style.borderRadius,
+      background: getComputedStyle(canvas).backgroundColor,
+    }
+  })
+  h.check('the framed image is inset by 56 slide pixels on its framed axis', near(framed.inset, 56 * framed.scale), JSON.stringify(framed))
+  h.check('the framed image has a nonzero computed border radius', Number.parseFloat(framed.radius) > 0, framed.radius)
+  h.check('the player canvas background defaults to white', framed.background === 'rgb(255, 255, 255)', framed.background)
+  await h.page.locator('#player').evaluate((player) => player.style.setProperty('--segnavia-shot-backdrop', 'rgb(0, 0, 0)'))
+  const black = await h.page.locator('#player segnavia-stage .segnavia-stage__canvas').evaluate((canvas) => getComputedStyle(canvas).backgroundColor)
+  h.check('the player canvas background follows --segnavia-shot-backdrop', black === 'rgb(0, 0, 0)', black)
+  const transparent = await h.page.locator('#unstyled .segnavia-stage__canvas').evaluate((canvas) => getComputedStyle(canvas).backgroundColor)
+  h.check('the unstyled headless stage canvas stays transparent', transparent === 'rgba(0, 0, 0, 0)', transparent)
+  await h.evidence('framed-player.png')
 }

@@ -81,6 +81,7 @@ with `detail.message` when loading or validating an input fails.
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
 | `deckFromSlides` | `format` | A host can turn generic HTML and shot rows into a parsed `Deck`, carrying deck options and optional timing, narration and notes. `omitNotes` produces a public projection without notes; `Deck.parse` remains the validation edge. |
 | `rail`, `<segnavia-rail>` | player and `frame/controls` | A host can compose the styled listbox alone or enable it on the player. It lazily mounts script-refusing 16:9 previews near the viewport, follows current-slide identity, and navigates through the controller. The player places it at inline start, moves it below the bar at 560px, and hides it during presentation. `--segnavia-rail-size` sets thumbnail width. |
+| `<segnavia-thumbnail>` | `frame` and React | The headless seam for a host's deck covers in cards, strips and search results. It draws one HTML, image, URL or shot slide through a private `DeckController`, sharing the rail's script-refusing canvas policy. It follows its own inline size at the deck aspect ratio, mounts only near the viewport, and removes the canvas when far away. `deck`, `index`, `resolveSlide` and `base` select and resolve content; `thumbnail` and `canvas` parts let a host add rings, rounding or shadows. Resolution failures leave it empty and emit `segnavia-thumbnail-error`. |
 | `attachAuthoring(player, handlers, options?)` | `frame/authoring` | An opt-in browser entry attaches only the editors represented by async host handlers. `AuthoringOptions.notesMaxLength` sets the notes field limit and defaults to 20,000. The library owns optimistic order, rollback, autosave, pending and dirty state; the host owns every write and the entry makes no network call. `detach()` restores the player completely. This seam can gain separate handlers for future slide and timing operations without putting authoring in viewer bundles. |
 | React components and hooks | `@segnavia/react` | A separate adapter maps React properties, attributes, events and forwarded refs onto frame custom elements. A host captures the mounted element with a callback ref, then passes that element to `useDeckController(element)` to observe controller changes or `useAuthoring(player, handlers, options?)` to own the optional authoring attachment. Both hooks follow element identity across conditional mounts and replacements. React and React DOM are peers of this package only. |
 
@@ -110,9 +111,10 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    annotation that does not exist and a slide id used twice.
 2. For each slide shown, the controller runs `resolveSlide` if it is set. `contentFor(index)` does the same without navigating and shares the prefetch cache. A `shot-ref` is
    fetched as a `PublishedShot`, cached per address, and resolved relative to
-   that address. Its fit is copied to the resolved shot and overrides the deck's
-   fit, as does an inline image or shot's own fit; otherwise image and shot
-   content uses the deck's `contain` default. `fitImage` is the server-safe pure
+   that address. Its fit and frame settings are copied to the resolved shot and
+   override the deck's settings, as do an inline image or shot's own settings;
+   otherwise image and shot content uses the deck's `contain` fit and unframed
+   default. `fitImage` is the server-safe pure
    geometry shared by the stage, rail and print document. `contain` centers the
    whole image, `cover` centers a crop that fills the canvas, and `width` fills
    its width from the top unless a short image needs vertical centering. `focus`
@@ -122,7 +124,14 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    geometry stays pure, so an arrow label's width is estimated at 0.6 em per
    character rather than measured. That covers ordinary Latin, capitals and
    Hebrew, but a label made mostly of unusually wide glyphs can exceed the
-   estimate and be cropped at its ends.
+   estimate and be cropped at its ends. When framing is enabled, a placement
+   that does not cover every slide edge is recomputed inside an inset that scales
+   with the slide's shorter side, using 56 px at the 720 px reference size, and
+   its image receives counter-scaled rounded corners and a shadow. A covering
+   image stays unframed, and the annotation layer remains unclipped. The styled
+   player gives its stage and rail slide canvases a white background by default;
+   a host can set `--segnavia-shot-backdrop`, while the headless stage remains
+   transparent.
 3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
    the policy admits only the bridge's nonce. The bridge handles in-page link

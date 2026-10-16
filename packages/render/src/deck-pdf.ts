@@ -49,12 +49,14 @@ async function placeRenderedImages(tab: Tab): Promise<void> {
         slide: { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) },
         image: { width: image?.naturalWidth ?? 0, height: image?.naturalHeight ?? 0 },
         fit: layer.dataset.fit,
+        frame: layer.dataset.frame === 'true',
       }
     }),
   )
   const styles = facts.map((fact) => {
     if (fact.image.width <= 0 || fact.image.height <= 0) return null
-    return imageLayerStyles(fact.image, fitImage(fact.slide, fact.image, fact.fit as ImageFit))
+    const placement = fitImage(fact.slide, fact.image, fact.fit as ImageFit, undefined, fact.frame)
+    return imageLayerStyles(fact.image, placement, fact.slide)
   })
   await layers.evaluateAll((elements, values) => {
     elements.forEach((element, index) => {
