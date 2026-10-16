@@ -66,6 +66,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       scaled: false,
       sandboxed: false,
       exact: false,
+      unclipped: false,
     }
     await lib.printDeck(
       { ...deck, slides: [{ ...deck.slides[0], id: 'long-notes', notes: longNotes }] },
@@ -87,6 +88,10 @@ export async function verifyDeckPrintBrowser(h: Harness) {
             scaled: Math.abs((slide?.getBoundingClientRect().width ?? 0) - 722) < 1 && Math.abs((slide?.getBoundingClientRect().height ?? 0) - 407) < 1,
             sandboxed: frame?.sandbox.value === 'allow-scripts',
             exact: frame?.srcdoc.includes('print-color-adjust:exact') ?? false,
+            unclipped: noteSheets.every((sheet) => {
+              const notes = sheet.querySelector<HTMLElement>('.notes')
+              return notes ? notes.scrollHeight <= notes.clientHeight + 1 : false
+            }),
           }
         },
       },
@@ -142,6 +147,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     printed.notesFacts.sheets > 1 &&
       printed.notesFacts.continuations === printed.notesFacts.sheets - 1 &&
       printed.notesFacts.lastLine &&
+      printed.notesFacts.unclipped &&
       printed.notesFacts.owned &&
       printed.notesFacts.notesOnly &&
       printed.notesFacts.letter &&
@@ -157,5 +163,34 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     'a stalled slide still reaches the browser print hook by its deadline and removes its host',
     printed.stalledPrinted && printed.stalledRemoved && printed.stalledMs < 500,
     JSON.stringify(printed),
+  )
+
+  await page.route('**/deck-print-csp.html', async (route) => {
+    await route.fulfill({
+      contentType: 'text/html',
+      headers: { 'content-security-policy': "script-src 'self' 'nonce-probe'" },
+      body: `<!doctype html><body><script type="module" nonce="probe">
+import { printDeck } from '/segnavia.js';
+const notes=Array.from({length:60},(_,index)=>'Line '+(index+1)+': CSP notes continue.').join('\\n');
+const image='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800"><rect width="400" height="800" fill="purple"/></svg>');
+window.cspPrint=printDeck({title:'CSP print',size:{width:1280,height:720},slides:[{id:'notes',content:{kind:'html',html:'<p>Notes thumbnail</p>'},notes},{id:'image',content:{kind:'image',src:image,alt:'CSP image'}}]}, {layout:'notes',print(win){
+  const sheets=[...win.document.querySelectorAll('.sheet')];
+  const last=sheets.filter(sheet=>sheet.dataset.slideIndex==='0').at(-1);
+  const lastNotes=last?.querySelector('.notes');
+  const imageLayer=win.document.querySelector('[data-segnavia-image-layer]');
+  window.cspFacts={continuations:sheets.filter(sheet=>sheet.hasAttribute('data-notes-continuation')).length,lastLine:lastNotes?.textContent?.includes('Line 60: CSP notes continue.')??false,unclipped:lastNotes?lastNotes.scrollHeight<=lastNotes.clientHeight+1:false,imagePlaced:imageLayer?.style.transform.includes('scale(')??false};
+}});
+</script>`,
+    })
+  })
+  await page.goto(h.url('deck-print-csp.html'))
+  const csp = await page.evaluate(async () => {
+    await (window as Window & { cspPrint?: Promise<void> }).cspPrint
+    return (window as Window & { cspFacts?: { continuations: number; lastLine: boolean; unclipped: boolean; imagePlaced: boolean } }).cspFacts
+  })
+  check(
+    'browser deck printing paginates notes and places images under a nonce-only host CSP',
+    !!csp && csp.continuations > 0 && csp.lastLine && csp.unclipped && csp.imagePlaced,
+    JSON.stringify(csp),
   )
 }

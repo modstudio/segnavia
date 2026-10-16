@@ -6,7 +6,15 @@
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { paperBoxSize } from './paper-geometry.ts'
-import { type PrintablePagesOptions, type PrintOptions, printableDeck, printableDeckDocument, printablePagesDocument } from './print-document.ts'
+import {
+  type PrintablePagesOptions,
+  type PrintOptions,
+  paginateNotes,
+  placePrintImages,
+  printableDeck,
+  printableDeckDocument,
+  printablePagesDocument,
+} from './print-document.ts'
 import { waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
@@ -47,8 +55,9 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
       images,
       deadline,
     )
-    const notesReady = (win as Window & { segnaviaNotesReady?: Promise<void> }).segnaviaNotesReady ?? Promise.resolve()
-    await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve(), notesReady], deadline)
+    await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
+    placePrintImages(win.document)
+    paginateNotes(win.document)
     await waitForPaint(win.requestAnimationFrame.bind(win))
     if (options.print) await options.print(win)
     else {

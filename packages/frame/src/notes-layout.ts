@@ -27,17 +27,68 @@ export interface NotesDocumentOptions {
   slideBody: (slide: Slide) => string
 }
 
-// Notes are measured in their real print document. The first pass makes the
-// document usable immediately; the font-ready pass corrects any changed wraps.
-function paginationScript(): string {
-  return `<script>(function(){
-var originals=Array.from(document.querySelectorAll('[data-notes-source]')).map(function(sheet){return {sheet:sheet,text:sheet.querySelector('.notes').textContent||''};});
-function fits(node,text){node.textContent=text;return node.scrollHeight<=node.clientHeight+1;}
-function take(node,text){if(fits(node,text))return text.length;var low=0,high=text.length;while(low<high){var middle=Math.ceil((low+high)/2);if(fits(node,text.slice(0,middle)))low=middle;else high=middle-1;}var end=low;if(end>0&&end<text.length){var space=text.slice(0,end).search(/\\s+\\S*$/);if(space>0)end=space;}if(end===0)end=1;node.textContent=text.slice(0,end);return end;}
-function continuation(owner,number){var sheet=document.createElement('section');sheet.className='sheet continuation';sheet.dataset.slideIndex=owner;sheet.dataset.notesContinuation='';var marker=document.createElement('p');marker.className='number';marker.textContent=number+' (continued)';var notes=document.createElement('div');notes.className='notes';notes.dir='auto';sheet.append(marker,notes);return sheet;}
-function paginate(){document.querySelectorAll('[data-notes-continuation]').forEach(function(sheet){sheet.remove();});originals.forEach(function(item){var sheet=item.sheet;var notes=sheet.querySelector('.notes');var rest=item.text;var used=take(notes,rest);rest=rest.slice(used);var after=sheet;while(rest){var next=continuation(sheet.dataset.slideIndex,sheet.dataset.slideNumber);after.after(next);after=next;notes=next.querySelector('.notes');used=take(notes,rest);rest=rest.slice(used);}});}
-paginate();window.segnaviaNotesReady=(document.fonts?document.fonts.ready:Promise.resolve()).then(paginate);
-})();</script>`
+// This function touches the DOM only when called with a document, so importing
+// this module remains safe in the server renderer.
+export function paginateNotes(target: Document | null): void {
+  const printDocument = target ?? document
+  const fits = (node: HTMLElement, text: string) => {
+    node.textContent = text
+    return node.scrollHeight <= node.clientHeight + 1
+  }
+  const take = (node: HTMLElement, text: string) => {
+    if (fits(node, text)) return text.length
+    let low = 0
+    let high = text.length
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2)
+      if (fits(node, text.slice(0, middle))) low = middle
+      else high = middle - 1
+    }
+    let end = low
+    if (end > 0 && end < text.length) {
+      const space = text.slice(0, end).search(/\s+\S*$/)
+      if (space > 0) end = space
+    }
+    if (end === 0) end = 1
+    node.textContent = text.slice(0, end)
+    return end
+  }
+  const continuation = (owner: string, number: string) => {
+    const sheet = printDocument.createElement('section')
+    sheet.className = 'sheet continuation'
+    sheet.dataset.slideIndex = owner
+    sheet.dataset.notesContinuation = ''
+    const marker = printDocument.createElement('p')
+    marker.className = 'number'
+    marker.textContent = `${number} (continued)`
+    const notes = printDocument.createElement('div')
+    notes.className = 'notes'
+    notes.dir = 'auto'
+    sheet.append(marker, notes)
+    return sheet
+  }
+
+  printDocument.querySelectorAll('[data-notes-continuation]').forEach((sheet) => {
+    sheet.remove()
+  })
+  printDocument.querySelectorAll<HTMLElement>('[data-notes-source]').forEach((sheet) => {
+    const notes = sheet.querySelector<HTMLElement>('.notes')
+    if (!notes) return
+    const source = sheet.dataset.notesText ?? notes.textContent ?? ''
+    sheet.dataset.notesText = source
+    let rest = source
+    let used = take(notes, rest)
+    rest = rest.slice(used)
+    let after = sheet
+    while (rest) {
+      const next = continuation(sheet.dataset.slideIndex ?? '', sheet.dataset.slideNumber ?? '')
+      after.after(next)
+      after = next
+      const continuationNotes = next.querySelector<HTMLElement>('.notes') as HTMLElement
+      used = take(continuationNotes, rest)
+      rest = rest.slice(used)
+    }
+  })
 }
 
 export function notesDocument(deck: Deck, options: NotesDocumentOptions): string {
@@ -54,5 +105,5 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   })
   const root = `dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
   const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif}.slide{border:${geometry.border}px solid #ccc;overflow:hidden}.number{color:#777;margin:12px 0 4px}.notes{height:${firstNotesHeight}px;overflow:hidden;white-space:pre-wrap}.continuation .number{margin:0 0 4px}.continuation .notes{height:${continuationNotesHeight}px}`
-  return `<!doctype html><html ${root}><head><meta charset="utf-8"><style>${css}</style></head><body>${sheets.join('')}${paginationScript()}</body></html>`
+  return `<!doctype html><html ${root}><head><meta charset="utf-8"><style>${css}</style></head><body>${sheets.join('')}</body></html>`
 }

@@ -69,7 +69,7 @@ describe('printableDeck', () => {
     expect(printableDeck(withNarration, { layout: 'notes' })).toContain('Narration fallback')
   })
 
-  test('escapes notes and marks generated continuation sheets with their slide owner', () => {
+  test('escapes notes without adding executable code to the print document', () => {
     const unsafe = Deck.parse({
       ...deck,
       slides: [{ ...deck.slides[0], notes: '<img src=x onerror=evil()> & final line' }],
@@ -77,9 +77,8 @@ describe('printableDeck', () => {
     const html = printableDeck(unsafe, { layout: 'notes' })
     expect(html).toContain('&lt;img src=x onerror=evil()&gt; &amp; final line')
     expect(html).not.toContain('<img src=x onerror=evil()>')
-    expect(html).toContain('sheet.dataset.slideIndex=owner')
-    expect(html).toContain("sheet.dataset.notesContinuation=''")
-    expect(html).toContain("marker.textContent=number+' (continued)'")
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('segnaviaNotesReady')
   })
 
   test('injects exact print color into each sandboxed slide document', () => {
@@ -132,7 +131,8 @@ describe('printableDeck', () => {
     expect(html).toContain('transform:translate(0px,-1680px) scale(1)')
     expect(html).toContain('viewBox="0 0 1280 2400"')
     expect(html).toContain('data-fit="width"')
-    expect(html).toContain('onload="segnaviaPlaceImage(this)"')
+    expect(html).not.toContain('onload=')
+    expect(html).not.toContain('<script>')
     expect(html).not.toContain('object-fit')
   })
 

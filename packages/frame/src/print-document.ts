@@ -22,7 +22,7 @@ import { annotationFocusBox, fitImage, type ImagePlacement } from './image-fit.t
 import { notesDocument } from './notes-layout.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
-export { notesLayoutGeometry } from './notes-layout.ts'
+export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 
 export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
@@ -59,7 +59,30 @@ function transformedMedia(width: number, height: number, src: string, alt: strin
 }
 
 function naturalImage(width: number, height: number, src: string, alt: string, fit: Deck['fit']): string {
-  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div data-segnavia-image-layer data-slide-width="${width}" data-slide-height="${height}" data-fit="${fit}" style="position:absolute;left:0;top:0;transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" onload="segnaviaPlaceImage(this)" style="display:block"></div></div>`
+  return `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden"><div data-segnavia-image-layer data-slide-width="${width}" data-slide-height="${height}" data-fit="${fit}" style="position:absolute;left:0;top:0;transform-origin:0 0"><img src="${src}" alt="${escapeHtml(alt)}" style="display:block"></div></div>`
+}
+
+// Natural dimensions are available only after the print document's images
+// settle. Like notes pagination, this runs only when handed a document.
+export function placePrintImages(target: Document | null): void {
+  const printDocument = target ?? document
+  printDocument.querySelectorAll<HTMLElement>('[data-segnavia-image-layer]').forEach((layer) => {
+    const image = layer.querySelector<HTMLImageElement>('img')
+    if (!image || image.naturalWidth <= 0 || image.naturalHeight <= 0) return
+    const slide = { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) }
+    const size = { width: image.naturalWidth, height: image.naturalHeight }
+    const contain = Math.min(slide.width / size.width, slide.height / size.height)
+    const cover = Math.max(slide.width / size.width, slide.height / size.height)
+    const fit = layer.dataset.fit
+    const scale = fit === 'contain' ? contain : fit === 'width' ? slide.width / size.width : cover
+    const x = fit === 'width' ? 0 : (slide.width - size.width * scale) / 2
+    const y = fit === 'width' && size.height * scale >= slide.height ? 0 : (slide.height - size.height * scale) / 2
+    layer.style.width = `${size.width}px`
+    layer.style.height = `${size.height}px`
+    image.style.width = `${size.width}px`
+    image.style.height = `${size.height}px`
+    layer.style.transform = `translate(${x}px,${y}px) scale(${scale})`
+  })
 }
 
 function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
@@ -86,10 +109,6 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
 }
 
-function imageFitScript(): string {
-  return `<script>const segnaviaFitImage=${fitImage.toString()};function segnaviaPlaceImage(image){const layer=image.parentElement;const slide={width:Number(layer.dataset.slideWidth),height:Number(layer.dataset.slideHeight)};const size={width:image.naturalWidth,height:image.naturalHeight};const fit=segnaviaFitImage(slide,size,layer.dataset.fit);layer.style.width=size.width+'px';layer.style.height=size.height+'px';image.style.width=size.width+'px';image.style.height=size.height+'px';layer.style.transform='translate('+fit.x+'px,'+fit.y+'px) scale('+fit.scale+')'}</script>`
-}
-
 export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   const { width, height } = deck.size
   if (options.imposition) {
@@ -97,10 +116,9 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-    return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style>${imageFitScript()}</head><body>${sheets.join('')}</body></html>`
+    return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
   }
-  const document = notesDocument(deck, { notesPaper: options.notesPaper, slideBody: (slide) => slideBody(deck, slide, options) })
-  return document.replace('</head>', `${imageFitScript()}</head>`)
+  return notesDocument(deck, { notesPaper: options.notesPaper, slideBody: (slide) => slideBody(deck, slide, options) })
 }
 
 export interface PrintablePagesOptions {
@@ -175,7 +193,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   // Papers and placement boxes use physical coordinates; each slide frame
   // keeps its own direction while the document keeps the deck's direction.
   const rootAttributes = ` dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
-  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody, imageFitScript()), imposed }
+  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody), imposed }
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {

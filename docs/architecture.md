@@ -333,7 +333,9 @@ readiness and fonts only until one shared deadline, then crosses a
 two-animation-frame paint barrier before opening the dialog. The off-screen
 host stays alive until `afterprint`, with a bounded fallback for engines that
 do not dispatch it; a host-provided print hook remains synchronous for
-deterministic integration paths.
+deterministic integration paths. The outer print document contains no inline
+script: host-context code paginates notes and places natural images after
+readiness, so a strict host content security policy cannot disable either.
 
 **Sideways overflow.** On screen, content that overflows a page sideways is
 clipped at the page edge. Chromium's print path instead shrinks the whole page

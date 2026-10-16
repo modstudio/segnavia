@@ -1,6 +1,6 @@
 import { type Deck, fitPage, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
-import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
+import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, placePrintImages, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -52,8 +52,9 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
         beforeOutput: async (tab) => {
+          await tab.evaluate(placePrintImages, null)
           if (notesGeometry) {
-            await tab.evaluate(() => (window as Window & { segnaviaNotesReady?: Promise<void> }).segnaviaNotesReady)
+            await tab.evaluate(paginateNotes, null)
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }
           await opts.beforeOutput?.(tab)
@@ -118,6 +119,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             scripts: slide.content.kind === 'html' ? deck.scripts === 'sandboxed' : true,
             html,
             boundMs: opts.boundMs,
+            beforeOutput: slide.content.kind === 'image' ? async (tab) => tab.evaluate(placePrintImages, null) : undefined,
           },
           {
             width: `${deck.size.width}px`,
