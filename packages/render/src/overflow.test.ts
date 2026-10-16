@@ -3,13 +3,10 @@ import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, type ScaleMeasurement, solve
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {
   expect(
-    clippedHorizontalBox(
-      { left: -20, right: 500 },
-      [
-        { left: -10, right: 450 },
-        { left: 0, right: 400 },
-      ],
-    ),
+    clippedHorizontalBox({ left: -20, right: 500 }, [
+      { left: -10, right: 450 },
+      { left: 0, right: 400 },
+    ]),
   ).toEqual({ left: 0, right: 400 })
   expect(clippedHorizontalBox({ left: 420, right: 500 }, [{ left: 0, right: 400 }])).toBeUndefined()
 })

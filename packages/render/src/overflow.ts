@@ -64,15 +64,12 @@ export interface HorizontalBox {
 
 /** Returns the visible horizontal part of a box after ancestor clipping. */
 export function clippedHorizontalBox(box: HorizontalBox, clips: readonly HorizontalBox[]): HorizontalBox | undefined {
-  const visible = clips.reduce(
-    (current, clip) => ({ left: Math.max(current.left, clip.left), right: Math.min(current.right, clip.right) }),
-    box,
-  )
+  const visible = clips.reduce((current, clip) => ({ left: Math.max(current.left, clip.left), right: Math.min(current.right, clip.right) }), box)
   return visible.right > visible.left ? visible : undefined
 }
 
 async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOverflow> {
-  const measured = await tab.evaluate((width) => {
+  const measured = await tab.evaluate(() => {
     const root = document.documentElement
     const extent = Math.max(root.scrollWidth, document.body?.scrollWidth ?? 0)
     const endOverflow = Math.max(0, extent - root.clientWidth)
@@ -128,7 +125,7 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
     })
     return { extent, endOverflow, extentClipped, rtl, elements }
-  }, pageWidth)
+  })
   const contributions: OverflowContribution[] = []
   let clippedStart = 0
   let clippedEnd = measured.endOverflow

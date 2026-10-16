@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { MM_PER_PT, Page, printBoxes, PX_PER_MM } from '@segnavia/format'
+import { MM_PER_PT, Page, PX_PER_MM, printBoxes } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { chromium } from 'playwright-core'
 import { pageContentScale } from './pdf-content.ts'
@@ -66,11 +66,7 @@ function ppmRedBounds(file: string): number[] | undefined {
   return right < left ? undefined : [left / 4, top / 4, (right + 1) / 4, (bottom + 1) / 4]
 }
 
-async function verifyClippedBleed(
-  renderer: Renderer,
-  work: string,
-  check: (what: string, ok: boolean, detail?: string) => void,
-): Promise<void> {
+export async function verifyClippedBleed(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
   const page = Page.parse({
     html: `<!doctype html><style>
       *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}body{overflow:hidden;position:relative}
@@ -227,7 +223,6 @@ export async function verifyPageOverflow(
   check: (what: string, ok: boolean, detail?: string) => void,
   executablePath: string,
 ): Promise<void> {
-  await verifyClippedBleed(renderer, work, check)
   let fixedReport: OverflowReport | undefined
   const overflowing = await renderer.pagePdf(
     {
@@ -239,7 +234,7 @@ export async function verifyPageOverflow(
   const overflowScale = await pageContentScale(overflowing)
   check(
     'a fixed page with sideways overflow prints at its own scale',
-    Math.abs(overflowScale - 3.125) < 0.000001 && (fixedReport?.entries[0]?.clippedEnd ?? 0) > 0,
+    Math.abs(overflowScale - 3.125) < 0.000001 && Number(fixedReport?.entries[0]?.clippedEnd) > 0,
     `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.clippedEnd}`,
   )
 
