@@ -12,6 +12,7 @@ import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
 import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
+import { verifyGrayPress } from './gray-press.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -388,4 +389,5 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
 
   await verifyPressGradients(renderer, work, check, profile)
   await verifyNeutralTolerance(renderer, check, profile)
+  await verifyGrayPress(renderer, check)
 }

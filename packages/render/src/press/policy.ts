@@ -44,7 +44,13 @@ export function contentFilter(names: string[] | undefined): ContentFilterDecisio
 }
 
 // A mask source keeps RGB because its luminosity or alpha values are interpreted by the mask; other RGB groups become CMYK.
-export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boolean): PolicyDecision {
+export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boolean, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
+  if (destination === 'gray') {
+    const supported = 'DeviceGray, DeviceRGB, or no declared space'
+    if (kind === 'gray') return decision('keep', supported)
+    if (label === 'missing' || label === 'DeviceRGB') return decision('convert', supported)
+    return decision('refuse', supported)
+  }
   const supported = 'DeviceCMYK, DeviceGray, DeviceRGB on a mask source, or no declared space'
   if (kind === 'gray' || kind === 'cmyk' || (maskSource && (label === 'DeviceRGB' || label === 'missing'))) return decision('keep', supported)
   if (label === 'missing' || label === 'DeviceRGB') return decision('convert', supported)
@@ -52,17 +58,17 @@ export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boo
 }
 
 // Axial and radial RGB shadings convert by their stops; a type 1 RGB shading converts when its function is a type 4 calculator.
-export function shadingAction(kind: ColorSpaceKind, type: number | undefined, functionType?: number): PolicyDecision {
+export function shadingAction(kind: ColorSpaceKind, type: number | undefined, functionType?: number, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
   if (type === 1) {
     const supported = 'ShadingType 1 in an RGB space with FunctionType 4, or DeviceCMYK'
-    if (kind === 'cmyk') return decision('keep', supported)
+    if (kind === destination) return decision('keep', supported)
     if (kind === 'rgb' && functionType === 4) return decision('convert', supported)
     return decision('refuse', supported)
   }
   const supported = 'ShadingType 2 or 3 in an RGB or DeviceCMYK color space'
   if (type !== 2 && type !== 3) return decision('refuse', supported)
   if (kind === 'rgb') return decision('convert', supported)
-  if (kind === 'cmyk') return decision('keep', supported)
+  if (kind === destination) return decision('keep', supported)
   return decision('refuse', supported)
 }
 
@@ -99,9 +105,10 @@ export function inlineImageAction(name: string | undefined, imageMask: boolean):
 }
 
 // Content streams may select only patterns or CMYK explicitly after conversion.
-export function contentColorSpaceAction(name: string | undefined): PolicyDecision {
-  const supported = 'Pattern or DeviceCMYK'
-  return decision(name === 'Pattern' || name === 'DeviceCMYK' ? 'keep' : 'refuse', supported)
+export function contentColorSpaceAction(name: string | undefined, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
+  const device = destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'
+  const supported = `Pattern or ${device}`
+  return decision(name === 'Pattern' || name === device ? 'keep' : 'refuse', supported)
 }
 
 const colorOperators = ['rg', 'RG', 'g', 'G', 'k', 'K', 'sc', 'SC', 'scn', 'SCN', 'cs', 'CS'] as const
@@ -111,11 +118,26 @@ export function isContentColorOperator(operator: string): operator is ContentCol
   return colorOperators.includes(operator as ContentColorOperator)
 }
 
+function deviceColorAction(operator: ContentColorOperator, inspect: boolean, destination: 'cmyk' | 'gray'): PolicyDecision | undefined {
+  const rgb = operator === 'rg' || operator === 'RG'
+  const gray = operator === 'g' || operator === 'G'
+  const cmyk = operator === 'k' || operator === 'K'
+  if (!rgb && !gray && !cmyk) return undefined
+  if (!inspect && (rgb || gray)) return decision('convert', 'RGB or DeviceGray color operands')
+  if (destination === 'gray') return decision(gray ? 'keep' : 'refuse', 'RGB or gray input for a greyscale press')
+  return decision(cmyk ? 'keep' : 'refuse', 'CMYK operators')
+}
+
 // RGB and gray operators convert on rewrite and refuse on read-back; CMYK and a named pattern are the only color forms retained.
-export function contentOperatorAction(operator: ContentColorOperator, inspect: boolean, selectedSpace?: string, patternName = false): PolicyDecision {
-  if (operator === 'rg' || operator === 'RG' || operator === 'g' || operator === 'G')
-    return decision(inspect ? 'refuse' : 'convert', inspect ? 'CMYK operators' : 'RGB or DeviceGray color operands')
-  if (operator === 'k' || operator === 'K') return decision('keep', 'four CMYK operands')
-  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace)
+export function contentOperatorAction(
+  operator: ContentColorOperator,
+  inspect: boolean,
+  selectedSpace?: string,
+  patternName = false,
+  destination: 'cmyk' | 'gray' = 'cmyk',
+): PolicyDecision {
+  const device = deviceColorAction(operator, inspect, destination)
+  if (device) return device
+  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination)
   return decision((operator === 'scn' || operator === 'SCN') && patternName ? 'keep' : 'refuse', 'a pattern name with scn or SCN')
 }

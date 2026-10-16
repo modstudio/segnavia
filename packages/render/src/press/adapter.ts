@@ -1,10 +1,10 @@
 import { deflateSync } from 'node:zlib'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
-import type { Color3, Profile } from '../color/types.ts'
+import type { Color, Color1, Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
-import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, newlySnapsToNeutral, pressColor } from './color-policy.ts'
+import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
@@ -12,17 +12,18 @@ import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
 import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf, shadingSampleGridForUses } from './sample-shading.ts'
 import type { PressReport } from './types.ts'
-import { walkPressGraph } from './visitor.ts'
+import { type MaskContext, walkPressGraph } from './visitor.ts'
 
 export { inspectPressPdf } from './report.ts'
 
 interface RewriteState {
   budget: ContentBudget
   convert: ReturnType<typeof cachedPressColor>
+  destination: 'cmyk' | 'gray'
   document: PDFDocument
   painted: PaintedBounds
   profile: Profile
-  sampleConvert: (rgb: Color3) => ReturnType<typeof pressColor>
+  sampleConvert: (rgb: Color3) => Color
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
   sequence?: PaintedBoundsTracker
@@ -45,18 +46,23 @@ const refuse = (found: string, supported: string): never => {
 }
 const resolved = (state: RewriteState, object: PDFObject | undefined): PDFObject | undefined =>
   object instanceof PDFRef ? state.document.context.lookup(object) : object
+const luminosity = ([red, green, blue]: Color3): Color1 => [0.3 * red + 0.59 * green + 0.11 * blue]
+const isGrayMask = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask === 'luminosity'
+const isUntouchedAlpha = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask === 'alpha'
+const converterFor = (state: RewriteState, mask: MaskContext): ((rgb: Color3) => Color) => (isGrayMask(state, mask) ? luminosity : state.convert)
 
-function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: FunctionDecision): void {
+function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: FunctionDecision, mask: MaskContext): void {
+  if (isUntouchedAlpha(state, mask)) return
   if (policy.action === 'refuse') refuse(policy.found, policy.supported)
   if (!fn) return
   const type = numberOf(fn, 'FunctionType')
   if (type === 2) {
-    for (const name of ['C0', 'C1']) replaceArray(fn, name, state.convert(arrayNumbers(fn, name, 3) as Color3))
-    if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
+    for (const name of ['C0', 'C1']) replaceArray(fn, name, converterFor(state, mask)(arrayNumbers(fn, name, 3) as Color3))
+    if (fn.has(key('Range'))) replaceArray(fn, 'Range', state.destination === 'gray' ? [0, 1] : [0, 1, 0, 1, 0, 1, 0, 1])
     state.totals.gradientStops += 2
     return
   }
-  if (fn.has(key('Range'))) replaceArray(fn, 'Range', [0, 1, 0, 1, 0, 1, 0, 1])
+  if (fn.has(key('Range'))) replaceArray(fn, 'Range', state.destination === 'gray' ? [0, 1] : [0, 1, 0, 1, 0, 1, 0, 1])
 }
 
 function functionTypeOf(state: RewriteState, shading: PDFDict): number | undefined {
@@ -89,45 +95,59 @@ function shadingUses(
   return uses.filter((use) => use.painted !== undefined)
 }
 
-function convertType1Shading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): void {
+function convertType1Shading(state: RewriteState, shading: PDFDict, pattern: PDFDict | undefined, mask: MaskContext): void {
   const uses = shadingUses(state, shading, pattern)
   const domain = sampleDomainForUses(shadingDomainOf(shading), uses)
   const matrices = uses.length > 0 ? uses.map((use) => use.matrix) : [shadingDeviceMatrix(shading, pattern)]
   const size = shadingSampleGridForUses(domain, matrices)
   // Sampling owns its conversion through the 8-bit, capped converter and must remain uncached.
-  replaceType1Function(state.document, shading, pattern, state.sampleConvert, state.budget, undefined, domain, size)
+  replaceType1Function(
+    state.document,
+    shading,
+    pattern,
+    isGrayMask(state, mask) ? luminosity : state.sampleConvert,
+    state.budget,
+    undefined,
+    domain,
+    size,
+    state.destination === 'gray' ? 1 : 4,
+  )
 }
 
-function convertShading(state: RewriteState, shading: PDFDict, pattern?: PDFDict): boolean {
+function convertShading(state: RewriteState, shading: PDFDict, pattern: PDFDict | undefined, mask: MaskContext): boolean {
+  if (isUntouchedAlpha(state, mask)) return false
   if (state.seenShadings.has(shading)) return false
   state.seenShadings.add(shading)
   const type = numberOf(shading, 'ShadingType')
   const functionType = functionTypeOf(state, shading)
   const space = resolvedColorSpace(state.document, resolved(state, shading.get(key('ColorSpace'))))
-  const policy = shadingAction(space.kind, type, functionType)
+  const destination = state.destination
+  const policy = shadingAction(space.kind, type, functionType, destination)
   if (policy.action === 'refuse') {
     if (type === 1) refuse(`ShadingType 1 FunctionType ${functionType ?? 'missing'}`, policy.supported)
     refuse(`ShadingType ${type ?? 'missing'} color space ${space.label}`, policy.supported)
   }
   if (policy.action === 'keep') return false
-  if (shading.has(key('Background'))) replaceArray(shading, 'Background', state.convert(arrayNumbers(shading, 'Background', 3) as Color3))
-  shading.set(key('ColorSpace'), key('DeviceCMYK'))
+  if (shading.has(key('Background'))) replaceArray(shading, 'Background', converterFor(state, mask)(arrayNumbers(shading, 'Background', 3) as Color3))
+  shading.set(key('ColorSpace'), key(destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'))
   if (type === 1) {
-    convertType1Shading(state, shading, pattern)
+    convertType1Shading(state, shading, pattern, mask)
     return false
   }
   return true
 }
 
-function convertGroup(state: RewriteState, owner: PDFDict, maskSource: boolean): void {
+function convertGroup(state: RewriteState, owner: PDFDict, mask: MaskContext): void {
+  if (isUntouchedAlpha(state, mask)) return
   const group = owner.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || state.seenGroups.has(group)) return
   state.seenGroups.add(group)
   const space = resolvedColorSpace(state.document, resolved(state, group.get(key('CS'))))
-  const policy = groupAction(space.kind, space.label, maskSource)
+  const destination = state.destination
+  const policy = groupAction(space.kind, space.label, mask !== 'none', destination)
   if (policy.action === 'refuse') refuse(`transparency group color space ${space.label}`, policy.supported)
   if (policy.action === 'convert') {
-    group.set(key('CS'), key('DeviceCMYK'))
+    group.set(key('CS'), key(destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'))
     state.totals.groups++
   }
 }
@@ -135,18 +155,20 @@ function convertGroup(state: RewriteState, owner: PDFDict, maskSource: boolean):
 function convertRuleCImage(state: RewriteState, image: PDFRawStream, width: number, height: number, dictionary: Record<string, PDFObject>): void {
   const source = decodeContent(image, state.budget)
   if (source.length !== width * height * 3) refuse('effect image sample length', 'three 8-bit RGB samples per pixel')
-  const converted = new Uint8Array(width * height * 4)
+  const channels = state.destination === 'gray' ? 1 : 4
+  const converted = new Uint8Array(width * height * channels)
   for (let pixel = 0; pixel < width * height; pixel++) {
     const color = state.convert([(source[pixel * 3] ?? 0) / 255, (source[pixel * 3 + 1] ?? 0) / 255, (source[pixel * 3 + 2] ?? 0) / 255])
-    for (let channel = 0; channel < 4; channel++) converted[pixel * 4 + channel] = Math.round(Math.max(0, Math.min(1, color[channel] ?? 0)) * 255)
+    for (let channel = 0; channel < channels; channel++) converted[pixel * channels + channel] = Math.round(Math.max(0, Math.min(1, color[channel] ?? 0)) * 255)
   }
-  dictionary.ColorSpace = key('DeviceCMYK')
+  dictionary.ColorSpace = key(state.destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK')
   const replacement = state.document.context.stream(deflateSync(converted), dictionary)
   const reference = state.document.context.getObjectRef(image)
   if (reference) state.document.context.assign(reference, replacement)
 }
 
-function convertEffectImage(state: RewriteState, image: PDFRawStream): void {
+function convertEffectImage(state: RewriteState, image: PDFRawStream, mask: MaskContext): void {
+  if (state.destination === 'gray' && mask !== 'none') return
   if (!image.dict.has(key(GENERATED_EFFECT_IMAGE_KEY)) || resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace')))).kind !== 'rgb')
     return
   const width = numberOf(image.dict, 'Width') ?? refuse('effect image Width missing', 'a positive Width number')
@@ -160,7 +182,12 @@ function convertEffectImage(state: RewriteState, image: PDFRawStream): void {
   const source = arrayNumbers(image.dict, 'SegnaviaEffectColor', 3) as Color3
   const color = state.convert(source)
   const palette = color.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255))
-  dictionary.ColorSpace = state.document.context.obj(['Indexed', 'DeviceCMYK', 0, PDFHexString.of(Buffer.from(palette).toString('hex'))])
+  dictionary.ColorSpace = state.document.context.obj([
+    'Indexed',
+    state.destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK',
+    0,
+    PDFHexString.of(Buffer.from(palette).toString('hex')),
+  ])
   dictionary.SegnaviaEffectColor = state.document.context.obj(color)
   const replacement = state.document.context.stream(image.contents, dictionary)
   const reference = state.document.context.getObjectRef(image)
@@ -202,9 +229,11 @@ function recordContentBounds(state: RewriteState, stream: PDFRawStream, resource
   else recordPatternPaintedBounds(bytes, resolve, state.painted, resolveGs, resolveShading, state.shadingPainted)
 }
 
-function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void): void {
+function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void, mask: MaskContext): void {
+  if (isUntouchedAlpha(state, mask)) return
   const bytes = decodeContent(stream, state.budget)
-  const rewritten = rewriteContent(bytes, state.convert)
+  const destination = state.destination
+  const rewritten = rewriteContent(bytes, converterFor(state, mask), destination)
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
   const replacement = state.document.context.stream(deflateSync(rewritten.bytes), streamDictionary(stream))
@@ -219,15 +248,16 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number): R
   return {
     budget: { calculatorOperations: 0, decodedBytes: 0, shadingSamples: 0 },
     convert: (rgb) => {
-      if (newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
+      if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
       return cached(rgb)
     },
+    destination: profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk',
     document,
     painted: new WeakMap(),
     profile,
     sampleConvert: (rgb) => {
-      if (newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
-      return pressColor(profile, rgb, tolerance)
+      if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
+      return destinationColor(profile, rgb, tolerance)
     },
     seenGroups: new WeakSet(),
     seenShadings: new WeakSet(),
@@ -246,7 +276,9 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile, to
     beginContentsSequence: () => {
       state.sequence = createPaintedBoundsTracker(state.painted, state.shadingPainted)
     },
-    content: (_object, stream, _replace, resources) => recordContentBounds(state, stream, resources, boundsBudget),
+    content: (_object, stream, _replace, resources, mask) => {
+      if (!isUntouchedAlpha(state, mask)) recordContentBounds(state, stream, resources, boundsBudget)
+    },
     endContentsSequence: () => {
       state.sequence = undefined
     },
@@ -254,20 +286,20 @@ export function rewritePressDocument(document: PDFDocument, profile: Profile, to
     group: () => undefined,
     image: () => undefined,
     replayPageContents: true,
-    shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
+    shading: (shading, pattern, mask) => (isUntouchedAlpha(state, mask) ? false : indexShadingPattern(state, shading, pattern)),
   })
   walkPressGraph(document, {
-    content: (object, stream, replace) => convertContent(state, object, stream, replace),
-    function: (fn, decision) => convertFunction(state, fn, decision),
-    group: (owner, _stream, maskSource) => convertGroup(state, owner, maskSource),
-    image: (image) => convertEffectImage(state, image),
-    shading: (shading, pattern) => convertShading(state, shading, pattern),
+    content: (object, stream, replace, _resources, mask) => convertContent(state, object, stream, replace, mask),
+    function: (fn, decision, mask) => convertFunction(state, fn, decision, mask),
+    group: (owner, _stream, mask) => convertGroup(state, owner, mask),
+    image: (image, mask) => convertEffectImage(state, image, mask),
+    shading: (shading, pattern, mask) => convertShading(state, shading, pattern, mask),
   })
   return state.totals
 }
 
-function addOutputIntent(document: PDFDocument, profile: Uint8Array): void {
-  const profileRef = document.context.register(document.context.stream(profile, { N: 4 }))
+function addOutputIntent(document: PDFDocument, profile: Uint8Array, channels: 1 | 4): void {
+  const profileRef = document.context.register(document.context.stream(profile, { N: channels }))
   const intentRef = document.context.register(
     document.context.obj({ Type: 'OutputIntent', S: 'GTS_PDFX', OutputConditionIdentifier: PDFString.of('Custom'), DestOutputProfile: profileRef }),
   )
@@ -281,12 +313,12 @@ export async function rewritePressPdf(
 ): Promise<{ bytes: Uint8Array; report: PressReport }> {
   try {
     const profile = readProfile(profileBytes)
-    if (profile.colorSpace !== 'CMYK') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK')
+    if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK or GRAY')
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     const counts = rewritePressDocument(document, profile, tolerance)
-    addOutputIntent(document, profileBytes)
+    addOutputIntent(document, profileBytes, profile.colorSpace === 'GRAY' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
-    const report = await inspectPressPdf(output)
+    const report = await inspectPressPdf(output, profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk')
     report.neutralColors = counts.neutralColors
     return { bytes: output, report }
   } catch (error) {

@@ -1,5 +1,5 @@
-import { toPress } from '../color/engine.ts'
-import type { Color3, Color4, Profile } from '../color/types.ts'
+import { toGray, toPress } from '../color/engine.ts'
+import type { Color, Color3, Color4, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 
 const NEUTRAL_TOLERANCE = 0.001
@@ -27,19 +27,23 @@ export function pressColor(profile: Profile, rgb: Color3, tolerance = DEFAULT_NE
   return toPress(profile, rgb)
 }
 
+export function destinationColor(profile: Profile, rgb: Color3, tolerance = DEFAULT_NEUTRAL_TOLERANCE): Color {
+  return profile.colorSpace === 'GRAY' ? toGray(profile, rgb) : pressColor(profile, rgb, tolerance)
+}
+
 export function formatPdfNumber(value: number): string {
   const rounded = Math.round(value * 1_000_000) / 1_000_000
   if (Object.is(rounded, -0)) return '0'
   return rounded.toFixed(6).replace(/(?:\.0+|(?<=\.[0-9]*?)0+)$/, '')
 }
 
-export function cachedPressColor(profile: Profile, tolerance = DEFAULT_NEUTRAL_TOLERANCE): (rgb: Color3) => Color4 {
-  const cache = new Map<string, Color4>()
+export function cachedPressColor(profile: Profile, tolerance = DEFAULT_NEUTRAL_TOLERANCE): (rgb: Color3) => Color {
+  const cache = new Map<string, Color>()
   return (rgb) => {
     const key = `${tolerance}:${rgb.join(',')}`
     const cached = cache.get(key)
     if (cached) return cached
-    const converted = pressColor(profile, rgb, tolerance)
+    const converted = destinationColor(profile, rgb, tolerance)
     cache.set(key, converted)
     return converted
   }
