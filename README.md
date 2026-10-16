@@ -48,6 +48,13 @@ Use the finished player as it is:
 <segnavia-player src="deck.json" notes theme="auto"></segnavia-player>
 ```
 
+The player defaults to `fit="contain"`, keeping its slide, caption and controls
+within the visible viewport. Use `fit="width"` for width-only sizing or
+`fit="height"` inside a definite-height host. Controls remain below the slide
+by default; `controls="overlay"` draws them over it. A host can reserve extra
+visible space with `--segnavia-fit-reserve` and can set the overlay scrim with
+`--segnavia-overlay-scrim`.
+
 The published `@segnavia/frame/browser/headless`, `/browser/controls` and
 `/browser/player` files are self-contained browser bundles. Controls include
 the headless elements, and the player includes both earlier layers, so a page
