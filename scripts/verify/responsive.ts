@@ -1,5 +1,5 @@
 import { fitImage } from '@segnavia/frame/image-fit'
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const canvasFacts = (element: HTMLElement) => {
   const canvas = element.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
@@ -37,22 +37,21 @@ const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => 
 export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-stage.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active] iframe').waitFor()
+  let frameSettled = true
   await h.page
     .locator('.segnavia-stage__canvas[data-active] iframe')
     .contentFrame()
-    .locator('output')
-    .evaluate(
-      (output) =>
-        new Promise<void>((resolve) => {
-          const ready = () => (output.textContent === '720x520' ? resolve() : requestAnimationFrame(ready))
-          ready()
-        }),
-    )
+    .getByText('720x520', { exact: true })
+    .waitFor({ timeout: BOUNDED_WAIT_MS })
+    .catch(() => {
+      frameSettled = false
+    })
   let canvas = await h.page.locator('segnavia-stage').evaluate(canvasFacts)
   let frame = await frameFacts(h)
   h.check(
     'a 720 by 520 responsive stage lays its HTML frame at the unscaled canvas size',
-    canvas.width === 720 &&
+    frameSettled &&
+      canvas.width === 720 &&
       canvas.height === 520 &&
       canvas.transform === 'scale(1)' &&
       frame.width === canvas.width &&
@@ -95,13 +94,11 @@ export async function verifyResponsive(h: Harness) {
   )
 
   await h.page.goto(h.url('responsive-thumbnail.html'))
-  await h.page.locator('segnavia-thumbnail').evaluate(
-    (thumbnail) =>
-      new Promise<void>((resolve) => {
-        const ready = () => (thumbnail.shadowRoot?.querySelector('.segnavia-stage__canvas') ? resolve() : requestAnimationFrame(ready))
-        ready()
-      }),
-  )
+  await h.page
+    .waitForFunction(() => Boolean(document.querySelector('segnavia-thumbnail')?.shadowRoot?.querySelector('.segnavia-stage__canvas')), undefined, {
+      timeout: BOUNDED_WAIT_MS,
+    })
+    .catch(() => {})
   const thumbnail = await h.page.locator('segnavia-thumbnail').evaluate((element) => {
     const canvas = element.shadowRoot?.querySelector<HTMLElement>('.segnavia-stage__canvas')
     return { width: canvas?.clientWidth ?? 0, height: canvas?.clientHeight ?? 0, transform: canvas?.style.transform ?? '' }
