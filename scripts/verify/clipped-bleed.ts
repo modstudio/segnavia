@@ -33,13 +33,9 @@ function ppmRedBounds(file: string): number[] | undefined {
 }
 
 const clipMarginHtml = (width: number) =>
-  `<style>html,body{margin:0}.clip{position:fixed;width:400px;height:200px;overflow:clip;overflow-clip-margin:100px}.overflow{position:absolute;left:350px;width:${width}px;height:100px;background:black}</style><div class="clip"><div id="clip-margin-overflow" class="overflow"></div></div>`
+  `<style>html{overflow:clip;overflow-clip-margin:100px}body{margin:0}.overflow{position:absolute;left:350px;width:${width}px;height:100px;background:black}</style><div id="clip-margin-overflow" class="overflow"></div>`
 
-async function verifyClipMargin(
-  renderer: Renderer,
-  executablePath: string,
-  check: (what: string, ok: boolean, detail?: string) => void,
-): Promise<void> {
+async function verifyClipMargin(renderer: Renderer, executablePath: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
   let report: OverflowReport | undefined
   await renderer.pagePdf(
     {
