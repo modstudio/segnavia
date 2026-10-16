@@ -1,0 +1,104 @@
+import type { Harness } from './harness.ts'
+
+const PLAYER = 'segnavia-player'
+
+interface Geometry {
+  player: { width: number; height: number }
+  stage: { width: number; height: number }
+  bar: { bottom: number; opacity: string }
+}
+
+async function geometry(h: Harness): Promise<Geometry> {
+  return h.page.locator(PLAYER).evaluate((player) => {
+    const root = player.shadowRoot as ShadowRoot
+    const box = (element: Element) => {
+      const rect = element.getBoundingClientRect()
+      return { width: rect.width, height: rect.height }
+    }
+    const bar = root.querySelector('.bar') as HTMLElement
+    return {
+      player: box(player),
+      stage: box(root.querySelector('segnavia-stage') as HTMLElement),
+      bar: { bottom: bar.getBoundingClientRect().bottom, opacity: getComputedStyle(bar).opacity },
+    }
+  })
+}
+
+export async function verifyPlayerLayout(h: Harness) {
+  const { page, check } = h
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto(h.url('layout-contain.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  let boxes = await geometry(h)
+  check('contain keeps the control bar within a 1280 by 720 viewport', boxes.bar.bottom <= 720, JSON.stringify(boxes))
+  await h.evidence('player-contain-1280x720.png')
+
+  await page.setViewportSize({ width: 1280, height: 1400 })
+  await page.waitForTimeout(100)
+  boxes = await geometry(h)
+  check('contain fills the available width in a tall viewport', Math.abs(boxes.stage.width - 1280) < 1, JSON.stringify(boxes))
+
+  await page.setViewportSize({ width: 360, height: 720 })
+  await page.waitForTimeout(100)
+  boxes = await geometry(h)
+  check('contain fills the available width at 360px', Math.abs(boxes.stage.width - 360) < 1, JSON.stringify(boxes))
+  await h.evidence('player-contain-360x720.png')
+
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto(h.url('layout-width.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  boxes = await geometry(h)
+  check('width fit preserves the below-fold control bar', boxes.bar.bottom > 720, JSON.stringify(boxes))
+
+  await page.goto(h.url('layout-overlay.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  boxes = await geometry(h)
+  check('overlay makes the player and slide the same height', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
+  check('overlay controls are visible while paused', boxes.bar.opacity === '1', JSON.stringify(boxes))
+  await h.evidence('player-overlay-1280x720.png')
+  await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
+  await h.waitFor(PLAYER, (data) => data.playing === 'true')
+  await page.waitForTimeout(3200)
+  boxes = await geometry(h)
+  check('overlay controls hide three seconds into playback', boxes.bar.opacity === '0', JSON.stringify(boxes))
+  await page.mouse.move(400, 300)
+  await page.waitForTimeout(200)
+  boxes = await geometry(h)
+  check('pointer movement reveals overlay controls', boxes.bar.opacity === '1', JSON.stringify(boxes))
+  await page.waitForTimeout(3200)
+  await page.keyboard.press('Tab')
+  await page.waitForTimeout(200)
+  boxes = await geometry(h)
+  check('Tab focus reveals overlay controls', boxes.bar.opacity === '1', JSON.stringify(boxes))
+
+  await page.setViewportSize({ width: 360, height: 720 })
+  await page.goto(h.url('layout-overlay.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await h.evidence('player-overlay-360x720.png')
+  await verifyRemoval(h)
+}
+
+async function verifyRemoval(h: Harness) {
+  const { page, check } = h
+  const result = await page
+    .locator(PLAYER)
+    .evaluate(async (player: HTMLElement & { controller: { play(): Promise<void>; state: { playing: boolean; slideElapsedMs: number } } }) => {
+      const controller = player.controller
+      await controller.play()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      player.remove()
+      const removedAt = controller.state.slideElapsedMs
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      const stoppedAt = controller.state.slideElapsedMs
+      document.body.append(player)
+      const reinsertedPaused = !controller.state.playing
+      await controller.play()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return { removedAt, stoppedAt, reinsertedPaused, resumedAt: controller.state.slideElapsedMs }
+    })
+  check(
+    'removing a playing player stops time and reinserting leaves it paused and reusable',
+    Math.abs(result.stoppedAt - result.removedAt) < 1 && result.reinsertedPaused && result.resumedAt > result.stoppedAt,
+    JSON.stringify(result),
+  )
+}

@@ -1,7 +1,6 @@
 // The whole loop on the demo app: capture shots, narrate, assemble a deck that
 // mixes static and playing slides, render it every way a host needs, and
 // publish a player for it.
-
 import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -20,12 +19,10 @@ import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
-
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
 const SITE = path.join(OUT, 'site')
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-
 const build = Bun.spawn(['bun', 'run', 'build'], { cwd: ROOT, stdout: 'inherit', stderr: 'inherit' })
 if ((await build.exited) !== 0) throw new Error('bun run build failed.')
 
@@ -72,10 +69,8 @@ writeFileSync(
     2,
   ),
 )
-
 const voice = pacedProvider({ wordsPerMinute: 170 })
 const cache = path.join(OUT, 'voice')
-
 async function narration(text: string, cues: (n: Pick<Narration, 'words'>) => Narration['cues'], lang?: string): Promise<Narration> {
   const spoken = await narrate(voice, text, { cacheDirectory: cache })
   return { text, lang, ...spoken, live: false, cues: cues(spoken) }
@@ -232,11 +227,16 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
 }
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body.replaceAll('<segnavia-player', '<segnavia-player fit="height"')}<script type="module" src="${script}"></script></body></html>`
+const flowShell = (body: string) =>
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;background:#e7e7e4}segnavia-player{inline-size:100%}</style></head><body>${body}<script type="module" src="segnavia-player.js"></script></body></html>`
 const playerChrome = `<button slot="actions" id="host-action" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg></button>`
 const testIcons = `<svg slot="icon-play" data-custom-icon="play" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg><svg slot="icon-pause" data-custom-icon="pause" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>`
 const partStyles =
   '<style>segnavia-player{--segnavia-accent:rgb(200, 0, 100)}segnavia-player::part(bar){background:rgb(4, 5, 6)}segnavia-player::part(word-current){outline:3px solid rgb(255, 0, 255)}</style>'
 writeFileSync(path.join(SITE, 'index.html'), shell(`<segnavia-player src="deck.json">${playerChrome}</segnavia-player>`))
+writeFileSync(path.join(SITE, 'layout-contain.html'), flowShell('<segnavia-player src="deck.json"></segnavia-player>'))
+writeFileSync(path.join(SITE, 'layout-width.html'), flowShell('<segnavia-player fit="width" src="deck.json"></segnavia-player>'))
+writeFileSync(path.join(SITE, 'layout-overlay.html'), flowShell('<segnavia-player controls="overlay" src="deck.json"></segnavia-player>'))
 writeFileSync(path.join(SITE, 'continuous.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${playerChrome}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'icons.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${testIcons}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'parts.html'), shell(`${partStyles}<segnavia-player playback="continuous" src="deck.json"></segnavia-player>`))
