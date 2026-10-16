@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { BASE_CSS } from './base-style.ts'
+import { HEADLESS_ELEMENT_NAMES } from './headless-elements.ts'
 
 // The headless elements promise a host never has to fight their styles: every
 // rule they bring has zero specificity, so any rule a host writes wins.
@@ -13,8 +14,9 @@ describe('headless base styles', () => {
   })
 
   test('every selector excludes an unstyled root element', () => {
-    const selectors = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper|book)/g) ?? []
-    const exclusions = BASE_CSS.match(/:where\(segnavia-(?:stage|page|paper|book):not\(\[unstyled\]\)/g) ?? []
+    const names = HEADLESS_ELEMENT_NAMES.join('|')
+    const selectors = BASE_CSS.match(new RegExp(`:where\\((?:${names})`, 'g')) ?? []
+    const exclusions = BASE_CSS.match(new RegExp(`:where\\((?:${names}):not\\(\\[unstyled\\]\\)`, 'g')) ?? []
     expect(selectors.length).toBeGreaterThan(5)
     expect(exclusions).toHaveLength(selectors.length)
   })
