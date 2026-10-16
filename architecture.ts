@@ -27,7 +27,16 @@ export const PACKAGES: Record<string, PackageRule> = {
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
-    serverSafe: ['src/svg.ts', 'src/timeline.ts', 'src/bridge.ts', 'src/image-fit.ts', 'src/print-document.ts', 'src/styled-elements.ts', 'src/icons.ts'],
+    serverSafe: [
+      'src/svg.ts',
+      'src/timeline.ts',
+      'src/bridge.ts',
+      'src/image-fit.ts',
+      'src/stage-layout.ts',
+      'src/print-document.ts',
+      'src/styled-elements.ts',
+      'src/icons.ts',
+    ],
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },

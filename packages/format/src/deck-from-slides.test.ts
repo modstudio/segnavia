@@ -35,6 +35,7 @@ describe('deckFromSlides', () => {
       {
         title: 'Talk',
         size: { width: 1920, height: 1080 },
+        layout: 'responsive',
         scripts: 'sandboxed',
         playback: 'continuous',
         captions: 'viewer',
@@ -55,6 +56,7 @@ describe('deckFromSlides', () => {
     expect(deck).toMatchObject({
       title: 'Talk',
       size: { width: 1920, height: 1080 },
+      layout: 'responsive',
       scripts: 'sandboxed',
       playback: 'continuous',
       captions: 'viewer',

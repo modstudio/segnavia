@@ -24,6 +24,9 @@ segnavia-stage,segnavia-rail{--_segnavia-shot-backdrop:var(--segnavia-shot-backd
 :host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
 :host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:size;display:grid;place-items:center;padding:16px 16px 8px}
 :host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:min(100cqw,100cqh * var(--ratio,1.7778))}
+:host([data-layout="responsive"][fit="height"]) segnavia-stage,:host([data-layout="responsive"][data-presenting]) segnavia-stage{width:100%;height:100%}
+:host([data-layout="responsive"][fit="height"]) .screen,:host([data-layout="responsive"][data-presenting]) .screen{padding:0}
+:host([data-layout="responsive"]:not([fit="width"]):not([fit="height"]):not([data-presenting])) .screen{padding:0}
 segnavia-stage:focus-visible{outline:2px solid var(--_accent);outline-offset:3px}
 segnavia-notes{inline-size:clamp(200px,28%,340px);border-inline-start:1px solid var(--_line);padding:16px 18px;overflow:auto;background:var(--_surface)}
 .notes-closed segnavia-notes{display:none}

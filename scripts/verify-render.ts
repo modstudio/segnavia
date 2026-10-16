@@ -1,5 +1,3 @@
-// Rendering and capture checks that need no viewer, run under Bun and Node.
-
 import './source-guard.ts'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -33,7 +31,6 @@ const refusal = (work: Promise<unknown>) =>
     () => 'rendered',
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
-
 function readPgm(file: string): { width: number; height: number; pixels: Uint8Array } {
   const bytes = readFileSync(file)
   let offset = 0
@@ -107,6 +104,7 @@ try {
   await verifyBookOffline(renderer, origin)
   const deck = {
     title: 'Offline deck',
+    layout: 'fixed' as const,
     fit: 'contain' as const,
     frame: false,
     scripts: 'sandboxed' as const,
@@ -179,11 +177,11 @@ try {
   )
   const fullPageSize = imageSize(fullPageWebp)
   check('a full-page WebP pixel size reflects the chosen scale', fullPageSize?.width === 400 && fullPageSize.height === 600, JSON.stringify(fullPageSize))
-  // A right to left deck's notes: the scaled slide must stay inside its box.
   let overflow = Number.NaN
   await renderer.deckPdf(
     {
       title: 'כותרת',
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       lang: 'he',
@@ -315,6 +313,7 @@ try {
   const slide = await renderer.slideImage(
     {
       title: 'T',
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       size: { width: 1280, height: 720 },
@@ -354,6 +353,7 @@ try {
   await renderer.deckPdf(
     {
       title: 'English deck',
+      layout: 'fixed',
       fit: 'contain',
       frame: false,
       size: { width: 400, height: 200 },

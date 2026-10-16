@@ -116,6 +116,7 @@ export const DECK_SIZE = { width: 1280, height: 720 } as const
 export const DeckShape = z.object({
   title: z.string(),
   size: Size.default(DECK_SIZE),
+  layout: z.enum(['fixed', 'responsive']).default('fixed'),
   fit: ImageFit.default('contain'),
   frame: z.boolean().default(false),
   scripts: Scripts.default('refuse'),

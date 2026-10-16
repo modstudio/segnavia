@@ -23,6 +23,7 @@ import { buildPaperDemo } from './build-paper-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
+import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -216,6 +217,7 @@ writeFileSync(
 )
 
 writeFileSync(path.join(SITE, 'deck.json'), JSON.stringify(deck, null, 2))
+writeResponsiveDemo(SITE)
 // Each browser bundle contains its layer and every layer beneath it, so a page loads exactly one shipped file.
 const frameManifest = JSON.parse(readFileSync(path.join(ROOT, 'packages/frame/package.json'), 'utf8')) as {
   exports: Record<string, { default: string }>

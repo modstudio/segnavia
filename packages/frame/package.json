@@ -47,6 +47,11 @@
       "types": "./dist/image-fit.d.ts",
       "default": "./dist/image-fit.js"
     },
+    "./stage-layout": {
+      "@segnavia/source": "./src/stage-layout.ts",
+      "types": "./dist/stage-layout.d.ts",
+      "default": "./dist/stage-layout.js"
+    },
     "./print-document": {
       "@segnavia/source": "./src/print-document.ts",
       "types": "./dist/print-document.d.ts",
