@@ -32,7 +32,7 @@ export async function verifyReactAuthoring(h: Harness) {
     await new Promise((resolve) => setTimeout(resolve, 50))
     const saves = [...facts.saves]
     facts.deferNotes = false
-    facts.releaseNotes()
+    if (typeof facts.releaseNotes === 'function') facts.releaseNotes()
     await moving
     return { saves, settledBeforeRelease: settled }
   })
