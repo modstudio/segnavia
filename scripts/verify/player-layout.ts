@@ -38,13 +38,30 @@ export async function verifyPlayerLayout(h: Harness) {
   check('contain keeps the control bar within a 1280 by 720 viewport', boxes.bar.bottom <= 720, JSON.stringify(boxes))
   await h.evidence('player-contain-1280x720.png')
 
+  // A host header above the player: contain sizes from the viewport, never from
+  // where the player happens to sit, so the stage must match the unspaced size.
+  const atTop = boxes.stage
+  await page.locator(PLAYER).evaluate(async (player) => {
+    const spacer = document.createElement('div')
+    spacer.id = 'layout-spacer'
+    spacer.style.blockSize = '200px'
+    player.before(spacer)
+    document.body.style.minHeight = '1600px'
+    player.setAttribute('fit', 'width')
+    player.removeAttribute('fit')
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  })
+  boxes = await geometry(h)
+  check(
+    'contain sizes from the viewport, not from the player position',
+    Math.abs(boxes.stage.width - atTop.width) < 1 && Math.abs(boxes.stage.height - atTop.height) < 1,
+    JSON.stringify({ atTop, spaced: boxes.stage }),
+  )
+
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
   await h.waitFor(PLAYER, (data) => data.playing === 'true')
   const beforeScroll = boxes.stage
-  await page.evaluate(() => {
-    document.body.style.minHeight = '1200px'
-    window.scrollBy(0, 200)
-  })
+  await page.evaluate(() => window.scrollBy(0, 150))
   await page.waitForTimeout(500)
   boxes = await geometry(h)
   check(
@@ -52,7 +69,11 @@ export async function verifyPlayerLayout(h: Harness) {
     Math.abs(boxes.stage.width - beforeScroll.width) < 1 && Math.abs(boxes.stage.height - beforeScroll.height) < 1,
     JSON.stringify({ before: beforeScroll, after: boxes.stage }),
   )
-  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.evaluate(() => {
+    document.getElementById('layout-spacer')?.remove()
+    document.body.style.removeProperty('min-height')
+    window.scrollTo(0, 0)
+  })
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { pause(): void; go(index: number): Promise<void> } }) => {
     player.controller.pause()
     await player.controller.go(0)
