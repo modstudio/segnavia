@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { type Harness, SITE } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -276,12 +276,28 @@ export async function verifyRailAuthoring(h: Harness) {
     authoringUpdate.text === 'React draft' && authoringUpdate.maxLength === 1234 && authoringUpdate.saves.join(',') === 'React draft',
     JSON.stringify(authoringUpdate),
   )
-  const replacement = await page.evaluate(async () => {
+  const oldPlayer = await page.locator(PLAYER).elementHandle()
+  await page.evaluate(() => {
     const holder = window as unknown as { reactReplace(): void; reactDeckController?: unknown }
-    const oldPlayer = document.querySelector('segnavia-player')
     holder.reactReplace()
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+  })
+  await page
+    .waitForFunction(
+      (oldPlayer) => {
+        const holder = window as unknown as { reactDeckController?: unknown }
+        const newPlayer = document.querySelector('segnavia-player')
+        return (
+          Boolean(newPlayer && oldPlayer && oldPlayer !== newPlayer) &&
+          oldPlayer?.shadowRoot?.querySelector('[data-authoring-notes]') === null &&
+          holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller
+        )
+      },
+      oldPlayer,
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {})
+  const replacement = await page.evaluate((oldPlayer) => {
+    const holder = window as unknown as { reactDeckController?: unknown }
     const newPlayer = document.querySelector('segnavia-player')
     return {
       replaced: Boolean(oldPlayer && newPlayer && oldPlayer !== newPlayer),
@@ -289,7 +305,7 @@ export async function verifyRailAuthoring(h: Harness) {
       newAttached: Boolean(newPlayer?.shadowRoot?.querySelector('[data-authoring-notes]')),
       controllerFollowed: holder.reactDeckController === (newPlayer as unknown as { controller?: unknown })?.controller,
     }
-  })
+  }, oldPlayer)
   check(
     'React keyed replacement follows the new player',
     replacement.replaced && replacement.oldDetached && replacement.newAttached && replacement.controllerFollowed,
