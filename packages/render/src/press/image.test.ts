@@ -77,6 +77,13 @@ test('converts Flate RGB images with and without a PNG predictor', async () => {
   expect(images.every((image) => image.dict.get(key('ColorSpace'))?.toString() === '/DeviceGray')).toBe(true)
 })
 
+test('bounds Flate inflation to the exact image sample size', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, deflateSync(new Uint8Array(1_000_000)), { filter: 'FlateDecode' })
+  paint(document, { I: image })
+  await expect(rewritePressPdf(await document.save(), profileBytes)).rejects.toThrow(/image data length greater than 3.*3 bytes/)
+})
+
 test('keeps four-bit indices and converts an Indexed RGB palette', async () => {
   const document = await PDFDocument.create()
   const palette = PDFHexString.of('ff000000ff00')

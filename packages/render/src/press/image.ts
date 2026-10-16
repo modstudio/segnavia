@@ -103,10 +103,12 @@ function filterName(document: PDFDocument, image: PDFRawStream): 'flate' | 'jpeg
   return refuse(`image filter ${name ?? 'other'}`, 'no filter, FlateDecode, or DCTDecode')
 }
 
-function inflate(bytes: Uint8Array, structure: string): Uint8Array {
+function inflate(bytes: Uint8Array, structure: string, maximum?: number): Uint8Array {
   try {
-    return inflateSync(bytes)
-  } catch {
+    return inflateSync(bytes, maximum === undefined ? undefined : { maxOutputLength: maximum })
+  } catch (error) {
+    if (maximum !== undefined && error instanceof Error && 'code' in error && error.code === 'ERR_BUFFER_TOO_LARGE')
+      return refuse(`${structure} data length greater than ${maximum}`, `${maximum} bytes`)
     return refuse(`${structure} FlateDecode data`, 'valid FlateDecode data')
   }
 }
@@ -150,9 +152,9 @@ function undoPngPredictor(bytes: Uint8Array, width: number, height: number, colo
 }
 
 function decodeFlate(state: ImageState, image: PDFRawStream, width: number, height: number, channels: number, bits: number): Uint8Array {
-  const inflated = inflate(image.contents, 'image')
   const rawParms = resolved(state.document, image.dict.get(key('DecodeParms')))
-  if (!rawParms) return inflated
+  const rowBytes = Math.ceil((width * channels * bits) / 8)
+  if (!rawParms) return inflate(image.contents, 'image', rowBytes * height)
   if (!(rawParms instanceof PDFDict)) refuse('image DecodeParms', 'no DecodeParms or a PNG predictor 10 through 15')
   const parms = rawParms as PDFDict
   const predictor = numberOf(parms, 'Predictor') ?? 1
@@ -162,6 +164,8 @@ function decodeFlate(state: ImageState, image: PDFRawStream, width: number, heig
   const predictorBits = numberOf(parms, 'BitsPerComponent') ?? 8
   if (columns !== width || colors !== channels || predictorBits !== bits)
     refuse('image PNG predictor parameters', `Colors ${channels}, Columns ${width}, and BitsPerComponent ${bits}`)
+  const expected = (rowBytes + 1) * height
+  const inflated = inflate(image.contents, 'image predictor', expected)
   return undoPngPredictor(inflated, width, height, colors, predictorBits)
 }
 
