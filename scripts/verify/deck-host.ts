@@ -218,7 +218,7 @@ export async function verifyDeckHost(h: Harness) {
   const sandboxedCount = await page.locator(`${STAGE} iframe`).count()
   check(
     'deck host: every parent animation frame stays loaded and painted across sandboxed turns',
-    pixels.length >= 6 && bare.length === 0 && sampled.badFrames === 0 && sampled.turns >= 6 && sampled.frames > sampled.turns,
+    pixels.length >= 6 && bare.length === 0 && sampled.badFrames === 0 && sampled.turns >= 6 && sampled.frames > sampled.turns && sampled.timedOut === false,
     JSON.stringify({ captures: pixels.length, bare: bare.length, ...sampled, turnDurations }),
   )
   check(
@@ -275,11 +275,13 @@ interface SampledTurns {
   turns: number
   cancelled: boolean
   target: string | null
+  timedOut: boolean
 }
 
 async function sampleSandboxedTurns(h: Harness): Promise<SampledTurns> {
-  return h.page.evaluate(async () => {
+  return h.page.evaluate(async (boundedWaitMs) => {
     const stage = document.querySelector('#deck') as HTMLElement & { controller: { go(index: number): Promise<void> } }
+    const deadline = performance.now() + boundedWaitMs
     const loaded = new WeakSet<Element>()
     const watch = (canvas: Element) => {
       const media = canvas.querySelector('iframe, img')
@@ -313,28 +315,34 @@ async function sampleSandboxedTurns(h: Harness): Promise<SampledTurns> {
     requestAnimationFrame(sample)
     const settle = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     const waitForActive = (id: string) =>
-      new Promise<void>((resolve) => {
+      new Promise<boolean>((resolve) => {
         const poll = () => {
-          if (stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === id) resolve()
+          if (stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === id) resolve(true)
+          else if (performance.now() >= deadline) resolve(false)
           else requestAnimationFrame(poll)
         }
         poll()
       })
-    const go = async (index: number) => {
-      await stage.controller.go(index)
-      await waitForActive(`sandboxed-${index + 1}`)
-      await settle()
+    const waitWithinBound = (promise: Promise<void>) => {
+      const remaining = deadline - performance.now()
+      if (remaining <= 0) return Promise.resolve(false)
+      return Promise.race([promise.then(() => true), new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), remaining))])
     }
-    await go(1)
-    await go(2)
-    await go(1)
-    await go(0)
-    await go(1)
-    await stage.controller.go(2)
-    const firstIncoming = stage.querySelector<HTMLElement>('[data-slide-id="sandboxed-3"]')
-    await stage.controller.go(0)
-    await waitForActive('sandboxed-1')
-    await settle()
+    const go = async (index: number) => {
+      if (!(await waitWithinBound(stage.controller.go(index)))) return false
+      if (!(await waitForActive(`sandboxed-${index + 1}`))) return false
+      return waitWithinBound(settle())
+    }
+    let completed = true
+    for (const index of [1, 2, 1, 0, 1]) {
+      completed = await go(index)
+      if (!completed) break
+    }
+    if (completed) completed = await waitWithinBound(stage.controller.go(2))
+    const firstIncoming = completed ? stage.querySelector<HTMLElement>('[data-slide-id="sandboxed-3"]') : null
+    if (completed) completed = await waitWithinBound(stage.controller.go(0))
+    if (completed) completed = await waitForActive('sandboxed-1')
+    if (completed) completed = await waitWithinBound(settle())
     sampling = false
     observer.disconnect()
     const active = stage.querySelector<HTMLElement>('[data-active]')
@@ -344,8 +352,9 @@ async function sampleSandboxedTurns(h: Harness): Promise<SampledTurns> {
       turns: 7,
       cancelled: Boolean(firstIncoming) && !firstIncoming?.isConnected && !stage.querySelector('[data-slide-id="sandboxed-3"]'),
       target: active?.dataset.slideId ?? null,
+      timedOut: !completed,
     }
-  })
+  }, BOUNDED_WAIT_MS)
 }
 
 async function stageCenterPixel(h: Harness): Promise<[number, number, number]> {

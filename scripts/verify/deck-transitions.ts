@@ -1,4 +1,4 @@
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface TransitionHost {
   controller: { go(index: number): Promise<void> }
@@ -27,22 +27,22 @@ export async function verifyDeckTransitions(h: Harness) {
   for (const sample of samples) {
     check(
       `deck host: ${sample.kind} transition is monotonic with no empty frame under ${sample.scripts} scripts`,
-      sample.frames >= 4 && sample.monotonic && sample.range && sample.emptyFrames === 0,
+      sample.frames >= 4 && hasCompleteMotion(sample),
       JSON.stringify(sample),
     )
   }
   const refusedSamples = samples.filter((sample) => sample.scripts === 'refuse')
   check(
     'deck host: refused-script fade and slide preserve the loaded neighbor document',
-    refusedSamples.every((sample) => sample.stableWindow === true),
+    refusedSamples.every((sample) => sample.stableWindow === true && hasCompleteMotion(sample)),
     JSON.stringify(refusedSamples),
   )
 
   const rtl = await sampleTransition(h, 'slide', 'refuse', 'rtl')
-  check('deck host: a right-to-left forward slide enters from the left', rtl.first < 0 && rtl.monotonic, JSON.stringify(rtl))
+  check('deck host: a right-to-left forward slide enters from the left', rtl.first < 0 && hasCompleteMotion(rtl), JSON.stringify(rtl))
 
   const overridden = await sampleTransition(h, 'slide', 'refuse', 'ltr', { kind: 'fade', duration: 180 })
-  check('deck host: a host transition override beats the deck setting', overridden.observedKind === 'fade' && overridden.range, JSON.stringify(overridden))
+  check('deck host: a host transition override beats the deck setting', hasCompleteMotion(overridden, 'fade'), JSON.stringify(overridden))
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const reduced = await sampleTransition(h, 'slide', 'refuse')
@@ -79,6 +79,10 @@ export async function verifyDeckTransitions(h: Harness) {
     held.waited && held.animated && held.sameWindow && held.emptyFrames === 0 && held.addedFrames === 0,
     JSON.stringify(held),
   )
+}
+
+function hasCompleteMotion(sample: TransitionSample, expectedKind = sample.kind) {
+  return sample.observedKind === expectedKind && sample.monotonic && sample.range && sample.emptyFrames === 0
 }
 
 async function sampleKindsAndModes(h: Harness): Promise<TransitionSample[]> {
@@ -279,7 +283,7 @@ async function sampleTransition(
 ): Promise<TransitionSample> {
   await prepareTransition(h, kind, scripts, dir, override)
   return h.page.evaluate(
-    async ({ selectedKind, selectedScripts }) => {
+    async ({ selectedKind, selectedScripts, boundedWaitMs }) => {
       const host = (window as unknown as { __deckHost: TransitionHost }).__deckHost
       const stage = document.querySelector('#deck') as HTMLElement
       const incomingFrame = stage.querySelector<HTMLIFrameElement>('[data-slide-id="transition-2"] iframe')
@@ -296,10 +300,11 @@ async function sampleTransition(
       }
       const recordIncoming = () => {
         const incoming = stage.querySelector<HTMLElement>('[data-slide-id="transition-2"]')
-        if (!incoming?.dataset.transition) return
-        facts.observedKind = incoming.dataset.transition
+        if (!incoming) return
+        if (incoming.dataset.transition) facts.observedKind = incoming.dataset.transition
+        if (!facts.observedKind) return
         const style = getComputedStyle(incoming)
-        if (selectedKind === 'fade' || facts.observedKind === 'fade') values.push(Number(style.opacity))
+        if (facts.observedKind === 'fade') values.push(Number(style.opacity))
         else {
           const box = incoming.getBoundingClientRect()
           const stageBox = stage.getBoundingClientRect()
@@ -308,12 +313,15 @@ async function sampleTransition(
         }
       }
       const turn = host.controller.go(1)
+      const started = performance.now()
       await new Promise<void>((resolve) => {
         const sample = () => {
           recordIncoming()
           if (!hasPaintedCanvas()) facts.emptyFrames++
+          const last = values.at(-1)
+          const reachedEnd = facts.observedKind === 'fade' ? Math.abs(1 - (last ?? 0)) < 0.001 : facts.observedKind === 'slide' && Math.abs(last ?? 100) < 0.001
           const settled = stage.querySelector('[data-active]')?.getAttribute('data-slide-id') === 'transition-2' && !stage.querySelector('[data-transition]')
-          if (settled) resolve()
+          if (reachedEnd || (settled && !facts.observedKind) || performance.now() - started >= boundedWaitMs) resolve()
           else requestAnimationFrame(sample)
         }
         requestAnimationFrame(sample)
@@ -338,7 +346,7 @@ async function sampleTransition(
         stableWindow: selectedScripts === 'refuse' ? Boolean(incomingWindow) && incomingFrame?.contentWindow === incomingWindow : null,
       }
     },
-    { selectedKind: kind, selectedScripts: scripts },
+    { selectedKind: kind, selectedScripts: scripts, boundedWaitMs: BOUNDED_WAIT_MS },
   )
 }
 
