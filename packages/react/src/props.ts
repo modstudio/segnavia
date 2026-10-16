@@ -13,7 +13,7 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
-import type { SegnaviaPlayer } from '@segnavia/frame/player'
+import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
 type ElementProps<E extends HTMLElement> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
@@ -39,8 +39,8 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   playback?: 'step' | 'continuous'
   captions?: 'on' | 'off' | 'viewer'
   presentation?: 'window' | 'native' | 'off'
-  fit?: 'width' | 'height' | 'contain'
-  controls?: 'below' | 'overlay'
+  fit?: PlayerFit
+  controls?: PlayerControls
   transitionDuration?: number
   onSegnaviaLabels?: CustomEventProp
 }

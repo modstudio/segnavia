@@ -6,6 +6,7 @@ import { SegnaviaPlayer } from './player.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 
 export * from './controls-entry.ts'
+export type { PlayerControls, PlayerFit } from './player-layout.ts'
 export { SegnaviaPlayer } from './player.ts'
 
 if (!customElements.get(STYLED_ELEMENTS.player)) customElements.define(STYLED_ELEMENTS.player, SegnaviaPlayer)
