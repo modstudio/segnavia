@@ -14,4 +14,6 @@ export interface PressReport {
   /** Function-based shadings rewritten as DeviceCMYK sampled functions. */
   sampledShadings: number
   groups: number
+  /** Color conversions snapped to black ink by the configured tolerance but not by the exact-neutral rule. */
+  neutralColors: number
 }

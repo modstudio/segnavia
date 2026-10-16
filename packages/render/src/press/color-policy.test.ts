@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
-import { formatPdfNumber, pressColor } from './color-policy.ts'
+import { assertNeutralTolerance, formatPdfNumber, newlySnapsToNeutral, pressColor } from './color-policy.ts'
 
 const profile = readProfile(buildPressProfile('mft1'))
 
@@ -12,6 +12,43 @@ test.each([0, 0.2, 1])('a neutral %p uses black ink alone', (value) => {
 
 test('a non-neutral uses the color engine', () => {
   expect(pressColor(profile, [0.2, 0.4, 0.6])).toEqual(toPress(profile, [0.2, 0.4, 0.6]))
+})
+
+test.each([
+  { name: 'at', blue: 103, blackOnly: true },
+  { name: 'inside', blue: 102, blackOnly: true },
+  { name: 'outside', blue: 104, blackOnly: false },
+])('a near-grey $name the tolerance is handled at the boundary', ({ blue, blackOnly }) => {
+  const rgb: [number, number, number] = [100 / 255, 101 / 255, blue / 255]
+  const converted = pressColor(profile, rgb, 3)
+  expect(converted.slice(0, 3).every((channel) => channel === 0)).toBe(blackOnly)
+})
+
+test('tolerance zero keeps the exact-neutral rule', () => {
+  expect(pressColor(profile, [0.4, 0.4005, 0.4], 0).slice(0, 3)).toEqual([0, 0, 0])
+  expect(pressColor(profile, [0.4, 0.402, 0.4], 0)).toEqual(toPress(profile, [0.4, 0.402, 0.4]))
+})
+
+test('a small positive tolerance still snaps every color the exact rule snaps', () => {
+  expect(pressColor(profile, [0.4, 0.4005, 0.4], 0.1).slice(0, 3)).toEqual([0, 0, 0])
+})
+
+test('only colors beyond the exact rule count as newly snapped', () => {
+  expect(newlySnapsToNeutral([0.4, 0.4, 0.4], 3)).toBe(false)
+  expect(newlySnapsToNeutral([0.4, 0.4005, 0.4], 0.1)).toBe(false)
+  expect(newlySnapsToNeutral([100 / 255, 101 / 255, 103 / 255], 3)).toBe(true)
+  expect(newlySnapsToNeutral([100 / 255, 101 / 255, 104 / 255], 3)).toBe(false)
+})
+
+test('a snapped near-grey derives black ink from the channel mean', () => {
+  const rgb: [number, number, number] = [120 / 255, 121 / 255, 123 / 255]
+  const converted = pressColor(profile, rgb, 3)
+  expect(converted.slice(0, 3)).toEqual([0, 0, 0])
+  expect(converted[3]).toBeCloseTo(1 - (120 + 121 + 123) / 3 / 255)
+})
+
+test.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 256])('an invalid neutral tolerance %p is refused with its value and range', (value) => {
+  expect(() => assertNeutralTolerance(value)).toThrow(`The press neutral tolerance is ${String(value)}; supported: a finite number from 0 to 255.`)
 })
 
 test('PDF number formatting round-trips within half a thousandth without exponent notation', () => {

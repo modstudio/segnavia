@@ -16,6 +16,7 @@ import { assertPrintOptions, printCss, printPage, printViewport } from './page-p
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
+import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -99,7 +100,9 @@ async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects'
     options.effects?.report?.(rewritten.report)
   }
   if (options.press) {
-    const converted = await rewritePressPdf(output, options.press.profile)
+    const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
+    assertNeutralTolerance(neutralTolerance)
+    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance)
     output = converted.bytes
     options.press.report?.(converted.report)
   }
