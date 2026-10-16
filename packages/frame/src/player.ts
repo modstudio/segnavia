@@ -304,6 +304,7 @@ export class SegnaviaPlayer extends HTMLElement {
   // The stage handles keys pressed on it. Elsewhere in the player, paging keys
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) this.overlay.key()
     if (event.key.toLowerCase() === 'f' && !isEditableLetterShortcut(event.key, event.composedPath()[0])) {
       if (playerPresentation(this) === 'off') return
       if (this.controller.key(event.key) === 'present') {
