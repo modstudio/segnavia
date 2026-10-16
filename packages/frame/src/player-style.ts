@@ -30,6 +30,17 @@ segnavia-caption{grid-area:caption;padding:6px 24px 10px;min-block-size:calc(var
 segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{grid-area:bar;display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
+:host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "below";grid-template-rows:auto auto}
+:host([controls="overlay"]:not([data-presenting])) .body,:host([controls="overlay"]:not([data-presenting])) segnavia-caption,
+:host([controls="overlay"]:not([data-presenting])) .bar{grid-area:body}
+:host([controls="overlay"]:not([data-presenting])) .body{z-index:0}
+:host([controls="overlay"]:not([data-presenting])) .screen{padding-block-end:0}
+:host([controls="overlay"]:not([data-presenting])) segnavia-caption{z-index:1;align-self:end;padding-block-end:96px;
+  background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);color:#fff;transition:padding-block-end 160ms ease}
+:host([controls="overlay"]:not([data-presenting])) .bar{z-index:2;align-self:end;color-scheme:dark;
+  background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);transition:opacity 160ms ease}
+:host([controls="overlay"][data-controls-hidden]:not([data-presenting])) .bar{opacity:0;pointer-events:none}
+:host([controls="overlay"][data-controls-hidden]:not([data-presenting])) segnavia-caption{padding-block-end:10px}
 segnavia-rail{grid-area:rail;min-block-size:0;display:none;border-inline-end:1px solid var(--_line);background:var(--_surface)}
 :host([rail]) segnavia-rail{display:block}
 .below{grid-area:below}
@@ -54,4 +65,6 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
   segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}}
 @container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end{--segnavia-control-size:28px;gap:0}}
+@media (prefers-reduced-motion:reduce){:host([controls="overlay"]:not([data-presenting])) .bar,
+  :host([controls="overlay"]:not([data-presenting])) segnavia-caption{transition:none}}
 `

@@ -20,6 +20,7 @@ import type { SegnaviaFullscreen } from './controls.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
+import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
 import { containSlideSize, type PlayerControls, type PlayerFit, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
@@ -66,6 +67,7 @@ export class SegnaviaPlayer extends HTMLElement {
   private words: PlayerLabels = ENGLISH_LABELS
   private resize = new ResizeObserver(() => this.scheduleMeasure())
   private measureFrame = 0
+  private overlay = new OverlayControlsVisibility((hidden) => this.toggleAttribute('data-controls-hidden', hidden))
 
   constructor() {
     super()
@@ -83,6 +85,10 @@ export class SegnaviaPlayer extends HTMLElement {
       if (document.fullscreenElement === this) void document.exitFullscreen()
     })
     this.root.addEventListener('keydown', this.onKey as EventListener)
+    this.addEventListener('pointermove', this.revealOverlay)
+    this.addEventListener('touchstart', this.revealOverlay)
+    this.addEventListener('focusin', this.focusOverlay)
+    this.addEventListener('focusout', this.blurOverlay)
     this.root.querySelector('.notes-toggle')?.addEventListener('click', () => this.toggleAttribute('notes'))
   }
 
@@ -176,6 +182,7 @@ export class SegnaviaPlayer extends HTMLElement {
     window.removeEventListener('resize', this.scheduleMeasure)
     window.removeEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.removeEventListener('resize', this.scheduleMeasure)
+    this.overlay.dispose()
     suspendController(this.controller)
   }
 
@@ -252,6 +259,7 @@ export class SegnaviaPlayer extends HTMLElement {
     this.dataset.word = state.word === null ? '' : String(state.word)
     this.dataset.shown = state.shown === null ? 'all' : state.shown.join(',')
     this.dataset.direction = state.direction
+    this.overlay.setPlaying(state.playing)
     this.scheduleMeasure()
   }
 
@@ -300,10 +308,15 @@ export class SegnaviaPlayer extends HTMLElement {
       if (playerPresentation(this) === 'off') return
       if (this.controller.key(event.key) === 'present') {
         event.preventDefault()
+        this.overlay.key()
         this.togglePresentation()
       }
       return
     }
-    handlePlayerKey(this.controller, this.stage, event)
+    if (handlePlayerKey(this.controller, this.stage, event)) this.overlay.key()
   }
+
+  private revealOverlay = () => this.overlay.interact()
+  private focusOverlay = () => this.overlay.focus(true)
+  private blurOverlay = () => queueMicrotask(() => this.overlay.focus(this.root.activeElement !== null))
 }
