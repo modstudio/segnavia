@@ -20,6 +20,7 @@ import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
+import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -223,6 +224,7 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
   const out = name === './browser/headless' ? 'segnavia.js' : `segnavia-${name.replace('./browser/', '')}.js`
   copyFileSync(path.join(ROOT, 'packages/frame', conditions.default), path.join(SITE, out))
 }
+writeFitDemo(SITE)
 const shell = (body: string, script = 'segnavia-player.js') =>
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body.replaceAll('<segnavia-player', '<segnavia-player fit="height"')}<script type="module" src="${script}"></script></body></html>`
 const flowShell = (body: string) =>
@@ -367,6 +369,10 @@ try {
     await renderer.deckPdf(printable, { inline, layout: 'notes', notesPaper: { paper: 'a4', orientation: 'portrait' } }),
   )
   writeFileSync(path.join(OUT, 'slide-3.png'), await renderer.slideImage(printable, 2, { inline }))
+  writeFileSync(
+    path.join(OUT, 'fit-slides.pdf'),
+    await renderer.deckPdf(fitDeck, { inline: (src) => `data:image/svg+xml;base64,${readFileSync(path.join(SITE, src)).toString('base64')}` }),
+  )
   writeFileSync(path.join(OUT, 'page.webp'), await renderer.pageImage(fluidPage, { format: 'webp', width: 1024 }))
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))

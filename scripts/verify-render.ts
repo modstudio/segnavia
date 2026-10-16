@@ -109,6 +109,7 @@ try {
   await verifyBookOffline(renderer, origin)
   const deck = {
     title: 'Offline deck',
+    fit: 'contain' as const,
     scripts: 'sandboxed' as const,
     size: { width: 400, height: 200 },
     slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
@@ -146,7 +147,6 @@ try {
     hits === 0 && deckPdfs.every((pdf) => pdf.length > 0),
     `requests=${hits}`,
   )
-
   if (existsSync(FACE)) {
     const pdf = await renderer.pagePdf(
       { html: '<p style="font-family:SegnaviaFace">Embedded</p>', size: { width: 400, height: 200 } },
@@ -157,7 +157,6 @@ try {
     const fonts = execFileSync('pdffonts', [file], { encoding: 'utf8' })
     check('a face passed as bytes is embedded in the PDF', fonts.includes('DejaVuSerif-Bold'), fonts.split('\n').slice(2).join(' ').trim())
   }
-
   let background = ''
   await renderer.pageImage(
     { html: '<h1>House</h1>', size: { width: 200, height: 100 } },
@@ -169,7 +168,6 @@ try {
     },
   )
   check("the host's house style reaches the render", background === 'rgb(0, 128, 0)', background)
-
   let fullPageWebp: Uint8Array<ArrayBufferLike> = new Uint8Array()
   await renderer.pageImage(
     { html: '<style>html,body{margin:0}</style><div style="height:300px;background:green"></div>', size: { width: 200, height: 100 } },
@@ -188,6 +186,7 @@ try {
   await renderer.deckPdf(
     {
       title: 'כותרת',
+      fit: 'contain',
       lang: 'he',
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
@@ -287,7 +286,6 @@ try {
     darkMidpoints === 8 && lightEnds === 16 && bleedBackground < 245 && mediaBackground > 245,
     `marks=${darkMidpoints}/8, light endpoints=${lightEnds}/16, bleed gray=${bleedBackground}, media gray=${mediaBackground}`,
   )
-
   verifyPagesRender(output, work, check)
   verifyDeckRender(output, work, check)
   await verifyPressRender(renderer, work, check)
@@ -319,6 +317,7 @@ try {
   const slide = await renderer.slideImage(
     {
       title: 'T',
+      fit: 'contain',
       size: { width: 1280, height: 720 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
@@ -356,6 +355,7 @@ try {
   await renderer.deckPdf(
     {
       title: 'English deck',
+      fit: 'contain',
       size: { width: 400, height: 200 },
       scripts: 'refuse',
       slides: [{ id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }],

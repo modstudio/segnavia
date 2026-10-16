@@ -30,9 +30,7 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
             kind,
             src: (row as Extract<SlideRow, { kind: 'shot' }>).src,
             shot: (row as Extract<SlideRow, { kind: 'shot' }>).shot,
-            ...((row as Extract<SlideRow, { kind: 'shot' }>).fit !== undefined
-              ? { fit: (row as Extract<SlideRow, { kind: 'shot' }>).fit }
-              : {}),
+            ...((row as Extract<SlideRow, { kind: 'shot' }>).fit !== undefined ? { fit: (row as Extract<SlideRow, { kind: 'shot' }>).fit } : {}),
           },
         }
   })

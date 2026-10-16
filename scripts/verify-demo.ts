@@ -9,6 +9,7 @@ import { verifyComponents } from './verify/components.ts'
 import { verifyDeckHost } from './verify/deck-host.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
+import { verifyImageFit } from './verify/image-fit.ts'
 import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
 import { verifyPapers } from './verify/papers.ts'
@@ -28,6 +29,7 @@ try {
   await verifyPapers(h)
   await verifyRtl(h)
   await verifyHeadless(h)
+  await verifyImageFit(h)
   await verifyComponents(h)
   await verifyDeckHost(h)
   await verifyMedia(h)

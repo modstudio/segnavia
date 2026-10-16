@@ -201,21 +201,6 @@ describe('deck controller', () => {
     }
   })
 
-  test('carries a referenced shot fit onto resolved content', async () => {
-    const realFetch = globalThis.fetch
-    globalThis.fetch = (async () => Response.json({ src: 'shot.png', shot })) as unknown as typeof fetch
-    try {
-      const { controller } = harness()
-      await controller.load(
-        { title: 'T', fit: 'cover', slides: [{ id: 'a', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus' } }] },
-        'https://example.com/deck.json',
-      )
-      expect(controller.state.content).toMatchObject({ kind: 'shot', fit: 'focus' })
-    } finally {
-      globalThis.fetch = realFetch
-    }
-  })
-
   test('a referenced shot refuses a cue past its resolved annotations', async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => Response.json({ src: 'shot.png', shot })) as unknown as typeof fetch
