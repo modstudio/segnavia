@@ -34,7 +34,12 @@ export async function verifyResponsive(h: Harness) {
   let frame = await frameFacts(h)
   h.check(
     'a 720 by 520 responsive stage lays its HTML frame at the unscaled canvas size',
-    canvas.width === 720 && canvas.height === 520 && canvas.transform === 'scale(1)' && frame.width === canvas.width && frame.height === canvas.height,
+    canvas.width === 720 &&
+      canvas.height === 520 &&
+      canvas.transform === 'scale(1)' &&
+      frame.width === canvas.width &&
+      frame.height === canvas.height &&
+      frame.text === '720x520',
     JSON.stringify({ canvas, frame }),
   )
 
