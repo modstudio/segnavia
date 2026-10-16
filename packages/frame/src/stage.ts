@@ -15,6 +15,7 @@ import type { TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
+import { resumeController, suspendController } from './controller-connection.ts'
 import { type FittedSize, fitSheet } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
@@ -114,7 +115,7 @@ export class SegnaviaStage extends HTMLElement {
     window.addEventListener('resize', this.onResize)
     window.visualViewport?.addEventListener('resize', this.onResize)
     this.resize.observe(this)
-    this.attached?.connectWindow()
+    if (this.attached) resumeController(this.attached)
     if (!this.owned) this.loadSource()
     if (this.attached?.state.deck) this.update(this.attached.state)
   }
@@ -131,8 +132,7 @@ export class SegnaviaStage extends HTMLElement {
       this.controller = null
       this.owned = null
     } else {
-      this.attached?.stopPresenting()
-      this.attached?.disconnectWindow()
+      if (this.attached) suspendController(this.attached)
     }
   }
 

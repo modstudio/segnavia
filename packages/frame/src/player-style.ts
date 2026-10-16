@@ -12,10 +12,12 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 /* Keep this specific overlay: BASE_CSS's zero-specificity rule loses to the player's relative positioning. */
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
+.fit-reserve{position:absolute;visibility:hidden;pointer-events:none;block-size:var(--segnavia-fit-reserve,0px)}
 .player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:inline-size;display:block;padding-block-end:8px}
+:host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center}
 segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
 :host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
@@ -28,6 +30,20 @@ segnavia-caption{grid-area:caption;padding:6px 24px 10px;min-block-size:calc(var
 segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{grid-area:bar;display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
+:host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "below";grid-template-rows:auto auto}
+:host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);
+  grid-template-areas:"rail body" "below below";grid-template-rows:auto auto}
+:host([controls="overlay"]:not([data-presenting])){min-height:0}
+:host([controls="overlay"]:not([data-presenting])) .body,:host([controls="overlay"]:not([data-presenting])) segnavia-caption,
+:host([controls="overlay"]:not([data-presenting])) .bar{grid-area:body}
+:host([controls="overlay"]:not([data-presenting])) .body{z-index:0}
+:host([controls="overlay"]:not([data-presenting])) .screen{padding-block-end:0}
+:host([controls="overlay"]:not([data-presenting])) segnavia-caption{z-index:1;align-self:end;padding-block-end:96px;
+  background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);color:#fff;transition:padding-block-end 160ms ease}
+:host([controls="overlay"]:not([data-presenting])) .bar{z-index:2;align-self:end;color-scheme:dark;
+  background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);transition:opacity 160ms ease}
+:host([controls="overlay"][data-controls-hidden]:not([data-presenting])) .bar{opacity:0;pointer-events:none}
+:host([controls="overlay"][data-controls-hidden]:not([data-presenting])) segnavia-caption{padding-block-end:10px}
 segnavia-rail{grid-area:rail;min-block-size:0;display:none;border-inline-end:1px solid var(--_line);background:var(--_surface)}
 :host([rail]) segnavia-rail{display:block}
 .below{grid-area:below}
@@ -49,7 +65,10 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
 :host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below"}
 @container (max-width:560px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "rail" "below";grid-template-rows:auto auto auto auto auto}
+  :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "rail" "below";grid-template-rows:auto auto auto}
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
   segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}}
 @container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end{--segnavia-control-size:28px;gap:0}}
+@media (prefers-reduced-motion:reduce){:host([controls="overlay"]:not([data-presenting])) .bar,
+  :host([controls="overlay"]:not([data-presenting])) segnavia-caption{transition:none}}
 `

@@ -19,14 +19,16 @@ import type { SegnaviaFullscreen } from './controls.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
+import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
+import { containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 import type { HostTransition } from './transition.ts'
 
-const LAYOUT = `<div class="player" part="player">
+const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="player" part="player">
   <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage></div><segnavia-notes part="notes"></segnavia-notes></div>
   <segnavia-caption part="caption" exportparts="caption,word,word-spoken,word-current"></segnavia-caption>
   <div class="bar" part="bar">
@@ -57,11 +59,15 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 }
 
 export class SegnaviaPlayer extends HTMLElement {
-  static observedAttributes = ['src', 'notes', 'rail', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
   private words: PlayerLabels = ENGLISH_LABELS
+  private resize = new ResizeObserver(() => this.scheduleMeasure())
+  private measureFrame = 0
+  private measureChanges = new PlayerMeasureChanges()
+  private overlay = new OverlayControlsVisibility((hidden) => this.toggleAttribute('data-controls-hidden', hidden))
 
   constructor() {
     super()
@@ -72,13 +78,17 @@ export class SegnaviaPlayer extends HTMLElement {
     })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
-    for (const control of this.controls()) if (control.tagName !== 'SEGNAVIA-RAIL' || this.rail) control.controller = this.controller
+    for (const control of this.controlElements()) if (control.tagName !== 'SEGNAVIA-RAIL' || this.rail) control.controller = this.controller
     ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).targetElement = this
     this.controller.addEventListener('change', (event) => this.update((event as CustomEvent<DeckState>).detail))
     this.controller.addEventListener('exit', () => {
       if (document.fullscreenElement === this) void document.exitFullscreen()
     })
     this.root.addEventListener('keydown', this.onKey as EventListener)
+    this.addEventListener('pointermove', this.revealOverlay)
+    this.addEventListener('touchstart', this.revealOverlay)
+    this.addEventListener('focusin', this.focusOverlay)
+    this.addEventListener('focusout', this.blurOverlay)
     this.root.querySelector('.notes-toggle')?.addEventListener('click', () => this.toggleAttribute('notes'))
   }
 
@@ -90,7 +100,7 @@ export class SegnaviaPlayer extends HTMLElement {
   set labels(labels: Partial<PlayerLabels>) {
     this.words = playerLabels(labels)
     this.stage.frameTitle = this.words.frameTitle
-    for (const control of this.controls()) control.labels = this.words
+    for (const control of this.controlElements()) control.labels = this.words
     if (this.controller.state.deck) this.update(this.controller.state)
     this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
@@ -115,6 +125,24 @@ export class SegnaviaPlayer extends HTMLElement {
     this.toggleAttribute('rail', value)
   }
 
+  get fit(): PlayerFit {
+    return playerFit(this.getAttribute('fit'))
+  }
+
+  set fit(value: PlayerFit) {
+    if (value === 'contain') this.removeAttribute('fit')
+    else this.setAttribute('fit', value)
+  }
+
+  get controls(): PlayerControls {
+    return playerControls(this.getAttribute('controls'))
+  }
+
+  set controls(value: PlayerControls) {
+    if (value === 'below') this.removeAttribute('controls')
+    else this.setAttribute('controls', value)
+  }
+
   get transition(): HostTransition | undefined {
     return this.stage.transition
   }
@@ -136,10 +164,24 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   connectedCallback() {
+    this.resize.observe(this)
+    window.addEventListener('resize', this.scheduleMeasure)
+    window.addEventListener('orientationchange', this.scheduleMeasure)
+    window.visualViewport?.addEventListener('resize', this.scheduleMeasure)
     this.stage.frameTitle = this.words.frameTitle
     if (!this.stage.controller) this.stage.controller = this.controller
     this.passTransitionAttributes()
     void this.configurePresentation()
+    this.scheduleMeasure()
+  }
+
+  disconnectedCallback() {
+    cancelAnimationFrame(this.measureFrame)
+    this.resize.disconnect()
+    window.removeEventListener('resize', this.scheduleMeasure)
+    window.removeEventListener('orientationchange', this.scheduleMeasure)
+    window.visualViewport?.removeEventListener('resize', this.scheduleMeasure)
+    this.overlay.dispose()
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
@@ -148,8 +190,15 @@ export class SegnaviaPlayer extends HTMLElement {
       void this.controller.loadUrl(value)
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
-    if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
-    if (name === 'rail') this.configureRail()
+    if (name === 'notes' && this.controller.state.deck) {
+      this.update(this.controller.state)
+      this.scheduleMeasure()
+    }
+    if (name === 'rail') {
+      this.configureRail()
+      this.scheduleMeasure()
+    }
+    if (name === 'fit' || name === 'controls') this.scheduleMeasure()
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
     if (name === 'presentation') void this.configurePresentation()
   }
@@ -166,7 +215,7 @@ export class SegnaviaPlayer extends HTMLElement {
     }
   }
 
-  private controls(): SegnaviaControl[] {
+  private controlElements(): SegnaviaControl[] {
     return [...this.root.querySelectorAll<SegnaviaControl>(COMPONENTS)]
   }
 
@@ -214,19 +263,67 @@ export class SegnaviaPlayer extends HTMLElement {
     this.dataset.word = state.word === null ? '' : String(state.word)
     this.dataset.shown = state.shown === null ? 'all' : state.shown.join(',')
     this.dataset.direction = state.direction
+    this.overlay.setPlaying(state.playing)
+    if (this.measureChanges.update(state)) this.scheduleMeasure()
+  }
+
+  private scheduleMeasure = () => {
+    cancelAnimationFrame(this.measureFrame)
+    this.measureFrame = requestAnimationFrame(() => this.measure())
+  }
+
+  private measure() {
+    const screen = this.root.querySelector('.screen') as HTMLElement
+    if (this.fit !== 'contain' || this.controller.state.presenting) {
+      screen.style.removeProperty('block-size')
+      this.stage.style.removeProperty('inline-size')
+      this.stage.style.removeProperty('block-size')
+      return
+    }
+    const deck = this.controller.state.deck
+    if (!deck) return
+    const viewport = window.visualViewport
+    const availableHeight = viewport?.height ?? window.innerHeight
+    const screenStyle = getComputedStyle(screen)
+    const rail = this.root.querySelector('segnavia-rail') as HTMLElement
+    const railHeight = this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0
+    const chromeHeight =
+      (this.controls === 'overlay'
+        ? 0
+        : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + (this.root.querySelector('.bar') as HTMLElement).offsetHeight) +
+      railHeight +
+      (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
+      (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)
+    const reserve = (this.root.querySelector('.fit-reserve') as HTMLElement).offsetHeight
+    const size = containSlideSize({
+      availableWidth: screen.clientWidth,
+      availableHeight,
+      chromeHeight,
+      reserve,
+      ratio: deck.size.width / deck.size.height,
+    })
+    screen.style.blockSize = `${size.height}px`
+    this.stage.style.inlineSize = `${size.width}px`
+    this.stage.style.blockSize = `${size.height}px`
   }
 
   // The stage handles keys pressed on it. Elsewhere in the player, paging keys
   // still page, but Space and Enter keep their meaning on a focused button.
   private onKey = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) this.overlay.key()
     if (event.key.toLowerCase() === 'f' && !isEditableLetterShortcut(event.key, event.composedPath()[0])) {
       if (playerPresentation(this) === 'off') return
       if (this.controller.key(event.key) === 'present') {
         event.preventDefault()
+        this.overlay.key()
         this.togglePresentation()
       }
       return
     }
-    handlePlayerKey(this.controller, this.stage, event)
+    if (handlePlayerKey(this.controller, this.stage, event)) this.overlay.key()
   }
+
+  private revealOverlay = () => this.overlay.interact()
+  private focusOverlay = () => this.overlay.focus(true)
+  private blurOverlay = () => queueMicrotask(() => this.overlay.focus(this.root.activeElement !== null))
 }

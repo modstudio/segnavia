@@ -40,8 +40,10 @@ export async function verifyRailAuthoring(h: Harness) {
   for (const width of [1280, 360]) {
     const flow = await playerGeometry(h, 'flow.html', width)
     check(
-      `an unsized ${width}px player fills its inline size at 16:9`,
-      Math.abs(flow.stage.width - flow.player.width) <= 2 && Math.abs(flow.stage.width / flow.stage.height - 16 / 9) < 0.01,
+      `a default ${width}px player contains its 16:9 slide in the available screen`,
+      flow.stage.width <= flow.screen.width + 2 &&
+        flow.stage.height <= flow.screen.height + 2 &&
+        Math.abs(flow.stage.width / flow.stage.height - 16 / 9) < 0.01,
       JSON.stringify(flow),
     )
   }
