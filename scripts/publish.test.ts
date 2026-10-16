@@ -60,9 +60,17 @@ describe('registry and release decisions', () => {
     expect(() => registryState(1, '', 'npm error code EAI_AGAIN')).toThrow('Could not reach the npm registry')
   })
 
-  test('publishes only a missing version', () => {
-    expect(releaseDecision('missing')).toBe('publish')
-    expect(releaseDecision('published')).toBe('skip')
+  test('holds a private manifest missing from the registry', () => {
+    expect(releaseDecision('missing', true)).toBe('hold')
+  })
+
+  test('holds a private manifest present on the registry', () => {
+    expect(releaseDecision('published', true)).toBe('hold')
+  })
+
+  test('publishes or skips a public manifest according to registry state', () => {
+    expect(releaseDecision('missing', false)).toBe('publish')
+    expect(releaseDecision('published', false)).toBe('skip')
   })
 
   test('refuses to skip a published version with different contents', () => {

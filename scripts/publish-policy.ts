@@ -6,6 +6,7 @@ export interface PackageDependencies {
 export interface PackedManifest {
   name: string
   version: string
+  private?: boolean
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
@@ -13,7 +14,7 @@ export interface PackedManifest {
 }
 
 export type RegistryState = 'missing' | 'published'
-export type ReleaseDecision = 'publish' | 'skip'
+export type ReleaseDecision = 'publish' | 'skip' | 'hold'
 
 export function dependencyOrder(packages: PackageDependencies[]): string[] {
   const remaining = new Map(packages.map((item) => [item.name, new Set(item.dependencies)]))
@@ -56,7 +57,8 @@ export function registryState(exitCode: number, stdout: string, stderr: string):
   throw new Error(`Could not reach the npm registry or establish whether the package exists.${detail ? ` ${detail}` : ''}`)
 }
 
-export function releaseDecision(state: RegistryState): ReleaseDecision {
+export function releaseDecision(state: RegistryState, isPrivate: boolean): ReleaseDecision {
+  if (isPrivate) return 'hold'
   return state === 'published' ? 'skip' : 'publish'
 }
 
