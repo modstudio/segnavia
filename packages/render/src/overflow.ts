@@ -9,17 +9,23 @@ export type PrintResult<Required extends boolean = false> = {
 
 /**
  * Chromium's measured maximum print shrink; the 3x overflow demo check fails
- * if it changes. On the pinned build Chromium shrinks only for rightward
- * overflow in a left-to-right root. It measures against the scaled page width,
- * so using this cap makes its capped shrink cancel the scale.
+ * if it changes. On the pinned build Chromium shrinks only for physical
+ * rightward overflow. It measures against the scaled page width, so using this
+ * cap makes its capped shrink cancel the scale. Rightward generated content in
+ * an RTL root is a known limit: neither scroll extent nor element boxes expose it.
  */
 export const CHROMIUM_MAX_SHRINK = 1.5
 
-export function counterScale(direction: 'ltr' | 'rtl', endOverflow: number): number {
-  return direction === 'ltr' && endOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
+export function counterScale(rightOverflow: number): number {
+  return rightOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
 }
 
-export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
+async function measuredOverflow(
+  tab: Tab,
+  pageWidth: number,
+  part: OverflowPart,
+  inputIndex?: number,
+): Promise<{ overflow: OverflowEntry; rightOverflow: number }> {
   await tab.emulateMedia({ media: 'print' })
   const measured = await tab.evaluate((width) => {
     const root = document.documentElement
@@ -28,6 +34,7 @@ export async function measureOverflow(tab: Tab, pageWidth: number, part: Overflo
     const rtl = getComputedStyle(root).direction === 'rtl'
     const contributions: OverflowContribution[] = []
     let clippedStart = 0
+    let rightOverflow = rtl ? 0 : endOverflow
     const locator = (element: Element) => {
       if (element.id) return `#${CSS.escape(element.id)}`
       const parts: string[] = []
@@ -47,6 +54,7 @@ export async function measureOverflow(tab: Tab, pageWidth: number, part: Overflo
       const elementStart = Math.max(0, rtl ? box.right - width : -box.left)
       const elementEnd = Math.max(0, rtl ? -box.left : box.right - width)
       clippedStart = Math.max(clippedStart, elementStart)
+      rightOverflow = Math.max(rightOverflow, box.right - width)
       if ((elementStart > 0 || elementEnd > 0) && contributions.length < 20) {
         contributions.push({ locator: locator(element), clippedStart: elementStart, clippedEnd: elementEnd })
       }
@@ -57,9 +65,15 @@ export async function measureOverflow(tab: Tab, pageWidth: number, part: Overflo
       clippedStart,
       clippedEnd: endOverflow,
       elements: contributions,
+      rightOverflow,
     }
   }, pageWidth)
-  return { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...measured }
+  const { rightOverflow, ...entry } = measured
+  return { overflow: { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...entry }, rightOverflow }
+}
+
+export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
+  return (await measuredOverflow(tab, pageWidth, part, inputIndex)).overflow
 }
 
 export async function printWithOverflow(
@@ -69,7 +83,6 @@ export async function printWithOverflow(
   pdf: Parameters<Tab['pdf']>[0],
   inputIndex?: number,
 ): Promise<PrintResult<true>> {
-  const overflow = await measureOverflow(tab, pageWidth, part, inputIndex)
-  const direction = await tab.evaluate(() => (getComputedStyle(document.documentElement).direction === 'rtl' ? 'rtl' : 'ltr'))
-  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(direction, overflow.clippedEnd) }), overflow }
+  const { overflow, rightOverflow } = await measuredOverflow(tab, pageWidth, part, inputIndex)
+  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(rightOverflow) }), overflow }
 }

@@ -123,6 +123,22 @@ export async function verifyPageOverflow(
     )
   }
 
+  let leftwardReport: OverflowReport | undefined
+  const leftward = await renderer.pagePdf(
+    { html: flowingHtml(1200, true), print: { paper, orientation: 'portrait' } },
+    { effects: false, overflow: { report: (value) => (leftwardReport = value) } },
+  )
+  const leftwardFacts = pdfFacts(leftward, work, 'overflow-ltr-leftward')
+  check(
+    'a left-to-right page clips leftward overflow without counter-scaling',
+    close(leftwardFacts.markerX, baselineFacts.markerX) &&
+      close(leftwardFacts.markerY, baselineFacts.markerY) &&
+      leftwardFacts.pages === baselineFacts.pages &&
+      close(leftwardReport?.entries[0]?.clippedStart ?? Number.NaN, 800) &&
+      leftwardReport?.entries[0]?.clippedEnd === 0,
+    `marker=${leftwardFacts.markerX},${leftwardFacts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${leftwardFacts.pages}/${baselineFacts.pages}, clipped=${leftwardReport?.entries[0]?.clippedStart}/${leftwardReport?.entries[0]?.clippedEnd}`,
+  )
+
   for (const [label, printOnly] of [
     ['generated content', false],
     ['print-media content', true],

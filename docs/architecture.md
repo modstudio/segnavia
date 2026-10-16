@@ -293,15 +293,16 @@ no print paper, each deck slide, each imposed piece) therefore prints with
 paint containment on its root, so the overflow is clipped as on screen and the
 page keeps its own scale. A growing or fluid page and a page printed on paper,
 including each kept book print, instead measure sideways overflow under print
-media after the page is ready and its fonts have loaded. Rightward overflow in
-a left-to-right root uses a print scale of 1.5, Chromium's measured maximum
-shrink. Chromium measures that overflow against the page width after applying
-the scale, so pinning the scale at that cap makes its capped shrink cancel the
-scale exactly. On the pinned build Chromium does not shrink right-to-left roots
-for either leftward inline-end or rightward inline-start overflow, so they get
-no counter-scale. The content keeps its true size, overflow is clipped at the
-page edge, and fixed content can still repeat on every paper. The overflow
-report records the page width, extent, clipped
+media after the page is ready and its fonts have loaded. Physical rightward
+overflow uses a print scale of 1.5, Chromium's measured maximum shrink, in
+either writing direction. Chromium measures that overflow against the page
+width after applying the scale, so pinning the scale at that cap makes its
+capped shrink cancel the scale exactly. Physical leftward overflow is not
+shrunk and gets no counter-scale. In a right-to-left root, generated content
+overflowing rightward is a known limit because neither scroll extent nor
+element boxes expose it, so it cannot be detected. The content keeps its true
+size, overflow is clipped at the page edge, and fixed content can still repeat
+on every paper. The overflow report records the page width, extent, clipped
 amount at each edge and up to twenty contributing elements for every print
 retained in the output. The deck's printable document does not counter-scale
 because its contained, fixed slides are the printed pieces.
