@@ -1,5 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { CHROMIUM_MAX_SHRINK, type ScaleMeasurement, solveScale } from './overflow.ts'
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, type ScaleMeasurement, solveScale } from './overflow.ts'
+
+test('ancestor clip boxes limit the visible horizontal contribution', () => {
+  expect(
+    clippedHorizontalBox(
+      { left: -20, right: 500 },
+      [
+        { left: -10, right: 450 },
+        { left: 0, right: 400 },
+      ],
+    ),
+  ).toEqual({ left: 0, right: 400 })
+  expect(clippedHorizontalBox({ left: 420, right: 500 }, [{ left: 0, right: 400 }])).toBeUndefined()
+})
 
 function solved(pageWidth: number, widthAt: (layoutWidth: number) => number): { scale: number; layouts: number[] } {
   const measurements: ScaleMeasurement[] = []
