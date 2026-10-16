@@ -4,9 +4,11 @@ export interface PressImage {
   colorSpace: 'DeviceRGB' | 'CalRGB' | 'ICCBased' | 'Indexed'
 }
 
+export type PressDestination = 'cmyk' | 'gray'
+
 export interface PressReport {
   /** Device colour space written for press-ready vector and generated-image output. */
-  destination: 'cmyk' | 'gray'
+  destination: PressDestination
   /** Authored raster images left in RGB, read back from the finished PDF. */
   images: PressImage[]
   /** Supplied raster image objects converted to DeviceGray. */

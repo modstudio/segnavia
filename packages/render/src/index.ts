@@ -23,7 +23,7 @@ import type { JpegDecoder } from './press/image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
-export type { PressImage, PressReport } from './press/types.ts'
+export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 
 export const RENDER_BOUND_MS = 60_000
 // How long a page that runs its own code gets to call window.pageReady().

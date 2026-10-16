@@ -1,3 +1,5 @@
+import type { PressDestination } from './types.ts'
+
 export type ColorSpaceKind = 'rgb' | 'gray' | 'cmyk' | 'other'
 
 export interface ColorSpaceValue {
@@ -44,7 +46,7 @@ export function contentFilter(names: string[] | undefined): ContentFilterDecisio
 }
 
 // RGB mask sources stay RGB for CMYK output, while every RGB group becomes DeviceGray for gray output.
-export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boolean, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
+export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boolean, destination: PressDestination = 'cmyk'): PolicyDecision {
   if (destination === 'gray') {
     const supported = 'DeviceGray, DeviceRGB, or no declared space'
     if (kind === 'gray') return decision('keep', supported)
@@ -58,7 +60,7 @@ export function groupAction(kind: ColorSpaceKind, label: string, maskSource: boo
 }
 
 // Axial and radial RGB shadings convert by their stops; a type 1 RGB shading converts when its function is a type 4 calculator.
-export function shadingAction(kind: ColorSpaceKind, type: number | undefined, functionType?: number, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
+export function shadingAction(kind: ColorSpaceKind, type: number | undefined, functionType?: number, destination: PressDestination = 'cmyk'): PolicyDecision {
   if (type === 1) {
     const supported = 'ShadingType 1 in an RGB space with FunctionType 4, or DeviceCMYK'
     if (kind === destination) return decision('keep', supported)
@@ -105,7 +107,7 @@ export function inlineImageAction(name: string | undefined, imageMask: boolean):
 }
 
 // Content streams may select only patterns or CMYK explicitly after conversion.
-export function contentColorSpaceAction(name: string | undefined, destination: 'cmyk' | 'gray' = 'cmyk'): PolicyDecision {
+export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk'): PolicyDecision {
   const device = destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'
   const supported = `Pattern or ${device}`
   return decision(name === 'Pattern' || name === device ? 'keep' : 'refuse', supported)
@@ -118,7 +120,7 @@ export function isContentColorOperator(operator: string): operator is ContentCol
   return colorOperators.includes(operator as ContentColorOperator)
 }
 
-function deviceColorAction(operator: ContentColorOperator, inspect: boolean, destination: 'cmyk' | 'gray'): PolicyDecision | undefined {
+function deviceColorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
   const rgb = operator === 'rg' || operator === 'RG'
   const gray = operator === 'g' || operator === 'G'
   const cmyk = operator === 'k' || operator === 'K'
@@ -134,7 +136,7 @@ export function contentOperatorAction(
   inspect: boolean,
   selectedSpace?: string,
   patternName = false,
-  destination: 'cmyk' | 'gray' = 'cmyk',
+  destination: PressDestination = 'cmyk',
 ): PolicyDecision {
   const device = deviceColorAction(operator, inspect, destination)
   if (device) return device

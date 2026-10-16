@@ -1,9 +1,18 @@
 import { toGray, toPress } from '../color/engine.ts'
-import type { Color, Color3, Color4, Profile } from '../color/types.ts'
+import type { Color, Color1, Color3, Color4, Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
+import type { PressDestination } from './types.ts'
 
 const NEUTRAL_TOLERANCE = 0.001
 export const DEFAULT_NEUTRAL_TOLERANCE = 3
+
+export function pressDestination(profile: Profile): PressDestination {
+  return profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk'
+}
+
+export function pdfMaskLuminosity([red, green, blue]: Color3): Color1 {
+  return [0.3 * red + 0.59 * green + 0.11 * blue]
+}
 
 export function assertNeutralTolerance(value: number): void {
   if (!Number.isFinite(value) || value < 0 || value > 255)

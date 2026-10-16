@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { deflateSync } from 'node:zlib'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib'
 import { toGray } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildGrayProfile } from '../color/profile-fixture.test-helper.ts'
@@ -130,10 +130,15 @@ test('an image in an alpha-mask form uses PDF luminosity and keeps opacity data'
   page.node.set(key('Resources'), document.context.obj({ ExtGState: { Mask: { SMask: smask } } }))
   page.node.set(key('Contents'), document.context.register(document.context.stream('/Mask gs')))
   const converted = await rewritePressPdf(await document.save(), profileBytes)
-  const [found] = await outputImages(converted.bytes)
-  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
-  expect(decodePDFRawStream(found as PDFRawStream).decode()[0]).not.toBe(exactByte(51, 102, 153))
   const output = await PDFDocument.load(converted.bytes)
+  const resources = output.getPage(0).node.Resources() as PDFDict
+  const states = resources.lookup(key('ExtGState'), PDFDict)
+  const maskState = states.lookup(key('Mask'), PDFDict)
+  const outputMask = maskState.lookup(key('SMask'), PDFDict)
+  const outputForm = outputMask.lookup(key('G')) as PDFRawStream
+  const found = outputForm.dict.lookup(key('Resources'), PDFDict).lookup(key('XObject'), PDFDict).lookup(key('I')) as PDFRawStream
+  expect(decodePDFRawStream(found).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+  expect(decodePDFRawStream(found).decode()[0]).not.toBe(exactByte(51, 102, 153))
   expect((output.context.lookup(transfer) as PDFRawStream).contents).toEqual(Uint8Array.of(9, 8, 7))
 })
 
@@ -143,6 +148,39 @@ test('converts an image object referenced twice only once', async () => {
   paint(document, { First: image, Second: image })
   const converted = await rewritePressPdf(await document.save(), profileBytes)
   expect(converted.report.convertedImages).toBe(1)
+})
+
+test('uses profile and luminosity variants when one image is reused normally and in a soft mask', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(51, 102, 153))
+  const form = document.context.register(
+    document.context.stream('/I Do', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+      Resources: { XObject: { I: image } },
+      Group: { S: 'Transparency', CS: 'DeviceRGB' },
+    }),
+  )
+  const smask = document.context.register(document.context.obj({ S: 'Luminosity', G: form }))
+  const page = document.addPage([10, 10])
+  page.node.set(key('Resources'), document.context.obj({ XObject: { Shared: image }, ExtGState: { Mask: { SMask: smask } } }))
+  page.node.set(key('Contents'), document.context.register(document.context.stream('/Shared Do /Mask gs')))
+
+  const converted = await rewritePressPdf(await document.save(), profileBytes)
+  expect(converted.report.convertedImages).toBe(1)
+  const output = await PDFDocument.load(converted.bytes)
+  const resources = output.getPage(0).node.Resources() as PDFDict
+  const pageXObjects = resources.lookup(key('XObject'), PDFDict)
+  const profileImage = pageXObjects.lookup(key('Shared')) as PDFRawStream
+  const states = resources.lookup(key('ExtGState'), PDFDict)
+  const maskState = states.lookup(key('Mask'), PDFDict)
+  const mask = maskState.lookup(key('SMask'), PDFDict)
+  const maskForm = mask.lookup(key('G')) as PDFRawStream
+  const maskImage = maskForm.dict.lookup(key('Resources'), PDFDict).lookup(key('XObject'), PDFDict).lookup(key('I')) as PDFRawStream
+  expect(decodePDFRawStream(profileImage).decode()).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
+  expect(decodePDFRawStream(maskImage).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+  expect(profileImage).not.toBe(maskImage)
 })
 
 test('uses an injected decoder for DCT images and validates its dimensions', async () => {
@@ -155,6 +193,17 @@ test('uses an injected decoder for DCT images and validates its dimensions', asy
   await expect(
     rewritePressPdf(await document.save(), profileBytes, 3, async () => ({ width: 2, height: 1, rgb: Uint8Array.of(0, 0, 0, 0, 0, 0) })),
   ).rejects.toThrow(/decoded JPEG dimensions 2x1/)
+})
+
+test('reports an injected JPEG decoder failure', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(1, 2, 3), { filter: 'DCTDecode' })
+  paint(document, { I: image })
+  await expect(
+    rewritePressPdf(await document.save(), profileBytes, 3, async () => {
+      throw new Error('JPEG decode unavailable')
+    }),
+  ).rejects.toThrow(/JPEG decoding failure: JPEG decode unavailable.*JPEG the renderer's browser can decode/)
 })
 
 test.each([

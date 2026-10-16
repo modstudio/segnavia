@@ -2,7 +2,7 @@ import { deflateSync, inflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import type { Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
-import { destinationColor } from './color-policy.ts'
+import { destinationColor, pdfMaskLuminosity } from './color-policy.ts'
 import { nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
 import type { MaskContext } from './visitor.ts'
 
@@ -19,7 +19,7 @@ export type JpegDecoder = (bytes: Uint8Array) => Promise<JpegPixels>
 
 export interface ImageState {
   counted: WeakSet<PDFRawStream>
-  converted: WeakMap<PDFRawStream, PDFRawStream>
+  converted: WeakMap<PDFRawStream, Partial<Record<ImageConversionContext, PDFRawStream>>>
   decodeJpeg?: JpegDecoder
   document: PDFDocument
   profile: Profile
@@ -45,6 +45,7 @@ interface IndexedSpace {
 
 type ImageSpace = BaseSpace | IndexedSpace
 type GrayLookup = (red: number, green: number, blue: number) => number
+type ImageConversionContext = 'profile' | 'luminosity'
 
 const key = (value: string): PDFName => PDFName.of(value)
 const refuse = (found: string, supported: string): never => {
@@ -241,7 +242,7 @@ function profileRgb(state: ImageState, source: Uint8Array, space: BaseSpace, mas
         ? space.kind === 'gray'
           ? (state.grayLookup[first] ?? 0)
           : state.rgbLookup(red, green, blue)
-        : Math.round(0.3 * red + 0.59 * green + 0.11 * blue)
+        : Math.round(pdfMaskLuminosity([red / 255, green / 255, blue / 255])[0] * 255)
   }
   return output
 }
@@ -267,11 +268,20 @@ async function sourceBytes(
   if (filter === 'flate') return decodeFlate(state, image, width, height, channels, bits)
   if (!state.decodeJpeg) refuse('DCTDecode image without a JPEG decoder', "a JPEG needs the renderer's decoder")
   const decoder = state.decodeJpeg as JpegDecoder
-  const decoded = await decoder(image.contents)
+  const decoded = await decodeJpeg(decoder, image.contents)
   if (decoded.width !== width || decoded.height !== height)
     refuse(`decoded JPEG dimensions ${decoded.width}x${decoded.height}`, `the image Width and Height ${width}x${height}`)
   if (decoded.rgb.length !== width * height * 3) refuse(`decoded JPEG sample length ${decoded.rgb.length}`, `${width * height * 3} RGB bytes`)
   return decoded.rgb
+}
+
+async function decodeJpeg(decoder: JpegDecoder, bytes: Uint8Array): Promise<JpegPixels> {
+  try {
+    return await decoder(bytes)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return refuse(`JPEG decoding failure: ${message}`, "a JPEG the renderer's browser can decode")
+  }
 }
 
 export function createImageState(document: PDFDocument, profile: Profile, decodeJpeg?: JpegDecoder): ImageState {
@@ -310,7 +320,9 @@ function chargePixels(state: ImageState, pixels: number): void {
 }
 
 export async function convertSuppliedImage(state: ImageState, image: PDFRawStream, mask: MaskContext): Promise<PDFRawStream | undefined> {
-  const existing = state.converted.get(image)
+  const context: ImageConversionContext = mask === 'none' ? 'profile' : 'luminosity'
+  const variants = state.converted.get(image)
+  const existing = variants?.[context]
   if (existing) {
     countSuppliedImage(state, image, mask)
     return existing
@@ -343,7 +355,7 @@ export async function convertSuppliedImage(state: ImageState, image: PDFRawStrea
     dictionary.BitsPerComponent = state.document.context.obj(8)
   }
   const replacement = state.document.context.stream(deflateSync(output), dictionary)
-  state.converted.set(image, replacement)
+  state.converted.set(image, { ...variants, [context]: replacement })
   countSuppliedImage(state, image, mask)
   return replacement
 }

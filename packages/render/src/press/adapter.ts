@@ -1,10 +1,10 @@
 import { deflateSync } from 'node:zlib'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
-import type { Color, Color1, Color3, Profile } from '../color/types.ts'
+import type { Color, Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
-import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral } from './color-policy.ts'
+import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
 import { convertedImageCount, convertSuppliedImage, createImageState, type JpegDecoder } from './image.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
@@ -12,7 +12,7 @@ import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, 
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
 import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf, shadingSampleGridForUses } from './sample-shading.ts'
-import type { PressReport } from './types.ts'
+import type { PressDestination, PressReport } from './types.ts'
 import { type MaskContext, walkPressGraph } from './visitor.ts'
 
 export { inspectPressPdf } from './report.ts'
@@ -20,7 +20,7 @@ export { inspectPressPdf } from './report.ts'
 interface RewriteState {
   budget: ContentBudget
   convert: ReturnType<typeof cachedPressColor>
-  destination: 'cmyk' | 'gray'
+  destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
   profile: Profile
@@ -47,9 +47,8 @@ const refuse = (found: string, supported: string): never => {
 }
 const resolved = (state: RewriteState, object: PDFObject | undefined): PDFObject | undefined =>
   object instanceof PDFRef ? state.document.context.lookup(object) : object
-const luminosity = ([red, green, blue]: Color3): Color1 => [0.3 * red + 0.59 * green + 0.11 * blue]
 const isGrayMask = (state: RewriteState, mask: MaskContext): boolean => state.destination === 'gray' && mask !== 'none'
-const converterFor = (state: RewriteState, mask: MaskContext): ((rgb: Color3) => Color) => (isGrayMask(state, mask) ? luminosity : state.convert)
+const converterFor = (state: RewriteState, mask: MaskContext): ((rgb: Color3) => Color) => (isGrayMask(state, mask) ? pdfMaskLuminosity : state.convert)
 
 function convertFunction(state: RewriteState, fn: PDFDict | undefined, policy: FunctionDecision, mask: MaskContext): void {
   if (policy.action === 'refuse') refuse(policy.found, policy.supported)
@@ -104,7 +103,7 @@ function convertType1Shading(state: RewriteState, shading: PDFDict, pattern: PDF
     state.document,
     shading,
     pattern,
-    isGrayMask(state, mask) ? luminosity : state.sampleConvert,
+    isGrayMask(state, mask) ? pdfMaskLuminosity : state.sampleConvert,
     state.budget,
     undefined,
     domain,
@@ -254,7 +253,7 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number): R
       if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
       return cached(rgb)
     },
-    destination: profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk',
+    destination: pressDestination(profile),
     document,
     painted: new WeakMap(),
     profile,
@@ -321,9 +320,10 @@ export async function rewritePressPdf(
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     const counts = rewritePressDocument(document, profile, tolerance)
     let convertedImages = 0
-    if (profile.colorSpace === 'GRAY') {
+    const destination = pressDestination(profile)
+    if (destination === 'gray') {
       const imageState = createImageState(document, profile, decodeJpeg)
-      const images: Array<{ image: PDFRawStream; mask: MaskContext; replace: (stream: PDFRawStream) => void }> = []
+      const images: Array<{ image: PDFRawStream; mask: MaskContext; replace: (object: PDFObject) => void }> = []
       walkPressGraph(document, {
         content: () => undefined,
         function: () => undefined,
@@ -334,15 +334,19 @@ export async function rewritePressPdf(
       for (const found of images) {
         const replacement = await convertSuppliedImage(imageState, found.image, found.mask)
         if (!replacement) continue
+        if (found.mask !== 'none') {
+          found.replace(document.context.getObjectRef(replacement) ?? document.context.register(replacement))
+          continue
+        }
         const reference = document.context.getObjectRef(found.image)
         if (reference) document.context.assign(reference, replacement)
         else found.replace(replacement)
       }
       convertedImages = convertedImageCount(imageState)
     }
-    addOutputIntent(document, profileBytes, profile.colorSpace === 'GRAY' ? 1 : 4)
+    addOutputIntent(document, profileBytes, destination === 'gray' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
-    const report = await inspectPressPdf(output, profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk')
+    const report = await inspectPressPdf(output, destination)
     report.neutralColors = counts.neutralColors
     report.convertedImages = convertedImages
     return { bytes: output, report }

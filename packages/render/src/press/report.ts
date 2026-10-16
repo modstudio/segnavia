@@ -3,7 +3,7 @@ import { RenderRefusedError } from '../errors.ts'
 import { inspectContent } from './content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, rawStreamOf, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
-import type { PressImage, PressReport } from './types.ts'
+import type { PressDestination, PressImage, PressReport } from './types.ts'
 import { type MaskContext, walkPressGraph } from './visitor.ts'
 
 interface ReportState {
@@ -71,14 +71,14 @@ function inspectGroup(state: ReportState, owner: PDFDict, mask: MaskContext): vo
   if (space.kind === destination) state.report.groups++
 }
 
-function outputDestination(document: PDFDocument): 'cmyk' | 'gray' {
+function outputDestination(document: PDFDocument): PressDestination {
   const intents = document.catalog.lookupMaybe(key('OutputIntents'), PDFArray)
   const intent = intents?.lookup(0, PDFDict)
   const profile = rawStreamOf(intent?.get(key('DestOutputProfile')) ? document.context.lookup(intent.get(key('DestOutputProfile')) as PDFObject) : undefined)
   return profile && numberOf(profile.dict, 'N') === 1 ? 'gray' : 'cmyk'
 }
 
-export async function inspectPressPdf(bytes: Uint8Array, requested?: 'cmyk' | 'gray'): Promise<PressReport> {
+export async function inspectPressPdf(bytes: Uint8Array, requested?: PressDestination): Promise<PressReport> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
   const destination = requested ?? outputDestination(document)
   const state: ReportState = {

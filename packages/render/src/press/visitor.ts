@@ -8,7 +8,7 @@ export interface PressGraphActions {
   endContentsSequence?: () => void
   function: (fn: PDFDict | undefined, decision: FunctionDecision, mask: MaskContext) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, mask: MaskContext) => void
-  image: (stream: PDFRawStream, mask: MaskContext, replace: (stream: PDFRawStream) => void) => void
+  image: (stream: PDFRawStream, mask: MaskContext, replace: (object: PDFObject) => void) => void
   // When set, each page Contents stream is fed every time it appears; the convert pass leaves this unset so streams stay unique.
   replayPageContents?: boolean
   shading: (shading: PDFDict, pattern: PDFDict | undefined, mask: MaskContext) => boolean
