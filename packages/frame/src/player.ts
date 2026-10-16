@@ -22,7 +22,7 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import { containSlideSize, type PlayerControls, type PlayerFit, playerControls, playerFit } from './player-layout.ts'
+import { containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -67,6 +67,7 @@ export class SegnaviaPlayer extends HTMLElement {
   private words: PlayerLabels = ENGLISH_LABELS
   private resize = new ResizeObserver(() => this.scheduleMeasure())
   private measureFrame = 0
+  private measureChanges = new PlayerMeasureChanges()
   private overlay = new OverlayControlsVisibility((hidden) => this.toggleAttribute('data-controls-hidden', hidden))
 
   constructor() {
@@ -192,8 +193,14 @@ export class SegnaviaPlayer extends HTMLElement {
       void this.controller.loadUrl(value)
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
-    if (name === 'notes' && this.controller.state.deck) this.update(this.controller.state)
-    if (name === 'rail') this.configureRail()
+    if (name === 'notes' && this.controller.state.deck) {
+      this.update(this.controller.state)
+      this.scheduleMeasure()
+    }
+    if (name === 'rail') {
+      this.configureRail()
+      this.scheduleMeasure()
+    }
     if (name === 'fit' || name === 'controls') this.scheduleMeasure()
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
     if (name === 'presentation') void this.configurePresentation()
@@ -260,7 +267,7 @@ export class SegnaviaPlayer extends HTMLElement {
     this.dataset.shown = state.shown === null ? 'all' : state.shown.join(',')
     this.dataset.direction = state.direction
     this.overlay.setPlaying(state.playing)
-    this.scheduleMeasure()
+    if (this.measureChanges.update(state)) this.scheduleMeasure()
   }
 
   private scheduleMeasure = () => {
@@ -279,8 +286,7 @@ export class SegnaviaPlayer extends HTMLElement {
     const deck = this.controller.state.deck
     if (!deck) return
     const viewport = window.visualViewport
-    const top = this.getBoundingClientRect().top - (viewport?.offsetTop ?? 0)
-    const availableHeight = (viewport?.height ?? window.innerHeight) - Math.max(0, top)
+    const availableHeight = viewport?.height ?? window.innerHeight
     const screenStyle = getComputedStyle(screen)
     const chromeHeight =
       (this.controls === 'overlay'

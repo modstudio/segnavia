@@ -17,6 +17,28 @@ export interface ContainSizeInput {
   ratio: number
 }
 
+interface MeasureState {
+  deck: { size: { width: number; height: number } } | null
+  presenting: boolean
+}
+
+export class PlayerMeasureChanges {
+  private deck: MeasureState['deck'] = null
+  private width = 0
+  private height = 0
+  private presenting = false
+
+  update(state: MeasureState): boolean {
+    const changed =
+      state.deck !== this.deck || state.deck?.size.width !== this.width || state.deck?.size.height !== this.height || state.presenting !== this.presenting
+    this.deck = state.deck
+    this.width = state.deck?.size.width ?? 0
+    this.height = state.deck?.size.height ?? 0
+    this.presenting = state.presenting
+    return changed
+  }
+}
+
 export function containSlideSize(input: ContainSizeInput): { width: number; height: number } {
   const widthLimitedHeight = input.availableWidth / input.ratio
   const heightLimitedHeight = Math.max(240, input.availableHeight - input.chromeHeight - input.reserve)

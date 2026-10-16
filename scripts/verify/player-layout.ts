@@ -38,6 +38,35 @@ export async function verifyPlayerLayout(h: Harness) {
   check('contain keeps the control bar within a 1280 by 720 viewport', boxes.bar.bottom <= 720, JSON.stringify(boxes))
   await h.evidence('player-contain-1280x720.png')
 
+  await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
+  await h.waitFor(PLAYER, (data) => data.playing === 'true')
+  const beforeScroll = boxes.stage
+  await page.evaluate(() => {
+    document.body.style.minHeight = '1200px'
+    window.scrollBy(0, 200)
+  })
+  await page.waitForTimeout(500)
+  boxes = await geometry(h)
+  check(
+    'contain stage size stays fixed while playback and scrolling continue',
+    Math.abs(boxes.stage.width - beforeScroll.width) < 1 && Math.abs(boxes.stage.height - beforeScroll.height) < 1,
+    JSON.stringify({ before: beforeScroll, after: boxes.stage }),
+  )
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { pause(): void; go(index: number): Promise<void> } }) => {
+    player.controller.pause()
+    await player.controller.go(0)
+  })
+
+  await page.locator(PLAYER).evaluate((player: HTMLElement) => {
+    player.style.setProperty('--segnavia-fit-reserve', '120px')
+    window.dispatchEvent(new Event('resize'))
+  })
+  await page.waitForTimeout(100)
+  boxes = await geometry(h)
+  check('contain honors 120px of reserved viewport height', boxes.player.height <= 600, JSON.stringify(boxes))
+  await page.locator(PLAYER).evaluate((player: HTMLElement) => player.style.removeProperty('--segnavia-fit-reserve'))
+
   await page.setViewportSize({ width: 1280, height: 1400 })
   await page.waitForTimeout(100)
   boxes = await geometry(h)
