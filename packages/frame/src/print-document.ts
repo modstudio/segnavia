@@ -71,17 +71,12 @@ export function placePrintImages(target: Document | null): void {
     if (!image || image.naturalWidth <= 0 || image.naturalHeight <= 0) return
     const slide = { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) }
     const size = { width: image.naturalWidth, height: image.naturalHeight }
-    const contain = Math.min(slide.width / size.width, slide.height / size.height)
-    const cover = Math.max(slide.width / size.width, slide.height / size.height)
-    const fit = layer.dataset.fit
-    const scale = fit === 'contain' ? contain : fit === 'width' ? slide.width / size.width : cover
-    const x = fit === 'width' ? 0 : (slide.width - size.width * scale) / 2
-    const y = fit === 'width' && size.height * scale >= slide.height ? 0 : (slide.height - size.height * scale) / 2
+    const placement = fitImage(slide, size, layer.dataset.fit as Deck['fit'])
     layer.style.width = `${size.width}px`
     layer.style.height = `${size.height}px`
     image.style.width = `${size.width}px`
     image.style.height = `${size.height}px`
-    layer.style.transform = `translate(${x}px,${y}px) scale(${scale})`
+    layer.style.transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
   })
 }
 

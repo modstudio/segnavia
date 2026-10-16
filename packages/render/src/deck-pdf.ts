@@ -1,6 +1,7 @@
-import { type Deck, fitPage, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
+import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
 import { newNonce } from '@segnavia/frame/bridge'
-import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, placePrintImages, printableDeck } from '@segnavia/frame/print-document'
+import { fitImage } from '@segnavia/frame/image-fit'
+import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -38,6 +39,36 @@ export function firstNotesPages(pageOwners: readonly number[], slideCount: numbe
   return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
 }
 
+async function placeRenderedImages(tab: Tab): Promise<void> {
+  const layers = tab.locator('[data-segnavia-image-layer]')
+  const facts = await layers.evaluateAll((elements) =>
+    elements.map((element) => {
+      const layer = element as HTMLElement
+      const image = layer.querySelector('img') as HTMLImageElement | null
+      return {
+        slide: { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) },
+        image: { width: image?.naturalWidth ?? 0, height: image?.naturalHeight ?? 0 },
+        fit: layer.dataset.fit,
+      }
+    }),
+  )
+  const placements = facts.map((fact) => (fact.image.width > 0 && fact.image.height > 0 ? fitImage(fact.slide, fact.image, fact.fit as ImageFit) : null))
+  await layers.evaluateAll((elements, values) => {
+    elements.forEach((element, index) => {
+      const placement = values[index]
+      if (!placement) return
+      const layer = element as HTMLElement
+      const image = layer.querySelector('img') as HTMLImageElement | null
+      if (!image) return
+      layer.style.width = `${image.naturalWidth}px`
+      layer.style.height = `${image.naturalHeight}px`
+      image.style.width = `${image.naturalWidth}px`
+      image.style.height = `${image.naturalHeight}px`
+      layer.style.transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
+    })
+  }, placements)
+}
+
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
@@ -52,7 +83,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
         beforeOutput: async (tab) => {
-          await tab.evaluate(placePrintImages, null)
+          await placeRenderedImages(tab)
           if (notesGeometry) {
             await tab.evaluate(paginateNotes, null)
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
@@ -119,7 +150,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             scripts: slide.content.kind === 'html' ? deck.scripts === 'sandboxed' : true,
             html,
             boundMs: opts.boundMs,
-            beforeOutput: slide.content.kind === 'image' ? async (tab) => tab.evaluate(placePrintImages, null) : undefined,
+            beforeOutput: slide.content.kind === 'image' ? placeRenderedImages : undefined,
           },
           {
             width: `${deck.size.width}px`,
