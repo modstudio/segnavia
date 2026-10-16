@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
-import { runNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
+import { deckPreservesNotes, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
+import { activeNavigationGuard, runNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 
 const deck = {
   title: 'Guarded deck',
@@ -33,6 +34,30 @@ test('concurrent navigations wait for the same running guard', async () => {
   release()
   await Promise.all([first, second])
   expect(controller.state.index).not.toBe(0)
+})
+
+test('concurrent loads have distinct provenance while awaiting one guard', async () => {
+  const target = new EventTarget()
+  let release = () => {}
+  setNavigationGuard(
+    target,
+    () =>
+      new Promise<void>((resolve) => {
+        const active = activeNavigationGuard(target)
+        if (active) preserveNotesForLoad(active, 'one')
+        release = resolve
+      }),
+  )
+
+  const first = runNavigationGuard(target, 'load')
+  const second = runNavigationGuard(target, 'load')
+  await Promise.resolve()
+
+  expect(first).not.toBe(second)
+  release()
+  await Promise.all([first, second])
+  expect(deckPreservesNotes(parseDeckLoad(deck, first), 'one')).toBe(true)
+  expect(deckPreservesNotes(parseDeckLoad(deck, second), 'one')).toBe(false)
 })
 
 test('an old guard disposer does not remove its replacement', async () => {

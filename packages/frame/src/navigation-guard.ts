@@ -31,7 +31,7 @@ export function runNavigationGuard(target: EventTarget, reason: NavigationGuardR
   const guard = guarded.guard
   if (!guard) return Promise.resolve()
   const active = guarded.running
-  if (active) return active
+  if (active) return active.then(() => {})
   const next = Promise.resolve().then(() => guard(reason))
   guarded.running = next
   const clear = () => {
