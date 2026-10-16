@@ -6,6 +6,7 @@ import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
+import { convertedImageCount, convertSuppliedImage, createImageState, type JpegDecoder } from './image.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
@@ -312,16 +313,38 @@ export async function rewritePressPdf(
   bytes: Uint8Array,
   profileBytes: Uint8Array,
   tolerance = DEFAULT_NEUTRAL_TOLERANCE,
+  decodeJpeg?: JpegDecoder,
 ): Promise<{ bytes: Uint8Array; report: PressReport }> {
   try {
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK or GRAY')
     const document = await PDFDocument.load(bytes, { updateMetadata: false })
     const counts = rewritePressDocument(document, profile, tolerance)
+    let convertedImages = 0
+    if (profile.colorSpace === 'GRAY') {
+      const imageState = createImageState(document, profile, decodeJpeg)
+      const images: Array<{ image: PDFRawStream; mask: MaskContext; replace: (stream: PDFRawStream) => void }> = []
+      walkPressGraph(document, {
+        content: () => undefined,
+        function: () => undefined,
+        group: () => undefined,
+        image: (image, mask, replace) => images.push({ image, mask, replace }),
+        shading: () => false,
+      })
+      for (const found of images) {
+        const replacement = await convertSuppliedImage(imageState, found.image, found.mask)
+        if (!replacement) continue
+        const reference = document.context.getObjectRef(found.image)
+        if (reference) document.context.assign(reference, replacement)
+        else found.replace(replacement)
+      }
+      convertedImages = convertedImageCount(imageState)
+    }
     addOutputIntent(document, profileBytes, profile.colorSpace === 'GRAY' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
     const report = await inspectPressPdf(output, profile.colorSpace === 'GRAY' ? 'gray' : 'cmyk')
     report.neutralColors = counts.neutralColors
+    report.convertedImages = convertedImages
     return { bytes: output, report }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error

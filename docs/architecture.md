@@ -368,7 +368,10 @@ interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
 data counts against `MAX_DOCUMENT_CONTENT_BYTES` and is charged before evaluation. Axial and radial shadings are
 converted by their stops. The catalog's output intent
 embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
-through the profile that made them. The input byte ceiling is checked before
+through the profile that made them. For greyscale output, the renderer supplies the press library with
+a JPEG decoder backed by one offline Chromium tab per render; the browser only
+decodes JPEG bytes, while the library owns profile conversion and PDF rewriting.
+The input byte ceiling is checked before
 the rewrite, and the existing sheet and byte limit enforcement runs afterward,
 so limits also measure the bytes and pages actually returned. Profile reads are bounded by
 `MAX_PROFILE_BYTES` (32 MiB) and `MAX_PROFILE_TAGS` (256). Every inflated

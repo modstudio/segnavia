@@ -27,8 +27,8 @@ function inspectImage(state: ReportState, image: PDFRawStream): void {
   if (state.images.has(image)) return
   state.images.add(image)
   const space = resolvedColorSpace(state.document, resolved(state, image.dict.get(key('ColorSpace'))))
-  if (state.report.destination === 'gray' && image.dict.has(key('SegnaviaGeneratedEffect')) && space.kind !== 'gray')
-    refuse(`generated image color space ${space.label}`, 'DeviceGray')
+  if (state.report.destination === 'gray' && (space.kind === 'rgb' || space.kind === 'cmyk'))
+    refuse(`image color space ${space.label}`, 'DeviceGray or Indexed over DeviceGray')
   if (space.kind !== 'rgb') return
   const width = requiredDimension(numberOf(image.dict, 'Width'), 'Width')
   const height = requiredDimension(numberOf(image.dict, 'Height'), 'Height')
@@ -86,7 +86,7 @@ export async function inspectPressPdf(bytes: Uint8Array, requested?: 'cmyk' | 'g
     document,
     groups: new WeakSet(),
     images: new WeakSet(),
-    report: { destination, images: [], fills: 0, strokes: 0, gradientStops: 0, sampledShadings: 0, groups: 0, neutralColors: 0 },
+    report: { destination, images: [], convertedImages: 0, fills: 0, strokes: 0, gradientStops: 0, sampledShadings: 0, groups: 0, neutralColors: 0 },
     shadings: new WeakSet(),
   }
   walkPressGraph(document, {

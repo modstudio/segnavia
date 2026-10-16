@@ -7,6 +7,7 @@ import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document
 import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
+import { browserJpegDecoder } from './browser-jpeg.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -17,6 +18,7 @@ import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
+import type { JpegDecoder } from './press/image.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -90,7 +92,7 @@ async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promi
   return pdf
 }
 
-async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array> {
+async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
   if (options.limits?.maxBytes !== undefined && pdf.byteLength > options.limits.maxBytes)
     throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${options.limits.maxBytes}.`)
   let output = pdf
@@ -102,7 +104,7 @@ async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects'
   if (options.press) {
     const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
     assertNeutralTolerance(neutralTolerance)
-    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance)
+    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance, decodeJpeg)
     output = converted.bytes
     options.press.report?.(converted.report)
   }
@@ -225,6 +227,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
+
+  async function finishWithBrowser(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array> {
+    if (!options.press || new TextDecoder().decode(options.press.profile.subarray(16, 20)) !== 'GRAY') return finishPdf(pdf, options)
+    return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false }, (tab) =>
+      finishPdf(pdf, options, browserJpegDecoder(tab)),
+    )
+  }
   function pageViewport(page: Page, width?: number, printing = false) {
     if (page.print) {
       return printViewport(page.print, printing)
@@ -293,12 +302,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return renderBrowserBookPdf(input, opts, {
         render: (setup, pdf) => withTab(setup, (tab) => tab.pdf(pdf)),
         fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishPdf,
+        finish: finishWithBrowser,
       })
     },
 
     async pagePdf(input, opts = {}) {
-      return finishPdf(await renderPagePdf(Page.parse(input), opts), opts)
+      return finishWithBrowser(await renderPagePdf(Page.parse(input), opts), opts)
     },
 
     async pageImage(input, opts = {}) {
@@ -327,7 +336,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         pagePdf: renderPagePdf,
         piecePdf: renderPiecePdf,
         fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishPdf,
+        finish: finishWithBrowser,
       })
     },
 
@@ -335,7 +344,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return renderDeckPdf(deck, opts, {
         renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false }, (tab) => tab.pdf(pdf)),
         fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishPdf,
+        finish: finishWithBrowser,
       })
     },
 
