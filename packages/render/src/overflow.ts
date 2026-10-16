@@ -1,11 +1,15 @@
 import type { Page as Tab } from 'playwright-core'
 import type { OverflowContribution, OverflowEntry, OverflowPart } from './options.ts'
 
-/** Chromium's measured maximum print shrink; the 3x overflow demo check fails if it changes. */
+/**
+ * Chromium's measured maximum print shrink; the 3x overflow demo check fails
+ * if it changes. Chromium measures against the scaled page width, so using
+ * this cap for any end overflow makes its capped shrink cancel the scale.
+ */
 export const CHROMIUM_MAX_SHRINK = 1.5
 
-export function counterScale(extent: number, pageWidth: number): number {
-  return extent <= pageWidth ? 1 : Math.min(extent / pageWidth, CHROMIUM_MAX_SHRINK)
+export function counterScale(endOverflow: number): number {
+  return endOverflow > 0 ? CHROMIUM_MAX_SHRINK : 1
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {
@@ -58,5 +62,5 @@ export async function printWithOverflow(
   inputIndex?: number,
 ): Promise<{ bytes: Uint8Array; overflow: OverflowEntry }> {
   const overflow = await measureOverflow(tab, pageWidth, part, inputIndex)
-  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(overflow.extent, overflow.pageWidth) }), overflow }
+  return { bytes: await tab.pdf({ ...pdf, scale: counterScale(overflow.clippedEnd) }), overflow }
 }

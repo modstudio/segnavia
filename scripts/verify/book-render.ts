@@ -311,7 +311,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   const baseline = await renderer.bookPdf(book, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
   let report: OverflowReport | undefined
   const overflow = await renderer.bookPdf(
-    { ...book, chapters: [{ title: 'Wide chapter', html: `<table style="width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] },
+    { ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] },
     { effects: false, css: 'body{margin:0;font:16px/24px serif}', overflow: { report: (value) => (report = value) } },
   )
   const baselineFile = path.join(work, 'book-overflow-baseline.pdf')
