@@ -332,7 +332,17 @@ export async function verifyRailAuthoring(h: Harness) {
     const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
     return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactDeckController === player?.controller
   })
-  check('React hooks attach when the player mounts after the first render', await page.locator(`${PLAYER} textarea[part="notes-editor"]`).isVisible())
+  check(
+    'React hooks attach once when the player mounts under StrictMode',
+    (await page.locator(`${PLAYER} textarea[part="notes-editor"]`).count()) === 1 &&
+      (await page.locator(`${PLAYER} textarea[part="notes-editor"]`).isVisible()),
+  )
+  await page.locator(`${PLAYER} textarea[part="notes-editor"]`).fill('Strict mode navigation draft')
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => player.controller.next())
+  await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Strict mode navigation draft'))
+  check('React StrictMode replacement keeps the navigation save guard', true)
+  await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
+  await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))
   await page.waitForFunction(() => document.querySelector('segnavia-player')?.hasAttribute('rail'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')

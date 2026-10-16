@@ -1,6 +1,6 @@
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { Player, useAuthoring, useDeckController } from '@segnavia/react'
-import { createElement, useEffect, useState } from 'react'
+import { createElement, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 const facts = { changes: 0, saves: [] as string[] }
@@ -46,5 +46,5 @@ function App() {
 }
 
 const root = createRoot(document.getElementById('root') as HTMLElement)
-root.render(createElement(App))
+root.render(createElement(StrictMode, null, createElement(App)))
 Object.assign(window, { reactFacts: facts, reactUnmount: () => root.unmount() })

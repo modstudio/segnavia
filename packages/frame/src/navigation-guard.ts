@@ -16,10 +16,12 @@ function state(target: EventTarget): NavigationGuardState {
   return created
 }
 
-export function setNavigationGuard(target: EventTarget, guard: ((reason: NavigationGuardReason) => Promise<void>) | null) {
+export function setNavigationGuard(target: EventTarget, guard: (reason: NavigationGuardReason) => Promise<void>): () => void {
   const guarded = state(target)
-  if (guard) guarded.guard = guard
-  else delete guarded.guard
+  guarded.guard = guard
+  return () => {
+    if (guarded.guard === guard) delete guarded.guard
+  }
 }
 
 export function runNavigationGuard(target: EventTarget, reason: NavigationGuardReason = 'navigate'): Promise<void> {

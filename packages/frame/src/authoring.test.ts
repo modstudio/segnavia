@@ -23,10 +23,13 @@ describe('authoring detach', () => {
     queue.edit('a', 'draft')
     const controller = new AuthoringController(player as never, {}, { notesMaxLength: 20_000 })
     ;(controller as unknown as { notes: NotesSaveQueue }).notes = queue
+    let removed = false
+    ;(controller as unknown as { notesRoot: { remove(): void } }).notesRoot = { remove: () => (removed = true) }
     const first = controller.detach()
     const second = controller.detach()
     expect(first).toBe(second)
     expect(saves).toEqual(['draft'])
+    expect(removed).toBe(true)
     let settled = false
     void first.then(() => (settled = true))
     await Promise.resolve()

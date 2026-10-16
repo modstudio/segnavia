@@ -2,6 +2,7 @@ import { annotationCueIssues, Deck, PublishedShot, resolveDirection, type Slide 
 import { type Clock, speechClock, timedClock } from './clock.ts'
 import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
+import { inheritDeckLoadOrigin, takeInternalDeckInput } from './deck-load-origin.ts'
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
@@ -82,9 +83,11 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
+    const internal = takeInternalDeckInput(input)
     if (this.current.deck) await runNavigationGuard(this, 'load')
     if (base) this.options.base = base
     const deck = Deck.parse(input)
+    inheritDeckLoadOrigin(internal, deck)
     const wasOpen = this.current.deck !== null
     const oldIds = this.current.deck?.slides.map((slide) => slide.id) ?? []
     const selectedId = this.current.slide?.id ?? null

@@ -1,5 +1,6 @@
 import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
+import { isInternalDeck, markInternalDeckInput } from './deck-load-origin.ts'
 import { setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
@@ -55,7 +56,7 @@ export class AuthoringController extends EventTarget {
   private updateTail = Promise.resolve()
   private detachPromise: Promise<void> | null = null
   private renderedDeck: Deck | null = null
-  private internalLoad = false
+  private removeNavigationGuard: (() => void) | null = null
 
   constructor(
     private player: SegnaviaPlayer,
@@ -88,7 +89,7 @@ export class AuthoringController extends EventTarget {
       const saved = await this.notes?.flushAll()
       if (this.stopped || generation !== this.updateGeneration) return
       if (saved === false) return
-      this.detachNotes()
+      this.detachNotes()?.dispose()
     }
     this.handlers = handlers
     if (!hadMove && hasMove) this.attachReorder()
@@ -103,14 +104,15 @@ export class AuthoringController extends EventTarget {
   detach(): Promise<void> {
     if (this.detachPromise) return this.detachPromise
     this.stopped = true
-    this.detachPromise = this.finishDetach()
+    this.detachReorder()
+    const notes = this.detachNotes()
+    this.detachPromise = this.finishDetach(notes)
     return this.detachPromise
   }
 
-  private async finishDetach() {
-    await this.notes?.flushAll()
-    this.detachReorder()
-    this.detachNotes()
+  private async finishDetach(notes: NotesSaveQueue | null) {
+    await notes?.flushAll()
+    notes?.dispose()
   }
 
   private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {
@@ -136,24 +138,26 @@ export class AuthoringController extends EventTarget {
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, async (reason) => {
+    this.removeNavigationGuard = setNavigationGuard(this.player.controller, async () => {
       const slideId = this.player.controller.state.slide?.id
-      if (slideId) await this.notes?.flush(slideId, reason === 'load' && !this.internalLoad)
+      if (slideId) await this.notes?.flush(slideId)
     })
     this.renderNotes()
   }
 
-  private detachNotes() {
+  private detachNotes(): NotesSaveQueue | null {
+    const notes = this.notes
     this.player.controller.removeEventListener('change', this.renderNotes)
     this.player.removeEventListener('segnavia-labels', this.renderNotes)
-    setNavigationGuard(this.player.controller, null)
-    this.notes?.dispose()
+    this.removeNavigationGuard?.()
+    this.removeNavigationGuard = null
     this.notes = null
     this.notesRoot?.remove()
     this.notesRoot = null
     this.notesSlideId = null
     this.renderedDeck = null
     this.refuseStageScripts(false)
+    return notes
   }
 
   private renderNotes = () => {
@@ -163,11 +167,12 @@ export class AuthoringController extends EventTarget {
     const label = this.notesRoot?.querySelector('label span')
     if (!slide || !field || !this.notes) return
     let visibleChanged = false
-    const adoptDeck = deck !== this.renderedDeck && !this.internalLoad
+    const adoptDeck = deck !== this.renderedDeck && deck !== null && !isInternalDeck(deck)
     this.renderedDeck = deck
     if (adoptDeck) {
       for (const deckSlide of deck?.slides ?? []) {
-        const adopted = this.notes.seed(deckSlide.id, deckSlide.notes ?? '')
+        const hostNotes = deckSlide.notes ?? ''
+        const adopted = this.notes.seed(deckSlide.id, hostNotes)
         if (deckSlide.id === slide.id) visibleChanged = adopted
       }
     }
@@ -242,12 +247,8 @@ export class AuthoringController extends EventTarget {
   }
 
   private loadInternalDeck = async (deck: Deck) => {
-    this.internalLoad = true
-    try {
-      await this.player.controller.load(deck)
-    } finally {
-      this.internalLoad = false
-    }
+    markInternalDeckInput(deck)
+    await this.player.controller.load(deck)
   }
 }
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
+import { runNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
 
 const deck = {
   title: 'Guarded deck',
@@ -33,6 +33,22 @@ test('concurrent navigations wait for the same running guard', async () => {
   release()
   await Promise.all([first, second])
   expect(controller.state.index).not.toBe(0)
+})
+
+test('an old guard disposer does not remove its replacement', async () => {
+  const target = new EventTarget()
+  const calls: string[] = []
+  const removeOld = setNavigationGuard(target, async () => {
+    calls.push('old')
+  })
+  setNavigationGuard(target, async () => {
+    calls.push('new')
+  })
+
+  removeOld()
+  await runNavigationGuard(target)
+
+  expect(calls).toEqual(['new'])
 })
 
 test('cross-slide seek awaits the navigation guard but same-slide seek does not', async () => {
