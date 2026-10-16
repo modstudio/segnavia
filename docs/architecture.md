@@ -86,7 +86,7 @@ with `detail.message` when loading or validating an input fails.
 
 The authoring reorder handler receives slide identity and old and new indexes. One move may be pending; resolution keeps the optimistic order and rejection restores it and emits `authoring-error`. The notes handler receives slide identity and text. Notes save after 600ms, flush before a slide change, remain editable after a rejection, and expose dirty changes; a newer save supersedes an older save for the same slide. While the editor has focus, the stage and every thumbnail reload with scripts refused so a slide cannot retain keyboard focus, then restore their prior script policy on blur. Authoring labels extend `PlayerLabels` and partial label sets fall back to English.
 
-`@segnavia/react` is versioned with the package group but held from npm until an operator completes the registry's one-time package setup: manually publish it, configure its trusted publisher, and lock publishing access. The release is then completed by removing `private` on main and rerunning `release.yml`; it publishes the held version while the other packages skip as already published.
+`@segnavia/react` releases in the fixed package group like the other packages.
 
 ## Player surface
 

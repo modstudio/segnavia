@@ -1,5 +1,43 @@
 # @segnavia/react
 
+## 0.7.0
+
+### Minor Changes
+
+- ### `@segnavia/format`
+
+  - Add the validated `BookView` interchange shape and JSON Schema.
+
+  ### `@segnavia/html`
+
+  - Keeps the HTML package aligned with the shared 0.7.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/frame`
+
+  - Add the continuous-book frame element for host-built book views.
+  - Handles links to in-page targets inside a library frame without navigating the frame away. Links to missing targets leave the frame in place.
+
+  ### `@segnavia/react`
+
+  - First release published to npm: typed React components for the player and controls, with `useDeckController` and `useAuthoring`
+
+  ### `@segnavia/render`
+
+  - Keep overflowing multi-page, growing, fluid and book prints at true size and report their clipped content.
+
+  ### `@segnavia/capture`
+
+  - Keeps the capture package aligned with the shared 0.7.0 package release; it has no package-specific API changes.
+
+  ### `@segnavia/voice`
+
+  - Keeps the voice package aligned with the shared 0.7.0 package release; it has no package-specific API changes.
+
+### Patch Changes
+
+- Updated dependencies
+  - @segnavia/frame@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

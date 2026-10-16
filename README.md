@@ -23,12 +23,10 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
 | A finished player, a layout of those components, with an optional thumbnail rail: `<segnavia-player>` | `@segnavia/frame/player` |
 | Opt-in editing for a host's own app: reorder slides and edit notes, with the host owning every write | `@segnavia/frame/authoring` |
-| Typed React components and hooks for the player, stage and controls | `@segnavia/react` |
+| React components for the player and controls, with `useDeckController` and `useAuthoring` | `@segnavia/react` |
 | Pages, slides and decks to PDF or PNG/WebP/JPEG, offline, at their own size or on paper | `@segnavia/render` |
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
 | Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |
-
-`@segnavia/react` is versioned with the package group but held from npm until its one-time npm setup is complete.
 
 ## Quick look
 
