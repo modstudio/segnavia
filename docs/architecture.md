@@ -20,7 +20,7 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 | Layer | What it is | Appearance |
 |---|---|---|
 | `DeckController` | All behavior: slides, play, seek, per-slide clocks, cues, viewer settings, keys in reading direction, exact and clamped `#slide-N` links, neighbor content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it; the `clock` option now receives `(slide, audio)` instead of `(narration, audio)`. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>` | Light DOM elements that show one slide, one page, or one paper of imposed pages in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-book>` | Light DOM elements that show one slide, one page, one paper of imposed pages, or one continuous book in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. A book fills the box its host gives it and scrolls within its frame without growing to its content. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-time>`, `<segnavia-mute>`, `<segnavia-captions>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. The track is segmented in step playback and becomes one seek slider in continuous playback. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a two-row control bar around a stage, with time, notes, captions, sound, presentation, translatable labels and host chrome slots. `playback` and `captions` override the deck; `presentation` is `window` by default, or `native` or `off`. Its default `fit="contain"` keeps the whole player in the visible viewport when possible; `fit="width"` sizes from its inline space alone and `fit="height"` fits the stage inside a host-provided definite height. `controls="below"` keeps caption and controls after the slide; `controls="overlay"` places them over it. Presentation always keeps its existing height-fitted layout. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
@@ -43,6 +43,14 @@ Bun and Node resolve workspace imports directly to `src` while developing.
 
 The library declares every seam, and hosts implement them. Nothing in the
 library names a host.
+
+For a continuous book, the host calls `bookDocument` from `@segnavia/html`
+and passes its HTML and the book's title, direction, language and script policy
+as a `BookView` to `<segnavia-book>`. The frame library validates that view,
+resolves its direction and shows it in one internally scrolling sandboxed
+frame; it does not import the HTML library or construct the book document.
+Contents and note links are ordinary in-page anchors handled inside the frame,
+and the bridge carries only its existing key, height and ready messages.
 
 | Seam | Where | What the host supplies |
 |---|---|---|
