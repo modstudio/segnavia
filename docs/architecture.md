@@ -7,6 +7,8 @@ format  ◄── html          (universal: browser and server)
   ▲
   ├── frame               (browser; svg, timeline, bridge and print-document are server-safe)
   │     ▲
+  │     └── react         (browser adapter; React is a peer dependency here only)
+  │     ▲
   │     ├── render        (server: Chromium via playwright-core, pdf-lib)
   │     │     ▲
   │     └─────┴── capture (server: flows, shots, annotations)
@@ -20,7 +22,7 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 | `DeckController` | All behavior: slides, play, seek, per-slide clocks, cues, viewer settings, keys in reading direction, exact and clamped `#slide-N` links, neighbor content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it; the `clock` option now receives `(slide, audio)` instead of `(narration, audio)`. | None: it renders nothing. |
 | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>` | Light DOM elements that show one slide, one page, or one paper of imposed pages in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-time>`, `<segnavia-mute>`, `<segnavia-captions>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>`: each a finished piece connected by `for`, `controller` or the nearest ancestor. The track is segmented in step playback and becomes one seek slider in continuous playback. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
-| `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a two-row control bar around a stage, with time, notes, captions, sound, presentation, translatable labels and host chrome slots. `playback` and `captions` override the deck; `presentation` is `window` by default, or `native` or `off`. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
+| `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a two-row control bar around a stage, with time, notes, captions, sound, presentation, translatable labels and host chrome slots. `playback` and `captions` override the deck; `presentation` is `window` by default, or `native` or `off`. Its default `fit="width"` gives a player in normal flow the deck's aspect ratio; `fit="height"` fits the stage inside a host-provided definite height. Presentation always height-fits the viewport. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
 
 `unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
@@ -31,7 +33,7 @@ of the frame document, the annotation drawing, the timeline and the print
 document. The browser uses that frame-based print layout; the server uses its
 geometry while composing top-level renders.
 
-The six packages are built as ESM JavaScript and declarations with tsdown;
+The seven packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so
@@ -67,6 +69,14 @@ library names a host.
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
+| `deckFromSlides` | `format` | A host can turn generic HTML and shot rows into a parsed `Deck`, carrying deck options and optional timing, narration and notes. `omitNotes` produces a public projection without notes; `Deck.parse` remains the validation edge. |
+| `rail`, `<segnavia-rail>` | player and `frame/controls` | A host can compose the styled listbox alone or enable it on the player. It lazily mounts script-refusing 16:9 previews near the viewport, follows current-slide identity, and navigates through the controller. The player places it at inline start, moves it below the bar at 560px, and hides it during presentation. `--segnavia-rail-size` sets thumbnail width. |
+| `attachAuthoring(player, handlers, options?)` | `frame/authoring` | An opt-in browser entry attaches only the editors represented by async host handlers. `AuthoringOptions.notesMaxLength` sets the notes field limit and defaults to 20,000. The library owns optimistic order, rollback, autosave, pending and dirty state; the host owns every write and the entry makes no network call. `detach()` restores the player completely. This seam can gain separate handlers for future slide and timing operations without putting authoring in viewer bundles. |
+| React components and hooks | `@segnavia/react` | A separate adapter maps React properties, attributes, events and forwarded refs onto frame custom elements. A host captures the mounted element with a callback ref, then passes that element to `useDeckController(element)` to observe controller changes or `useAuthoring(player, handlers, options?)` to own the optional authoring attachment. Both hooks follow element identity across conditional mounts and replacements. React and React DOM are peers of this package only. |
+
+The authoring reorder handler receives slide identity and old and new indexes. One move may be pending; resolution keeps the optimistic order and rejection restores it and emits `authoring-error`. The notes handler receives slide identity and text. Notes save after 600ms, flush before a slide change, remain editable after a rejection, and expose dirty changes; a newer save supersedes an older save for the same slide. While the editor has focus, the stage and every thumbnail reload with scripts refused so a slide cannot retain keyboard focus, then restore their prior script policy on blur. Authoring labels extend `PlayerLabels` and partial label sets fall back to English.
+
+Before the first `@segnavia/react` release, an operator must perform the registry's one-time package setup: manually publish it, configure its trusted publisher, and lock publishing access. It then releases in the repository's fixed package group. The release command does not perform this setup.
 
 ## Player surface
 

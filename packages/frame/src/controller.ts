@@ -5,6 +5,7 @@ import { type ControllerOptions, type DeckState, initialDeckState, type Resolved
 import { hashSlideIndex, indexAfterReload, neighborWindow } from './deck-window.ts'
 import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
+import { runNavigationGuard } from './navigation-guard.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
 import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -60,8 +61,6 @@ export class DeckController extends EventTarget {
     this.stopClock()
     this.disconnectWindow()
   }
-  // A stage suspends these global listeners while it is disconnected. A host
-  // may use the same pair when the controller temporarily has no live view.
   connectWindow() {
     if (!hasWindow || this.listening) return
     if (this.options.hash) window.addEventListener('hashchange', this.onHash)
@@ -83,6 +82,7 @@ export class DeckController extends EventTarget {
   }
 
   async load(input: unknown, base?: string): Promise<void> {
+    if (this.current.deck) await runNavigationGuard(this)
     if (base) this.options.base = base
     const deck = Deck.parse(input)
     const wasOpen = this.current.deck !== null
@@ -106,6 +106,7 @@ export class DeckController extends EventTarget {
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
+    if (index !== this.current.index) await runNavigationGuard(this)
     await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
 
@@ -180,6 +181,7 @@ export class DeckController extends EventTarget {
     const { index, localMs, untimed } = positionAt(timeline, deckMs)
     const entry = timeline.slides[index]
     if (!entry) return
+    if (index !== this.current.index) await runNavigationGuard(this)
     const wasPlaying = this.current.playing
     if (!(await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error)))) return
     if (untimed) {
@@ -198,7 +200,6 @@ export class DeckController extends EventTarget {
       this.emit()
     }
   }
-
   setMuted(muted: boolean) {
     this.settings.muted = muted
     if (this.clock) this.clock.muted = muted

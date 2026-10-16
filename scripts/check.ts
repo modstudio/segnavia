@@ -37,8 +37,14 @@ function workspaces(): Map<string, Workspace> {
       name: string
       exports: Record<string, string>
       dependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
     }
-    map.set(manifest.name, { name: manifest.name, rule, exports: Object.keys(manifest.exports), dependencies: Object.keys(manifest.dependencies ?? {}) })
+    map.set(manifest.name, {
+      name: manifest.name,
+      rule,
+      exports: Object.keys(manifest.exports),
+      dependencies: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+    })
   }
   return map
 }

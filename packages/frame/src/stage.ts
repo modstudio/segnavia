@@ -39,6 +39,13 @@ export class SegnaviaStage extends HTMLElement {
   private resize = new ResizeObserver(() => this.measure())
   private pool = new FramePool(this, () => this.measure())
   private transitionProperty: HostTransition | undefined
+  private authoringRefusesScripts = false
+
+  setAuthoringScriptsRefused(refused: boolean) {
+    if (refused === this.authoringRefusesScripts) return
+    this.authoringRefusesScripts = refused
+    if (this.attached?.state.deck) this.update(this.attached.state)
+  }
 
   get transition(): HostTransition | undefined {
     return this.transitionProperty ?? transitionFromAttributes(this.getAttribute('transition'), this.getAttribute('transition-duration'))
@@ -155,7 +162,8 @@ export class SegnaviaStage extends HTMLElement {
     const deck = state.deck
     if (!deck || !state.content) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
-    this.pool.update(state, this.attached as DeckController, {
+    const shownState = this.authoringRefusesScripts && deck.scripts !== 'refuse' ? { ...state, deck: { ...deck, scripts: 'refuse' as const } } : state
+    this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,

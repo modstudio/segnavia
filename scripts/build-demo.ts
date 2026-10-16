@@ -13,6 +13,7 @@ import { fill } from '@segnavia/html'
 import { openRenderer, RenderRefusedError } from '@segnavia/render'
 import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
+import { buildAuthoringDemo } from './build-authoring-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
@@ -230,7 +231,7 @@ for (const [name, conditions] of Object.entries(frameManifest.exports).filter(([
   copyFileSync(path.join(ROOT, 'packages/frame', conditions.default), path.join(SITE, out))
 }
 const shell = (body: string, script = 'segnavia-player.js') =>
-  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body}<script type="module" src="${script}"></script></body></html>`
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${deck.title}</title><style>html,body{margin:0;height:100%;background:#e7e7e4}body{padding:24px;box-sizing:border-box}segnavia-player{height:100%}</style></head><body>${body.replaceAll('<segnavia-player', '<segnavia-player fit="height"')}<script type="module" src="${script}"></script></body></html>`
 const playerChrome = `<button slot="actions" id="host-action" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/></svg></button>`
 const testIcons = `<svg slot="icon-play" data-custom-icon="play" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg><svg slot="icon-pause" data-custom-icon="pause" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>`
 const partStyles =
@@ -347,6 +348,7 @@ const scripted = Deck.parse({
 })
 writeFileSync(path.join(SITE, 'deck-scripted.json'), JSON.stringify(scripted))
 writeFileSync(path.join(SITE, 'scripted.html'), shell('<segnavia-player src="deck-scripted.json" hash="off"></segnavia-player>'))
+await buildAuthoringDemo(ROOT, SITE, shell)
 writeFileSync(path.join(SITE, 'prefetch.html'), shell('<segnavia-player id="d" src="deck.json" prefetch></segnavia-player>'))
 buildDeckHost(SITE)
 // A page the host serves itself, as a preview ticket would be: its own CSP,

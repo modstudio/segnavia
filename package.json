@@ -30,6 +30,7 @@
     "@segnavia/render": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",
+    "@segnavia/react": "workspace:*",
     "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
@@ -37,8 +38,12 @@
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "2",
     "@types/bun": "latest",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "publint": "^0.3.25",
     "tsdown": "^0.23.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.9.0",
     "unrun": "*"
   }

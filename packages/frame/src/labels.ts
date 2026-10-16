@@ -11,6 +11,11 @@ export interface PlayerLabels {
   slide: (number: number, total: number) => string
   frameTitle: FrameTitle
   slides: string
+  rail: string
+  editNotes: string
+  savingNotes: string
+  savedNotes: string
+  tryNotesAgain: string
   notes: string
   showNotes: string
   hideNotes: string
@@ -35,6 +40,11 @@ export const ENGLISH_LABELS: PlayerLabels = {
   slide: (number, total) => `Slide ${number} of ${total}`,
   frameTitle: defaultFrameTitle,
   slides: 'Slides',
+  rail: 'Slides',
+  editNotes: 'Edit notes',
+  savingNotes: 'Saving…',
+  savedNotes: 'Saved',
+  tryNotesAgain: 'Try again',
   notes: 'Notes',
   showNotes: 'Show notes',
   hideNotes: 'Hide notes',

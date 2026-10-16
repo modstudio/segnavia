@@ -52,6 +52,11 @@
       "types": "./dist/styled-elements.d.ts",
       "default": "./dist/styled-elements.js"
     },
+    "./headless-elements": {
+      "@segnavia/source": "./src/headless-elements.ts",
+      "types": "./dist/headless-elements.d.ts",
+      "default": "./dist/headless-elements.js"
+    },
     "./player": {
       "@segnavia/source": "./src/player-entry.ts",
       "types": "./dist/player-entry.d.ts",
@@ -61,6 +66,11 @@
       "@segnavia/source": "./src/controls-entry.ts",
       "types": "./dist/controls-entry.d.ts",
       "default": "./dist/controls-entry.js"
+    },
+    "./authoring": {
+      "@segnavia/source": "./src/authoring.ts",
+      "types": "./dist/authoring.d.ts",
+      "default": "./dist/authoring.js"
     },
     "./icons": {
       "@segnavia/source": "./src/icons.ts",
