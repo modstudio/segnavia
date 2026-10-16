@@ -16,6 +16,7 @@ interface Entry extends NotesSaveState {
   version: number
   timer: number | null
   saves: Map<number, Promise<boolean>>
+  preserveNextSeed: boolean
 }
 
 const browserTimers: Timers = {
@@ -47,10 +48,33 @@ export class NotesSaveQueue {
     this.save = save
   }
 
-  seed(slideId: string, notes: string) {
-    if (!this.entries.has(slideId)) {
-      this.entries.set(slideId, { text: notes, saved: notes, version: 0, timer: null, saves: new Map(), status: 'idle', message: '' })
+  seed(slideId: string, notes: string): boolean {
+    const existing = this.entries.get(slideId)
+    if (!existing) {
+      this.entries.set(slideId, {
+        text: notes,
+        saved: notes,
+        version: 0,
+        timer: null,
+        saves: new Map(),
+        preserveNextSeed: false,
+        status: 'idle',
+        message: '',
+      })
+      return true
     }
+    if (existing.text !== existing.saved || existing.saves.size > 0) return false
+    if (existing.preserveNextSeed) {
+      existing.preserveNextSeed = false
+      return false
+    }
+    if (existing.text === notes) return false
+    existing.text = notes
+    existing.saved = notes
+    existing.status = 'idle'
+    existing.message = ''
+    this.notify(slideId)
+    return true
   }
 
   state(slideId: string): NotesSaveState {
@@ -72,20 +96,29 @@ export class NotesSaveQueue {
     this.notify(slideId)
   }
 
-  async flush(slideId: string): Promise<boolean> {
+  async flush(slideId: string, preserveNextSeed = false): Promise<boolean> {
     const entry = this.entry(slideId)
     if (entry.timer !== null) {
       this.timers.clear(entry.timer)
       entry.timer = null
     }
     if (entry.text === entry.saved) return true
+    if (preserveNextSeed) entry.preserveNextSeed = true
     const saved = await this.start(slideId, entry.version)
     return saved && entry.text === entry.saved
   }
 
   async flushAll(): Promise<boolean> {
-    const results = await Promise.all([...this.entries.keys()].map((slideId) => this.flush(slideId)))
-    return results.every(Boolean)
+    for (const [slideId, entry] of this.entries) {
+      if (entry.timer !== null) {
+        this.timers.clear(entry.timer)
+        entry.timer = null
+      }
+      if (entry.text !== entry.saved) void this.start(slideId, entry.version)
+    }
+    const pending = [...this.entries.values()].flatMap((entry) => [...entry.saves.values()])
+    const results = await Promise.all(pending)
+    return results.every(Boolean) && !this.dirty
   }
 
   retry(slideId: string): Promise<boolean> {

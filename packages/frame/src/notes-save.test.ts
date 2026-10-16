@@ -83,4 +83,73 @@ describe('notes save queue', () => {
     await Promise.resolve()
     expect(queue.state('a')).toMatchObject({ text: 'second', status: 'saved' })
   })
+
+  test('flushes pending notes and waits for in-flight saves before detach', async () => {
+    const time = scheduler()
+    const saves: string[] = []
+    const releases: Array<() => void> = []
+    const queue = new NotesSaveQueue(
+      ({ notes }) => {
+        saves.push(notes)
+        return new Promise<void>((resolve) => releases.push(resolve))
+      },
+      () => {},
+      time,
+    )
+    queue.seed('a', '')
+    queue.edit('a', 'first')
+    time.run()
+    queue.edit('a', 'final')
+    let settled = false
+    const flushing = queue.flushAll().then(() => (settled = true))
+    expect(saves).toEqual(['first', 'final'])
+    releases[1]?.()
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    releases[0]?.()
+    await flushing
+    expect(settled).toBe(true)
+  })
+
+  test('reports a failed final flush without throwing', async () => {
+    const failures: string[] = []
+    const queue = new NotesSaveQueue(
+      async () => {
+        throw new Error('Offline')
+      },
+      () => {},
+      scheduler(),
+      () => {},
+      (_slideId, error) => failures.push((error as Error).message),
+    )
+    queue.seed('a', '')
+    queue.edit('a', 'draft')
+    expect(await queue.flushAll()).toBe(false)
+    expect(failures).toEqual(['Offline'])
+  })
+
+  test('adopts host notes only when local work is settled', async () => {
+    const time = scheduler()
+    let release = () => {}
+    const queue = new NotesSaveQueue(
+      () => new Promise<void>((resolve) => (release = resolve)),
+      () => {},
+      time,
+    )
+    queue.seed('a', 'host one')
+    expect(queue.seed('a', 'host two')).toBe(true)
+    expect(queue.state('a').text).toBe('host two')
+    queue.edit('a', 'local')
+    expect(queue.seed('a', 'host three')).toBe(false)
+    expect(queue.state('a').text).toBe('local')
+    const saving = queue.flush('a', true)
+    expect(queue.seed('a', 'host three')).toBe(false)
+    release()
+    await saving
+    expect(queue.seed('a', 'host three')).toBe(false)
+    expect(queue.state('a').text).toBe('local')
+    expect(queue.seed('a', 'host four')).toBe(true)
+    expect(queue.state('a').text).toBe('host four')
+    expect(queue.dirty).toBe(false)
+  })
 })

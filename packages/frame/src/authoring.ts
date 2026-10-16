@@ -52,6 +52,7 @@ export class AuthoringController extends EventTarget {
   private notesSlideId: string | null = null
   private updateGeneration = 0
   private updateTail = Promise.resolve()
+  private detachPromise: Promise<void> | null = null
 
   constructor(
     private player: SegnaviaPlayer,
@@ -96,9 +97,15 @@ export class AuthoringController extends EventTarget {
     if (field) field.maxLength = this.options.notesMaxLength
   }
 
-  detach() {
-    if (this.stopped) return
+  detach(): Promise<void> {
+    if (this.detachPromise) return this.detachPromise
     this.stopped = true
+    this.detachPromise = this.finishDetach()
+    return this.detachPromise
+  }
+
+  private async finishDetach() {
+    await this.notes?.flushAll()
     this.detachReorder()
     this.detachNotes()
   }
@@ -122,16 +129,13 @@ export class AuthoringController extends EventTarget {
       (slideId) => {
         if (slideId === this.notesSlideId) this.renderNotesStatus()
       },
-      (slideId, error) => {
-        const detail: AuthoringErrorDetail = { operation: 'notes', slideId, message: errorMessage(error), error }
-        this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
-      },
+      this.notesFailed,
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
     setNavigationGuard(this.player.controller, async () => {
       const slideId = this.player.controller.state.slide?.id
-      if (slideId) await this.notes?.flush(slideId)
+      if (slideId) await this.notes?.flush(slideId, true)
     })
     this.renderNotes()
   }
@@ -150,11 +154,16 @@ export class AuthoringController extends EventTarget {
 
   private renderNotes = () => {
     const slide = this.player.controller.state.slide
+    const deck = this.player.controller.state.deck
     const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
     const label = this.notesRoot?.querySelector('label span')
     if (!slide || !field || !this.notes) return
-    this.notes.seed(slide.id, slide.notes ?? '')
-    if (this.notesSlideId !== slide.id) {
+    let visibleChanged = false
+    for (const deckSlide of deck?.slides ?? []) {
+      const adopted = this.notes.seed(deckSlide.id, deckSlide.notes ?? '')
+      if (deckSlide.id === slide.id) visibleChanged = adopted
+    }
+    if (this.notesSlideId !== slide.id || visibleChanged) {
       this.notesSlideId = slide.id
       field.value = this.notes.state(slide.id).text
     }
@@ -183,6 +192,11 @@ export class AuthoringController extends EventTarget {
 
   private retryNotes = (event: Event) => {
     if ((event.target as Element).closest('button') && this.notesSlideId) void this.notes?.retry(this.notesSlideId)
+  }
+
+  private notesFailed = (slideId: string, error: unknown) => {
+    const detail: AuthoringErrorDetail = { operation: 'notes', slideId, message: errorMessage(error), error }
+    this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
   }
 
   private refuseStageScripts(refused: boolean) {
