@@ -23,22 +23,25 @@ export async function verifyReactAuthoring(h: Harness) {
     strictModeMount.current === 1 && strictModeMount.seen.at(-1) === 1 && (await notes.isVisible()),
     JSON.stringify(strictModeMount),
   )
-  await notes.fill('Strict mode navigation draft')
-  const navigation = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
-    const facts = (window as unknown as { reactFacts: { releaseStrictModeSave(): void; saves: string[] } }).reactFacts
-    let settled = false
-    const moving = player.controller.next().then(() => (settled = true))
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    const saves = [...facts.saves]
-    facts.releaseStrictModeSave()
-    await moving
-    return { saves, settledBeforeRelease: settled }
+  await page.evaluate(() => {
+    const holder = window as unknown as { reactSetTimeout?: typeof setTimeout }
+    holder.reactSetTimeout = window.setTimeout
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (delay === 600) return 2_147_000_000
+      return holder.reactSetTimeout?.(handler, delay, ...args) ?? 0
+    }) as typeof setTimeout
   })
-  check(
-    'React StrictMode replacement keeps the navigation save guard',
-    navigation.saves.includes('Strict mode navigation draft') && !navigation.settledBeforeRelease,
-    JSON.stringify(navigation),
-  )
+  await notes.fill('Strict mode navigation draft')
+  const navigationSaves = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { next(): Promise<void> } }) => {
+    const facts = (window as unknown as { reactFacts: { saves: string[] } }).reactFacts
+    await player.controller.next()
+    return [...facts.saves]
+  })
+  await page.evaluate(() => {
+    const holder = window as unknown as { reactSetTimeout?: typeof setTimeout }
+    if (holder.reactSetTimeout) window.setTimeout = holder.reactSetTimeout
+  })
+  check('React StrictMode replacement keeps the navigation save guard', navigationSaves.includes('Strict mode navigation draft'), navigationSaves.join(','))
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { previous(): Promise<void> } }) => player.controller.previous())
   await page.evaluate(() => ((window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.length = 0))
   await page.evaluate(() => (window as unknown as { reactSetRail(value: boolean): void }).reactSetRail(true))

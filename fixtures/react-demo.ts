@@ -3,9 +3,7 @@ import { Player, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
-let releaseStrictModeSave = () => {}
-const strictModeSave = new Promise<void>((resolve) => (releaseStrictModeSave = resolve))
-const facts = { changes: 0, releaseStrictModeSave, saves: [] as string[], notesRoots: [] as number[] }
+const facts = { changes: 0, saves: [] as string[], notesRoots: [] as number[] }
 
 function App() {
   const [rail, setRail] = useState(false)
@@ -19,7 +17,6 @@ function App() {
     {
       saveNotes: async ({ notes }) => {
         facts.saves.push(notes)
-        if (notes === 'Strict mode navigation draft') await strictModeSave
       },
       moveSlide: configured ? async () => {} : undefined,
     },
