@@ -363,13 +363,10 @@ export async function verifyRailAuthoring(h: Harness) {
   }
   check('React keyed replacement follows the new player', followed(replacement), JSON.stringify(replacement))
   await page.locator(`${PLAYER} textarea[part="notes-editor"]`).fill('Unmounted React draft')
-  const detached = await page.evaluate(() => {
-    const holder = window as unknown as { reactPlayer: HTMLElement; reactUnmount(): void }
-    const player = holder.reactPlayer
-    holder.reactUnmount()
-    return player.shadowRoot?.querySelector('[data-authoring-notes]') === null
-  })
+  const unmountedPlayer = await page.locator(PLAYER).elementHandle()
+  await page.evaluate(() => (window as unknown as { reactUnmount(): void }).reactUnmount())
   await page.waitForFunction(() => (window as unknown as { reactFacts: { saves: string[] } }).reactFacts.saves.includes('Unmounted React draft'))
+  const detached = await unmountedPlayer?.evaluate((player) => player.shadowRoot?.querySelector('[data-authoring-notes]') === null)
   check('React unmount detaches authoring and saves a pending edit', detached)
 
   const playerBundle = readFileSync(path.join(SITE, 'segnavia-player.js'), 'utf8')
