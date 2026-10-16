@@ -43,4 +43,25 @@ describe('annotationFocusBox', () => {
       ]),
     ).toEqual({ x: 0, y: 0, width: 324, height: 2224 })
   })
+
+  test('keeps a long arrow label visible on the tail side of a wide image', () => {
+    const image = { width: 2400, height: 720 }
+    const label = 'A'.repeat(30)
+    const arrow = { head: { x: 1800, y: 360 }, tail: { x: 600, y: 360 }, label }
+    const focus = annotationFocusBox(image, [{ ring: null, badge: null, arrow }])
+    const placement = fitImage(slide, image, 'focus', focus)
+    const labelWidth = 0.6 * 18 * label.length + 8
+    const labelLeft = (arrow.tail.x - labelWidth / 2) * placement.scale + placement.x
+    const labelRight = (arrow.tail.x + labelWidth / 2) * placement.scale + placement.x
+
+    expect(focus).toEqual({ x: 410, y: 306, width: 1414, height: 78 })
+    expect(labelLeft).toBeGreaterThanOrEqual(0)
+    expect(labelRight).toBeLessThanOrEqual(slide.width)
+    expect(annotationFocusBox(image, [{ ring: null, badge: null, arrow: { ...arrow, label: null } }])).toEqual({
+      x: 576,
+      y: 336,
+      width: 1248,
+      height: 48,
+    })
+  })
 })

@@ -12,7 +12,13 @@ export const fitShot: Shot = {
   size: { width: 1280, height: 2400 },
   scale: 1,
   dir: 'ltr',
-  annotations: [{ ring: { x: 100, y: 2100, width: 200, height: 100 }, badge: null, arrow: null }],
+  annotations: [
+    {
+      ring: { x: 100, y: 2100, width: 200, height: 100 },
+      badge: null,
+      arrow: { head: { x: 640, y: 2100 }, tail: { x: 640, y: 1400 }, label: 'Keep this entire arrow label shown' },
+    },
+  ],
   capturedAt: 'now',
   meta: {},
 }

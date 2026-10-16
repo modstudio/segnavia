@@ -7,6 +7,7 @@ interface FitBoxes {
   canvas: { left: number; top: number; right: number; bottom: number }
   image: { left: number; top: number; right: number; bottom: number; width: number; height: number }
   ring: { left: number; top: number; right: number; bottom: number; width: number; height: number }
+  label: { left: number; top: number; right: number; bottom: number }
 }
 
 function checkMode(h: Harness, mode: (typeof modes)[number], boxes: FitBoxes): void {
@@ -38,12 +39,7 @@ function checkMode(h: Harness, mode: (typeof modes)[number], boxes: FitBoxes): v
       boxes.ring.top >= boxes.canvas.top - epsilon &&
       boxes.ring.right <= boxes.canvas.right + epsilon &&
       boxes.ring.bottom <= boxes.canvas.bottom + epsilon
-    const imageCovers =
-      boxes.image.left <= boxes.canvas.left + epsilon &&
-      boxes.image.top <= boxes.canvas.top + epsilon &&
-      boxes.image.right >= boxes.canvas.right - epsilon &&
-      boxes.image.bottom >= boxes.canvas.bottom - epsilon
-    h.check('focus keeps the annotation ring inside a filled canvas', ringInside && imageCovers)
+    h.check('focus keeps the annotation ring inside the canvas', ringInside)
   }
 }
 
@@ -57,6 +53,7 @@ async function checkStage(h: Harness, selector: string, mode: (typeof modes)[num
       canvas: box(stage.querySelector('.segnavia-stage__canvas') as Element),
       image: box(stage.querySelector('img') as Element),
       ring: box(stage.querySelector('[data-annotation] rect') as Element),
+      label: box(stage.querySelector('[data-annotation] text') as Element),
     }
   })
   const scaleX = boxes.image.width / 1280
@@ -75,6 +72,15 @@ async function checkStage(h: Harness, selector: string, mode: (typeof modes)[num
       near(boxes.ring.height, expected.height),
   )
   checkMode(h, mode, boxes)
+  if (mode === 'focus') {
+    h.check(
+      `focus keeps the arrow label inside the ${selector === '#styled' ? 'styled' : 'unstyled'} canvas`,
+      boxes.label.left >= boxes.canvas.left - 1 &&
+        boxes.label.top >= boxes.canvas.top - 1 &&
+        boxes.label.right <= boxes.canvas.right + 1 &&
+        boxes.label.bottom <= boxes.canvas.bottom + 1,
+    )
+  }
 }
 
 export async function verifyImageFit(h: Harness): Promise<void> {

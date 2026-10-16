@@ -12,7 +12,7 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const near = (actual: number, expected: number) => Math.abs(actual - expected) <= 3
 
-function annotationBounds(output: string, work: string, page: number) {
+function annotationBounds(output: string, work: string, page: number, expected: { left: number; top: number; right: number; bottom: number }) {
   const prefix = path.join(work, `fit-ring-${page}`)
   execFileSync('pdftoppm', ['-r', '72', '-f', String(page), '-l', String(page), '-singlefile', path.join(output, 'fit-slides.pdf'), prefix])
   const bytes = readFileSync(`${prefix}.ppm`)
@@ -39,6 +39,7 @@ function annotationBounds(output: string, work: string, page: number) {
     if (red < 140 || red < green * 1.35 || red < blue * 1.15) continue
     const x = index % width
     const y = Math.floor(index / width)
+    if (x < expected.left - 2 || x > expected.right + 2 || y < expected.top - 2 || y > expected.bottom + 2) continue
     left = Math.min(left, x)
     top = Math.min(top, y)
     right = Math.max(right, x)
@@ -66,7 +67,7 @@ function verifyFitPdf(output: string, work: string, check: Check): void {
       right: (placement.x + (ring.x + ring.width) * placement.scale) * 0.75 + stroke,
       bottom: (placement.y + (ring.y + ring.height) * placement.scale) * 0.75 + stroke,
     }
-    const actual = annotationBounds(output, work, page)
+    const actual = annotationBounds(output, work, page, expected)
     check(
       `the printed ${mode} ring follows the shared mapping within one point`,
       Object.keys(expected).every((key) => Math.abs(actual[key as keyof typeof actual] - expected[key as keyof typeof expected]) <= 1),

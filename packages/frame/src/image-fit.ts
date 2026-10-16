@@ -34,6 +34,13 @@ export function fitImage(slide: Size, image: Size, fit: ImageFit, focus?: Box): 
   }
 }
 
+// svg.ts renders arrow labels at 18 px, centered on the tail with the baseline 10 px above it.
+const ARROW_LABEL_FONT_SIZE = 18
+const ARROW_LABEL_CHARACTER_WIDTH = ARROW_LABEL_FONT_SIZE * 0.6
+const ARROW_LABEL_WIDTH_PADDING = 8
+const ARROW_LABEL_TOP_OFFSET = 30
+const ARROW_LABEL_HEIGHT = 24
+
 function annotationBoxes(annotation: Annotation): Box[] {
   const boxes: Box[] = []
   if (annotation.ring) boxes.push(annotation.ring)
@@ -41,6 +48,10 @@ function annotationBoxes(annotation: Annotation): Box[] {
   if (annotation.arrow) {
     const { head, tail } = annotation.arrow
     boxes.push({ x: Math.min(head.x, tail.x), y: Math.min(head.y, tail.y), width: Math.abs(head.x - tail.x), height: Math.abs(head.y - tail.y) })
+    if (annotation.arrow.label) {
+      const width = annotation.arrow.label.length * ARROW_LABEL_CHARACTER_WIDTH + ARROW_LABEL_WIDTH_PADDING
+      boxes.push({ x: tail.x - width / 2, y: tail.y - ARROW_LABEL_TOP_OFFSET, width, height: ARROW_LABEL_HEIGHT })
+    }
   }
   return boxes
 }
