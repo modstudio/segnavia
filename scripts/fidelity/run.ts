@@ -4,6 +4,7 @@ import path from 'node:path'
 import { type PageInput, Print, PX_PER_MM, printBoxes, printPadding, printProperties } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
+import { processColorResidues } from '../verify/gray-residue.ts'
 import { measureBars } from './bars.ts'
 import {
   ACCEPTANCE_BARS,
@@ -35,6 +36,10 @@ const documents: DocumentResult[] = []
 const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
+const defaultGrayProfile = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc'
+const grayProfilePath = process.env.SEGNAVIA_FIDELITY_GRAY_PROFILE ?? (existsSync(defaultGrayProfile) ? defaultGrayProfile : undefined)
+const grayProfileBytes = grayProfilePath ? new Uint8Array(readFileSync(grayProfilePath)) : undefined
+const grayTable = grayProfileBytes ? proofTable(grayProfileBytes) : undefined
 let posterEvidence: PosterEvidence | undefined
 
 interface ScreenReference {
@@ -219,6 +224,41 @@ try {
     } else {
       pressReason = 'SEGNAVIA_FIDELITY_PROFILE was not set.'
     }
+    let grayPressPdf: string | undefined
+    let grayPressProof: string | undefined
+    let grayPressRaster: string | undefined
+    let grayPressDifference: Difference | undefined
+    let grayPressResidues: number | undefined
+    let grayPressResidueErrors: string[] | undefined
+    let grayPressReason: string | undefined
+    if (grayProfileBytes && grayTable) {
+      grayPressPdf = path.join(documentDirectory, `${fixture.id}-press-gray.pdf`)
+      const grayPressComparisonPdf = path.join(documentDirectory, 'press-gray-comparison.pdf')
+      grayPressProof = path.join(documentDirectory, 'screen-proof-gray.png')
+      grayPressRaster = path.join(documentDirectory, 'press-gray.png')
+      try {
+        const grayPdfBytes = await renderer.pagesPdf([fixture.page], {
+          css: MEASUREMENT_CSS,
+          press: { profile: grayProfileBytes },
+        })
+        await Bun.write(grayPressPdf, grayPdfBytes)
+        const residues = await processColorResidues(grayPdfBytes)
+        grayPressResidues = residues.found.length
+        grayPressResidueErrors = residues.errors
+        await trimPdf(grayPressPdf, grayPressComparisonPdf)
+        proofImage(screen, grayPressProof, size.width, size.height, grayTable)
+        const rendered = await poppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height)
+        if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
+        else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
+      } catch (error) {
+        grayPressReason = error instanceof Error ? error.message : String(error)
+        grayPressPdf = undefined
+        grayPressProof = undefined
+        grayPressRaster = undefined
+      }
+    } else {
+      grayPressReason = `SEGNAVIA_FIDELITY_GRAY_PROFILE was not set and ${defaultGrayProfile} does not exist.`
+    }
     const regionResults = readers.flatMap((reader) => reader.regions ?? [])
     const worstRegion = regionResults.reduce((worst, region) => ({ mean: Math.max(worst.mean, region.mean), p99: Math.max(worst.p99, region.p99) }), {
       mean: 0,
@@ -248,7 +288,26 @@ try {
       pressPdf,
       pressProof,
       pressRaster,
-      bars: measureBars({ readers, worstRegion, pressDifference, pressReason, size: sizeMeasurement }),
+      pressDifference,
+      pressReason,
+      grayPressPdf,
+      grayPressProof,
+      grayPressRaster,
+      grayPressDifference,
+      grayPressResidues,
+      grayPressResidueErrors,
+      grayPressReason,
+      bars: measureBars({
+        readers,
+        worstRegion,
+        pressDifference,
+        pressReason,
+        grayPressDifference,
+        grayPressResidues,
+        grayPressResidueErrors,
+        grayPressReason,
+        size: sizeMeasurement,
+      }),
     })
     await Bun.write(path.join(directory, 'partial.json'), `${JSON.stringify(documents, null, 2)}\n`)
   }
@@ -268,6 +327,7 @@ const run: FidelityRun = {
     thresholds: Object.fromEntries(ACCEPTANCE_BARS.map((bar) => [bar.id, bar.threshold])) as FidelityRun['metadata']['thresholds'],
     chromium: executablePath,
     profile: profilePath,
+    grayProfile: grayProfilePath,
   },
   documents,
   posterEvidence,

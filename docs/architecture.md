@@ -64,7 +64,7 @@ library names a host.
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card; marks and folds are not built. |
-| press profile | render options | The ICC profile of the press, as bytes, and a report callback for residual authored RGB images and conversion counts read back from the output. |
+| press profile | render options | A CMYK or greyscale ICC profile, as bytes, and a report callback for the destination, residual authored RGB images and conversion counts read back from the output. |
 | `convert`, proof image, gamut report (designed, not built) | render options | A future hook may supply a full converter for the finished PDF, with a proof and out-of-gamut colors for a host to show. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
@@ -332,22 +332,22 @@ library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed
 forms, rewrite the finished PDF once; `pageImage` and `slideImage` ignore the
 option. Solid fills and strokes, including text and shadow colors and colors
 inside Type 3 glyphs, and every axial or radial gradient stop are converted
-through the profile. A black or near-neutral gray becomes black ink alone, so text
+through the profile. With a CMYK profile, a black or near-neutral gray becomes black ink alone, so text
 prints sharp. `press.neutralTolerance` sets the largest channel difference treated
 as neutral in 8-bit units from 0 to 255 and defaults to 3; 0 keeps the exact-neutral
-rule, and every tolerance also snaps what that rule snaps. The black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use DeviceCMYK, while a DeviceGray
-group stays gray and a mask source keeps its declared space. Under a CMYK
+rule, and every tolerance also snaps what that rule snaps. It is validated but has no effect with a greyscale profile: every color goes through that profile so its dot gain applies. The CMYK black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use the destination space. Under a greyscale destination every group is DeviceGray; colors in alpha and luminosity mask sources instead use the PDF luminosity formula, with no profile dot gain, because they represent opacity. Under a CMYK
 destination, raster images, including images drawn by Type 3 glyphs such as
 color emoji, stay byte-for-byte as the author supplied them and are the only
 RGB the result may retain. Under a greyscale destination, supported supplied
 images are rewritten as DeviceGray through the profile; images inside mask
 sources instead use PDF luminosity so opacity does not receive dot gain.
-`press.report` receives their pixel dimensions and color-space kinds, plus
+`press.report.destination` says whether the output is `cmyk` or `gray`, and
+`press.report.convertedImages` counts supplied raster objects converted to DeviceGray. The report also receives residual images' pixel dimensions and color-space kinds, plus
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF, and the number of conversions snapped to black by the configured
 tolerance beyond the exact-neutral rule. An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
-converted by sampling their calculator program onto a DeviceCMYK type 0 function,
+converted by sampling their calculator program onto a type 0 function in the destination space,
 8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). Painted bounds are
 gathered for the whole document in a pass before any conversion, under its own
 `MAX_DOCUMENT_CONTENT_BYTES` budget. That pass replays each page's Contents in
@@ -370,7 +370,7 @@ interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
 (8192), `MAX_CALCULATOR_OPERATORS` (4096) and `MAX_CALCULATOR_STACK` (32). Sampled
 data counts against `MAX_DOCUMENT_CONTENT_BYTES` and is charged before evaluation. Axial and radial shadings are
 converted by their stops. The catalog's output intent
-embeds the same profile with `/GTS_PDFX`, so a press interprets the CMYK numbers
+embeds the same profile with `/GTS_PDFX` and `/N 4` for CMYK or `/N 1` for greyscale, so a press interprets the device numbers
 through the profile that made them. For greyscale output, the renderer supplies the press library with
 a JPEG decoder backed by one offline Chromium tab per render; the browser only
 decodes JPEG bytes, while the library owns profile conversion and PDF rewriting.

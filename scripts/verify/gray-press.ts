@@ -5,14 +5,15 @@ import { toGray } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
 import { buildGrayProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
 import { inspectPressPdf } from '../../packages/render/src/press/adapter.ts'
-import { visitContentOperators, visitContentTokens } from '../../packages/render/src/press/content.ts'
-import { decodeContent, nameOf } from '../../packages/render/src/press/pdf-objects.ts'
+import { visitContentOperators } from '../../packages/render/src/press/content.ts'
+import { decodeContent } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
+import { processColorResidues } from './gray-residue.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 const genericGrayProfile = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc'
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
-const { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } = renderRequire('pdf-lib')
+const { decodePDFRawStream, PDFDocument, PDFName } = renderRequire('pdf-lib')
 
 async function grayColors(bytes: Uint8Array): Promise<number[]> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
@@ -47,61 +48,6 @@ async function suppliedGrayImages(bytes: Uint8Array): Promise<Array<{ sample: nu
     shading: () => false,
   })
   return images
-}
-
-const forbiddenSpaces = new Set(['/DeviceRGB', '/DeviceCMYK', '/CalRGB'])
-const forbiddenOperators = new Set(['rg', 'RG', 'k', 'K'])
-
-interface ColorResidues {
-  errors: string[]
-  found: string[]
-}
-
-async function processColorResidues(bytes: Uint8Array): Promise<ColorResidues> {
-  const document = await PDFDocument.load(bytes, { updateMetadata: false })
-  const errors: string[] = []
-  const found = new Set<string>()
-  const seen = new WeakSet<object>()
-  const scanObject = (object: unknown): void => {
-    if (!object || typeof object !== 'object' || seen.has(object as object)) return
-    seen.add(object as object)
-    if (object instanceof PDFName) {
-      const name = object.toString()
-      if (forbiddenSpaces.has(name)) found.add(name)
-      return
-    }
-    if (object instanceof PDFArray) {
-      const array = object as { get(index: number): unknown; size(): number }
-      for (let index = 0; index < array.size(); index++) scanObject(array.get(index))
-      return
-    }
-    if (object instanceof PDFDict) for (const [, value] of (object as { entries(): Iterable<[unknown, unknown]> }).entries()) scanObject(value)
-  }
-  for (const [, object] of document.context.enumerateIndirectObjects()) {
-    if (object instanceof PDFRawStream) {
-      if (nameOf(object.dict.get(PDFName.of('Subtype'))) === 'Image') continue
-      scanObject(object.dict)
-      continue
-    }
-    scanObject(object)
-  }
-  walkPressGraph(document, {
-    content: (object, stream) => {
-      try {
-        visitContentTokens(decodeContent(stream), (operator, operands) => {
-          if (forbiddenOperators.has(operator)) found.add(operator)
-          for (const operand of operands) if (operand.kind === 'name' && forbiddenSpaces.has(operand.raw)) found.add(operand.raw)
-        })
-      } catch (error) {
-        errors.push(`${object.toString()}: ${error instanceof Error ? error.message : String(error)}`)
-      }
-    },
-    function: () => undefined,
-    group: () => undefined,
-    image: () => undefined,
-    shading: () => false,
-  })
-  return { errors, found: [...found] }
 }
 
 export async function verifyGrayPress(renderer: Renderer, check: Check): Promise<void> {

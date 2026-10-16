@@ -55,11 +55,25 @@ const sizeRows = left.documents.flatMap((before) => {
   const after = right.documents.find((document) => document.id === before.id)
   return after ? [{ document: before.id, before: before.pdfBytes, after: after.pdfBytes, change: after.pdfBytes - before.pdfBytes }] : []
 })
+const grayPressRows = left.documents.flatMap((before) => {
+  const after = right.documents.find((document) => document.id === before.id)
+  if (!after) return []
+  return [
+    {
+      document: before.id,
+      before: before.grayPressDifference,
+      after: after.grayPressDifference,
+      beforeResidues: before.grayPressResidues,
+      afterResidues: after.grayPressResidues,
+    },
+  ]
+})
 const comparison = {
   before: left.metadata,
   after: right.metadata,
   bars: { before: totalBars(left.documents), after: totalBars(right.documents) },
   sizes: sizeRows,
+  grayPress: grayPressRows,
   regions: regionRows,
 }
 await Bun.write(path.join(destination, 'compare.json'), `${JSON.stringify(comparison, null, 2)}\n`)
@@ -75,6 +89,7 @@ const barRows = ['Total', ...left.documents.map((document) => document.id)].flat
 })
 const barHeader = ACCEPTANCE_BARS.map((bar) => bar.title).join(' | ')
 const barDivider = ACCEPTANCE_BARS.map(() => '---').join('|')
-const markdown = `# Fidelity comparison\n\n## Acceptance bars\n\nEach cell is before → after; thresholds are printed beside the measured values.\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows.join('\n')}\n\nBefore: **${left.metadata.label}** (\`${left.metadata.commit}\`)  \nAfter: **${right.metadata.label}** (\`${right.metadata.commit}\`)\n\n## PDF size\n\n| Document | Before | After | Change |\n|---|---:|---:|---:|\n${sizeRows.map((row) => `| ${row.document} | ${row.before} | ${row.after} | ${row.change >= 0 ? '+' : ''}${row.change} |`).join('\n')}\n\n## Regions\n\n| Document | Reader | Region | Mean before | Mean after | Change | P99 before | P99 after |\n|---|---|---|---:|---:|---:|---:|---:|\n${regionRows.map((row) => `| ${row.document} | ${row.reader} | ${row.name} | ${row.beforeMean.toFixed(2)} | ${row.afterMean.toFixed(2)} | ${row.meanChange >= 0 ? '+' : ''}${row.meanChange.toFixed(2)} | ${row.beforeP99} | ${row.afterP99} |`).join('\n')}\n`
+const grayDifference = (value: { mean: number; p99: number } | undefined): string => (value ? `${value.mean.toFixed(2)} / ${value.p99}` : 'SKIP')
+const markdown = `# Fidelity comparison\n\n## Acceptance bars\n\nEach cell is before → after; thresholds are printed beside the measured values.\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows.join('\n')}\n\nBefore: **${left.metadata.label}** (\`${left.metadata.commit}\`)  \nAfter: **${right.metadata.label}** (\`${right.metadata.commit}\`)\n\n## Gray press\n\nDifferences are mean / p99; residue counts are before → after.\n\n| Document | Difference before | Difference after | Residues |\n|---|---:|---:|---:|\n${grayPressRows.map((row) => `| ${row.document} | ${grayDifference(row.before)} | ${grayDifference(row.after)} | ${row.beforeResidues ?? '—'} → ${row.afterResidues ?? '—'} |`).join('\n')}\n\n## PDF size\n\n| Document | Before | After | Change |\n|---|---:|---:|---:|\n${sizeRows.map((row) => `| ${row.document} | ${row.before} | ${row.after} | ${row.change >= 0 ? '+' : ''}${row.change} |`).join('\n')}\n\n## Regions\n\n| Document | Reader | Region | Mean before | Mean after | Change | P99 before | P99 after |\n|---|---|---|---:|---:|---:|---:|---:|\n${regionRows.map((row) => `| ${row.document} | ${row.reader} | ${row.name} | ${row.beforeMean.toFixed(2)} | ${row.afterMean.toFixed(2)} | ${row.meanChange >= 0 ? '+' : ''}${row.meanChange.toFixed(2)} | ${row.beforeP99} | ${row.afterP99} |`).join('\n')}\n`
 await Bun.write(path.join(destination, 'compare.md'), markdown)
 console.log(`Comparison report: ${path.join(destination, 'compare.md')}`)
