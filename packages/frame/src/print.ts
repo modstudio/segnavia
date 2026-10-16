@@ -7,6 +7,7 @@
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { paperBoxSize } from './paper-geometry.ts'
 import { type PrintablePagesOptions, type PrintOptions, printableDeck, printableDeckDocument, printablePagesDocument } from './print-document.ts'
+import { waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
@@ -40,21 +41,23 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     const frames = [...win.document.querySelectorAll('iframe')]
     const images = [...win.document.querySelectorAll('img')]
     const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, options.deadlineMs ?? SLIDES_READY_DEADLINE_MS))
-    await printDocumentSettled(
+    const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
       images,
       deadline,
     )
-    await win.document.fonts?.ready
+    const notesReady = (win as Window & { segnaviaNotesReady?: Promise<void> }).segnaviaNotesReady ?? Promise.resolve()
+    await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve(), notesReady], deadline)
+    await waitForPaint(win.requestAnimationFrame.bind(win))
     if (options.print) await options.print(win)
     else {
       win.focus()
+      const afterPrint = waitForAfterPrint(win)
       win.print()
+      await afterPrint
     }
   } finally {
-    // The dialog is modal in every engine, so by the time print returns the
-    // document has been handed to the printer.
     host.remove()
   }
 }
