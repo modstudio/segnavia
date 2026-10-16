@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type BookInput, formatNumber, MM_PER_PT } from '@segnavia/format'
-import type { Renderer } from '@segnavia/render'
+import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -300,4 +300,47 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
+
+  const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
+  const book = {
+    title: 'Overflowing book',
+    mode: 'continuous' as const,
+    page: { paper: 'a5' as const, orientation: 'portrait' as const, margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
+    chapters: [{ title: 'Wide chapter', html: chapterHtml }],
+  }
+  const baseline = await renderer.bookPdf(book, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
+  let report: OverflowReport | undefined
+  const overflow = await renderer.bookPdf(
+    { ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] },
+    { effects: false, css: 'body{margin:0;font:16px/24px serif}', overflow: { report: (value) => (report = value) } },
+  )
+  const baselineFile = path.join(work, 'book-overflow-baseline.pdf')
+  const overflowFile = path.join(work, 'book-overflow.pdf')
+  writeFileSync(baselineFile, baseline)
+  writeFileSync(overflowFile, overflow)
+  const facts = (file: string) => {
+    const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
+    const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
+    const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)"[^>]*>BOOK_FLOW_MARKER<\/word>/)
+    return {
+      pages: Number(info.match(/Pages:\s+(\d+)/)?.[1]),
+      x: Number(marker?.[1]),
+      y: Number(marker?.[2]),
+      width: Number(marker?.[3]) - Number(marker?.[1]),
+    }
+  }
+  const baselineFacts = facts(baselineFile)
+  const overflowFacts = facts(overflowFile)
+  const body = report?.entries.find((entry) => entry.part === 'body')
+  check(
+    'a book chapter with a too-wide table keeps text and page count at true size and reports only kept prints in output order',
+    Math.abs(baselineFacts.x - overflowFacts.x) <= 1 &&
+      Math.abs(baselineFacts.y - overflowFacts.y) <= 1 &&
+      Math.abs(baselineFacts.width - overflowFacts.width) <= 1 &&
+      baselineFacts.pages === overflowFacts.pages &&
+      report?.entries.map((entry) => entry.part).join(',') === 'body,margin' &&
+      body !== undefined &&
+      Math.abs(body.clippedEnd - (1677 - body.pageWidth)) <= 1,
+    `marker=${overflowFacts.x},${overflowFacts.y}/${baselineFacts.x},${baselineFacts.y}, pages=${overflowFacts.pages}/${baselineFacts.pages}, parts=${report?.entries.map((entry) => entry.part)}, clipped=${body?.clippedEnd}`,
+  )
 }

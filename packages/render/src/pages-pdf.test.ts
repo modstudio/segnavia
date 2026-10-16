@@ -7,7 +7,7 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
     [],
     {},
     {
-      pagePdf: async () => new Uint8Array(),
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
       piecePdf: async () => new Uint8Array(),
       fontFaces: () => '',
       finish: async (pdf) => pdf,

@@ -2,6 +2,7 @@ import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheet
 import { PDFDocument, PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
+import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
@@ -60,32 +61,45 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   return document.save()
 }
 
-export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined): Promise<Uint8Array> {
+export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin
-    return tab.pdf({
-      width: `${mm.width}mm`,
-      height: `${mm.height}mm`,
-      printBackground: true,
-      preferCSSPageSize: preferCssPageSize ?? false,
-      margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
-    })
+    const pageWidth = Math.round(mm.width * PX_PER_MM)
+    return printWithOverflow(
+      tab,
+      pageWidth,
+      'page',
+      {
+        width: `${mm.width}mm`,
+        height: `${mm.height}mm`,
+        printBackground: true,
+        preferCSSPageSize: preferCssPageSize ?? false,
+        margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
+      },
+      inputIndex,
+    )
   }
 
   const boxes = printBoxes(print)
-  const pdf = await tab.pdf({
-    width: `${boxes.bleedBox.width}mm`,
-    height: `${boxes.bleedBox.height}mm`,
-    printBackground: true,
-    preferCSSPageSize: false,
-    margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-  })
-  const papers = (await PDFDocument.load(pdf)).getPageCount()
+  const printed = await printWithOverflow(
+    tab,
+    Math.round(boxes.bleedBox.width * PX_PER_MM),
+    'page',
+    {
+      width: `${boxes.bleedBox.width}mm`,
+      height: `${boxes.bleedBox.height}mm`,
+      printBackground: true,
+      preferCSSPageSize: false,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+    },
+    inputIndex,
+  )
+  const papers = (await PDFDocument.load(printed.bytes)).getPageCount()
   if (papers > 1) {
     throw new RenderRefusedError(
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
     )
   }
-  return addPressBoxes(pdf, print)
+  return { bytes: await addPressBoxes(printed.bytes, print), overflow: printed.overflow }
 }

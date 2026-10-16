@@ -5,6 +5,7 @@ import { marginCss } from './book-margins.ts'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
+import type { BookOverflowPart, PrintResult } from './overflow.ts'
 
 interface TabSetup {
   viewport: { width: number; height: number }
@@ -16,16 +17,17 @@ interface TabSetup {
 }
 
 export interface BrowserBookDependencies {
-  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0]): Promise<Uint8Array>
+  render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
 export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   return renderBookPdf(input, options, {
-    print: (html: string, book: Book, renderOptions: RenderOptions, marginLayer = false) => {
+    print: (html: string, book: Book, renderOptions: RenderOptions, part: BookOverflowPart) => {
       if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
       const size = sheetMm(book.page)
+      const marginLayer = part === 'margin'
       const css = `${bookPageCss(book, marginLayer)}${marginLayer ? marginCss(book) : ''}${dependencies.fontFaces(renderOptions)}${renderOptions.css ?? ''}`
       return dependencies.render(
         {
@@ -51,6 +53,8 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         },
+        Math.round(size.width * PX_PER_MM),
+        part,
       )
     },
     finish: dependencies.finish,

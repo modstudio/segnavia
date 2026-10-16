@@ -291,11 +291,25 @@ clipped at the page edge. Chromium's print path instead shrinks the whole page
 to fit it. A render at a fixed size (a page with a fixed width and height and
 no print paper, each deck slide, each imposed piece) therefore prints with
 paint containment on its root, so the overflow is clipped as on screen and the
-page keeps its own scale. A growing or fluid page, a page printed on paper, and
-the deck's printable document print without it, because containment applied
-before a growing page is measured drops absolutely positioned content from its
-height, and on a print of several pages it stops a fixed element repeating on
-every page. Those prints still shrink when their content overflows sideways.
+page keeps its own scale. A growing or fluid page and a page printed on paper,
+including each kept book print, instead measure sideways overflow under print
+media after the page is ready and its fonts have loaded. Physical rightward
+overflow uses a solved print scale. Chromium lays a print with scale `s` out at
+the narrower width `P / s`, then shrinks it by the lesser of the content ratio
+and its measured maximum shrink of 1.5. The renderer searches integer layout
+widths between `ceil(P / 1.5)` and `P` for the narrowest width whose rightward
+content reaches `P`, then uses `P / width`; if content already reaches `P` at
+the narrowest layout it uses exactly 1.5. This accounts for page-relative
+content whose overflow changes with the layout width. Physical leftward
+overflow is not shrunk and gets no counter-scale. In a right-to-left root,
+generated content overflowing rightward is a known limit because neither
+scroll extent nor element boxes expose it, so it cannot be detected. The
+content keeps its true size, overflow is clipped at the page edge, and fixed
+content can still repeat on every paper. The overflow report records the page
+width, extent, clipped amount at each edge, scale used and up to twenty
+contributing elements for every print retained in the output. The deck's
+printable document does not counter-scale because its contained, fixed slides
+are the printed pieces.
 
 **Effects in PDF readers.** Chromium writes CSS shadows and blurs as
 luminosity soft masks. Rule 1 rewrites a mask whose transparency group paints

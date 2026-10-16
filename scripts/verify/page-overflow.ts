@@ -1,8 +1,39 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Renderer } from '@segnavia/render'
+import type { OverflowReport, Renderer } from '@segnavia/render'
+import { chromium } from 'playwright-core'
 import { pageContentScale } from './pdf-content.ts'
+
+interface PdfFacts {
+  pages: number
+  markerX: number
+  markerY: number
+  markerWidth: number
+  fixed: number
+}
+
+function pdfFacts(bytes: Uint8Array, work: string, name: string): PdfFacts {
+  const file = path.join(work, `${name}.pdf`)
+  writeFileSync(file, bytes)
+  const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
+  const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
+  const marker = xml.match(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)"[^>]*>FLOW_MARKER<\/word>/)
+  return {
+    pages: Number(info.match(/Pages:\s+(\d+)/)?.[1]),
+    markerX: Number(marker?.[1]),
+    markerY: Number(marker?.[2]),
+    markerWidth: Number(marker?.[3]) - Number(marker?.[1]),
+    fixed: xml.match(/FIXED_MARKER/g)?.length ?? 0,
+  }
+}
+
+const close = (left: number, right: number, tolerance = 1) => Math.abs(left - right) <= tolerance
+
+function flowingHtml(width?: number, rtl = false): string {
+  const wide = width === undefined ? '' : `<div class="wide"></div>`
+  return `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.fixed{position:fixed;top:8px;left:200px}.wide{position:absolute;top:60px;${rtl ? 'right' : 'left'}:0;width:${width}px;height:1px}</style><div class="fixed">FIXED_MARKER</div><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p>${wide}`
+}
 
 function pgmPixel(file: string, x: number, y: number): number {
   const bytes = readFileSync(file)
@@ -21,20 +52,202 @@ function pgmPixel(file: string, x: number, y: number): number {
   return bytes[offset + y * width + x] ?? 255
 }
 
-export async function verifyPageOverflow(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+async function verifyRtlOverflow(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+  const baseline = await renderer.pagePdf({ html: flowingHtml(undefined, true), size: { width: 400, height: 'auto' }, dir: 'rtl' }, { effects: false })
+  const baselineFacts = pdfFacts(baseline, work, 'rtl-baseline')
+  for (const [label, leftward] of [
+    ['inline-start', false],
+    ['leftward inline-end', true],
+  ] as const) {
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      { html: flowingHtml(1200, leftward), size: { width: 400, height: 'auto' }, dir: 'rtl' },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `rtl-${leftward ? 'end' : 'start'}-overflow`)
+    const entry = report?.entries[0]
+    check(
+      `a right-to-left page clips ${label} overflow while keeping text at true size`,
+      close(facts.markerX, baselineFacts.markerX) &&
+        close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
+        close(leftward ? (entry?.clippedEnd ?? Number.NaN) : (entry?.clippedStart ?? Number.NaN), 800) &&
+        (leftward ? entry?.clippedStart === 0 : entry?.clippedEnd === 0),
+      `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, clipped=${entry?.clippedStart}/${entry?.clippedEnd}`,
+    )
+  }
+}
+
+async function verifyAdaptiveOverflow(
+  renderer: Renderer,
+  work: string,
+  paper: { width: number; height: number; unit: 'mm' },
+  baseline: PdfFacts,
+  check: (what: string, ok: boolean, detail?: string) => void,
+): Promise<void> {
+  for (const [label, block] of [
+    ['page-relative padding', '<div style="width:100%;padding-inline-end:20px;height:20px"></div>'],
+    ['page-relative border', '<div style="width:100%;border:0.3px solid;height:20px"></div>'],
+    ['mixed page-relative and fixed', '<div style="width:100%;padding-inline-end:120px;height:20px"></div><div style="width:500px;height:20px"></div>'],
+  ] as const) {
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      {
+        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.fixed{position:fixed;top:8px;left:200px}</style><div class="fixed">FIXED_MARKER</div><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p>${block}`,
+        print: { paper, orientation: 'portrait' },
+      },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `overflow-${label.replaceAll(' ', '-')}`)
+    const entry = report?.entries[0]
+    check(
+      `${label} overflow uses a solved scale and keeps text and page breaks at true size`,
+      close(facts.markerX, baseline.markerX) &&
+        close(facts.markerY, baseline.markerY) &&
+        close(facts.markerWidth, baseline.markerWidth) &&
+        facts.pages === baseline.pages &&
+        facts.fixed === facts.pages &&
+        entry !== undefined &&
+        entry.scale >= 1 &&
+        entry.scale <= 1.5,
+      `marker=${facts.markerX},${facts.markerY},${facts.markerWidth}/${baseline.markerX},${baseline.markerY},${baseline.markerWidth}, pages=${facts.pages}/${baseline.pages}, fixed=${facts.fixed}, clipped=${entry?.clippedEnd}, scale=${entry?.scale}`,
+    )
+  }
+}
+
+export async function verifyPageOverflow(
+  renderer: Renderer,
+  work: string,
+  check: (what: string, ok: boolean, detail?: string) => void,
+  executablePath: string,
+): Promise<void> {
+  let fixedReport: OverflowReport | undefined
   const overflowing = await renderer.pagePdf(
     {
       html: '<style>html,body{margin:0}.overflow{position:absolute;left:360px;top:80px;width:100px;height:100px;background:black;transform:rotate(20deg)}</style><div class="overflow"></div>',
       size: { width: 400, height: 300 },
     },
-    { effects: false },
+    { effects: false, overflow: { report: (value) => (fixedReport = value) } },
   )
   const overflowScale = await pageContentScale(overflowing)
   check(
     'a fixed page with sideways overflow prints at its own scale',
-    Math.abs(overflowScale - 3.125) < 0.000001,
-    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px`,
+    Math.abs(overflowScale - 3.125) < 0.000001 && fixedReport?.entries[0]?.elements.some((element) => element.clippedEnd > 0) === true,
+    `cm=${overflowScale}, scale=${overflowScale * 0.24}pt/CSS px, clipped=${fixedReport?.entries[0]?.elements.map((element) => element.clippedEnd)}`,
   )
+
+  const paper = { width: 105.833333, height: 132.291667, unit: 'mm' as const }
+  const baseline = await renderer.pagePdf({ html: flowingHtml(), print: { paper, orientation: 'portrait' } }, { effects: false })
+  const baselineFacts = pdfFacts(baseline, work, 'overflow-baseline')
+  for (const [label, width] of [
+    ['1.25x', 500],
+    ['3x', 1200],
+  ] as const) {
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      { html: flowingHtml(width), print: { paper, orientation: 'portrait' } },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `overflow-${label}`)
+    const entry = report?.entries[0]
+    check(
+      `a ${label} overflow on a multi-page pagePdf keeps text, page breaks and repeated fixed content at true size`,
+      close(facts.markerX, baselineFacts.markerX) &&
+        close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
+        facts.pages === baselineFacts.pages &&
+        facts.fixed === facts.pages &&
+        entry !== undefined &&
+        close(entry.clippedEnd, width - 400) &&
+        entry.clippedStart === 0,
+      `marker=${facts.markerX},${facts.markerY},${facts.markerWidth}/${baselineFacts.markerX},${baselineFacts.markerY},${baselineFacts.markerWidth}, pages=${facts.pages}/${baselineFacts.pages}, fixed=${facts.fixed}, clipped=${entry?.clippedEnd}, scale=${entry?.scale}`,
+    )
+  }
+
+  await verifyAdaptiveOverflow(renderer, work, paper, baselineFacts, check)
+
+  let leftwardReport: OverflowReport | undefined
+  const leftward = await renderer.pagePdf(
+    { html: flowingHtml(1200, true), print: { paper, orientation: 'portrait' } },
+    { effects: false, overflow: { report: (value) => (leftwardReport = value) } },
+  )
+  const leftwardFacts = pdfFacts(leftward, work, 'overflow-ltr-leftward')
+  check(
+    'a left-to-right page clips leftward overflow without counter-scaling',
+    close(leftwardFacts.markerX, baselineFacts.markerX) &&
+      close(leftwardFacts.markerY, baselineFacts.markerY) &&
+      close(leftwardFacts.markerWidth, baselineFacts.markerWidth) &&
+      leftwardFacts.pages === baselineFacts.pages &&
+      close(leftwardReport?.entries[0]?.clippedStart ?? Number.NaN, 800) &&
+      leftwardReport?.entries[0]?.clippedEnd === 0,
+    `marker=${leftwardFacts.markerX},${leftwardFacts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${leftwardFacts.pages}/${baselineFacts.pages}, clipped=${leftwardReport?.entries[0]?.clippedStart}/${leftwardReport?.entries[0]?.clippedEnd}`,
+  )
+
+  for (const [label, printOnly] of [
+    ['generated content', false],
+    ['print-media content', true],
+  ] as const) {
+    const media = printOnly ? '@media print{.wide::before{width:1200px}}' : ''
+    const width = printOnly ? 1 : 1200
+    let report: OverflowReport | undefined
+    const bytes = await renderer.pagePdf(
+      {
+        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.wide{position:relative;width:1px;height:1px}.wide::before{content:'';position:absolute;left:0;width:${width}px;height:10px}${media}</style><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p><div class="wide"></div>`,
+        print: { paper, orientation: 'portrait' },
+      },
+      { effects: false, overflow: { report: (value) => (report = value) } },
+    )
+    const facts = pdfFacts(bytes, work, `overflow-${printOnly ? 'print-media' : 'generated'}`)
+    check(
+      `${label} overflow prints at true size and reports its complete scrollable overflow`,
+      close(facts.markerX, baselineFacts.markerX) &&
+        close(facts.markerY, baselineFacts.markerY) &&
+        close(facts.markerWidth, baselineFacts.markerWidth) &&
+        facts.pages === baselineFacts.pages &&
+        close(report?.entries[0]?.clippedEnd ?? Number.NaN, 800),
+      `marker=${facts.markerX},${facts.markerY}/${baselineFacts.markerX},${baselineFacts.markerY}, pages=${facts.pages}/${baselineFacts.pages}, clipped=${report?.entries[0]?.clippedEnd}`,
+    )
+  }
+
+  const browser = await chromium.launch({ executablePath })
+  try {
+    const raw = async (width?: number) => {
+      const tab = await browser.newPage({ viewport: { width: 400, height: 500 } })
+      await tab.setContent(flowingHtml(width))
+      const bytes = await tab.pdf({ width: '400px', height: '500px', printBackground: true })
+      await tab.close()
+      return pageContentScale(bytes)
+    }
+    const rawBaseline = await raw()
+    const rawOverflow = await raw(1200)
+    check(
+      "Chromium's measured maximum print shrink is 1.5",
+      close(rawBaseline / rawOverflow, 1.5, 0.000001),
+      `baseline=${rawBaseline}, overflow=${rawOverflow}, shrink=${rawBaseline / rawOverflow}`,
+    )
+  } finally {
+    await browser.close()
+  }
+
+  let growingReport: OverflowReport | undefined
+  const growingOverflow = await renderer.pagePdf(
+    { html: flowingHtml(1200), size: { width: 400, height: 'auto' } },
+    { effects: false, overflow: { report: (value) => (growingReport = value) } },
+  )
+  const growingBaseline = await renderer.pagePdf({ html: flowingHtml(), size: { width: 400, height: 'auto' } }, { effects: false })
+  const growingOverflowFacts = pdfFacts(growingOverflow, work, 'growing-overflow')
+  const growingBaselineFacts = pdfFacts(growingBaseline, work, 'growing-baseline')
+  check(
+    'a growing page with sideways overflow keeps text and page count at true size and reports clipping',
+    close(growingOverflowFacts.markerX, growingBaselineFacts.markerX) &&
+      close(growingOverflowFacts.markerY, growingBaselineFacts.markerY) &&
+      close(growingOverflowFacts.markerWidth, growingBaselineFacts.markerWidth) &&
+      growingOverflowFacts.pages === growingBaselineFacts.pages &&
+      close(growingReport?.entries[0]?.clippedEnd ?? Number.NaN, 800),
+    `marker=${growingOverflowFacts.markerX},${growingOverflowFacts.markerY}/${growingBaselineFacts.markerX},${growingBaselineFacts.markerY}, pages=${growingOverflowFacts.pages}/${growingBaselineFacts.pages}, clipped=${growingReport?.entries[0]?.clippedEnd}`,
+  )
+
+  await verifyRtlOverflow(renderer, work, check)
 
   const growing = await renderer.pagePdf(
     {
