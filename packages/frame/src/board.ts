@@ -318,9 +318,9 @@ export class SegnaviaBoard extends HTMLElement {
         checkResolved(item, resolved)
         entry.value = resolved
         const shape = resolvedShape(resolved)
-        const current = this.items.get(item.id)
-        const resolvedId = current?.address === item.address ? item.id : undefined
-        const refit = shouldRefitReveal(this.pendingReveal?.id, resolvedId, this.pendingReveal?.height ?? 0, current ? itemHeight(current, shape) : 0)
+        const pendingItem = this.pendingReveal ? this.items.get(this.pendingReveal.id) : undefined
+        const resolvedId = pendingItem?.address === item.address ? pendingItem.id : undefined
+        const refit = shouldRefitReveal(this.pendingReveal?.id, resolvedId, this.pendingReveal?.height ?? 0, pendingItem ? itemHeight(pendingItem, shape) : 0)
         for (const current of this.value?.items ?? []) if (current.address === item.address) this.shapes.items[current.id] = shape
         if (refit) this.reveal(item.id)
         else this.render()

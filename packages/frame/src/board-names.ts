@@ -18,11 +18,13 @@ export class BoardNames {
 
   update(items: BoardItem[], provider: BoardItemNames | undefined) {
     if (provider !== this.provider) {
+      const hadNames = this.names.size > 0
       this.provider = provider
       this.generation += 1
       this.names.clear()
       this.inFlight.clear()
       this.failedAddresses.clear()
+      if (hadNames) this.changed()
     }
     const addresses = new Set(items.map((item) => item.address))
     this.activeAddresses = addresses
