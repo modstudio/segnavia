@@ -1,5 +1,16 @@
 # @segnavia/frame
 
+## 0.10.0
+
+### Minor Changes
+
+- c7cd26b: Add the headless board viewer with lazy item resolution, pan and zoom, and cover-to-live detail.
+
+### Patch Changes
+
+- Updated dependencies [ca26399]
+  - @segnavia/format@0.10.0
+
 ## 0.9.1
 
 ### Patch Changes

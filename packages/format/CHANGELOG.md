@@ -1,5 +1,12 @@
 # @segnavia/format
 
+## 0.10.0
+
+### Minor Changes
+
+- ca26399: Add the Board value and pure placement geometry for bounds, view transforms,
+  visibility, hit-testing and automatic arrangement.
+
 ## 0.9.1
 
 ## 0.9.0
