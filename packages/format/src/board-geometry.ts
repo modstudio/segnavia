@@ -45,7 +45,8 @@ export function itemHeight(item: BoardItem, shape: Size): number {
 }
 
 function itemRectangle(item: BoardItem, shapes: BoardShapes): Box {
-  return { x: item.x, y: item.y, width: item.width, height: itemHeight(item, requireShape(shapes, 'items', item.id)) }
+  const shape = requireShape(shapes, 'items', item.id)
+  return { x: item.x, y: item.y, width: item.width, height: itemHeight(item, shape) }
 }
 
 function union(rectangles: Box[]): Box {
@@ -60,7 +61,10 @@ function union(rectangles: Box[]): Box {
 export function boardBounds(board: Board, shapes: BoardShapes): Box {
   return union([
     ...board.items.map((item) => itemRectangle(item, shapes)),
-    ...board.labels.map((label) => ({ ...label, ...requireShape(shapes, 'labels', label.id) })),
+    ...board.labels.map((label) => {
+      const shape = requireShape(shapes, 'labels', label.id)
+      return { x: label.x, y: label.y, width: shape.width, height: shape.height }
+    }),
     ...board.sections.map((section) => section.rectangle),
   ])
 }

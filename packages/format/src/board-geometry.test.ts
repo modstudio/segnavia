@@ -50,6 +50,31 @@ describe('board geometry', () => {
     expect(boardBounds(board, shapes)).toEqual({ x: -20, y: -10, width: 300, height: 120 })
   })
 
+  test('label bounds use the board position when its shape also has a position', () => {
+    const positionedShape = { x: 999, y: 888, width: 30, height: 40 }
+    expect(
+      boardBounds(
+        { ...board, items: [], labels: [{ id: 'label', text: 'Label', x: 10, y: 20 }], sections: [] },
+        { items: {}, labels: { label: positionedShape } },
+      ),
+    ).toEqual({
+      x: 10,
+      y: 20,
+      width: 30,
+      height: 40,
+    })
+  })
+
+  test('item bounds use the board position when its shape also has a position', () => {
+    const positionedShape = { x: 999, y: 888, width: 200, height: 100 }
+    expect(boardBounds({ ...board, items: [itemA], labels: [], sections: [] }, { items: { a: positionedShape }, labels: {} })).toEqual({
+      x: 20,
+      y: 20,
+      width: 100,
+      height: 50,
+    })
+  })
+
   test('missing item and label shapes refuse with the missing id', () => {
     expect(() => boardBounds(board, { ...shapes, items: {} })).toThrow('item "a" has no supplied shape')
     expect(() => boardBounds(board, { ...shapes, labels: {} })).toThrow('label "label" has no supplied shape')
