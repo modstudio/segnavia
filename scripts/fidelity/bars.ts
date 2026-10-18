@@ -72,15 +72,6 @@ export function barCell(result: BarResult<BarMeasurement>, id: BarId, total = fa
   if (!bar) throw new Error(`Unknown acceptance bar: ${id}`)
   if (result.applicable === false) return `N/A — ${result.reason ?? 'Not applicable.'}`
   const reason = !result.passed && result.reason ? ` — ${result.reason}` : ''
-  const threshold = result.threshold
-  const formatted =
-    threshold && 'mean' in threshold
-      ? `${differenceValue(result.measured)} / mean ≤ ${threshold.mean}, p99 ≤ ${threshold.p99}`
-      : bar.format(result.measured, total)
+  const formatted = bar.format(result.measured, result.threshold ?? bar.threshold, total)
   return `${result.passed ? 'PASS' : 'FAIL'} — ${formatted}${reason}`
-}
-
-function differenceValue(measured: BarMeasurement | undefined): string {
-  const value = measured as Difference | undefined
-  return `mean ${value?.mean.toFixed(2) ?? '—'}, p99 ${value?.p99.toFixed(2) ?? '—'}`
 }

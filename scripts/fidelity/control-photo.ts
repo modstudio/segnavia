@@ -71,7 +71,7 @@ const fixture = `<!doctype html>
 <meta charset="utf-8">
 <title>Photo control</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:Arial,sans-serif}body{padding:34px;background:#e9e4d8;color:#172027}h1{margin:0 0 22px;font-size:36px}.photos{display:grid;grid-template-columns:3fr 2fr;grid-template-rows:390px 260px;gap:14px}.photos img{display:block;width:100%;height:100%;object-fit:cover;border:4px solid #fff}.large{grid-row:1 / 3}.caption{position:absolute;inset:auto 34px 18px;font-size:13px}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:Arial,sans-serif}body{padding:34px;background:#e9e4d8;color:#172027}h1{margin:0 0 22px;font-size:36px}.photos{display:grid;grid-template-columns:3fr 2fr;grid-template-rows:390px 240px;gap:14px}.photos img{display:block;width:100%;height:100%;object-fit:cover;border:4px solid #fff}.large{grid-row:1 / 3}.caption{margin:14px 0 0;font-size:13px}
 </style>
 </head>
 <body>

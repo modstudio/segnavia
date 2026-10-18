@@ -50,12 +50,13 @@ export interface AcceptanceBar {
   measure: (facts: BarFacts) => Difference | SizeMeasurement | undefined
   pass: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => boolean
   reason: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => string | undefined
-  format: (measured: Difference | SizeMeasurement | undefined, total: boolean) => string
+  format: (measured: Difference | SizeMeasurement | undefined, threshold: Threshold | { multiple: number; absoluteBytes: number }, total: boolean) => string
 }
 
 const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
-const differenceFormat = (threshold: Threshold) => (measured: Difference | SizeMeasurement | undefined) => {
+const differenceFormat = (measured: Difference | SizeMeasurement | undefined, threshold: Threshold | { multiple: number; absoluteBytes: number }) => {
   const value = measured as Difference | undefined
+  if (!('mean' in threshold)) throw new Error('A difference bar requires a mean/p99 threshold.')
   return `mean ${decimal(value?.mean)}, p99 ${decimal(value?.p99)} / mean ≤ ${threshold.mean}, p99 ≤ ${threshold.p99}`
 }
 
@@ -90,7 +91,7 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       const failed = readers.filter((reader) => !reader.worked)
       return failed.length ? failed.map((reader) => `${reader.engine} skipped: ${reader.error ?? 'unknown failure'}`).join('; ') : undefined
     },
-    format: differenceFormat(EFFECT_REGION_THRESHOLD),
+    format: differenceFormat,
   },
   {
     id: 'pressColor',
@@ -103,7 +104,7 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       return Boolean(value && judgePress(facts.kind, value) && controlMaskReason(facts) === undefined)
     },
     reason: (measured, facts) => controlMaskReason(facts) ?? (measured ? undefined : (facts.pressReason ?? 'The press measurement is missing.')),
-    format: differenceFormat(PRESS_BLEND_THRESHOLD),
+    format: differenceFormat,
   },
   {
     id: 'grayPressColor',
@@ -129,7 +130,7 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       if (facts.grayPressResidues) return `${facts.grayPressResidues} RGB or CMYK residues remain.`
       return undefined
     },
-    format: differenceFormat(PRESS_BLEND_THRESHOLD),
+    format: differenceFormat,
   },
   {
     id: 'size',
@@ -141,12 +142,13 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       return value.multiple <= PDF_SIZE_THRESHOLD.multiple && value.pdfBytes <= PDF_SIZE_THRESHOLD.absoluteBytes
     },
     reason: () => undefined,
-    format: (measured, total) => {
+    format: (measured, threshold, total) => {
       const value = measured as SizeMeasurement | undefined
+      if (!('multiple' in threshold)) throw new Error('A size bar requires a multiple/bytes threshold.')
       const amount = total
         ? `largest ${value?.pdfBytes.toLocaleString() ?? '—'} bytes, worst ${decimal(value?.multiple)}×`
         : `${value?.pdfBytes.toLocaleString() ?? '—'} / ${value?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(value?.multiple)}×`
-      return `${amount} / ≤ ${PDF_SIZE_THRESHOLD.multiple}× and ≤ ${PDF_SIZE_THRESHOLD.absoluteBytes.toLocaleString()} bytes`
+      return `${amount} / ≤ ${threshold.multiple}× and ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
     },
   },
 ]
