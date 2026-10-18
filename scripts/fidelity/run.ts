@@ -20,7 +20,7 @@ import {
   ROOT,
   SCALE,
 } from './config.ts'
-import { alignmentOffset, cropImage, difference, imageSize, modelPressRaster, proofImage, proofTable, sideBySide } from './image.ts'
+import { alignmentOffset, cropImage, difference, imageSize, modelPressRaster, proofImage, proofTable, sideBySide, writeMask } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
 import {
@@ -34,6 +34,7 @@ import {
   readerPath,
   validateReaderProfile,
 } from './readers.ts'
+import { blendedRegionBoxes, type ComputedStyleFacts, computedStyleFacts, offsetBoxes, regionMask } from './regions.ts'
 import { writeSummary } from './report.ts'
 import type { Box, Difference, DocumentResult, FidelityRun, PosterEvidence, ReaderResult, RegionResult } from './types.ts'
 
@@ -139,6 +140,7 @@ try {
     const comparisonPdf = path.join(documentDirectory, 'comparison.pdf')
     const fullScreen = path.join(documentDirectory, 'screen-full.png')
     const regions: Array<{ name: string; box: Box }> = []
+    let blendedFacts: ComputedStyleFacts[] = []
     const reference = screenReference(fixture.page)
     const screenBytes = await renderer.pageImage(reference.page, {
       scale: SCALE,
@@ -153,6 +155,7 @@ try {
             }),
           )),
         )
+        blendedFacts = await computedStyleFacts(tab)
       },
     })
     const pdfBytes = await renderer.pagePdf(fixture.page, { css: MEASUREMENT_CSS })
@@ -163,15 +166,17 @@ try {
     if (reference.crop) {
       await Bun.write(fullScreen, screenBytes)
       cropImage(fullScreen, screen, reference.crop)
-      for (const region of regions) {
-        region.box.x -= reference.crop.x / SCALE
-        region.box.y -= reference.crop.y / SCALE
-      }
+      offsetBoxes(regions, reference.crop.x / SCALE, reference.crop.y / SCALE)
+      offsetBoxes(blendedFacts, reference.crop.x / SCALE, reference.crop.y / SCALE)
     } else await Bun.write(screen, screenBytes)
     await Bun.write(pdf, pdfBytes)
     await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
     const size = await imageSize(screen)
+    const blendedMask = path.join(documentDirectory, 'blended-mask.png')
+    const blendedMaskPixels = regionMask(blendedRegionBoxes(blendedFacts), size.width, size.height, SCALE)
+    writeMask(blendedMaskPixels, blendedMask, size.width, size.height)
+    const blendedFraction = blendedMaskPixels.reduce((count, value) => count + (value ? 1 : 0), 0) / blendedMaskPixels.length
     const croppedBleed = reference.crop?.x ?? 0
     const expectedMarker = Math.round(EXPECTED_MARKER_POSITION - croppedBleed)
     const readers: ReaderResult[] = await Promise.all(
@@ -209,7 +214,8 @@ try {
     let pressPdf: string | undefined
     let pressProof: string | undefined
     let pressRaster: string | undefined
-    let pressDifference: Difference | undefined
+    let pressFlatDifference: Difference | undefined
+    let pressBlendedDifference: Difference | undefined
     let pressReason: string | undefined
     if (profilePath && profileBytes && profile && table) {
       pressPdf = path.join(documentDirectory, `${fixture.id}-press.pdf`)
@@ -232,15 +238,18 @@ try {
             const rendered = await pressGhostscript(pressComparisonPdf, deviceRaster, size.width, size.height, profilePath, 'cmyk')
             if (rendered.worked) {
               await modelPressRaster(deviceRaster, pressRaster, size.width, size.height, profile)
-              pressDifference = difference(pressProof, pressRaster, size.width, size.height)
+              pressFlatDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
+              pressBlendedDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
             } else pressReason = rendered.error ?? 'Ghostscript did not render the press PDF.'
           } finally {
             await unlink(deviceRaster).catch(() => {})
           }
         } else {
           const rendered = await pressPoppler(pressComparisonPdf, pressRaster, size.width, size.height, profilePath, 'cmyk')
-          if (rendered.worked) pressDifference = difference(pressProof, pressRaster, size.width, size.height)
-          else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
+          if (rendered.worked) {
+            pressFlatDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
+            pressBlendedDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
+          } else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
         }
       } catch (error) {
         pressReason = error instanceof Error ? error.message : String(error)
@@ -254,7 +263,8 @@ try {
     let grayPressPdf: string | undefined
     let grayPressProof: string | undefined
     let grayPressRaster: string | undefined
-    let grayPressDifference: Difference | undefined
+    let grayPressFlatDifference: Difference | undefined
+    let grayPressBlendedDifference: Difference | undefined
     let grayPressResidues: number | undefined
     let grayPressResidueErrors: string[] | undefined
     let grayPressReason: string | undefined
@@ -275,8 +285,10 @@ try {
         await trimPdf(grayPressPdf, grayPressComparisonPdf)
         proofImage(screen, grayPressProof, size.width, size.height, grayTable)
         const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
-        if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
-        else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
+        if (rendered.worked) {
+          grayPressFlatDifference = difference(grayPressProof, grayPressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
+          grayPressBlendedDifference = difference(grayPressProof, grayPressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
+        } else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
       } catch (error) {
         grayPressReason = error instanceof Error ? error.message : String(error)
         grayPressPdf = undefined
@@ -315,21 +327,27 @@ try {
       pressPdf,
       pressProof,
       pressRaster,
-      pressDifference,
+      pressFlatDifference,
+      pressBlendedDifference,
       pressReason,
       grayPressPdf,
       grayPressProof,
       grayPressRaster,
-      grayPressDifference,
+      grayPressFlatDifference,
+      grayPressBlendedDifference,
       grayPressResidues,
       grayPressResidueErrors,
       grayPressReason,
+      blendedMask,
+      blendedFraction,
       bars: measureBars({
         readers,
         worstRegion,
-        pressDifference,
+        pressFlatDifference,
+        pressBlendedDifference,
         pressReason,
-        grayPressDifference,
+        grayPressFlatDifference,
+        grayPressBlendedDifference,
         grayPressResidues,
         grayPressResidueErrors,
         grayPressReason,

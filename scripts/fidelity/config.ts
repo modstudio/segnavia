@@ -11,6 +11,8 @@ export const READER_RASTER_DPI = CSS_PX_PER_INCH * SCALE
 // Shmuel agreed these acceptance limits on 2026-10-14.
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
+// Provisional: the final value will be set from the split-region measurements.
+export const PRESS_BLEND_THRESHOLD = { mean: 6, p99: 60 }
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
 export const ALIGNMENT_SEARCH_RADIUS = 16
 export const ALIGNMENT_TOLERANCE = 8
@@ -29,9 +31,11 @@ export const MEASUREMENT_CSS = `html{overflow:clip!important}html::after{content
 export interface BarFacts {
   readers: ReaderResult[]
   worstRegion: Difference
-  pressDifference?: Difference
+  pressFlatDifference?: Difference
+  pressBlendedDifference?: Difference
   pressReason?: string
-  grayPressDifference?: Difference
+  grayPressFlatDifference?: Difference
+  grayPressBlendedDifference?: Difference
   grayPressResidues?: number
   grayPressResidueErrors?: string[]
   grayPressReason?: string
@@ -71,10 +75,10 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
     format: differenceFormat(EFFECT_REGION_THRESHOLD),
   },
   {
-    id: 'pressColor',
-    title: 'Press color',
+    id: 'pressColorFlat',
+    title: 'CMYK press flat',
     threshold: PRESS_COLOR_THRESHOLD,
-    measure: ({ pressDifference }) => pressDifference,
+    measure: ({ pressFlatDifference }) => pressFlatDifference,
     pass: (measured) => {
       const value = measured as Difference | undefined
       return Boolean(value && value.mean <= PRESS_COLOR_THRESHOLD.mean && value.p99 <= PRESS_COLOR_THRESHOLD.p99)
@@ -83,10 +87,22 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
     format: differenceFormat(PRESS_COLOR_THRESHOLD),
   },
   {
-    id: 'grayPressColor',
-    title: 'Gray press color',
+    id: 'pressColorBlended',
+    title: 'CMYK press blended',
+    threshold: PRESS_BLEND_THRESHOLD,
+    measure: ({ pressBlendedDifference }) => pressBlendedDifference,
+    pass: (measured) => {
+      const value = measured as Difference | undefined
+      return Boolean(value && value.mean <= PRESS_BLEND_THRESHOLD.mean && value.p99 <= PRESS_BLEND_THRESHOLD.p99)
+    },
+    reason: (measured, { pressReason }) => (measured ? undefined : (pressReason ?? 'The press measurement is missing.')),
+    format: differenceFormat(PRESS_BLEND_THRESHOLD),
+  },
+  {
+    id: 'grayPressColorFlat',
+    title: 'Gray press flat',
     threshold: PRESS_COLOR_THRESHOLD,
-    measure: ({ grayPressDifference }) => grayPressDifference,
+    measure: ({ grayPressFlatDifference }) => grayPressFlatDifference,
     pass: (measured, { grayPressResidues, grayPressResidueErrors }) => {
       const value = measured as Difference | undefined
       return Boolean(
@@ -104,6 +120,18 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
       return undefined
     },
     format: differenceFormat(PRESS_COLOR_THRESHOLD),
+  },
+  {
+    id: 'grayPressColorBlended',
+    title: 'Gray press blended',
+    threshold: PRESS_BLEND_THRESHOLD,
+    measure: ({ grayPressBlendedDifference }) => grayPressBlendedDifference,
+    pass: (measured) => {
+      const value = measured as Difference | undefined
+      return Boolean(value && value.mean <= PRESS_BLEND_THRESHOLD.mean && value.p99 <= PRESS_BLEND_THRESHOLD.p99)
+    },
+    reason: (measured, { grayPressReason }) => (measured ? undefined : (grayPressReason ?? 'The gray press measurement is missing.')),
+    format: differenceFormat(PRESS_BLEND_THRESHOLD),
   },
   {
     id: 'size',

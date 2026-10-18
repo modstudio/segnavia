@@ -119,19 +119,23 @@ export interface DocumentResult {
   pressPdf?: string
   pressProof?: string
   pressRaster?: string
-  pressDifference?: Difference
+  pressFlatDifference?: Difference
+  pressBlendedDifference?: Difference
   pressReason?: string
   grayPressPdf?: string
   grayPressProof?: string
   grayPressRaster?: string
-  grayPressDifference?: Difference
+  grayPressFlatDifference?: Difference
+  grayPressBlendedDifference?: Difference
   grayPressResidues?: number
   grayPressResidueErrors?: string[]
   grayPressReason?: string
+  blendedMask: string
+  blendedFraction: number
   bars: Record<BarId, BarResult<BarMeasurement>>
 }
 
-export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size'
+export type BarId = 'effects' | 'pressColorFlat' | 'pressColorBlended' | 'grayPressColorFlat' | 'grayPressColorBlended' | 'size'
 export type BarMeasurement = Difference | SizeMeasurement
 
 export interface FidelityRun {

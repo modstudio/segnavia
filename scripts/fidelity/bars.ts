@@ -11,12 +11,12 @@ export function measureBars(facts: BarFacts): Record<BarId, BarResult<BarMeasure
 }
 
 export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<BarMeasurement>> {
-  const missingPress = documents.filter((document) => !document.bars.pressColor.measured)
-  const missingGrayPress = documents.filter((document) => !document.bars.grayPressColor.measured)
+  const pressIds = ['pressColorFlat', 'pressColorBlended'] as const
+  const grayPressIds = ['grayPressColorFlat', 'grayPressColorBlended'] as const
+  const missing = (id: (typeof pressIds)[number] | (typeof grayPressIds)[number]) => documents.filter((document) => !document.bars[id].measured)
   const failedEffects = documents.flatMap((document) => (document.bars.effects.reason ? [`${document.title}: ${document.bars.effects.reason}`] : []))
-  const differences = (id: 'effects' | 'pressColor' | 'grayPressColor'): Difference | undefined => {
-    if (id === 'pressColor' && missingPress.length) return undefined
-    if (id === 'grayPressColor' && missingGrayPress.length) return undefined
+  const differences = (id: 'effects' | (typeof pressIds)[number] | (typeof grayPressIds)[number]): Difference | undefined => {
+    if (id !== 'effects' && missing(id).length) return undefined
     return documents.reduce(
       (worst, document) => {
         const value = document.bars[id].measured as Difference | undefined
@@ -36,18 +36,21 @@ export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<
       passed: documents.every((document) => document.bars.effects.passed),
       reason: failedEffects.length ? failedEffects.join('; ') : undefined,
     },
-    pressColor: {
-      measured: differences('pressColor'),
-      passed: documents.every((document) => document.bars.pressColor.passed),
-      reason: missingPress.length ? `Missing press measurement: ${missingPress.map((document) => document.title).join(', ')}` : undefined,
-    },
-    grayPressColor: {
-      measured: differences('grayPressColor'),
-      passed: documents.every((document) => document.bars.grayPressColor.passed),
-      reason: missingGrayPress.length ? `Missing gray press measurement: ${missingGrayPress.map((document) => document.title).join(', ')}` : undefined,
-    },
+    ...Object.fromEntries(
+      [...pressIds, ...grayPressIds].map((id) => {
+        const absent = missing(id)
+        return [
+          id,
+          {
+            measured: differences(id),
+            passed: documents.every((document) => document.bars[id].passed),
+            reason: absent.length ? `Missing press measurement: ${absent.map((document) => document.title).join(', ')}` : undefined,
+          },
+        ]
+      }),
+    ),
     size: { measured: size, passed: documents.every((document) => document.bars.size.passed) },
-  }
+  } as Record<BarId, BarResult<BarMeasurement>>
 }
 
 export function barCell(result: BarResult<BarMeasurement>, id: BarId, total = false): string {
