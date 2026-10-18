@@ -3,14 +3,32 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
+import { Board } from './board.ts'
 import { BookShape, BookView } from './book.ts'
-import { Canvas } from './canvas.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
+export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection } from './board.ts'
+export {
+  type ArrangeOptions,
+  arrange,
+  type BoardShapes,
+  type BoardView,
+  boardBounds,
+  boardToScreen,
+  itemAt,
+  itemHeight,
+  MAX_BOARD_ZOOM,
+  MIN_BOARD_ZOOM,
+  screenToBoard,
+  visibleItems,
+  type ZoomBounds,
+  zoomAt,
+  zoomToFit,
+} from './board-geometry.ts'
 export {
   Book,
   BookContents,
@@ -26,24 +44,6 @@ export {
   isHebrew,
   noteMarkerIssues,
 } from './book.ts'
-export { Canvas, type CanvasInput, CanvasItem, CanvasLabel, CanvasSection } from './canvas.ts'
-export {
-  type ArrangeOptions,
-  arrange,
-  type CanvasShapes,
-  type CanvasView,
-  canvasBounds,
-  canvasToScreen,
-  itemAt,
-  itemHeight,
-  MAX_CANVAS_ZOOM,
-  MIN_CANVAS_ZOOM,
-  screenToCanvas,
-  visibleItems,
-  type ZoomBounds,
-  zoomAt,
-  zoomToFit,
-} from './canvas-geometry.ts'
 export {
   Annotation,
   annotationCueIssues,
@@ -251,6 +251,6 @@ export function jsonSchemas() {
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
-    canvas: z.toJSONSchema(Canvas, { io: 'input' }),
+    board: z.toJSONSchema(Board, { io: 'input' }),
   }
 }

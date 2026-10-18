@@ -2,45 +2,45 @@ import { z } from 'zod'
 import { Box } from './deck.ts'
 import { TextDirection } from './direction.ts'
 
-const CanvasKind = z.enum(['deck', 'page', 'paper', 'book', 'image', 'shot'], {
+const BoardKind = z.enum(['deck', 'page', 'paper', 'book', 'image', 'shot'], {
   error: 'item kind is unknown; use deck, page, paper, book, image or shot',
 })
 
-export const CanvasItem = z.object({
+export const BoardItem = z.object({
   id: z.string(),
-  kind: CanvasKind,
+  kind: BoardKind,
   address: z.string().min(1, 'item address is empty; provide a non-empty address'),
   x: z.number(),
   y: z.number(),
   width: z.number().positive('item width is not positive; provide a width greater than zero'),
 })
-export type CanvasItem = z.infer<typeof CanvasItem>
+export type BoardItem = z.infer<typeof BoardItem>
 
-export const CanvasLabel = z.object({
+export const BoardLabel = z.object({
   id: z.string(),
   text: z.string(),
   x: z.number(),
   y: z.number(),
 })
-export type CanvasLabel = z.infer<typeof CanvasLabel>
+export type BoardLabel = z.infer<typeof BoardLabel>
 
-export const CanvasSection = z.object({
+export const BoardSection = z.object({
   id: z.string(),
   title: z.string(),
   rectangle: Box,
   items: z.array(z.string()),
 })
-export type CanvasSection = z.infer<typeof CanvasSection>
+export type BoardSection = z.infer<typeof BoardSection>
 
-const CanvasShape = z.object({
+const BoardShape = z.object({
   title: z.string(),
   direction: TextDirection,
-  items: z.array(CanvasItem),
-  labels: z.array(CanvasLabel),
-  sections: z.array(CanvasSection),
+  items: z.array(BoardItem),
+  labels: z.array(BoardLabel),
+  sections: z.array(BoardSection),
 })
 
-export const Canvas = CanvasShape.superRefine((canvas, ctx) => {
+export const Board = BoardShape.superRefine((board, ctx) => {
   const ids = new Set<string>()
   const checkIds = (entries: { id: string }[], listName: 'items' | 'labels' | 'sections') => {
     entries.forEach((entry, index) => {
@@ -48,28 +48,28 @@ export const Canvas = CanvasShape.superRefine((canvas, ctx) => {
         ctx.addIssue({
           code: 'custom',
           path: [listName, index, 'id'],
-          message: `id "${entry.id}" is duplicated across canvas items, labels and sections; use a unique id`,
+          message: `id "${entry.id}" is duplicated across board items, labels and sections; use a unique id`,
         })
       }
       ids.add(entry.id)
     })
   }
-  checkIds(canvas.items, 'items')
-  checkIds(canvas.labels, 'labels')
-  checkIds(canvas.sections, 'sections')
+  checkIds(board.items, 'items')
+  checkIds(board.labels, 'labels')
+  checkIds(board.sections, 'sections')
 
-  const itemIds = new Set(canvas.items.map((item) => item.id))
-  canvas.sections.forEach((section, sectionIndex) => {
+  const itemIds = new Set(board.items.map((item) => item.id))
+  board.sections.forEach((section, sectionIndex) => {
     section.items.forEach((id, itemIndex) => {
       if (!itemIds.has(id)) {
         ctx.addIssue({
           code: 'custom',
           path: ['sections', sectionIndex, 'items', itemIndex],
-          message: `section member "${id}" is not a canvas item id; use the id of an existing item`,
+          message: `section member "${id}" is not a board item id; use the id of an existing item`,
         })
       }
     })
   })
 })
-export type Canvas = z.infer<typeof Canvas>
-export type CanvasInput = z.input<typeof Canvas>
+export type Board = z.infer<typeof Board>
+export type BoardInput = z.input<typeof Board>

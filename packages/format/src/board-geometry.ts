@@ -1,12 +1,12 @@
-import type { Canvas, CanvasItem } from './canvas.ts'
+import type { Board, BoardItem } from './board.ts'
 import type { Box, Point, Size } from './deck.ts'
 
-export interface CanvasShapes {
+export interface BoardShapes {
   items: Record<string, Size>
   labels: Record<string, Size>
 }
 
-export interface CanvasView {
+export interface BoardView {
   zoom: number
   pan: Point
   viewport: Size
@@ -24,10 +24,10 @@ export interface ArrangeOptions {
   sectionPadding?: number
 }
 
-export const MIN_CANVAS_ZOOM = 0.05
-export const MAX_CANVAS_ZOOM = 8
+export const MIN_BOARD_ZOOM = 0.05
+export const MAX_BOARD_ZOOM = 8
 
-function requireShape(shapes: CanvasShapes, kind: 'items' | 'labels', id: string): Size {
+function requireShape(shapes: BoardShapes, kind: 'items' | 'labels', id: string): Size {
   if (!Object.hasOwn(shapes[kind], id)) {
     throw new Error(`${kind === 'items' ? 'item' : 'label'} "${id}" has no supplied shape; supply shapes.${kind}["${id}"]`)
   }
@@ -36,15 +36,15 @@ function requireShape(shapes: CanvasShapes, kind: 'items' | 'labels', id: string
   return shape
 }
 
-function requireView(view: CanvasView): void {
-  if (!(view.zoom > 0)) throw new Error(`canvas view zoom is ${view.zoom}; provide a zoom greater than zero`)
+function requireView(view: BoardView): void {
+  if (!(view.zoom > 0)) throw new Error(`board view zoom is ${view.zoom}; provide a zoom greater than zero`)
 }
 
-export function itemHeight(item: CanvasItem, shape: Size): number {
+export function itemHeight(item: BoardItem, shape: Size): number {
   return (item.width * shape.height) / shape.width
 }
 
-function itemRectangle(item: CanvasItem, shapes: CanvasShapes): Box {
+function itemRectangle(item: BoardItem, shapes: BoardShapes): Box {
   return { x: item.x, y: item.y, width: item.width, height: itemHeight(item, requireShape(shapes, 'items', item.id)) }
 }
 
@@ -57,25 +57,25 @@ function union(rectangles: Box[]): Box {
   return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
-export function canvasBounds(canvas: Canvas, shapes: CanvasShapes): Box {
+export function boardBounds(board: Board, shapes: BoardShapes): Box {
   return union([
-    ...canvas.items.map((item) => itemRectangle(item, shapes)),
-    ...canvas.labels.map((label) => ({ ...label, ...requireShape(shapes, 'labels', label.id) })),
-    ...canvas.sections.map((section) => section.rectangle),
+    ...board.items.map((item) => itemRectangle(item, shapes)),
+    ...board.labels.map((label) => ({ ...label, ...requireShape(shapes, 'labels', label.id) })),
+    ...board.sections.map((section) => section.rectangle),
   ])
 }
 
-export function canvasToScreen(view: CanvasView, point: Point): Point {
+export function boardToScreen(view: BoardView, point: Point): Point {
   requireView(view)
   return { x: point.x * view.zoom + view.pan.x, y: point.y * view.zoom + view.pan.y }
 }
 
-export function screenToCanvas(view: CanvasView, point: Point): Point {
+export function screenToBoard(view: BoardView, point: Point): Point {
   requireView(view)
   return { x: (point.x - view.pan.x) / view.zoom, y: (point.y - view.pan.y) / view.zoom }
 }
 
-export function zoomToFit(bounds: Box, viewport: Size, padding: number): CanvasView {
+export function zoomToFit(bounds: Box, viewport: Size, padding: number): BoardView {
   const availableWidth = viewport.width - padding * 2
   const availableHeight = viewport.height - padding * 2
   if (!(availableWidth > 0 && availableHeight > 0 && bounds.width > 0 && bounds.height > 0)) {
@@ -92,18 +92,18 @@ export function zoomToFit(bounds: Box, viewport: Size, padding: number): CanvasV
   }
 }
 
-export function zoomAt(view: CanvasView, point: Point, factor: number, options: ZoomBounds = {}): CanvasView {
+export function zoomAt(view: BoardView, point: Point, factor: number, options: ZoomBounds = {}): BoardView {
   requireView(view)
   if (!(factor > 0)) throw new Error(`zoom factor is ${factor}; provide a factor greater than zero`)
-  const minZoom = options.minZoom ?? MIN_CANVAS_ZOOM
-  const maxZoom = options.maxZoom ?? MAX_CANVAS_ZOOM
+  const minZoom = options.minZoom ?? MIN_BOARD_ZOOM
+  const maxZoom = options.maxZoom ?? MAX_BOARD_ZOOM
   if (!(minZoom > 0 && maxZoom >= minZoom)) throw new Error('zoom bounds are invalid; provide a positive minZoom no greater than maxZoom')
   const zoom = Math.min(maxZoom, Math.max(minZoom, view.zoom * factor))
-  const canvasPoint = screenToCanvas(view, point)
+  const boardPoint = screenToBoard(view, point)
   return {
     ...view,
     zoom,
-    pan: { x: point.x - canvasPoint.x * zoom, y: point.y - canvasPoint.y * zoom },
+    pan: { x: point.x - boardPoint.x * zoom, y: point.y - boardPoint.y * zoom },
   }
 }
 
@@ -111,19 +111,19 @@ function intersects(a: Box, b: Box): boolean {
   return a.x <= b.x + b.width && a.x + a.width >= b.x && a.y <= b.y + b.height && a.y + a.height >= b.y
 }
 
-export function visibleItems(canvas: Canvas, shapes: CanvasShapes, view: CanvasView, margin: number): CanvasItem[] {
+export function visibleItems(board: Board, shapes: BoardShapes, view: BoardView, margin: number): BoardItem[] {
   requireView(view)
   const viewport = { x: -margin, y: -margin, width: view.viewport.width + margin * 2, height: view.viewport.height + margin * 2 }
-  return canvas.items.filter((item) => {
+  return board.items.filter((item) => {
     const rectangle = itemRectangle(item, shapes)
-    const screen = canvasToScreen(view, { x: rectangle.x, y: rectangle.y })
+    const screen = boardToScreen(view, { x: rectangle.x, y: rectangle.y })
     return intersects({ x: screen.x, y: screen.y, width: rectangle.width * view.zoom, height: rectangle.height * view.zoom }, viewport)
   })
 }
 
-export function itemAt(canvas: Canvas, shapes: CanvasShapes, point: Point): CanvasItem | undefined {
-  for (let index = canvas.items.length - 1; index >= 0; index -= 1) {
-    const item = canvas.items[index]
+export function itemAt(board: Board, shapes: BoardShapes, point: Point): BoardItem | undefined {
+  for (let index = board.items.length - 1; index >= 0; index -= 1) {
+    const item = board.items[index]
     if (!item) continue
     const rectangle = itemRectangle(item, shapes)
     if (point.x >= rectangle.x && point.x <= rectangle.x + rectangle.width && point.y >= rectangle.y && point.y <= rectangle.y + rectangle.height) {
@@ -133,7 +133,7 @@ export function itemAt(canvas: Canvas, shapes: CanvasShapes, point: Point): Canv
   return undefined
 }
 
-function arrangedItems(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOptions): CanvasItem[] {
+function arrangedItems(board: Board, shapes: BoardShapes, options: ArrangeOptions): BoardItem[] {
   if (
     options.layout === 'grid' &&
     options.columns !== undefined &&
@@ -141,10 +141,10 @@ function arrangedItems(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOpt
   ) {
     throw new Error(`grid columns is ${options.columns}; provide a positive integer`)
   }
-  const columns = options.layout === 'row' ? Math.max(1, canvas.items.length) : Math.max(1, options.columns ?? Math.ceil(Math.sqrt(canvas.items.length)))
+  const columns = options.layout === 'row' ? Math.max(1, board.items.length) : Math.max(1, options.columns ?? Math.ceil(Math.sqrt(board.items.length)))
   const columnWidths = Array.from({ length: columns }, () => 0)
-  const rowHeights = Array.from({ length: Math.ceil(canvas.items.length / columns) }, () => 0)
-  canvas.items.forEach((item, index) => {
+  const rowHeights = Array.from({ length: Math.ceil(board.items.length / columns) }, () => 0)
+  board.items.forEach((item, index) => {
     const column = index % columns
     const row = Math.floor(index / columns)
     columnWidths[column] = Math.max(columnWidths[column] ?? 0, item.width)
@@ -153,24 +153,24 @@ function arrangedItems(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOpt
   const offsets = (sizes: number[]) => sizes.map((_, index) => sizes.slice(0, index).reduce((total, size) => total + size, 0) + index * options.gap)
   const xOffsets = offsets(columnWidths)
   const yOffsets = offsets(rowHeights)
-  return canvas.items.map((item, index) => {
+  return board.items.map((item, index) => {
     const column = index % columns
     const x = xOffsets[column] ?? 0
     return {
       ...item,
-      x: canvas.direction === 'rtl' ? -x - item.width : x,
+      x: board.direction === 'rtl' ? -x - item.width : x,
       y: yOffsets[Math.floor(index / columns)] ?? 0,
     }
   })
 }
 
-export function arrange(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOptions): Canvas {
-  const items = arrangedItems(canvas, shapes, options)
+export function arrange(board: Board, shapes: BoardShapes, options: ArrangeOptions): Board {
+  const items = arrangedItems(board, shapes, options)
   const byId = new Map(items.map((item) => [item.id, item]))
   const padding = options.sectionPadding ?? options.gap
-  const sections = canvas.sections.map((section) => {
+  const sections = board.sections.map((section) => {
     if (section.items.length === 0) return section
-    const rectangle = union(section.items.map((id) => itemRectangle(byId.get(id) as CanvasItem, shapes)))
+    const rectangle = union(section.items.map((id) => itemRectangle(byId.get(id) as BoardItem, shapes)))
     return {
       ...section,
       rectangle: {
@@ -181,5 +181,5 @@ export function arrange(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOp
       },
     }
   })
-  return { ...canvas, items, sections }
+  return { ...board, items, sections }
 }
