@@ -55,6 +55,15 @@ describe('canvas geometry', () => {
     expect(() => canvasBounds(canvas, { ...shapes, labels: {} })).toThrow('label "label" has no supplied shape')
   })
 
+  test.each(['toString', 'constructor', '__proto__'])('prototype-named item and label id %s still requires a supplied shape', (id) => {
+    expect(() => canvasBounds({ ...canvas, items: [{ ...itemA, id }], labels: [], sections: [] }, { items: {}, labels: {} })).toThrow(
+      `item "${id}" has no supplied shape`,
+    )
+    expect(() => canvasBounds({ ...canvas, items: [], labels: [{ id, text: 'Label', x: 0, y: 0 }], sections: [] }, { items: {}, labels: {} })).toThrow(
+      `label "${id}" has no supplied shape`,
+    )
+  })
+
   test('screen and canvas conversion round trip at the fitted zoom', () => {
     const view = zoomToFit({ x: 10, y: 20, width: 200, height: 100 }, { width: 500, height: 300 }, 20)
     const point = { x: 83, y: 47 }
@@ -150,6 +159,11 @@ describe('canvas arrange', () => {
       { x: 110, y: 0 },
       { x: 0, y: 60 },
     ])
+  })
+
+  test.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -1, 1.5])('refuses invalid explicit grid columns: %s', (columns) => {
+    expect(() => arrange(canvas, shapes, { layout: 'grid', gap: 10, columns })).toThrow('columns')
+    expect(() => arrange(canvas, shapes, { layout: 'grid', gap: 10, columns })).toThrow('provide a positive integer')
   })
 
   test('labels stay untouched and sections enclose arranged members with explicit padding', () => {

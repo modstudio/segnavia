@@ -67,7 +67,7 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
-export { Direction, firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
+export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
 export {
   fitPage,
   type Imposed,

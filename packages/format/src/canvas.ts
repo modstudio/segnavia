@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Box } from './deck.ts'
+import { TextDirection } from './direction.ts'
 
 const CanvasKind = z.enum(['deck', 'page', 'paper', 'book', 'image', 'shot'], {
   error: 'item kind is unknown; use deck, page, paper, book, image or shot',
@@ -33,7 +34,7 @@ export type CanvasSection = z.infer<typeof CanvasSection>
 
 const CanvasShape = z.object({
   title: z.string(),
-  direction: z.enum(['ltr', 'rtl']),
+  direction: TextDirection,
   items: z.array(CanvasItem),
   labels: z.array(CanvasLabel),
   sections: z.array(CanvasSection),

@@ -28,6 +28,9 @@ export const MIN_CANVAS_ZOOM = 0.05
 export const MAX_CANVAS_ZOOM = 8
 
 function requireShape(shapes: CanvasShapes, kind: 'items' | 'labels', id: string): Size {
+  if (!Object.hasOwn(shapes[kind], id)) {
+    throw new Error(`${kind === 'items' ? 'item' : 'label'} "${id}" has no supplied shape; supply shapes.${kind}["${id}"]`)
+  }
   const shape = shapes[kind][id]
   if (!shape) throw new Error(`${kind === 'items' ? 'item' : 'label'} "${id}" has no supplied shape; supply shapes.${kind}["${id}"]`)
   return shape
@@ -131,6 +134,13 @@ export function itemAt(canvas: Canvas, shapes: CanvasShapes, point: Point): Canv
 }
 
 function arrangedItems(canvas: Canvas, shapes: CanvasShapes, options: ArrangeOptions): CanvasItem[] {
+  if (
+    options.layout === 'grid' &&
+    options.columns !== undefined &&
+    (!Number.isFinite(options.columns) || !Number.isInteger(options.columns) || options.columns <= 0)
+  ) {
+    throw new Error(`grid columns is ${options.columns}; provide a positive integer`)
+  }
   const columns = options.layout === 'row' ? Math.max(1, canvas.items.length) : Math.max(1, options.columns ?? Math.ceil(Math.sqrt(canvas.items.length)))
   const columnWidths = Array.from({ length: columns }, () => 0)
   const rowHeights = Array.from({ length: Math.ceil(canvas.items.length / columns) }, () => 0)

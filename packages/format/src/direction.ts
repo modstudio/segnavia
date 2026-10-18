@@ -2,6 +2,9 @@ import { z } from 'zod'
 
 export const Direction = z.enum(['ltr', 'rtl', 'auto'])
 
+export const TextDirection = z.enum(['ltr', 'rtl'])
+export type TextDirection = z.infer<typeof TextDirection>
+
 // Text direction from content, for the places the library writes text it did
 // not author: captions, labels, filled-in values, notes. The rule is the
 // Unicode one: the first strong letter decides.
@@ -14,8 +17,6 @@ const LETTER = /\p{L}/u
 
 // Languages written right to left, by primary subtag.
 const RTL_LANGUAGES = new Set(['ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'iw', 'ji', 'ks', 'ku', 'nqo', 'ps', 'sd', 'syr', 'ug', 'ur', 'yi'])
-
-export type TextDirection = 'ltr' | 'rtl'
 
 export function firstStrongDirection(text: string): TextDirection | null {
   for (const char of text) {
