@@ -7,13 +7,13 @@ import {
   boardToScreen,
   itemAt,
   itemHeight,
-  resolveDirection,
   screenToBoard,
   visibleItems,
   zoomAt,
   zoomToFit,
 } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { BoardDecorations } from './board-decorations.ts'
 import { liveBoardItem } from './board-live.ts'
 import { boardTier, keyToView, provisionalShape, type ResolvedBoardItem, resolvedShape, shouldMountItem } from './board-policy.ts'
 
@@ -49,11 +49,13 @@ export class SegnaviaBoard extends HTMLElement {
   private viewEvent = 0
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
+  private readonly decorations = new BoardDecorations(this.surface)
   private readonly resize = new ResizeObserver(() => this.measure())
 
   constructor() {
     super()
     this.surface.part.add('surface')
+    this.surface.dir = 'ltr'
     this.root.append(this.surface)
   }
 
@@ -62,6 +64,7 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   set board(input: Board | null) {
+    const previous = this.value
     this.value = input === null ? null : Board.parse(input)
     const addresses = new Set(this.value?.items.map((item) => item.address) ?? [])
     for (const address of this.cache.keys()) if (!addresses.has(address)) this.cache.delete(address)
@@ -72,7 +75,7 @@ export class SegnaviaBoard extends HTMLElement {
         : provisionalShape(item.kind)
     for (const label of this.value?.labels ?? []) this.shapes.labels[label.id] = { width: Math.max(1, label.text.length * 8), height: 19 }
     if (this.value) this.dir = this.value.direction
-    this.clearMounted()
+    this.reconcileMounted(previous, this.value)
     this.render()
     this.fitInitial()
   }
@@ -166,10 +169,11 @@ export class SegnaviaBoard extends HTMLElement {
     const board = this.value
     if (!board) {
       this.clearMounted()
+      this.decorations.clear()
       this.surface.replaceChildren()
       return
     }
-    this.renderDecorations(board)
+    this.decorations.render(board, this.currentView)
     const half = new Set(
       visibleItems(board, this.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height) / 2).map(
         (item) => item.id,
@@ -187,36 +191,7 @@ export class SegnaviaBoard extends HTMLElement {
       const node = this.nodes.get(item.id) ?? this.mount(item)
       this.placeItem(node, item)
       this.paintItem(node, item)
-      this.surface.append(node)
       this.resolve(item)
-    }
-  }
-
-  private renderDecorations(board: Board) {
-    for (const node of this.surface.querySelectorAll('[data-decoration]')) node.remove()
-    for (const section of board.sections) {
-      const node = document.createElement('div')
-      node.dataset.decoration = ''
-      node.part.add('section')
-      this.place(node, section.rectangle.x, section.rectangle.y, section.rectangle.width, section.rectangle.height)
-      const title = document.createElement('div')
-      title.part.add('section-title')
-      title.textContent = section.title
-      title.dir = resolveDirection(undefined, undefined, section.title)
-      node.append(title)
-      this.surface.prepend(node)
-    }
-    for (const label of board.labels) {
-      const node = document.createElement('div')
-      node.dataset.decoration = ''
-      node.part.add('label')
-      node.textContent = label.text
-      node.dir = resolveDirection(undefined, undefined, label.text)
-      const point = boardToScreen(this.currentView, label)
-      node.style.insetInlineStart = `${point.x}px`
-      node.style.insetBlockStart = `${point.y}px`
-      node.style.fontSize = `${16 * this.currentView.zoom}px`
-      this.surface.prepend(node)
     }
   }
 
@@ -227,6 +202,7 @@ export class SegnaviaBoard extends HTMLElement {
     node.tabIndex = 0
     node.setAttribute('role', 'button')
     this.nodes.set(item.id, node)
+    this.surface.append(node)
     return node
   }
 
@@ -316,6 +292,16 @@ export class SegnaviaBoard extends HTMLElement {
 
   private clearMounted() {
     for (const id of this.nodes.keys()) this.unmount(id)
+  }
+
+  private reconcileMounted(previous: Board | null, current: Board | null) {
+    const before = new Map(previous?.items.map((item) => [item.id, item]) ?? [])
+    const after = new Map(current?.items.map((item) => [item.id, item]) ?? [])
+    for (const id of this.nodes.keys()) {
+      const oldItem = before.get(id)
+      const newItem = after.get(id)
+      if (!oldItem || !newItem || oldItem.address !== newItem.address || oldItem.kind !== newItem.kind) this.unmount(id)
+    }
   }
 
   private local(event: { clientX: number; clientY: number }): PointerPosition {
