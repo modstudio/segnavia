@@ -125,13 +125,17 @@ async function checkReconnect(h: Harness) {
 
 async function placementFacts(h: Harness) {
   return h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & { board: { items: BoardItem[] }; view: unknown }
+    const board = element as HTMLElement & { board: { items: BoardItem[]; labels: Array<{ text: string; x: number; y: number }> }; view: unknown }
     const host = board.getBoundingClientRect()
     const boxes: MountedBox[] = [...(board.shadowRoot?.querySelectorAll<HTMLElement>('[data-board-item]') ?? [])].map((item) => {
       const box = item.getBoundingClientRect()
       return { id: item.dataset.boardItem ?? '', x: box.x - host.x, y: box.y - host.y, width: box.width, height: box.height }
     })
-    return { board: board.board, view: board.view, boxes }
+    const labels = [...(board.shadowRoot?.querySelectorAll<HTMLElement>('[part~="label"]') ?? [])].map((label) => {
+      const box = label.getBoundingClientRect()
+      return { text: label.textContent ?? '', x: box.x - host.x, y: box.y - host.y }
+    })
+    return { board: board.board, view: board.view, boxes, labels }
   })
 }
 
@@ -154,6 +158,13 @@ async function checkPlacement(h: Harness, moment: string) {
       : [`${box.id}: ${JSON.stringify({ box, expected })}`]
   })
   h.check(`board item boxes match boardToScreen ${moment}`, mismatches.length === 0, mismatches.join('; '))
+  const labelMismatches = facts.labels.flatMap((box) => {
+    const label = facts.board.labels.find((entry) => entry.text === box.text)
+    if (!label) return [`${box.text}: missing data`]
+    const point = boardToScreen(facts.view as Parameters<typeof boardToScreen>[0], label)
+    return Math.max(Math.abs(box.x - point.x), Math.abs(box.y - point.y)) <= 1 ? [] : [`${box.text}: ${JSON.stringify({ box, expected: point })}`]
+  })
+  h.check(`board labels match boardToScreen ${moment}`, facts.labels.length > 0 && labelMismatches.length === 0, labelMismatches.join('; '))
 }
 
 async function showTwoLiveItems(h: Harness) {

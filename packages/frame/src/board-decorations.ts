@@ -21,8 +21,10 @@ export class BoardDecorations {
     }
     for (const label of board.labels) {
       const node = this.labelNodes.get(label.id) ?? this.mountLabel(label.id)
-      node.textContent = label.text
-      node.dir = resolveDirection(undefined, undefined, label.text)
+      // The positioned box keeps the surface's physical direction; only its text takes the label's own direction.
+      const text = node.firstElementChild as HTMLElement
+      text.textContent = label.text
+      text.dir = resolveDirection(undefined, undefined, label.text)
       placeBoardNode(node, view, label)
       node.style.fontSize = `${16 * view.zoom}px`
     }
@@ -57,6 +59,7 @@ export class BoardDecorations {
     const node = document.createElement('div')
     node.dataset.decoration = ''
     node.part.add('label')
+    node.append(document.createElement('span'))
     this.labelNodes.set(id, node)
     this.insert(node)
     return node
