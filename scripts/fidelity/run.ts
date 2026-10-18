@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { type PageInput, Print, PX_PER_MM, printBoxes, printPadding, printProperties } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
+import { readProfile } from '../../packages/render/src/color/index.ts'
 import { processColorResidues } from '../verify/gray-residue.ts'
 import { measureBars } from './bars.ts'
 import {
@@ -18,10 +20,21 @@ import {
   ROOT,
   SCALE,
 } from './config.ts'
-import { alignmentOffset, cropImage, difference, imageSize, proofImage, proofTable, sideBySide } from './image.ts'
+import { alignmentOffset, cropImage, difference, imageSize, modelPressRaster, proofImage, proofTable, sideBySide, writeMask } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
-import { poppler, READERS, readerPath, validateReaderProfile } from './readers.ts'
+import {
+  pressDisplayProfile,
+  pressGhostscript,
+  pressGhostscriptSettings,
+  pressPoppler,
+  pressRasterizer,
+  pressRasterizerEngine,
+  READERS,
+  readerPath,
+  validateReaderProfile,
+} from './readers.ts'
+import { blendedRegionBoxes, type ComputedStyleFacts, computedStyleFacts, offsetBoxes, regionMask } from './regions.ts'
 import { writeSummary } from './report.ts'
 import type { Box, Difference, DocumentResult, FidelityRun, PosterEvidence, ReaderResult, RegionResult } from './types.ts'
 
@@ -35,11 +48,13 @@ const renderer = await openRenderer({ executablePath, concurrency: 1 })
 const documents: DocumentResult[] = []
 const profilePath = process.env.SEGNAVIA_FIDELITY_PROFILE
 const profileBytes = profilePath ? new Uint8Array(readFileSync(profilePath)) : undefined
+const profile = profileBytes ? readProfile(profileBytes) : undefined
 const table = profileBytes ? proofTable(profileBytes) : undefined
 const defaultGrayProfile = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc'
 const grayProfilePath = process.env.SEGNAVIA_FIDELITY_GRAY_PROFILE ?? (existsSync(defaultGrayProfile) ? defaultGrayProfile : undefined)
 const grayProfileBytes = grayProfilePath ? new Uint8Array(readFileSync(grayProfilePath)) : undefined
 const grayTable = grayProfileBytes ? proofTable(grayProfileBytes) : undefined
+const selectedPressRasterizer = pressRasterizer()
 let posterEvidence: PosterEvidence | undefined
 
 interface ScreenReference {
@@ -125,6 +140,7 @@ try {
     const comparisonPdf = path.join(documentDirectory, 'comparison.pdf')
     const fullScreen = path.join(documentDirectory, 'screen-full.png')
     const regions: Array<{ name: string; box: Box }> = []
+    let blendedFacts: ComputedStyleFacts[] = []
     const reference = screenReference(fixture.page)
     const screenBytes = await renderer.pageImage(reference.page, {
       scale: SCALE,
@@ -139,6 +155,7 @@ try {
             }),
           )),
         )
+        blendedFacts = await computedStyleFacts(tab)
       },
     })
     const pdfBytes = await renderer.pagePdf(fixture.page, { css: MEASUREMENT_CSS })
@@ -149,15 +166,17 @@ try {
     if (reference.crop) {
       await Bun.write(fullScreen, screenBytes)
       cropImage(fullScreen, screen, reference.crop)
-      for (const region of regions) {
-        region.box.x -= reference.crop.x / SCALE
-        region.box.y -= reference.crop.y / SCALE
-      }
+      offsetBoxes(regions, reference.crop.x / SCALE, reference.crop.y / SCALE)
+      offsetBoxes(blendedFacts, reference.crop.x / SCALE, reference.crop.y / SCALE)
     } else await Bun.write(screen, screenBytes)
     await Bun.write(pdf, pdfBytes)
     await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
     const size = await imageSize(screen)
+    const blendedMask = path.join(documentDirectory, 'blended-mask.png')
+    const blendedMaskPixels = regionMask(blendedRegionBoxes(blendedFacts), size.width, size.height, SCALE)
+    writeMask(blendedMaskPixels, blendedMask, size.width, size.height)
+    const blendedFraction = blendedMaskPixels.reduce((count, value) => count + (value ? 1 : 0), 0) / blendedMaskPixels.length
     const croppedBleed = reference.crop?.x ?? 0
     const expectedMarker = Math.round(EXPECTED_MARKER_POSITION - croppedBleed)
     const readers: ReaderResult[] = await Promise.all(
@@ -197,7 +216,7 @@ try {
     let pressRaster: string | undefined
     let pressDifference: Difference | undefined
     let pressReason: string | undefined
-    if (profileBytes && table) {
+    if (profilePath && profileBytes && profile && table) {
       pressPdf = path.join(documentDirectory, `${fixture.id}-press.pdf`)
       const pressComparisonPdf = path.join(documentDirectory, 'press-comparison.pdf')
       pressProof = path.join(documentDirectory, 'screen-proof.png')
@@ -211,10 +230,24 @@ try {
           }),
         )
         await trimPdf(pressPdf, pressComparisonPdf)
-        proofImage(screen, pressProof, size.width, size.height, table)
-        const rendered = await poppler(pressComparisonPdf, pressRaster, size.width, size.height)
-        if (rendered.worked) pressDifference = difference(pressProof, pressRaster, size.width, size.height)
-        else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
+        proofImage(screen, pressProof, size.width, size.height, table, profile)
+        if (selectedPressRasterizer === 'ghostscript') {
+          const deviceRaster = `${pressRaster}.device.tiff`
+          try {
+            const rendered = await pressGhostscript(pressComparisonPdf, deviceRaster, size.width, size.height, profilePath, 'cmyk')
+            if (rendered.worked) {
+              await modelPressRaster(deviceRaster, pressRaster, size.width, size.height, profile)
+              pressDifference = difference(pressProof, pressRaster, size.width, size.height)
+            } else pressReason = rendered.error ?? 'Ghostscript did not render the press PDF.'
+          } finally {
+            await unlink(deviceRaster).catch(() => {})
+          }
+        } else {
+          const rendered = await pressPoppler(pressComparisonPdf, pressRaster, size.width, size.height, profilePath, 'cmyk')
+          if (rendered.worked) {
+            pressDifference = difference(pressProof, pressRaster, size.width, size.height)
+          } else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
+        }
       } catch (error) {
         pressReason = error instanceof Error ? error.message : String(error)
         pressPdf = undefined
@@ -231,7 +264,7 @@ try {
     let grayPressResidues: number | undefined
     let grayPressResidueErrors: string[] | undefined
     let grayPressReason: string | undefined
-    if (grayProfileBytes && grayTable) {
+    if (grayProfilePath && grayProfileBytes && grayTable) {
       grayPressPdf = path.join(documentDirectory, `${fixture.id}-press-gray.pdf`)
       const grayPressComparisonPdf = path.join(documentDirectory, 'press-gray-comparison.pdf')
       grayPressProof = path.join(documentDirectory, 'screen-proof-gray.png')
@@ -247,9 +280,10 @@ try {
         grayPressResidueErrors = residues.errors
         await trimPdf(grayPressPdf, grayPressComparisonPdf)
         proofImage(screen, grayPressProof, size.width, size.height, grayTable)
-        const rendered = await poppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height)
-        if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
-        else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
+        const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
+        if (rendered.worked) {
+          grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
+        } else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
       } catch (error) {
         grayPressReason = error instanceof Error ? error.message : String(error)
         grayPressPdf = undefined
@@ -272,6 +306,7 @@ try {
     documents.push({
       id: fixture.id,
       title: fixture.title,
+      kind: fixture.kind,
       pdf,
       pdfBytes: pdfBytes.byteLength,
       effectlessPdf,
@@ -297,7 +332,11 @@ try {
       grayPressResidues,
       grayPressResidueErrors,
       grayPressReason,
+      blendedMask,
+      blendedFraction,
       bars: measureBars({
+        kind: fixture.kind,
+        blendedFraction,
         readers,
         worstRegion,
         pressDifference,
@@ -328,6 +367,24 @@ const run: FidelityRun = {
     chromium: executablePath,
     profile: profilePath,
     grayProfile: grayProfilePath,
+    pressRasterizer: {
+      mode: selectedPressRasterizer,
+      engine: pressRasterizerEngine(selectedPressRasterizer),
+      grayMode: 'profiled-poppler',
+      grayEngine: pressRasterizerEngine('profiled-poppler'),
+      cmykSettings:
+        selectedPressRasterizer === 'ghostscript'
+          ? pressGhostscriptSettings(profilePath ?? 'not set', 'cmyk')
+          : [`-defaultcmykprofile ${profilePath ?? 'not set'}`, `-displayprofile ${pressDisplayProfile}`],
+      graySettings: [`-defaultgrayprofile ${grayProfilePath ?? 'not set'}`, `-displayprofile ${pressDisplayProfile}`],
+      outputIntent:
+        selectedPressRasterizer === 'ghostscript'
+          ? 'Each CMYK press PDF embeds the run profile as its first output intent. Ghostscript uses that profile as the destination when its color space matches the output device; no separate output profile is supplied. Gray press PDFs contain no RGB, so the gray pass remains on profiled Poppler.'
+          : 'Poppler does not use the PDF output intent for this fallback measurement.',
+      displayProfile: selectedPressRasterizer === 'profiled-poppler' ? pressDisplayProfile : undefined,
+      cmykProfile: profilePath,
+      grayProfile: grayProfilePath,
+    },
   },
   documents,
   posterEvidence,

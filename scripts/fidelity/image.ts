@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { buildProofTable, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { buildProofTable, fromGray, fromPress, type Profile, type ProofTable, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { DEFAULT_NEUTRAL_TOLERANCE, pressColor, snapsToNeutral } from '../../packages/render/src/press/color-policy.ts'
 import {
   ALIGNMENT_SEARCH_RADIUS,
   ALIGNMENT_TOLERANCE,
@@ -10,6 +11,7 @@ import {
   MARKER_SIZE,
   SCALE,
 } from './config.ts'
+import { decodeDeviceTiff } from './tiff.ts'
 import type { Box, Difference, GlyphBox } from './types.ts'
 
 function command(args: string[]): Uint8Array {
@@ -81,8 +83,55 @@ export function glyphLineBoxes(file: string, width: number, height: number): Gly
 
 export const proofTable = (profileBytes: Uint8Array): ProofTable => buildProofTable(readProfile(profileBytes))
 
-export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable): void {
-  const proved = proofPixels(table, rgb(reference, width, height))
+export function proofPressPixels(profile: Profile, table: ProofTable, source: Uint8Array): Uint8ClampedArray {
+  const proved = proofPixels(table, source)
+  for (let offset = 0; offset < source.length; offset += 3) {
+    const rgb: [number, number, number] = [(source[offset] ?? 0) / 255, (source[offset + 1] ?? 0) / 255, (source[offset + 2] ?? 0) / 255]
+    if (!snapsToNeutral(rgb, DEFAULT_NEUTRAL_TOLERANCE)) continue
+    const proof = fromPress(profile, pressColor(profile, rgb))
+    proved[offset] = proof[0] * 255
+    proved[offset + 1] = proof[1] * 255
+    proved[offset + 2] = proof[2] * 255
+  }
+  return proved
+}
+
+export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable, profile?: Profile): void {
+  const source = rgb(reference, width, height)
+  const proved = profile?.colorSpace === 'CMYK' ? proofPressPixels(profile, table, source) : proofPixels(table, source)
+  const result = Bun.spawnSync(
+    ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
+    { stdin: proved, stdout: 'pipe', stderr: 'pipe' },
+  )
+  if (result.exitCode !== 0) throw new Error(`Could not make ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
+}
+
+export function deviceToSrgb(profile: Profile, source: Uint8Array): Uint8ClampedArray {
+  const channels = profile.colorSpace === 'CMYK' ? 4 : profile.colorSpace === 'GRAY' ? 1 : 0
+  if (!channels || source.length % channels !== 0) throw new Error(`Unexpected ${profile.colorSpace.trim()} device pixel byte length ${source.length}.`)
+  const result = new Uint8ClampedArray((source.length / channels) * 3)
+  for (let sourceOffset = 0, destinationOffset = 0; sourceOffset < source.length; sourceOffset += channels, destinationOffset += 3) {
+    const rgb =
+      channels === 4
+        ? fromPress(profile, [
+            (source[sourceOffset] ?? 0) / 255,
+            (source[sourceOffset + 1] ?? 0) / 255,
+            (source[sourceOffset + 2] ?? 0) / 255,
+            (source[sourceOffset + 3] ?? 0) / 255,
+          ])
+        : fromGray(profile, [(source[sourceOffset] ?? 0) / 255])
+    result[destinationOffset] = rgb[0] * 255
+    result[destinationOffset + 1] = rgb[1] * 255
+    result[destinationOffset + 2] = rgb[2] * 255
+  }
+  return result
+}
+
+export async function modelPressRaster(source: string, destination: string, width: number, height: number, profile: Profile): Promise<void> {
+  const channels = profile.colorSpace === 'CMYK' ? 4 : profile.colorSpace === 'GRAY' ? 1 : undefined
+  if (!channels) throw new Error(`Cannot model a ${profile.colorSpace.trim()} press raster.`)
+  const bytes = new Uint8Array(await Bun.file(source).arrayBuffer())
+  const proved = deviceToSrgb(profile, decodeDeviceTiff(bytes, width, height, channels))
   const result = Bun.spawnSync(
     ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
     { stdin: proved, stdout: 'pipe', stderr: 'pipe' },
@@ -169,26 +218,41 @@ export function alignmentFromPixels(
   }
 }
 
-export function difference(reference: string, actual: string, width: number, height: number, box?: Box): Difference {
-  const left = rgb(reference, width, height)
-  const right = rgb(actual, width, height)
+function recordPixelDifference(histogram: Uint32Array, left: Uint8Array, right: Uint8Array, offset: number): number {
+  let sum = 0
+  for (let channel = 0; channel < 3; channel++) {
+    const delta = Math.abs((left[offset + channel] ?? 0) - (right[offset + channel] ?? 0))
+    histogram[delta] = (histogram[delta] ?? 0) + 1
+    sum += delta
+  }
+  return sum
+}
+
+export function differencePixels(
+  left: Uint8Array,
+  right: Uint8Array,
+  width: number,
+  height: number,
+  mask?: Uint8Array,
+  selected = true,
+  box?: Box,
+): Difference {
+  if (left.length !== width * height * 3 || right.length !== left.length) throw new Error('Unexpected difference raster size.')
+  if (mask && mask.length !== width * height) throw new Error('Unexpected difference mask size.')
+  const histogram = new Uint32Array(256)
+  let sum = 0
+  let count = 0
   const area = box ?? { x: 0, y: 0, width, height }
   const x0 = Math.max(0, Math.floor(area.x))
   const y0 = Math.max(0, Math.floor(area.y))
   const x1 = Math.min(width, Math.ceil(area.x + area.width))
   const y1 = Math.min(height, Math.ceil(area.y + area.height))
-  const histogram = new Uint32Array(256)
-  let sum = 0
-  let count = 0
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
-      const offset = (y * width + x) * 3
-      for (let channel = 0; channel < 3; channel++) {
-        const delta = Math.abs((left[offset + channel] ?? 0) - (right[offset + channel] ?? 0))
-        histogram[delta] = (histogram[delta] ?? 0) + 1
-        sum += delta
-        count++
-      }
+      const pixel = y * width + x
+      if (mask && Boolean(mask[pixel]) !== selected) continue
+      sum += recordPixelDifference(histogram, left, right, pixel * 3)
+      count += 3
     }
   }
   const target = Math.ceil(count * 0.99)
@@ -199,6 +263,22 @@ export function difference(reference: string, actual: string, width: number, hei
     if (seen >= target) break
   }
   return { mean: count ? sum / count : 0, p99 }
+}
+
+export function difference(reference: string, actual: string, width: number, height: number, box?: Box, mask?: Uint8Array, selected = true): Difference {
+  const left = rgb(reference, width, height)
+  const right = rgb(actual, width, height)
+  return differencePixels(left, right, width, height, mask, selected, box)
+}
+
+export function writeMask(mask: Uint8Array, destination: string, width: number, height: number): void {
+  if (mask.length !== width * height) throw new Error('Unexpected mask size.')
+  const pixels = Uint8Array.from(mask, (value) => (value ? 255 : 0))
+  const result = Bun.spawnSync(
+    ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'gray', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
+    { stdin: pixels, stdout: 'pipe', stderr: 'pipe' },
+  )
+  if (result.exitCode !== 0) throw new Error(`Could not make ${path.basename(destination)}: ${result.stderr.toString().trim()}`)
 }
 
 export function sideBySide(reference: string, actual: string, box: Box, destination: string): void {

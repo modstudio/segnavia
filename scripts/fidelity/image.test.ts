@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
+import { fromPress, proofPixels, readProfile } from '../../packages/render/src/color/index.ts'
+import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
+import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { EXPECTED_MARKER_POSITION, MARKER_BORDER, MARKER_BORDER_COLOR, MARKER_FILL, MARKER_SIZE, SCALE } from './config.ts'
-import { alignmentFromPixels } from './image.ts'
+import { alignmentFromPixels, differencePixels, proofPressPixels, proofTable } from './image.ts'
 import { viewerPageBoxFromPixels } from './readers.ts'
 
 function paintMarker(pixels: Uint8Array, width: number, left: number, top: number, scale = 1): void {
@@ -37,5 +40,32 @@ describe('fidelity registration', () => {
     }
     paintMarker(pixels, width, 50 + EXPECTED_MARKER_POSITION, 40 + EXPECTED_MARKER_POSITION)
     expect(viewerPageBoxFromPixels(pixels, width, height, 400, 300)).toEqual({ x: 50, y: 40, width: 400, height: 300 })
+  })
+})
+
+describe('masked difference', () => {
+  test('scores the true difference inside the mask and zero outside it', () => {
+    const reference = new Uint8Array(12)
+    const actual = Uint8Array.from([0, 0, 0, 10, 20, 30, 0, 0, 0, 0, 0, 0])
+    const mask = Uint8Array.from([0, 1, 0, 0])
+    expect(differencePixels(reference, actual, 2, 2, mask, true)).toEqual({ mean: 20, p99: 30 })
+    expect(differencePixels(reference, actual, 2, 2, mask, false)).toEqual({ mean: 0, p99: 0 })
+  })
+})
+
+describe('CMYK screen proof', () => {
+  const bytes = buildPressProfile('mft1')
+  const profile = readProfile(bytes)
+  const table = proofTable(bytes)
+
+  test('proofs a near-grey pixel through black ink alone', () => {
+    const source = Uint8Array.from([100, 101, 103])
+    const expected = fromPress(profile, pressColor(profile, [100 / 255, 101 / 255, 103 / 255])).map((channel) => channel * 255)
+    expect(proofPressPixels(profile, table, source)).toEqual(Uint8ClampedArray.from(expected))
+  })
+
+  test('proofs a saturated pixel as before', () => {
+    const source = Uint8Array.from([40, 120, 220])
+    expect(proofPressPixels(profile, table, source)).toEqual(proofPixels(table, source))
   })
 })

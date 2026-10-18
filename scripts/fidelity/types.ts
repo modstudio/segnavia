@@ -18,6 +18,8 @@ export interface Threshold {
 export interface BarResult<T> {
   measured?: T
   passed: boolean
+  applicable?: boolean
+  threshold?: Threshold | { multiple: number; absoluteBytes: number }
   reason?: string
 }
 
@@ -103,6 +105,7 @@ export interface ReaderResult {
 export interface DocumentResult {
   id: string
   title: string
+  kind: FixtureKind
   pdf: string
   pdfBytes: number
   effectlessPdf: string
@@ -128,9 +131,12 @@ export interface DocumentResult {
   grayPressResidues?: number
   grayPressResidueErrors?: string[]
   grayPressReason?: string
+  blendedMask: string
+  blendedFraction: number
   bars: Record<BarId, BarResult<BarMeasurement>>
 }
 
+export type FixtureKind = 'control' | 'effects'
 export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size'
 export type BarMeasurement = Difference | SizeMeasurement
 
@@ -144,6 +150,18 @@ export interface FidelityRun {
     chromium: string
     profile?: string
     grayProfile?: string
+    pressRasterizer: {
+      mode: 'ghostscript' | 'profiled-poppler'
+      engine: string
+      grayMode: 'profiled-poppler'
+      grayEngine: string
+      cmykSettings: string[]
+      graySettings: string[]
+      outputIntent: string
+      displayProfile?: string
+      cmykProfile?: string
+      grayProfile?: string
+    }
   }
   documents: DocumentResult[]
   posterEvidence?: PosterEvidence
