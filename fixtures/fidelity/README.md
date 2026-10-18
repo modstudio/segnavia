@@ -8,7 +8,8 @@ Playwright or macOS location. Set `SEGNAVIA_FIDELITY_PROFILE` to an ICC profile
 to add a proofed press-profile comparison for every document. On macOS, use
 `/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc` for the baseline.
 
-The fixtures are realistic combinations rather than isolated effect tiles:
+The effects fixtures are realistic combinations rather than isolated effect
+tiles:
 
 - `flyer.html`: soft photo-card and text shadows, diagonal and conic gradients, and a translucent overlay.
 - `cards.html`: layered and inset shadows, rounded clipping, elevation, and light/dark cards.
@@ -18,6 +19,10 @@ The fixtures are realistic combinations rather than isolated effect tiles:
 - `slide.html`: a 1280×720 gradient slide with glowing type and shadowed screenshots.
 - `print-piece.html`: an A5 postcard with 3 mm bleed, a bleed gradient, and a shadow crossing the trim.
 - `hebrew.html`: vocalized right-to-left Hebrew, gradients, text shadow, and frosted glass.
+
+The control fixtures carry no gradient, transparency, blend, filter, shadow or
+mask, so they test color conversion alone:
+
 - `control-flat.html`: flat saturated, dark, pastel, and brand-like swatches, a grey ramp, borders, and SVG fills and strokes.
 - `control-text.html`: English text across 9–64 px and vocalized right-to-left Hebrew on flat light and dark grounds.
 - `control-photo.html`: deterministic generated JPEG photographs at three sizes on a flat background; regenerate it with `bun scripts/fidelity/control-photo.ts`.
