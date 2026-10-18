@@ -1,4 +1,4 @@
-import type { BoardItem, BoardView, BookViewInput, Deck, ImpositionInput, PageInput, Size } from '@segnavia/format'
+import { type BoardItem, type BoardView, type BookViewInput, type Deck, type ImpositionInput, type PageInput, type Size, zoomAt } from '@segnavia/format'
 import type { ControllerOptions } from './controller.ts'
 
 interface ResolvedBase {
@@ -30,7 +30,7 @@ export function provisionalShape(kind: BoardItem['kind']): Size {
 }
 
 export function boardTier(screenWidth: number, liveWidth: number): BoardTier {
-  return 'cover'
+  return screenWidth < liveWidth ? 'cover' : 'live'
 }
 
 export function shouldMountItem(mounted: boolean, withinHalfViewport: boolean, withinViewport: boolean): boolean {
@@ -56,8 +56,5 @@ export function keyToView(view: BoardView, key: string): BoardKeyAction | null {
 
 function zoomAtCentre(view: BoardView, factor: number): BoardView {
   const point = { x: view.viewport.width / 2, y: view.viewport.height / 2 }
-  const zoom = Math.min(8, Math.max(0.05, view.zoom * factor))
-  const boardX = (point.x - view.pan.x) / view.zoom
-  const boardY = (point.y - view.pan.y) / view.zoom
-  return { ...view, zoom, pan: { x: point.x - boardX * zoom, y: point.y - boardY * zoom } }
+  return zoomAt(view, point, factor)
 }

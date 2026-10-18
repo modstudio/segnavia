@@ -85,14 +85,16 @@ export async function verifyBoard(h: Harness) {
   await h.page.keyboard.down('Control')
   await h.page.mouse.wheel(0, -100)
   await h.page.keyboard.up('Control')
-  await h.page.waitForFunction(
-    () => {
-      const item = document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-small"]')
-      return (item?.getBoundingClientRect().width ?? 0) >= 240 && Boolean(item?.querySelector('iframe'))
-    },
-    undefined,
-    { timeout: BOUNDED_WAIT_MS },
-  ).catch(() => {})
+  await h.page
+    .waitForFunction(
+      () => {
+        const item = document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-small"]')
+        return (item?.getBoundingClientRect().width ?? 0) >= 240 && Boolean(item?.querySelector('iframe'))
+      },
+      undefined,
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {})
   const live = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-small"]')
     return { width: item?.getBoundingClientRect().width ?? 0, iframe: Boolean(item?.querySelector('iframe')) }

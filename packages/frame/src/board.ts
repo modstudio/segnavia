@@ -29,7 +29,6 @@ interface PointerPosition {
 }
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
-
 export class SegnaviaBoard extends HTMLElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
