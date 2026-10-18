@@ -60,13 +60,13 @@ export function keyToView(view: BoardView, key: string): BoardKeyAction | null {
   if (key === 'ArrowRight') return { kind: 'view', view: panned(view, -x, 0) }
   if (key === 'ArrowUp') return { kind: 'view', view: panned(view, 0, y) }
   if (key === 'ArrowDown') return { kind: 'view', view: panned(view, 0, -y) }
-  if (key === '+' || key === '=') return { kind: 'view', view: zoomAtCentre(view, 1.25) }
-  if (key === '-') return { kind: 'view', view: zoomAtCentre(view, 1 / 1.25) }
+  if (key === '+' || key === '=') return { kind: 'view', view: zoomAtCenter(view, 1.25) }
+  if (key === '-') return { kind: 'view', view: zoomAtCenter(view, 1 / 1.25) }
   if (key === '0') return { kind: 'fit' }
   return null
 }
 
-function zoomAtCentre(view: BoardView, factor: number): BoardView {
+function zoomAtCenter(view: BoardView, factor: number): BoardView {
   const point = { x: view.viewport.width / 2, y: view.viewport.height / 2 }
   return zoomAt(view, point, factor)
 }
