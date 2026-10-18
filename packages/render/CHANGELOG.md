@@ -1,5 +1,16 @@
 # @segnavia/render
 
+## 0.10.0
+
+### Patch Changes
+
+- 0b0149c: CMYK press PDFs with gradient patterns now conform to the PDF specification, so Ghostscript-based readers and RIPs no longer drop those gradients.
+- Updated dependencies [c7cd26b]
+- Updated dependencies [ca26399]
+  - @segnavia/frame@0.10.0
+  - @segnavia/format@0.10.0
+  - @segnavia/html@0.10.0
+
 ## 0.9.1
 
 ### Patch Changes
