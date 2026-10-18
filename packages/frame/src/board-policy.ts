@@ -17,6 +17,18 @@ export type ResolvedBoardItem =
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
 
+function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
+  for (const field of ['width', 'height'] as const) {
+    const value = size[field]
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`The resolved ${kind} size has a ${field} of ${value}; return a positive ${field}.`)
+  }
+}
+
+export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): void {
+  if (resolved.kind !== item.kind) throw new Error(`The resolved item kind is ${resolved.kind}, not ${item.kind}; return a resolved ${item.kind}.`)
+  if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(resolved))
+}
+
 export function resolvedShape(resolved: ResolvedBoardItem): Size {
   if (resolved.kind === 'deck') return resolved.deck.size
   if (resolved.kind === 'image' || resolved.kind === 'shot') return { width: resolved.width, height: resolved.height }

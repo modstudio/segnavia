@@ -1,4 +1,5 @@
-import { type Board, type BoardView, boardToScreen, resolveDirection } from '@segnavia/format'
+import { type Board, type BoardView, resolveDirection } from '@segnavia/format'
+import { placeBoardNode } from './board-placement.ts'
 
 export class BoardDecorations {
   private readonly sectionNodes = new Map<string, HTMLElement>()
@@ -13,7 +14,7 @@ export class BoardDecorations {
     this.removeMissing(this.labelNodes, labelIds)
     for (const section of board.sections) {
       const node = this.sectionNodes.get(section.id) ?? this.mountSection(section.id)
-      this.place(node, view, section.rectangle.x, section.rectangle.y, section.rectangle.width, section.rectangle.height)
+      placeBoardNode(node, view, section.rectangle)
       const title = node.firstElementChild as HTMLElement
       title.textContent = section.title
       title.dir = resolveDirection(undefined, undefined, section.title)
@@ -22,9 +23,7 @@ export class BoardDecorations {
       const node = this.labelNodes.get(label.id) ?? this.mountLabel(label.id)
       node.textContent = label.text
       node.dir = resolveDirection(undefined, undefined, label.text)
-      const point = boardToScreen(view, label)
-      node.style.insetInlineStart = `${point.x}px`
-      node.style.insetBlockStart = `${point.y}px`
+      placeBoardNode(node, view, label)
       node.style.fontSize = `${16 * view.zoom}px`
     }
   }
@@ -65,13 +64,5 @@ export class BoardDecorations {
 
   private insert(node: HTMLElement) {
     this.surface.insertBefore(node, this.surface.querySelector('[data-board-item]'))
-  }
-
-  private place(node: HTMLElement, view: BoardView, x: number, y: number, width: number, height: number) {
-    const point = boardToScreen(view, { x, y })
-    node.style.insetInlineStart = `${point.x}px`
-    node.style.insetBlockStart = `${point.y}px`
-    node.style.inlineSize = `${width * view.zoom}px`
-    node.style.blockSize = `${height * view.zoom}px`
   }
 }

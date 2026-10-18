@@ -16,7 +16,111 @@ const shapes: Record<string, Size> = {
   paper: { width: 816, height: 1056 },
   image: { width: 1280, height: 720 },
   shot: { width: 1280, height: 720 },
+  'deck-url': { width: 1280, height: 720 },
+  'paper-empty': { width: 816, height: 1056 },
   'deck-far': { width: 1280, height: 720 },
+}
+
+async function showItem(h: Harness, id: string) {
+  await h.page.locator('segnavia-board').evaluate((element, itemId) => {
+    const board = element as HTMLElement & { board: { items: BoardItem[] }; view: BoardView }
+    const item = board.board.items.find((entry) => entry.id === itemId)
+    if (!item) throw new Error(`The board has no ${itemId} item.`)
+    try {
+      board.view = { zoom: 1, pan: { x: 48 - item.x, y: 100 - item.y }, viewport: board.view.viewport }
+    } catch {}
+  }, id)
+}
+
+async function checkUrlDeckRefusesScripts(h: Harness) {
+  await showItem(h, 'deck-url')
+  await h.page.waitForFunction(
+    () =>
+      Boolean(
+        document
+          .querySelector('segnavia-board')
+          ?.shadowRoot?.querySelector('[data-board-item="deck-url"] segnavia-thumbnail')
+          ?.shadowRoot?.querySelector('iframe'),
+      ),
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
+  await h.page.waitForTimeout(250)
+  const result = await h.page.evaluate(() => {
+    const frame = document
+      .querySelector('segnavia-board')
+      ?.shadowRoot?.querySelector('[data-board-item="deck-url"] segnavia-thumbnail')
+      ?.shadowRoot?.querySelector('iframe')
+    const state = window as typeof window & { boardScriptRan?: boolean }
+    return { ran: state.boardScriptRan, sandbox: frame?.getAttribute('sandbox') }
+  })
+  h.check('a live board URL deck refuses scripts with an empty sandbox', result.ran === false && result.sandbox === '', JSON.stringify(result))
+}
+
+async function checkFailedLiveMount(h: Harness) {
+  await showItem(h, 'paper-empty')
+  await h.page.waitForTimeout(250)
+  await h.page.locator('segnavia-board').evaluate((element) => {
+    const board = element as HTMLElement & { view: BoardView }
+    for (let step = 0; step < 5; step += 1) {
+      try {
+        board.view = { ...board.view, pan: { ...board.view.pan, x: board.view.pan.x + 2 } }
+      } catch {}
+    }
+  })
+  await h.page.waitForTimeout(100)
+  const result = await h.page.evaluate(() => {
+    const state = window as typeof window & { boardErrors?: unknown[]; boardUnhandled?: unknown[] }
+    const item = document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="paper-empty"]')
+    return {
+      errors: state.boardErrors?.length ?? 0,
+      unhandled: state.boardUnhandled?.length ?? 0,
+      placeholder: Boolean(item?.querySelector('[part~="placeholder"]')),
+    }
+  })
+  h.check(
+    'a failing live board mount reports once, stays a placeholder and has no unhandled rejection',
+    result.errors === 1 && result.unhandled === 0 && result.placeholder,
+    JSON.stringify(result),
+  )
+}
+
+async function checkReconnect(h: Harness) {
+  await showItem(h, 'deck-url')
+  await h.page.waitForFunction(
+    () =>
+      Boolean(
+        document
+          .querySelector('segnavia-board')
+          ?.shadowRoot?.querySelector('[data-board-item="deck-url"] segnavia-thumbnail')
+          ?.shadowRoot?.querySelector('iframe'),
+      ),
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
+  await h.page.locator('segnavia-board').evaluate((element) => {
+    const parent = element.parentNode
+    element.remove()
+    parent?.append(element)
+  })
+  await h.page
+    .waitForFunction(
+      () =>
+        Boolean(
+          document
+            .querySelector('segnavia-board')
+            ?.shadowRoot?.querySelector('[data-board-item="deck-url"] segnavia-thumbnail')
+            ?.shadowRoot?.querySelector('iframe'),
+        ),
+      undefined,
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {})
+  const result = await h.page.locator('segnavia-board').evaluate((element) => ({
+    item: Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-url"]')),
+    live: Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-url"] segnavia-thumbnail')?.shadowRoot?.querySelector('iframe')),
+  }))
+  h.check('reconnecting a board at the same size restores its items and live content', result.item && result.live, JSON.stringify(result))
 }
 
 async function placementFacts(h: Harness) {
@@ -57,20 +161,29 @@ async function showTwoLiveItems(h: Harness) {
     const board = element as HTMLElement & { view: BoardView }
     board.view = { zoom: 1.25, pan: { x: 48, y: 100 }, viewport: board.view.viewport }
   })
-  await h.page.waitForFunction(() => (document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('iframe').length ?? 0) >= 2, undefined, {
-    timeout: BOUNDED_WAIT_MS,
-  })
+  await h.page.waitForFunction(
+    () => {
+      const root = document.querySelector('segnavia-board')?.shadowRoot
+      return [...(root?.querySelectorAll('segnavia-thumbnail') ?? [])].filter((thumbnail) => thumbnail.shadowRoot?.querySelector('iframe')).length >= 2
+    },
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
 }
 
 async function checkPanKeepsFrames(h: Harness) {
   const result = await h.page.locator('segnavia-board').evaluate(async (element) => {
     const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: Size } }
-    const frames = [...(board.shadowRoot?.querySelectorAll('iframe') ?? [])]
+    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
+      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
+    )
     let loads = 0
     for (const frame of frames) frame.addEventListener('load', () => loads++)
     for (let step = 0; step < 20; step += 1) board.view = { ...board.view, pan: { ...board.view.pan, x: board.view.pan.x + 2 } }
     await new Promise((resolve) => setTimeout(resolve, 250))
-    const current = [...(board.shadowRoot?.querySelectorAll('iframe') ?? [])]
+    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
+      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
+    )
     return { loads, same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
   })
   h.check('panning keeps every live board frame mounted without reloading it', result.count >= 2 && result.loads === 0 && result.same, JSON.stringify(result))
@@ -81,9 +194,13 @@ async function checkBoardUpdateKeepsFrames(h: Harness) {
     const board = element as HTMLElement & {
       board: { direction: 'ltr' | 'rtl'; items: BoardItem[]; labels: unknown[]; sections: unknown[] }
     }
-    const frames = [...(board.shadowRoot?.querySelectorAll('iframe') ?? [])]
+    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
+      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
+    )
     board.board = { ...board.board, items: board.board.items.map((item) => ({ ...item, x: item.x + 12 })) }
-    const current = [...(board.shadowRoot?.querySelectorAll('iframe') ?? [])]
+    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
+      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
+    )
     return { same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
   })
   h.check('setting a moved board keeps every unchanged live frame', result.count >= 2 && result.same, JSON.stringify(result))
@@ -112,7 +229,7 @@ export async function verifyBoard(h: Harness) {
   const small = board.locator('[data-board-item="deck-small"]')
   const initialTier = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-small"]')
-    return { width: item?.getBoundingClientRect().width ?? 0, iframe: Boolean(item?.querySelector('iframe')) }
+    return { width: item?.getBoundingClientRect().width ?? 0, iframe: Boolean(item?.querySelector('segnavia-thumbnail')?.shadowRoot?.querySelector('iframe')) }
   })
   h.check('a board item narrower than 240px has no iframe', initialTier.width < 240 && !initialTier.iframe, JSON.stringify(initialTier))
 
@@ -126,7 +243,7 @@ export async function verifyBoard(h: Harness) {
     .waitForFunction(
       () => {
         const item = document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-small"]')
-        return (item?.getBoundingClientRect().width ?? 0) >= 240 && Boolean(item?.querySelector('iframe'))
+        return (item?.getBoundingClientRect().width ?? 0) >= 240 && Boolean(item?.querySelector('segnavia-thumbnail')?.shadowRoot?.querySelector('iframe'))
       },
       undefined,
       { timeout: BOUNDED_WAIT_MS },
@@ -134,7 +251,7 @@ export async function verifyBoard(h: Harness) {
     .catch(() => {})
   const live = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-small"]')
-    return { width: item?.getBoundingClientRect().width ?? 0, iframe: Boolean(item?.querySelector('iframe')) }
+    return { width: item?.getBoundingClientRect().width ?? 0, iframe: Boolean(item?.querySelector('segnavia-thumbnail')?.shadowRoot?.querySelector('iframe')) }
   })
   h.check('zooming a board item past 240px mounts its live element', live.width >= 240 && live.iframe, JSON.stringify(live))
   await checkPlacement(h, 'after zooming at a point')
@@ -152,7 +269,15 @@ export async function verifyBoard(h: Harness) {
   await checkBoardUpdateKeepsFrames(h)
   await checkPlacement(h, 'after setting moved item positions')
 
-  const sandboxes = await board.evaluate((element) => [...(element.shadowRoot?.querySelectorAll('iframe') ?? [])].map((frame) => frame.getAttribute('sandbox')))
+  const sandboxes = await board.evaluate((element) =>
+    [
+      ...(element.shadowRoot?.querySelectorAll('iframe') ?? []),
+      ...[...(element.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) => {
+        const frame = thumbnail.shadowRoot?.querySelector('iframe')
+        return frame ? [frame] : []
+      }),
+    ].map((frame) => frame.getAttribute('sandbox')),
+  )
   h.check(
     'every board iframe is sandboxed without same-origin',
     sandboxes.length > 0 && sandboxes.every((value) => value !== null && !value.includes('allow-same-origin')),
@@ -176,4 +301,9 @@ export async function verifyBoard(h: Harness) {
   })
   const farAfterPan = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
   h.check('panning to a far board item mounts it', farAfterPan, String(farAfterPan))
+
+  await h.page.evaluate(() => (window as typeof window & { addBoardReviewItems(): void }).addBoardReviewItems())
+  await checkUrlDeckRefusesScripts(h)
+  await checkReconnect(h)
+  await checkFailedLiveMount(h)
 }
