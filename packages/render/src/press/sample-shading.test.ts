@@ -25,6 +25,7 @@ import {
   shadingSampleGrid,
   unpackRgb8,
 } from './sample-shading.ts'
+import { CONIC, REPEATING_LINEAR } from './sample-shading-fixtures.test-helper.ts'
 
 const profileBytes = buildPressProfile('mft1')
 const profile = readProfile(profileBytes)
@@ -34,20 +35,6 @@ function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPa
   page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
 }
-
-const REPEATING_LINEAR = `{pop
-dup truncate sub
-dup 0 le {1 add} if
-dup 0 le {pop .8784 .1882 .1882 0} if
-dup dup 0 gt exch 1 le and {
-dup .5 le {
-0 sub pop .8784 .1882 .1882 
-}{
-.5 sub pop .1882 .1882 .8784 
-} ifelse
-0} if
-0 gt {.1882 .1882 .8784} if
-}`
 
 test('a repeating linear domain sampled at 0.5 pt keeps many samples per stripe', () => {
   const domain = [0, 14.1421356, -7.0710678, 7.0710673]
@@ -120,34 +107,6 @@ test('painted bounds shrink the sample domain; a missing or unbounded paint keep
   expect(sampleDomainForPainted(domain, matrix, undefined)).toEqual(domain)
   expect(sampleDomainForPainted(domain, matrix, 'unbounded')).toEqual(domain)
 })
-
-const CONIC = `{exch atan 360 div
-dup 0 le {pop 1 0 0 0} if
-dup dup 0 gt exch 1 le and {
-dup .5 le {
-dup .166666672 le {
-0 sub 1 exch 6 mul 0 
-}{
-dup .33333334 le {
-.166666672 sub -6 mul 1 add 1 0 
-}{
-.33333334 sub 0 exch 1 exch 6.0000005 mul 
-} ifelse
-} ifelse
-}{
-dup .66666669 le {
-.5 sub 0 exch -5.9999995 mul 1 add 1 
-}{
-dup .83333331 le {
-.66666669 sub 6.0000014 mul 0 1 
-}{
-.83333331 sub 1 exch 0 exch -5.9999995 mul 1 add 
-} ifelse
-} ifelse
-} ifelse
-0} if
-0 gt {1 0 0} if
-}`
 
 test('a repeating-linear sample at the domain origin equals the program at [0, 0]', () => {
   const program = parseCalculator(REPEATING_LINEAR)
@@ -329,6 +288,30 @@ async function type4Shading(domain: number[], program = '{ pop pop 1 0 0 }') {
   )
   return { document, shading: document.context.obj({ ShadingType: 1, ColorSpace: 'DeviceRGB', Domain: domain, Function: fn }) as PDFDict }
 }
+
+function domainNumbers(dictionary: PDFDict): number[] {
+  return dictionary
+    .lookup(PDFName.of('Domain'), PDFArray)
+    .asArray()
+    .map((value) => Number(value.toString()))
+}
+
+test('replacement narrows the shading and sampled function domains to the painted area', async () => {
+  const { document, shading } = await type4Shading([0, 10, 0, 10])
+  replaceType1Function(document, shading, undefined, convert, { decodedBytes: 0 }, { x0: 1, y0: 2, x1: 5, y1: 8 })
+  const replacement = shading.lookup(PDFName.of('Function')) as PDFRawStream
+  expect(domainNumbers(shading)).toEqual([1, 5, 2, 8])
+  expect(domainNumbers(replacement.dict)).toEqual([1, 5, 2, 8])
+})
+
+test('replacement keeps the shading and sampled function domains equal without painted bounds', async () => {
+  const originalDomain = [0, 1, 0, 1]
+  const { document, shading } = await type4Shading(originalDomain)
+  replaceType1Function(document, shading, undefined, convert, { decodedBytes: 0 })
+  const replacement = shading.lookup(PDFName.of('Function')) as PDFRawStream
+  expect(domainNumbers(shading)).toEqual(originalDomain)
+  expect(domainNumbers(replacement.dict)).toEqual(originalDomain)
+})
 
 const untouchedBudget = { calculatorOperations: 2, decodedBytes: 7, shadingSamples: 3 }
 

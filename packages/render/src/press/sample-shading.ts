@@ -274,6 +274,8 @@ export function replaceType1Function(
     Order: 1,
     Filter: 'Fl' + 'ateDecode',
   })
+  // A type 1 shading's domain must lie within its function's domain, so keep both exactly equal.
+  shading.set(PDFName.of('Domain'), document.context.obj(domain))
   shading.set(PDFName.of('Function'), document.context.register(replacement))
   return size
 }
