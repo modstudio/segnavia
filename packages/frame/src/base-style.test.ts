@@ -43,4 +43,10 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain(':host(segnavia-board:not([unstyled]))')
     expect(BASE_CSS).not.toMatch(/\[part~="surface"\][^{]*\{[^}]*transform:/)
   })
+
+  test('the board list exposes geometry and custom-property colors for every part', () => {
+    for (const part of ['search', 'groups', 'group', 'group-title', 'item', 'empty']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
+    expect(BASE_CSS).toContain(':host(segnavia-board-list)')
+    expect(BASE_CSS).toContain('var(--segnavia-board-list-background,transparent)')
+  })
 })

@@ -9,6 +9,7 @@ import {
   itemHeight,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
+  revealView,
   screenToBoard,
   visibleItems,
   zoomAt,
@@ -111,6 +112,18 @@ describe('board geometry', () => {
     expect(zoomAt(view, cursor, 0.001).zoom).toBe(MIN_BOARD_ZOOM)
     expect(zoomAt(view, cursor, 100).zoom).toBe(MAX_BOARD_ZOOM)
     expect(zoomAt(view, cursor, 100, { minZoom: 1, maxZoom: 4 }).zoom).toBe(4)
+  })
+
+  test('reveal view centers the target and clamps at both zoom bounds', () => {
+    const target = { x: 100, y: 200, width: 10, height: 20 }
+    for (const [viewport, expected] of [
+      [{ width: 1000, height: 800 }, MAX_BOARD_ZOOM],
+      [{ width: 100, height: 100 }, MIN_BOARD_ZOOM],
+    ] as const) {
+      const view = revealView(target, viewport, viewport.width === 1000 ? 48 : 49.75, { minZoom: MIN_BOARD_ZOOM, maxZoom: MAX_BOARD_ZOOM })
+      expect(view.zoom).toBe(expected)
+      expect(boardToScreen(view, { x: 105, y: 210 })).toEqual({ x: viewport.width / 2, y: viewport.height / 2 })
+    }
   })
 
   test('visibility includes items touching viewport and margin edges', () => {

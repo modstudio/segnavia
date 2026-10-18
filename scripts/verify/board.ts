@@ -226,7 +226,7 @@ export async function verifyBoard(h: Harness) {
   await h.page.waitForFunction(
     () => {
       const root = document.querySelector('segnavia-board')?.shadowRoot
-      const labels = { 'deck-small': 'Creating a class', 'deck-hebrew': 'מצגת', page: 'Page', paper: 'Paper', image: 'Image', shot: 'Shot' }
+      const labels = { 'deck-small': 'Creating a class', 'deck-hebrew': 'מַצֶּגֶת', page: 'Page', paper: 'Paper', image: 'Image', shot: 'Shot' }
       return Object.entries(labels).every(([id, label]) => root?.querySelector(`[data-board-item="${id}"]`)?.getAttribute('aria-label') === label)
     },
     undefined,
@@ -236,6 +236,28 @@ export async function verifyBoard(h: Harness) {
 
   const farInitially = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
   h.check('a far board item is not mounted after the initial fit', !farInitially, String(farInitially))
+
+  const initialNameCalls = await h.page.evaluate(() => (window as typeof window & { initialItemNamesCalls?: number }).initialItemNamesCalls)
+  h.check('board item names are requested once for the initial board', initialNameCalls === 1, String(initialNameCalls))
+
+  const list = h.page.locator('segnavia-board-list')
+  const search = list.locator('input[type="search"]')
+  await search.fill('creating')
+  const filtered = await list.locator('[data-board-item]').evaluateAll((items) => items.map((item) => item.getAttribute('data-board-item')))
+  h.check('typing an item name filters the board list immediately', filtered.length === 1 && filtered[0] === 'deck-small', filtered.join(','))
+  await search.fill('far')
+  await list.locator('[data-board-item="deck-far"]').click()
+  await h.page.waitForFunction(() => Boolean(document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-far"]')), undefined, {
+    timeout: BOUNDED_WAIT_MS,
+  })
+  const revealed = await board.evaluate((element) => {
+    const item = element.shadowRoot?.querySelector('[data-board-item="deck-far"]')?.getBoundingClientRect()
+    const viewport = element.getBoundingClientRect()
+    return Boolean(item && item.left >= viewport.left && item.right <= viewport.right && item.top >= viewport.top && item.bottom <= viewport.bottom)
+  })
+  h.check('clicking a listed far item reveals it mounted and on screen', revealed, String(revealed))
+  await search.fill('')
+  await board.evaluate((element) => (element as HTMLElement & { fitAll(): void }).fitAll())
 
   const small = board.locator('[data-board-item="deck-small"]')
   const initialTier = await board.evaluate((element) => {

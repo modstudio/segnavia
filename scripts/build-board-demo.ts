@@ -6,8 +6,8 @@ export function buildBoardDemo(site: string, image: string, shot: string) {
   writeFileSync(
     path.join(site, 'board.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <style>html,body{margin:0;height:100%;font-family:system-ui}segnavia-board{display:block;inline-size:100%;block-size:100%;--segnavia-board-background:#ebebef;--segnavia-board-placeholder:#dcdce1;--segnavia-board-section:#c9c9d1;--segnavia-board-section-fill:#e1e1e7;--segnavia-board-item-title:#86868f;--segnavia-board-section-title:#1d1d22}segnavia-board::part(item){box-shadow:0 1px 3px #0002;background:white}segnavia-board::part(item-title){font-size:13px;padding-block-end:6px}segnavia-board::part(section){border-radius:12px}segnavia-board::part(section-title){font-size:14px;font-weight:500;padding:5px 12px;margin-block-end:8px;border:1px solid #9d9da6;border-radius:7px;background:#e1e1e7}segnavia-board::part(label){font-weight:600}</style></head>
-    <body><segnavia-board id="board"></segnavia-board><script type="module" src="segnavia.js"></script><script type="module">
+    <style>html,body{margin:0;height:100%;font-family:system-ui}body{display:grid;grid-template-columns:280px 1fr}segnavia-board-list{padding:16px;overflow:auto}segnavia-board-list::part(search){padding:8px;margin-block-end:12px}segnavia-board-list::part(group-title),segnavia-board-list::part(item){padding:7px;border:0}segnavia-board{display:block;inline-size:100%;block-size:100%;--segnavia-board-background:#ebebef;--segnavia-board-placeholder:#dcdce1;--segnavia-board-section:#c9c9d1;--segnavia-board-section-fill:#e1e1e7;--segnavia-board-item-title:#86868f;--segnavia-board-section-title:#1d1d22}segnavia-board::part(item){box-shadow:0 1px 3px #0002;background:white}segnavia-board::part(item-title){font-size:13px;padding-block-end:6px}segnavia-board::part(section){border-radius:12px}segnavia-board::part(section-title){font-size:14px;font-weight:500;padding:5px 12px;margin-block-end:8px;border:1px solid #9d9da6;border-radius:7px;background:#e1e1e7}segnavia-board::part(label){font-weight:600}</style></head>
+    <body><segnavia-board-list for="board"></segnavia-board-list><segnavia-board id="board"></segnavia-board><script type="module" src="segnavia.js"></script><script type="module">
       await customElements.whenDefined('segnavia-board')
       const board = document.getElementById('board')
       const [deck, hebrew, responsive] = await Promise.all(['deck.json','deck-he.json','responsive-deck.json'].map(src => fetch(src).then(response => response.json())))
@@ -42,9 +42,15 @@ export function buildBoardDemo(site: string, image: string, shot: string) {
       window.addEventListener('unhandledrejection', event => { window.boardUnhandled.push(String(event.reason)) })
       board.addEventListener('segnavia-board-error', event => { window.boardErrors.push(event.detail) })
       board.resolveItem = item => new Promise(resolve => setTimeout(() => resolve(values[item.address]), 150))
+      const names = {'deck-small':'Creating a class','deck-hebrew':'מַצֶּגֶת','page':'Page','paper':'Paper','image':'Image','shot':'Shot','deck-far':'Far away deck','deck-url':'URL deck','paper-empty':'Empty paper'}
+      window.itemNamesCalls = 0
+      board.itemNames = async items => { window.itemNamesCalls += 1; return Object.fromEntries(items.map(item => [item.id,names[item.id]])) }
       board.board = {...common,items:items.slice(0,-1)}
       await new Promise(requestAnimationFrame)
+      window.initialItemNamesCalls = window.itemNamesCalls
       board.board = {...common,items}
+      const list = document.querySelector('segnavia-board-list')
+      list.searchItems = (query,signal) => new Promise((resolve,reject) => { const timer=setTimeout(() => resolve(query.toLowerCase().includes('content') ? ['deck-far'] : []),80); signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'))},{once:true}) })
       board.addEventListener('segnavia-board-open', event => { window.openedItem = event.detail.item })
       window.addBoardReviewItems = () => { board.board = {...board.board,items:[...board.board.items,...reviewItems]} }
       window.demoBoard = board
