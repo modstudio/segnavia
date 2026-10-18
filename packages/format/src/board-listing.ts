@@ -18,6 +18,10 @@ export function nameMatches(name: string, query: string): boolean {
   return foldForSearch(name).includes(foldForSearch(query))
 }
 
+export function boardListingIsEmpty(query: string, groups: BoardListingGroup[]): boolean {
+  return foldForSearch(query).length > 0 && groups.length === 0
+}
+
 export function boardListing(board: Board, nameOf: (item: BoardItem) => string, query: string, contentMatches: Iterable<string> = []): BoardListingGroup[] {
   const folded = foldForSearch(query)
   const byId = new Map(board.items.map((item) => [item.id, item]))

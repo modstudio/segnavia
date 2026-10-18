@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
-import { boardListing, foldForSearch } from './board-listing.ts'
+import { boardListing, boardListingIsEmpty, foldForSearch } from './board-listing.ts'
 
 const item = (id: string): Board['items'][number] => ({ id, kind: 'page', address: id, x: 0, y: 0, width: 100 })
 const itemA = item('a')
@@ -48,5 +48,11 @@ describe('board listing', () => {
     const empty = { ...board, items: [], sections: [{ ...firstSection, items: [] }] }
     expect(boardListing(empty, () => '', '')).toHaveLength(1)
     expect(boardListing(empty, () => '', 'x')).toHaveLength(0)
+  })
+  test('shows the empty state only when a non-empty query has no groups', () => {
+    expect(boardListingIsEmpty('', [])).toBe(false)
+    expect(boardListingIsEmpty('  ', [])).toBe(false)
+    expect(boardListingIsEmpty('missing', [])).toBe(true)
+    expect(boardListingIsEmpty('match', [{ kind: 'loose', items: [itemA] }])).toBe(false)
   })
 })

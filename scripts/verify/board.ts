@@ -227,7 +227,11 @@ export async function verifyBoard(h: Harness) {
     () => {
       const root = document.querySelector('segnavia-board')?.shadowRoot
       const labels = { 'deck-small': 'Creating a class', 'deck-hebrew': 'מַצֶּגֶת', page: 'Page', paper: 'Paper', image: 'Image', shot: 'Shot' }
-      return Object.entries(labels).every(([id, label]) => root?.querySelector(`[data-board-item="${id}"]`)?.getAttribute('aria-label') === label)
+      return (
+        Object.entries(labels).every(([id, label]) => root?.querySelector(`[data-board-item="${id}"]`)?.getAttribute('aria-label') === label) &&
+        Boolean(root?.querySelector('[data-board-item="image"] img')) &&
+        Boolean(root?.querySelector('[data-board-item="shot"] img'))
+      )
     },
     undefined,
     { timeout: BOUNDED_WAIT_MS },
@@ -240,6 +244,7 @@ export async function verifyBoard(h: Harness) {
   const initialNameCalls = await h.page.evaluate(() => (window as typeof window & { initialItemNamesCalls?: number }).initialItemNamesCalls)
   h.check('board item names are requested once for the initial board', initialNameCalls === 1, String(initialNameCalls))
 
+  const viewBeforeList = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   const list = h.page.locator('segnavia-board-list')
   const search = list.locator('input[type="search"]')
   await search.fill('creating')
@@ -257,7 +262,9 @@ export async function verifyBoard(h: Harness) {
   })
   h.check('clicking a listed far item reveals it mounted and on screen', revealed, String(revealed))
   await search.fill('')
-  await board.evaluate((element) => (element as HTMLElement & { fitAll(): void }).fitAll())
+  await board.evaluate((element, view) => {
+    ;(element as HTMLElement & { view: BoardView }).view = view
+  }, viewBeforeList)
 
   const small = board.locator('[data-board-item="deck-small"]')
   const initialTier = await board.evaluate((element) => {

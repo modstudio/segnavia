@@ -1,4 +1,4 @@
-import { type BoardItem, type BoardListingGroup, boardListing, foldForSearch, resolveDirection } from '@segnavia/format'
+import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
@@ -151,7 +151,9 @@ export class SegnaviaBoardList extends HTMLElement {
       return
     }
     const listing = boardListing(board, (item) => target.itemName(item.id), this.input.value, this.contentMatches)
-    this.groups.replaceChildren(...(listing.length ? listing.map((group) => this.group(group, target, labels)) : [this.empty(labels)]))
+    this.groups.replaceChildren(
+      ...(boardListingIsEmpty(this.input.value, listing) ? [this.empty(labels)] : listing.map((group) => this.group(group, target, labels))),
+    )
     if (focused) this.groups.querySelector<HTMLElement>(`[data-board-item="${CSS.escape(focused)}"]`)?.focus()
   }
 

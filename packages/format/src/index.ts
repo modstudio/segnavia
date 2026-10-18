@@ -30,7 +30,7 @@ export {
   zoomAt,
   zoomToFit,
 } from './board-geometry.ts'
-export { type BoardListingGroup, boardListing, foldForSearch, nameMatches } from './board-listing.ts'
+export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
 export {
   Book,
   BookContents,

@@ -37,6 +37,7 @@ export class SegnaviaBoard extends HTMLElement {
   private resolver: ResolveBoardItem | undefined
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
+  private items = new Map<string, BoardItem>()
   private readonly cache = new Map<string, CacheEntry>()
   private readonly nodes = new Map<string, HTMLElement>()
   private readonly tiers = new Map<string, 'cover' | 'live'>()
@@ -75,6 +76,7 @@ export class SegnaviaBoard extends HTMLElement {
   set board(input: Board | null) {
     const previous = this.value
     this.value = input === null ? null : Board.parse(input)
+    this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
     const addresses = new Set(this.value?.items.map((item) => item.address) ?? [])
     for (const address of this.cache.keys()) if (!addresses.has(address)) this.cache.delete(address)
     this.shapes = { items: {}, labels: {} }
@@ -128,7 +130,7 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   itemName(id: string): string {
-    const item = this.value?.items.find((entry) => entry.id === id)
+    const item = this.items.get(id)
     const entry = item ? this.cache.get(item.address) : undefined
     return this.names.name(item, entry?.failed ? undefined : entry?.value)
   }
@@ -264,7 +266,7 @@ export class SegnaviaBoard extends HTMLElement {
   private paintItem(node: HTMLElement, item: BoardItem) {
     const entry = this.cache.get(item.address)
     const resolved = entry?.failed ? undefined : entry?.value
-    const name = this.itemName(item.id)
+    const name = this.names.name(item, resolved)
     node.setAttribute('aria-label', name || item.kind)
     this.titles.name(item.id, name)
     const tier = boardTier(item.width * this.currentView.zoom, this.threshold)
