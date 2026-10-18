@@ -60,11 +60,11 @@ test.skipIf(!ghostscriptAvailable || !existsSync(profilePath))('models an RGB im
     const rendered = await pressGhostscript(pdf, tiff, 20, 10, profilePath, 'cmyk')
     expect(rendered.worked, rendered.error).toBeTrue()
     const device = decodeDeviceTiff(new Uint8Array(await Bun.file(tiff).arrayBuffer()), 20, 10, 4)
-    const modelled = deviceToSrgb(profile, device)
+    const modeled = deviceToSrgb(profile, device)
     const imageExpected = proofPressPixels(profile, proofTable(profileBytes), Uint8Array.of(40, 120, 220))
     const fillExpected = fromPress(profile, [0.2, 0.5, 0.1, 0.3]).map((channel) => channel * 255)
-    expectClose(sampled(modelled, 20, 5, 5), imageExpected, 2)
-    expectClose(sampled(modelled, 20, 15, 5), Uint8ClampedArray.from(fillExpected), 1)
+    expectClose(sampled(modeled, 20, 5, 5), imageExpected, 2)
+    expectClose(sampled(modeled, 20, 15, 5), Uint8ClampedArray.from(fillExpected), 1)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

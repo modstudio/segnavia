@@ -182,7 +182,7 @@ export async function fixtures(): Promise<Fixture[]> {
       print: { paper: 'a5', orientation: 'portrait', bleed: 3, safe: 8, marks: false },
     }),
     fixed('hebrew', 'Hebrew editorial page', 900, 1100, 'effects', { lang: 'he' }),
-    fixed('control-flat', 'Flat colour control', 1000, 800, 'control'),
+    fixed('control-flat', 'Flat color control', 1000, 800, 'control'),
     fixed('control-text', 'Text control', 900, 1100, 'control'),
     fixed('control-photo', 'Photo control', 1000, 800, 'control'),
   ]
