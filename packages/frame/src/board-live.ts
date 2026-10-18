@@ -9,6 +9,26 @@ export interface LiveBoardItem {
   dispose(): void
 }
 
+export function boardImage(src: string): HTMLImageElement {
+  const image = document.createElement('img')
+  image.src = src
+  image.alt = ''
+  image.part.add('cover')
+  return image
+}
+
+export function boardPlaceholder(): HTMLElement {
+  const placeholder = document.createElement('div')
+  placeholder.part.add('placeholder')
+  return placeholder
+}
+
+export function boardShield(): HTMLElement {
+  const shield = document.createElement('div')
+  shield.className = 'shield'
+  return shield
+}
+
 export function liveBoardItem(resolved: Exclude<ResolvedBoardItem, { kind: 'image' | 'shot' }>, failed: (error: unknown) => void): LiveBoardItem {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()

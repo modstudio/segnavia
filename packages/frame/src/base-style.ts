@@ -47,15 +47,18 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="label"]){position:absolute;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-label,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-title"]){position:absolute;translate:0 -100%;color:var(--segnavia-board-item-title,currentColor)}
-:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > span){display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:start}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > div){text-align:start}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] span){display:inline-block;max-inline-size:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:match-parent;vertical-align:top}
 :where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
 :where(:host(segnavia-board-list)){display:block;color:var(--segnavia-board-list-color,currentColor);background:var(--segnavia-board-list-background,transparent)}
 :where(:host(segnavia-board-list) [part~="search"]){box-sizing:border-box;inline-size:100%;color:var(--segnavia-board-list-search-color,currentColor);background:var(--segnavia-board-list-search-background,transparent)}
 :where(:host(segnavia-board-list) [part~="groups"]){display:block}
+:where(:host(segnavia-board-list) [part~="group"]){text-align:start}
 :where(:host(segnavia-board-list) [part~="group"] ul){margin-block:0;padding-inline-start:0}
 :where(:host(segnavia-board-list) [part~="group"] li){display:block}
 :where(:host(segnavia-board-list) [part~="group-title"]),:where(:host(segnavia-board-list) [part~="item"]){box-sizing:border-box;display:block;inline-size:100%;text-align:start;color:var(--segnavia-board-list-button-color,currentColor);background:var(--segnavia-board-list-button-background,transparent)}
+:where(:host(segnavia-board-list) [part~="group-title"] > span),:where(:host(segnavia-board-list) [part~="item"] > span){display:inline-block;max-inline-size:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:match-parent;vertical-align:top}
 :where(:host(segnavia-board-list) [part~="empty"]){color:var(--segnavia-board-list-empty-color,currentColor)}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}

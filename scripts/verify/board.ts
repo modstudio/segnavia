@@ -247,6 +247,34 @@ export async function verifyBoard(h: Harness) {
   const viewBeforeList = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   const list = h.page.locator('segnavia-board-list')
   const search = list.locator('input[type="search"]')
+  const nameAlignment = await list.evaluate((element) => {
+    const rangeLeft = (selector: string) => {
+      const text = element.shadowRoot?.querySelector(selector)?.firstChild
+      if (!text) return Number.NaN
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      return range.getBoundingClientRect().left
+    }
+    return { english: rangeLeft('[data-board-item="deck-small"]'), hebrew: rangeLeft('[data-board-item="deck-hebrew"]') }
+  })
+  h.check(
+    'Hebrew and English list names align to the list inline start',
+    Math.abs(nameAlignment.english - nameAlignment.hebrew) <= 1,
+    JSON.stringify(nameAlignment),
+  )
+  const titleAlignment = await board.evaluate((element) => {
+    const item = element.shadowRoot?.querySelector('[data-board-item="deck-hebrew"]')
+    const text = item?.previousElementSibling?.querySelector('span')?.firstChild
+    if (!item || !text) return { item: Number.NaN, title: Number.NaN }
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    return { item: item.getBoundingClientRect().left, title: range.getBoundingClientRect().left }
+  })
+  h.check(
+    'a Hebrew board item title aligns to the item inline start',
+    Math.abs(titleAlignment.item - titleAlignment.title) <= 1,
+    JSON.stringify(titleAlignment),
+  )
   await search.fill('creating')
   const filtered = await list.locator('[data-board-item]').evaluateAll((items) => items.map((item) => item.getAttribute('data-board-item')))
   h.check('typing an item name filters the board list immediately', filtered.length === 1 && filtered[0] === 'deck-small', filtered.join(','))

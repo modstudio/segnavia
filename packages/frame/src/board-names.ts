@@ -8,6 +8,8 @@ export class BoardNames {
   private readonly inFlight = new Set<string>()
   private readonly failedAddresses = new Set<string>()
   private activeAddresses = new Set<string>()
+  private provider: BoardItemNames | undefined
+  private generation = 0
 
   constructor(
     private readonly changed: () => void,
@@ -15,16 +17,25 @@ export class BoardNames {
   ) {}
 
   update(items: BoardItem[], provider: BoardItemNames | undefined) {
+    if (provider !== this.provider) {
+      this.provider = provider
+      this.generation += 1
+      this.names.clear()
+      this.inFlight.clear()
+      this.failedAddresses.clear()
+    }
     const addresses = new Set(items.map((item) => item.address))
     this.activeAddresses = addresses
     for (const address of this.names.keys()) if (!addresses.has(address)) this.names.delete(address)
     if (!provider) return
     const batch = items.filter((item) => !this.names.has(item.address) && !this.inFlight.has(item.address) && !this.failedAddresses.has(item.address))
     if (batch.length === 0) return
+    const generation = this.generation
     for (const item of batch) this.inFlight.add(item.address)
     Promise.resolve()
       .then(() => provider(batch))
       .then((result) => {
+        if (generation !== this.generation) return
         for (const item of batch) this.inFlight.delete(item.address)
         const ids = new Map(batch.map((item) => [item.id, item]))
         for (const [id, name] of Object.entries(result)) {
@@ -34,6 +45,7 @@ export class BoardNames {
         this.changed()
       })
       .catch((error) => {
+        if (generation !== this.generation) return
         for (const item of batch) {
           this.inFlight.delete(item.address)
           this.failedAddresses.add(item.address)

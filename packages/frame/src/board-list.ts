@@ -44,7 +44,7 @@ export class SegnaviaBoardList extends HTMLElement {
 
   set searchItems(value: BoardItemSearch | undefined) {
     this.searcher = value
-    this.scheduleSearch()
+    this.restartSearch()
   }
 
   get labels(): Partial<BoardListLabels> {
@@ -85,18 +85,24 @@ export class SegnaviaBoardList extends HTMLElement {
     const target = this.target
     if (target === this.activeTarget) return
     this.listen(target)
+    this.restartSearch()
     this.render()
   }
 
   private listen(target: SegnaviaBoard | null) {
-    this.activeTarget?.removeEventListener('segnavia-board-change', this.onBoardUpdate)
-    this.activeTarget?.removeEventListener('segnavia-board-names', this.onBoardUpdate)
+    this.activeTarget?.removeEventListener('segnavia-board-change', this.onBoardChange)
+    this.activeTarget?.removeEventListener('segnavia-board-names', this.onNames)
     this.activeTarget = target
-    target?.addEventListener('segnavia-board-change', this.onBoardUpdate)
-    target?.addEventListener('segnavia-board-names', this.onBoardUpdate)
+    target?.addEventListener('segnavia-board-change', this.onBoardChange)
+    target?.addEventListener('segnavia-board-names', this.onNames)
   }
 
-  private onBoardUpdate = () => this.render()
+  private onBoardChange = () => {
+    this.restartSearch()
+    this.render()
+  }
+
+  private onNames = () => this.render()
 
   private onInput = () => {
     this.contentMatches.clear()
@@ -109,6 +115,11 @@ export class SegnaviaBoardList extends HTMLElement {
     const query = this.input.value
     if (!this.searcher || !foldForSearch(query)) return
     this.timer = setTimeout(() => this.runSearch(query), 250)
+  }
+
+  private restartSearch() {
+    this.contentMatches.clear()
+    this.scheduleSearch()
   }
 
   private cancelSearch() {
@@ -166,8 +177,7 @@ export class SegnaviaBoardList extends HTMLElement {
       heading.type = 'button'
       heading.part.add('group-title')
       heading.dataset.boardSection = group.section.id
-      heading.textContent = group.section.title
-      heading.dir = resolveDirection(undefined, undefined, group.section.title)
+      heading.append(this.name(group.section.title))
       section.append(heading)
     }
     const list = document.createElement('ul')
@@ -184,8 +194,7 @@ export class SegnaviaBoardList extends HTMLElement {
     button.type = 'button'
     button.part.add('item')
     button.dataset.boardItem = item.id
-    button.textContent = text
-    button.dir = resolveDirection(undefined, undefined, text)
+    button.append(this.name(text))
     entry.append(button)
     return entry
   }
@@ -196,6 +205,13 @@ export class SegnaviaBoardList extends HTMLElement {
     empty.textContent = labels.noMatches
     empty.dir = resolveDirection(undefined, undefined, labels.noMatches)
     return empty
+  }
+
+  private name(text: string): HTMLSpanElement {
+    const name = document.createElement('span')
+    name.textContent = text
+    name.dir = resolveDirection(undefined, undefined, text)
+    return name
   }
 
   private onClick = (event: MouseEvent) => {

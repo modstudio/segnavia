@@ -73,4 +73,29 @@ describe('board names', () => {
     names.update([], undefined)
     expect(names.name(a, undefined)).toBe('')
   })
+
+  test('discards an old provider result and requests current items from the new provider', async () => {
+    let finishOld: ((value: Record<string, string>) => void) | undefined
+    let newCalls = 0
+    const oldProvider = () =>
+      new Promise<Record<string, string>>((resolve) => {
+        finishOld = resolve
+      })
+    const newProvider = async () => {
+      newCalls += 1
+      return { a: 'New' }
+    }
+    const names = new BoardNames(
+      () => {},
+      () => {},
+    )
+    names.update([a], oldProvider)
+    await settle()
+    names.update([a], newProvider)
+    await settle()
+    finishOld?.({ a: 'Old' })
+    await settle()
+    expect(newCalls).toBe(1)
+    expect(names.name(a, undefined)).toBe('New')
+  })
 })
