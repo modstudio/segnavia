@@ -169,12 +169,13 @@ export function pressRasterizerEngine(rasterizer: PressRasterizer): string {
   return rasterizer === 'ghostscript' ? engineName('ghostscript') : engineName('poppler')
 }
 
-export function pressGhostscriptSettings(_profile: string, colorSpace: 'cmyk' | 'gray'): string[] {
+export function pressGhostscriptSettings(profile: string, colorSpace: 'cmyk' | 'gray'): string[] {
   return [
     '-dUseCropBox',
     '-dPDFFitPage',
     `-sDEVICE=${colorSpace === 'cmyk' ? 'tiff32nc' : 'tiffgray'}`,
     `-sDefaultRGBProfile=${SRGB_PROFILE}`,
+    `-sBlendColorProfile=${profile}`,
     '-dUsePDFX3Profile',
     '-dRenderIntent=1',
     '-dBlackPtComp=1',
