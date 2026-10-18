@@ -33,6 +33,15 @@ of the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
 
+`Board` is the portable value for an unbounded collection of referenced
+assets, labels and sections. It stores each item's width but not its height;
+the host supplies intrinsic item shapes and measured label sizes when it calls
+the pure placement geometry. Bounds, board-to-screen transforms, visibility,
+hit-testing and grid or row arrangement live in universal
+`@segnavia/format`, so browser and server callers use the same calculations
+without loading an element.
+A board's unbounded surface is its canvas, while a slide's canvas is bounded.
+
 The seven packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass

@@ -3,6 +3,7 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
+import { Board } from './board.ts'
 import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
@@ -10,6 +11,24 @@ import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
+export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection } from './board.ts'
+export {
+  type ArrangeOptions,
+  arrange,
+  type BoardShapes,
+  type BoardView,
+  boardBounds,
+  boardToScreen,
+  itemAt,
+  itemHeight,
+  MAX_BOARD_ZOOM,
+  MIN_BOARD_ZOOM,
+  screenToBoard,
+  visibleItems,
+  type ZoomBounds,
+  zoomAt,
+  zoomToFit,
+} from './board-geometry.ts'
 export {
   Book,
   BookContents,
@@ -48,7 +67,7 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
-export { Direction, firstStrongDirection, languageDirection, resolveDirection, type TextDirection } from './direction.ts'
+export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
 export {
   fitPage,
   type Imposed,
@@ -232,5 +251,6 @@ export function jsonSchemas() {
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
+    board: z.toJSONSchema(Board, { io: 'input' }),
   }
 }

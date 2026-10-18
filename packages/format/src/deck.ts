@@ -14,6 +14,7 @@ export const Box = z.object({ x: z.number(), y: z.number(), width: z.number(), h
 export type Box = z.infer<typeof Box>
 
 export const Point = z.object({ x: z.number(), y: z.number() })
+export type Point = z.infer<typeof Point>
 
 export const ImageFit = z.enum(['contain', 'cover', 'width', 'focus'])
 export type ImageFit = z.infer<typeof ImageFit>
