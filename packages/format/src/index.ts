@@ -4,6 +4,7 @@
 
 import { z } from 'zod'
 import { BookShape, BookView } from './book.ts'
+import { Canvas } from './canvas.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
@@ -25,6 +26,24 @@ export {
   isHebrew,
   noteMarkerIssues,
 } from './book.ts'
+export { Canvas, type CanvasInput, CanvasItem, CanvasLabel, CanvasSection } from './canvas.ts'
+export {
+  type ArrangeOptions,
+  arrange,
+  type CanvasShapes,
+  type CanvasView,
+  canvasBounds,
+  canvasToScreen,
+  itemAt,
+  itemHeight,
+  MAX_CANVAS_ZOOM,
+  MIN_CANVAS_ZOOM,
+  screenToCanvas,
+  visibleItems,
+  type ZoomBounds,
+  zoomAt,
+  zoomToFit,
+} from './canvas-geometry.ts'
 export {
   Annotation,
   annotationCueIssues,
@@ -232,5 +251,6 @@ export function jsonSchemas() {
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
+    canvas: z.toJSONSchema(Canvas, { io: 'input' }),
   }
 }

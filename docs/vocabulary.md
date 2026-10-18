@@ -26,6 +26,7 @@ something else.
 | **Proof** | An image of a page as it will look in the press's inks. A guide, not a contract proof. |
 | **Slide** | A page whose canvas follows the deck's layout: the deck size under `fixed`, or the stage's box under `responsive`. Print, rail thumbnails and standalone thumbnails always use the deck size. A slide has optional notes and narration. A narrated slide may pause for `beforeMs` and `afterMs`; an unnarrated slide may have `holdMs`. Each timing is 0–600000 milliseconds. Its content is HTML, a host-served URL, a shot, a shot named by reference, or an image. |
 | **Deck** | An ordered set of slides on one canvas size (`DECK_SIZE`, 1280×720, unless set), with optional `playback` (`step` or `continuous`) and caption policy (`on`, `off` or `viewer`). |
+| **Canvas** | An asset that places referenced decks, pages, papers, books, images and shots on an unbounded surface, alongside text labels and titled sections. Its item order is its print and auto-arrange order; each item keeps a free position and width while its height follows the intrinsic shape supplied by the host. |
 | **Book** | A long document made of optional front matter and one or more chapters, in continuous or paginated mode. |
 | **Chapter** | A titled part of a book, with HTML and an optional replacement title for its running head. |
 | **Front matter** | The optional entries before a book's chapters. Each is either an authored section with optional title and contents opt-out, or the generated contents entry. |
