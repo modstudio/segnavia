@@ -322,7 +322,7 @@ export class SegnaviaBoard extends HTMLElement {
         const resolvedId = pendingItem?.address === item.address ? pendingItem.id : undefined
         const refit = shouldRefitReveal(this.pendingReveal?.id, resolvedId, this.pendingReveal?.height ?? 0, pendingItem ? itemHeight(pendingItem, shape) : 0)
         for (const current of this.value?.items ?? []) if (current.address === item.address) this.shapes.items[current.id] = shape
-        if (refit) this.reveal(item.id)
+        if (refit && resolvedId) this.reveal(resolvedId)
         else this.render()
         if (resolved.title) this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
       })
