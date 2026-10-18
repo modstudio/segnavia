@@ -1,4 +1,4 @@
-// The only styles the headless elements bring: the geometry a slide, thumbnail, page, paper or book
+// The only styles the headless elements bring: the geometry a slide, thumbnail, board, page, paper or book
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
 // borders, radius, type) is left entirely to the host; the few values that
@@ -38,6 +38,18 @@ export const BASE_CSS = `
 :where(:host(segnavia-thumbnail) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-thumbnail-canvas,transparent);pointer-events:none}
 :where(:host(segnavia-thumbnail) .segnavia-stage__canvas > iframe){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(:host(segnavia-thumbnail) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
+:where(:host(segnavia-board:not([unstyled]))){display:block;position:relative;overflow:hidden;touch-action:none;background:var(--segnavia-board-background,transparent)}
+:where(:host(segnavia-board:not([unstyled])) [part~="surface"]){position:absolute;inset:0;overflow:hidden}
+:where(:host(segnavia-board:not([unstyled])) [part~="item"]){position:absolute;overflow:hidden;background:var(--segnavia-board-item,transparent)}
+:where(:host(segnavia-board:not([unstyled])) [part~="item"] > :not(.shield)){display:block;position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain}
+:where(:host(segnavia-board:not([unstyled])) .shield){position:absolute;inset:0;z-index:2;background:var(--segnavia-board-shield,transparent)}
+:where(:host(segnavia-board:not([unstyled])) [part~="cover"]){background:var(--segnavia-board-cover,transparent)}
+:where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}
+:where(:host(segnavia-board:not([unstyled])) [part~="label"]){position:absolute;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-label,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]){position:absolute;translate:0 -100%;color:var(--segnavia-board-item-title,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > span){display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:start}
+:where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
