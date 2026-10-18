@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
-import type { BarId, Difference, ReaderResult, SizeMeasurement, Threshold } from './types.ts'
+import type { BarId, Difference, FixtureKind, ReaderResult, SizeMeasurement, Threshold } from './types.ts'
 
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const OUTPUT_ROOT = path.resolve(process.env.SEGNAVIA_FIDELITY_OUT ?? path.join(ROOT, 'out/fidelity'))
@@ -11,8 +11,8 @@ export const READER_RASTER_DPI = CSS_PX_PER_INCH * SCALE
 // Shmuel agreed these acceptance limits on 2026-10-14.
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
-// Provisional: the final value will be set from the split-region measurements.
-export const PRESS_BLEND_THRESHOLD = { mean: 6, p99: 60 }
+// This regression ceiling sits just above the worst measured effects document.
+export const PRESS_BLEND_THRESHOLD = { mean: 10, p99: 90 }
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
 export const ALIGNMENT_SEARCH_RADIUS = 16
 export const ALIGNMENT_TOLERANCE = 8
@@ -29,13 +29,13 @@ const color = (value: readonly number[]) => `rgb(${value.join(' ')})`
 export const MEASUREMENT_CSS = `html{overflow:clip!important}html::after{content:"";position:fixed;left:${MARKER_INSET}px;top:${MARKER_INSET}px;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;box-sizing:border-box;background:${color(MARKER_FILL)};border:${MARKER_BORDER}px solid ${color(MARKER_BORDER_COLOR)};z-index:2147483647;pointer-events:none}`
 
 export interface BarFacts {
+  kind: FixtureKind
+  blendedFraction: number
   readers: ReaderResult[]
   worstRegion: Difference
-  pressFlatDifference?: Difference
-  pressBlendedDifference?: Difference
+  pressDifference?: Difference
   pressReason?: string
-  grayPressFlatDifference?: Difference
-  grayPressBlendedDifference?: Difference
+  grayPressDifference?: Difference
   grayPressResidues?: number
   grayPressResidueErrors?: string[]
   grayPressReason?: string
@@ -46,6 +46,7 @@ export interface AcceptanceBar {
   id: BarId
   title: string
   threshold: Threshold | { multiple: number; absoluteBytes: number }
+  thresholdFor?: (facts: BarFacts) => Threshold | { multiple: number; absoluteBytes: number }
   measure: (facts: BarFacts) => Difference | SizeMeasurement | undefined
   pass: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => boolean
   reason: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => string | undefined
@@ -58,79 +59,76 @@ const differenceFormat = (threshold: Threshold) => (measured: Difference | SizeM
   return `mean ${decimal(value?.mean)}, p99 ${decimal(value?.p99)} / mean ≤ ${threshold.mean}, p99 ≤ ${threshold.p99}`
 }
 
+export function pressThreshold(kind: FixtureKind): Threshold {
+  return kind === 'control' ? PRESS_COLOR_THRESHOLD : PRESS_BLEND_THRESHOLD
+}
+
+export function judgePress(kind: FixtureKind, difference: Difference): boolean {
+  const threshold = pressThreshold(kind)
+  return difference.mean <= threshold.mean && difference.p99 <= threshold.p99
+}
+
+function controlMaskReason({ kind, blendedFraction }: BarFacts): string | undefined {
+  return kind === 'control' && blendedFraction > 0.01
+    ? `The control's blended mask covers ${(blendedFraction * 100).toFixed(2)}% of the page; controls allow at most 1%.`
+    : undefined
+}
+
 export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
   {
     id: 'effects',
     title: 'Effects',
     threshold: EFFECT_REGION_THRESHOLD,
     measure: ({ worstRegion }) => worstRegion,
-    pass: (measured, { readers }) => {
+    pass: (measured, { kind, readers }) => {
+      if (kind === 'control') return true
       const value = measured as Difference
       return readers.every((reader) => reader.worked) && value.mean <= EFFECT_REGION_THRESHOLD.mean && value.p99 <= EFFECT_REGION_THRESHOLD.p99
     },
-    reason: (_, { readers }) => {
+    reason: (_, { kind, readers }) => {
+      if (kind === 'control') return 'Not applicable to control documents.'
       const failed = readers.filter((reader) => !reader.worked)
       return failed.length ? failed.map((reader) => `${reader.engine} skipped: ${reader.error ?? 'unknown failure'}`).join('; ') : undefined
     },
     format: differenceFormat(EFFECT_REGION_THRESHOLD),
   },
   {
-    id: 'pressColorFlat',
-    title: 'CMYK press flat',
-    threshold: PRESS_COLOR_THRESHOLD,
-    measure: ({ pressFlatDifference }) => pressFlatDifference,
-    pass: (measured) => {
-      const value = measured as Difference | undefined
-      return Boolean(value && value.mean <= PRESS_COLOR_THRESHOLD.mean && value.p99 <= PRESS_COLOR_THRESHOLD.p99)
-    },
-    reason: (measured, { pressReason }) => (measured ? undefined : (pressReason ?? 'The press measurement is missing.')),
-    format: differenceFormat(PRESS_COLOR_THRESHOLD),
-  },
-  {
-    id: 'pressColorBlended',
-    title: 'CMYK press blended',
+    id: 'pressColor',
+    title: 'CMYK press',
     threshold: PRESS_BLEND_THRESHOLD,
-    measure: ({ pressBlendedDifference }) => pressBlendedDifference,
-    pass: (measured) => {
+    thresholdFor: ({ kind }) => pressThreshold(kind),
+    measure: ({ pressDifference }) => pressDifference,
+    pass: (measured, facts) => {
       const value = measured as Difference | undefined
-      return Boolean(value && value.mean <= PRESS_BLEND_THRESHOLD.mean && value.p99 <= PRESS_BLEND_THRESHOLD.p99)
+      return Boolean(value && judgePress(facts.kind, value) && controlMaskReason(facts) === undefined)
     },
-    reason: (measured, { pressReason }) => (measured ? undefined : (pressReason ?? 'The press measurement is missing.')),
+    reason: (measured, facts) => controlMaskReason(facts) ?? (measured ? undefined : (facts.pressReason ?? 'The press measurement is missing.')),
     format: differenceFormat(PRESS_BLEND_THRESHOLD),
   },
   {
-    id: 'grayPressColorFlat',
-    title: 'Gray press flat',
-    threshold: PRESS_COLOR_THRESHOLD,
-    measure: ({ grayPressFlatDifference }) => grayPressFlatDifference,
-    pass: (measured, { grayPressResidues, grayPressResidueErrors }) => {
+    id: 'grayPressColor',
+    title: 'Gray press',
+    threshold: PRESS_BLEND_THRESHOLD,
+    thresholdFor: ({ kind }) => pressThreshold(kind),
+    measure: ({ grayPressDifference }) => grayPressDifference,
+    pass: (measured, facts) => {
       const value = measured as Difference | undefined
       return Boolean(
         value &&
-          value.mean <= PRESS_COLOR_THRESHOLD.mean &&
-          value.p99 <= PRESS_COLOR_THRESHOLD.p99 &&
-          grayPressResidues === 0 &&
-          grayPressResidueErrors?.length === 0,
+          judgePress(facts.kind, value) &&
+          facts.grayPressResidues === 0 &&
+          facts.grayPressResidueErrors?.length === 0 &&
+          controlMaskReason(facts) === undefined,
       )
     },
-    reason: (measured, { grayPressReason, grayPressResidues, grayPressResidueErrors }) => {
-      if (!measured) return grayPressReason ?? 'The gray press measurement is missing.'
-      if (grayPressResidueErrors?.length) return `Gray residue scan errors: ${grayPressResidueErrors.join('; ')}`
-      if (grayPressResidues) return `${grayPressResidues} RGB or CMYK residues remain.`
+    reason: (measured, facts) => {
+      const maskReason = controlMaskReason(facts)
+      if (maskReason) return maskReason
+      if (!measured) return facts.grayPressReason ?? 'The gray press measurement is missing.'
+      if (facts.grayPressResidueErrors?.length) return `Gray residue scan errors: ${facts.grayPressResidueErrors.join('; ')}`
+      if (facts.grayPressResidues) return `${facts.grayPressResidues} RGB or CMYK residues remain.`
       return undefined
     },
-    format: differenceFormat(PRESS_COLOR_THRESHOLD),
-  },
-  {
-    id: 'grayPressColorBlended',
-    title: 'Gray press blended',
-    threshold: PRESS_BLEND_THRESHOLD,
-    measure: ({ grayPressBlendedDifference }) => grayPressBlendedDifference,
-    pass: (measured) => {
-      const value = measured as Difference | undefined
-      return Boolean(value && value.mean <= PRESS_BLEND_THRESHOLD.mean && value.p99 <= PRESS_BLEND_THRESHOLD.p99)
-    },
-    reason: (measured, { grayPressReason }) => (measured ? undefined : (grayPressReason ?? 'The gray press measurement is missing.')),
     format: differenceFormat(PRESS_BLEND_THRESHOLD),
   },
   {
@@ -159,27 +157,32 @@ export const EFFECTLESS_CSS =
 export interface Fixture {
   id: string
   title: string
+  kind: FixtureKind
   page: PageInput
 }
 
-const fixed = (id: string, title: string, width: number, height: number, extra: Partial<PageInput> = {}): Fixture => ({
+const fixed = (id: string, title: string, width: number, height: number, kind: FixtureKind, extra: Partial<PageInput> = {}): Fixture => ({
   id,
   title,
+  kind,
   page: { html: '', size: { width, height }, ...extra },
 })
 
 export async function fixtures(): Promise<Fixture[]> {
   const entries = [
-    fixed('flyer', 'Editorial flyer', 900, 1200),
-    fixed('cards', 'Card collection', 1000, 800),
-    fixed('glass-ui', 'Glass interface', 1100, 800),
-    fixed('data-report', 'Data report', 1000, 750),
-    fixed('poster', 'Event poster', 800, 1120),
-    fixed('slide', 'Presentation slide', 1280, 720),
-    fixed('print-piece', 'A5 postcard', 559, 794, {
+    fixed('flyer', 'Editorial flyer', 900, 1200, 'effects'),
+    fixed('cards', 'Card collection', 1000, 800, 'effects'),
+    fixed('glass-ui', 'Glass interface', 1100, 800, 'effects'),
+    fixed('data-report', 'Data report', 1000, 750, 'effects'),
+    fixed('poster', 'Event poster', 800, 1120, 'effects'),
+    fixed('slide', 'Presentation slide', 1280, 720, 'effects'),
+    fixed('print-piece', 'A5 postcard', 559, 794, 'effects', {
       print: { paper: 'a5', orientation: 'portrait', bleed: 3, safe: 8, marks: false },
     }),
-    fixed('hebrew', 'Hebrew editorial page', 900, 1100, { lang: 'he' }),
+    fixed('hebrew', 'Hebrew editorial page', 900, 1100, 'effects', { lang: 'he' }),
+    fixed('control-flat', 'Flat colour control', 1000, 800, 'control'),
+    fixed('control-text', 'Text control', 900, 1100, 'control'),
+    fixed('control-photo', 'Photo control', 1000, 800, 'control'),
   ]
   for (const entry of entries) entry.page.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
   return entries

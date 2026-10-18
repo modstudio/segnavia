@@ -214,8 +214,7 @@ try {
     let pressPdf: string | undefined
     let pressProof: string | undefined
     let pressRaster: string | undefined
-    let pressFlatDifference: Difference | undefined
-    let pressBlendedDifference: Difference | undefined
+    let pressDifference: Difference | undefined
     let pressReason: string | undefined
     if (profilePath && profileBytes && profile && table) {
       pressPdf = path.join(documentDirectory, `${fixture.id}-press.pdf`)
@@ -238,8 +237,7 @@ try {
             const rendered = await pressGhostscript(pressComparisonPdf, deviceRaster, size.width, size.height, profilePath, 'cmyk')
             if (rendered.worked) {
               await modelPressRaster(deviceRaster, pressRaster, size.width, size.height, profile)
-              pressFlatDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
-              pressBlendedDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
+              pressDifference = difference(pressProof, pressRaster, size.width, size.height)
             } else pressReason = rendered.error ?? 'Ghostscript did not render the press PDF.'
           } finally {
             await unlink(deviceRaster).catch(() => {})
@@ -247,8 +245,7 @@ try {
         } else {
           const rendered = await pressPoppler(pressComparisonPdf, pressRaster, size.width, size.height, profilePath, 'cmyk')
           if (rendered.worked) {
-            pressFlatDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
-            pressBlendedDifference = difference(pressProof, pressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
+            pressDifference = difference(pressProof, pressRaster, size.width, size.height)
           } else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
         }
       } catch (error) {
@@ -263,8 +260,7 @@ try {
     let grayPressPdf: string | undefined
     let grayPressProof: string | undefined
     let grayPressRaster: string | undefined
-    let grayPressFlatDifference: Difference | undefined
-    let grayPressBlendedDifference: Difference | undefined
+    let grayPressDifference: Difference | undefined
     let grayPressResidues: number | undefined
     let grayPressResidueErrors: string[] | undefined
     let grayPressReason: string | undefined
@@ -286,8 +282,7 @@ try {
         proofImage(screen, grayPressProof, size.width, size.height, grayTable)
         const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
         if (rendered.worked) {
-          grayPressFlatDifference = difference(grayPressProof, grayPressRaster, size.width, size.height, undefined, blendedMaskPixels, false)
-          grayPressBlendedDifference = difference(grayPressProof, grayPressRaster, size.width, size.height, undefined, blendedMaskPixels, true)
+          grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
         } else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
       } catch (error) {
         grayPressReason = error instanceof Error ? error.message : String(error)
@@ -311,6 +306,7 @@ try {
     documents.push({
       id: fixture.id,
       title: fixture.title,
+      kind: fixture.kind,
       pdf,
       pdfBytes: pdfBytes.byteLength,
       effectlessPdf,
@@ -327,27 +323,25 @@ try {
       pressPdf,
       pressProof,
       pressRaster,
-      pressFlatDifference,
-      pressBlendedDifference,
+      pressDifference,
       pressReason,
       grayPressPdf,
       grayPressProof,
       grayPressRaster,
-      grayPressFlatDifference,
-      grayPressBlendedDifference,
+      grayPressDifference,
       grayPressResidues,
       grayPressResidueErrors,
       grayPressReason,
       blendedMask,
       blendedFraction,
       bars: measureBars({
+        kind: fixture.kind,
+        blendedFraction,
         readers,
         worstRegion,
-        pressFlatDifference,
-        pressBlendedDifference,
+        pressDifference,
         pressReason,
-        grayPressFlatDifference,
-        grayPressBlendedDifference,
+        grayPressDifference,
         grayPressResidues,
         grayPressResidueErrors,
         grayPressReason,

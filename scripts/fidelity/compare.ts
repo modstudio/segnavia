@@ -61,8 +61,8 @@ const grayPressRows = left.documents.flatMap((before) => {
   return [
     {
       document: before.id,
-      before: before.grayPressFlatDifference,
-      after: after.grayPressFlatDifference,
+      before: before.grayPressDifference,
+      after: after.grayPressDifference,
       beforeResidues: before.grayPressResidues,
       afterResidues: after.grayPressResidues,
     },

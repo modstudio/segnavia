@@ -18,6 +18,8 @@ export interface Threshold {
 export interface BarResult<T> {
   measured?: T
   passed: boolean
+  applicable?: boolean
+  threshold?: Threshold | { multiple: number; absoluteBytes: number }
   reason?: string
 }
 
@@ -103,6 +105,7 @@ export interface ReaderResult {
 export interface DocumentResult {
   id: string
   title: string
+  kind: FixtureKind
   pdf: string
   pdfBytes: number
   effectlessPdf: string
@@ -119,14 +122,12 @@ export interface DocumentResult {
   pressPdf?: string
   pressProof?: string
   pressRaster?: string
-  pressFlatDifference?: Difference
-  pressBlendedDifference?: Difference
+  pressDifference?: Difference
   pressReason?: string
   grayPressPdf?: string
   grayPressProof?: string
   grayPressRaster?: string
-  grayPressFlatDifference?: Difference
-  grayPressBlendedDifference?: Difference
+  grayPressDifference?: Difference
   grayPressResidues?: number
   grayPressResidueErrors?: string[]
   grayPressReason?: string
@@ -135,7 +136,8 @@ export interface DocumentResult {
   bars: Record<BarId, BarResult<BarMeasurement>>
 }
 
-export type BarId = 'effects' | 'pressColorFlat' | 'pressColorBlended' | 'grayPressColorFlat' | 'grayPressColorBlended' | 'size'
+export type FixtureKind = 'control' | 'effects'
+export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size'
 export type BarMeasurement = Difference | SizeMeasurement
 
 export interface FidelityRun {
