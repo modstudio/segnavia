@@ -1,5 +1,14 @@
 # @segnavia/render
 
+## 0.9.1
+
+### Patch Changes
+
+- 12faefc: Print pages whose clipped content runs into the bleed at the same size as their screen layout.
+  - @segnavia/format@0.9.1
+  - @segnavia/frame@0.9.1
+  - @segnavia/html@0.9.1
+
 ## 0.9.0
 
 ### Minor Changes
