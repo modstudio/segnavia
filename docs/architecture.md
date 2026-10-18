@@ -464,7 +464,10 @@ tracker unions fill and stroke path boxes after the content CTM (strokes grown b
 the current line width, join and miter). For each use of a shading, that
 rectangle maps through the inverse of (pattern `/Matrix` times shading
 `/Matrix`) and intersects the shading Domain; the union over every use becomes
-the Type 0 function's Domain, and the shading's own Domain stays. The sample grid
+both the Type 0 function's Domain and the shading's own Domain. The two are kept
+equal because a Type 1 shading's Domain must lie within its function's (ISO
+32000-1, Table 79); a reader that enforces it, such as Ghostscript, drops a
+pattern whose function covers less than its shading. The sample grid
 is the largest per-use grid over that Domain, one sample per 0.5 pt through each
 use's combined matrix. A use the pass cannot bound samples the full Domain under
 that ceiling, so a sampled Domain is never smaller than a painted use needs. Sample counts across one rewrite are capped at
