@@ -3,6 +3,7 @@
 // bridge, right to left throughout, and a host-built player on the headless
 // elements.
 
+import { verifyBoard } from './verify/board.ts'
 import { verifyBooks } from './verify/books.ts'
 import { verifyCapture } from './verify/capture.ts'
 import { verifyComponents } from './verify/components.ts'
@@ -28,6 +29,7 @@ try {
   await verifyRailAuthoring(h)
   await verifyPages(h)
   await verifyBooks(h)
+  await verifyBoard(h)
   await verifyPapers(h)
   await verifyRtl(h)
   await verifyHeadless(h)

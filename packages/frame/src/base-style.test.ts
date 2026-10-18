@@ -37,4 +37,10 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration)')
     expect(BASE_CSS).toContain('[data-transition="slide"]')
   })
+
+  test('the board exposes geometry for every documented part without a surface scale', () => {
+    for (const part of ['surface', 'item', 'cover', 'placeholder', 'label', 'section', 'section-title']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
+    expect(BASE_CSS).toContain(':host(segnavia-board:not([unstyled]))')
+    expect(BASE_CSS).not.toMatch(/\[part~="surface"\][^{]*\{[^}]*transform:/)
+  })
 })

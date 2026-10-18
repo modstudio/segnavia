@@ -1,6 +1,7 @@
 export const HEADLESS_ELEMENTS = {
   stage: 'segnavia-stage',
   thumbnail: 'segnavia-thumbnail',
+  board: 'segnavia-board',
   page: 'segnavia-page',
   paper: 'segnavia-paper',
   book: 'segnavia-book',
