@@ -147,6 +147,8 @@ export interface FidelityRun {
     pressRasterizer: {
       mode: 'ghostscript' | 'profiled-poppler'
       engine: string
+      grayMode: 'profiled-poppler'
+      grayEngine: string
       cmykSettings: string[]
       graySettings: string[]
       outputIntent: string

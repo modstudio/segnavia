@@ -274,23 +274,9 @@ try {
         grayPressResidueErrors = residues.errors
         await trimPdf(grayPressPdf, grayPressComparisonPdf)
         proofImage(screen, grayPressProof, size.width, size.height, grayTable)
-        if (selectedPressRasterizer === 'ghostscript') {
-          const deviceRaster = `${grayPressRaster}.device.tiff`
-          try {
-            const grayProfile = readProfile(grayProfileBytes)
-            const rendered = await pressGhostscript(grayPressComparisonPdf, deviceRaster, size.width, size.height, grayProfilePath, 'gray')
-            if (rendered.worked) {
-              await modelPressRaster(deviceRaster, grayPressRaster, size.width, size.height, grayProfile)
-              grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
-            } else grayPressReason = rendered.error ?? 'Ghostscript did not render the gray press PDF.'
-          } finally {
-            await unlink(deviceRaster).catch(() => {})
-          }
-        } else {
-          const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
-          if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
-          else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
-        }
+        const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
+        if (rendered.worked) grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
+        else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
       } catch (error) {
         grayPressReason = error instanceof Error ? error.message : String(error)
         grayPressPdf = undefined
@@ -372,17 +358,16 @@ const run: FidelityRun = {
     pressRasterizer: {
       mode: selectedPressRasterizer,
       engine: pressRasterizerEngine(selectedPressRasterizer),
+      grayMode: 'profiled-poppler',
+      grayEngine: pressRasterizerEngine('profiled-poppler'),
       cmykSettings:
         selectedPressRasterizer === 'ghostscript'
           ? pressGhostscriptSettings(profilePath ?? 'not set', 'cmyk')
           : [`-defaultcmykprofile ${profilePath ?? 'not set'}`, `-displayprofile ${pressDisplayProfile}`],
-      graySettings:
-        selectedPressRasterizer === 'ghostscript'
-          ? pressGhostscriptSettings(grayProfilePath ?? 'not set', 'gray')
-          : [`-defaultgrayprofile ${grayProfilePath ?? 'not set'}`, `-displayprofile ${pressDisplayProfile}`],
+      graySettings: [`-defaultgrayprofile ${grayProfilePath ?? 'not set'}`, `-displayprofile ${pressDisplayProfile}`],
       outputIntent:
         selectedPressRasterizer === 'ghostscript'
-          ? 'Each press PDF embeds the run profile as its first output intent. Ghostscript uses that profile as the destination when its color space matches the output device; no separate output profile is supplied.'
+          ? 'Each CMYK press PDF embeds the run profile as its first output intent. Ghostscript uses that profile as the destination when its color space matches the output device; no separate output profile is supplied. Gray press PDFs contain no RGB, so the gray pass remains on profiled Poppler.'
           : 'Poppler does not use the PDF output intent for this fallback measurement.',
       displayProfile: selectedPressRasterizer === 'profiled-poppler' ? pressDisplayProfile : undefined,
       cmykProfile: profilePath,
