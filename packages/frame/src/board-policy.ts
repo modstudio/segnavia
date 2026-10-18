@@ -1,4 +1,14 @@
-import { type BoardItem, type BoardView, type BookViewInput, type Deck, type ImpositionInput, type PageInput, type Size, zoomAt } from '@segnavia/format'
+import {
+  type BoardItem,
+  type BoardView,
+  type BookViewInput,
+  type Deck,
+  type ImpositionInput,
+  type PageInput,
+  type Point,
+  type Size,
+  zoomAt,
+} from '@segnavia/format'
 import type { ControllerOptions } from './controller.ts'
 
 interface ResolvedBase {
@@ -43,6 +53,18 @@ export function provisionalShape(kind: BoardItem['kind']): Size {
 
 export function boardTier(screenWidth: number, liveWidth: number): BoardTier {
   return screenWidth < liveWidth ? 'cover' : 'live'
+}
+
+export interface Pinch {
+  midpoint: Point
+  distance: number
+}
+
+// A pinch is the first two pointers down; the distance is at least 1 so a ratio of two pinches is always finite.
+export function pinchOf(pointers: readonly Point[]): Pinch | null {
+  const [a, b] = pointers
+  if (!a || !b) return null
+  return { midpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) }
 }
 
 export function shouldMountItem(mounted: boolean, withinHalfViewport: boolean, withinViewport: boolean): boolean {

@@ -8,25 +8,21 @@ import {
   itemHeight,
   screenToBoard,
   visibleItems,
-  zoomAt,
   zoomToFit,
 } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { BoardDecorations } from './board-decorations.ts'
+import { BoardGestures } from './board-gestures.ts'
 import { liveBoardItem } from './board-live.ts'
 import { placeBoardNode } from './board-placement.ts'
 import { boardTier, checkResolved, keyToView, provisionalShape, type ResolvedBoardItem, resolvedShape, shouldMountItem } from './board-policy.ts'
+import { BoardItemTitles } from './board-titles.ts'
 
 interface CacheEntry {
   promise?: Promise<void>
   value?: ResolvedBoardItem
   error?: unknown
   failed?: boolean
-}
-
-interface PointerPosition {
-  x: number
-  y: number
 }
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
@@ -43,14 +39,16 @@ export class SegnaviaBoard extends HTMLElement {
   private readonly tiers = new Map<string, 'cover' | 'live'>()
   private readonly painted = new Map<string, ResolvedBoardItem | undefined>()
   private readonly disposals = new Map<string, () => void>()
-  private readonly pointers = new Map<number, PointerPosition>()
-  private pointerStart: PointerPosition | null = null
-  private lastPinch: { midpoint: PointerPosition; distance: number } | null = null
-  private dragged = false
   private viewEvent = 0
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
   private readonly decorations = new BoardDecorations(this.surface)
+  private readonly titles = new BoardItemTitles(this.surface)
+  private readonly gestures = new BoardGestures(
+    this,
+    () => this.currentView,
+    (view) => this.setView(view),
+  )
   private readonly resize = new ResizeObserver(() => this.measure())
 
   constructor() {
@@ -111,11 +109,11 @@ export class SegnaviaBoard extends HTMLElement {
   connectedCallback() {
     ensureBaseStyle(this.surface)
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
-    this.addEventListener('wheel', this.onWheel, { passive: false })
-    this.addEventListener('pointerdown', this.onPointerDown)
-    this.addEventListener('pointermove', this.onPointerMove)
-    this.addEventListener('pointerup', this.onPointerEnd)
-    this.addEventListener('pointercancel', this.onPointerEnd)
+    this.addEventListener('wheel', this.gestures.onWheel, { passive: false })
+    this.addEventListener('pointerdown', this.gestures.onPointerDown)
+    this.addEventListener('pointermove', this.gestures.onPointerMove)
+    this.addEventListener('pointerup', this.gestures.onPointerEnd)
+    this.addEventListener('pointercancel', this.gestures.onPointerEnd)
     this.addEventListener('keydown', this.onKeyDown)
     this.addEventListener('dblclick', this.onDoubleClick)
     this.resize.observe(this)
@@ -125,11 +123,11 @@ export class SegnaviaBoard extends HTMLElement {
 
   disconnectedCallback() {
     this.resize.disconnect()
-    this.removeEventListener('wheel', this.onWheel)
-    this.removeEventListener('pointerdown', this.onPointerDown)
-    this.removeEventListener('pointermove', this.onPointerMove)
-    this.removeEventListener('pointerup', this.onPointerEnd)
-    this.removeEventListener('pointercancel', this.onPointerEnd)
+    this.removeEventListener('wheel', this.gestures.onWheel)
+    this.removeEventListener('pointerdown', this.gestures.onPointerDown)
+    this.removeEventListener('pointermove', this.gestures.onPointerMove)
+    this.removeEventListener('pointerup', this.gestures.onPointerEnd)
+    this.removeEventListener('pointercancel', this.gestures.onPointerEnd)
     this.removeEventListener('keydown', this.onKeyDown)
     this.removeEventListener('dblclick', this.onDoubleClick)
     this.clearMounted()
@@ -205,6 +203,7 @@ export class SegnaviaBoard extends HTMLElement {
     node.setAttribute('role', 'button')
     this.nodes.set(item.id, node)
     this.surface.append(node)
+    this.titles.mount(item.id, node)
     return node
   }
 
@@ -215,12 +214,14 @@ export class SegnaviaBoard extends HTMLElement {
       width: item.width,
       height: itemHeight(item, this.shapes.items[item.id] as { width: number; height: number }),
     })
+    this.titles.place(item.id, this.currentView, item)
   }
 
   private paintItem(node: HTMLElement, item: BoardItem) {
     const entry = this.cache.get(item.address)
     const resolved = entry?.failed ? undefined : entry?.value
     node.setAttribute('aria-label', resolved?.title ?? item.kind)
+    this.titles.name(item.id, resolved?.title ?? '')
     const tier = boardTier(item.width * this.currentView.zoom, this.threshold)
     if (this.tiers.get(item.id) === tier && this.painted.get(item.id) === resolved && node.childElementCount > 0) return
     this.disposeLive(item.id)
@@ -293,6 +294,7 @@ export class SegnaviaBoard extends HTMLElement {
   private unmount(id: string) {
     this.nodes.get(id)?.remove()
     this.nodes.delete(id)
+    this.titles.remove(id)
     this.tiers.delete(id)
     this.painted.delete(id)
     this.disposeLive(id)
@@ -317,57 +319,6 @@ export class SegnaviaBoard extends HTMLElement {
     }
   }
 
-  private local(event: { clientX: number; clientY: number }): PointerPosition {
-    const box = this.getBoundingClientRect()
-    return { x: event.clientX - box.left, y: event.clientY - box.top }
-  }
-
-  private onWheel = (event: WheelEvent) => {
-    event.preventDefault()
-    if (event.ctrlKey || event.metaKey) this.setView(zoomAt(this.currentView, this.local(event), Math.exp(-event.deltaY * 0.01)))
-    else this.setView({ ...this.currentView, pan: { x: this.currentView.pan.x - event.deltaX, y: this.currentView.pan.y - event.deltaY } })
-  }
-
-  private onPointerDown = (event: PointerEvent) => {
-    this.setPointerCapture(event.pointerId)
-    const point = this.local(event)
-    this.pointers.set(event.pointerId, point)
-    if (this.pointers.size === 1) this.pointerStart = point
-    this.lastPinch = this.pinch()
-    this.dragged = false
-  }
-
-  private onPointerMove = (event: PointerEvent) => {
-    const previous = this.pointers.get(event.pointerId)
-    if (!previous) return
-    const point = this.local(event)
-    this.pointers.set(event.pointerId, point)
-    const pinch = this.pinch()
-    if (pinch && this.lastPinch) {
-      const zoomed = zoomAt(this.currentView, pinch.midpoint, pinch.distance / this.lastPinch.distance)
-      this.setView({
-        ...zoomed,
-        pan: { x: zoomed.pan.x + pinch.midpoint.x - this.lastPinch.midpoint.x, y: zoomed.pan.y + pinch.midpoint.y - this.lastPinch.midpoint.y },
-      })
-      this.lastPinch = pinch
-    } else if (this.pointers.size === 1) {
-      this.setView({ ...this.currentView, pan: { x: this.currentView.pan.x + point.x - previous.x, y: this.currentView.pan.y + point.y - previous.y } })
-    }
-    if (this.pointerStart && Math.hypot(point.x - this.pointerStart.x, point.y - this.pointerStart.y) > 4) this.dragged = true
-  }
-
-  private onPointerEnd = (event: PointerEvent) => {
-    this.pointers.delete(event.pointerId)
-    this.lastPinch = this.pinch()
-    if (this.pointers.size === 0) this.pointerStart = null
-  }
-
-  private pinch(): { midpoint: PointerPosition; distance: number } | null {
-    const [a, b] = [...this.pointers.values()]
-    if (!a || !b) return null
-    return { midpoint: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)) }
-  }
-
   private onKeyDown = (event: KeyboardEvent) => {
     const itemNode = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardItem))
     if (event.key === 'Enter' && itemNode) {
@@ -385,8 +336,8 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   private onDoubleClick = (event: MouseEvent) => {
-    if (this.dragged || !this.value) return
-    const item = itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.local(event)))
+    if (this.gestures.dragged || !this.value) return
+    const item = itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event)))
     if (item) this.open(item)
   }
 

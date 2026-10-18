@@ -6,7 +6,7 @@ export function buildBoardDemo(site: string, image: string, shot: string) {
   writeFileSync(
     path.join(site, 'board.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <style>html,body{margin:0;height:100%;font-family:system-ui}segnavia-board{display:block;inline-size:100%;block-size:100%;--segnavia-board-background:#f5f5f2;--segnavia-board-placeholder:#ddd;--segnavia-board-section:#777}segnavia-board::part(item){box-shadow:0 1px 5px #0003;background:white}segnavia-board::part(label),segnavia-board::part(section-title){font-weight:600}</style></head>
+    <style>html,body{margin:0;height:100%;font-family:system-ui}segnavia-board{display:block;inline-size:100%;block-size:100%;--segnavia-board-background:#ebebef;--segnavia-board-placeholder:#dcdce1;--segnavia-board-section:#c9c9d1;--segnavia-board-section-fill:#e1e1e7;--segnavia-board-item-title:#86868f;--segnavia-board-section-title:#1d1d22}segnavia-board::part(item){box-shadow:0 1px 3px #0002;background:white}segnavia-board::part(item-title){font-size:13px;padding-block-end:6px}segnavia-board::part(section){border-radius:12px}segnavia-board::part(section-title){font-size:14px;font-weight:500;padding:5px 12px;margin-block-end:8px;border:1px solid #9d9da6;border-radius:7px;background:#e1e1e7}segnavia-board::part(label){font-weight:600}</style></head>
     <body><segnavia-board id="board"></segnavia-board><script type="module" src="segnavia.js"></script><script type="module">
       await customElements.whenDefined('segnavia-board')
       const board = document.getElementById('board')

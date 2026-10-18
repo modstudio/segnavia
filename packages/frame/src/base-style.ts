@@ -46,7 +46,9 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="cover"]){background:var(--segnavia-board-cover,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="label"]){position:absolute;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-label,currentColor)}
-:where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]){position:absolute;translate:0 -100%;color:var(--segnavia-board-item-title,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > span){display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:start}
+:where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}

@@ -1,6 +1,22 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { boardTier, checkResolved, keyToView, provisionalShape, resolvedShape, shouldMountItem } from './board-policy.ts'
+import { boardTier, checkResolved, keyToView, pinchOf, provisionalShape, resolvedShape, shouldMountItem } from './board-policy.ts'
+
+test('a pinch needs two pointers and never has a zero distance', () => {
+  expect(pinchOf([{ x: 0, y: 0 }])).toBeNull()
+  expect(
+    pinchOf([
+      { x: 0, y: 0 },
+      { x: 6, y: 8 },
+    ]),
+  ).toEqual({ midpoint: { x: 3, y: 4 }, distance: 10 })
+  expect(
+    pinchOf([
+      { x: 5, y: 5 },
+      { x: 5, y: 5 },
+    ])?.distance,
+  ).toBe(1)
+})
 
 const view = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 1000, height: 500 } }
 const paperItem: BoardItem = { id: 'paper', kind: 'paper', address: 'paper', x: 0, y: 0, width: 100 }
