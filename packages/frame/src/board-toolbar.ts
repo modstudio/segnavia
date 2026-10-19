@@ -32,6 +32,13 @@ export class SegnaviaBoardToolbar extends HTMLElement {
   private labelOverrides: Partial<BoardToolbarLabels> = {}
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly toolbar = document.createElement('div')
+  private readonly zoomOutButton: HTMLButtonElement
+  private readonly zoomLevelButton: HTMLButtonElement
+  private readonly zoomLevelText = document.createTextNode('')
+  private readonly zoomInButton: HTMLButtonElement
+  private readonly fitButton: HTMLButtonElement
+  private readonly shareButton: HTMLButtonElement
+  private readonly controls: readonly HTMLButtonElement[]
   private readonly targetBinding = new BoardTargetBinding(
     this,
     {
@@ -45,6 +52,14 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     super()
     this.toolbar.part.add('toolbar')
     this.toolbar.setAttribute('role', 'toolbar')
+    this.zoomOutButton = this.button('zoom-out')
+    this.zoomLevelButton = this.button('zoom-level')
+    this.zoomLevelButton.append(this.zoomLevelText)
+    this.zoomInButton = this.button('zoom-in')
+    this.fitButton = this.button('fit')
+    this.shareButton = this.button('share')
+    this.controls = [this.zoomOutButton, this.zoomLevelButton, this.zoomInButton, this.fitButton, this.shareButton]
+    this.toolbar.append(...this.controls)
     this.root.append(this.toolbar)
   }
 
@@ -97,36 +112,45 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const target = this.targetBinding.current
     const board = target?.board
     const zoom = target?.view.zoom ?? 1
-    const focusedPart = (this.root.activeElement as HTMLElement | null)?.dataset.action
-    const previousTabStop = this.toolbar.querySelector<HTMLButtonElement>('button[tabindex="0"]')?.dataset.action
+    const focused = this.root.activeElement instanceof HTMLButtonElement ? this.root.activeElement : null
+    const previousTabStop = this.controls.find((button) => button.tabIndex === 0)
     this.dir = board?.direction ?? ''
     this.toolbar.setAttribute('aria-label', labels.toolbar)
-    const controls = [
-      this.button('zoom-out', labels.zoomOut, !board || zoom <= MIN_BOARD_ZOOM + EPSILON),
-      this.button('zoom-level', labels.resetZoom, !board, labels.zoomLevel(Math.round(zoom * 100))),
-      this.button('zoom-in', labels.zoomIn, !board || zoom >= MAX_BOARD_ZOOM - EPSILON),
-      this.button('fit', labels.fit, !board),
-    ]
-    if (this.shareable) controls.push(this.button('share', labels.share, false))
-    this.toolbar.replaceChildren(...controls)
-    const enabled = controls.filter((button) => !button.disabled)
-    const tabStop = enabled.find((button) => button.dataset.action === (focusedPart ?? previousTabStop)) ?? enabled[0]
-    for (const button of controls) button.tabIndex = button === tabStop ? 0 : -1
-    if (focusedPart) tabStop?.focus()
+    this.updateButton(this.zoomOutButton, labels.zoomOut, !board || zoom <= MIN_BOARD_ZOOM + EPSILON)
+    this.updateButton(this.zoomLevelButton, labels.resetZoom, !board)
+    this.zoomLevelText.data = labels.zoomLevel(Math.round(zoom * 100))
+    this.updateButton(this.zoomInButton, labels.zoomIn, !board || zoom >= MAX_BOARD_ZOOM - EPSILON)
+    this.updateButton(this.fitButton, labels.fit, !board)
+    this.updateButton(this.shareButton, labels.share, false)
+    this.shareButton.hidden = !this.shareable
+    const enabled = this.controls.filter((button) => !button.disabled && !button.hidden)
+    const tabStop =
+      (focused && enabled.includes(focused) ? focused : undefined) ??
+      (previousTabStop && enabled.includes(previousTabStop) ? previousTabStop : undefined) ??
+      enabled[0]
+    for (const button of this.controls) button.tabIndex = button === tabStop ? 0 : -1
+    if (focused && focused !== tabStop) tabStop?.focus()
   }
 
-  private button(action: string, label: string, disabled: boolean, text?: string): HTMLButtonElement {
+  private button(action: string): HTMLButtonElement {
     const button = document.createElement('button')
     button.type = 'button'
     button.part.add(action)
     button.dataset.action = action
+    if (action !== 'zoom-level') {
+      const icon = document.createElement('span')
+      const slot = document.createElement('slot')
+      icon.part.add('icon')
+      slot.name = `icon-${action}`
+      icon.append(slot)
+      button.append(icon)
+    }
+    return button
+  }
+
+  private updateButton(button: HTMLButtonElement, label: string, disabled: boolean) {
     button.setAttribute('aria-label', label)
     button.disabled = disabled
-    const icon = document.createElement('span')
-    icon.part.add('icon')
-    button.append(icon)
-    if (text !== undefined) button.append(document.createTextNode(text))
-    return button
   }
 
   private onClick = (event: MouseEvent) => {
@@ -144,10 +168,10 @@ export class SegnaviaBoardToolbar extends HTMLElement {
 
   private onKeyDown = (event: KeyboardEvent) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-    const buttons = [...this.toolbar.querySelectorAll('button')]
+    const buttons = [...this.controls]
     const current = buttons.indexOf(event.target as HTMLButtonElement)
     const next = toolbarNextIndex(
-      buttons.map((button) => !button.disabled),
+      buttons.map((button) => !button.disabled && !button.hidden),
       current,
       event.key as ToolbarNavigationKey,
       this.dir === 'rtl',

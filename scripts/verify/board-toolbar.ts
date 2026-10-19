@@ -8,7 +8,11 @@ export async function checkBoardToolbar(h: Harness) {
     const value = element as HTMLElement & { zoomTo(zoom: number): void }
     value.zoomTo(1)
   })
-  await toolbar.locator('[part~="zoom-in"]').click()
+  await toolbar.evaluate((element) => {
+    const value = element as HTMLElement & { buttonsBeforeViewChange?: HTMLButtonElement[] }
+    value.buttonsBeforeViewChange = [...(element.shadowRoot?.querySelectorAll('button') ?? [])]
+  })
+  await toolbar.locator('[part~="zoom-in"]').click({ force: true })
   await h.page.waitForFunction(
     () => document.querySelector('segnavia-board-toolbar')?.shadowRoot?.querySelector('[part~="zoom-level"]')?.textContent?.trim() === '125%',
     undefined,
@@ -17,6 +21,18 @@ export async function checkBoardToolbar(h: Harness) {
   const zoomed = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view.zoom)
   const level = await toolbar.locator('[part~="zoom-level"]').textContent()
   h.check('the board toolbar zoom-in button changes the board and level text', zoomed === 1.25 && level?.trim() === '125%', JSON.stringify({ zoomed, level }))
+  const sameButtons = await toolbar.evaluate((element) => {
+    const value = element as HTMLElement & { buttonsBeforeViewChange?: HTMLButtonElement[] }
+    const current = [...(element.shadowRoot?.querySelectorAll('button') ?? [])]
+    return current.length === value.buttonsBeforeViewChange?.length && current.every((button, index) => button === value.buttonsBeforeViewChange?.[index])
+  })
+  h.check('the board toolbar keeps its button nodes across view changes', sameButtons, String(sameButtons))
+
+  const zoomInIconAssigned = await toolbar.evaluate((element) => {
+    const slot = element.shadowRoot?.querySelector<HTMLSlotElement>('[part~="zoom-in"] slot[name="icon-zoom-in"]')
+    return (slot?.assignedNodes().length ?? 0) > 0
+  })
+  h.check('the board toolbar assigns the demo zoom-in glyph to its icon slot', zoomInIconAssigned, String(zoomInIconAssigned))
 
   await toolbar.locator('[part~="zoom-level"]').click()
   const reset = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view.zoom)
@@ -31,7 +47,7 @@ export async function checkBoardToolbar(h: Harness) {
     const value = element as HTMLElement & { zoomTo(zoom: number): void }
     value.zoomTo(2)
   })
-  await toolbar.locator('[part~="fit"]').click()
+  await toolbar.locator('[part~="fit"]').click({ force: true })
   const fitted = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   h.check('the board toolbar fit button matches fitAll()', JSON.stringify(fitted) === JSON.stringify(expected), JSON.stringify({ fitted, expected }))
 
@@ -42,6 +58,24 @@ export async function checkBoardToolbar(h: Harness) {
     return count
   })
   h.check('the board toolbar Share button emits one segnavia-board-share event', shares === 1, String(shares))
+
+  const shareHidden = await toolbar.evaluate((element) => {
+    element.removeAttribute('shareable')
+    const buttons = [...(element.shadowRoot?.querySelectorAll('button') ?? [])]
+    buttons.find((button) => !button.disabled && !button.hidden)?.focus()
+    return element.shadowRoot?.querySelector<HTMLButtonElement>('[part~="share"]')?.hidden
+  })
+  const arrowTargets: string[] = []
+  for (let index = 0; index < 8; index++) {
+    await h.page.keyboard.press('ArrowRight')
+    arrowTargets.push(await toolbar.evaluate((element) => (element.shadowRoot?.activeElement as HTMLElement | null)?.dataset.action ?? ''))
+  }
+  h.check(
+    'the board toolbar hides an unavailable Share button and skips it during arrow navigation',
+    shareHidden === true && !arrowTargets.includes('share'),
+    JSON.stringify({ shareHidden, arrowTargets }),
+  )
+  await toolbar.evaluate((element) => element.setAttribute('shareable', ''))
 
   const zoomIn = toolbar.locator('[part~="zoom-in"]')
   await zoomIn.focus()
