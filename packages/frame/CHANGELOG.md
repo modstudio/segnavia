@@ -1,5 +1,16 @@
 # @segnavia/frame
 
+## 0.12.0
+
+### Minor Changes
+
+- 01fe469: Let a host export the notes the author sees, print an escaped document title, and show a placeholder on notes sheets that have none.
+- 3632f54: Add board kind icons, single-item selection, title actions, and a toolbar list toggle.
+
+### Patch Changes
+
+- @segnavia/format@0.12.0
+
 ## 0.11.0
 
 ### Minor Changes
