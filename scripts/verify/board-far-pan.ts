@@ -11,7 +11,7 @@ interface FarPanFacts {
 type FarPanBoard = HTMLElement & { board: { items: BoardItem[] }; view: BoardView }
 
 // A wheel event only proves the board pans in the wheel's direction: Chromium may scale a synthetic wheel's delta, so its
-// size says nothing about the board. The far item is then brought to the centre through the view, and must mount.
+// size says nothing about the board. The far item is then brought to the center through the view, and must mount.
 export async function checkFarBoardPan(h: Harness) {
   const board = h.page.locator('segnavia-board')
   const readFacts = () =>
