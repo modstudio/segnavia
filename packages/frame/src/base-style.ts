@@ -60,6 +60,10 @@ export const BASE_CSS = `
 :where(:host(segnavia-board-list) [part~="group-title"]),:where(:host(segnavia-board-list) [part~="item"]){box-sizing:border-box;display:block;inline-size:100%;text-align:start;color:var(--segnavia-board-list-button-color,currentColor);background:var(--segnavia-board-list-button-background,transparent)}
 :where(:host(segnavia-board-list) [part~="group-title"] > span),:where(:host(segnavia-board-list) [part~="item"] > span){display:inline-block;max-inline-size:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:match-parent;vertical-align:top}
 :where(:host(segnavia-board-list) [part~="empty"]){color:var(--segnavia-board-list-empty-color,currentColor)}
+:where(:host(segnavia-board-toolbar:not([unstyled])) [part~="toolbar"]){display:inline-flex;flex-direction:row;align-items:center;color:var(--segnavia-board-toolbar-color,currentColor);background:var(--segnavia-board-toolbar-background,transparent)}
+:where(:host(segnavia-board-toolbar:not([unstyled])) button){display:inline-flex;align-items:center;justify-content:center;color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)}
+:where(:host(segnavia-board-toolbar:not([unstyled])) button[hidden]){display:none}
+:where(:host(segnavia-board-toolbar:not([unstyled])) [part~="icon"]){display:inline-block}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}

@@ -3,6 +3,7 @@ export const HEADLESS_ELEMENTS = {
   thumbnail: 'segnavia-thumbnail',
   board: 'segnavia-board',
   boardList: 'segnavia-board-list',
+  boardToolbar: 'segnavia-board-toolbar',
   page: 'segnavia-page',
   paper: 'segnavia-paper',
   book: 'segnavia-book',

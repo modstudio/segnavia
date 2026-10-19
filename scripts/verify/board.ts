@@ -1,4 +1,5 @@
 import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
+import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface MountedBox {
@@ -374,4 +375,5 @@ export async function verifyBoard(h: Harness) {
   await checkUrlDeckRefusesScripts(h)
   await checkReconnect(h)
   await checkFailedLiveMount(h)
+  await checkBoardToolbar(h)
 }

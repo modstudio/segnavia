@@ -27,6 +27,16 @@ describe('headless base styles', () => {
     }
   })
 
+  test('the board toolbar supplies inline-row geometry and customizable colors', () => {
+    expect(BASE_CSS).toContain(
+      '[part~="toolbar"]){display:inline-flex;flex-direction:row;align-items:center;color:var(--segnavia-board-toolbar-color,currentColor)',
+    )
+    expect(BASE_CSS).toContain(
+      'color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)',
+    )
+    expect(BASE_CSS).toContain('button[hidden]){display:none}')
+  })
+
   test('an incoming canvas stacks above the active canvas without becoming visible', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}')
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){z-index:2}')

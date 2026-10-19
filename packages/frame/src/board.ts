@@ -17,40 +17,23 @@ import { BoardGestures } from './board-gestures.ts'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
 import { type BoardItemNames, BoardNames } from './board-names.ts'
 import { placeBoardNode } from './board-placement.ts'
-import {
-  boardTier,
-  checkResolved,
-  keyToView,
-  provisionalShape,
-  type ResolvedBoardItem,
-  resolvedShape,
-  shouldMountItem,
-  shouldRefitReveal,
-} from './board-policy.ts'
+import * as boardPolicy from './board-policy.ts'
+import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
 import { BoardItemTitles } from './board-titles.ts'
 
-interface CacheEntry {
-  promise?: Promise<void>
-  value?: ResolvedBoardItem
-  error?: unknown
-  failed?: boolean
-}
-
-export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
 export class SegnaviaBoard extends HTMLElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false
   private initialFitDone = false
   private threshold = 240
-  private resolver: ResolveBoardItem | undefined
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
-  private readonly cache = new Map<string, CacheEntry>()
+  private readonly resolutions = new BoardResolutions()
   private readonly nodes = new Map<string, HTMLElement>()
   private readonly tiers = new Map<string, 'cover' | 'live'>()
-  private readonly painted = new Map<string, ResolvedBoardItem | undefined>()
+  private readonly painted = new Map<string, boardPolicy.ResolvedBoardItem | undefined>()
   private readonly disposals = new Map<string, () => void>()
   private viewEvent = 0
   private pendingReveal: { id: string; height: number } | undefined
@@ -89,12 +72,12 @@ export class SegnaviaBoard extends HTMLElement {
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
     const addresses = new Set(this.value?.items.map((item) => item.address) ?? [])
-    for (const address of this.cache.keys()) if (!addresses.has(address)) this.cache.delete(address)
+    this.resolutions.keep(addresses)
     this.shapes = { items: {}, labels: {} }
-    for (const item of this.value?.items ?? [])
-      this.shapes.items[item.id] = this.cache.get(item.address)?.value
-        ? resolvedShape(this.cache.get(item.address)?.value as ResolvedBoardItem)
-        : provisionalShape(item.kind)
+    for (const item of this.value?.items ?? []) {
+      const resolved = this.resolutions.value(item.address)
+      this.shapes.items[item.id] = resolved ? boardPolicy.resolvedShape(resolved) : boardPolicy.provisionalShape(item.kind)
+    }
     for (const label of this.value?.labels ?? []) this.shapes.labels[label.id] = { width: Math.max(1, label.text.length * 8), height: 19 }
     if (this.value) this.dir = this.value.direction
     this.names.update(this.value?.items ?? [], this.nameProvider)
@@ -123,11 +106,11 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   get resolveItem(): ResolveBoardItem | undefined {
-    return this.resolver
+    return this.resolutions.resolver
   }
 
   set resolveItem(value: ResolveBoardItem | undefined) {
-    this.resolver = value
+    this.resolutions.resolver = value
     this.render()
   }
 
@@ -142,8 +125,7 @@ export class SegnaviaBoard extends HTMLElement {
 
   itemName(id: string): string {
     const item = this.items.get(id)
-    const entry = item ? this.cache.get(item.address) : undefined
-    return this.names.name(item, entry?.failed ? undefined : entry?.value)
+    return this.names.name(item, item ? this.resolutions.value(item.address) : undefined)
   }
 
   connectedCallback() {
@@ -180,6 +162,19 @@ export class SegnaviaBoard extends HTMLElement {
     const bounds = boardBounds(board, this.shapes)
     if (!(bounds.width > 0 && bounds.height > 0)) return
     this.setView(zoomToFit(bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
+  }
+
+  zoomIn() {
+    this.zoomTo(this.currentView.zoom * boardPolicy.BOARD_ZOOM_FACTOR)
+  }
+
+  zoomOut() {
+    this.zoomTo(this.currentView.zoom / boardPolicy.BOARD_ZOOM_FACTOR)
+  }
+
+  zoomTo(zoom: number) {
+    if (!this.value || this.currentView.viewport.width <= 0 || this.currentView.viewport.height <= 0) return
+    this.setView(boardPolicy.zoomView(this.currentView, zoom))
   }
 
   reveal(id: string): boolean {
@@ -245,7 +240,7 @@ export class SegnaviaBoard extends HTMLElement {
     )
     for (const item of board.items) {
       const mounted = this.nodes.has(item.id)
-      if (!shouldMountItem(mounted, half.has(item.id), full.has(item.id))) {
+      if (!boardPolicy.shouldMountItem(mounted, half.has(item.id), full.has(item.id))) {
         if (mounted) this.unmount(item.id)
         continue
       }
@@ -279,12 +274,11 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   private paintItem(node: HTMLElement, item: BoardItem) {
-    const entry = this.cache.get(item.address)
-    const resolved = entry?.failed ? undefined : entry?.value
+    const resolved = this.resolutions.value(item.address)
     const name = this.names.name(item, resolved)
     node.setAttribute('aria-label', name || item.kind)
     this.titles.name(item.id, name, this.value?.direction ?? 'ltr')
-    const tier = boardTier(item.width * this.currentView.zoom, this.threshold)
+    const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
     if (this.tiers.get(item.id) === tier && this.painted.get(item.id) === resolved && node.childElementCount > 0) return
     this.disposeLive(item.id)
     node.replaceChildren()
@@ -300,7 +294,7 @@ export class SegnaviaBoard extends HTMLElement {
     node.append(content, boardShield())
   }
 
-  private contentFor(item: BoardItem, resolved: ResolvedBoardItem, tier: 'cover' | 'live'): HTMLElement {
+  private contentFor(item: BoardItem, resolved: boardPolicy.ResolvedBoardItem, tier: 'cover' | 'live'): HTMLElement {
     if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
     if (tier === 'cover') return resolved.cover ? boardImage(resolved.cover) : boardPlaceholder()
     const live = liveBoardItem(resolved, (error) => this.fail(item, error))
@@ -309,31 +303,29 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   private resolve(item: BoardItem) {
-    if (!this.resolver || this.cache.has(item.address)) return
-    const entry: CacheEntry = {}
-    this.cache.set(item.address, entry)
-    entry.promise = Promise.resolve()
-      .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
-      .then((resolved) => {
-        checkResolved(item, resolved)
-        entry.value = resolved
-        const shape = resolvedShape(resolved)
+    this.resolutions.request(
+      item,
+      (resolvedItem, resolved) => {
+        const shape = boardPolicy.resolvedShape(resolved)
         const pendingItem = this.pendingReveal ? this.items.get(this.pendingReveal.id) : undefined
-        const resolvedId = pendingItem?.address === item.address ? pendingItem.id : undefined
-        const refit = shouldRefitReveal(this.pendingReveal?.id, resolvedId, this.pendingReveal?.height ?? 0, pendingItem ? itemHeight(pendingItem, shape) : 0)
-        for (const current of this.value?.items ?? []) if (current.address === item.address) this.shapes.items[current.id] = shape
+        const resolvedId = pendingItem?.address === resolvedItem.address ? pendingItem.id : undefined
+        const refit = boardPolicy.shouldRefitReveal(
+          this.pendingReveal?.id,
+          resolvedId,
+          this.pendingReveal?.height ?? 0,
+          pendingItem ? itemHeight(pendingItem, shape) : 0,
+        )
+        for (const current of this.value?.items ?? []) if (current.address === resolvedItem.address) this.shapes.items[current.id] = shape
         if (refit && resolvedId) this.reveal(resolvedId)
         else this.render()
         if (resolved.title) this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
-      })
-      .catch((error) => this.fail(item, error))
+      },
+      (failedItem, error) => this.fail(failedItem, error),
+    )
   }
 
   private fail(item: BoardItem, error: unknown) {
-    const entry = this.cache.get(item.address)
-    if (!entry || entry.failed) return
-    entry.failed = true
-    entry.error = error
+    if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.disposeLive(current.id)
     this.dispatchEvent(new CustomEvent('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
     this.render()
@@ -376,7 +368,7 @@ export class SegnaviaBoard extends HTMLElement {
       return
     }
     if (event.target !== this) return
-    const action = keyToView(this.currentView, event.key)
+    const action = boardPolicy.keyToView(this.currentView, event.key)
     if (!action) return
     event.preventDefault()
     if (action.kind === 'fit') this.fitAll()
@@ -395,4 +387,3 @@ export class SegnaviaBoard extends HTMLElement {
 }
 
 export type { BoardItemNames } from './board-names.ts'
-export type { ResolvedBoardItem } from './board-policy.ts'

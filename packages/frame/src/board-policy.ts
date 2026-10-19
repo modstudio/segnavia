@@ -4,6 +4,8 @@ import {
   type BookViewInput,
   type Deck,
   type ImpositionInput,
+  MAX_BOARD_ZOOM,
+  MIN_BOARD_ZOOM,
   type PageInput,
   type Point,
   type Size,
@@ -26,6 +28,7 @@ export type ResolvedBoardItem =
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
+export const BOARD_ZOOM_FACTOR = 1.25
 
 function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
   for (const field of ['width', 'height'] as const) {
@@ -86,13 +89,14 @@ export function keyToView(view: BoardView, key: string): BoardKeyAction | null {
   if (key === 'ArrowRight') return { kind: 'view', view: panned(view, -x, 0) }
   if (key === 'ArrowUp') return { kind: 'view', view: panned(view, 0, y) }
   if (key === 'ArrowDown') return { kind: 'view', view: panned(view, 0, -y) }
-  if (key === '+' || key === '=') return { kind: 'view', view: zoomAtCenter(view, 1.25) }
-  if (key === '-') return { kind: 'view', view: zoomAtCenter(view, 1 / 1.25) }
+  if (key === '+' || key === '=') return { kind: 'view', view: zoomView(view, view.zoom * BOARD_ZOOM_FACTOR) }
+  if (key === '-') return { kind: 'view', view: zoomView(view, view.zoom / BOARD_ZOOM_FACTOR) }
   if (key === '0') return { kind: 'fit' }
   return null
 }
 
-function zoomAtCenter(view: BoardView, factor: number): BoardView {
+export function zoomView(view: BoardView, zoom: number): BoardView {
   const point = { x: view.viewport.width / 2, y: view.viewport.height / 2 }
-  return zoomAt(view, point, factor)
+  const target = Number.isNaN(zoom) ? view.zoom : Math.min(MAX_BOARD_ZOOM, Math.max(MIN_BOARD_ZOOM, zoom))
+  return zoomAt(view, point, target / view.zoom)
 }

@@ -3,14 +3,13 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
+import { BoardTargetBinding } from './board-target.ts'
 
 export type BoardItemSearch = (query: string, signal: AbortSignal) => Promise<string[]>
 
 export class SegnaviaBoardList extends HTMLElement {
   static observedAttributes = ['for']
 
-  private propertyTarget: SegnaviaBoard | null | undefined
-  private activeTarget: SegnaviaBoard | null = null
   private searcher: BoardItemSearch | undefined
   private labelOverrides: Partial<BoardListLabels> = {}
   private contentMatches = new Set<string>()
@@ -19,6 +18,14 @@ export class SegnaviaBoardList extends HTMLElement {
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly input = document.createElement('input')
   private readonly groups = document.createElement('div')
+  private readonly targetBinding = new BoardTargetBinding(
+    this,
+    {
+      'segnavia-board-change': () => this.onBoardChange(),
+      'segnavia-board-names': () => this.render(),
+    },
+    () => this.onBoardChange(),
+  )
 
   constructor() {
     super()
@@ -30,12 +37,11 @@ export class SegnaviaBoardList extends HTMLElement {
   }
 
   get target(): SegnaviaBoard | null {
-    return this.propertyTarget === undefined ? this.attributeTarget() : this.propertyTarget
+    return this.targetBinding.target
   }
 
   set target(value: SegnaviaBoard | null) {
-    this.propertyTarget = value
-    this.bindTarget()
+    this.targetBinding.target = value
   }
 
   get searchItems(): BoardItemSearch | undefined {
@@ -60,49 +66,24 @@ export class SegnaviaBoardList extends HTMLElement {
     ensureBaseStyle(this.input)
     this.input.addEventListener('input', this.onInput)
     this.groups.addEventListener('click', this.onClick)
-    this.bindTarget()
+    this.targetBinding.connect()
   }
 
   disconnectedCallback() {
     this.input.removeEventListener('input', this.onInput)
     this.groups.removeEventListener('click', this.onClick)
-    this.listen(null)
+    this.targetBinding.disconnect()
     this.cancelSearch()
   }
 
   attributeChangedCallback() {
-    if (this.propertyTarget === undefined) this.bindTarget()
+    this.targetBinding.attributeChanged()
   }
 
-  private attributeTarget(): SegnaviaBoard | null {
-    const id = this.getAttribute('for')
-    const candidate = id ? (this.getRootNode() as Document | ShadowRoot).querySelector(`#${CSS.escape(id)}`) : null
-    return candidate?.localName === 'segnavia-board' ? (candidate as SegnaviaBoard) : null
-  }
-
-  private bindTarget() {
-    if (!this.isConnected) return
-    const target = this.target
-    if (target === this.activeTarget) return
-    this.listen(target)
+  private onBoardChange() {
     this.restartSearch()
     this.render()
   }
-
-  private listen(target: SegnaviaBoard | null) {
-    this.activeTarget?.removeEventListener('segnavia-board-change', this.onBoardChange)
-    this.activeTarget?.removeEventListener('segnavia-board-names', this.onNames)
-    this.activeTarget = target
-    target?.addEventListener('segnavia-board-change', this.onBoardChange)
-    target?.addEventListener('segnavia-board-names', this.onNames)
-  }
-
-  private onBoardChange = () => {
-    this.restartSearch()
-    this.render()
-  }
-
-  private onNames = () => this.render()
 
   private onInput = () => {
     this.contentMatches.clear()
@@ -137,7 +118,7 @@ export class SegnaviaBoardList extends HTMLElement {
     try {
       const ids = await search(query, request.signal)
       if (!this.searchPolicy.accepts(request.version)) return
-      const known = new Set(this.activeTarget?.board?.items.map((item) => item.id) ?? [])
+      const known = new Set(this.targetBinding.current?.board?.items.map((item) => item.id) ?? [])
       this.contentMatches = new Set(ids.filter((id) => known.has(id)))
       this.render()
     } catch (error) {
@@ -153,7 +134,7 @@ export class SegnaviaBoardList extends HTMLElement {
     const labels = boardListLabels(this.labelOverrides)
     this.input.setAttribute('aria-label', labels.search)
     this.input.placeholder = labels.searchPlaceholder
-    const target = this.activeTarget
+    const target = this.targetBinding.current
     const board = target?.board
     this.dir = board?.direction ?? ''
     const focused = this.root.activeElement instanceof HTMLElement ? this.root.activeElement.dataset.boardItem : undefined
@@ -216,7 +197,7 @@ export class SegnaviaBoardList extends HTMLElement {
 
   private onClick = (event: MouseEvent) => {
     const button = event.composedPath().find((node): node is HTMLButtonElement => node instanceof HTMLButtonElement)
-    const target = this.activeTarget
+    const target = this.targetBinding.current
     if (!button || !target) return
     const item = target.board?.items.find((entry) => entry.id === button.dataset.boardItem)
     const section = target.board?.sections.find((entry) => entry.id === button.dataset.boardSection)

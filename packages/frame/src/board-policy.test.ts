@@ -1,6 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { boardTier, checkResolved, keyToView, pinchOf, provisionalShape, resolvedShape, shouldMountItem, shouldRefitReveal } from './board-policy.ts'
+import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
+import {
+  BOARD_ZOOM_FACTOR,
+  boardTier,
+  checkResolved,
+  keyToView,
+  pinchOf,
+  provisionalShape,
+  resolvedShape,
+  shouldMountItem,
+  shouldRefitReveal,
+  zoomView,
+} from './board-policy.ts'
 
 test('a pinch needs two pointers and never has a zero distance', () => {
   expect(pinchOf([{ x: 0, y: 0 }])).toBeNull()
@@ -75,5 +87,14 @@ describe('board policy', () => {
     expect(keyToView(view, '=')?.kind).toBe('view')
     expect(keyToView(view, '0')).toEqual({ kind: 'fit' })
     expect(keyToView(view, 'a')).toBeNull()
+  })
+
+  test('zooms about the viewport center and clamps the requested level', () => {
+    const zoomed = zoomView(view, BOARD_ZOOM_FACTOR)
+    expect(zoomed.zoom).toBe(BOARD_ZOOM_FACTOR)
+    expect(zoomed.pan).toEqual({ x: -125, y: -62.5 })
+    expect(zoomView(view, 0).zoom).toBe(MIN_BOARD_ZOOM)
+    expect(zoomView(view, Number.POSITIVE_INFINITY).zoom).toBe(MAX_BOARD_ZOOM)
+    expect((keyToView(view, '+') as { kind: 'view'; view: typeof view }).view).toEqual(zoomed)
   })
 })
