@@ -112,7 +112,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const enabled = controls.filter((button) => !button.disabled)
     const tabStop = enabled.find((button) => button.dataset.action === (focusedPart ?? previousTabStop)) ?? enabled[0]
     for (const button of controls) button.tabIndex = button === tabStop ? 0 : -1
-    if (focusedPart) controls.find((button) => button.dataset.action === focusedPart)?.focus()
+    if (focusedPart) tabStop?.focus()
   }
 
   private button(action: string, label: string, disabled: boolean, text?: string): HTMLButtonElement {
