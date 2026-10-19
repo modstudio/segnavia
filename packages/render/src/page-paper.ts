@@ -3,7 +3,7 @@ import { PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
-import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
+import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
@@ -57,10 +57,7 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   return document.save()
 }
 
-export function pressContentPlacement(
-  source: { width: number; height: number },
-  bleedBox: { x: number; y: number; width: number; height: number },
-): { x: number; y: number; width: number; height: number } {
+export function pressContentPlacement(source: { width: number; height: number }, bleedBox: PdfRectangle): PdfRectangle {
   return {
     x: bleedBox.x,
     y: bleedBox.y + bleedBox.height - source.height,
