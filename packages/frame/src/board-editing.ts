@@ -117,8 +117,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       y: center.y - (width * shape.height) / shape.width / 2,
       width,
     }
-    this.board.selection = [item.id]
     this.apply(addItem(current, item), { kind: 'add', ids: [item.id] })
+    this.board.selection = [item.id]
     return item.id
   }
 
