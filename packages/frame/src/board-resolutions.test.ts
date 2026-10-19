@@ -40,7 +40,7 @@ test('reports a refused value once and does not expose it', async () => {
     paper,
     () => {},
     (failedItem, error) => {
-      if (resolutions.fail(failedItem, error)) failures.push(error)
+      if (resolutions.fail(failedItem)) failures.push(error)
     },
   )
   await settle()
@@ -57,8 +57,8 @@ test('marks a failure only once', () => {
     () => {},
     () => {},
   )
-  expect(resolutions.fail(failed, new Error('failed'))).toBe(true)
-  expect(resolutions.fail(failed, new Error('failed again'))).toBe(false)
+  expect(resolutions.fail(failed)).toBe(true)
+  expect(resolutions.fail(failed)).toBe(false)
 })
 
 test('drops entries outside the kept addresses', async () => {

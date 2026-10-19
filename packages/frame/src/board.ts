@@ -325,7 +325,7 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   private fail(item: BoardItem, error: unknown) {
-    if (!this.resolutions.fail(item, error)) return
+    if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.disposeLive(current.id)
     this.dispatchEvent(new CustomEvent('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
     this.render()

@@ -35,7 +35,7 @@ export class BoardResolutions {
       .catch((error) => failed(item, error))
   }
 
-  fail(item: BoardItem, _error: unknown): boolean {
+  fail(item: BoardItem): boolean {
     const entry = this.entries.get(item.address)
     if (!entry || entry.failed) return false
     entry.failed = true
