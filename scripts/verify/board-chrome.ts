@@ -43,6 +43,7 @@ export async function checkBoardChrome(h: Harness) {
   await board.evaluate((element) => {
     ;(element as HTMLElement & { selected: string | null }).selected = null
   })
+  await h.page.mouse.move(0, 0)
   await item.focus()
   await h.page.keyboard.press('Tab')
   const tabbedAction = await board.evaluate((element) => {
@@ -68,17 +69,17 @@ export async function checkBoardChrome(h: Harness) {
 
   const idleActions = await board
     .locator('[data-board-item="deck-hebrew"] + [part~="item-title"] [part~="item-actions"]')
-    .evaluate((element) => getComputedStyle(element).visibility)
+    .evaluate((element) => getComputedStyle(element).opacity)
   await board.locator('[data-board-item="deck-hebrew"]').hover()
   const hoverActions = await board
     .locator('[data-board-item="deck-hebrew"] + [part~="item-title"] [part~="item-actions"]')
-    .evaluate((element) => getComputedStyle(element).visibility)
+    .evaluate((element) => getComputedStyle(element).opacity)
   const selectedActions = await board
     .locator('[data-board-item="deck-small"] + [part~="item-title"] [part~="item-actions"]')
-    .evaluate((element) => getComputedStyle(element).visibility)
+    .evaluate((element) => getComputedStyle(element).opacity)
   h.check(
     'item actions are hidden while idle and visible on hover and selection',
-    idleActions === 'hidden' && hoverActions === 'visible' && selectedActions === 'visible',
+    idleActions === '0' && hoverActions === '1' && selectedActions === '1',
     JSON.stringify({ idleActions, hoverActions, selectedActions }),
   )
 
