@@ -243,19 +243,11 @@ export class SegnaviaPlayer extends HTMLElement {
 
   // Compact below-controls paints actions after the rail; overlay and
   // presentation keep the desk tree so the overlaid bar and presenting box stay intact.
-  // A tab stop on the wrapper is required so Tab leaving the rail's nested shadow
-  // continues into the slotted actions instead of leaving the player.
   private placeActions() {
     const actions = this.root.querySelector('.actions') as HTMLElement
     const compact = this.isConnected && compactBelowControls(this.clientWidth, this.controls, this.hasAttribute('data-presenting'))
-    if (compact) {
-      ;(this.root.querySelector('segnavia-rail') as HTMLElement).after(actions)
-      if (this.hasAttribute('data-actions')) actions.tabIndex = 0
-      else actions.removeAttribute('tabindex')
-    } else {
-      ;(this.root.querySelector('.end') as HTMLElement).prepend(actions)
-      actions.removeAttribute('tabindex')
-    }
+    if (compact) (this.root.querySelector('segnavia-rail') as HTMLElement).after(actions)
+    else (this.root.querySelector('.end') as HTMLElement).prepend(actions)
   }
 
   private passPlayerOptions() {

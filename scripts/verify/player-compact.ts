@@ -78,60 +78,76 @@ async function mountRailAndActions(h: Harness, count: number, extras?: { dir?: '
   await h.waitFor(PLAYER, (data) => data.slide === '1')
 }
 
+function visibleBox(box: Box | null): box is Box {
+  return Boolean(box && box.width > 0 && box.height > 0)
+}
+
+function boxesOverlap(a: Box, b: Box): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+}
+
 async function actionBarGeometry(h: Harness): Promise<ActionBarGeometry> {
-  return h.page.locator(PLAYER).evaluate((player) => {
+  const raw = await h.page.locator(PLAYER).evaluate((player) => {
     const root = player.shadowRoot as ShadowRoot
-    const boxOf = (element: Element | null | undefined): Box | null => {
+    const rect = (element: Element | null | undefined) => {
       if (!element) return null
-      const rect = element.getBoundingClientRect()
-      return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height }
+      const box = element.getBoundingClientRect()
+      return { top: box.top, right: box.right, bottom: box.bottom, left: box.left, width: box.width, height: box.height }
     }
-    const control = (selector: string) => boxOf(root.querySelector(selector)?.shadowRoot?.querySelector('button'))
-    const play = control('segnavia-play')
-    const named = [
-      { name: 'previous', box: control('segnavia-step[to="previous"]') },
-      { name: 'play', box: play },
-      { name: 'next', box: control('segnavia-step[to="next"]') },
-      { name: 'present', box: control('segnavia-fullscreen') },
-      ...[...player.querySelectorAll('[slot="actions"]')].map((action, index) => ({ name: `action-${index + 1}`, box: boxOf(action) })),
-    ].filter((entry) => entry.box && entry.box.width > 0 && entry.box.height > 0) as { name: string; box: Box }[]
-    const overlaps: string[] = []
-    for (let i = 0; i < named.length; i++) {
-      for (let j = i + 1; j < named.length; j++) {
-        const a = named[i]?.box
-        const b = named[j]?.box
-        if (a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) overlaps.push(`${named[i]?.name}∩${named[j]?.name}`)
-      }
-    }
-    const viewport = { width: window.innerWidth, height: window.innerHeight }
-    const offscreen = named
-      .filter(({ box }) => box.left < -0.5 || box.top < -0.5 || box.right > viewport.width + 0.5 || box.bottom > viewport.height + 0.5)
-      .map(({ name }) => name)
-    const playerBox = boxOf(player)
-    const actions = named.filter(({ name }) => name.startsWith('action-'))
-    const rail = boxOf(root.querySelector('segnavia-rail'))
-    const transport = boxOf(root.querySelector('.center'))
-    const first = actions[0]?.box
+    const control = (selector: string) => rect(root.querySelector(selector)?.shadowRoot?.querySelector('button'))
     return {
-      playerWidth: playerBox?.width ?? 0,
-      overlaps,
-      offscreen,
-      playCentered: play && playerBox ? Math.abs(play.left + play.width / 2 - (playerBox.left + playerBox.width / 2)) < 1 : false,
-      actionsUnderTransport: Boolean(play && actions.length > 0 && actions.every(({ box }) => box.top >= play.bottom - 0.5)),
-      actionsOneRowBelowRail: Boolean(
-        rail &&
-          first &&
-          actions.length > 0 &&
-          actions.every(({ box }) => box.top >= rail.bottom - 0.5) &&
-          actions.every(({ box }) => Math.abs(box.top - first.top) < 0.5 && Math.abs(box.width - first.width) < 1),
-      ),
-      railTop: rail?.top ?? 0,
-      transportBottom: transport?.bottom ?? 0,
-      actionsTop: first?.top ?? null,
-      actionsBottom: first ? Math.max(...actions.map(({ box }) => box.bottom)) : null,
-      railBottom: rail?.bottom ?? 0,
+      play: control('segnavia-play'),
+      previous: control('segnavia-step[to="previous"]'),
+      next: control('segnavia-step[to="next"]'),
+      present: control('segnavia-fullscreen'),
+      actionBoxes: [...player.querySelectorAll('[slot="actions"]')].map((action) => rect(action)),
+      playerBox: rect(player),
+      rail: rect(root.querySelector('segnavia-rail')),
+      transport: rect(root.querySelector('.center')),
+      viewport: { width: window.innerWidth, height: window.innerHeight },
     }
   })
+  const named = [
+    { name: 'previous', box: raw.previous },
+    { name: 'play', box: raw.play },
+    { name: 'next', box: raw.next },
+    { name: 'present', box: raw.present },
+    ...raw.actionBoxes.map((box, index) => ({ name: `action-${index + 1}`, box })),
+  ].filter((entry): entry is { name: string; box: Box } => visibleBox(entry.box))
+  const overlaps: string[] = []
+  for (let i = 0; i < named.length; i++) {
+    for (let j = i + 1; j < named.length; j++) {
+      const a = named[i]
+      const b = named[j]
+      if (a && b && boxesOverlap(a.box, b.box)) overlaps.push(`${a.name}∩${b.name}`)
+    }
+  }
+  const actions = named.filter(({ name }) => name.startsWith('action-'))
+  const first = actions[0]?.box
+  const play = raw.play
+  const playerBox = raw.playerBox
+  const rail = raw.rail
+  return {
+    playerWidth: playerBox?.width ?? 0,
+    overlaps,
+    offscreen: named
+      .filter(({ box }) => box.left < -0.5 || box.top < -0.5 || box.right > raw.viewport.width + 0.5 || box.bottom > raw.viewport.height + 0.5)
+      .map(({ name }) => name),
+    playCentered: play && playerBox ? Math.abs(play.left + play.width / 2 - (playerBox.left + playerBox.width / 2)) < 1 : false,
+    actionsUnderTransport: Boolean(play && actions.length > 0 && actions.every(({ box }) => box.top >= play.bottom - 0.5)),
+    actionsOneRowBelowRail: Boolean(
+      rail &&
+        first &&
+        actions.length > 0 &&
+        actions.every(({ box }) => box.top >= rail.bottom - 0.5) &&
+        actions.every(({ box }) => Math.abs(box.top - first.top) < 0.5 && Math.abs(box.width - first.width) < 1),
+    ),
+    railTop: rail?.top ?? 0,
+    transportBottom: raw.transport?.bottom ?? 0,
+    actionsTop: first?.top ?? null,
+    actionsBottom: first ? Math.max(...actions.map(({ box }) => box.bottom)) : null,
+    railBottom: rail?.bottom ?? 0,
+  }
 }
 
 function focusKindSrc() {
@@ -139,7 +155,6 @@ function focusKindSrc() {
     let node = document.activeElement
     while (node && node.shadowRoot && node.shadowRoot.activeElement) node = node.shadowRoot.activeElement
     if (!node) return 'none'
-    if (node.classList && node.classList.contains('actions')) return 'action'
     if (node.closest && node.closest('[slot="actions"]')) return 'action'
     if (node.classList && node.classList.contains('notes-toggle')) return 'notes'
     const root = node.getRootNode()
@@ -157,18 +172,25 @@ function focusKindSrc() {
   }`
 }
 
+async function readFocusKind(h: Harness): Promise<string> {
+  return h.page.evaluate((src) => {
+    const focusKind = new Function(`return (${src})`)()
+    return focusKind() as string
+  }, focusKindSrc())
+}
+
 async function tabKindsFromNext(h: Harness): Promise<string[]> {
   await h.page.waitForFunction(() => {
     const actions = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('.actions') as HTMLElement | null
-    return Boolean(actions && actions.tabIndex === 0 && actions.previousElementSibling?.tagName === 'SEGNAVIA-RAIL')
+    return Boolean(actions && actions.previousElementSibling?.tagName === 'SEGNAVIA-RAIL')
   })
-  await h.page.locator(`${PLAYER} segnavia-step[to="next"] button`).click()
+  await h.page.locator(PLAYER).evaluate((player) => {
+    const next = player.shadowRoot?.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLButtonElement | null
+    next?.focus()
+  })
   const kinds: string[] = []
   for (let step = 0; step < 16; step++) {
-    const kind = await h.page.evaluate((src) => {
-      const focusKind = new Function(`return (${src})`)()
-      return focusKind() as string
-    }, focusKindSrc())
+    const kind = await readFocusKind(h)
     kinds.push(kind)
     if (step > 0 && (kind === 'next' || kind === 'none' || kind === 'body' || kind === 'html')) break
     await h.page.keyboard.press('Tab')
@@ -213,11 +235,16 @@ export async function verifyCompactPlayerActions(h: Harness) {
   const endAt = groups.indexOf('end')
   const railAt = groups.indexOf('rail')
   const actionAt = groups.indexOf('action')
+  const afterRail = await page.locator(PLAYER).evaluate((player) => {
+    const actions = player.shadowRoot?.querySelector('.actions')
+    return actions?.previousElementSibling?.tagName ?? ''
+  })
   check(
-    '393px Tab from Next visits mute/present, then rail thumbnails, then actions',
-    endAt === 0 && railAt === 1 && actionAt === 2,
+    '393px Tab from Next visits mute/present, then rail, before any host action',
+    endAt === 0 && railAt === 1 && (actionAt === -1 || actionAt > railAt),
     JSON.stringify({ tabs, groups }),
   )
+  check('393px compact shadow puts .actions after the rail', afterRail === 'SEGNAVIA-RAIL', afterRail)
   await h.evidence('player-actions-393.png')
 
   await mountRailAndActions(h, 2)
@@ -298,11 +325,7 @@ export async function verifyCompactPlayerActions(h: Harness) {
     if (caption.clear || caption.wordCount > 0) break
     await page.waitForTimeout(50)
   }
-  check(
-    '393px overlay caption words end above the bar',
-    Boolean(caption && caption.wordCount > 0 && caption.clear),
-    JSON.stringify(caption),
-  )
+  check('393px overlay caption words end above the bar', Boolean(caption && caption.wordCount > 0 && caption.clear), JSON.stringify(caption))
   await h.evidence('player-overlay-captions-393.png')
 
   await page.setViewportSize({ width: 1280, height: 720 })

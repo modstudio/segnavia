@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
 import {
+  COMPACT_PLAYER_WIDTH,
   compactBarHeight,
   compactBelowControls,
-  COMPACT_PLAYER_WIDTH,
   containSlideSize,
   PlayerMeasureChanges,
   playerControls,
