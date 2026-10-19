@@ -7,9 +7,9 @@ export async function checkBoardChrome(h: Harness) {
   await list.locator('input[type="search"]').fill('')
   await list.locator('[data-board-item="deck-small"]').waitFor({ state: 'visible', timeout: BOUNDED_WAIT_MS })
   await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void; selected: string | null }
+    const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void; selection: readonly string[] }
     value.board = { ...value.board, direction: 'ltr' }
-    value.selected = null
+    value.selection = []
     value.fitAll()
     const state = window as typeof window & { boardSelections: unknown[]; boardActions: unknown[] }
     state.boardSelections = []
@@ -29,30 +29,34 @@ export async function checkBoardChrome(h: Harness) {
   const item = board.locator('[data-board-item="deck-small"]')
   await item.click()
   let selection = await h.page.evaluate(() => {
-    const board = document.querySelector('segnavia-board') as (HTMLElement & { selected: string | null }) | null
+    const board = document.querySelector('segnavia-board') as (HTMLElement & { selection: readonly string[] }) | null
     const node = board?.shadowRoot?.querySelector('[data-board-item="deck-small"]')
-    const events = (window as typeof window & { boardSelections: Array<{ item: { id: string } | null }> }).boardSelections
-    return { selected: board?.selected, attribute: node?.hasAttribute('data-selected'), events: events.length, detail: events[0]?.item?.id }
+    const events = (window as typeof window & { boardSelections: Array<{ items: Array<{ id: string }> }> }).boardSelections
+    return { selection: board?.selection, attribute: node?.hasAttribute('data-selected'), events: events.length, detail: events[0]?.items[0]?.id }
   })
   h.check(
     'clicking an item selects and marks it and emits one selection event',
-    selection.selected === 'deck-small' && selection.attribute === true && selection.events === 1 && selection.detail === 'deck-small',
+    selection.selection?.join() === 'deck-small' && selection.attribute === true && selection.events === 1 && selection.detail === 'deck-small',
     JSON.stringify(selection),
   )
 
   await board.evaluate((element) => {
-    ;(element as HTMLElement & { selected: string | null }).selected = null
+    ;(element as HTMLElement & { selection: readonly string[] }).selection = []
   })
   await h.page.mouse.move(0, 0)
   await item.focus()
   await h.page.keyboard.press('Tab')
   const tabbedAction = await board.evaluate((element) => {
     const active = element.shadowRoot?.activeElement as HTMLElement | null
-    return { action: active?.dataset.action, item: active?.dataset.boardItemAction, selected: (element as HTMLElement & { selected: string | null }).selected }
+    return {
+      action: active?.dataset.action,
+      item: active?.dataset.boardItemAction,
+      selection: (element as HTMLElement & { selection: readonly string[] }).selection,
+    }
   })
   h.check(
     'Tab from an unselected item reaches its first action without selecting it',
-    tabbedAction.action === 'open' && tabbedAction.item === 'deck-small' && tabbedAction.selected === null,
+    tabbedAction.action === 'open' && tabbedAction.item === 'deck-small' && tabbedAction.selection.length === 0,
     JSON.stringify(tabbedAction),
   )
 
@@ -62,8 +66,8 @@ export async function checkBoardChrome(h: Harness) {
     value.reveal('paper')
   })
   await board.locator('[data-board-title="paper"] [part~="item-name"]').click()
-  const titleSelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
-  h.check('clicking an item title selects its item', titleSelected === 'paper', String(titleSelected))
+  const titleSelected = await board.evaluate((element) => (element as HTMLElement & { selection: readonly string[] }).selection)
+  h.check('clicking an item title selects its item', titleSelected.join() === 'paper', String(titleSelected))
   await board.evaluate((element) => (element as HTMLElement & { reveal(id: string): boolean }).reveal('deck-small'))
   await item.click()
 
@@ -84,21 +88,21 @@ export async function checkBoardChrome(h: Harness) {
   )
 
   const beforeAction = await board.evaluate((element) => {
-    const value = element as HTMLElement & { selected: string | null; view: BoardView }
-    return { selected: value.selected, view: value.view }
+    const value = element as HTMLElement & { selection: readonly string[]; view: BoardView }
+    return { selection: value.selection, view: value.view }
   })
   await board.locator('[data-board-item="deck-small"] + [part~="item-title"] [data-action="download"]').click()
   const afterAction = await h.page.evaluate(() => {
-    const board = document.querySelector('segnavia-board') as HTMLElement & { selected: string | null; view: BoardView }
+    const board = document.querySelector('segnavia-board') as HTMLElement & { selection: readonly string[]; view: BoardView }
     const actions = (window as typeof window & { boardActions: Array<{ action: string; item: { id: string } }> }).boardActions
-    return { selected: board.selected, view: board.view, actions: actions.map((entry) => ({ action: entry.action, item: entry.item.id })) }
+    return { selection: board.selection, view: board.view, actions: actions.map((entry) => ({ action: entry.action, item: entry.item.id })) }
   })
   h.check(
     'Download emits once without changing selection or view',
     afterAction.actions.length === 1 &&
       afterAction.actions[0]?.action === 'download' &&
       afterAction.actions[0]?.item === 'deck-small' &&
-      afterAction.selected === beforeAction.selected &&
+      JSON.stringify(afterAction.selection) === JSON.stringify(beforeAction.selection) &&
       JSON.stringify(afterAction.view) === JSON.stringify(beforeAction.view),
     JSON.stringify({ beforeAction, afterAction }),
   )
@@ -106,7 +110,7 @@ export async function checkBoardChrome(h: Harness) {
   h.check('Download is absent from an image title', imageDownload === 0, String(imageDownload))
 
   await board.evaluate((element) => {
-    ;(element as HTMLElement & { selected: string | null }).selected = null
+    ;(element as HTMLElement & { selection: readonly string[] }).selection = []
   })
   await item.hover()
   const actionBox = await board.locator('[data-board-item="deck-small"] + [part~="item-title"] [data-action="open"]').boundingBox()
@@ -118,12 +122,12 @@ export async function checkBoardChrome(h: Harness) {
   await h.page.mouse.move(actionItemBox.x + actionItemBox.width / 2, actionItemBox.y + actionItemBox.height / 2)
   await h.page.mouse.up()
   const canceledAction = await h.page.evaluate(() => ({
-    selected: (document.querySelector('segnavia-board') as HTMLElement & { selected: string | null }).selected,
+    selection: (document.querySelector('segnavia-board') as HTMLElement & { selection: readonly string[] }).selection,
     actions: (window as typeof window & { boardActions: unknown[] }).boardActions.length,
   }))
   h.check(
     'releasing an action press over its item does not select or activate it',
-    canceledAction.selected === null && canceledAction.actions === actionCount,
+    canceledAction.selection.length === 0 && canceledAction.actions === actionCount,
     JSON.stringify({ actionCount, canceledAction }),
   )
 
@@ -148,17 +152,17 @@ export async function checkBoardChrome(h: Harness) {
 
   await item.focus()
   await h.page.keyboard.press('Escape')
-  selection = (await board.evaluate((element) => ({ selected: (element as HTMLElement & { selected: string | null }).selected }))) as typeof selection
-  h.check('Escape clears board selection', selection.selected === null, JSON.stringify(selection))
+  selection = (await board.evaluate((element) => ({ selection: (element as HTMLElement & { selection: readonly string[] }).selection }))) as typeof selection
+  h.check('Escape clears board selection', selection.selection?.length === 0, JSON.stringify(selection))
   await item.click()
   const boardBox = await board.boundingBox()
   if (!boardBox) throw new Error('The board has no box for selection checks.')
   await h.page.mouse.click(boardBox.x + boardBox.width - 12, boardBox.y + boardBox.height - 12)
-  const emptySelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
-  h.check('clicking empty board surface clears selection', emptySelected === null, String(emptySelected))
+  const emptySelected = await board.evaluate((element) => (element as HTMLElement & { selection: readonly string[] }).selection)
+  h.check('clicking empty board surface clears selection', emptySelected.length === 0, String(emptySelected))
 
   await board.evaluate((element) => {
-    ;(element as HTMLElement & { selected: string | null }).selected = null
+    ;(element as HTMLElement & { selection: readonly string[] }).selection = []
   })
   const dragBox = await item.boundingBox()
   if (!dragBox) throw new Error('The board item has no box for the drag check.')
@@ -166,12 +170,12 @@ export async function checkBoardChrome(h: Harness) {
   await h.page.mouse.down()
   await h.page.mouse.move(dragBox.x + dragBox.width / 2 + 24, dragBox.y + dragBox.height / 2 + 12)
   await h.page.mouse.up()
-  const dragSelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
-  h.check('dragging pans without selecting', dragSelected === null, String(dragSelected))
+  const dragSelected = await board.evaluate((element) => (element as HTMLElement & { selection: readonly string[] }).selection)
+  h.check('dragging an item selects it while editing is attached', dragSelected.join() === 'deck-small', String(dragSelected))
 
   await list.locator('[data-board-item="deck-hebrew"]').click()
-  const listSelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
-  h.check('choosing a list item selects it', listSelected === 'deck-hebrew', String(listSelected))
+  const listSelected = await board.evaluate((element) => (element as HTMLElement & { selection: readonly string[] }).selection)
+  h.check('choosing a list item selects it', listSelected.join() === 'deck-hebrew', String(listSelected))
 
   await board.evaluate((element) => {
     const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void }

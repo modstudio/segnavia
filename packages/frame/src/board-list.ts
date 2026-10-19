@@ -206,7 +206,7 @@ export class SegnaviaBoardList extends HTMLElement {
     const section = target.board?.sections.find((entry) => entry.id === button.dataset.boardSection)
     if (item) {
       target.reveal(item.id)
-      target.selected = item.id
+      target.selection = [item.id]
       this.dispatchEvent(new CustomEvent('segnavia-board-select', { detail: { item }, bubbles: true, composed: true }))
     } else if (section) {
       target.reveal(section.id)

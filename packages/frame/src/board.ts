@@ -15,6 +15,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
+import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
@@ -23,11 +24,12 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardNode } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
-import { BoardSelection } from './board-selection.ts'
+import { BoardSelection, selectBoardItem } from './board-selection.ts'
+import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
 
-export class SegnaviaBoard extends HTMLElement {
+export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false
@@ -42,6 +44,7 @@ export class SegnaviaBoard extends HTMLElement {
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
+  private editingHostValue: ((board: Board | null) => void) | null = null
   private readonly decorations = new BoardDecorations(this.surface)
   private readonly titles = new BoardItemTitles()
   private readonly chrome = new BoardChrome(
@@ -51,7 +54,7 @@ export class SegnaviaBoard extends HTMLElement {
     (id) => this.itemName(id),
     () => this.value?.direction ?? 'ltr',
   )
-  private readonly selection = new BoardSelection(
+  private readonly selectionState = new BoardSelection(
     this,
     () => this.items,
     () => this.mounts.nodes,
@@ -59,7 +62,7 @@ export class SegnaviaBoard extends HTMLElement {
   private readonly mounts = new BoardMounts(
     this.surface,
     this.titles,
-    (node, id) => this.selection.mount(node, id),
+    (node, id) => this.selectionState.mount(node, id),
     (id) => this.painter.remove(id),
   )
   private readonly names = new BoardNames(
@@ -77,12 +80,17 @@ export class SegnaviaBoard extends HTMLElement {
   private readonly input = new BoardInput(this, this.gestures, {
     item: (id) => (id ? this.items.get(id) : undefined),
     itemAt: (event) => (this.value ? itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
-    select: (id) => {
-      this.selection.selected = id
+    select: (id, toggle) => {
+      if (!id) this.selectionState.selection = []
+      else this.selectionState.selection = selectBoardItem(this.selectionState.selection, id, toggle)
     },
-    open: (item) => this.open(item),
+    selectAll: () => {
+      this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
+    },
+    open: (item) => this.dispatchEvent(new CustomEvent('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
     boardKey: (event) => this.onBoardKey(event),
     action: (action, item) => this.dispatchEvent(new CustomEvent('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
+    focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
 
@@ -98,10 +106,15 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   set board(input: Board | null) {
+    this.setBoardValue(input, true)
+    this.editingHostValue?.(this.value)
+  }
+
+  private setBoardValue(input: Board | null, dispatch: boolean) {
     const previous = this.value
     this.value = input === null ? null : Board.parse(input)
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
-    this.selection.reconcile()
+    this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
     const addresses = new Set(this.value?.items.map((item) => item.address) ?? [])
     this.resolutions.keep(addresses)
@@ -116,7 +129,7 @@ export class SegnaviaBoard extends HTMLElement {
     this.mounts.reconcile(previous, this.value)
     this.render()
     this.fitInitial()
-    this.dispatchEvent(new CustomEvent('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
+    if (dispatch) this.dispatchEvent(new CustomEvent('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
   }
 
   get view(): BoardView {
@@ -133,12 +146,12 @@ export class SegnaviaBoard extends HTMLElement {
     this.dispatchEvent(new CustomEvent('segnavia-board-icons', { bubbles: true, composed: true }))
   }
 
-  get selected(): string | null {
-    return this.selection.selected
+  get selection(): readonly string[] {
+    return this.selectionState.selection
   }
 
-  set selected(value: string | null) {
-    this.selection.selected = value
+  set selection(value: readonly string[]) {
+    this.selectionState.selection = value
   }
 
   get itemActions(): readonly BoardItemAction[] {
@@ -192,8 +205,28 @@ export class SegnaviaBoard extends HTMLElement {
   }
 
   itemName(id: string): string {
-    const item = this.items.get(id)
-    return this.names.name(item, item ? this.resolutions.value(item.address) : undefined)
+    return this.names.name(this.items.get(id), this.items.get(id) ? this.resolutions.value((this.items.get(id) as BoardItem).address) : undefined)
+  }
+  [boardEditing](delegate: BoardInputDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge {
+    if (this.input.delegate || this.editingHostValue)
+      throw new Error('board editing is already attached or settling; wait for it before attaching another editor')
+    this.input.delegate = delegate
+    this.editingHostValue = hostValue
+    return createBoardEditingBridge({
+      host: this,
+      surface: this.surface,
+      value: () => this.value,
+      view: () => this.currentView,
+      shapes: () => this.shapes,
+      local: (event) => this.gestures.local(event),
+      optimistic: (board) => this.setBoardValue(board, false),
+      detachInput: () => {
+        if (this.input.delegate === delegate) this.input.delegate = null
+      },
+      release: () => {
+        if (this.editingHostValue === hostValue) this.editingHostValue = null
+      },
+    })
   }
 
   connectedCallback() {
@@ -282,7 +315,6 @@ export class SegnaviaBoard extends HTMLElement {
     if (!board) {
       this.mounts.clear()
       this.decorations.clear()
-      this.surface.replaceChildren()
       return
     }
     this.decorations.render(board, this.currentView)
@@ -362,10 +394,4 @@ export class SegnaviaBoard extends HTMLElement {
     if (action.kind === 'fit') this.fitAll()
     else this.setView(action.view)
   }
-
-  private open(item: BoardItem) {
-    this.dispatchEvent(new CustomEvent('segnavia-board-open', { detail: { item }, bubbles: true, composed: true }))
-  }
 }
-
-export type { BoardItemNames } from './board-names.ts'

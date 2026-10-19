@@ -54,6 +54,12 @@ describe('headless base styles', () => {
     expect(BASE_CSS).not.toMatch(/\[part~="surface"\][^{]*\{[^}]*transform:/)
   })
 
+  test('board editing supplies screen-sized marquee and handle geometry', () => {
+    expect(BASE_CSS).toContain('[part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb)')
+    expect(BASE_CSS).toContain('inline-size:8px;block-size:8px;translate:-50% -50%')
+    expect(BASE_CSS).toContain('var(--segnavia-board-handle-background,#fff)')
+  })
+
   test('the board list exposes geometry and custom-property colors for every part', () => {
     for (const part of ['search', 'groups', 'group', 'group-title', 'item', 'empty']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
     expect(BASE_CSS).toContain(':host(segnavia-board-list)')

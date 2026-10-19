@@ -31,6 +31,8 @@ export class BoardDecorations {
   }
 
   clear() {
+    for (const node of this.sectionNodes.values()) node.remove()
+    for (const node of this.labelNodes.values()) node.remove()
     this.sectionNodes.clear()
     this.labelNodes.clear()
   }
@@ -49,6 +51,7 @@ export class BoardDecorations {
     node.part.add('section')
     const title = document.createElement('div')
     title.part.add('section-title')
+    title.dataset.boardSectionTitle = id
     node.append(title)
     this.sectionNodes.set(id, node)
     this.insert(node)
