@@ -85,6 +85,7 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   :host(:not([controls="overlay"]):not([data-presenting])) .player{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
     grid-template-areas:"body body body" "caption caption caption" "track track track" "start center end" "rail rail rail" "actions actions actions" "below below below";
     grid-template-rows:auto auto auto auto auto auto auto}
+  :host([data-layout="responsive"][fit="height"]:not([controls="overlay"]):not([data-presenting])) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto auto auto}
   :host(:not([controls="overlay"]):not([data-presenting])) :is(.bar,.control-row){display:contents}
   :host(:not([controls="overlay"]):not([data-presenting])) segnavia-track{grid-area:track;box-sizing:border-box;padding:8px 12px 4px}
   :host(:not([controls="overlay"]):not([data-presenting])) .start{padding:0 0 12px 12px}

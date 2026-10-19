@@ -229,6 +229,7 @@ interface ActionBarGeometry {
   offscreen: string[]
   playCentered: boolean
   actionsUnderTransport: boolean
+  actionsOneRowBelowRail: boolean
 }
 
 async function mountRailAndActions(h: Harness) {
@@ -291,6 +292,16 @@ async function actionBarGeometry(h: Harness): Promise<ActionBarGeometry> {
       offscreen,
       playCentered: play && playerBox ? Math.abs(play.left + play.width / 2 - (playerBox.left + playerBox.width / 2)) < 1 : false,
       actionsUnderTransport: Boolean(play && actions.length === 3 && actions.every(({ box }) => box.top >= play.bottom - 0.5)),
+      actionsOneRowBelowRail: (() => {
+        const rail = boxOf(root.querySelector('segnavia-rail'))
+        if (!rail || actions.length !== 3) return false
+        const first = actions[0]?.box
+        return Boolean(
+          first &&
+            actions.every(({ box }) => box.top >= rail.bottom - 0.5) &&
+            actions.every(({ box }) => Math.abs(box.top - first.top) < 0.5 && Math.abs(box.width - first.width) < 1),
+        )
+      })(),
     }
   })
 }
@@ -306,7 +317,7 @@ async function verifyCompactPlayerActions(h: Harness) {
   check('393px player with a rail is 393px wide', Math.abs(bars.playerWidth - 393) < 1, JSON.stringify(bars))
   check('393px bar with three actions keeps Play, Step, Next, Present and actions from overlapping', bars.overlaps.length === 0, JSON.stringify(bars.overlaps))
   check('393px bar with three actions keeps every control inside the viewport', bars.offscreen.length === 0, JSON.stringify(bars.offscreen))
-  check('393px bar with three actions places the actions under the transport', bars.actionsUnderTransport, JSON.stringify(bars))
+  check('393px player puts the three actions side by side, equal width, on one row below the rail', bars.actionsOneRowBelowRail, JSON.stringify(bars))
   await h.evidence('player-actions-393.png')
 
   await page.goto(h.url('layout-overlay.html'))

@@ -30,7 +30,13 @@ async function frameFacts(h: Harness) {
 const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => {
   const root = player.shadowRoot
   const stage = root.querySelector('segnavia-stage') as HTMLElement
-  const controls = ['segnavia-caption', '.bar'].reduce((height, selector) => height + (root.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0), 0)
+  // At compact widths the bar is display:contents, so its pieces are measured instead.
+  const controls =
+    (root.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) +
+    ((r: ShadowRoot | null | undefined) => {
+      const h = (q: string) => r?.querySelector<HTMLElement>(q)?.offsetHeight ?? 0
+      return h('.bar') || h('segnavia-track') + Math.max(h('.start'), h('.center'), h('.end-controls')) + h('.actions')
+    })(root)
   return { player: player.clientHeight, stage: stage.clientHeight, controls }
 }
 
@@ -127,7 +133,12 @@ export async function verifyResponsive(h: Harness) {
     const player = document.querySelector<HTMLElement>('segnavia-player')
     const root = player?.shadowRoot
     const stage = root?.querySelector<HTMLElement>('segnavia-stage')
-    const controls = (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + (root?.querySelector<HTMLElement>('.bar')?.offsetHeight ?? 0)
+    const controls =
+      (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) +
+      ((r: ShadowRoot | null | undefined) => {
+        const h = (q: string) => r?.querySelector<HTMLElement>(q)?.offsetHeight ?? 0
+        return h('.bar') || h('segnavia-track') + Math.max(h('.start'), h('.center'), h('.end-controls')) + h('.actions')
+      })(root)
     return player && stage && Math.abs(stage.clientHeight - (player.clientHeight - controls)) <= 1
   })
   const wideHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts)
@@ -160,7 +171,12 @@ export async function verifyResponsive(h: Harness) {
     const player = document.querySelector<HTMLElement>('segnavia-player')
     const root = player?.shadowRoot
     const stage = root?.querySelector<HTMLElement>('segnavia-stage')
-    const controls = (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + (root?.querySelector<HTMLElement>('.bar')?.offsetHeight ?? 0)
+    const controls =
+      (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) +
+      ((r: ShadowRoot | null | undefined) => {
+        const h = (q: string) => r?.querySelector<HTMLElement>(q)?.offsetHeight ?? 0
+        return h('.bar') || h('segnavia-track') + Math.max(h('.start'), h('.center'), h('.end-controls')) + h('.actions')
+      })(root)
     return player && stage && Math.abs(stage.clientHeight - (player.clientHeight - controls)) <= 1
   })
   const narrowHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts)

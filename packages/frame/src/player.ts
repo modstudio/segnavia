@@ -203,6 +203,15 @@ export class SegnaviaPlayer extends HTMLElement {
     if (name === 'presentation') void this.configurePresentation()
   }
 
+  // The bar's height, or, when compact CSS flattens it into the player grid
+  // (display:contents, no box), the rows its pieces now occupy.
+  private barHeight(): number {
+    const bar = this.root.querySelector('.bar') as HTMLElement
+    if (bar.offsetHeight > 0) return bar.offsetHeight
+    const height = (selector: string) => (this.root.querySelector(selector) as HTMLElement | null)?.offsetHeight ?? 0
+    return height('segnavia-track') + Math.max(height('.start'), height('.center'), height('.end-controls')) + height('.actions')
+  }
+
   private passPlayerOptions() {
     this.controller.setPlayerOptions(playerOptions(this))
   }
@@ -289,9 +298,7 @@ export class SegnaviaPlayer extends HTMLElement {
     const rail = this.root.querySelector('segnavia-rail') as HTMLElement
     const railHeight = this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0
     const chromeHeight =
-      (this.controls === 'overlay'
-        ? 0
-        : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + (this.root.querySelector('.bar') as HTMLElement).offsetHeight) +
+      (this.controls === 'overlay' ? 0 : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + this.barHeight()) +
       railHeight +
       (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
       (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)
