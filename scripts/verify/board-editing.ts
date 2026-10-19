@@ -1,5 +1,6 @@
 import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
+import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface DemoItem {
@@ -382,4 +383,6 @@ export async function checkBoardEditing(h: Harness) {
   await drag(h.page, { x: hostBox.x + hostBox.width / 2, y: hostBox.y + 600 }, -30, 0)
   const panAfter = await board.evaluate((element) => (element as BoardElement).view.pan.x)
   h.check('detaching board editing restores drag-to-pan', panAfter === panBefore - 30, JSON.stringify({ panBefore, panAfter }))
+
+  await checkBoardEditingReset(h, h.page, board, first)
 }
