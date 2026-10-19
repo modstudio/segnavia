@@ -1,9 +1,10 @@
 import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheetMm } from '@segnavia/format'
-import { PDFDocument, PDFName, rgb } from 'pdf-lib'
+import { PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
+import { loadPdf } from './pdf-load.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 
@@ -34,7 +35,7 @@ export function assertPrintOptions(print: Print, preferCssPageSize: boolean | un
 
 async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
   const boxes = printBoxes(print)
-  const document = await PDFDocument.load(pdf)
+  const document = await loadPdf(pdf)
   const source = document.getPage(0)
   const content = await document.embedPage(source)
   const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
@@ -95,7 +96,7 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
     },
     inputIndex,
   )
-  const papers = (await PDFDocument.load(printed.bytes)).getPageCount()
+  const papers = (await loadPdf(printed.bytes)).getPageCount()
   if (papers > 1) {
     throw new RenderRefusedError(
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,

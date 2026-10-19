@@ -4,7 +4,6 @@
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
-import { PDFDocument } from 'pdf-lib'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
@@ -17,6 +16,7 @@ import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
+import { loadPdf } from './pdf-load.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 import type { JpegDecoder } from './press/image.ts'
@@ -79,7 +79,7 @@ async function withinBound<T>(ms: number, work: Promise<T>): Promise<T> {
 }
 
 async function sheets(pdf: Uint8Array): Promise<number> {
-  return (await PDFDocument.load(pdf)).getPageCount()
+  return (await loadPdf(pdf)).getPageCount()
 }
 
 async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promise<Uint8Array> {

@@ -6,6 +6,7 @@ import { type MarginPage, marginDocument } from './book-margins.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import { loadPdf } from './pdf-load.ts'
 
 export interface BookPdfAdapter {
   print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart): Promise<PrintResult<true>>
@@ -20,7 +21,7 @@ interface PrintedPart {
 }
 
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
-  const document = await PDFDocument.load(output.bytes)
+  const document = await loadPdf(output.bytes)
   return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }
 }
 
@@ -69,7 +70,7 @@ function verifyStarts(label: string, sections: BookSectionInfo[], expected: Map<
 
 async function appendBlank(part: PrintedPart): Promise<PrintedPart> {
   if (!part.bytes) return part
-  const document = await PDFDocument.load(part.bytes)
+  const document = await loadPdf(part.bytes)
   const last = document.getPage(document.getPageCount() - 1)
   document.addPage([last.getWidth(), last.getHeight()])
   return { ...part, bytes: await document.save(), pages: part.pages + 1 }
@@ -197,10 +198,10 @@ async function join(front: PrintedPart, body: PrintedPart, marginBytes: Uint8Arr
   const output = await PDFDocument.create()
   for (const part of [front, body]) {
     if (!part.bytes) continue
-    const source = await PDFDocument.load(part.bytes)
+    const source = await loadPdf(part.bytes)
     for (const page of await output.copyPages(source, source.getPageIndices())) output.addPage(page)
   }
-  const layer = await PDFDocument.load(marginBytes)
+  const layer = await loadPdf(marginBytes)
   if (layer.getPageCount() !== output.getPageCount()) {
     throw new RenderRefusedError(`The margin layer has ${layer.getPageCount()} pages, but the book has ${output.getPageCount()}.`)
   }
