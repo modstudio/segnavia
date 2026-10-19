@@ -17,6 +17,7 @@ export function buildThumbnailDemo(site: string, shell: (body: string, script?: 
         const deck = await fetch('deck.json').then((response) => response.json())
         for (const thumbnail of document.querySelectorAll('segnavia-thumbnail')) {
           thumbnail.base = new URL('deck.json', location.href).href
+          thumbnail.css = 'body{border-block-start:7px solid rgb(0, 128, 0)}'
           thumbnail.deck = deck
         }
         document.getElementById('shot').index = 1

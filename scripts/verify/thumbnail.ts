@@ -27,6 +27,13 @@ export async function verifyThumbnail(h: Harness) {
     .evaluate((body) => getComputedStyle(body).backgroundColor)
   check('a slide script does not run inside a thumbnail', background !== 'rgb(255, 0, 0)', background)
 
+  const hostRule = await page
+    .locator('#html iframe')
+    .contentFrame()
+    .locator('body')
+    .evaluate((body) => getComputedStyle(body).borderBlockStartWidth)
+  check('a thumbnail draws its slide with the host stylesheet', hostRule === '7px', hostRule)
+
   const shot = await page.locator('#shot').evaluate((element) => ({
     width: (element as HTMLElement).getBoundingClientRect().width,
     image: Boolean(element.shadowRoot?.querySelector('img')),
