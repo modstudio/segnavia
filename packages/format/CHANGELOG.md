@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.11.0
+
+### Minor Changes
+
+- 88a3de9: Add board listing policy, host-provided item names and content search, reveal geometry, and the headless `<segnavia-board-list>` element.
+
 ## 0.10.0
 
 ### Minor Changes

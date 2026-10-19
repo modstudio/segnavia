@@ -1,5 +1,18 @@
 # @segnavia/react
 
+## 0.11.0
+
+### Minor Changes
+
+- c6afc85: A slide thumbnail takes the host stylesheet through `css`, as the stage does, so a cover is drawn the way the slide is shown in the player.
+
+### Patch Changes
+
+- Updated dependencies [5332823]
+- Updated dependencies [88a3de9]
+- Updated dependencies [c6afc85]
+  - @segnavia/frame@0.11.0
+
 ## 0.10.0
 
 ### Patch Changes
