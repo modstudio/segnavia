@@ -1,4 +1,5 @@
 import type { Board, BoardSection } from './board.ts'
+import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import type { Box, Point } from './deck.ts'
 
@@ -102,28 +103,14 @@ function entityRectangle(board: Board, shapes: BoardShapes, entity: Entity): Box
 }
 
 function moveEntity(board: Board, entity: Entity, delta: Point): Board {
-  if (entity.kind === 'item') {
-    return {
-      ...board,
-      items: board.items.map((item) => (item.id === entity.id ? { ...item, x: item.x + delta.x, y: item.y + delta.y } : item)),
-    }
-  }
+  if (entity.kind === 'item') return moveItems(board, [entity.id], delta)
   if (entity.kind === 'label') {
     return {
       ...board,
       labels: board.labels.map((label) => (label.id === entity.id ? { ...label, x: label.x + delta.x, y: label.y + delta.y } : label)),
     }
   }
-  const section = board.sections.find((entry) => entry.id === entity.id)
-  if (!section) return board
-  const members = new Set(section.items)
-  return {
-    ...board,
-    items: board.items.map((item) => (members.has(item.id) ? { ...item, x: item.x + delta.x, y: item.y + delta.y } : item)),
-    sections: board.sections.map((entry) =>
-      entry.id === entity.id ? { ...entry, rectangle: { ...entry.rectangle, x: entry.rectangle.x + delta.x, y: entry.rectangle.y + delta.y } } : entry,
-    ),
-  }
+  return moveSection(board, entity.id, delta)
 }
 
 function neighbors(board: Board): Entity[] {
@@ -175,11 +162,16 @@ export function makeRoom(board: Board, shapes: BoardShapes, changed: readonly st
   return next
 }
 
-export function settleBoard(board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
+export function touchedSections(previous: Board, board: Board, touched: readonly string[]): string[] {
   const touchedIds = new Set(touched)
-  const sectionIds = board.sections
+  return [...previous.sections, ...board.sections]
     .filter((section) => touchedIds.has(section.id) || section.items.some((id) => touchedIds.has(id)))
     .map((section) => section.id)
+    .filter((id, index, ids) => ids.indexOf(id) === index)
+}
+
+export function settleBoard(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
+  const sectionIds = touchedSections(previous, board, touched)
   const fitted = sectionIds.reduce((value, id) => fitSection(value, shapes, id), board)
   return makeRoom(fitted, shapes, sectionIds)
 }

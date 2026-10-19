@@ -122,6 +122,15 @@ describe('section room', () => {
     expect(settled.labels[0]).toEqual({ id: 'label', text: 'Measured', x: 336, y: 100 })
   })
 
+  test('refuses to make room without a label shape', () => {
+    const value: Board = {
+      ...board(),
+      labels: [{ id: 'label', text: '', x: 40, y: 40 }],
+      sections: [{ id: 'first', title: 'First', rectangle: { x: 0, y: 0, width: 100, height: 100 }, items: [] }],
+    }
+    expect(() => makeRoom(value, shapes, ['first'])).toThrow('label "label" has no supplied shape; supply shapes.labels["label"]')
+  })
+
   test('stops a cascade at the pass limit', () => {
     const items = Array.from({ length: MAKE_ROOM_LIMIT + 2 }, (_, index) => ({
       id: `item-${index}`,
@@ -143,8 +152,9 @@ describe('section room', () => {
     expect(settled.items.at(-1)?.x).toBe(items.at(-1)?.x)
   })
 
-  test('settles sections named directly because they lost a touched member', () => {
-    const assigned = assignMembership(board(), shapes, ['two'], { x: 900, y: 900 })
-    expect(settleBoard(assigned, shapes, ['two', 'first']).sections[0]?.rectangle.width).toBe(100 + SECTION_PADDING * 2)
+  test('settles a section that lost a touched member', () => {
+    const value = board()
+    const assigned = assignMembership(value, shapes, ['two'], { x: 900, y: 900 })
+    expect(settleBoard(value, assigned, shapes, ['two']).sections[0]?.rectangle.width).toBe(100 + SECTION_PADDING * 2)
   })
 })

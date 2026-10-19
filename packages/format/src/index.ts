@@ -50,6 +50,7 @@ export {
   SECTION_PADDING,
   SECTION_TITLE_ROOM,
   settleBoard,
+  touchedSections,
 } from './board-sections.ts'
 export {
   Book,

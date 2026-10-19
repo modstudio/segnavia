@@ -1,4 +1,4 @@
-import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard } from '@segnavia/format'
+import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard, settleBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
@@ -13,7 +13,6 @@ import {
   resolveBoardEdit,
   undoBoardEdit,
 } from './board-edit-policy.ts'
-import { settleTouched } from './board-edit-settlement.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardInputDelegate, boardEditing } from './board-editing-seam.ts'
@@ -120,7 +119,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       width,
     }
     const added = addItem(current, item)
-    this.apply(settleTouched(current, added, this.bridge.shapes(), [item.id]), { kind: 'add', ids: [item.id] })
+    this.apply(settleBoard(current, added, this.bridge.shapes(), [item.id]), { kind: 'add', ids: [item.id] })
     this.board.selection = [item.id]
     return item.id
   }
@@ -131,7 +130,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
     const removed = removeItems(current, existing)
-    this.apply(settleTouched(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
+    this.apply(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
     this.board.focus()
   }
 
@@ -141,7 +140,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     const next = arrange(current, this.bridge.shapes(), options)
     const ids = current.items.filter((item, index) => item.x !== next.items[index]?.x || item.y !== next.items[index]?.y).map((item) => item.id)
     this.apply(
-      settleTouched(
+      settleBoard(
         current,
         next,
         this.bridge.shapes(),

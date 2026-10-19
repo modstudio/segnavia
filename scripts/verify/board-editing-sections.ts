@@ -15,6 +15,7 @@ interface DemoSection {
 }
 interface DemoLabel {
   id: string
+  text?: string
   x: number
   y: number
 }
@@ -29,7 +30,7 @@ interface DemoChange {
   edit: { kind: string }
 }
 type BoardElement = HTMLElement & { board: DemoBoard; selection: readonly string[] }
-type DemoWindow = typeof window & { boardChanges: DemoChange[] }
+type DemoWindow = typeof window & { boardChanges: DemoChange[]; boardEditErrors: unknown[]; hostBoard: DemoBoard }
 
 function sectionState(element: Element) {
   const board = (element as BoardElement).board
@@ -172,6 +173,30 @@ export async function checkBoardEditingSections(
     'a section that grows into a measured label nudges the label clear',
     (labelAfter?.x !== labelBefore?.x || labelAfter?.y !== labelBefore?.y) && !labelOverlap,
     JSON.stringify({ labelBefore, labelAfter, grownSectionBox, movedLabelBox }),
+  )
+
+  await reset()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    next.labels = [...next.labels, { id: 'empty-label', text: '', x: 2000, y: 2000 }]
+    value.board = next
+    const state = window as unknown as DemoWindow
+    state.boardChanges = []
+    state.boardEditErrors = []
+    state.hostBoard = next
+  })
+  await first.click()
+  await h.page.keyboard.press('ArrowRight')
+  await waitChanges(h.page, 1)
+  const emptyLabelEdit = await board.evaluate(() => {
+    const state = window as unknown as DemoWindow
+    return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }
+  })
+  h.check(
+    'an empty label keeps section settlement working until it can be measured',
+    emptyLabelEdit.changes === 1 && emptyLabelEdit.errors === 0,
+    JSON.stringify(emptyLabelEdit),
   )
 
   await reset('rtl')

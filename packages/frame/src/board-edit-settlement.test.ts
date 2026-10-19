@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from '@segnavia/format'
-import { fitTouchedSections, settleTouched } from './board-edit-settlement.ts'
+import { fitTouchedSections } from './board-edit-settlement.ts'
 
 const shapes = { items: { one: { width: 100, height: 50 }, two: { width: 100, height: 100 } }, labels: {} }
 const before: Board = {
@@ -20,12 +20,5 @@ describe('board edit settlement', () => {
     const fitted = fitTouchedSections(moved, shapes, ['one'])
     expect(fitted.sections[0]?.rectangle.x).toBe(-74)
     expect(fitted.items[1]?.x).toBe(200)
-  })
-
-  test('settles a section that lost a touched member', () => {
-    const section = before.sections[0]
-    if (!section) throw new Error('fixture section is missing')
-    const after = { ...before, sections: [{ ...section, items: ['one'] }] }
-    expect(settleTouched(before, after, shapes, ['two']).sections[0]?.rectangle.width).toBe(148)
   })
 })

@@ -1,6 +1,6 @@
-import { assignMembership, type Board, makeRoom, moveItems, moveSection, type Point, screenToBoard } from '@segnavia/format'
+import { assignMembership, type Board, makeRoom, moveItems, moveSection, type Point, screenToBoard, settleBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
-import { fitTouchedSections, settleTouched } from './board-edit-settlement.ts'
+import { fitTouchedSections } from './board-edit-settlement.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
@@ -155,7 +155,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     if (gesture.kind === 'move' && this.enabled.move) {
       const release = screenToBoard(bridge.view(), bridge.local(event))
       const assigned = assignMembership(next, bridge.shapes(), gesture.ids, release, gesture.before.sections)
-      this.callbacks.commit(gesture.before, settleTouched(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
+      this.callbacks.commit(gesture.before, settleBoard(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
       this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
@@ -163,7 +163,7 @@ export class BoardEditingInput implements BoardInputDelegate {
         ids: [gesture.sectionId, ...members],
       })
     } else if (gesture.kind === 'resize') {
-      this.callbacks.commit(gesture.before, settleTouched(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
+      this.callbacks.commit(gesture.before, settleBoard(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
     }
   }
 
@@ -211,7 +211,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const current = this.callbacks.current()
     if (current) {
       const moved = moveItems(current, this.board.selection, delta)
-      this.callbacks.commit(current, settleTouched(current, moved, this.callbacks.bridge().shapes(), this.board.selection), {
+      this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), this.board.selection), {
         kind: 'move',
         ids: [...this.board.selection],
       })
