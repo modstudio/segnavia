@@ -2,13 +2,13 @@ import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition 
 import { newNonce } from '@segnavia/frame/bridge'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
-import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
+import { loadPdf } from './pdf-load.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
 
@@ -128,7 +128,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       }),
     ),
   ])
-  const output = await PDFDocument.load(printable)
+  const output = await loadPdf(printable)
   const pages = output.getPages()
   const slideBox = notesGeometry?.slide ?? { x: 0, y: 0, width: deck.size.width, height: deck.size.height }
   const geometry = pdfPixelBox(slideBox, notesGeometry?.sheet.height ?? deck.size.height)

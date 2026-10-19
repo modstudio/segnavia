@@ -1,5 +1,6 @@
 import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
+import { loadPdf } from '../pdf-load.ts'
 import { inspectContent } from './content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, rawStreamOf, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
@@ -79,7 +80,7 @@ function outputDestination(document: PDFDocument): PressDestination {
 }
 
 export async function inspectPressPdf(bytes: Uint8Array, requested?: PressDestination): Promise<PressReport> {
-  const document = await PDFDocument.load(bytes, { updateMetadata: false })
+  const document = await loadPdf(bytes, { updateMetadata: false })
   const destination = requested ?? outputDestination(document)
   const state: ReportState = {
     budget: { decodedBytes: 0 },

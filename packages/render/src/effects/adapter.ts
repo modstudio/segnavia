@@ -1,6 +1,7 @@
 import { deflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
+import { loadPdf } from '../pdf-load.ts'
 import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
@@ -363,7 +364,7 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
   try {
-    const document = await PDFDocument.load(bytes, { updateMetadata: false })
+    const document = await loadPdf(bytes, { updateMetadata: false })
     const report = rewriteEffectsDocument(document)
     return { bytes: report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
   } catch (error) {

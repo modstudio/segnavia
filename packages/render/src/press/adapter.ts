@@ -4,6 +4,7 @@ import { readProfile } from '../color/profile.ts'
 import type { Color, Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
+import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
 import { convertedImageCount, convertSuppliedImage, createImageState, type ImageState, type JpegDecoder } from './image.ts'
@@ -363,7 +364,7 @@ export async function rewritePressPdf(
   try {
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK or GRAY')
-    const document = await PDFDocument.load(bytes, { updateMetadata: false })
+    const document = await loadPdf(bytes, { updateMetadata: false })
     const counts = rewritePressDocument(document, profile, tolerance)
     let convertedImages = 0
     const destination = pressDestination(profile)

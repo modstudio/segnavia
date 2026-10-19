@@ -5,6 +5,7 @@ import type { RenderOptions } from './index.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
+import { loadPdf } from './pdf-load.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -18,7 +19,7 @@ interface PagesPdfServices {
 async function joinPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
   const joined = await PDFDocument.create()
   for (const bytes of pdfs) {
-    const source = await PDFDocument.load(bytes)
+    const source = await loadPdf(bytes)
     const pages = await joined.copyPages(source, source.getPageIndices())
     for (const page of pages) joined.addPage(page)
   }
