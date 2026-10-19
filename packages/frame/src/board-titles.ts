@@ -9,7 +9,7 @@ interface TitledBox {
   width: number
 }
 
-// An item's name sits above it, outside the item, which clips its own content. It is hidden from assistive technology because the item already carries the name as its label.
+// An item's title sits above it, outside the item that clips its own content. Its name is hidden from assistive technology because the item already carries the name as its label, while its actions remain reachable.
 export class BoardItemTitles {
   private readonly titles = new Map<string, HTMLElement>()
   private readonly rendered = new Map<
@@ -20,6 +20,7 @@ export class BoardItemTitles {
   mount(id: string, item: HTMLElement) {
     const title = document.createElement('div')
     title.part.add('item-title')
+    title.dataset.boardTitle = id
     const container = document.createElement('div')
     title.append(container)
     this.titles.set(id, title)

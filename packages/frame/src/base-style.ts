@@ -49,11 +49,11 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="label"]){position:absolute;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-label,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-title"]){position:absolute;translate:0 -100%;color:var(--segnavia-board-item-title,currentColor)}
-:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > div){display:flex;flex-direction:row;align-items:center;inline-size:100%;text-align:start}
+:where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > div){display:flex;flex-direction:row;align-items:center;gap:.25em;inline-size:100%;text-align:start}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-icon"]:empty){display:none}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-name"]){min-inline-size:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;unicode-bidi:isolate}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-actions"]){display:inline-flex;flex:none;margin-inline-start:auto;visibility:hidden}
-:where(:host(segnavia-board:not([unstyled])) [part~="item"]:hover + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:hover [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:focus-within [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected] + [part~="item-title"] [part~="item-actions"]){visibility:visible}
+:where(:host(segnavia-board:not([unstyled])) [part~="item"]:hover + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"]:focus + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:hover [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:focus-within [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected] + [part~="item-title"] [part~="item-actions"]){visibility:visible}
 :where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
 :where(:host(segnavia-board-list)){display:block;color:var(--segnavia-board-list-color,currentColor);background:var(--segnavia-board-list-background,transparent)}
@@ -65,7 +65,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board-list) [part~="group"] li){display:block}
 :where(:host(segnavia-board-list) [part~="group-title"]),:where(:host(segnavia-board-list) [part~="item"]){box-sizing:border-box;display:block;inline-size:100%;text-align:start;color:var(--segnavia-board-list-button-color,currentColor);background:var(--segnavia-board-list-button-background,transparent)}
 :where(:host(segnavia-board-list) [part~="group-title"] > span),:where(:host(segnavia-board-list) [part~="item"] > span){display:inline-block;max-inline-size:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:match-parent;vertical-align:top}
-:where(:host(segnavia-board-list) [part~="item"]){display:flex;flex-direction:row;align-items:center}
+:where(:host(segnavia-board-list) [part~="item"]){display:flex;flex-direction:row;align-items:center;gap:.25em}
 :where(:host(segnavia-board-list) [part~="empty"]){color:var(--segnavia-board-list-empty-color,currentColor)}
 :where(:host(segnavia-board-toolbar:not([unstyled])) [part~="toolbar"]){display:inline-flex;flex-direction:row;align-items:center;color:var(--segnavia-board-toolbar-color,currentColor);background:var(--segnavia-board-toolbar-background,transparent)}
 :where(:host(segnavia-board-toolbar:not([unstyled])) button){display:inline-flex;align-items:center;justify-content:center;color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)}

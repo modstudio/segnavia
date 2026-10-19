@@ -11,6 +11,8 @@ interface BoardInputCallbacks {
 }
 
 export class BoardInput {
+  private readonly pointerTitles = new Map<number, string>()
+
   constructor(
     private readonly host: HTMLElement,
     private readonly gestures: BoardGestures,
@@ -20,10 +22,12 @@ export class BoardInput {
   connect() {
     this.host.addEventListener('wheel', this.gestures.onWheel, { passive: false })
     this.host.addEventListener('pointerdown', this.gestures.onPointerDown)
+    this.host.addEventListener('pointerdown', this.onPointerDown)
     this.host.addEventListener('pointermove', this.gestures.onPointerMove)
     this.host.addEventListener('pointerup', this.gestures.onPointerEnd)
     this.host.addEventListener('pointerup', this.onPointerUp)
     this.host.addEventListener('pointercancel', this.gestures.onPointerEnd)
+    this.host.addEventListener('pointercancel', this.onPointerCancel)
     this.host.addEventListener('keydown', this.onKeyDown)
     this.host.addEventListener('dblclick', this.onDoubleClick)
     this.host.addEventListener('click', this.onClick)
@@ -32,18 +36,33 @@ export class BoardInput {
   disconnect() {
     this.host.removeEventListener('wheel', this.gestures.onWheel)
     this.host.removeEventListener('pointerdown', this.gestures.onPointerDown)
+    this.host.removeEventListener('pointerdown', this.onPointerDown)
     this.host.removeEventListener('pointermove', this.gestures.onPointerMove)
     this.host.removeEventListener('pointerup', this.gestures.onPointerEnd)
     this.host.removeEventListener('pointerup', this.onPointerUp)
     this.host.removeEventListener('pointercancel', this.gestures.onPointerEnd)
+    this.host.removeEventListener('pointercancel', this.onPointerCancel)
     this.host.removeEventListener('keydown', this.onKeyDown)
     this.host.removeEventListener('dblclick', this.onDoubleClick)
     this.host.removeEventListener('click', this.onClick)
+    this.pointerTitles.clear()
   }
 
   private onPointerUp = (event: PointerEvent) => {
+    const titleId = this.pointerTitles.get(event.pointerId)
+    this.pointerTitles.delete(event.pointerId)
     if (this.gestures.dragged || this.actionButton(event)) return
-    this.callbacks.select(this.callbacks.itemAt(event)?.id ?? null)
+    const titleItem = this.callbacks.item(titleId)
+    this.callbacks.select(titleItem?.id ?? this.callbacks.itemAt(event)?.id ?? null)
+  }
+
+  private onPointerDown = (event: PointerEvent) => {
+    const id = this.titleNode(event)?.dataset.boardTitle
+    if (id) this.pointerTitles.set(event.pointerId, id)
+  }
+
+  private onPointerCancel = (event: PointerEvent) => {
+    this.pointerTitles.delete(event.pointerId)
   }
 
   private onDoubleClick = (event: MouseEvent) => {
@@ -72,6 +91,10 @@ export class BoardInput {
 
   private itemNode(event: Event): HTMLElement | undefined {
     return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardItem))
+  }
+
+  private titleNode(event: Event): HTMLElement | undefined {
+    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardTitle))
   }
 
   private actionButton(event: Event): HTMLButtonElement | undefined {

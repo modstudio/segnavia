@@ -40,6 +40,32 @@ export async function checkBoardChrome(h: Harness) {
     JSON.stringify(selection),
   )
 
+  await board.evaluate((element) => {
+    ;(element as HTMLElement & { selected: string | null }).selected = null
+  })
+  await item.focus()
+  await h.page.keyboard.press('Tab')
+  const tabbedAction = await board.evaluate((element) => {
+    const active = element.shadowRoot?.activeElement as HTMLElement | null
+    return { action: active?.dataset.action, item: active?.dataset.boardItemAction, selected: (element as HTMLElement & { selected: string | null }).selected }
+  })
+  h.check(
+    'Tab from an unselected item reaches its first action without selecting it',
+    tabbedAction.action === 'open' && tabbedAction.item === 'deck-small' && tabbedAction.selected === null,
+    JSON.stringify(tabbedAction),
+  )
+
+  await board.evaluate((element) => {
+    const value = element as HTMLElement & { zoomTo(zoom: number): void; reveal(id: string): boolean }
+    value.zoomTo(1)
+    value.reveal('paper')
+  })
+  await board.locator('[data-board-title="paper"] [part~="item-name"]').click()
+  const titleSelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
+  h.check('clicking an item title selects its item', titleSelected === 'paper', String(titleSelected))
+  await board.evaluate((element) => (element as HTMLElement & { fitAll(): void }).fitAll())
+  await item.click()
+
   const idleActions = await board
     .locator('[data-board-item="deck-hebrew"] + [part~="item-title"] [part~="item-actions"]')
     .evaluate((element) => getComputedStyle(element).visibility)
