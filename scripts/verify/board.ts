@@ -1,4 +1,5 @@
 import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
+import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface MountedBox {
@@ -237,6 +238,7 @@ export async function verifyBoard(h: Harness) {
     { timeout: BOUNDED_WAIT_MS },
   )
   await checkPlacement(h, 'after fit')
+  await checkBoardToolbar(h)
 
   const farInitially = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
   h.check('a far board item is not mounted after the initial fit', !farInitially, String(farInitially))
