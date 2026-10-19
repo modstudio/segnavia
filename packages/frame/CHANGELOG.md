@@ -1,5 +1,18 @@
 # @segnavia/frame
 
+## 0.11.0
+
+### Minor Changes
+
+- 5332823: Add board zoom methods and the headless board toolbar with optional Share reporting.
+- 88a3de9: Add board listing policy, host-provided item names and content search, reveal geometry, and the headless `<segnavia-board-list>` element.
+- c6afc85: A slide thumbnail takes the host stylesheet through `css`, as the stage does, so a cover is drawn the way the slide is shown in the player.
+
+### Patch Changes
+
+- Updated dependencies [88a3de9]
+  - @segnavia/format@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes

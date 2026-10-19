@@ -1,5 +1,16 @@
 # @segnavia/render
 
+## 0.11.0
+
+### Patch Changes
+
+- Updated dependencies [5332823]
+- Updated dependencies [88a3de9]
+- Updated dependencies [c6afc85]
+  - @segnavia/frame@0.11.0
+  - @segnavia/format@0.11.0
+  - @segnavia/html@0.11.0
+
 ## 0.10.0
 
 ### Patch Changes
