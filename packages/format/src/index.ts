@@ -23,12 +23,14 @@ export {
   itemHeight,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
+  revealView,
   screenToBoard,
   visibleItems,
   type ZoomBounds,
   zoomAt,
   zoomToFit,
 } from './board-geometry.ts'
+export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
 export {
   Book,
   BookContents,

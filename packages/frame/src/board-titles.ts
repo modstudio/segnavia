@@ -17,7 +17,9 @@ export class BoardItemTitles {
     const title = document.createElement('div')
     title.part.add('item-title')
     title.setAttribute('aria-hidden', 'true')
-    title.append(document.createElement('span'))
+    const container = document.createElement('div')
+    container.append(document.createElement('span'))
+    title.append(container)
     this.titles.set(id, title)
     this.surface.insertBefore(title, item)
   }
@@ -27,8 +29,10 @@ export class BoardItemTitles {
     if (title) placeBoardNode(title, view, box)
   }
 
-  name(id: string, text: string) {
-    const name = this.titles.get(id)?.firstElementChild as HTMLElement | null | undefined
+  name(id: string, text: string, direction: 'ltr' | 'rtl') {
+    const container = this.titles.get(id)?.firstElementChild as HTMLElement | null | undefined
+    const name = container?.firstElementChild as HTMLElement | null | undefined
+    if (container) container.dir = direction
     if (!name || name.textContent === text) return
     name.textContent = text
     name.dir = resolveDirection(undefined, undefined, text)

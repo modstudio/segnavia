@@ -71,6 +71,10 @@ export function shouldMountItem(mounted: boolean, withinHalfViewport: boolean, w
   return mounted ? withinViewport : withinHalfViewport
 }
 
+export function shouldRefitReveal(pendingId: string | undefined, resolvedId: string | undefined, revealedHeight: number, resolvedHeight: number): boolean {
+  return pendingId === resolvedId && revealedHeight !== resolvedHeight
+}
+
 function panned(view: BoardView, x: number, y: number): BoardView {
   return { ...view, pan: { x: view.pan.x + x, y: view.pan.y + y } }
 }

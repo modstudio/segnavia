@@ -96,6 +96,22 @@ export function zoomToFit(bounds: Box, viewport: Size, padding: number): BoardVi
   }
 }
 
+export function revealView(bounds: Box, viewport: Size, padding: number, options: ZoomBounds = {}): BoardView {
+  const fitted = zoomToFit(bounds, viewport, padding)
+  const minZoom = options.minZoom ?? MIN_BOARD_ZOOM
+  const maxZoom = options.maxZoom ?? MAX_BOARD_ZOOM
+  if (!(minZoom > 0 && maxZoom >= minZoom)) throw new Error('zoom bounds are invalid; provide a positive minZoom no greater than maxZoom')
+  const zoom = Math.min(maxZoom, Math.max(minZoom, fitted.zoom))
+  return {
+    zoom,
+    pan: {
+      x: viewport.width / 2 - (bounds.x + bounds.width / 2) * zoom,
+      y: viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom,
+    },
+    viewport,
+  }
+}
+
 export function zoomAt(view: BoardView, point: Point, factor: number, options: ZoomBounds = {}): BoardView {
   requireView(view)
   if (!(factor > 0)) throw new Error(`zoom factor is ${factor}; provide a factor greater than zero`)

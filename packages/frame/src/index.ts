@@ -5,6 +5,7 @@
 // points instead (`/bridge`, `/svg`, `/timeline`, `/print-document`).
 
 import { SegnaviaBoard } from './board.ts'
+import { SegnaviaBoardList } from './board-list.ts'
 import { SegnaviaBook } from './book.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
@@ -14,6 +15,8 @@ import { SegnaviaThumbnail } from './thumbnail.ts'
 
 export { BASE_CSS } from './base-style.ts'
 export { type ResolveBoardItem, type ResolvedBoardItem, SegnaviaBoard } from './board.ts'
+export { type BoardItemSearch, type BoardListLabels, SegnaviaBoardList } from './board-list.ts'
+export type { BoardItemNames } from './board-names.ts'
 export { boardTier, keyToView, provisionalShape, resolvedShape, shouldMountItem } from './board-policy.ts'
 export { SegnaviaBook } from './book.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'
@@ -34,6 +37,7 @@ export { type HostTransition, type TransitionAxis, type TurnDirection, type Turn
 
 if (!customElements.get(HEADLESS_ELEMENTS.stage)) customElements.define(HEADLESS_ELEMENTS.stage, SegnaviaStage)
 if (!customElements.get(HEADLESS_ELEMENTS.board)) customElements.define(HEADLESS_ELEMENTS.board, SegnaviaBoard)
+if (!customElements.get(HEADLESS_ELEMENTS.boardList)) customElements.define(HEADLESS_ELEMENTS.boardList, SegnaviaBoardList)
 if (!customElements.get(HEADLESS_ELEMENTS.thumbnail)) customElements.define(HEADLESS_ELEMENTS.thumbnail, SegnaviaThumbnail)
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)

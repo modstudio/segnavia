@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { boardTier, checkResolved, keyToView, pinchOf, provisionalShape, resolvedShape, shouldMountItem } from './board-policy.ts'
+import { boardTier, checkResolved, keyToView, pinchOf, provisionalShape, resolvedShape, shouldMountItem, shouldRefitReveal } from './board-policy.ts'
 
 test('a pinch needs two pointers and never has a zero distance', () => {
   expect(pinchOf([{ x: 0, y: 0 }])).toBeNull()
@@ -62,6 +62,12 @@ describe('board policy', () => {
     expect(shouldMountItem(false, true, true)).toBe(true)
     expect(shouldMountItem(true, false, true)).toBe(true)
     expect(shouldMountItem(true, false, false)).toBe(false)
+  })
+
+  test('refits only the pending revealed item when its resolved height changes', () => {
+    expect(shouldRefitReveal('page', 'page', 140, 1000)).toBe(true)
+    expect(shouldRefitReveal('other', 'page', 140, 1000)).toBe(false)
+    expect(shouldRefitReveal('page', 'page', 140, 140)).toBe(false)
   })
 
   test('maps physical keys to pan, zoom and fit', () => {
