@@ -30,6 +30,11 @@ export interface PrintOptions {
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
   imposition?: ImpositionInput
+  // Document title for the print dialog and saved PDF. Defaults to the deck
+  // title; an empty value omits the tag.
+  title?: string
+  // Overrides the English "No speaker notes" placeholder in a mixed notes layout.
+  labels?: { noSpeakerNotes?: string }
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -37,6 +42,11 @@ export interface PrintOptions {
   nonce?: string
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
+}
+
+function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
+  const title = options.title ?? deck.title
+  return title ? `<title>${escapeHtml(title)}</title>` : ''
 }
 
 const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
@@ -111,9 +121,14 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
   }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-    return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+    return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
   }
-  return notesDocument(deck, { notesPaper: options.notesPaper, slideBody: (slide) => slideBody(deck, slide, options) })
+  return notesDocument(deck, {
+    notesPaper: options.notesPaper,
+    slideBody: (slide) => slideBody(deck, slide, options),
+    title: options.title ?? deck.title,
+    labels: options.labels,
+  })
 }
 
 export interface PrintablePagesOptions {
@@ -141,7 +156,7 @@ function imposedPaperDocument(
       .map((side) => `<section class="paper" data-side="${side}">${placementBody(paper, side)}</section>`)
       .join(''),
   ).join('')
-  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8"><style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style>${extraHead}</head><body>${papers}</body></html>`
+  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8">${extraHead}<style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
 }
 
 function placementBox(
@@ -188,7 +203,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   // Papers and placement boxes use physical coordinates; each slide frame
   // keeps its own direction while the document keeps the deck's direction.
   const rootAttributes = ` dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
-  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody), imposed }
+  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody, documentTitle(deck, options)), imposed }
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {

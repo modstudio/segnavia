@@ -65,6 +65,24 @@ describe('printableDeck', () => {
     expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
   })
 
+  test('writes an escaped title into both the slides and notes documents', () => {
+    const named = printableDeck(deck)
+    const notes = printableDeck(deck, { layout: 'notes' })
+    const imposed = printableDeckDocument(deck, { imposition: handout, nonce: 'known' }).html
+    expect(named).toContain('<title>Print</title>')
+    expect(notes).toContain('<title>Print</title>')
+    expect(imposed).toContain('<title>Print</title>')
+    const override = printableDeck(deck, { title: 'Handout' })
+    expect(override).toContain('<title>Handout</title>')
+    expect(override).not.toContain('<title>Print</title>')
+    const unsafe = printableDeck(deck, { title: '</title><script>evil()</script>' })
+    expect(unsafe).toContain('<title>&lt;/title&gt;&lt;script&gt;evil()&lt;/script&gt;</title>')
+    expect(unsafe).not.toContain('<script>evil()')
+    const untitled = printableDeck({ ...deck, title: '' })
+    expect(untitled).not.toContain('<title>')
+    expect(printableDeck(deck, { title: '' })).not.toContain('<title>')
+  })
+
   test('prints speaker notes before narration and falls back only when notes are absent', () => {
     const narration = (text: string) => ({ text, words: [], durationMs: 0, audio: null })
     const withBoth = Deck.parse({
@@ -78,6 +96,28 @@ describe('printableDeck', () => {
     expect(printableDeck(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
     expect(printableDeck(withBoth, { layout: 'notes' })).not.toContain('Narration loses')
     expect(printableDeck(withNarration, { layout: 'notes' })).toContain('Narration fallback')
+  })
+
+  test('prints a placeholder only when some slides have notes and others do not', () => {
+    const narration = (text: string) => ({ text, words: [], durationMs: 0, audio: null })
+    const html = (id: string) => ({ id, content: { kind: 'html' as const, html: id } })
+    const notesOf = (document: string) => [...document.matchAll(/<div class="notes" dir="auto">([\s\S]*?)<\/div>/g)].map((match) => match[1])
+    const mixed = Deck.parse({
+      ...deck,
+      slides: [{ ...html('a'), notes: 'Has notes' }, html('b')],
+    })
+    expect(notesOf(printableDeck(mixed, { layout: 'notes' }))).toEqual(['Has notes', 'No speaker notes'])
+    const empty = Deck.parse({
+      ...deck,
+      slides: [html('a'), html('b')],
+    })
+    expect(notesOf(printableDeck(empty, { layout: 'notes' }))).toEqual(['', ''])
+    const spoken = Deck.parse({
+      ...deck,
+      slides: [{ ...html('a'), narration: narration('Spoken') }, html('b')],
+    })
+    expect(notesOf(printableDeck(spoken, { layout: 'notes' }))).toEqual(['Spoken', 'No speaker notes'])
+    expect(notesOf(printableDeck(mixed, { layout: 'notes', labels: { noSpeakerNotes: 'אין הערות' } }))).toEqual(['Has notes', 'אין הערות'])
   })
 
   test('escapes notes without adding executable code to the print document', () => {

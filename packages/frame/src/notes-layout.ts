@@ -29,6 +29,8 @@ export function speakerNotes(slide: Pick<Slide, 'notes' | 'narration'>): string 
 export interface NotesDocumentOptions {
   notesPaper?: PrintInput
   slideBody: (slide: Slide) => string
+  title?: string
+  labels?: { noSpeakerNotes?: string }
 }
 
 export interface NotesPaginationResult {
@@ -140,11 +142,16 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   const { width: sheetWidth, height: sheetHeight } = geometry.sheet
   const { x, width: slideWidth, height: slideHeight, scale } = geometry.slide
   const padding = x - geometry.border
+  const someHaveNotes = deck.slides.some((slide) => speakerNotes(slide) !== '')
+  // Empty-slide copy lives in the notes box, so dir=auto follows the label.
+  const emptyNotes = someHaveNotes ? (options.labels?.noSpeakerNotes ?? 'No speaker notes') : ''
   const sheets = deck.slides.map((slide, index) => {
     const number = index + 1
-    return `<section class="sheet" data-notes-source data-slide-index="${index}" data-slide-number="${number}"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${deck.size.width}px;height:${deck.size.height}px;transform:scale(${scale});transform-origin:0 0">${options.slideBody(slide)}</div></div><p class="number"><bdi dir="ltr">${number}</bdi></p><div class="notes" dir="auto">${escapeHtml(speakerNotes(slide))}</div></section>`
+    const notes = speakerNotes(slide) || emptyNotes
+    return `<section class="sheet" data-notes-source data-slide-index="${index}" data-slide-number="${number}"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${deck.size.width}px;height:${deck.size.height}px;transform:scale(${scale});transform-origin:0 0">${options.slideBody(slide)}</div></div><p class="number"><bdi dir="ltr">${number}</bdi></p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
   })
   const root = `dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
+  const title = options.title ? `<title>${escapeHtml(options.title)}</title>` : ''
   const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif;display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
-  return `<!doctype html><html ${root}><head><meta charset="utf-8"><style>${css}</style></head><body>${sheets.join('')}</body></html>`
+  return `<!doctype html><html ${root}><head><meta charset="utf-8">${title}<style>${css}</style></head><body>${sheets.join('')}</body></html>`
 }
