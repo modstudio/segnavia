@@ -25,6 +25,7 @@ interface ActionBarGeometry {
   actionsTop: number | null
   actionsBottom: number | null
   railBottom: number
+  actionWidths: number[]
 }
 
 const NARRATION = {
@@ -147,6 +148,7 @@ async function actionBarGeometry(h: Harness): Promise<ActionBarGeometry> {
     actionsTop: first?.top ?? null,
     actionsBottom: first ? Math.max(...actions.map(({ box }) => box.bottom)) : null,
     railBottom: rail?.bottom ?? 0,
+    actionWidths: actions.map(({ box }) => box.width),
   }
 }
 
@@ -221,6 +223,12 @@ export async function verifyCompactPlayerActions(h: Harness) {
   check('393px bar with three actions keeps Play, Step, Next, Present and actions from overlapping', bars.overlaps.length === 0, JSON.stringify(bars.overlaps))
   check('393px bar with three actions keeps every control inside the viewport', bars.offscreen.length === 0, JSON.stringify(bars.offscreen))
   check('393px player puts the three actions side by side, equal width, on one row below the rail', bars.actionsOneRowBelowRail, JSON.stringify(bars))
+  // A bare slotted <button> carries the 36px icon chrome; at compact it must stretch, or three squares would still pass the row check.
+  check(
+    '393px slotted text buttons stretch past the 36px icon size',
+    bars.actionWidths.length === 3 && bars.actionWidths.every((width) => width > 37),
+    JSON.stringify(bars.actionWidths),
+  )
   check(
     '393px rail sits below the transport row and above the actions',
     bars.railTop >= bars.transportBottom - 0.5 && bars.actionsTop !== null && bars.railBottom <= (bars.actionsTop ?? 0) + 0.5,
@@ -233,7 +241,8 @@ export async function verifyCompactPlayerActions(h: Harness) {
   // reached the actions, so the actions keep their bar position in the tree.
   check(
     '393px Tab from Next reaches every host action, then mute/present, then the rail',
-    JSON.stringify(groups) === JSON.stringify(['action', 'end', 'rail']) && tabs.filter((kind) => kind === 'action').length === 3,
+    JSON.stringify(groups.slice(0, 3)) === JSON.stringify(['action', 'end', 'rail']) &&
+      tabs.slice(0, tabs.indexOf('rail')).filter((kind) => kind === 'action').length === 3,
     JSON.stringify({ tabs, groups }),
   )
   await h.evidence('player-actions-393.png')
@@ -326,6 +335,11 @@ export async function verifyCompactPlayerActions(h: Harness) {
   await page.waitForTimeout(200)
   bars = await actionBarGeometry(h)
   check('1280px bar keeps play centered with three slotted actions', bars.playCentered, JSON.stringify(bars))
+  check(
+    '1280px slotted buttons keep the 36px icon size',
+    bars.actionWidths.length === 3 && bars.actionWidths.every((width) => Math.abs(width - 36) < 1),
+    JSON.stringify(bars.actionWidths),
+  )
   check('1280px bar keeps three slotted actions on the transport row', !bars.actionsUnderTransport, JSON.stringify(bars))
   const deskDom = await page.locator(PLAYER).evaluate((player) => {
     const root = player.shadowRoot as ShadowRoot

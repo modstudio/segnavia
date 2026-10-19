@@ -43,7 +43,7 @@ segnavia-caption[data-empty]{display:block}
 :host([controls="overlay"]:not([data-presenting])) .bar{grid-area:body}
 :host([controls="overlay"]:not([data-presenting])) .body{z-index:0}
 :host([controls="overlay"]:not([data-presenting])) .screen{padding-block-end:0}
-:host([controls="overlay"]:not([data-presenting])) segnavia-caption{z-index:1;align-self:end;padding-block-end:var(--segnavia-bar-height,0px);
+:host([controls="overlay"]:not([data-presenting])) segnavia-caption{z-index:1;align-self:end;padding-block-end:var(--segnavia-bar-height,96px);
   background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);color:#fff;transition:padding-block-end 160ms ease}
 :host([controls="overlay"]:not([data-presenting])) .bar{z-index:2;align-self:end;color-scheme:dark;
   background:linear-gradient(to top,var(--segnavia-overlay-scrim,rgb(0 0 0 / .72)),transparent);transition:opacity 160ms ease}

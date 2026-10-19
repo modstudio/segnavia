@@ -14,5 +14,5 @@ test('compact widths put host actions on one row at the bottom, below the rail',
   expect(PLAYER_CSS).toContain('padding-inline-start:12px')
   expect(PLAYER_CSS).toContain('padding-inline-end:12px')
   expect(PLAYER_CSS).not.toContain('padding:0 0 12px 12px')
-  expect(PLAYER_CSS).toContain('padding-block-end:var(--segnavia-bar-height,0px)')
+  expect(PLAYER_CSS).toContain('padding-block-end:var(--segnavia-bar-height,96px)')
 })
