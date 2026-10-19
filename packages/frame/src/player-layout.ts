@@ -25,10 +25,6 @@ export function compactBarHeight(parts: CompactBarParts): number {
   return parts.track + Math.max(parts.start, parts.center, parts.endControls) + parts.actions
 }
 
-export function compactBelowControls(width: number, controls: PlayerControls, presenting: boolean): boolean {
-  return width <= COMPACT_PLAYER_WIDTH && controls === 'below' && !presenting
-}
-
 export interface ContainSizeInput {
   availableWidth: number
   availableHeight: number

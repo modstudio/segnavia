@@ -180,10 +180,6 @@ async function readFocusKind(h: Harness): Promise<string> {
 }
 
 async function tabKindsFromNext(h: Harness): Promise<string[]> {
-  await h.page.waitForFunction(() => {
-    const actions = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('.actions') as HTMLElement | null
-    return Boolean(actions && actions.previousElementSibling?.tagName === 'SEGNAVIA-RAIL')
-  })
   await h.page.locator(PLAYER).evaluate((player) => {
     const next = player.shadowRoot?.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLButtonElement | null
     next?.focus()
@@ -232,19 +228,14 @@ export async function verifyCompactPlayerActions(h: Harness) {
   )
   const tabs = await tabKindsFromNext(h)
   const groups = tabGroupsAfterNext(tabs)
-  const endAt = groups.indexOf('end')
-  const railAt = groups.indexOf('rail')
-  const actionAt = groups.indexOf('action')
-  const afterRail = await page.locator(PLAYER).evaluate((player) => {
-    const actions = player.shadowRoot?.querySelector('.actions')
-    return actions?.previousElementSibling?.tagName ?? ''
-  })
+  // Every host action must be reachable by keyboard. Moving .actions after the
+  // rail looked right but Chromium's Tab left the player at the rail and never
+  // reached the actions, so the actions keep their bar position in the tree.
   check(
-    '393px Tab from Next visits mute/present, then rail, before any host action',
-    endAt === 0 && railAt === 1 && (actionAt === -1 || actionAt > railAt),
+    '393px Tab from Next reaches every host action, then mute/present, then the rail',
+    JSON.stringify(groups) === JSON.stringify(['action', 'end', 'rail']) && tabs.filter((kind) => kind === 'action').length === 3,
     JSON.stringify({ tabs, groups }),
   )
-  check('393px compact shadow puts .actions after the rail', afterRail === 'SEGNAVIA-RAIL', afterRail)
   await h.evidence('player-actions-393.png')
 
   await mountRailAndActions(h, 2)

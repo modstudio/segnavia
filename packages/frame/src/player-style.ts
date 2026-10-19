@@ -82,7 +82,8 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   .control-row{grid-template-areas:"start center end" "actions actions actions";grid-template-rows:auto auto}
   .start{grid-area:start}.center{grid-area:center}.end{display:contents}
   .actions{display:flex;grid-area:actions;gap:8px;min-inline-size:0}
-  ::slotted([slot="actions"]){flex:1 1 0;min-inline-size:0;box-sizing:border-box}
+  /* Outranks the icon-button chrome a bare slotted <button> gets, so a text action stretches instead of collapsing to an icon square. */
+  .actions slot[name="actions"]::slotted(*){flex:1 1 0;inline-size:auto;min-inline-size:0;box-sizing:border-box;padding-inline:12px}
   .end-controls{display:flex;grid-area:end;justify-self:end;align-items:center;gap:4px;min-inline-size:0}
   :host(:not([controls="overlay"]):not([data-presenting])) .player{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
     grid-template-areas:"body body body" "caption caption caption" "track track track" "start center end" "rail rail rail" "actions actions actions" "below below below";

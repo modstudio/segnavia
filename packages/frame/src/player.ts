@@ -21,16 +21,7 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import {
-  compactBarHeight,
-  compactBelowControls,
-  containSlideSize,
-  type PlayerControls,
-  type PlayerFit,
-  PlayerMeasureChanges,
-  playerControls,
-  playerFit,
-} from './player-layout.ts'
+import { compactBarHeight, containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -241,15 +232,6 @@ export class SegnaviaPlayer extends HTMLElement {
     this.toggleAttribute('data-actions', this.actionsSlot().assignedElements().length > 0)
   }
 
-  // Compact below-controls paints actions after the rail; overlay and
-  // presentation keep the desk tree so the overlaid bar and presenting box stay intact.
-  private placeActions() {
-    const actions = this.root.querySelector('.actions') as HTMLElement
-    const compact = this.isConnected && compactBelowControls(this.clientWidth, this.controls, this.hasAttribute('data-presenting'))
-    if (compact) (this.root.querySelector('segnavia-rail') as HTMLElement).after(actions)
-    else (this.root.querySelector('.end') as HTMLElement).prepend(actions)
-  }
-
   private passPlayerOptions() {
     this.controller.setPlayerOptions(playerOptions(this))
   }
@@ -321,7 +303,6 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private measure() {
-    this.placeActions()
     this.style.setProperty('--segnavia-bar-height', `${this.barHeight()}px`)
     const screen = this.root.querySelector('.screen') as HTMLElement
     if (this.fit !== 'contain' || this.controller.state.presenting) {
