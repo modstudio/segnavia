@@ -27,6 +27,7 @@ export class BoardGestures {
   }
 
   readonly onPointerDown = (event: PointerEvent) => {
+    if (event.composedPath().some((target) => target instanceof HTMLButtonElement && target.dataset.boardItemAction)) return
     this.host.setPointerCapture(event.pointerId)
     const point = this.local(event)
     this.pointers.set(event.pointerId, point)

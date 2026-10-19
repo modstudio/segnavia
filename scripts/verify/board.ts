@@ -1,4 +1,5 @@
 import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
+import { checkBoardChrome } from './board-chrome.ts'
 import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -227,7 +228,14 @@ export async function verifyBoard(h: Harness) {
   await h.page.waitForFunction(
     () => {
       const root = document.querySelector('segnavia-board')?.shadowRoot
-      const labels = { 'deck-small': 'Creating a class', 'deck-hebrew': 'מַצֶּגֶת', page: 'Page', paper: 'Paper', image: 'Image', shot: 'Shot' }
+      const labels = {
+        'deck-small': 'Creating a class',
+        'deck-hebrew': 'מַצֶּגֶת',
+        page: 'A page with a deliberately long title that truncates',
+        paper: 'Paper',
+        image: 'Image',
+        shot: 'Shot',
+      }
       return (
         Object.entries(labels).every(([id, label]) => root?.querySelector(`[data-board-item="${id}"]`)?.getAttribute('aria-label') === label) &&
         Boolean(root?.querySelector('[data-board-item="image"] img')) &&
@@ -265,14 +273,11 @@ export async function verifyBoard(h: Harness) {
   )
   const titleAlignment = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-hebrew"]')
-    const text = item?.previousElementSibling?.querySelector('span')?.firstChild
-    if (!item || !text) return { item: Number.NaN, title: Number.NaN }
-    const range = document.createRange()
-    range.selectNodeContents(text)
-    return { item: item.getBoundingClientRect().left, title: range.getBoundingClientRect().left }
+    const icon = item?.nextElementSibling?.querySelector('[part~="item-icon"]')
+    return { item: item?.getBoundingClientRect().left ?? Number.NaN, title: icon?.getBoundingClientRect().left ?? Number.NaN }
   })
   h.check(
-    'a Hebrew board item title aligns to the item inline start',
+    'a Hebrew board item title icon aligns to the item inline start',
     Math.abs(titleAlignment.item - titleAlignment.title) <= 1,
     JSON.stringify(titleAlignment),
   )
@@ -375,5 +380,6 @@ export async function verifyBoard(h: Harness) {
   await checkUrlDeckRefusesScripts(h)
   await checkReconnect(h)
   await checkFailedLiveMount(h)
+  await checkBoardChrome(h)
   await checkBoardToolbar(h)
 }

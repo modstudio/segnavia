@@ -23,6 +23,7 @@ export class SegnaviaBoardList extends HTMLElement {
     {
       'segnavia-board-change': () => this.onBoardChange(),
       'segnavia-board-names': () => this.render(),
+      'segnavia-board-icons': () => this.render(),
     },
     () => this.onBoardChange(),
   )
@@ -175,7 +176,12 @@ export class SegnaviaBoardList extends HTMLElement {
     button.type = 'button'
     button.part.add('item')
     button.dataset.boardItem = item.id
-    button.append(this.name(text))
+    const icon = document.createElement('span')
+    icon.part.add('item-icon')
+    icon.setAttribute('aria-hidden', 'true')
+    const iconNode = target.kindIcon?.(item.kind)
+    if (iconNode) icon.append(iconNode)
+    button.append(icon, this.name(text))
     entry.append(button)
     return entry
   }
@@ -203,6 +209,7 @@ export class SegnaviaBoardList extends HTMLElement {
     const section = target.board?.sections.find((entry) => entry.id === button.dataset.boardSection)
     if (item) {
       target.reveal(item.id)
+      target.selected = item.id
       this.dispatchEvent(new CustomEvent('segnavia-board-select', { detail: { item }, bubbles: true, composed: true }))
     } else if (section) {
       target.reveal(section.id)
