@@ -369,6 +369,7 @@ export async function verifyBoard(h: Harness) {
       const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number }> }; view: BoardView }
       const far = value.board.items.find((item) => item.id === 'deck-far')
       return {
+        present: Boolean(far),
         mounted: Boolean(value.shadowRoot?.querySelector('[data-board-item="deck-far"]')),
         view: value.view,
         panDelta: far ? far.x * value.view.zoom + value.view.pan.x - value.clientWidth / 2 : 0,
@@ -379,7 +380,7 @@ export async function verifyBoard(h: Harness) {
   while (!farAfterPan.mounted && Date.now() < panDeadline) {
     const boardBox = await board.boundingBox()
     if (boardBox) await h.page.mouse.move(boardBox.x + boardBox.width / 2, boardBox.y + boardBox.height / 2)
-    await h.page.mouse.wheel(farAfterPan.panDelta, 0)
+    if (farAfterPan.present) await h.page.mouse.wheel(farAfterPan.panDelta, 0)
     farAfterPan = await readFarPan()
     if (!farAfterPan.mounted) await h.page.waitForTimeout(16)
   }
