@@ -10,6 +10,7 @@ interface BoardInputCallbacks {
   open: (item: BoardItem) => void
   boardKey: (event: KeyboardEvent) => void
   action: (action: string, item: BoardItem) => void
+  focus: (id?: string) => void
 }
 
 export class BoardInput {
@@ -68,6 +69,7 @@ export class BoardInput {
       this.actionPointers.add(event.pointerId)
       return
     }
+    if (event.button === 0) this.callbacks.focus(this.itemNode(event)?.dataset.boardItem ?? this.titleNode(event)?.dataset.boardTitle)
     if (this.delegate?.pointerDown(event)) {
       this.delegatedPointers.add(event.pointerId)
       return

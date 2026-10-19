@@ -92,6 +92,7 @@ export class SegnaviaBoard extends HTMLElement {
     open: (item) => this.dispatchEvent(new CustomEvent('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
     boardKey: (event) => this.onBoardKey(event),
     action: (action, item) => this.dispatchEvent(new CustomEvent('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
+    focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
 
@@ -316,7 +317,6 @@ export class SegnaviaBoard extends HTMLElement {
     if (!board) {
       this.mounts.clear()
       this.decorations.clear()
-      this.surface.replaceChildren()
       return
     }
     this.decorations.render(board, this.currentView)

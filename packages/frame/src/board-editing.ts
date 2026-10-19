@@ -1,13 +1,25 @@
 import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
-import { adoptHostBoard, type BoardEditQueueState, enqueueBoardEdit, rejectBoardEdit, resolveBoardEdit } from './board-edit-policy.ts'
+import {
+  adoptHostBoard,
+  applyBoardEdit,
+  BOARD_HISTORY_LIMIT,
+  type BoardEditQueueState,
+  type BoardEditTransition,
+  boardEditQueue,
+  detachBoardEditing,
+  redoBoardEdit,
+  rejectBoardEdit,
+  resolveBoardEdit,
+  undoBoardEdit,
+} from './board-edit-policy.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardInputDelegate, boardEditing } from './board-editing-seam.ts'
 import { provisionalShape } from './board-policy.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
-export const BOARD_HISTORY_LIMIT = 100
+export { BOARD_HISTORY_LIMIT }
 
 type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section'
 type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[EditKind]
@@ -16,6 +28,7 @@ export type BoardEdit = DirectBoardEdit | HistoryBoardEdit
 export interface BoardChange {
   board: Board
   edit: BoardEdit
+  signal: AbortSignal
 }
 export interface AddBoardItemInput {
   kind: BoardItem['kind']
@@ -38,27 +51,12 @@ export interface BoardEditing {
   readonly canRedo: boolean
 }
 
-interface HistoryEntry {
-  before: Board
-  after: Board
-  edit: BoardEdit
-}
-interface QueueJob {
-  id: number
-  generation: number
-  change: BoardChange
-  undoBefore: HistoryEntry[]
-  redoBefore: HistoryEntry[]
-}
 class BoardEditingController implements BoardEditing, BoardInputDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
-  private undoEntries: HistoryEntry[] = []
-  private redoEntries: HistoryEntry[] = []
-  private jobs: QueueJob[] = []
-  private running = false
-  private nextId = 1
+  private readonly aborts = new Map<number, AbortController>()
+  private runningId: number | null = null
   private readonly input: BoardEditingInput
   private stopped = false
 
@@ -77,7 +75,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       redo: () => this.redo(),
     })
     const initial = board.board
-    this.state = initial ? { value: initial, pending: [], generation: 0 } : null
+    this.state = initial ? boardEditQueue(initial) : null
     this.bridge = (board as SegnaviaBoard & BoardEditingHost)[boardEditing](this, this.hostValue)
     board.addEventListener('segnavia-board-selection', this.renderHandles)
     board.addEventListener('segnavia-board-view', this.renderHandles)
@@ -86,10 +84,10 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   }
 
   get canUndo() {
-    return this.undoEntries.length > 0
+    return (this.state?.undo.length ?? 0) > 0
   }
   get canRedo() {
-    return this.redoEntries.length > 0
+    return (this.state?.redo.length ?? 0) > 0
   }
 
   detach() {
@@ -99,8 +97,9 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
     this.board.removeEventListener('keyup', this.onKeyUp)
+    if (this.state) this.applyTransition(detachBoardEditing(this.state))
     this.bridge.detach()
-    if (this.jobs.length === 0) this.bridge.release()
+    this.bridge.release()
   }
 
   add(input: AddBoardItemInput, at?: Point): string | undefined {
@@ -128,6 +127,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
     this.apply(removeItems(current, existing), { kind: 'remove', ids: existing })
+    this.board.focus()
   }
 
   arrange(options: ArrangeOptions) {
@@ -139,27 +139,19 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   }
 
   undo() {
-    const entry = this.undoEntries.at(-1)
+    if (!this.state) return
+    const entry = this.state.undo.at(-1)
     if (!entry) return
-    const undoBefore = [...this.undoEntries]
-    const redoBefore = [...this.redoEntries]
-    this.undoEntries.pop()
-    this.redoEntries.push(entry)
-    this.notifyHistory(undoBefore.length > 0, redoBefore.length > 0)
-    this.board.selection = this.existingIds(entry.edit, entry.before)
-    this.queue(entry.before, { kind: 'undo', edit: entry.edit }, undoBefore, redoBefore)
+    this.board.focus()
+    this.applyTransition(undoBoardEdit(this.state), this.existingIds(entry.edit, entry.before))
   }
 
   redo() {
-    const entry = this.redoEntries.at(-1)
+    if (!this.state) return
+    const entry = this.state.redo.at(-1)
     if (!entry) return
-    const undoBefore = [...this.undoEntries]
-    const redoBefore = [...this.redoEntries]
-    this.redoEntries.pop()
-    this.undoEntries.push(entry)
-    this.notifyHistory(undoBefore.length > 0, redoBefore.length > 0)
-    this.board.selection = this.existingIds(entry.edit, entry.after)
-    this.queue(entry.after, { kind: 'redo', edit: entry.edit }, undoBefore, redoBefore)
+    this.board.focus()
+    this.applyTransition(redoBoardEdit(this.state), this.existingIds(entry.edit, entry.after))
   }
 
   pointerDown(event: PointerEvent): boolean {
@@ -187,15 +179,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   }
 
   private apply(next: Board, edit: BoardEdit) {
-    const current = this.state?.value
-    if (!current) return
-    const undoBefore = [...this.undoEntries]
-    const redoBefore = [...this.redoEntries]
-    this.undoEntries.push({ before: current, after: next, edit })
-    if (this.undoEntries.length > BOARD_HISTORY_LIMIT) this.undoEntries.shift()
-    this.redoEntries = []
-    this.notifyHistory(undoBefore.length > 0, redoBefore.length > 0)
-    this.queue(next, edit, undoBefore, redoBefore)
+    if (!this.state) return
+    this.applyTransition(applyBoardEdit(this.state, next, edit))
   }
 
   private commitLive(before: Board, next: Board, edit: BoardEdit) {
@@ -204,55 +189,54 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.apply(next, edit)
   }
 
-  private queue(next: Board, edit: BoardEdit, undoBefore: HistoryEntry[], redoBefore: HistoryEntry[]) {
-    if (!this.state) return
-    const id = this.nextId++
-    this.state = enqueueBoardEdit(this.state, edit, next, id)
-    this.bridge.setOptimistic(next)
+  private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
+    this.state = transition.state
+    for (const job of this.state.jobs) if (!this.aborts.has(job.id)) this.aborts.set(job.id, new AbortController())
+    for (const id of transition.effects.abort) {
+      this.aborts.get(id)?.abort()
+      this.aborts.delete(id)
+    }
+    if (transition.effects.show) this.bridge.setOptimistic(transition.effects.show)
+    if (selection) this.board.selection = selection
+    if (transition.effects.historyChanged) this.notifyHistory()
+    if (transition.effects.error)
+      this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: transition.effects.error, bubbles: true, composed: true }))
     this.renderHandles()
-    this.jobs.push({ id, generation: this.state.generation, change: { board: next, edit }, undoBefore, redoBefore })
-    void this.runQueue()
+    if (transition.effects.run) void this.run(transition.effects.run.id)
   }
 
-  private async runQueue() {
-    if (this.running) return
-    this.running = true
-    while (this.jobs[0]) {
-      const job = this.jobs[0]
-      try {
-        // One whole-document write keeps host persistence and undo on the same ordered seam.
-        await this.options.change(job.change)
-        if (this.state) this.state = resolveBoardEdit(this.state, job.id)
-        this.jobs.shift()
-      } catch (error) {
-        const pending = this.state?.pending.some((entry) => entry.id === job.id) ?? false
-        if (this.state) this.state = rejectBoardEdit(this.state, job.id)
-        this.jobs = []
-        if (pending && this.state) {
-          this.undoEntries = job.undoBefore
-          this.redoEntries = job.redoBefore
-          this.bridge.setOptimistic(this.state.value)
-          this.notifyHistory(true, true)
-        }
-        this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: { edit: job.change.edit, error }, bubbles: true, composed: true }))
-      }
+  private async run(id: number) {
+    if (this.runningId !== null) return
+    const job = this.state?.jobs.find((entry) => entry.id === id)
+    const controller = this.aborts.get(id)
+    if (!job || !controller) return
+    this.runningId = id
+    try {
+      // One whole-document write keeps host persistence and undo on the same ordered seam.
+      await this.options.change({ board: job.after, edit: job.edit, signal: controller.signal })
+      if (this.state) this.applyTransition(resolveBoardEdit(this.state, id))
+    } catch (error) {
+      if (this.state) this.applyTransition(rejectBoardEdit(this.state, id, error))
+    } finally {
+      this.aborts.delete(id)
+      this.runningId = null
+      const next = this.state?.jobs[0]
+      if (next) void this.run(next.id)
     }
-    this.running = false
-    if (this.stopped) this.bridge.release()
   }
 
   private hostValue = (value: Board | null) => {
     this.input.cancel(false)
-    this.state = value ? (this.state ? adoptHostBoard(this.state, value) : { value, pending: [], generation: 0 }) : null
-    if (this.running) this.jobs = this.jobs.slice(0, 1)
-    else this.jobs = []
-    const hadUndo = this.canUndo
-    const hadRedo = this.canRedo
-    this.undoEntries = []
-    this.redoEntries = []
-    this.notifyHistory(hadUndo, hadRedo)
+    if (value && this.state) this.applyTransition(adoptHostBoard(this.state, value))
+    else if (value) this.state = boardEditQueue(value)
+    else {
+      const hadHistory = this.canUndo || this.canRedo
+      for (const controller of this.aborts.values()) controller.abort()
+      this.aborts.clear()
+      this.state = null
+      if (hadHistory) this.notifyHistory()
+    }
     this.renderHandles()
-    if (this.stopped) this.bridge.release()
   }
 
   private live(value: Board) {
@@ -276,8 +260,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     return ids.filter((id) => present.has(id))
   }
 
-  private notifyHistory(previousUndo: boolean, previousRedo: boolean) {
-    if (previousUndo === this.canUndo && previousRedo === this.canRedo) return
+  private notifyHistory() {
     this.board.dispatchEvent(
       new CustomEvent('segnavia-board-history', { detail: { canUndo: this.canUndo, canRedo: this.canRedo }, bubbles: true, composed: true }),
     )

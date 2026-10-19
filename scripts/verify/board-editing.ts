@@ -6,19 +6,16 @@ interface DemoItem {
   x: number
   y: number
   width: number
-  [key: string]: unknown
 }
 interface DemoSection {
   id: string
   rectangle: { x: number; y: number; width: number; height: number }
   items: string[]
-  [key: string]: unknown
 }
 interface DemoBoard {
   direction: 'ltr' | 'rtl'
   items: DemoItem[]
   sections: DemoSection[]
-  [key: string]: unknown
 }
 interface DemoChange {
   board: DemoBoard
@@ -93,7 +90,14 @@ export async function checkBoardEditing(h: Harness) {
   if (!hostBox) throw new Error('The board has no box for editing checks.')
 
   await reset()
+  await h.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await first.click()
+  const focused = await board.evaluate((element) => {
+    const documentFocused = document.activeElement === element
+    const item = (element.shadowRoot?.activeElement as HTMLElement | null)?.dataset.boardItem
+    return { document: documentFocused, item, ok: documentFocused && item === 'deck-small' }
+  })
+  h.check('clicking an item focuses its node', focused.ok, JSON.stringify(focused))
   await second.click({ modifiers: ['Shift'] })
   let selected = await selection()
   h.check('shift-click adds a board item to selection', selected.join() === 'deck-small,deck-hebrew', selected.join())
@@ -231,6 +235,13 @@ export async function checkBoardEditing(h: Harness) {
     !removed.item && !removed.title && removed.selection.length === 0,
     JSON.stringify(removed),
   )
+  await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
+  await waitChanges(h.page, 2)
+  const undoRemove = await board.evaluate((element) => ({
+    selected: (element as BoardElement).selection,
+    item: Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-small"]')),
+  }))
+  h.check('undoing a remove restores and selects the touched item', undoRemove.item && undoRemove.selected.join() === 'deck-small', JSON.stringify(undoRemove))
 
   await reset()
   const addedId = await board.evaluate(() => (window as unknown as DemoWindow).boardEditing.add({ kind: 'deck', address: 'demo-added-deck' }))
@@ -253,6 +264,18 @@ export async function checkBoardEditing(h: Harness) {
     Boolean(added.id) && added.id === added.expectedId && Math.abs(added.x - added.width / 2) < 1 && Math.abs(added.y - added.height / 2) < 1,
     JSON.stringify(added),
   )
+  await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
+  await waitChanges(h.page, 2)
+  await h.page.keyboard.press(process.platform === 'darwin' ? 'Shift+Meta+Z' : 'Shift+Control+Z')
+  await waitChanges(h.page, 3)
+  const redoAdd = await board.evaluate(
+    (element, id) => ({
+      selected: (element as BoardElement).selection,
+      item: Boolean(element.shadowRoot?.querySelector(`[data-board-item="${id}"]`)),
+    }),
+    addedId,
+  )
+  h.check('redoing an add restores and selects the added item', redoAdd.item && redoAdd.selected.join() === addedId, JSON.stringify(redoAdd))
 
   await reset()
   await first.click()
@@ -279,11 +302,9 @@ export async function checkBoardEditing(h: Harness) {
   const historyStart = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'deck-small') as DemoItem).x)
   await drag(h.page, await center(first), 30, 0)
   await waitChanges(h.page, 1)
-  await board.focus()
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
   await waitChanges(h.page, 2)
   const undone = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'deck-small') as DemoItem).x)
-  await board.focus()
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Shift+Meta+Z' : 'Shift+Control+Z')
   await waitChanges(h.page, 3)
   const history = await board.evaluate((element) => ({
@@ -347,6 +368,26 @@ export async function checkBoardEditing(h: Harness) {
     'right-to-left moving and resizing use the same physical coordinates as left-to-right',
     ltr.move === 25 && rtl.move === ltr.move && ltr.resize === 40 && rtl.resize === ltr.resize && ltr.fixed && rtl.fixed,
     JSON.stringify({ ltr, rtl }),
+  )
+
+  await reset()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const current = structuredClone(value.board)
+    value.board = null as unknown as DemoBoard
+    value.board = current
+  })
+  await first.click()
+  const handlesAfterNull = await board.locator('[part~="resize-handle"]').count()
+  await h.page.mouse.move(marquee.x, marquee.y)
+  await h.page.mouse.down()
+  await h.page.mouse.move(marquee.x + 300, marquee.y + 200, { steps: 4 })
+  const marqueeAfterNull = await board.locator('[part~="marquee"]').count()
+  await h.page.mouse.up()
+  h.check(
+    'the editing overlay survives a null board value and its replacement',
+    handlesAfterNull === 4 && marqueeAfterNull === 1,
+    JSON.stringify({ handlesAfterNull, marqueeAfterNull }),
   )
 
   await reset()

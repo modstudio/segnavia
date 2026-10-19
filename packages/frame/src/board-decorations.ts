@@ -31,6 +31,8 @@ export class BoardDecorations {
   }
 
   clear() {
+    for (const node of this.sectionNodes.values()) node.remove()
+    for (const node of this.labelNodes.values()) node.remove()
     this.sectionNodes.clear()
     this.labelNodes.clear()
   }
