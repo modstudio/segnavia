@@ -316,7 +316,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 buildPageDemo(SITE, (body) => shell(body))
 buildBookDemo(SITE)
 buildPaperDemo(SITE)
-buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
+await buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })
 for (const [name, schema] of Object.entries(jsonSchemas())) writeFileSync(path.join(schemas, `${name}.schema.json`), JSON.stringify(schema, null, 2))

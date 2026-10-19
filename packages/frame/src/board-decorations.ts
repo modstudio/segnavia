@@ -49,6 +49,7 @@ export class BoardDecorations {
     node.part.add('section')
     const title = document.createElement('div')
     title.part.add('section-title')
+    title.dataset.boardSectionTitle = id
     node.append(title)
     this.sectionNodes.set(id, node)
     this.insert(node)

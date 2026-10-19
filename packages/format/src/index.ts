@@ -13,6 +13,15 @@ import { Scripts } from './scripts.ts'
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection } from './board.ts'
 export {
+  addItem,
+  type BoardItemAnchor,
+  MIN_BOARD_ITEM_WIDTH,
+  moveItems,
+  moveSection,
+  removeItems,
+  resizeItem,
+} from './board-edit.ts'
+export {
   type ArrangeOptions,
   arrange,
   type BoardShapes,

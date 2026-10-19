@@ -82,6 +82,11 @@
       "types": "./dist/authoring.d.ts",
       "default": "./dist/authoring.js"
     },
+    "./board-editing": {
+      "@segnavia/source": "./src/board-editing.ts",
+      "types": "./dist/board-editing.d.ts",
+      "default": "./dist/board-editing.js"
+    },
     "./icons": {
       "@segnavia/source": "./src/icons.ts",
       "types": "./dist/icons.d.ts",

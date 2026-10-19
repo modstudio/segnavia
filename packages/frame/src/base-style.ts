@@ -14,6 +14,10 @@
 //   --segnavia-paper             the paper behind its placements
 //   --segnavia-backdrop          the in-window presentation backdrop
 //   --segnavia-board-selection-color the selected board item outline
+//   --segnavia-board-marquee-color the board editing marquee border
+//   --segnavia-board-marquee-fill the board editing marquee fill
+//   --segnavia-board-handle-color the board editing handle border
+//   --segnavia-board-handle-background the board editing handle fill
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
@@ -41,6 +45,12 @@ export const BASE_CSS = `
 :where(:host(segnavia-thumbnail) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 :where(:host(segnavia-board:not([unstyled]))){display:block;position:relative;overflow:hidden;touch-action:none;background:var(--segnavia-board-background,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="surface"]){position:absolute;inset:0;overflow:hidden}
+:where(:host(segnavia-board:not([unstyled])) [part~="editing-overlay"]){position:absolute;inset:0;z-index:4;pointer-events:none}
+:where(:host(segnavia-board:not([unstyled])) [part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb);background:var(--segnavia-board-marquee-fill,rgba(36,99,235,.12))}
+:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:8px;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);pointer-events:auto}
+:where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="item"][data-selected]){cursor:move}
+:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-left"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-right"]){cursor:nwse-resize}
+:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-right"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-left"]){cursor:nesw-resize}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"]){position:absolute;overflow:hidden;background:var(--segnavia-board-item,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"] > :not(.shield)){display:block;position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain}

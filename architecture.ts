@@ -19,6 +19,8 @@ export interface PackageRule {
   // Entry points that must stay importable on a server although the package
   // as a whole is for the browser, with the files each may reach.
   serverSafe?: string[]
+  // Optional entries that intentionally retain browser-only behavior outside the main viewer bundle.
+  browserOnly?: string[]
 }
 
 export const PACKAGES: Record<string, PackageRule> = {
@@ -28,6 +30,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format'],
+    browserOnly: ['src/authoring.ts', 'src/board-editing.ts'],
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',

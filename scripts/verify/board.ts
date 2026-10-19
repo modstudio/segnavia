@@ -1,5 +1,6 @@
 import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
 import { checkBoardChrome } from './board-chrome.ts'
+import { checkBoardEditing } from './board-editing.ts'
 import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -382,4 +383,5 @@ export async function verifyBoard(h: Harness) {
   await checkFailedLiveMount(h)
   await checkBoardChrome(h)
   await checkBoardToolbar(h)
+  await checkBoardEditing(h)
 }
