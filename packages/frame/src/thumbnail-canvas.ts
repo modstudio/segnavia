@@ -7,8 +7,8 @@ export function thumbnailScale(width: number, deckWidth: number): number {
   return width / deckWidth
 }
 
-export function thumbnailCanvas(controller: DeckController, deck: Deck, slide: Slide, index: number, content: ResolvedContent): HTMLElement {
-  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, '', '', defaultFrameTitle, () => {})
+export function thumbnailCanvas(controller: DeckController, deck: Deck, slide: Slide, index: number, content: ResolvedContent, css = ''): HTMLElement {
+  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, css, '', defaultFrameTitle, () => {})
   canvas.querySelector('iframe')?.setAttribute('sandbox', '')
   return canvas
 }

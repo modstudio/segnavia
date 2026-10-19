@@ -63,7 +63,7 @@ export const ELEMENTS = {
     onSegnaviaController: 'segnavia-controller',
     onSegnaviaFit: 'segnavia-fit',
   }),
-  thumbnail: element<SegnaviaThumbnail, ThumbnailProps>(HEADLESS_ELEMENTS.thumbnail, ['deck', 'index', 'resolveSlide', 'base', 'mountMargin'], {
+  thumbnail: element<SegnaviaThumbnail, ThumbnailProps>(HEADLESS_ELEMENTS.thumbnail, ['deck', 'index', 'resolveSlide', 'base', 'css', 'mountMargin'], {
     onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
   }),
   play: element<SegnaviaPlay, PlayProps>(STYLED_ELEMENTS.play, controlProperties, {}),

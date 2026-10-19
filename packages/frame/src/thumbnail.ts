@@ -9,6 +9,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
   private baseUrl: string | undefined
+  private stylesheet = ''
   private controller: DeckController | null = null
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => this.measure())
@@ -58,6 +59,16 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   set resolveSlide(value: ControllerOptions['resolveSlide']) {
     this.slideResolver = value
+    this.changed()
+  }
+
+  /** The host stylesheet an HTML slide is drawn with, as the stage's `css`. */
+  get css(): string {
+    return this.stylesheet
+  }
+
+  set css(value: string) {
+    this.stylesheet = value
     this.changed()
   }
 
@@ -122,7 +133,7 @@ export class SegnaviaThumbnail extends HTMLElement {
       await controller.load(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      const canvas = thumbnailCanvas(controller, deck, slide, this.slideIndex, content)
+      const canvas = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
       canvas.part.add('canvas')
       this.viewport.append(canvas)
       this.measure()

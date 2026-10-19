@@ -68,6 +68,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   index?: number
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
+  css?: string
   mountMargin?: number
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
