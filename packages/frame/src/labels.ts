@@ -33,6 +33,18 @@ export interface PlayerLabels {
   player: string
 }
 
+export interface BoardLabels {
+  itemAction: (label: string, name: string) => string
+}
+
+export const ENGLISH_BOARD_LABELS: BoardLabels = {
+  itemAction: (label, name) => `${label} ${name}`,
+}
+
+export function boardLabels(labels: Partial<BoardLabels>): BoardLabels {
+  return { ...ENGLISH_BOARD_LABELS, ...labels }
+}
+
 export const ENGLISH_LABELS: PlayerLabels = {
   play: 'Play',
   pause: 'Pause',

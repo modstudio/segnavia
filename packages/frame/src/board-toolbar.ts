@@ -1,11 +1,13 @@
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
-import { BoardTargetBinding } from './board-target.ts'
+import type { SegnaviaBoardList } from './board-list.ts'
+import { BoardTargetBinding, TargetBinding } from './board-target.ts'
 import { type ToolbarNavigationKey, toolbarNextIndex } from './board-toolbar-policy.ts'
 
 export interface BoardToolbarLabels {
   toolbar: string
+  list: string
   zoomOut: string
   zoomIn: string
   zoomLevel: (percent: number) => string
@@ -16,6 +18,7 @@ export interface BoardToolbarLabels {
 
 const ENGLISH_BOARD_TOOLBAR_LABELS: BoardToolbarLabels = {
   toolbar: 'Board tools',
+  list: 'Item list',
   zoomOut: 'Zoom out',
   zoomIn: 'Zoom in',
   zoomLevel: (percent) => `${percent}%`,
@@ -27,11 +30,12 @@ const ENGLISH_BOARD_TOOLBAR_LABELS: BoardToolbarLabels = {
 const EPSILON = 1e-9
 
 export class SegnaviaBoardToolbar extends HTMLElement {
-  static observedAttributes = ['for', 'shareable']
+  static observedAttributes = ['for', 'list-for', 'shareable']
 
   private labelOverrides: Partial<BoardToolbarLabels> = {}
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly toolbar = document.createElement('div')
+  private readonly listButton: HTMLButtonElement
   private readonly zoomOutButton: HTMLButtonElement
   private readonly zoomLevelButton: HTMLButtonElement
   private readonly zoomLevelText = document.createTextNode('')
@@ -47,18 +51,21 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     },
     () => this.render(),
   )
+  private readonly listBinding = new TargetBinding<SegnaviaBoardList>(this, {}, () => this.bindListObserver(), 'list-for', 'segnavia-board-list')
+  private listObserver: MutationObserver | undefined
 
   constructor() {
     super()
     this.toolbar.part.add('toolbar')
     this.toolbar.setAttribute('role', 'toolbar')
+    this.listButton = this.button('list')
     this.zoomOutButton = this.button('zoom-out')
     this.zoomLevelButton = this.button('zoom-level')
     this.zoomLevelButton.append(this.zoomLevelText)
     this.zoomInButton = this.button('zoom-in')
     this.fitButton = this.button('fit')
     this.shareButton = this.button('share')
-    this.controls = [this.zoomOutButton, this.zoomLevelButton, this.zoomInButton, this.fitButton, this.shareButton]
+    this.controls = [this.listButton, this.zoomOutButton, this.zoomLevelButton, this.zoomInButton, this.fitButton, this.shareButton]
     this.toolbar.append(...this.controls)
     this.root.append(this.toolbar)
   }
@@ -69,6 +76,14 @@ export class SegnaviaBoardToolbar extends HTMLElement {
 
   set target(value: SegnaviaBoard | null) {
     this.targetBinding.target = value
+  }
+
+  get list(): SegnaviaBoardList | null {
+    return this.listBinding.target
+  }
+
+  set list(value: SegnaviaBoardList | null) {
+    this.listBinding.target = value
   }
 
   get shareable(): boolean {
@@ -93,6 +108,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     this.toolbar.addEventListener('click', this.onClick)
     this.toolbar.addEventListener('keydown', this.onKeyDown)
     this.targetBinding.connect()
+    this.listBinding.connect()
     this.render()
   }
 
@@ -100,10 +116,13 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     this.toolbar.removeEventListener('click', this.onClick)
     this.toolbar.removeEventListener('keydown', this.onKeyDown)
     this.targetBinding.disconnect()
+    this.listBinding.disconnect()
+    this.listObserver?.disconnect()
   }
 
   attributeChangedCallback(name: string) {
     if (name === 'for') this.targetBinding.attributeChanged()
+    else if (name === 'list-for') this.listBinding.attributeChanged()
     else this.render()
   }
 
@@ -116,6 +135,9 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const previousTabStop = this.controls.find((button) => button.tabIndex === 0)
     this.dir = board?.direction ?? ''
     this.toolbar.setAttribute('aria-label', labels.toolbar)
+    this.updateButton(this.listButton, labels.list, false)
+    this.listButton.hidden = !this.listBinding.current
+    this.listButton.setAttribute('aria-pressed', String(!this.listBinding.current?.hidden))
     this.updateButton(this.zoomOutButton, labels.zoomOut, !board || zoom <= MIN_BOARD_ZOOM + EPSILON)
     this.updateButton(this.zoomLevelButton, labels.resetZoom, !board)
     this.zoomLevelText.data = labels.zoomLevel(Math.round(zoom * 100))
@@ -157,13 +179,32 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const button = event.composedPath().find((node): node is HTMLButtonElement => node instanceof HTMLButtonElement)
     const target = this.targetBinding.current
     if (!button || button.disabled) return
-    if (button.dataset.action === 'zoom-out') target?.zoomOut()
+    if (button.dataset.action === 'list') this.toggleList()
+    else if (button.dataset.action === 'zoom-out') target?.zoomOut()
     else if (button.dataset.action === 'zoom-level') target?.zoomTo(1)
     else if (button.dataset.action === 'zoom-in') target?.zoomIn()
     else if (button.dataset.action === 'fit') target?.fitAll()
     else if (button.dataset.action === 'share') {
       this.dispatchEvent(new CustomEvent('segnavia-board-share', { bubbles: true, composed: true, detail: { board: target?.board ?? null } }))
     }
+  }
+
+  private toggleList() {
+    const list = this.listBinding.current
+    if (!list) return
+    const open = list.hidden
+    const event = new CustomEvent('segnavia-board-list-toggle', { detail: { open }, bubbles: true, composed: true, cancelable: true })
+    if (this.dispatchEvent(event)) list.hidden = !open
+  }
+
+  private bindListObserver() {
+    this.listObserver?.disconnect()
+    const list = this.listBinding.current
+    if (list) {
+      this.listObserver = new MutationObserver(this.render)
+      this.listObserver.observe(list, { attributes: true, attributeFilter: ['hidden'] })
+    }
+    this.render()
   }
 
   private onKeyDown = (event: KeyboardEvent) => {

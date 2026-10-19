@@ -1,6 +1,7 @@
 import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
+import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
 import { BoardTargetBinding } from './board-target.ts'
@@ -23,6 +24,7 @@ export class SegnaviaBoardList extends HTMLElement {
     {
       'segnavia-board-change': () => this.onBoardChange(),
       'segnavia-board-names': () => this.render(),
+      'segnavia-board-icons': () => this.render(),
     },
     () => this.onBoardChange(),
   )
@@ -175,7 +177,8 @@ export class SegnaviaBoardList extends HTMLElement {
     button.type = 'button'
     button.part.add('item')
     button.dataset.boardItem = item.id
-    button.append(this.name(text))
+    const icon = createKindIcon(item.kind, target.kindIcon)
+    button.append(icon, this.name(text))
     entry.append(button)
     return entry
   }
@@ -203,6 +206,7 @@ export class SegnaviaBoardList extends HTMLElement {
     const section = target.board?.sections.find((entry) => entry.id === button.dataset.boardSection)
     if (item) {
       target.reveal(item.id)
+      target.selected = item.id
       this.dispatchEvent(new CustomEvent('segnavia-board-select', { detail: { item }, bubbles: true, composed: true }))
     } else if (section) {
       target.reveal(section.id)
