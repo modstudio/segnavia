@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES, SOURCE_CONDITION } from '../architecture.ts'
+import { hostNamesFile } from './checks/host-names.ts'
 import {
   checkCeiling,
   checkComments,
@@ -22,8 +23,9 @@ const ROOT = path.resolve(import.meta.dir, '..')
 const transpiler = new Bun.Transpiler({ loader: 'ts' })
 
 function hostNames(): string[] {
-  const file = path.join(ROOT, 'host-names.local')
-  if (!existsSync(file)) return []
+  const commonDir = Bun.spawnSync(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: ROOT }).stdout.toString().trim()
+  const file = hostNamesFile(ROOT, commonDir, existsSync)
+  if (!file) return []
   return readFileSync(file, 'utf8')
     .split('\n')
     .map((line) => line.trim())
