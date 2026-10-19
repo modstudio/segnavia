@@ -13,9 +13,15 @@ interface DemoSection {
   rectangle: { x: number; y: number; width: number; height: number }
   items: string[]
 }
+interface DemoLabel {
+  id: string
+  x: number
+  y: number
+}
 interface DemoBoard {
   direction: 'ltr' | 'rtl'
   items: DemoItem[]
+  labels: DemoLabel[]
   sections: DemoSection[]
 }
 interface DemoChange {
@@ -40,6 +46,43 @@ export async function checkBoardEditingSections(
   second: Locator,
   reset: (direction?: 'ltr' | 'rtl') => Promise<void>,
 ) {
+  await reset()
+  const titleBox = await board.locator('[part~="section-title"]').boundingBox()
+  const labelBox = await board.locator('[part~="label"]').first().boundingBox()
+  const initialOverlap =
+    titleBox &&
+    labelBox &&
+    titleBox.x < labelBox.x + labelBox.width &&
+    titleBox.x + titleBox.width > labelBox.x &&
+    titleBox.y < labelBox.y + labelBox.height &&
+    titleBox.y + titleBox.height > labelBox.y
+  h.check('the initial Local assets label does not overlap the Two decks chip', !initialOverlap, JSON.stringify({ titleBox, labelBox }))
+
+  const nudgeFrom = await center(second)
+  await h.page.mouse.move(nudgeFrom.x, nudgeFrom.y)
+  await h.page.mouse.down()
+  await h.page.mouse.move(nudgeFrom.x + 10, nudgeFrom.y, { steps: 4 })
+  const targetDuringDrag = await board.locator('[part~="section"]').evaluate((node) => ({
+    attribute: node.hasAttribute('data-drop-target'),
+    part: node.getAttribute('part'),
+  }))
+  await h.page.mouse.up()
+  await waitChanges(h.page, 1)
+  const nudged = await board.evaluate(sectionState)
+  const targetAfterDrop = await board.locator('[part~="section"]').evaluate((node) => ({
+    attribute: node.hasAttribute('data-drop-target'),
+    part: node.getAttribute('part'),
+  }))
+  h.check('a member nudged inside its starting box stays a member', nudged.section.items.includes('deck-hebrew'), JSON.stringify(nudged))
+  h.check(
+    'the receiving section is marked during drag and the mark clears on release',
+    targetDuringDrag.attribute &&
+      targetDuringDrag.part?.split(' ').includes('drop-target') === true &&
+      !targetAfterDrop.attribute &&
+      !targetAfterDrop.part?.includes('drop-target'),
+    JSON.stringify({ targetDuringDrag, targetAfterDrop }),
+  )
+
   await reset()
   const original = await board.evaluate(sectionState)
   await drag(h.page, await center(second), 0, 500)
@@ -101,6 +144,34 @@ export async function checkBoardEditingSections(
     'growing Two decks toward the page nudges the page clear on the settled write',
     !room.overlap && (room.page.x !== pageBefore.x || room.page.y !== pageBefore.y) && room.changes === 1,
     JSON.stringify({ pageBefore, room }),
+  )
+
+  await reset()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 620, y: 80 } : label))
+    value.board = next
+    ;(window as unknown as DemoWindow).boardChanges = []
+  })
+  const labelBefore = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  await second.click()
+  await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 160, 0)
+  await waitChanges(h.page, 1)
+  const labelAfter = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  const grownSectionBox = await board.locator('[part~="section"]').boundingBox()
+  const movedLabelBox = await board.locator('[part~="label"]').first().boundingBox()
+  const labelOverlap =
+    grownSectionBox &&
+    movedLabelBox &&
+    grownSectionBox.x < movedLabelBox.x + movedLabelBox.width &&
+    grownSectionBox.x + grownSectionBox.width > movedLabelBox.x &&
+    grownSectionBox.y < movedLabelBox.y + movedLabelBox.height &&
+    grownSectionBox.y + grownSectionBox.height > movedLabelBox.y
+  h.check(
+    'a section that grows into a measured label nudges the label clear',
+    (labelAfter?.x !== labelBefore?.x || labelAfter?.y !== labelBefore?.y) && !labelOverlap,
+    JSON.stringify({ labelBefore, labelAfter, grownSectionBox, movedLabelBox }),
   )
 
   await reset('rtl')

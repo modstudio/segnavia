@@ -58,6 +58,16 @@ describe('section fitting and membership', () => {
     expect(assigned.sections[0]?.items).toEqual(['one'])
   })
 
+  test('keeps a member dropped inside its starting rectangle before the live fit', () => {
+    const value = board()
+    const live = {
+      ...value,
+      items: value.items.map((item) => (item.id === 'two' ? { ...item, x: 500 } : item)),
+    }
+    expect(assignMembership(live, shapes, ['two'], { x: 300, y: 130 }, value.sections).sections[0]?.items).toEqual(['one', 'two'])
+    expect(assignMembership(live, shapes, ['two'], { x: 800, y: 130 }, value.sections).sections[0]?.items).toEqual(['one'])
+  })
+
   test('uses the same physical coordinates on right-to-left boards', () => {
     expect(fitSection(board('rtl'), shapes, 'first')).toEqual({ ...fitSection(board(), shapes, 'first'), direction: 'rtl' })
     expect(assignMembership(board('rtl'), shapes, ['three'], { x: 200, y: 100 }).sections[0]?.items).toEqual(['one', 'two', 'three'])
@@ -99,6 +109,17 @@ describe('section room', () => {
     if (beforeX === undefined || afterX === undefined) throw new Error('fixture section is missing')
     const delta = afterX - beforeX
     expect(settled.items.find((item) => item.id === 'three')?.x).toBe(500 + delta)
+  })
+
+  test('moves a measured label clear of a changed section', () => {
+    const value: Board = {
+      ...board(),
+      labels: [{ id: 'label', text: 'Measured', x: 300, y: 100 }],
+      sections: [{ id: 'first', title: 'First', rectangle: { x: 0, y: 0, width: 320, height: 220 }, items: ['one', 'two'] }],
+    }
+    const withLabel = { ...shapes, labels: { label: { width: 80, height: 20 } } }
+    const settled = makeRoom(value, withLabel, ['first'])
+    expect(settled.labels[0]).toEqual({ id: 'label', text: 'Measured', x: 336, y: 100 })
   })
 
   test('stops a cascade at the pass limit', () => {

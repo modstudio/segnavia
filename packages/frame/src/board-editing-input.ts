@@ -112,7 +112,12 @@ export class BoardEditingInput implements BoardInputDelegate {
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
     if (gesture.kind === 'move' && this.enabled.move) {
       const moved = moveItems(gesture.before, gesture.ids, delta)
-      this.callbacks.live(fitTouchedSections(moved, bridge.shapes(), gesture.ids))
+      const fitted = fitTouchedSections(moved, bridge.shapes(), gesture.ids)
+      this.callbacks.live(fitted)
+      const boardPoint = screenToBoard(bridge.view(), point)
+      const assigned = assignMembership(fitted, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
+      const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
+      bridge.setDropTarget(target?.id)
     } else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
     else if (gesture.kind === 'resize') {
@@ -130,6 +135,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const gesture = this.gesture
     if (!gesture || gesture.pointerId !== event.pointerId) return false
     this.gesture = null
+    this.callbacks.bridge().setDropTarget()
     if (gesture.kind === 'marquee') {
       gesture.node.remove()
       if (!gesture.dragged) this.board.selection = []
@@ -148,7 +154,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const bridge = this.callbacks.bridge()
     if (gesture.kind === 'move' && this.enabled.move) {
       const release = screenToBoard(bridge.view(), bridge.local(event))
-      const assigned = assignMembership(next, bridge.shapes(), gesture.ids, release)
+      const assigned = assignMembership(next, bridge.shapes(), gesture.ids, release, gesture.before.sections)
       this.callbacks.commit(gesture.before, settleTouched(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
@@ -221,6 +227,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const gesture = this.gesture
     this.gesture = null
     if (!gesture) return
+    this.callbacks.bridge().setDropTarget()
     if (gesture.kind === 'marquee') gesture.node.remove()
     else if (restore && gesture.kind !== 'noop') this.callbacks.bridge().setOptimistic(gesture.before)
   }

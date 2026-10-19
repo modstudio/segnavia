@@ -3,4 +3,4 @@
 '@segnavia/frame': minor
 ---
 
-Fit board sections to their members, assign membership at move release, and move overlapping neighbors clear as one undoable edit.
+Fit board sections to their members, preserve membership within the starting box, show drop targets, and move overlapping items, sections and labels clear as one undoable edit.

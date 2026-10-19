@@ -1,4 +1,4 @@
-import type { Board } from './board.ts'
+import type { Board, BoardSection } from './board.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import type { Box, Point } from './deck.ts'
 
@@ -46,21 +46,31 @@ function contains(rectangle: Box, point: Point): boolean {
   return point.x >= rectangle.x && point.x <= rectangle.x + rectangle.width && point.y >= rectangle.y && point.y <= rectangle.y + rectangle.height
 }
 
-export function assignMembership(board: Board, shapes: BoardShapes, ids: readonly string[], point: Point): Board {
+export function assignMembership(
+  board: Board,
+  shapes: BoardShapes,
+  ids: readonly string[],
+  point: Point,
+  startingSections: readonly BoardSection[] = [],
+): Board {
   const moved = new Set(ids.filter((id) => board.items.some((item) => item.id === id)))
   let target: string | undefined
   for (const section of board.sections) {
     const rectangle = fittedRectangle(board, shapes, section.id, moved)
     if (rectangle && contains(rectangle, point)) target = section.id
   }
+  const assignments = new Map<string, string | undefined>()
+  for (const id of moved) {
+    const starting = startingSections.find((section) => section.items.includes(id))
+    assignments.set(id, starting && contains(starting.rectangle, point) ? starting.id : target)
+  }
   return {
     ...board,
     sections: board.sections.map((section) => {
-      const items = section.items.filter((id) => !moved.has(id))
-      if (section.id !== target) return { ...section, items }
-      const existing = new Set(section.items)
-      const appended = ids.filter((id, index) => moved.has(id) && !existing.has(id) && ids.indexOf(id) === index)
-      return { ...section, items: [...section.items, ...appended] }
+      const items = section.items.filter((id) => !moved.has(id) || assignments.get(id) === section.id)
+      const existing = new Set(items)
+      const appended = ids.filter((id, index) => moved.has(id) && assignments.get(id) === section.id && !existing.has(id) && ids.indexOf(id) === index)
+      return { ...section, items: [...items, ...appended] }
     }),
   }
 }
@@ -79,10 +89,16 @@ function clearingDelta(anchor: Box, neighbor: Box): Point {
   return candidates.reduce((best, candidate) => (Math.abs(candidate.x) + Math.abs(candidate.y) < Math.abs(best.x) + Math.abs(best.y) ? candidate : best))
 }
 
-type Entity = { kind: 'section' | 'item'; id: string }
+type Entity = { kind: 'section' | 'item' | 'label'; id: string }
 
 function entityRectangle(board: Board, shapes: BoardShapes, entity: Entity): Box | undefined {
-  return entity.kind === 'section' ? board.sections.find((section) => section.id === entity.id)?.rectangle : itemRectangle(board, shapes, entity.id)
+  if (entity.kind === 'section') return board.sections.find((section) => section.id === entity.id)?.rectangle
+  if (entity.kind === 'item') return itemRectangle(board, shapes, entity.id)
+  const label = board.labels.find((entry) => entry.id === entity.id)
+  if (!label) return undefined
+  const shape = shapes.labels[entity.id]
+  if (!shape) throw new Error(`label "${entity.id}" has no supplied shape; supply shapes.labels["${entity.id}"]`)
+  return { x: label.x, y: label.y, ...shape }
 }
 
 function moveEntity(board: Board, entity: Entity, delta: Point): Board {
@@ -90,6 +106,12 @@ function moveEntity(board: Board, entity: Entity, delta: Point): Board {
     return {
       ...board,
       items: board.items.map((item) => (item.id === entity.id ? { ...item, x: item.x + delta.x, y: item.y + delta.y } : item)),
+    }
+  }
+  if (entity.kind === 'label') {
+    return {
+      ...board,
+      labels: board.labels.map((label) => (label.id === entity.id ? { ...label, x: label.x + delta.x, y: label.y + delta.y } : label)),
     }
   }
   const section = board.sections.find((entry) => entry.id === entity.id)
@@ -108,6 +130,7 @@ function neighbors(board: Board): Entity[] {
   return [
     ...board.sections.map((section): Entity => ({ kind: 'section', id: section.id })),
     ...board.items.map((item): Entity => ({ kind: 'item', id: item.id })),
+    ...board.labels.map((label): Entity => ({ kind: 'label', id: label.id })),
   ]
 }
 

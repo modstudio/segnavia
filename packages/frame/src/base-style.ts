@@ -18,6 +18,7 @@
 //   --segnavia-board-marquee-fill the board editing marquee fill
 //   --segnavia-board-handle-color the board editing handle border
 //   --segnavia-board-handle-background the board editing handle fill
+//   --segnavia-board-drop-target-color the section drop-target outline
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
@@ -65,6 +66,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="item-actions"]){display:inline-flex;flex:none;margin-inline-start:auto;opacity:0;pointer-events:none}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"]:hover + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"]:focus + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:hover [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:focus-within [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected] + [part~="item-title"] [part~="item-actions"]){opacity:1;pointer-events:auto}
 :where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="section"][part~="drop-target"]){outline:2px solid var(--segnavia-board-drop-target-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
 :where(:host(segnavia-board-list)){display:block;color:var(--segnavia-board-list-color,currentColor);background:var(--segnavia-board-list-background,transparent)}
 :where(:host(segnavia-board-list[hidden])){display:none}

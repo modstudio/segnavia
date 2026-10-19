@@ -14,6 +14,7 @@ export interface BoardEditingBridge {
   view(): BoardView
   shapes(): BoardShapes
   local(event: { clientX: number; clientY: number }): Point
+  setDropTarget(id?: string): void
   setOptimistic(board: Board): void
   detach(): void
   release(): void
@@ -32,6 +33,7 @@ interface BridgeParts {
   view(): BoardView
   shapes(): BoardShapes
   local(event: { clientX: number; clientY: number }): Point
+  setDropTarget(id?: string): void
   optimistic(board: Board): void
   detachInput(): void
   release(): void
@@ -48,9 +50,11 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     view: parts.view,
     shapes: parts.shapes,
     local: parts.local,
+    setDropTarget: parts.setDropTarget,
     setOptimistic: parts.optimistic,
     detach: () => {
       parts.detachInput()
+      parts.setDropTarget()
       overlay.remove()
       parts.host.toggleAttribute('data-editing', false)
     },
