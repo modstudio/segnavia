@@ -50,6 +50,7 @@ export class AuthoringController extends EventTarget {
   private rail: SegnaviaRail | null = null
   private unsubscribeReorder: (() => void) | null = null
   private notes: NotesSaveQueue | null = null
+  private lastNotes: NotesSaveQueue | null = null
   private notesRoot: HTMLElement | null = null
   private notesSlideId: string | null = null
   private updateGeneration = 0
@@ -74,9 +75,12 @@ export class AuthoringController extends EventTarget {
 
   // Saves pending notes without starting a save on a clean deck, then returns
   // the deck as the author sees it, including a draft whose save failed.
+  // Captures the notes queue before awaiting so a concurrent detach still
+  // returns those drafts; after detach, flush uses the last queue the same way.
   async flush(): Promise<Deck | null> {
-    await this.notes?.flushAll()
-    return this.authoredDeck()
+    const notes = this.notes ?? this.lastNotes
+    await notes?.flushAll()
+    return this.authoredDeck(notes)
   }
 
   update(handlers: AuthoringHandlers, options: AuthoringOptions = {}): Promise<void> {
@@ -122,14 +126,14 @@ export class AuthoringController extends EventTarget {
     notes?.dispose()
   }
 
-  private authoredDeck(): Deck | null {
+  private authoredDeck(notes: NotesSaveQueue | null): Deck | null {
     const deck = this.player.controller.state.deck
     if (!deck) return null
-    if (!this.notes) return deck
+    if (!notes) return deck
     return {
       ...deck,
       slides: deck.slides.map((slide) => {
-        const text = this.notes?.draft(slide.id)
+        const text = notes.draft(slide.id)
         if (text === undefined || text === (slide.notes ?? '')) return slide
         return { ...slide, notes: text }
       }),
@@ -178,6 +182,7 @@ export class AuthoringController extends EventTarget {
     this.removeNavigationGuard?.()
     this.removeNavigationGuard = null
     this.notes = null
+    if (notes) this.lastNotes = notes
     this.notesRoot?.remove()
     this.notesRoot = null
     this.notesSlideId = null

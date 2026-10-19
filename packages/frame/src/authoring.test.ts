@@ -120,6 +120,33 @@ describe('authoring flush', () => {
     expect(saves).toEqual([])
     expect(flushed?.slides[0]?.notes).toBe('old')
   })
+
+  test('a flush in flight when detach runs still returns the draft', async () => {
+    let release = () => {}
+    const { authoring, queue } = await controllerWithNotes(() => new Promise<void>((resolve) => (release = resolve)))
+    queue.edit('a', 'draft during flush')
+    const flushing = authoring.flush()
+    void authoring.detach()
+    release()
+    const flushed = await flushing
+    expect(flushed).not.toBeNull()
+    if (!flushed) return
+    expect(flushed.slides[0]?.notes).toBe('draft during flush')
+    expect(printableDeck(flushed, { layout: 'notes' })).toContain('draft during flush')
+  })
+
+  test('flush after detach returns the authored notes from the last queue', async () => {
+    const { authoring, queue } = await controllerWithNotes(async () => {
+      throw new Error('Offline')
+    })
+    queue.edit('a', 'failed draft')
+    await authoring.detach()
+    const flushed = await authoring.flush()
+    expect(flushed).not.toBeNull()
+    if (!flushed) return
+    expect(flushed.slides[0]?.notes).toBe('failed draft')
+    expect(printableDeck(flushed, { layout: 'notes' })).toContain('failed draft')
+  })
 })
 
 test('a rejected reorder rolls back a frozen deck and reports the move error', async () => {
