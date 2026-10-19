@@ -42,8 +42,8 @@ export interface BoardEditTransition {
   effects: BoardEditEffects
 }
 
-export function boardEditQueue(value: Board): BoardEditQueueState {
-  return { value, jobs: [], invalidated: null, undo: [], redo: [], generation: 0, nextId: 1 }
+export function boardEditQueue(value: Board, nextId = 1, invalidated: BoardEditQueueState['invalidated'] = null): BoardEditQueueState {
+  return { value, jobs: [], invalidated, undo: [], redo: [], generation: 0, nextId }
 }
 
 export function applyBoardEdit(state: BoardEditQueueState, after: Board, edit: BoardEdit): BoardEditTransition {
@@ -72,7 +72,7 @@ export function redoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
 }
 
 export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardEditTransition {
-  if (state.invalidated?.id === id) return { state: { ...state, invalidated: null }, effects: { abort: [], historyChanged: false } }
+  if (state.invalidated?.id === id) return { state: { ...state, invalidated: null }, effects: { abort: [], run: state.jobs[0], historyChanged: false } }
   const job = state.jobs[0]
   if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)
   const jobs = state.jobs.slice(1)
@@ -82,7 +82,10 @@ export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardE
 export function rejectBoardEdit(state: BoardEditQueueState, id: number, error: unknown): BoardEditTransition {
   if (state.invalidated?.id === id) {
     const edit = state.invalidated.edit
-    return { state: { ...state, invalidated: null }, effects: { abort: [], error: { edit, error }, historyChanged: false } }
+    return {
+      state: { ...state, invalidated: null },
+      effects: { abort: [], run: state.jobs[0], error: { edit, error }, historyChanged: false },
+    }
   }
   const job = state.jobs[0]
   if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)

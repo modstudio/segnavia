@@ -54,6 +54,26 @@ describe('board edit queue policy', () => {
     expect(late.effects.show).toBeUndefined()
   })
 
+  test('ids stay monotonic across a null host value and late settlements preserve newer work', () => {
+    const first = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
+    const adopted = adoptHostBoard(first, value(9)).state
+    const replacement = boardEditQueue(value(9), adopted.nextId, adopted.invalidated)
+    const newer = applyBoardEdit(replacement, value(10), { kind: 'resize', ids: ['one'] }).state
+
+    expect(newer.jobs[0]?.id).toBe(2)
+    const resolved = resolveBoardEdit(newer, 1)
+    expect(resolved.state).toMatchObject({ value: value(10), jobs: [{ id: 2 }], invalidated: null })
+    expect(resolved.effects.run).toMatchObject({ id: 2 })
+
+    const rejected = rejectBoardEdit(newer, 1, 'old write failed')
+    expect(rejected.state).toMatchObject({ value: value(10), jobs: [{ id: 2 }], invalidated: null })
+    expect(rejected.effects).toMatchObject({
+      run: { id: 2 },
+      error: { edit: { kind: 'move', ids: ['one'] }, error: 'old write failed' },
+    })
+    expect(rejected.effects.show).toBeUndefined()
+  })
+
   test('detach leaves signals active and queued jobs run in order', () => {
     let state = boardEditQueue(value(0))
     state = applyBoardEdit(state, value(1), { kind: 'move', ids: ['one'] }).state

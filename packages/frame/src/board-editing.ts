@@ -57,6 +57,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   private state: BoardEditQueueState | null
   private readonly aborts = new Map<number, AbortController>()
   private runningId: number | null = null
+  private nextId = 1
+  private invalidated: BoardEditQueueState['invalidated'] = null
   private readonly input: BoardEditingInput
   private stopped = false
 
@@ -191,6 +193,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
 
   private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
     this.state = transition.state
+    this.nextId = this.state.nextId
+    this.invalidated = this.state.invalidated
     for (const job of this.state.jobs) if (!this.aborts.has(job.id)) this.aborts.set(job.id, new AbortController())
     for (const id of transition.effects.abort) {
       this.aborts.get(id)?.abort()
@@ -224,6 +228,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       }
     } finally {
       this.aborts.delete(id)
+      if (this.invalidated?.id === id) this.invalidated = null
       this.runningId = null
       const next = this.state?.jobs[0]
       if (next) void this.run(next.id)
@@ -234,9 +239,14 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   private hostValue = (value: Board | null) => {
     this.input.cancel(false)
     if (value && this.state) this.applyTransition(adoptHostBoard(this.state, value))
-    else if (value) this.state = boardEditQueue(value)
+    else if (value) this.state = boardEditQueue(value, this.nextId, this.invalidated)
     else {
       const hadHistory = this.canUndo || this.canRedo
+      if (this.state) {
+        this.nextId = this.state.nextId
+        const running = this.runningId === null ? undefined : this.state.jobs.find((job) => job.id === this.runningId)
+        this.invalidated = this.state.invalidated ?? (running ? { id: running.id, edit: running.edit } : null)
+      }
       for (const controller of this.aborts.values()) controller.abort()
       this.aborts.clear()
       this.state = null
