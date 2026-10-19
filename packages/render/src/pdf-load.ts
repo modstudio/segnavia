@@ -136,10 +136,7 @@ export function assertPdfStreamsBounded(pdf: Uint8Array, ceiling = MAX_PDF_STREA
   }
 }
 
-export async function loadPdf(
-  pdf: Uint8Array,
-  options?: Parameters<typeof PDFDocument.load>[1],
-): Promise<PDFDocument> {
+export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDocument.load>[1]): Promise<PDFDocument> {
   assertPdfStreamsBounded(pdf)
   return PDFDocument.load(pdf, options)
 }

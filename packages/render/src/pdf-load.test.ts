@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { assertPdfStreamsBounded, loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
+import { loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 function objectStream(contents: Uint8Array): Uint8Array {
   const compressed = deflateSync(contents)
@@ -12,11 +12,11 @@ function objectStream(contents: Uint8Array): Uint8Array {
   return Buffer.concat([prefix, compressed, suffix])
 }
 
-test('refuses an object stream before zlib allocates its full inflated size', () => {
+test('refuses an object stream before zlib allocates its full inflated size', async () => {
   const inflatedSize = MAX_PDF_STREAM_BYTES + 1
   const pdf = objectStream(new Uint8Array(inflatedSize))
   expect(pdf.byteLength).toBeLessThan(32 * 1024)
-  expect(() => assertPdfStreamsBounded(pdf)).toThrow(
+  await expect(loadPdf(pdf)).rejects.toThrow(
     new RenderRefusedError(
       `PDF stream object 1 inflated past the ceiling after ${MAX_PDF_STREAM_BYTES} bytes; the ceiling is ${MAX_PDF_STREAM_BYTES} bytes. Reduce the page content that Chromium packs into one object or cross-reference stream to clear this refusal.`,
     ),
