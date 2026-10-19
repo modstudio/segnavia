@@ -72,6 +72,13 @@ export class AuthoringController extends EventTarget {
     return this.notes?.dirty ?? false
   }
 
+  // Saves pending notes without starting a save on a clean deck, then returns
+  // the deck as the author sees it, including a draft whose save failed.
+  async flush(): Promise<Deck | null> {
+    await this.notes?.flushAll()
+    return this.authoredDeck()
+  }
+
   update(handlers: AuthoringHandlers, options: AuthoringOptions = {}): Promise<void> {
     const generation = ++this.updateGeneration
     const next = this.updateTail.then(() => this.applyUpdate(generation, handlers, options))
@@ -113,6 +120,20 @@ export class AuthoringController extends EventTarget {
   private async finishDetach(notes: NotesSaveQueue | null) {
     await notes?.flushAll()
     notes?.dispose()
+  }
+
+  private authoredDeck(): Deck | null {
+    const deck = this.player.controller.state.deck
+    if (!deck) return null
+    if (!this.notes) return deck
+    return {
+      ...deck,
+      slides: deck.slides.map((slide) => {
+        const text = this.notes?.draft(slide.id)
+        if (text === undefined || text === (slide.notes ?? '')) return slide
+        return { ...slide, notes: text }
+      }),
+    }
   }
 
   private attachNotes(save: NonNullable<AuthoringHandlers['saveNotes']>) {

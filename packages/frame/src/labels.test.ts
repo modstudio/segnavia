@@ -14,6 +14,8 @@ test('labels added after a host translation fall back to English', () => {
   expect(labels.play).toBe('הפעלה')
   expect(labels.time('0:12', '0:40')).toBe(ENGLISH_LABELS.time('0:12', '0:40'))
   expect(labels.mute).toBe(ENGLISH_LABELS.mute)
+  expect(ENGLISH_LABELS.noSpeakerNotes).toBe('No speaker notes')
+  expect(labels.noSpeakerNotes).toBe(ENGLISH_LABELS.noSpeakerNotes)
 })
 
 test('the unnamed book label follows English and Hebrew', () => {

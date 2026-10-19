@@ -88,6 +88,10 @@ export class NotesSaveQueue {
     return { text: entry.text, status: entry.status, message: entry.message }
   }
 
+  draft(slideId: string): string | undefined {
+    return this.entries.get(slideId)?.text
+  }
+
   edit(slideId: string, text: string) {
     const entry = this.entry(slideId)
     entry.text = text

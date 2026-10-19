@@ -17,6 +17,7 @@ export interface PlayerLabels {
   savingNotes: string
   savedNotes: string
   tryNotesAgain: string
+  noSpeakerNotes: string
   notes: string
   showNotes: string
   hideNotes: string
@@ -58,6 +59,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   savingNotes: 'Saving…',
   savedNotes: 'Saved',
   tryNotesAgain: 'Try again',
+  noSpeakerNotes: 'No speaker notes',
   notes: 'Notes',
   showNotes: 'Show notes',
   hideNotes: 'Hide notes',
