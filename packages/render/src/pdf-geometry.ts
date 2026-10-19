@@ -1,5 +1,12 @@
 import { MM_PER_PT, PX_PER_MM } from '@segnavia/format'
 
+export interface PdfRectangle {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const pt = (millimeters: number) => millimeters / MM_PER_PT
 const pixelPt = (pixels: number) => pt(pixels / PX_PER_MM)
 
@@ -7,10 +14,7 @@ function pdfPoint(x: number, y: number, mediaHeight: number): { x: number; y: nu
   return { x: pt(x), y: pt(mediaHeight - y) }
 }
 
-export function pdfBox(
-  box: { x: number; y: number; width: number; height: number },
-  mediaHeight: number,
-): { x: number; y: number; width: number; height: number } {
+export function pdfBox(box: { x: number; y: number; width: number; height: number }, mediaHeight: number): PdfRectangle {
   const bottomLeft = pdfPoint(box.x, box.y + box.height, mediaHeight)
   return { ...bottomLeft, width: pt(box.width), height: pt(box.height) }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Print } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
-import { assertPrintOptions, printCss, printViewport } from './page-paper.ts'
+import { assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
 
 describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
@@ -26,5 +26,12 @@ describe('printed page setup', () => {
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow(RenderRefusedError)
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow('Remove preferCssPageSize, or remove the bleed and marks')
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4' }), true)).not.toThrow()
+  })
+
+  test('the Chromium page keeps its top edge when its rounded height differs from the bleed box', () => {
+    const bleedBox = { x: 17, y: 17, width: 612, height: 858.9 }
+    const placement = pressContentPlacement({ width: 612, height: 859.9 }, bleedBox)
+    expect(placement).toEqual({ x: 17, y: 16, width: 612, height: 859.9 })
+    expect(placement.y + placement.height).toBe(bleedBox.y + bleedBox.height)
   })
 })
