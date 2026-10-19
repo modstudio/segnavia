@@ -208,7 +208,6 @@ export class SegnaviaBoard extends HTMLElement {
   itemName(id: string): string {
     return this.names.name(this.items.get(id), this.items.get(id) ? this.resolutions.value((this.items.get(id) as BoardItem).address) : undefined)
   }
-
   [boardEditing](delegate: BoardInputDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge {
     if (this.input.delegate || this.editingHostValue)
       throw new Error('board editing is already attached or settling; wait for it before attaching another editor')

@@ -20,6 +20,7 @@ type Gesture =
   | { kind: 'section'; pointerId: number; start: Point; before: Board; ids: string[]; sectionId: string; dragged: boolean }
   | { kind: 'marquee'; pointerId: number; start: Point; before: Board; base: readonly string[]; shift: boolean; node: HTMLElement; dragged: boolean }
   | { kind: 'resize'; pointerId: number; start: Point; before: Board; id: string; corner: string; dragged: boolean }
+  | { kind: 'noop'; pointerId: number; start: Point; before: Board; dragged: boolean }
 
 interface Callbacks {
   current(): Board | null
@@ -62,10 +63,12 @@ export class BoardEditingInput implements BoardInputDelegate {
         : null
     }
     const sectionId = this.pathElement(event, 'boardSectionTitle')?.dataset.boardSectionTitle
-    if (sectionId && this.enabled.move)
-      return { kind: 'section', pointerId: event.pointerId, start: bridge.local(event), before: current, ids: [], sectionId, dragged: false }
+    if (sectionId)
+      return this.enabled.move
+        ? { kind: 'section', pointerId: event.pointerId, start: bridge.local(event), before: current, ids: [], sectionId, dragged: false }
+        : { kind: 'noop', pointerId: event.pointerId, start: bridge.local(event), before: current, dragged: false }
     const itemId = this.pathElement(event, 'boardItem')?.dataset.boardItem ?? this.pathElement(event, 'boardTitle')?.dataset.boardTitle
-    if (itemId && this.enabled.move) return this.startMove(event, current, itemId)
+    if (itemId) return this.startMove(event, current, itemId)
     const node = document.createElement('div')
     node.part.add('marquee')
     bridge.overlay.append(node)
@@ -105,7 +108,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     if (!gesture.dragged && Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) <= 4) return true
     gesture.dragged = true
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
-    if (gesture.kind === 'move') this.callbacks.live(moveItems(gesture.before, gesture.ids, delta))
+    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.live(moveItems(gesture.before, gesture.ids, delta))
     else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
     else if (gesture.kind === 'resize') {
@@ -124,7 +127,7 @@ export class BoardEditingInput implements BoardInputDelegate {
       gesture.node.remove()
       if (!gesture.dragged) this.board.selection = []
     } else if (!gesture.dragged && gesture.kind === 'move' && gesture.itemId) this.finishClick(gesture)
-    else if (gesture.dragged) this.finishEdit(gesture)
+    else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture)
     return true
   }
 
@@ -140,7 +143,7 @@ export class BoardEditingInput implements BoardInputDelegate {
   private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>) {
     const next = this.board.board
     if (!next) return
-    if (gesture.kind === 'move') this.callbacks.commit(gesture.before, next, { kind: 'move', ids: gesture.ids })
+    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.commit(gesture.before, next, { kind: 'move', ids: gesture.ids })
     else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
       this.callbacks.commit(gesture.before, next, { kind: 'move-section', ids: [gesture.sectionId, ...members] })
@@ -202,7 +205,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     this.gesture = null
     if (!gesture) return
     if (gesture.kind === 'marquee') gesture.node.remove()
-    else if (restore) this.callbacks.bridge().setOptimistic(gesture.before)
+    else if (restore && gesture.kind !== 'noop') this.callbacks.bridge().setOptimistic(gesture.before)
   }
 
   private updateMarquee(gesture: Extract<Gesture, { kind: 'marquee' }>, point: Point) {
