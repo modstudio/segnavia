@@ -279,11 +279,7 @@ export async function verifyCompactPlayerActions(h: Harness) {
     }
     return { heights, delta: Math.max(...heights) - Math.min(...heights) }
   })
-  check(
-    '393px compact action sized from --segnavia-bar-height keeps player height stable',
-    barVarHeights.delta < 1,
-    JSON.stringify(barVarHeights),
-  )
+  check('393px compact action sized from --segnavia-bar-height keeps player height stable', barVarHeights.delta < 1, JSON.stringify(barVarHeights))
   await h.evidence('player-actions-393.png')
 
   await mountRailAndActions(h, 2)

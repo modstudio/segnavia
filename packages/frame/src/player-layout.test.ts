@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
-import { COMPACT_PLAYER_WIDTH, compactBarHeight, containSlideSize, measuredBarHeight, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import {
+  COMPACT_PLAYER_WIDTH,
+  compactBarHeight,
+  containSlideSize,
+  measuredBarHeight,
+  PlayerMeasureChanges,
+  playerControls,
+  playerFit,
+} from './player-layout.ts'
 
 test('player layout attributes use the documented values and defaults', () => {
   expect(playerFit(null)).toBe('contain')
