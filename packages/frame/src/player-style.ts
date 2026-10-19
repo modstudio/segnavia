@@ -54,6 +54,7 @@ segnavia-rail{grid-area:rail;min-block-size:0;display:none;border-inline-end:1px
 segnavia-track{inline-size:100%}
 .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--_play-size)}
 .start,.center,.end{display:flex;align-items:center;gap:4px}.center{grid-column:2}.end{justify-self:end;min-inline-size:0}.start{justify-self:start}
+.actions,.end-controls{display:contents}
 .time-separator{color:var(--_muted)}
 .time-separator[hidden]{display:none}
 segnavia-counter{padding-inline:6px}
@@ -72,8 +73,13 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   :host([data-layout="responsive"][fit="height"]) .player,:host([data-layout="responsive"][data-presenting]) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto}
   :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "rail" "below";grid-template-rows:auto auto auto}
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
-  segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}}
-@container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end{--segnavia-control-size:28px;gap:0}}
+  segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}
+  /* Compact: actions take a full row under the transport so they cannot overlap Play or push Present off-screen. */
+  .control-row{grid-template-areas:"start center end" "actions actions actions";grid-template-rows:auto auto}
+  .start{grid-area:start}.center{grid-area:center}.end{display:contents}
+  .actions{display:flex;grid-area:actions;justify-content:end;align-items:center;gap:4px;min-inline-size:0}
+  .end-controls{display:flex;grid-area:end;justify-self:end;align-items:center;gap:4px;min-inline-size:0}}
+@container (max-width:380px){.notes-toggle,segnavia-fullscreen{display:none}.end,.end-controls{--segnavia-control-size:28px;gap:0}}
 @media (prefers-reduced-motion:reduce){:host([controls="overlay"]:not([data-presenting])) .bar,
   :host([controls="overlay"]:not([data-presenting])) segnavia-caption{transition:none}}
 `

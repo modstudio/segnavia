@@ -182,6 +182,7 @@ export async function verifyPlayerLayout(h: Harness) {
     JSON.stringify(boxes),
   )
   await verifyRemoval(h)
+  await verifyCompactPlayerActions(h)
 }
 
 async function verifyRemoval(h: Harness) {
@@ -211,4 +212,126 @@ async function verifyRemoval(h: Harness) {
     Math.abs(result.stoppedAt - result.removedAt) < 1 && result.reinsertedPaused && result.resumedAt > result.stoppedAt && result.pausedChanges === 1,
     JSON.stringify(result),
   )
+}
+
+interface Box {
+  top: number
+  right: number
+  bottom: number
+  left: number
+  width: number
+  height: number
+}
+
+interface ActionBarGeometry {
+  playerWidth: number
+  overlaps: string[]
+  offscreen: string[]
+  playCentered: boolean
+  actionsUnderTransport: boolean
+}
+
+async function mountRailAndActions(h: Harness) {
+  await h.page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { load(deck: unknown): Promise<void> } }) => {
+    player.setAttribute('rail', '')
+    for (const button of [...player.querySelectorAll('[slot="actions"]')]) button.remove()
+    for (const label of ['Settings', 'Export', 'Share']) {
+      const action = document.createElement('button')
+      action.slot = 'actions'
+      action.setAttribute('aria-label', label)
+      player.append(action)
+    }
+    await player.controller.load({
+      title: 'Compact actions',
+      size: { width: 1280, height: 720 },
+      slides: [
+        { id: 'a', content: { kind: 'html', html: '<p>A</p>' }, notes: 'Notes' },
+        { id: 'b', content: { kind: 'html', html: '<p>B</p>' } },
+        { id: 'c', content: { kind: 'html', html: '<p>C</p>' } },
+      ],
+    })
+  })
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+}
+
+async function actionBarGeometry(h: Harness): Promise<ActionBarGeometry> {
+  return h.page.locator(PLAYER).evaluate((player) => {
+    const root = player.shadowRoot as ShadowRoot
+    const boxOf = (element: Element | null | undefined): Box | null => {
+      if (!element) return null
+      const rect = element.getBoundingClientRect()
+      return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height }
+    }
+    const control = (selector: string) => boxOf(root.querySelector(selector)?.shadowRoot?.querySelector('button'))
+    const play = control('segnavia-play')
+    const named = [
+      { name: 'previous', box: control('segnavia-step[to="previous"]') },
+      { name: 'play', box: play },
+      { name: 'next', box: control('segnavia-step[to="next"]') },
+      { name: 'present', box: control('segnavia-fullscreen') },
+      ...[...player.querySelectorAll('[slot="actions"]')].map((action, index) => ({ name: `action-${index + 1}`, box: boxOf(action) })),
+    ].filter((entry) => entry.box && entry.box.width > 0 && entry.box.height > 0) as { name: string; box: Box }[]
+    const overlaps: string[] = []
+    for (let i = 0; i < named.length; i++) {
+      for (let j = i + 1; j < named.length; j++) {
+        const a = named[i]?.box
+        const b = named[j]?.box
+        if (a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) overlaps.push(`${named[i]?.name}∩${named[j]?.name}`)
+      }
+    }
+    const viewport = { width: window.innerWidth, height: window.innerHeight }
+    const offscreen = named
+      .filter(({ box }) => box.left < -0.5 || box.top < -0.5 || box.right > viewport.width + 0.5 || box.bottom > viewport.height + 0.5)
+      .map(({ name }) => name)
+    const playerBox = boxOf(player)
+    const actions = named.filter(({ name }) => name.startsWith('action-'))
+    return {
+      playerWidth: playerBox?.width ?? 0,
+      overlaps,
+      offscreen,
+      playCentered: play && playerBox ? Math.abs(play.left + play.width / 2 - (playerBox.left + playerBox.width / 2)) < 1 : false,
+      actionsUnderTransport: Boolean(play && actions.length === 3 && actions.every(({ box }) => box.top >= play.bottom - 0.5)),
+    }
+  })
+}
+
+async function verifyCompactPlayerActions(h: Harness) {
+  const { page, check } = h
+  await page.setViewportSize({ width: 393, height: 852 })
+  await page.goto(h.url('layout-contain.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await mountRailAndActions(h)
+  await page.waitForTimeout(200)
+  let bars = await actionBarGeometry(h)
+  check('393px player with a rail is 393px wide', Math.abs(bars.playerWidth - 393) < 1, JSON.stringify(bars))
+  check(
+    '393px bar with three actions keeps Play, Step, Next, Present and actions from overlapping',
+    bars.overlaps.length === 0,
+    JSON.stringify(bars.overlaps),
+  )
+  check('393px bar with three actions keeps every control inside the viewport', bars.offscreen.length === 0, JSON.stringify(bars.offscreen))
+  check('393px bar with three actions places the actions under the transport', bars.actionsUnderTransport, JSON.stringify(bars))
+  await h.evidence('player-actions-393.png')
+
+  await page.goto(h.url('layout-overlay.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await mountRailAndActions(h)
+  await page.waitForTimeout(200)
+  bars = await actionBarGeometry(h)
+  check(
+    '393px overlay bar with three actions keeps Play, Step, Next, Present and actions from overlapping',
+    bars.overlaps.length === 0,
+    JSON.stringify(bars.overlaps),
+  )
+  check('393px overlay bar with three actions keeps every control inside the viewport', bars.offscreen.length === 0, JSON.stringify(bars.offscreen))
+  await h.evidence('player-actions-overlay-393.png')
+
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.goto(h.url('layout-contain.html'))
+  await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await mountRailAndActions(h)
+  await page.waitForTimeout(200)
+  bars = await actionBarGeometry(h)
+  check('1280px bar keeps play centered with three slotted actions', bars.playCentered, JSON.stringify(bars))
+  check('1280px bar keeps three slotted actions on the transport row', !bars.actionsUnderTransport, JSON.stringify(bars))
 }

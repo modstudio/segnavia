@@ -134,7 +134,7 @@ async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
       const play = root.querySelector('segnavia-play')?.shadowRoot?.querySelector('button') as HTMLElement
       const previous = root.querySelector('segnavia-step[to="previous"]')?.shadowRoot?.querySelector('button') as HTMLElement
       const next = root.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLElement
-      const end = root.querySelector('.end') as HTMLElement
+      const end = (root.querySelector('.end-controls') ?? root.querySelector('.end')) as HTMLElement
       const counter = root.querySelector('segnavia-counter') as HTMLElement
       const notes = root.querySelector('segnavia-notes') as HTMLElement
       const presentation = root.querySelector('segnavia-fullscreen') as HTMLElement
