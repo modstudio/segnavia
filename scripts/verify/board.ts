@@ -1,6 +1,7 @@
 import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
 import { checkBoardChrome } from './board-chrome.ts'
 import { checkBoardEditing } from './board-editing.ts'
+import { checkFarBoardPan } from './board-far-pan.ts'
 import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -364,18 +365,7 @@ export async function verifyBoard(h: Harness) {
   const opened = await h.page.evaluate(() => (window as typeof window & { openedItem?: { id: string } }).openedItem?.id)
   h.check('Enter on a focused board item emits segnavia-board-open', opened === 'deck-small', String(opened))
 
-  const panDelta = await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number }> }; view: { zoom: number; pan: { x: number } } }
-    const far = value.board.items.find((item) => item.id === 'deck-far')
-    return far ? far.x * value.view.zoom + value.view.pan.x - value.clientWidth / 2 : 0
-  })
-  await h.page.mouse.move(640, 400)
-  await h.page.mouse.wheel(panDelta, 0)
-  await h.page.waitForFunction(() => Boolean(document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-far"]')), undefined, {
-    timeout: BOUNDED_WAIT_MS,
-  })
-  const farAfterPan = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
-  h.check('panning to a far board item mounts it', farAfterPan, String(farAfterPan))
+  await checkFarBoardPan(h)
 
   await h.page.evaluate(() => (window as typeof window & { addBoardReviewItems(): void }).addBoardReviewItems())
   await checkUrlDeckRefusesScripts(h)
