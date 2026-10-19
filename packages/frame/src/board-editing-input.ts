@@ -87,7 +87,7 @@ export class BoardEditingInput implements BoardInputDelegate {
 
   private startMove(event: PointerEvent, current: Board, itemId: string): Gesture {
     const base = [...this.board.selection]
-    if (!base.includes(itemId)) this.board.selection = event.shiftKey ? [...base, itemId] : [itemId]
+    if (!base.includes(itemId)) this.board.selection = selectBoardItem(base, itemId, event.shiftKey)
     return {
       kind: 'move',
       pointerId: event.pointerId,
