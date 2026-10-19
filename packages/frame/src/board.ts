@@ -24,7 +24,7 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardNode } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
-import { BoardSelection } from './board-selection.ts'
+import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
 
@@ -81,10 +81,7 @@ export class SegnaviaBoard extends HTMLElement {
     itemAt: (event) => (this.value ? itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
     select: (id, toggle) => {
       if (!id) this.selectionState.selection = []
-      else if (toggle) {
-        const current = this.selectionState.selection
-        this.selectionState.selection = current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
-      } else this.selectionState.selection = [id]
+      else this.selectionState.selection = selectBoardItem(this.selectionState.selection, id, toggle)
     },
     selectAll: () => {
       this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []

@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from '@segnavia/format'
-import { adoptHostBoard, applyBoardEdit, boardEditQueue, redoBoardEdit, rejectBoardEdit, resolveBoardEdit, undoBoardEdit } from './board-edit-policy.ts'
+import {
+  adoptHostBoard,
+  applyBoardEdit,
+  boardEditQueue,
+  detachBoardEditing,
+  redoBoardEdit,
+  rejectBoardEdit,
+  resolveBoardEdit,
+  undoBoardEdit,
+} from './board-edit-policy.ts'
 
 const value = (x: number): Board => ({
   title: 'Board',
@@ -32,8 +41,27 @@ describe('board edit queue policy', () => {
     await write
     const late = resolveBoardEdit(adopted.state, 1)
     expect(controller.signal.aborted).toBe(true)
-    expect(late.state).toBe(adopted.state)
-    expect(late.state).toMatchObject({ value: value(9), jobs: [], undo: [], redo: [], generation: 1 })
+    expect(late.state).toMatchObject({ value: value(9), jobs: [], invalidated: null, undo: [], redo: [], generation: 1 })
+    expect(late.effects.show).toBeUndefined()
+  })
+
+  test('a host value keeps a late rejection error without restoring stale work', () => {
+    const queued = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
+    const adopted = adoptHostBoard(queued, value(9))
+    const late = rejectBoardEdit(adopted.state, 1, 'write failed')
+    expect(late.state).toMatchObject({ value: value(9), jobs: [], invalidated: null, undo: [], redo: [] })
+    expect(late.effects).toMatchObject({ error: { edit: { kind: 'move', ids: ['one'] }, error: 'write failed' } })
+    expect(late.effects.show).toBeUndefined()
+  })
+
+  test('detach aborts jobs but leaves them to resolve or roll back', () => {
+    let state = boardEditQueue(value(0))
+    state = applyBoardEdit(state, value(1), { kind: 'move', ids: ['one'] }).state
+    state = applyBoardEdit(state, value(2), { kind: 'move', ids: ['one'] }).state
+    const detached = detachBoardEditing(state)
+    expect(detached.state).toBe(state)
+    expect(detached.effects.abort).toEqual([1, 2])
+    expect(rejectBoardEdit(detached.state, 1, 'aborted').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
   })
 
   test('undo and redo are queued with rollback snapshots', () => {

@@ -22,6 +22,7 @@ export interface PendingBoardEdit {
 export interface BoardEditQueueState {
   value: Board
   jobs: readonly PendingBoardEdit[]
+  invalidated: Pick<PendingBoardEdit, 'id' | 'edit'> | null
   undo: readonly BoardHistoryEntry[]
   redo: readonly BoardHistoryEntry[]
   generation: number
@@ -42,7 +43,7 @@ export interface BoardEditTransition {
 }
 
 export function boardEditQueue(value: Board): BoardEditQueueState {
-  return { value, jobs: [], undo: [], redo: [], generation: 0, nextId: 1 }
+  return { value, jobs: [], invalidated: null, undo: [], redo: [], generation: 0, nextId: 1 }
 }
 
 export function applyBoardEdit(state: BoardEditQueueState, after: Board, edit: BoardEdit): BoardEditTransition {
@@ -71,6 +72,7 @@ export function redoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
 }
 
 export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardEditTransition {
+  if (state.invalidated?.id === id) return { state: { ...state, invalidated: null }, effects: { abort: [], historyChanged: false } }
   const job = state.jobs[0]
   if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)
   const jobs = state.jobs.slice(1)
@@ -78,6 +80,10 @@ export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardE
 }
 
 export function rejectBoardEdit(state: BoardEditQueueState, id: number, error: unknown): BoardEditTransition {
+  if (state.invalidated?.id === id) {
+    const edit = state.invalidated.edit
+    return { state: { ...state, invalidated: null }, effects: { abort: [], error: { edit, error }, historyChanged: false } }
+  }
   const job = state.jobs[0]
   if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)
   const next = { ...state, value: job.before, jobs: [], undo: job.undoBefore, redo: job.redoBefore }
@@ -93,7 +99,8 @@ export function rejectBoardEdit(state: BoardEditQueueState, id: number, error: u
 }
 
 export function adoptHostBoard(state: BoardEditQueueState, value: Board): BoardEditTransition {
-  const next = { ...state, value, jobs: [], undo: [], redo: [], generation: state.generation + 1 }
+  const invalidated = state.invalidated ?? (state.jobs[0] ? { id: state.jobs[0].id, edit: state.jobs[0].edit } : null)
+  const next = { ...state, value, jobs: [], invalidated, undo: [], redo: [], generation: state.generation + 1 }
   return {
     state: next,
     effects: {
@@ -105,7 +112,7 @@ export function adoptHostBoard(state: BoardEditQueueState, value: Board): BoardE
 }
 
 export function detachBoardEditing(state: BoardEditQueueState): BoardEditTransition {
-  return { state: { ...state, jobs: [] }, effects: { abort: state.jobs.map((job) => job.id), historyChanged: false } }
+  return { state, effects: { abort: state.jobs.map((job) => job.id), historyChanged: false } }
 }
 
 function enqueue(

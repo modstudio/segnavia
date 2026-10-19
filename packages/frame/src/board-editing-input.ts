@@ -3,6 +3,7 @@ import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
+import { selectBoardItem } from './board-selection.ts'
 
 type Gesture =
   | {
@@ -132,12 +133,7 @@ export class BoardEditingInput implements BoardInputDelegate {
   }
 
   private finishClick(gesture: Extract<Gesture, { kind: 'move' }>) {
-    const id = gesture.itemId as string
-    this.board.selection = gesture.shift
-      ? gesture.base?.includes(id)
-        ? (gesture.base ?? []).filter((entry) => entry !== id)
-        : [...(gesture.base ?? []), id]
-      : [id]
+    this.board.selection = selectBoardItem(gesture.base ?? [], gesture.itemId as string, gesture.shift ?? false)
   }
 
   private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>) {

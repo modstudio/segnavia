@@ -97,9 +97,9 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
     this.board.removeEventListener('keyup', this.onKeyUp)
-    if (this.state) this.applyTransition(detachBoardEditing(this.state))
+    if (this.state) this.applyTransition(detachBoardEditing(this.state), undefined, true)
     this.bridge.detach()
-    this.bridge.release()
+    if (!this.state?.jobs.length) this.bridge.release()
   }
 
   add(input: AddBoardItemInput, at?: Point): string | undefined {
@@ -189,12 +189,12 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.apply(next, edit)
   }
 
-  private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
+  private applyTransition(transition: BoardEditTransition, selection?: readonly string[], keepAborts = false) {
     this.state = transition.state
     for (const job of this.state.jobs) if (!this.aborts.has(job.id)) this.aborts.set(job.id, new AbortController())
     for (const id of transition.effects.abort) {
       this.aborts.get(id)?.abort()
-      this.aborts.delete(id)
+      if (!keepAborts) this.aborts.delete(id)
     }
     if (transition.effects.show) this.bridge.setOptimistic(transition.effects.show)
     if (selection) this.board.selection = selection
@@ -216,12 +216,18 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       await this.options.change({ board: job.after, edit: job.edit, signal: controller.signal })
       if (this.state) this.applyTransition(resolveBoardEdit(this.state, id))
     } catch (error) {
-      if (this.state) this.applyTransition(rejectBoardEdit(this.state, id, error))
+      const transition = this.state ? rejectBoardEdit(this.state, id, error) : null
+      if (transition?.effects.error) this.applyTransition(transition)
+      else {
+        if (transition) this.applyTransition(transition)
+        this.dispatchError(job.edit, error)
+      }
     } finally {
       this.aborts.delete(id)
       this.runningId = null
       const next = this.state?.jobs[0]
       if (next) void this.run(next.id)
+      else if (this.stopped) this.bridge.release()
     }
   }
 
@@ -264,6 +270,10 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.board.dispatchEvent(
       new CustomEvent('segnavia-board-history', { detail: { canUndo: this.canUndo, canRedo: this.canRedo }, bubbles: true, composed: true }),
     )
+  }
+
+  private dispatchError(edit: BoardEdit, error: unknown) {
+    this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: { edit, error }, bubbles: true, composed: true }))
   }
 }
 

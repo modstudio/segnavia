@@ -5,6 +5,11 @@ export function reconcileBoardSelection(selection: readonly string[], items: rea
   return items.flatMap((item) => (selected.has(item.id) ? [item.id] : []))
 }
 
+export function selectBoardItem(selection: readonly string[], id: string, toggle: boolean): string[] {
+  if (!toggle) return [id]
+  return selection.includes(id) ? selection.filter((entry) => entry !== id) : [...selection, id]
+}
+
 export class BoardSelection {
   private value: string[] = []
 
