@@ -139,6 +139,7 @@ function focusKindSrc() {
     let node = document.activeElement
     while (node && node.shadowRoot && node.shadowRoot.activeElement) node = node.shadowRoot.activeElement
     if (!node) return 'none'
+    if (node.classList && node.classList.contains('actions')) return 'action'
     if (node.closest && node.closest('[slot="actions"]')) return 'action'
     if (node.classList && node.classList.contains('notes-toggle')) return 'notes'
     const root = node.getRootNode()
@@ -157,7 +158,11 @@ function focusKindSrc() {
 }
 
 async function tabKindsFromNext(h: Harness): Promise<string[]> {
-  await h.page.locator(`${PLAYER} segnavia-step[to="next"] button`).focus()
+  await h.page.waitForFunction(() => {
+    const actions = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('.actions') as HTMLElement | null
+    return Boolean(actions && actions.tabIndex === 0 && actions.previousElementSibling?.tagName === 'SEGNAVIA-RAIL')
+  })
+  await h.page.locator(`${PLAYER} segnavia-step[to="next"] button`).click()
   const kinds: string[] = []
   for (let step = 0; step < 16; step++) {
     const kind = await h.page.evaluate((src) => {
@@ -258,10 +263,12 @@ export async function verifyCompactPlayerActions(h: Harness) {
     const start = root.querySelector('.start') as HTMLElement
     const playerBox = board.getBoundingClientRect()
     const startBox = start.getBoundingClientRect()
-    const inset = board.dir === 'rtl' ? playerBox.right - startBox.right : startBox.left - playerBox.left
-    return { dir: board.dir, inset, playerStart: playerBox.right, startOuter: startBox.right }
+    const pad = Number.parseFloat(getComputedStyle(start).paddingInlineStart)
+    const contentStart = board.dir === 'rtl' ? startBox.right - pad : startBox.left + pad
+    const playerStart = board.dir === 'rtl' ? playerBox.right : playerBox.left
+    return { dir: board.dir, pad, inset: Math.abs(contentStart - playerStart) }
   })
-  check('393px RTL start group is inset 12px from inline-start', rtl.dir === 'rtl' && Math.abs(rtl.inset - 12) < 1, JSON.stringify(rtl))
+  check('393px RTL start group is inset 12px from inline-start', rtl.dir === 'rtl' && rtl.pad === 12 && Math.abs(rtl.inset - 12) < 1, JSON.stringify(rtl))
   await h.evidence('player-actions-393-rtl.png')
 
   await page.goto(h.url('layout-overlay.html'))
