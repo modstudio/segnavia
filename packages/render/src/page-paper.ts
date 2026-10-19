@@ -3,7 +3,7 @@ import { PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
-import { pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
+import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
@@ -41,12 +41,7 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
   const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
   const trimBox = pdfBox(boxes.trim, boxes.media.height)
-  page.drawPage(content, {
-    x: bleedBox.x,
-    y: bleedBox.y,
-    width: source.getWidth(),
-    height: source.getHeight(),
-  })
+  page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, bleedBox))
   document.removePage(0)
   page.node.delete(PDFName.of('CropBox'))
   page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
@@ -60,6 +55,15 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
     })
   }
   return document.save()
+}
+
+export function pressContentPlacement(source: { width: number; height: number }, bleedBox: PdfRectangle): PdfRectangle {
+  return {
+    x: bleedBox.x,
+    y: bleedBox.y + bleedBox.height - source.height,
+    width: source.width,
+    height: source.height,
+  }
 }
 
 export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
