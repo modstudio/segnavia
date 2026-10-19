@@ -34,6 +34,7 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain(
       'color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)',
     )
+    expect(BASE_CSS).toContain('button[hidden]){display:none}')
   })
 
   test('an incoming canvas stacks above the active canvas without becoming visible', () => {

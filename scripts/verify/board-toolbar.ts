@@ -12,7 +12,7 @@ export async function checkBoardToolbar(h: Harness) {
     const value = element as HTMLElement & { buttonsBeforeViewChange?: HTMLButtonElement[] }
     value.buttonsBeforeViewChange = [...(element.shadowRoot?.querySelectorAll('button') ?? [])]
   })
-  await toolbar.locator('[part~="zoom-in"]').click({ force: true })
+  await toolbar.locator('[slot="icon-zoom-in"]').click()
   await h.page.waitForFunction(
     () => document.querySelector('segnavia-board-toolbar')?.shadowRoot?.querySelector('[part~="zoom-level"]')?.textContent?.trim() === '125%',
     undefined,
@@ -47,7 +47,7 @@ export async function checkBoardToolbar(h: Harness) {
     const value = element as HTMLElement & { zoomTo(zoom: number): void }
     value.zoomTo(2)
   })
-  await toolbar.locator('[part~="fit"]').click({ force: true })
+  await toolbar.locator('[slot="icon-fit"]').click()
   const fitted = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   h.check('the board toolbar fit button matches fitAll()', JSON.stringify(fitted) === JSON.stringify(expected), JSON.stringify({ fitted, expected }))
 
@@ -63,7 +63,12 @@ export async function checkBoardToolbar(h: Harness) {
     element.removeAttribute('shareable')
     const buttons = [...(element.shadowRoot?.querySelectorAll('button') ?? [])]
     buttons.find((button) => !button.disabled && !button.hidden)?.focus()
-    return element.shadowRoot?.querySelector<HTMLButtonElement>('[part~="share"]')?.hidden
+    const share = element.shadowRoot?.querySelector<HTMLButtonElement>('[part~="share"]')
+    return {
+      hidden: share?.hidden,
+      display: share ? getComputedStyle(share).display : undefined,
+      width: share?.getBoundingClientRect().width,
+    }
   })
   const arrowTargets: string[] = []
   for (let index = 0; index < 8; index++) {
@@ -72,7 +77,7 @@ export async function checkBoardToolbar(h: Harness) {
   }
   h.check(
     'the board toolbar hides an unavailable Share button and skips it during arrow navigation',
-    shareHidden === true && !arrowTargets.includes('share'),
+    shareHidden.hidden === true && shareHidden.display === 'none' && shareHidden.width === 0 && !arrowTargets.includes('share'),
     JSON.stringify({ shareHidden, arrowTargets }),
   )
   await toolbar.evaluate((element) => element.setAttribute('shareable', ''))

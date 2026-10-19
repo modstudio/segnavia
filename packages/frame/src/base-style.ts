@@ -62,6 +62,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board-list) [part~="empty"]){color:var(--segnavia-board-list-empty-color,currentColor)}
 :where(:host(segnavia-board-toolbar:not([unstyled])) [part~="toolbar"]){display:inline-flex;flex-direction:row;align-items:center;color:var(--segnavia-board-toolbar-color,currentColor);background:var(--segnavia-board-toolbar-background,transparent)}
 :where(:host(segnavia-board-toolbar:not([unstyled])) button){display:inline-flex;align-items:center;justify-content:center;color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)}
+:where(:host(segnavia-board-toolbar:not([unstyled])) button[hidden]){display:none}
 :where(:host(segnavia-board-toolbar:not([unstyled])) [part~="icon"]){display:inline-block}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
