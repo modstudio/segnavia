@@ -9,7 +9,7 @@
 // and below slots add host chrome. Parts expose the player, stage, notes,
 // caption, bar, controls, track segments and caption words. Data attributes
 // mirror the state for styling: data-slide, data-playing, data-word,
-// data-shown and data-direction.
+// data-shown, data-direction and data-actions.
 
 import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
@@ -21,7 +21,16 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import { containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import {
+  compactBarHeight,
+  compactBelowControls,
+  containSlideSize,
+  type PlayerControls,
+  type PlayerFit,
+  PlayerMeasureChanges,
+  playerControls,
+  playerFit,
+} from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -90,6 +99,11 @@ export class SegnaviaPlayer extends HTMLElement {
     this.addEventListener('focusin', this.focusOverlay)
     this.addEventListener('focusout', this.blurOverlay)
     this.root.querySelector('.notes-toggle')?.addEventListener('click', () => this.toggleAttribute('notes'))
+    this.actionsSlot().addEventListener('slotchange', () => {
+      this.syncAssignedActions()
+      this.scheduleMeasure()
+    })
+    this.syncAssignedActions()
   }
 
   get labels(): PlayerLabels {
@@ -206,10 +220,34 @@ export class SegnaviaPlayer extends HTMLElement {
   // The bar's height, or, when compact CSS flattens it into the player grid
   // (display:contents, no box), the rows its pieces now occupy.
   private barHeight(): number {
-    const bar = this.root.querySelector('.bar') as HTMLElement
-    if (bar.offsetHeight > 0) return bar.offsetHeight
     const height = (selector: string) => (this.root.querySelector(selector) as HTMLElement | null)?.offsetHeight ?? 0
-    return height('segnavia-track') + Math.max(height('.start'), height('.center'), height('.end-controls')) + height('.actions')
+    return (
+      height('.bar') ||
+      compactBarHeight({
+        track: height('segnavia-track'),
+        start: height('.start'),
+        center: height('.center'),
+        endControls: height('.end-controls'),
+        actions: height('.actions'),
+      })
+    )
+  }
+
+  private actionsSlot(): HTMLSlotElement {
+    return this.root.querySelector('slot[name="actions"]') as HTMLSlotElement
+  }
+
+  private syncAssignedActions() {
+    this.toggleAttribute('data-actions', this.actionsSlot().assignedElements().length > 0)
+  }
+
+  // Compact below-controls paints actions after the rail; overlay and
+  // presentation keep the desk tree so the overlaid bar and presenting box stay intact.
+  private placeActions() {
+    const actions = this.root.querySelector('.actions') as HTMLElement
+    const compact = this.isConnected && compactBelowControls(this.clientWidth, this.controls, this.hasAttribute('data-presenting'))
+    if (compact) (this.root.querySelector('segnavia-rail') as HTMLElement).after(actions)
+    else (this.root.querySelector('.end') as HTMLElement).prepend(actions)
   }
 
   private passPlayerOptions() {
@@ -283,6 +321,8 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private measure() {
+    this.placeActions()
+    this.style.setProperty('--segnavia-bar-height', `${this.barHeight()}px`)
     const screen = this.root.querySelector('.screen') as HTMLElement
     if (this.fit !== 'contain' || this.controller.state.presenting) {
       screen.style.removeProperty('block-size')

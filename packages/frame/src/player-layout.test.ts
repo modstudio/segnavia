@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
-import { containSlideSize, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import {
+  compactBarHeight,
+  compactBelowControls,
+  COMPACT_PLAYER_WIDTH,
+  containSlideSize,
+  PlayerMeasureChanges,
+  playerControls,
+  playerFit,
+} from './player-layout.ts'
 
 test('player layout attributes use the documented values and defaults', () => {
   expect(playerFit(null)).toBe('contain')
@@ -11,6 +19,16 @@ test('player layout attributes use the documented values and defaults', () => {
   expect(playerControls(null)).toBe('below')
   expect(playerControls('overlay')).toBe('overlay')
   expect(playerControls('other')).toBe('below')
+})
+
+test('compact chrome height is track plus the tallest transport cell plus actions', () => {
+  expect(COMPACT_PLAYER_WIDTH).toBe(560)
+  expect(compactBarHeight({ track: 10, start: 40, center: 44, endControls: 42, actions: 48 })).toBe(102)
+  expect(compactBarHeight({ track: 10, start: 40, center: 44, endControls: 42, actions: 0 })).toBe(54)
+  expect(compactBelowControls(560, 'below', false)).toBe(true)
+  expect(compactBelowControls(561, 'below', false)).toBe(false)
+  expect(compactBelowControls(400, 'overlay', false)).toBe(false)
+  expect(compactBelowControls(400, 'below', true)).toBe(false)
 })
 
 test('contain sizing respects width, available height and its height floor', () => {
