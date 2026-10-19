@@ -4,6 +4,8 @@ import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 export async function checkBoardChrome(h: Harness) {
   const board = h.page.locator('segnavia-board')
   const list = h.page.locator('segnavia-board-list')
+  await list.locator('input[type="search"]').fill('')
+  await list.locator('[data-board-item="deck-small"]').waitFor({ state: 'visible', timeout: BOUNDED_WAIT_MS })
   await board.evaluate((element) => {
     const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void; selected: string | null }
     value.board = { ...value.board, direction: 'ltr' }
