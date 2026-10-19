@@ -54,14 +54,20 @@ describe('board edit queue policy', () => {
     expect(late.effects.show).toBeUndefined()
   })
 
-  test('detach aborts jobs but leaves them to resolve or roll back', () => {
+  test('detach leaves signals active and queued jobs run in order', () => {
     let state = boardEditQueue(value(0))
     state = applyBoardEdit(state, value(1), { kind: 'move', ids: ['one'] }).state
     state = applyBoardEdit(state, value(2), { kind: 'move', ids: ['one'] }).state
+    const controllers = new Map([
+      [1, new AbortController()],
+      [2, new AbortController()],
+    ])
     const detached = detachBoardEditing(state)
+    for (const id of detached.effects.abort) controllers.get(id)?.abort()
     expect(detached.state).toBe(state)
-    expect(detached.effects.abort).toEqual([1, 2])
-    expect(rejectBoardEdit(detached.state, 1, 'aborted').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
+    expect([...controllers.values()].some((controller) => controller.signal.aborted)).toBe(false)
+    expect(resolveBoardEdit(detached.state, 1).effects.run).toMatchObject({ id: 2 })
+    expect(rejectBoardEdit(detached.state, 1, 'failed').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
   })
 
   test('undo and redo are queued with rollback snapshots', () => {

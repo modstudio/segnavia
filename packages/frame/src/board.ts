@@ -25,10 +25,11 @@ import { placeBoardNode } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
+import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
 
-export class SegnaviaBoard extends HTMLElement {
+export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false

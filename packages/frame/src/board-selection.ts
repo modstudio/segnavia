@@ -39,9 +39,10 @@ export class BoardSelection {
     if (value.length === this.value.length && value.every((id, index) => id === this.value[index])) return
     this.value = value
     for (const [id, node] of this.nodes()) this.update(node, id)
+    const items = value.flatMap((id) => (this.items().get(id) ? [this.items().get(id) as BoardItem] : []))
     this.host.dispatchEvent(
       new CustomEvent('segnavia-board-selection', {
-        detail: { items: value.flatMap((id) => (this.items().get(id) ? [this.items().get(id) as BoardItem] : [])) },
+        detail: { items, item: items[0] ?? null },
         bubbles: true,
         composed: true,
       }),

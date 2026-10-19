@@ -97,7 +97,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
     this.board.removeEventListener('keyup', this.onKeyUp)
-    if (this.state) this.applyTransition(detachBoardEditing(this.state), undefined, true)
+    if (this.state) this.applyTransition(detachBoardEditing(this.state))
     this.bridge.detach()
     if (!this.state?.jobs.length) this.bridge.release()
   }
@@ -189,12 +189,12 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.apply(next, edit)
   }
 
-  private applyTransition(transition: BoardEditTransition, selection?: readonly string[], keepAborts = false) {
+  private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
     this.state = transition.state
     for (const job of this.state.jobs) if (!this.aborts.has(job.id)) this.aborts.set(job.id, new AbortController())
     for (const id of transition.effects.abort) {
       this.aborts.get(id)?.abort()
-      if (!keepAborts) this.aborts.delete(id)
+      this.aborts.delete(id)
     }
     if (transition.effects.show) this.bridge.setOptimistic(transition.effects.show)
     if (selection) this.board.selection = selection

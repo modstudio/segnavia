@@ -1,4 +1,5 @@
-import type { Locator, Page } from 'playwright-core'
+import { center, drag, waitChanges } from './board-editing-actions.ts'
+import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface DemoItem {
@@ -24,6 +25,7 @@ interface DemoChange {
 type BoardElement = HTMLElement & {
   board: DemoBoard
   selection: readonly string[]
+  selected: string | null
   view: { zoom: number; pan: { x: number; y: number }; viewport: { width: number; height: number } }
 }
 type DemoWindow = typeof window & {
@@ -35,23 +37,6 @@ type DemoWindow = typeof window & {
     add(input: { kind: string; address: string }): string | undefined
     detach(): void
   }
-}
-
-async function waitChanges(page: Page, count: number) {
-  await page.waitForFunction((n) => ((window as unknown as DemoWindow).boardChanges?.length ?? 0) >= n, count, { timeout: BOUNDED_WAIT_MS })
-}
-
-async function center(locator: Locator) {
-  const box = await locator.boundingBox()
-  if (!box) throw new Error('The board editing target has no box.')
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-}
-
-async function drag(page: Page, from: { x: number; y: number }, x: number, y: number) {
-  await page.mouse.move(from.x, from.y)
-  await page.mouse.down()
-  await page.mouse.move(from.x + x, from.y + y, { steps: 4 })
-  await page.mouse.up()
 }
 
 export async function checkBoardEditing(h: Harness) {
@@ -89,6 +74,7 @@ export async function checkBoardEditing(h: Harness) {
   const hostBox = await board.boundingBox()
   if (!hostBox) throw new Error('The board has no box for editing checks.')
 
+  await checkBoardSelectionCompatibility(h, board, second, reset)
   await reset()
   await h.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
   await first.click()

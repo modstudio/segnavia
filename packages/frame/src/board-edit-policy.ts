@@ -112,7 +112,7 @@ export function adoptHostBoard(state: BoardEditQueueState, value: Board): BoardE
 }
 
 export function detachBoardEditing(state: BoardEditQueueState): BoardEditTransition {
-  return { state, effects: { abort: state.jobs.map((job) => job.id), historyChanged: false } }
+  return { state, effects: { abort: [], historyChanged: false } }
 }
 
 function enqueue(
