@@ -504,7 +504,11 @@ content stream is bounded by `MAX_CONTENT_BYTES` (32 MiB) before tokenization.
 One rewrite or read-back pass is bounded by `MAX_DOCUMENT_CONTENT_BYTES` (128
 MiB) across all decoded content streams, and rewritten streams are compressed
 again before the PDF is saved. `MAX_OPERANDS` (32) bounds the operands retained
-while the tokenizer waits for an operator.
+while the tokenizer waits for an operator. Every PDF the renderer loads with
+pdf-lib, including each slide or piece it embeds, first passes `loadPdf`, which
+inflates each object stream and cross-reference stream with a running limit of
+`MAX_PDF_STREAM_BYTES` (16 MiB) and refuses one that would pass it before
+pdf-lib parses the file.
 
 Under a greyscale destination a supplied image may be DeviceRGB, DeviceGray,
 ICCBased with one or three components, or Indexed over one of those. It may be
