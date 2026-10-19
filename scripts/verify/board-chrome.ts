@@ -106,6 +106,28 @@ export async function checkBoardChrome(h: Harness) {
   h.check('Download is absent from an image title', imageDownload === 0, String(imageDownload))
 
   await board.evaluate((element) => {
+    ;(element as HTMLElement & { selected: string | null }).selected = null
+  })
+  await item.hover()
+  const actionBox = await board.locator('[data-board-item="deck-small"] + [part~="item-title"] [data-action="open"]').boundingBox()
+  const actionItemBox = await item.boundingBox()
+  if (!actionBox || !actionItemBox) throw new Error('The action or its item has no box for the canceled action check.')
+  const actionCount = afterAction.actions.length
+  await h.page.mouse.move(actionBox.x + actionBox.width / 2, actionBox.y + actionBox.height / 2)
+  await h.page.mouse.down()
+  await h.page.mouse.move(actionItemBox.x + actionItemBox.width / 2, actionItemBox.y + actionItemBox.height / 2)
+  await h.page.mouse.up()
+  const canceledAction = await h.page.evaluate(() => ({
+    selected: (document.querySelector('segnavia-board') as HTMLElement & { selected: string | null }).selected,
+    actions: (window as typeof window & { boardActions: unknown[] }).boardActions.length,
+  }))
+  h.check(
+    'releasing an action press over its item does not select or activate it',
+    canceledAction.selected === null && canceledAction.actions === actionCount,
+    JSON.stringify({ actionCount, canceledAction }),
+  )
+
+  await board.evaluate((element) => {
     const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number; y: number }> }; view: BoardView }
     const page = value.board.items.find((entry) => entry.id === 'page')
     if (!page) throw new Error('The board has no page item.')

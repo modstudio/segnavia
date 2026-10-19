@@ -35,3 +35,12 @@ export class BoardChrome {
     for (const item of this.items()) if (this.mounted(item.id)) this.render(item)
   }
 }
+
+export function createKindIcon(kind: BoardItemKind, factory: ((kind: BoardItemKind) => Node | null | undefined) | undefined): HTMLSpanElement {
+  const icon = document.createElement('span')
+  icon.part.add('item-icon')
+  icon.setAttribute('aria-hidden', 'true')
+  const node = factory?.(kind)
+  if (node) icon.append(node)
+  return icon
+}

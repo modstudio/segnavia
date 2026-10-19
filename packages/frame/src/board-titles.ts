@@ -1,5 +1,6 @@
 import { type BoardItem, type BoardView, resolveDirection } from '@segnavia/format'
 import { actionsForKind, type BoardItemAction, type BoardItemKind } from './board-actions.ts'
+import { createKindIcon } from './board-chrome.ts'
 import { placeBoardNode } from './board-placement.ts'
 import type { BoardLabels } from './labels.ts'
 
@@ -56,11 +57,7 @@ export class BoardItemTitles {
     this.rendered.set(id, { item, text, direction, kindIcon, actions, labels })
     container.replaceChildren()
     container.dir = direction
-    const icon = document.createElement('span')
-    icon.part.add('item-icon')
-    icon.setAttribute('aria-hidden', 'true')
-    const iconNode = kindIcon?.(item.kind)
-    if (iconNode) icon.append(iconNode)
+    const icon = createKindIcon(item.kind, kindIcon)
     const name = document.createElement('span')
     name.part.add('item-name')
     name.setAttribute('aria-hidden', 'true')

@@ -1,6 +1,7 @@
 import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
+import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
 import { BoardTargetBinding } from './board-target.ts'
@@ -176,11 +177,7 @@ export class SegnaviaBoardList extends HTMLElement {
     button.type = 'button'
     button.part.add('item')
     button.dataset.boardItem = item.id
-    const icon = document.createElement('span')
-    icon.part.add('item-icon')
-    icon.setAttribute('aria-hidden', 'true')
-    const iconNode = target.kindIcon?.(item.kind)
-    if (iconNode) icon.append(iconNode)
+    const icon = createKindIcon(item.kind, target.kindIcon)
     button.append(icon, this.name(text))
     entry.append(button)
     return entry

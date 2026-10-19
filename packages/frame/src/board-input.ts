@@ -12,6 +12,7 @@ interface BoardInputCallbacks {
 
 export class BoardInput {
   private readonly pointerTitles = new Map<number, string>()
+  private readonly actionPointers = new Set<number>()
 
   constructor(
     private readonly host: HTMLElement,
@@ -46,23 +47,30 @@ export class BoardInput {
     this.host.removeEventListener('dblclick', this.onDoubleClick)
     this.host.removeEventListener('click', this.onClick)
     this.pointerTitles.clear()
+    this.actionPointers.clear()
   }
 
   private onPointerUp = (event: PointerEvent) => {
     const titleId = this.pointerTitles.get(event.pointerId)
     this.pointerTitles.delete(event.pointerId)
-    if (this.gestures.dragged || this.actionButton(event)) return
+    const actionStarted = this.actionPointers.delete(event.pointerId)
+    if (actionStarted || this.gestures.dragged || this.actionButton(event)) return
     const titleItem = this.callbacks.item(titleId)
     this.callbacks.select(titleItem?.id ?? this.callbacks.itemAt(event)?.id ?? null)
   }
 
   private onPointerDown = (event: PointerEvent) => {
+    if (this.actionButton(event)) {
+      this.actionPointers.add(event.pointerId)
+      return
+    }
     const id = this.titleNode(event)?.dataset.boardTitle
     if (id) this.pointerTitles.set(event.pointerId, id)
   }
 
   private onPointerCancel = (event: PointerEvent) => {
     this.pointerTitles.delete(event.pointerId)
+    this.actionPointers.delete(event.pointerId)
   }
 
   private onDoubleClick = (event: MouseEvent) => {
