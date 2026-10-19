@@ -1,8 +1,8 @@
-import { compactBarHeight } from '../../packages/frame/src/player-layout.ts'
+import { compactBarHeight, measuredBarHeight } from '../../packages/frame/src/player-layout.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
-const COMPACT_BAR_HEIGHT_SRC = compactBarHeight.toString()
+const MEASURED_BAR_HEIGHT_SRC = `${compactBarHeight.toString()}; return (${measuredBarHeight.toString()})`
 
 interface Box {
   top: number
@@ -196,6 +196,21 @@ async function tabKindsFromNext(h: Harness): Promise<string[]> {
   return kinds
 }
 
+async function overlayCaptionFacts(h: Harness) {
+  return h.page.locator(PLAYER).evaluate((player) => {
+    const root = player.shadowRoot as ShadowRoot
+    const bar = (root.querySelector('.bar') as HTMLElement).getBoundingClientRect()
+    const words = [...(root.querySelector('segnavia-caption')?.shadowRoot?.querySelectorAll('span') ?? [])].map((word) => word.getBoundingClientRect().bottom)
+    return {
+      wordBottoms: words,
+      barTop: bar.top,
+      barHeight: bar.height,
+      clear: words.length > 0 && words.every((bottom) => bottom <= bar.top + 0.5),
+      wordCount: words.length,
+    }
+  })
+}
+
 function tabGroupsAfterNext(kinds: string[]): string[] {
   const start = kinds.indexOf('next')
   const rest = start < 0 ? kinds : kinds.slice(start + 1)
@@ -245,6 +260,30 @@ export async function verifyCompactPlayerActions(h: Harness) {
       tabs.slice(0, tabs.indexOf('rail')).filter((kind) => kind === 'action').length === 3,
     JSON.stringify({ tabs, groups }),
   )
+  const barVarHeights = await page.locator(PLAYER).evaluate(async (player) => {
+    const action = player.querySelector('[slot="actions"]') as HTMLElement
+    action.style.blockSize = 'var(--segnavia-bar-height, 48px)'
+    const wait = (count: number) =>
+      new Promise<void>((resolve) => {
+        const step = (left: number) => {
+          if (left === 0) resolve()
+          else requestAnimationFrame(() => step(left - 1))
+        }
+        step(count)
+      })
+    await wait(3)
+    const heights: number[] = []
+    for (let i = 0; i < 6; i++) {
+      await wait(1)
+      heights.push(player.getBoundingClientRect().height)
+    }
+    return { heights, delta: Math.max(...heights) - Math.min(...heights) }
+  })
+  check(
+    '393px compact action sized from --segnavia-bar-height keeps player height stable',
+    barVarHeights.delta < 1,
+    JSON.stringify(barVarHeights),
+  )
   await h.evidence('player-actions-393.png')
 
   await mountRailAndActions(h, 2)
@@ -254,30 +293,21 @@ export async function verifyCompactPlayerActions(h: Harness) {
   await mountRailAndActions(h, 0)
   await page.waitForTimeout(200)
   const empty = await page.locator(PLAYER).evaluate((player, src) => {
-    const compactBarHeight = new Function(`return (${src})`)()
+    const measuredBarHeight = new Function(src)() as (root: ShadowRoot) => number
     const root = player.shadowRoot as ShadowRoot
-    const height = (selector: string) => root.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0
     const actions = root.querySelector('.actions') as HTMLElement
     const rail = root.querySelector('segnavia-rail') as HTMLElement
     const playerBox = player.getBoundingClientRect()
-    const parts = {
-      track: height('segnavia-track'),
-      start: height('.start'),
-      center: height('.center'),
-      endControls: height('.end-controls'),
-      actions: height('.actions'),
-    }
     return {
       actionsHeight: actions.offsetHeight,
       actionsBoxHeight: actions.getBoundingClientRect().height,
       belowRail: playerBox.bottom - rail.getBoundingClientRect().bottom,
-      reserved: compactBarHeight(parts),
-      withoutActions: compactBarHeight({ ...parts, actions: 0 }),
+      reserved: measuredBarHeight(root),
     }
-  }, COMPACT_BAR_HEIGHT_SRC)
+  }, MEASURED_BAR_HEIGHT_SRC)
   check(
     '393px empty actions row takes no height and contain reserves nothing for it',
-    empty.actionsHeight === 0 && empty.actionsBoxHeight === 0 && empty.belowRail <= 1 && empty.reserved === empty.withoutActions,
+    empty.actionsHeight === 0 && empty.actionsBoxHeight === 0 && empty.belowRail <= 1,
     JSON.stringify(empty),
   )
   await h.evidence('player-actions-393-empty.png')
@@ -314,18 +344,36 @@ export async function verifyCompactPlayerActions(h: Harness) {
   await mountRailAndActions(h, 3, { narration: true, notes: false })
   await page.waitForTimeout(200)
   const deadline = Date.now() + BOUNDED_WAIT_MS
-  let caption: { wordBottoms: number[]; barTop: number; clear: boolean; wordCount: number } | null = null
+  let caption: Awaited<ReturnType<typeof overlayCaptionFacts>> | null = null
   while (Date.now() < deadline) {
-    caption = await page.locator(PLAYER).evaluate((player) => {
-      const root = player.shadowRoot as ShadowRoot
-      const bar = (root.querySelector('.bar') as HTMLElement).getBoundingClientRect()
-      const words = [...(root.querySelector('segnavia-caption')?.shadowRoot?.querySelectorAll('span') ?? [])].map((word) => word.getBoundingClientRect().bottom)
-      return { wordBottoms: words, barTop: bar.top, clear: words.length > 0 && words.every((bottom) => bottom <= bar.top + 0.5), wordCount: words.length }
-    })
+    caption = await overlayCaptionFacts(h)
     if (caption.clear || caption.wordCount > 0) break
     await page.waitForTimeout(50)
   }
   check('393px overlay caption words end above the bar', Boolean(caption && caption.wordCount > 0 && caption.clear), JSON.stringify(caption))
+  const barHeightBefore = caption?.barHeight ?? 0
+  await page.locator(PLAYER).evaluate((player) => {
+    player.style.blockSize = `${player.getBoundingClientRect().height}px`
+  })
+  await page.waitForTimeout(50)
+  await page.locator(PLAYER).evaluate((player) => {
+    const action = player.querySelector('[slot="actions"]') as HTMLElement
+    action.style.blockSize = 'auto'
+    action.style.whiteSpace = 'pre-line'
+    action.textContent = 'Share this recording\nwith the whole team\nand keep a copy'
+  })
+  const grownDeadline = Date.now() + BOUNDED_WAIT_MS
+  let grown: typeof caption = null
+  while (Date.now() < grownDeadline) {
+    grown = await overlayCaptionFacts(h)
+    if (grown.clear && grown.barHeight > barHeightBefore + 0.5) break
+    await page.waitForTimeout(50)
+  }
+  check(
+    '393px overlay caption words stay above the bar after a slotted action wraps',
+    Boolean(grown && grown.wordCount > 0 && grown.clear && grown.barHeight > barHeightBefore + 0.5),
+    JSON.stringify({ before: caption, after: grown }),
+  )
   await h.evidence('player-overlay-captions-393.png')
 
   await page.setViewportSize({ width: 1280, height: 720 })

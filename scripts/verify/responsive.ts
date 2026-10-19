@@ -1,8 +1,8 @@
 import { fitImage } from '@segnavia/frame/image-fit'
-import { compactBarHeight } from '../../packages/frame/src/player-layout.ts'
+import { compactBarHeight, measuredBarHeight } from '../../packages/frame/src/player-layout.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
-const COMPACT_BAR_HEIGHT_SRC = compactBarHeight.toString()
+const MEASURED_BAR_HEIGHT_SRC = `${compactBarHeight.toString()}; return (${measuredBarHeight.toString()})`
 
 const canvasFacts = (element: HTMLElement) => {
   const canvas = element.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
@@ -43,40 +43,20 @@ async function waitForFrameText(h: Harness, text: string) {
   return settled
 }
 
-const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }, compactBarHeightSrc: string) => {
-  const compactBarHeight = new Function(`return (${compactBarHeightSrc})`)() as typeof import('../../packages/frame/src/player-layout.ts').compactBarHeight
+const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }, measuredBarHeightSrc: string) => {
+  const measuredBarHeight = new Function(measuredBarHeightSrc)() as typeof import('../../packages/frame/src/player-layout.ts').measuredBarHeight
   const root = player.shadowRoot
   const stage = root.querySelector('segnavia-stage') as HTMLElement
-  const height = (selector: string) => root.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0
-  const controls =
-    (root.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) +
-    (height('.bar') ||
-      compactBarHeight({
-        track: height('segnavia-track'),
-        start: height('.start'),
-        center: height('.center'),
-        endControls: height('.end-controls'),
-        actions: height('.actions'),
-      }))
+  const controls = (root.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + measuredBarHeight(root)
   return { player: player.clientHeight, stage: stage.clientHeight, controls }
 }
 
-function compactChromeFits(compactBarHeightSrc: string) {
-  const compactBarHeight = new Function(`return (${compactBarHeightSrc})`)() as typeof import('../../packages/frame/src/player-layout.ts').compactBarHeight
+function compactChromeFits(measuredBarHeightSrc: string) {
+  const measuredBarHeight = new Function(measuredBarHeightSrc)() as typeof import('../../packages/frame/src/player-layout.ts').measuredBarHeight
   const player = document.querySelector<HTMLElement>('segnavia-player')
   const root = player?.shadowRoot
   const stage = root?.querySelector<HTMLElement>('segnavia-stage')
-  const height = (selector: string) => root?.querySelector<HTMLElement>(selector)?.offsetHeight ?? 0
-  const controls =
-    (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) +
-    (height('.bar') ||
-      compactBarHeight({
-        track: height('segnavia-track'),
-        start: height('.start'),
-        center: height('.center'),
-        endControls: height('.end-controls'),
-        actions: height('.actions'),
-      }))
+  const controls = (root?.querySelector<HTMLElement>('segnavia-caption')?.offsetHeight ?? 0) + (root ? measuredBarHeight(root) : 0)
   return Boolean(player && stage && Math.abs(stage.clientHeight - (player.clientHeight - controls)) <= 1)
 }
 
@@ -161,8 +141,8 @@ export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-player-height.html'))
   await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { controller?: { go(index: number): Promise<void> } }) => player.controller?.go(0))
   await h.page.locator('iframe').waitFor()
-  await h.page.waitForFunction(compactChromeFits, COMPACT_BAR_HEIGHT_SRC)
-  const wideHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts, COMPACT_BAR_HEIGHT_SRC)
+  await h.page.waitForFunction(compactChromeFits, MEASURED_BAR_HEIGHT_SRC)
+  const wideHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts, MEASURED_BAR_HEIGHT_SRC)
   h.check(
     'a 720 by 520 responsive height-fit player fills the height above its controls',
     Math.abs(wideHeight.stage - (wideHeight.player - wideHeight.controls)) <= 1,
@@ -191,8 +171,8 @@ export async function verifyResponsive(h: Harness) {
     host.style.blockSize = '640px'
   })
   await h.page.waitForFunction(() => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('.segnavia-stage__canvas')?.clientWidth === 360)
-  await h.page.waitForFunction(compactChromeFits, COMPACT_BAR_HEIGHT_SRC)
-  const narrowHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts, COMPACT_BAR_HEIGHT_SRC)
+  await h.page.waitForFunction(compactChromeFits, MEASURED_BAR_HEIGHT_SRC)
+  const narrowHeight = await h.page.locator('segnavia-player').evaluate(playerHeightFacts, MEASURED_BAR_HEIGHT_SRC)
   h.check(
     'a 360 by 640 responsive height-fit player fills the height above its controls',
     Math.abs(narrowHeight.stage - (narrowHeight.player - narrowHeight.controls)) <= 1,

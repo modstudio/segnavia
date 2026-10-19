@@ -21,7 +21,7 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import { compactBarHeight, containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import { containSlideSize, measuredBarHeight, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -170,6 +170,8 @@ export class SegnaviaPlayer extends HTMLElement {
 
   connectedCallback() {
     this.resize.observe(this)
+    // Overlay keeps the host still when the bar grows, so the bar is observed too.
+    this.resize.observe(this.root.querySelector('.bar') as HTMLElement)
     window.addEventListener('resize', this.scheduleMeasure)
     window.addEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.addEventListener('resize', this.scheduleMeasure)
@@ -211,17 +213,7 @@ export class SegnaviaPlayer extends HTMLElement {
   // The bar's height, or, when compact CSS flattens it into the player grid
   // (display:contents, no box), the rows its pieces now occupy.
   private barHeight(): number {
-    const height = (selector: string) => (this.root.querySelector(selector) as HTMLElement | null)?.offsetHeight ?? 0
-    return (
-      height('.bar') ||
-      compactBarHeight({
-        track: height('segnavia-track'),
-        start: height('.start'),
-        center: height('.center'),
-        endControls: height('.end-controls'),
-        actions: height('.actions'),
-      })
-    )
+    return measuredBarHeight(this.root)
   }
 
   private actionsSlot(): HTMLSlotElement {
@@ -303,7 +295,13 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private measure() {
-    this.style.setProperty('--segnavia-bar-height', `${this.barHeight()}px`)
+    // Overlay clearance reads this on the caption. It must not live on the host:
+    // a slotted action sized from it would feed barHeight() and grow without bound.
+    const caption = this.root.querySelector('segnavia-caption') as HTMLElement
+    const barHeightPx = `${this.barHeight()}px`
+    if (caption.style.getPropertyValue('--segnavia-bar-height') !== barHeightPx) {
+      caption.style.setProperty('--segnavia-bar-height', barHeightPx)
+    }
     const screen = this.root.querySelector('.screen') as HTMLElement
     if (this.fit !== 'contain' || this.controller.state.presenting) {
       screen.style.removeProperty('block-size')
