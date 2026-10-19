@@ -63,7 +63,7 @@ export async function checkBoardChrome(h: Harness) {
   await board.locator('[data-board-title="paper"] [part~="item-name"]').click()
   const titleSelected = await board.evaluate((element) => (element as HTMLElement & { selected: string | null }).selected)
   h.check('clicking an item title selects its item', titleSelected === 'paper', String(titleSelected))
-  await board.evaluate((element) => (element as HTMLElement & { fitAll(): void }).fitAll())
+  await board.evaluate((element) => (element as HTMLElement & { reveal(id: string): boolean }).reveal('deck-small'))
   await item.click()
 
   const idleActions = await board
@@ -104,6 +104,12 @@ export async function checkBoardChrome(h: Harness) {
   const imageDownload = await board.locator('[data-board-item="image"] + [part~="item-title"] [data-action="download"]').count()
   h.check('Download is absent from an image title', imageDownload === 0, String(imageDownload))
 
+  await board.evaluate((element) => {
+    const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number; y: number }> }; view: BoardView }
+    const page = value.board.items.find((entry) => entry.id === 'page')
+    if (!page) throw new Error('The board has no page item.')
+    value.view = { zoom: 1, pan: { x: 48 - page.x, y: 100 - page.y }, viewport: value.view.viewport }
+  })
   const truncation = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="page"]')?.getBoundingClientRect()
     const title = element.shadowRoot?.querySelector('[data-board-item="page"] + [part~="item-title"]')?.getBoundingClientRect()
@@ -115,7 +121,9 @@ export async function checkBoardChrome(h: Harness) {
     Boolean(truncation.item && truncation.title && truncation.title <= truncation.item + 1 && (truncation.scroll ?? 0) > (truncation.client ?? 0)),
     JSON.stringify(truncation),
   )
+  await board.evaluate((element) => (element as HTMLElement & { reveal(id: string): boolean }).reveal('deck-small'))
 
+  await item.focus()
   await h.page.keyboard.press('Escape')
   selection = (await board.evaluate((element) => ({ selected: (element as HTMLElement & { selected: string | null }).selected }))) as typeof selection
   h.check('Escape clears board selection', selection.selected === null, JSON.stringify(selection))
