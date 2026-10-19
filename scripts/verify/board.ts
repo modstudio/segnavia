@@ -364,18 +364,26 @@ export async function verifyBoard(h: Harness) {
   const opened = await h.page.evaluate(() => (window as typeof window & { openedItem?: { id: string } }).openedItem?.id)
   h.check('Enter on a focused board item emits segnavia-board-open', opened === 'deck-small', String(opened))
 
-  const panDelta = await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number }> }; view: { zoom: number; pan: { x: number } } }
-    const far = value.board.items.find((item) => item.id === 'deck-far')
-    return far ? far.x * value.view.zoom + value.view.pan.x - value.clientWidth / 2 : 0
-  })
-  await h.page.mouse.move(640, 400)
-  await h.page.mouse.wheel(panDelta, 0)
-  await h.page.waitForFunction(() => Boolean(document.querySelector('segnavia-board')?.shadowRoot?.querySelector('[data-board-item="deck-far"]')), undefined, {
-    timeout: BOUNDED_WAIT_MS,
-  })
-  const farAfterPan = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
-  h.check('panning to a far board item mounts it', farAfterPan, String(farAfterPan))
+  const readFarPan = () =>
+    board.evaluate((element) => {
+      const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number }> }; view: BoardView }
+      const far = value.board.items.find((item) => item.id === 'deck-far')
+      return {
+        mounted: Boolean(value.shadowRoot?.querySelector('[data-board-item="deck-far"]')),
+        view: value.view,
+        panDelta: far ? far.x * value.view.zoom + value.view.pan.x - value.clientWidth / 2 : 0,
+      }
+    })
+  let farAfterPan = await readFarPan()
+  const panDeadline = Date.now() + BOUNDED_WAIT_MS
+  while (!farAfterPan.mounted && Date.now() < panDeadline) {
+    const boardBox = await board.boundingBox()
+    if (boardBox) await h.page.mouse.move(boardBox.x + boardBox.width / 2, boardBox.y + boardBox.height / 2)
+    await h.page.mouse.wheel(farAfterPan.panDelta, 0)
+    farAfterPan = await readFarPan()
+    if (!farAfterPan.mounted) await h.page.waitForTimeout(16)
+  }
+  h.check('panning to a far board item mounts it', farAfterPan.mounted, JSON.stringify(farAfterPan))
 
   await h.page.evaluate(() => (window as typeof window & { addBoardReviewItems(): void }).addBoardReviewItems())
   await checkUrlDeckRefusesScripts(h)

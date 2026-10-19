@@ -27,6 +27,19 @@ async function frameFacts(h: Harness) {
     }))
 }
 
+async function waitForFrameText(h: Harness, text: string) {
+  let settled = true
+  await h.page
+    .locator('.segnavia-stage__canvas[data-active] iframe')
+    .contentFrame()
+    .getByText(text, { exact: true })
+    .waitFor({ timeout: BOUNDED_WAIT_MS })
+    .catch(() => {
+      settled = false
+    })
+  return settled
+}
+
 const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => {
   const root = player.shadowRoot
   const stage = root.querySelector('segnavia-stage') as HTMLElement
@@ -37,15 +50,7 @@ const playerHeightFacts = (player: HTMLElement & { shadowRoot: ShadowRoot }) => 
 export async function verifyResponsive(h: Harness) {
   await h.page.goto(h.url('responsive-stage.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active] iframe').waitFor()
-  let frameSettled = true
-  await h.page
-    .locator('.segnavia-stage__canvas[data-active] iframe')
-    .contentFrame()
-    .getByText('720x520', { exact: true })
-    .waitFor({ timeout: BOUNDED_WAIT_MS })
-    .catch(() => {
-      frameSettled = false
-    })
+  let frameSettled = await waitForFrameText(h, '720x520')
   let canvas = await h.page.locator('segnavia-stage').evaluate(canvasFacts)
   let frame = await frameFacts(h)
   h.check(
@@ -64,12 +69,12 @@ export async function verifyResponsive(h: Harness) {
     host.style.inlineSize = '360px'
     host.style.blockSize = '640px'
   })
-  await h.page.waitForFunction(() => document.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')?.clientWidth === 360)
+  frameSettled = await waitForFrameText(h, '360x640')
   canvas = await h.page.locator('segnavia-stage').evaluate(canvasFacts)
   frame = await frameFacts(h)
   h.check(
     'resizing a responsive stage reflows its frame and applies narrow CSS',
-    canvas.width === 360 && canvas.height === 640 && frame.width === 360 && frame.text === '360x640' && frame.background === 'rgb(220, 80, 60)',
+    frameSettled && canvas.width === 360 && canvas.height === 640 && frame.width === 360 && frame.text === '360x640' && frame.background === 'rgb(220, 80, 60)',
     JSON.stringify({ canvas, frame }),
   )
 
@@ -137,17 +142,20 @@ export async function verifyResponsive(h: Harness) {
     JSON.stringify(wideHeight),
   )
   await h.evidence('responsive-player-720x520.png')
-  const playerFrame = await frameFacts(h)
   const playerCanvas = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
     const canvas = player.shadowRoot.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     return { width: canvas?.clientWidth ?? 0, height: canvas?.clientHeight ?? 0, transform: canvas?.style.transform ?? '' }
   })
+  frameSettled = await waitForFrameText(h, `${playerCanvas.width}x${playerCanvas.height}`)
+  const playerFrame = await frameFacts(h)
   h.check(
     'a responsive height-fit player uses a full-width unscaled canvas and matching frame',
-    playerCanvas.width === 720 &&
+    frameSettled &&
+      playerCanvas.width === 720 &&
       playerCanvas.transform === 'scale(1)' &&
       playerFrame.width === playerCanvas.width &&
-      playerFrame.height === playerCanvas.height,
+      playerFrame.height === playerCanvas.height &&
+      playerFrame.text === `${playerCanvas.width}x${playerCanvas.height}`,
     JSON.stringify({ playerCanvas, playerFrame }),
   )
   await h.page.setViewportSize({ width: 360, height: 640 })
