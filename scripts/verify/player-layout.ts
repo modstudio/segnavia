@@ -304,11 +304,7 @@ async function verifyCompactPlayerActions(h: Harness) {
   await page.waitForTimeout(200)
   let bars = await actionBarGeometry(h)
   check('393px player with a rail is 393px wide', Math.abs(bars.playerWidth - 393) < 1, JSON.stringify(bars))
-  check(
-    '393px bar with three actions keeps Play, Step, Next, Present and actions from overlapping',
-    bars.overlaps.length === 0,
-    JSON.stringify(bars.overlaps),
-  )
+  check('393px bar with three actions keeps Play, Step, Next, Present and actions from overlapping', bars.overlaps.length === 0, JSON.stringify(bars.overlaps))
   check('393px bar with three actions keeps every control inside the viewport', bars.offscreen.length === 0, JSON.stringify(bars.offscreen))
   check('393px bar with three actions places the actions under the transport', bars.actionsUnderTransport, JSON.stringify(bars))
   await h.evidence('player-actions-393.png')
