@@ -42,7 +42,7 @@ export async function checkBoardEditingSections(
 ) {
   await reset()
   const original = await board.evaluate(sectionState)
-  await drag(h.page, await center(second), 0, 350)
+  await drag(h.page, await center(second), 0, 500)
   await waitChanges(h.page, 1)
   const outside = await board.evaluate(sectionState)
   h.check(
@@ -105,12 +105,12 @@ export async function checkBoardEditingSections(
 
   await reset('rtl')
   const rtlBefore = await board.evaluate(sectionState)
-  await drag(h.page, await center(second), 0, 350)
+  await drag(h.page, await center(second), 0, 500)
   await waitChanges(h.page, 1)
   const rtlAfter = await board.evaluate(sectionState)
   h.check(
     'right-to-left section membership follows the same physical drop coordinates',
-    rtlAfter.hebrew.y - rtlBefore.hebrew.y === 350 &&
+    rtlAfter.hebrew.y - rtlBefore.hebrew.y === 500 &&
       rtlAfter.section.items.join() === 'deck-small' &&
       rtlAfter.section.rectangle.width < rtlBefore.section.rectangle.width,
     JSON.stringify({ rtlBefore, rtlAfter }),
