@@ -41,6 +41,17 @@ export {
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
 export {
+  assignMembership,
+  fitSection,
+  MAKE_ROOM_LIMIT,
+  makeRoom,
+  SECTION_GAP,
+  SECTION_MIN_SIZE,
+  SECTION_PADDING,
+  SECTION_TITLE_ROOM,
+  settleBoard,
+} from './board-sections.ts'
+export {
   Book,
   BookContents,
   BookFrontMatterEntry,

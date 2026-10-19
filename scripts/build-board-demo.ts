@@ -49,7 +49,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
         {id:'shot',kind:'shot',address:'shot',x:340,y:300,width:260},
         {id:'deck-far',kind:'deck',address:'responsive',x:5000,y:100,width:320},
       ]
-      const common = {title:'Board demo',direction:'ltr',labels:[{id:'label',text:'Local assets',x:0,y:-105},{id:'label-he',text:'אוסף מקומי',x:700,y:-70}],sections:[{id:'section',title:'Two decks',rectangle:{x:-24,y:-30,width:670,height:250},items:['deck-small','deck-hebrew']}]}
+      const common = {title:'Board demo',direction:'ltr',labels:[{id:'label',text:'Local assets',x:0,y:-105},{id:'label-he',text:'אוסף מקומי',x:700,y:-70}],sections:[{id:'section',title:'Two decks',rectangle:{x:-24,y:-56,width:668,height:236},items:['deck-small','deck-hebrew']}]}
       const values = {
         deck:{kind:'deck',deck,title:'Creating a class'}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
         page:{kind:'page',page,size:{width:640,height:900},title:'Page'}, paper:{kind:'paper',pages:paperPages,imposition,size:{width:816,height:1056},title:'Paper'},

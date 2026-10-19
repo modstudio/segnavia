@@ -1,5 +1,6 @@
-import { type Board, moveItems, moveSection, type Point } from '@segnavia/format'
+import { assignMembership, type Board, makeRoom, moveItems, moveSection, type Point, screenToBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
+import { fitTouchedSections, settleTouched } from './board-edit-settlement.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
@@ -109,12 +110,17 @@ export class BoardEditingInput implements BoardInputDelegate {
     if (!gesture.dragged && Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) <= 4) return true
     gesture.dragged = true
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
-    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.live(moveItems(gesture.before, gesture.ids, delta))
-    else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
+    if (gesture.kind === 'move' && this.enabled.move) {
+      const moved = moveItems(gesture.before, gesture.ids, delta)
+      this.callbacks.live(fitTouchedSections(moved, bridge.shapes(), gesture.ids))
+    } else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
     else if (gesture.kind === 'resize') {
       const shape = bridge.shapes().items[gesture.id]
-      if (shape) this.callbacks.live(resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape))
+      if (shape) {
+        const resized = resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape)
+        this.callbacks.live(fitTouchedSections(resized, bridge.shapes(), [gesture.id]))
+      }
     }
     event.preventDefault()
     return true
@@ -128,7 +134,7 @@ export class BoardEditingInput implements BoardInputDelegate {
       gesture.node.remove()
       if (!gesture.dragged) this.board.selection = []
     } else if (!gesture.dragged && gesture.kind === 'move' && gesture.itemId) this.finishClick(gesture)
-    else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture)
+    else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture, event)
     return true
   }
 
@@ -136,14 +142,23 @@ export class BoardEditingInput implements BoardInputDelegate {
     this.board.selection = selectBoardItem(gesture.base ?? [], gesture.itemId as string, gesture.shift ?? false)
   }
 
-  private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>) {
+  private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>, event: PointerEvent) {
     const next = this.board.board
     if (!next) return
-    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.commit(gesture.before, next, { kind: 'move', ids: gesture.ids })
-    else if (gesture.kind === 'section' && gesture.sectionId) {
+    const bridge = this.callbacks.bridge()
+    if (gesture.kind === 'move' && this.enabled.move) {
+      const release = screenToBoard(bridge.view(), bridge.local(event))
+      const assigned = assignMembership(next, bridge.shapes(), gesture.ids, release)
+      this.callbacks.commit(gesture.before, settleTouched(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
+    } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
-      this.callbacks.commit(gesture.before, next, { kind: 'move-section', ids: [gesture.sectionId, ...members] })
-    } else if (gesture.kind === 'resize') this.callbacks.commit(gesture.before, next, { kind: 'resize', ids: [gesture.id] })
+      this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
+        kind: 'move-section',
+        ids: [gesture.sectionId, ...members],
+      })
+    } else if (gesture.kind === 'resize') {
+      this.callbacks.commit(gesture.before, settleTouched(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
+    }
   }
 
   pointerCancel(event: PointerEvent): boolean {
@@ -188,7 +203,13 @@ export class BoardEditingInput implements BoardInputDelegate {
       y: event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0,
     }
     const current = this.callbacks.current()
-    if (current) this.callbacks.commit(current, moveItems(current, this.board.selection, delta), { kind: 'move', ids: [...this.board.selection] })
+    if (current) {
+      const moved = moveItems(current, this.board.selection, delta)
+      this.callbacks.commit(current, settleTouched(current, moved, this.callbacks.bridge().shapes(), this.board.selection), {
+        kind: 'move',
+        ids: [...this.board.selection],
+      })
+    }
     return true
   }
 
