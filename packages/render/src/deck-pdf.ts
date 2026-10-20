@@ -1,7 +1,14 @@
 import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
-import { newNonce } from '@segnavia/frame/bridge'
+import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
-import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
+import {
+  htmlSlideDocument,
+  notesLayoutGeometry,
+  type PrintOptions,
+  paginateNotes,
+  printableDeck,
+  SLIDES_READY_DEADLINE_MS,
+} from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
@@ -27,12 +34,10 @@ interface DeckPdfServices {
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
-const PRINT_READY_DEADLINE_MS = 4000
-
 async function waitForPrintReady(tab: Tab): Promise<void> {
   await tab
-    .locator('html[data-segnavia-print-ready]')
-    .waitFor({ timeout: PRINT_READY_DEADLINE_MS })
+    .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
+    .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
     .catch(() => {})
 }
 

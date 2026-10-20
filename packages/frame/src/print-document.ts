@@ -24,6 +24,8 @@ import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 
+export const SLIDES_READY_DEADLINE_MS = 4000
+
 export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
