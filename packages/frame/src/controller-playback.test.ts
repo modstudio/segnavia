@@ -10,7 +10,7 @@ afterEach(() => {
 })
 
 test('play restarts an ended deck in either playback mode', async () => {
-  for (const playback of ['step', 'continuous'] as const) {
+  for (const playback of ['segmented', 'continuous'] as const) {
     const clocks: Array<{ elapsed: number; ended: boolean }> = []
     let pending: (() => void) | null = null
     const controller = new DeckController({

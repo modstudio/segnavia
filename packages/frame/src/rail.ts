@@ -1,12 +1,15 @@
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
-import { railMoveTarget, railSelection } from './rail-navigation.ts'
+import { railMoveTarget, railOverflow, railSelection } from './rail-navigation.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
 ol{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;block-size:100%;overflow:auto;list-style:none;margin:0;padding:12px}
+/* An edge fades where the list hides more, so a thumbnail cut by the edge reads as more to scroll to. */
+ol{--_fade-dir:to bottom;--_fade-before:0px;--_fade-after:0px;mask-image:linear-gradient(var(--_fade-dir),transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
+ol[data-more-before]{--_fade-before:32px}ol[data-more-after]{--_fade-after:32px}
 li{flex:none;position:relative}
 button{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
@@ -19,7 +22,8 @@ button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 [data-annotation]{opacity:1}
-@container (max-width:${COMPACT_PLAYER_WIDTH}px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px}
+@container (max-width:${COMPACT_PLAYER_WIDTH}px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px;--_fade-dir:to right}
+:host([dir="rtl"]) ol{--_fade-dir:to left}
 button[data-insert="before"]::before,button[data-insert="after"]::after{inset-block:0;inline-size:3px;block-size:auto}
 button[data-insert="before"]::before{inset-inline-start:-6px;inset-inline-end:auto}button[data-insert="after"]::after{inset-inline-end:-6px;inset-inline-start:auto}}
 `
@@ -32,7 +36,10 @@ export interface RailReorderIntent {
 export class SegnaviaRail extends SegnaviaControl {
   mountMargin = 400
   private observer: IntersectionObserver | null = null
-  private resize = new ResizeObserver(() => this.measure())
+  private resize = new ResizeObserver(() => {
+    this.measure()
+    this.markOverflow()
+  })
   private selected = 0
   private active = -1
   private reorderEnabled = false
@@ -55,6 +62,7 @@ export class SegnaviaRail extends SegnaviaControl {
     this.root.addEventListener('dragover', this.onDragOver as EventListener)
     this.root.addEventListener('drop', this.onDrop as EventListener)
     this.root.addEventListener('dragend', this.clearDrag)
+    this.root.addEventListener('scroll', this.markOverflow, { capture: true, passive: true })
     this.resize.observe(this)
   }
 
@@ -82,6 +90,7 @@ export class SegnaviaRail extends SegnaviaControl {
     }
     this.syncSelection(state)
     this.observe(state)
+    this.markOverflow()
   }
 
   refresh() {
@@ -200,6 +209,17 @@ export class SegnaviaRail extends SegnaviaControl {
       const canvas = preview.firstElementChild as HTMLElement | null
       if (canvas) canvas.style.transform = `scale(${thumbnailScale(preview.clientWidth, deck.size.width)})`
     }
+  }
+
+  private markOverflow = () => {
+    const list = this.root.querySelector('ol') as HTMLOListElement | null
+    if (!list) return
+    const horizontal = getComputedStyle(list).flexDirection === 'row'
+    const edges = horizontal
+      ? railOverflow(list.scrollLeft, list.clientWidth, list.scrollWidth)
+      : railOverflow(list.scrollTop, list.clientHeight, list.scrollHeight)
+    list.toggleAttribute('data-more-before', edges.before)
+    list.toggleAttribute('data-more-after', edges.after)
   }
 
   private onKey = (event: KeyboardEvent) => {

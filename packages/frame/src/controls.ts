@@ -15,7 +15,7 @@
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'
-import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
+import { captionsControlVisible, deckHasNarration, deckPlayable, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
@@ -87,6 +87,7 @@ export class SegnaviaPlay extends SegnaviaControl {
     return `<button part="button">${iconSlot('play')}${iconSlot('pause')}</button>`
   }
   protected render(state: DeckState) {
+    this.hidden = !deckPlayable(state)
     const button = this.root.querySelector('button') as HTMLButtonElement
     icon(this.root, 'play').hidden = state.playing
     icon(this.root, 'pause').hidden = !state.playing

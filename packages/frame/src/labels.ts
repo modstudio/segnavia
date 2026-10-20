@@ -55,7 +55,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   frameTitle: defaultFrameTitle,
   slides: 'Slides',
   rail: 'Slides',
-  editNotes: 'Edit notes',
+  editNotes: 'Notes',
   savingNotes: 'Saving…',
   savedNotes: 'Saved',
   tryNotesAgain: 'Try again',

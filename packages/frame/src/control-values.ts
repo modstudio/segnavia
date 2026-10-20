@@ -13,13 +13,15 @@ export function deckHasNarration(state: Pick<DeckState, 'deck'>): boolean {
   return state.deck?.slides.some((slide) => slide.narration !== undefined) ?? false
 }
 
+// Play advances on durations; a deck where no slide has one has nothing to play.
+export function deckPlayable(state: Pick<DeckState, 'deck'>): boolean {
+  return state.deck?.slides.some((slide) => slideDurationMs(slide) !== null) ?? false
+}
+
+// Playback runs through the deck in both modes, so the time is the deck's.
+// Step and continuous differ in how the track draws progress, not the clock.
 export function timeValues(state: DeckState): { elapsedMs: number; totalMs: number } | null {
-  if (state.playback === 'continuous') {
-    const timed = state.deck?.slides.some((slide) => slideDurationMs(slide) !== null) ?? false
-    return timed ? { elapsedMs: state.elapsedMs, totalMs: state.totalMs } : null
-  }
-  const totalMs = state.slide ? slideDurationMs(state.slide) : null
-  return totalMs === null ? null : { elapsedMs: state.slideElapsedMs, totalMs }
+  return deckPlayable(state) ? { elapsedMs: state.elapsedMs, totalMs: state.totalMs } : null
 }
 
 export function captionsControlVisible(state: Pick<DeckState, 'deck'>, policy: 'on' | 'off' | 'viewer'): boolean {

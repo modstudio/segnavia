@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { railSelection } from './rail-navigation.ts'
+import { railOverflow, railSelection } from './rail-navigation.ts'
 
 describe('rail selection', () => {
   test('vertical arrows move through slide order', () => {
@@ -18,5 +18,18 @@ describe('rail selection', () => {
   test('modified and wrong-axis arrows leave selection alone', () => {
     expect(railSelection(1, 'ArrowRight', 4, false, 'ltr')).toBe(1)
     expect(railSelection(1, 'ArrowDown', 4, true, 'ltr')).toBe(1)
+  })
+})
+
+describe('rail overflow', () => {
+  test('marks only the edges that hide items', () => {
+    expect(railOverflow(0, 500, 1200)).toEqual({ before: false, after: true })
+    expect(railOverflow(300, 500, 1200)).toEqual({ before: true, after: true })
+    expect(railOverflow(700, 500, 1200)).toEqual({ before: true, after: false })
+    expect(railOverflow(0, 500, 500)).toEqual({ before: false, after: false })
+  })
+
+  test('reads a right-to-left offset by its magnitude', () => {
+    expect(railOverflow(-700, 500, 1200)).toEqual({ before: true, after: false })
   })
 })

@@ -36,7 +36,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   rail?: boolean
   hash?: string
   prefetch?: boolean
-  playback?: 'step' | 'continuous'
+  playback?: ControllerOptions['playback']
   captions?: 'on' | 'off' | 'viewer'
   presentation?: 'window' | 'native' | 'off'
   fit?: PlayerFit

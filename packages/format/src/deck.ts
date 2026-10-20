@@ -114,6 +114,18 @@ export type Slide = z.infer<typeof Slide>
 
 export const DECK_SIZE = { width: 1280, height: 720 } as const
 
+// How the track draws progress while the deck plays through: one segment per
+// slide, or one continuous seek bar. `step`, its earlier name, still parses.
+export const PLAYBACK_MODES = ['segmented', 'continuous'] as const
+export type PlaybackMode = (typeof PLAYBACK_MODES)[number]
+export const Playback = z.union([z.enum(PLAYBACK_MODES), z.literal('step').transform((): PlaybackMode => 'segmented')])
+
+// A playback value from outside a parsed deck (an attribute, a host option), or undefined.
+export function parsePlayback(value: unknown): PlaybackMode | undefined {
+  const parsed = Playback.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 export const DeckShape = z.object({
   title: z.string(),
   size: Size.default(DECK_SIZE),
@@ -124,7 +136,7 @@ export const DeckShape = z.object({
   dir: Direction.optional(),
   lang: z.string().optional(),
   transition: Transition.optional(),
-  playback: z.enum(['step', 'continuous']).optional(),
+  playback: Playback.optional(),
   captions: z.enum(['on', 'off', 'viewer']).optional(),
   slides: z.array(Slide).min(1),
 })

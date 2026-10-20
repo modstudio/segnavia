@@ -14,7 +14,7 @@ describe('player control values', () => {
     expect(deckHasNarration({ deck: { slides: [{ id: 'a', content: { kind: 'html', html: '' }, narration: {} }] } as never })).toBe(true)
   })
 
-  test('time values select slide time in step mode and deck time in continuous mode', () => {
+  test('time values are the deck time in either playback mode', () => {
     const slide = { id: 'a', content: { kind: 'html', html: '' }, holdMs: 40_000 } as never
     const state = {
       ...initialDeckState(),
@@ -24,9 +24,10 @@ describe('player control values', () => {
       elapsedMs: 22_000,
       totalMs: 60_000,
     } as unknown as DeckState
-    expect(timeValues(state)).toEqual({ elapsedMs: 12_000, totalMs: 40_000 })
+    expect(timeValues({ ...state, playback: 'segmented' })).toEqual({ elapsedMs: 22_000, totalMs: 60_000 })
     expect(timeValues({ ...state, playback: 'continuous' })).toEqual({ elapsedMs: 22_000, totalMs: 60_000 })
-    expect(timeValues({ ...state, slide: { id: 'b', content: { kind: 'html', html: '' } } })).toBeNull()
+    const untimed = { id: 'b', content: { kind: 'html', html: '' } } as never
+    expect(timeValues({ ...state, deck: { slides: [untimed] }, slide: untimed } as unknown as DeckState)).toBeNull()
   })
 
   test('captions control requires narration and viewer policy', () => {

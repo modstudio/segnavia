@@ -18,7 +18,8 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:inline-size;display:block;padding-block-end:8px}
-:host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center}
+/* Contain: the gutter is the room the stage's shadow throws into, inside the host's clip. */
+:host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center;padding:var(--segnavia-stage-gutter,24px)}
 segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
 segnavia-stage,segnavia-rail{--_segnavia-shot-backdrop:var(--segnavia-shot-backdrop,#fff)}
@@ -69,7 +70,7 @@ slot[slot^="icon-"]{pointer-events:none}
 slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:none}
 .notes-toggle[hidden]{display:none}
 ::slotted([slot="actions"]){flex:none}
-:host([data-presenting]) .below,:host([data-presenting]) segnavia-rail{display:none}
+:host([data-presenting]) .below,:host([data-presenting]) segnavia-rail,:host([data-presenting]) .actions{display:none}
 :host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below"}
 @container (max-width:${COMPACT_PLAYER_WIDTH}px){segnavia-counter,.time-separator,segnavia-notes{display:none}
   .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "rail" "below";grid-template-rows:auto auto auto auto auto}
