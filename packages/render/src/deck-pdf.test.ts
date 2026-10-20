@@ -47,6 +47,10 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect((await PDFDocument.load(output)).getPageCount()).toBe(2)
   expect(documents).toHaveLength(2)
   expect(documents[0]).not.toContain('<iframe')
+  const htmlSlide = documents.find((html) => html.includes('<p>HTML</p>')) ?? ''
+  expect(htmlSlide).toContain('var printAt=0')
+  expect(htmlSlide).toContain('animation-play-state:paused!important')
+  expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
   expect(limitsSeen).toEqual([{ maxSheets: 2 }])
 })
 

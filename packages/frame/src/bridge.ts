@@ -49,6 +49,7 @@ function bridgeScript(options: FrameOptions): string {
       ? ''
       : `var printAt=${JSON.stringify(options.printAtMs)};
 var freeze=function(){if(!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
+document.addEventListener('animationstart',freeze,true);document.addEventListener('transitionrun',freeze,true);
 var printWaits=[];
 var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
 var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
