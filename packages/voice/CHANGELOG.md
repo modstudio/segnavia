@@ -1,5 +1,11 @@
 # @segnavia/voice
 
+## 0.15.0
+
+### Patch Changes
+
+- @segnavia/format@0.15.0
+
 ## 0.14.0
 
 ### Patch Changes
