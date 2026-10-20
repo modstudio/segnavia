@@ -14,11 +14,12 @@ import {
   printableDeck,
   printableDeckDocument,
   printablePagesDocument,
+  SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
 
-export const SLIDES_READY_DEADLINE_MS = 4000
+export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
 export interface PrintDialogOptions {
   deadlineMs?: number

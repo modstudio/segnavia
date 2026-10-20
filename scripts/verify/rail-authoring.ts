@@ -155,8 +155,9 @@ export async function verifyRailAuthoring(h: Harness) {
   check('a height-sized player keeps its slide inside the available screen', sized.stage.height <= sized.screen.height, JSON.stringify(sized))
   const flowRail = await playerGeometry(h, 'flow-rail.html', 1280)
   check(
-    'an unsized player with a rail fills the remaining slide area at 16:9',
-    Math.abs(flowRail.stage.width - flowRail.screen.width) <= 2 && Math.abs(flowRail.stage.width / flowRail.stage.height - 16 / 9) < 0.01,
+    'an unsized player with a rail fills the remaining guttered slide area at 16:9',
+    Math.abs(flowRail.stage.width - (flowRail.screen.width - flowRail.gutter.inline)) <= 2 &&
+      Math.abs(flowRail.stage.width / flowRail.stage.height - 16 / 9) < 0.01,
     JSON.stringify(flowRail),
   )
   await page.setViewportSize({ width: 1000, height: 816 })

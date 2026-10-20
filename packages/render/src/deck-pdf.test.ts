@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
+import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
+import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 
@@ -47,7 +50,49 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect((await PDFDocument.load(output)).getPageCount()).toBe(2)
   expect(documents).toHaveLength(2)
   expect(documents[0]).not.toContain('<iframe')
+  const htmlSlide = documents.find((html) => html.includes('<p>HTML</p>')) ?? ''
+  expect(htmlSlide).toContain('var printAt=0')
+  expect(htmlSlide).toContain('animation-play-state:paused!important')
+  expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
   expect(limitsSeen).toEqual([{ maxSheets: 2 }])
+})
+
+test('the print bridge and PDF waiter share one ready signal', async () => {
+  let htmlSlide = ''
+  let beforeOutput: ((tab: Tab) => Promise<void>) | undefined
+  await renderDeckPdf(
+    deck,
+    {},
+    {
+      renderPdf: async (setup) => {
+        if (!setup.html.includes('<section class="sheet">')) {
+          htmlSlide = setup.html
+          beforeOutput = setup.beforeOutput
+        }
+        return onePage(400, 200)
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+
+  expect(htmlSlide).toContain(`setAttribute('${PRINT_READY_ATTRIBUTE}','')`)
+  let selector = ''
+  let timeout = 0
+  const tab = {
+    locator: (value: string) => {
+      selector = value
+      return {
+        waitFor: (options: { timeout: number }) => {
+          timeout = options.timeout
+          return Promise.resolve()
+        },
+      }
+    },
+  } as unknown as Tab
+  await beforeOutput?.(tab)
+  expect(selector).toBe(`html[${PRINT_READY_ATTRIBUTE}]`)
+  expect(timeout).toBe(SLIDES_READY_DEADLINE_MS)
 })
 
 test('a failed HTML slide render names the slide id', async () => {
@@ -100,7 +145,7 @@ test('an imposed deck renders every slide alone and enforces the composed papers
   expect(documents[0]?.html).toContain('<p>HTML</p>')
   expect(documents[0]?.html).not.toContain('<iframe')
   expect(documents[1]?.html).toContain('<img src="image.png"')
-  expect(documents.map(({ beforeOutput }) => typeof beforeOutput)).toEqual(['undefined', 'function'])
+  expect(documents.map(({ beforeOutput }) => typeof beforeOutput)).toEqual(['function', 'function'])
   expect(limitsSeen).toEqual([{ maxSheets: 1 }])
 })
 

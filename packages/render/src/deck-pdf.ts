@@ -1,7 +1,14 @@
 import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
-import { newNonce } from '@segnavia/frame/bridge'
+import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
-import { htmlSlideDocument, notesLayoutGeometry, type PrintOptions, paginateNotes, printableDeck } from '@segnavia/frame/print-document'
+import {
+  htmlSlideDocument,
+  notesLayoutGeometry,
+  type PrintOptions,
+  paginateNotes,
+  printableDeck,
+  SLIDES_READY_DEADLINE_MS,
+} from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
@@ -25,6 +32,13 @@ interface DeckPdfServices {
   ): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
+}
+
+async function waitForPrintReady(tab: Tab): Promise<void> {
+  await tab
+    .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
+    .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
+    .catch(() => {})
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -77,7 +91,9 @@ async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sh
 }
 
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
-  const htmlSlides = deck.slides.flatMap((slide, index) => (slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html }] : []))
+  const htmlSlides = deck.slides.flatMap((slide, index) =>
+    slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
+  )
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
@@ -104,14 +120,17 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       { preferCSSPageSize: true, printBackground: true },
     ),
     Promise.all(
-      htmlSlides.map(async ({ index, id, html }) => {
+      htmlSlides.map(async ({ index, id, html, printAtMs }) => {
         try {
           const bytes = await services.renderPdf(
             {
               viewport: deck.size,
-              scripts: deck.scripts === 'sandboxed',
-              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss }),
+              // The nonce policy, rather than disabling JavaScript in Chromium,
+              // refuses author code while leaving the print bridge running.
+              scripts: true,
+              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs }),
               boundMs: opts.boundMs,
+              beforeOutput: waitForPrintReady,
             },
             {
               width: `${deck.size.width}px`,
@@ -152,15 +171,15 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
       try {
         const html =
           slide.content.kind === 'html'
-            ? htmlSlideDocument(deck, slide.content.html, { nonce: newNonce(), css })
+            ? htmlSlideDocument(deck, slide.content.html, { nonce: newNonce(), css, printAtMs: slide.printAtMs ?? 0 })
             : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,
-            scripts: slide.content.kind === 'html' ? deck.scripts === 'sandboxed' : true,
+            scripts: true,
             html,
             boundMs: opts.boundMs,
-            beforeOutput: slide.content.kind === 'image' ? placeRenderedImages : undefined,
+            beforeOutput: slide.content.kind === 'html' ? waitForPrintReady : slide.content.kind === 'image' ? placeRenderedImages : undefined,
           },
           {
             width: `${deck.size.width}px`,

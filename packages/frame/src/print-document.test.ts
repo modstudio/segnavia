@@ -138,6 +138,22 @@ describe('printableDeck', () => {
     expect(document).toContain('-webkit-print-color-adjust:exact')
   })
 
+  test('freezes built HTML slide documents at their chosen print moments and leaves URL slides alone', () => {
+    const timed = Deck.parse({
+      ...deck,
+      slides: [
+        { id: 'start', content: { kind: 'html', html: '<p>Start</p>' } },
+        { id: 'later', content: { kind: 'html', html: '<p>Later</p>' }, printAtMs: 500 },
+        { id: 'url', content: { kind: 'url', src: 'https://example.invalid/slide' } },
+      ],
+    })
+    const html = printableDeck(timed, { nonce: 'known' })
+    expect(html).toContain('var printAt=0')
+    expect(html).toContain('var printAt=500')
+    expect(html).toContain('src="https://example.invalid/slide"')
+    expect(html.match(/var printAt=/g)).toHaveLength(2)
+  })
+
   test('builds the same top-level HTML slide document used by its frame', () => {
     const document = htmlSlideDocument(deck, '<h1>Slide</h1>', { nonce: 'known', css: 'h1{color:red}' })
     const printable = printableDeck(deck, { nonce: 'known', css: 'h1{color:red}' })

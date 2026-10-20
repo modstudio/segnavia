@@ -64,6 +64,13 @@ describe('deck', () => {
     expect(parsed).not.toHaveProperty('playback')
     expect(parsed).not.toHaveProperty('captions')
     expect(parsed.slides[0]).not.toHaveProperty('holdMs')
+    expect(parsed.slides[0]).not.toHaveProperty('printAtMs')
+  })
+
+  test('a slide can name a nonnegative print moment', () => {
+    const base = { title: 'T', slides: [{ id: 's', content: { kind: 'html' as const, html: '' } }] }
+    expect(Deck.parse({ ...base, slides: [{ ...base.slides[0], printAtMs: 500 }] }).slides[0]?.printAtMs).toBe(500)
+    expect(Deck.safeParse({ ...base, slides: [{ ...base.slides[0], printAtMs: -1 }] }).success).toBe(false)
   })
 
   test('a deck saved with the earlier step playback reads as segmented', () => {

@@ -32,10 +32,14 @@ export async function playerGeometry(h: Harness, file: string, width: number) {
     const playerBox = player.getBoundingClientRect()
     const stageBox = stage.getBoundingClientRect()
     const screenBox = screen.getBoundingClientRect()
+    const screenStyle = getComputedStyle(screen)
     return {
       player: { width: playerBox.width, height: playerBox.height },
       screen: { width: screenBox.width, height: screenBox.height },
       stage: { width: stageBox.width, height: stageBox.height },
+      gutter: {
+        inline: Number.parseFloat(screenStyle.paddingInlineStart) + Number.parseFloat(screenStyle.paddingInlineEnd),
+      },
     }
   })
 }

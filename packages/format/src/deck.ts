@@ -109,6 +109,7 @@ export const Slide = z.object({
   beforeMs: SlideTiming.optional(),
   afterMs: SlideTiming.optional(),
   holdMs: SlideTiming.optional(),
+  printAtMs: z.number().nonnegative().optional(),
 })
 export type Slide = z.infer<typeof Slide>
 

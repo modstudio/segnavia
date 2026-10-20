@@ -15,6 +15,8 @@ export const MESSAGE = {
   ready: 'segnavia:ready',
 } as const
 
+export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
+
 // Only these leave the frame, and only by name: nothing else about a
 // keystroke crosses. Escape rides with them so full screen can be left while
 // the slide holds focus.
@@ -31,6 +33,9 @@ export interface FrameOptions {
   csp?: string
   relayKeys?: boolean
   reportHeight?: boolean
+  // Set only for a print document, to freeze its animations and let authored
+  // code draw the frame that will be printed.
+  printAtMs?: number
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -41,9 +46,21 @@ export interface FrameOptions {
 // cross-origin frame that is off screen, and the report would never be sent.
 function bridgeScript(options: FrameOptions): string {
   const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
+  const print =
+    options.printAtMs === undefined
+      ? ''
+      : `var printAt=${JSON.stringify(options.printAtMs)};
+var freeze=function(){if(!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
+document.addEventListener('animationstart',freeze,true);document.addEventListener('transitionrun',freeze,true);
+var printWaits=[];
+var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
+var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
+var finishPrint=function(){freeze();document.documentElement.setAttribute('${PRINT_READY_ATTRIBUTE}','');post({type:'${MESSAGE.ready}'});};
+var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
+${print}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
@@ -69,7 +86,8 @@ if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentEl
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
 function ready(){var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null])).then(function(){post({type:'${MESSAGE.ready}'});});}
+${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -101,6 +119,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
     `<script nonce="${options.nonce}">${bridgeScript(options)}</script>`,
+    options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')

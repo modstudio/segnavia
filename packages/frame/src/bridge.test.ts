@@ -32,7 +32,9 @@ describe('frame document', () => {
   })
 
   test('sandboxed scripts carry no script policy, so the author code runs', () => {
-    expect(frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })).not.toContain('script-src')
+    const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
+    expect(html).not.toContain('script-src')
+    expect(html).not.toContain('segnavia:print')
   })
 
   test('the bridge handles in-page links without expanding its message surface or policy', () => {

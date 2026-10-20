@@ -29,7 +29,7 @@ describe('deckFromSlides', () => {
   test('maps HTML and shot rows and carries deck options', () => {
     const deck = deckFromSlides(
       [
-        { id: 'intro', kind: 'html', html: '<h1>Hello</h1>', notes: 'Private', narration, beforeMs: 100, afterMs: 200 },
+        { id: 'intro', kind: 'html', html: '<h1>Hello</h1>', notes: 'Private', narration, beforeMs: 100, afterMs: 200, printAtMs: 250 },
         { id: 'cover', kind: 'shot', src: 'cover.png', shot, holdMs: 900 },
       ],
       {
@@ -51,6 +51,7 @@ describe('deckFromSlides', () => {
       narration,
       beforeMs: 100,
       afterMs: 200,
+      printAtMs: 250,
     })
     expect(deck.slides[1]?.content).toEqual({ kind: 'shot', src: 'cover.png', shot })
     expect(deck).toMatchObject({
