@@ -1,5 +1,16 @@
 # @segnavia/frame
 
+## 0.16.0
+
+### Minor Changes
+
+- 3c52b32: Lay out auto-managed board sections as explicit grids and edit their cell placements.
+
+### Patch Changes
+
+- Updated dependencies [3c52b32]
+  - @segnavia/format@0.16.0
+
 ## 0.15.0
 
 ### Minor Changes
