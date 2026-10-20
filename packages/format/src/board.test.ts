@@ -20,6 +20,11 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
+  test('refuses section rows that disagree with items or end in null', () => {
+    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], rows: [['other']] }] })).toContain('section "group" rows disagree with items at "deck"')
+    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], rows: [['deck', null]] }] })).toContain('section "group" row 0 ends in null')
+  })
+
   test('refuses an id duplicated across lists and says what clears it', () => {
     const message = refusal({ ...valid, labels: [{ ...valid.labels[0], id: 'deck' }] })
     expect(message).toContain('id "deck" is duplicated')

@@ -2,6 +2,7 @@ import type { Board, BoardSection } from './board.ts'
 import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import type { Box, Point } from './deck.ts'
+import { layoutSection } from './board-section-grid.ts'
 
 export const SECTION_PADDING = 24
 export const SECTION_TITLE_ROOM = 32
@@ -171,7 +172,10 @@ function touchedSections(previous: Board, board: Board, touched: readonly string
 }
 
 function fitSections(board: Board, shapes: BoardShapes, sectionIds: readonly string[]): Board {
-  return sectionIds.reduce((value, id) => fitSection(value, shapes, id), board)
+  return sectionIds.reduce((value, id) => {
+    const section = value.sections.find((entry) => entry.id === id)
+    return section?.layout === 'manual' ? fitSection(value, shapes, id) : layoutSection(value, shapes, id)
+  }, board)
 }
 
 export function fitTouchedSections(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {

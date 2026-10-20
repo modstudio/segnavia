@@ -24,8 +24,8 @@ const board = (direction: Board['direction'] = 'ltr'): Board => ({
   ],
   labels: [],
   sections: [
-    { id: 'first', title: 'First', rectangle: { x: 50, y: 40, width: 320, height: 220 }, items: ['one', 'two'] },
-    { id: 'second', title: 'Second', rectangle: { x: 450, y: 40, width: 200, height: 220 }, items: ['three'] },
+    { id: 'first', title: 'First', rectangle: { x: 50, y: 40, width: 320, height: 220 }, items: ['one', 'two'], layout: 'manual' },
+    { id: 'second', title: 'Second', rectangle: { x: 450, y: 40, width: 200, height: 220 }, items: ['three'], layout: 'manual' },
   ],
 })
 

@@ -29,6 +29,8 @@ export const BoardSection = z.object({
   title: z.string(),
   rectangle: Box,
   items: z.array(z.string()),
+  layout: z.enum(['auto', 'manual']).optional(),
+  rows: z.array(z.array(z.string().nullable())).optional(),
 })
 export type BoardSection = z.infer<typeof BoardSection>
 
@@ -69,6 +71,29 @@ export const Board = BoardShape.superRefine((board, ctx) => {
         })
       }
     })
+    if (section.rows) {
+      section.rows.forEach((row, rowIndex) => {
+        if (row.at(-1) === null) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['sections', sectionIndex, 'rows', rowIndex],
+            message: `section "${section.id}" row ${rowIndex} ends in null; remove trailing empty cells`,
+          })
+        }
+      })
+      const rowItems = section.rows.flat().filter((id): id is string => id !== null)
+      const length = Math.max(section.items.length, rowItems.length)
+      for (let index = 0; index < length; index += 1) {
+        if (section.items[index] === rowItems[index]) continue
+        const id = section.items[index] ?? rowItems[index] ?? '(missing)'
+        ctx.addIssue({
+          code: 'custom',
+          path: ['sections', sectionIndex, 'rows'],
+          message: `section "${section.id}" rows disagree with items at "${id}"; make rows contain every item exactly once in row order`,
+        })
+        break
+      }
+    }
   })
 })
 export type Board = z.infer<typeof Board>

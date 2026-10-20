@@ -53,6 +53,14 @@ export {
   settleBoard,
 } from './board-sections.ts'
 export {
+  deriveSectionRows,
+  type GridDropTarget,
+  gridDropTarget,
+  insertIntoGrid,
+  layoutSection,
+  removeFromGrid,
+} from './board-section-grid.ts'
+export {
   Book,
   BookContents,
   BookFrontMatterEntry,
