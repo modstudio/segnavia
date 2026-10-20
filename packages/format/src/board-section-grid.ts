@@ -84,27 +84,57 @@ function starts(sizes: readonly number[]): number[] {
   return result
 }
 
+function span(sizes: readonly number[]): number {
+  return sizes.reduce((sum, size) => sum + size, 0) + SECTION_GAP * Math.max(0, sizes.length - 1)
+}
+
+interface SectionGrid {
+  cells: GridCell[]
+  widths: number[]
+  heights: number[]
+  columnStarts: number[]
+  rowStarts: number[]
+  width: number
+  height: number
+  innerX: number
+  innerY: number
+}
+
+function sectionGrid(board: Board, shapes: BoardShapes, section: BoardSection): SectionGrid {
+  const cells = normalized(cellsFor(board, shapes, section))
+  const { widths, heights } = trackSizes(board, shapes, cells)
+  return {
+    cells,
+    widths,
+    heights,
+    columnStarts: starts(widths),
+    rowStarts: starts(heights),
+    width: span(widths),
+    height: span(heights),
+    innerX: section.rectangle.x + SECTION_PADDING,
+    innerY: section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM,
+  }
+}
+
+// Columns are logical: a right-to-left board places column 0 at the grid's right edge.
+function physicalX(board: Board, grid: SectionGrid, logicalStart: number, width: number): number {
+  return board.direction === 'rtl' ? grid.innerX + grid.width - logicalStart - width : grid.innerX + logicalStart
+}
+
 export function layoutSection(board: Board, shapes: BoardShapes, id: string): Board {
   const section = sectionOf(board, id)
   if (!section || section.layout === 'manual') return board
-  const cells = normalized(cellsFor(board, shapes, section))
   if (section.items.length === 0)
     return {
       ...board,
       sections: board.sections.map((entry) => (entry.id === id ? { ...entry, cells: [], rectangle: { ...entry.rectangle, ...SECTION_MIN_SIZE } } : entry)),
     }
-  const { widths, heights } = trackSizes(board, shapes, cells)
-  const columnStarts = starts(widths)
-  const rowStarts = starts(heights)
-  const gridWidth = widths.reduce((sum, width) => sum + width, 0) + SECTION_GAP * Math.max(0, widths.length - 1)
-  const gridHeight = heights.reduce((sum, height) => sum + height, 0) + SECTION_GAP * Math.max(0, heights.length - 1)
-  const innerX = section.rectangle.x + SECTION_PADDING
-  const innerY = section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM
+  const grid = sectionGrid(board, shapes, section)
+  const { cells } = grid
   const positions = new Map<string, Point>()
   for (const cell of cells) {
     const width = dimensions(board, shapes, cell.id).width
-    const x = board.direction === 'rtl' ? innerX + gridWidth - (columnStarts[cell.column] ?? 0) - width : innerX + (columnStarts[cell.column] ?? 0)
-    positions.set(cell.id, { x, y: innerY + (rowStarts[cell.row] ?? 0) })
+    positions.set(cell.id, { x: physicalX(board, grid, grid.columnStarts[cell.column] ?? 0, width), y: grid.innerY + (grid.rowStarts[cell.row] ?? 0) })
   }
   return {
     ...board,
@@ -118,7 +148,7 @@ export function layoutSection(board: Board, shapes: BoardShapes, id: string): Bo
             ...entry,
             cells,
             items: cells.map((cell) => cell.id),
-            rectangle: { ...entry.rectangle, width: gridWidth + SECTION_PADDING * 2, height: gridHeight + SECTION_PADDING * 2 + SECTION_TITLE_ROOM },
+            rectangle: { ...entry.rectangle, width: grid.width + SECTION_PADDING * 2, height: grid.height + SECTION_PADDING * 2 + SECTION_TITLE_ROOM },
           }
         : entry,
     ),
@@ -140,17 +170,16 @@ export function gridDropTarget(board: Board, shapes: BoardShapes, id: string, po
   if (!section || section.layout === 'manual') return undefined
   const box = section.rectangle
   if (point.x < box.x || point.x > box.x + box.width || point.y < box.y || point.y > box.y + box.height) return undefined
-  const cells = normalized(cellsFor(board, shapes, section))
+  const grid = sectionGrid(board, shapes, section)
+  const { cells } = grid
   if (cells.length === 0) return { row: 0, column: 0, axis: 'row' }
-  const tracks = trackSizes(board, shapes, cells)
-  const xOffsets = starts(tracks.widths)
-  const yOffsets = starts(tracks.heights)
-  const gridWidth = tracks.widths.reduce((sum, width) => sum + width, 0) + SECTION_GAP * Math.max(0, tracks.widths.length - 1)
-  const physicalX = point.x - box.x - SECTION_PADDING
-  const x = board.direction === 'rtl' ? gridWidth - physicalX : physicalX
-  const y = point.y - box.y - SECTION_PADDING - SECTION_TITLE_ROOM
-  const columnTrack = trackAt(x, tracks.widths, xOffsets)
-  const rowTrack = trackAt(y, tracks.heights, yOffsets)
+  const xOffsets = grid.columnStarts
+  const yOffsets = grid.rowStarts
+  const fromStart = point.x - grid.innerX
+  const x = board.direction === 'rtl' ? grid.width - fromStart : fromStart
+  const y = point.y - grid.innerY
+  const columnTrack = trackAt(x, grid.widths, xOffsets)
+  const rowTrack = trackAt(y, grid.heights, yOffsets)
   if (columnTrack.gap) return { row: rowTrack.index, column: columnTrack.index, axis: 'row' }
   if (rowTrack.gap) return { row: rowTrack.index, column: columnTrack.index, axis: 'column' }
   const cell = cells.find((entry) => entry.row === rowTrack.index && entry.column === columnTrack.index)
@@ -170,27 +199,18 @@ export function gridDropTarget(board: Board, shapes: BoardShapes, id: string, po
 export function gridDropMarkerBox(board: Board, shapes: BoardShapes, id: string, target: GridDropTarget): Box | undefined {
   const section = sectionOf(board, id)
   if (!section || section.layout === 'manual') return undefined
-  const cells = normalized(cellsFor(board, shapes, section))
-  const innerX = section.rectangle.x + SECTION_PADDING
-  const innerY = section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM
-  if (cells.length === 0) {
+  const grid = sectionGrid(board, shapes, section)
+  const { innerX, innerY } = grid
+  if (grid.cells.length === 0) {
     const width = Math.max(0, section.rectangle.width - SECTION_PADDING * 2)
     const height = Math.max(0, section.rectangle.height - SECTION_PADDING * 2 - SECTION_TITLE_ROOM)
     return target.axis === 'row' ? { x: innerX, y: innerY, width: 2, height } : { x: innerX, y: innerY, width, height: 2 }
   }
-  const { widths, heights } = trackSizes(board, shapes, cells)
-  const columnStarts = starts(widths)
-  const rowStarts = starts(heights)
-  const gridWidth = widths.reduce((sum, width) => sum + width, 0) + SECTION_GAP * Math.max(0, widths.length - 1)
-  const columnStart = columnStarts[target.column] ?? gridWidth
-  const rowStart = rowStarts[target.row] ?? heights.reduce((sum, height) => sum + height, 0) + SECTION_GAP * Math.max(0, heights.length - 1)
-  if (target.axis === 'row') {
-    const x = board.direction === 'rtl' ? innerX + gridWidth - columnStart : innerX + columnStart
-    return { x, y: innerY + rowStart, width: 2, height: heights[target.row] ?? 0 }
-  }
-  const width = widths[target.column] ?? 0
-  const x = board.direction === 'rtl' ? innerX + gridWidth - columnStart - width : innerX + columnStart
-  return { x, y: innerY + rowStart, width, height: 2 }
+  const columnStart = grid.columnStarts[target.column] ?? grid.width
+  const rowStart = grid.rowStarts[target.row] ?? grid.height
+  if (target.axis === 'row') return { x: physicalX(board, grid, columnStart, 0), y: innerY + rowStart, width: 2, height: grid.heights[target.row] ?? 0 }
+  const width = grid.widths[target.column] ?? 0
+  return { x: physicalX(board, grid, columnStart, width), y: innerY + rowStart, width, height: 2 }
 }
 
 function updateSection(section: BoardSection, cells: readonly GridCell[]): BoardSection {
