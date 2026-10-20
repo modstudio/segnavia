@@ -1,5 +1,14 @@
 # @segnavia/react
 
+## 0.13.0
+
+### Patch Changes
+
+- 9a36631: Give each `segnavia-*` React intrinsic its own tag literal, so a host `ElementType` still typechecks as JSX and each tag exposes only its own props.
+- Updated dependencies [44ebc49]
+- Updated dependencies [c70aceb]
+  - @segnavia/frame@0.13.0
+
 ## 0.12.0
 
 ### Patch Changes

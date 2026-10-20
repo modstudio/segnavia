@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.13.0
+
+### Minor Changes
+
+- c70aceb: Add immutable board move, resize, removal and insertion edits.
+
 ## 0.12.0
 
 ## 0.11.0
