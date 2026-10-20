@@ -8,7 +8,7 @@ const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
 ol{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;block-size:100%;overflow:auto;list-style:none;margin:0;padding:12px}
 /* An edge fades where the list hides more, so a thumbnail cut by the edge reads as more to scroll to. */
-ol{--_fade-before:0px;--_fade-after:0px;mask-image:linear-gradient(to bottom,transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
+ol{--_fade-dir:to bottom;--_fade-before:0px;--_fade-after:0px;mask-image:linear-gradient(var(--_fade-dir),transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
 ol[data-more-before]{--_fade-before:32px}ol[data-more-after]{--_fade-after:32px}
 li{flex:none;position:relative}
 button{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
@@ -22,9 +22,8 @@ button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 [data-annotation]{opacity:1}
-@container (max-width:${COMPACT_PLAYER_WIDTH}px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px;
-  mask-image:linear-gradient(to right,transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
-:host([dir="rtl"]) ol{mask-image:linear-gradient(to left,transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
+@container (max-width:${COMPACT_PLAYER_WIDTH}px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px;--_fade-dir:to right}
+:host([dir="rtl"]) ol{--_fade-dir:to left}
 button[data-insert="before"]::before,button[data-insert="after"]::after{inset-block:0;inline-size:3px;block-size:auto}
 button[data-insert="before"]::before{inset-inline-start:-6px;inset-inline-end:auto}button[data-insert="after"]::after{inset-inline-end:-6px;inset-inline-start:auto}}
 `

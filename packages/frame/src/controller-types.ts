@@ -1,4 +1,4 @@
-import type { Deck, Slide, SlideContent, TextDirection } from '@segnavia/format'
+import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { Clock } from './clock.ts'
 
 export type ResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
@@ -16,7 +16,7 @@ export interface DeckState {
   elapsedMs: number
   totalMs: number
   slideElapsedMs: number
-  playback: 'segmented' | 'continuous'
+  playback: PlaybackMode
   muted: boolean
   captionsVisible: boolean
   presenting: boolean
@@ -29,7 +29,7 @@ export interface ControllerOptions {
   keys?: 'stage' | 'page'
   hash?: string | null
   clock?: (slide: Slide, audio: string | null) => Clock
-  playback?: 'segmented' | 'continuous'
+  playback?: PlaybackMode
   captions?: 'on' | 'off' | 'viewer'
   persist?: boolean
   schedule?: (tick: () => void) => () => void

@@ -11,7 +11,7 @@
 // mirror the state for styling: data-slide, data-playing, data-word,
 // data-shown, data-direction and data-actions.
 
-import type { TransitionInput } from '@segnavia/format'
+import { parsePlayback, type TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
@@ -57,7 +57,7 @@ function playerOptions(player: HTMLElement): Pick<ControllerOptions, 'playback' 
   const playback = player.getAttribute('playback')
   const captions = player.getAttribute('captions')
   return {
-    playback: playback === 'continuous' || playback === 'segmented' ? playback : playback === 'step' ? 'segmented' : undefined,
+    playback: parsePlayback(playback),
     captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
   }
 }

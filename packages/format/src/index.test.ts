@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationCueIssues, DEFAULT_TRANSITION_DURATION_MS, Deck, MAX_TRANSITION_DURATION_MS, type Narration } from './index.ts'
+import { annotationCueIssues, DEFAULT_TRANSITION_DURATION_MS, Deck, MAX_TRANSITION_DURATION_MS, type Narration, parsePlayback } from './index.ts'
 
 const shot = {
   key: 'a.b',
@@ -71,6 +71,13 @@ describe('deck', () => {
     expect(Deck.parse({ title: 'T', playback: 'step', slides }).playback).toBe('segmented')
     expect(Deck.parse({ title: 'T', playback: 'segmented', slides }).playback).toBe('segmented')
     expect(Deck.safeParse({ title: 'T', playback: 'paged', slides }).success).toBe(false)
+  })
+
+  test('a playback value from outside a deck reads the same way', () => {
+    expect(parsePlayback('step')).toBe('segmented')
+    expect(parsePlayback('continuous')).toBe('continuous')
+    expect(parsePlayback('paged')).toBeUndefined()
+    expect(parsePlayback(null)).toBeUndefined()
   })
 
   test('a cue naming an annotation the shot lacks is refused when the deck is read', () => {
