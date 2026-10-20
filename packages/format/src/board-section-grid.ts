@@ -3,11 +3,7 @@ import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import { SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
 import type { Box, Point } from './deck.ts'
 
-export interface GridDropTarget {
-  row: number
-  column: number
-  axis: 'row' | 'column'
-}
+export type GridDropTarget = { anchor: string; side: 'before' | 'after'; axis: 'row' | 'column' } | { row: number; column: number; axis: 'cell' }
 
 function sectionOf(board: Board, id: string): BoardSection | undefined {
   return board.sections.find((section) => section.id === id)
@@ -172,7 +168,7 @@ export function gridDropTarget(board: Board, shapes: BoardShapes, id: string, po
   if (point.x < box.x || point.x > box.x + box.width || point.y < box.y || point.y > box.y + box.height) return undefined
   const grid = sectionGrid(board, shapes, section)
   const { cells } = grid
-  if (cells.length === 0) return { row: 0, column: 0, axis: 'row' }
+  if (cells.length === 0) return { row: 0, column: 0, axis: 'cell' }
   const xOffsets = grid.columnStarts
   const yOffsets = grid.rowStarts
   const fromStart = point.x - grid.innerX
@@ -180,20 +176,31 @@ export function gridDropTarget(board: Board, shapes: BoardShapes, id: string, po
   const y = point.y - grid.innerY
   const columnTrack = trackAt(x, grid.widths, xOffsets)
   const rowTrack = trackAt(y, grid.heights, yOffsets)
-  if (columnTrack.gap) return { row: rowTrack.index, column: columnTrack.index, axis: 'row' }
-  if (rowTrack.gap) return { row: rowTrack.index, column: columnTrack.index, axis: 'column' }
+  if (columnTrack.gap) return targetAtGap(cells, rowTrack.index, columnTrack.index, 'row')
+  if (rowTrack.gap) return targetAtGap(cells, rowTrack.index, columnTrack.index, 'column')
   const cell = cells.find((entry) => entry.row === rowTrack.index && entry.column === columnTrack.index)
-  if (!cell) return { row: rowTrack.index, column: columnTrack.index, axis: 'row' }
+  if (!cell) return { row: rowTrack.index, column: columnTrack.index, axis: 'cell' }
   const size = dimensions(board, shapes, cell.id)
   const localX = x - (xOffsets[cell.column] ?? 0)
   const localY = y - (yOffsets[cell.row] ?? 0)
   const edges = [
-    { distance: Math.abs(localX), target: { row: cell.row, column: cell.column, axis: 'row' as const } },
-    { distance: Math.abs(size.width - localX), target: { row: cell.row, column: cell.column + 1, axis: 'row' as const } },
-    { distance: Math.abs(localY), target: { row: cell.row, column: cell.column, axis: 'column' as const } },
-    { distance: Math.abs(size.height - localY), target: { row: cell.row + 1, column: cell.column, axis: 'column' as const } },
+    { distance: Math.abs(localX), target: { anchor: cell.id, side: 'before' as const, axis: 'row' as const } },
+    { distance: Math.abs(size.width - localX), target: { anchor: cell.id, side: 'after' as const, axis: 'row' as const } },
+    { distance: Math.abs(localY), target: { anchor: cell.id, side: 'before' as const, axis: 'column' as const } },
+    { distance: Math.abs(size.height - localY), target: { anchor: cell.id, side: 'after' as const, axis: 'column' as const } },
   ]
   return edges.reduce((best, edge) => (edge.distance < best.distance ? edge : best)).target
+}
+
+function targetAtGap(cells: readonly GridCell[], row: number, column: number, axis: 'row' | 'column'): GridDropTarget | undefined {
+  const track = cells
+    .filter((cell) => (axis === 'row' ? cell.row === row : cell.column === column))
+    .sort((a, b) => (axis === 'row' ? a.column - b.column : a.row - b.row))
+  const coordinate = axis === 'row' ? column : row
+  const after = track.find((cell) => (axis === 'row' ? cell.column : cell.row) >= coordinate)
+  if (after) return { anchor: after.id, side: 'before', axis }
+  const before = track.at(-1)
+  return before ? { anchor: before.id, side: 'after', axis } : undefined
 }
 
 export function gridDropMarkerBox(board: Board, shapes: BoardShapes, id: string, target: GridDropTarget): Box | undefined {
@@ -204,13 +211,22 @@ export function gridDropMarkerBox(board: Board, shapes: BoardShapes, id: string,
   if (grid.cells.length === 0) {
     const width = Math.max(0, section.rectangle.width - SECTION_PADDING * 2)
     const height = Math.max(0, section.rectangle.height - SECTION_PADDING * 2 - SECTION_TITLE_ROOM)
-    return target.axis === 'row' ? { x: innerX, y: innerY, width: 2, height } : { x: innerX, y: innerY, width, height: 2 }
+    return { x: innerX, y: innerY, width, height }
   }
-  const columnStart = grid.columnStarts[target.column] ?? grid.width
-  const rowStart = grid.rowStarts[target.row] ?? grid.height
-  if (target.axis === 'row') return { x: physicalX(board, grid, columnStart, 0), y: innerY + rowStart, width: 2, height: grid.heights[target.row] ?? 0 }
-  const width = grid.widths[target.column] ?? 0
-  return { x: physicalX(board, grid, columnStart, width), y: innerY + rowStart, width, height: 2 }
+  const cell = target.axis === 'cell' ? target : grid.cells.find((entry) => entry.id === target.anchor)
+  if (!cell) return undefined
+  const columnStart = grid.columnStarts[cell.column] ?? grid.width
+  const rowStart = grid.rowStarts[cell.row] ?? grid.height
+  const width = grid.widths[cell.column] ?? 0
+  const height = grid.heights[cell.row] ?? 0
+  const x = physicalX(board, grid, columnStart, width)
+  const y = innerY + rowStart
+  if (target.axis === 'cell') return { x, y, width, height }
+  if (target.axis === 'row') {
+    const logicalStart = columnStart + (target.side === 'after' ? width : 0)
+    return { x: physicalX(board, grid, logicalStart, 0), y, width: 2, height }
+  }
+  return { x, y: y + (target.side === 'after' ? height : 0), width, height: 2 }
 }
 
 function updateSection(section: BoardSection, cells: readonly GridCell[]): BoardSection {
@@ -236,35 +252,27 @@ export function removeFromGrid(board: Board, shapes: BoardShapes, ids: readonly 
 
 export function insertIntoGrid(board: Board, shapes: BoardShapes, id: string, ids: readonly string[], target: GridDropTarget): Board {
   const unique = ids.filter((member, index) => ids.indexOf(member) === index)
-  const original = sectionOf(board, id)
-  const originalCells = original ? cellsFor(board, shapes, original) : []
   const moved = new Set(unique)
-  const offset = originalCells.filter(
-    (cell) =>
-      moved.has(cell.id) &&
-      (target.axis === 'row' ? cell.row === target.row && cell.column < target.column : cell.column === target.column && cell.row < target.row),
-  ).length
-  const adjusted = {
-    ...target,
-    row: target.axis === 'column' ? Math.max(0, target.row - offset) : target.row,
-    column: target.axis === 'row' ? Math.max(0, target.column - offset) : target.column,
-  }
-  const onlyCell = unique.length === 1 ? originalCells.find((cell) => cell.id === unique[0]) : undefined
-  if (onlyCell && onlyCell.row === adjusted.row && onlyCell.column === adjusted.column) return board
+  if (target.axis !== 'cell' && moved.has(target.anchor)) return board
   const removed = removeFromGrid(board, shapes, unique)
   const section = sectionOf(removed, id)
   if (!section || section.layout === 'manual') return removed
   const cells = [...(section.cells ?? [])]
+  const anchor = target.axis === 'cell' ? undefined : cells.find((cell) => cell.id === target.anchor)
+  if (target.axis !== 'cell' && !anchor) return removed
+  const axis = target.axis === 'cell' ? 'row' : target.axis
+  const row = target.axis === 'cell' ? target.row : (anchor?.row ?? 0) + (axis === 'column' && target.side === 'after' ? 1 : 0)
+  const column = target.axis === 'cell' ? target.column : (anchor?.column ?? 0) + (axis === 'row' && target.side === 'after' ? 1 : 0)
   const inserted = unique.map((member, index) => ({
     id: member,
-    row: adjusted.row + (adjusted.axis === 'column' ? index : 0),
-    column: adjusted.column + (adjusted.axis === 'row' ? index : 0),
+    row: row + (axis === 'column' ? index : 0),
+    column: column + (axis === 'row' ? index : 0),
   }))
   const occupied = inserted.some((placement) => cells.some((cell) => cell.row === placement.row && cell.column === placement.column))
   const shifted = occupied
     ? cells.map((cell) => {
-        if (adjusted.axis === 'row' && cell.row === adjusted.row && cell.column >= adjusted.column) return { ...cell, column: cell.column + unique.length }
-        if (adjusted.axis === 'column' && cell.column === adjusted.column && cell.row >= adjusted.row) return { ...cell, row: cell.row + unique.length }
+        if (axis === 'row' && cell.row === row && cell.column >= column) return { ...cell, column: cell.column + unique.length }
+        if (axis === 'column' && cell.column === column && cell.row >= row) return { ...cell, row: cell.row + unique.length }
         return cell
       })
     : cells

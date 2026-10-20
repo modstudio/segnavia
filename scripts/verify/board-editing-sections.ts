@@ -73,7 +73,7 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
   )
 }
 
-async function checkSameSectionReorder(h: Harness, board: Locator, first: Locator, second: Locator) {
+async function checkSameSectionColumnDrop(h: Harness, board: Locator, first: Locator, second: Locator) {
   const before = await board.evaluate((element) => {
     const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection
     return structuredClone(section)
@@ -81,7 +81,7 @@ async function checkSameSectionReorder(h: Harness, board: Locator, first: Locato
   const secondBox = await second.boundingBox()
   const firstFrom = await center(first)
   if (!secondBox) throw new Error('The second grid item has no box.')
-  await drag(h.page, firstFrom, secondBox.x + secondBox.width - 1 - firstFrom.x, secondBox.y + secondBox.height / 2 - firstFrom.y)
+  await drag(h.page, firstFrom, secondBox.x + secondBox.width / 2 - firstFrom.x, secondBox.y + secondBox.height - 1 - firstFrom.y)
   await waitChanges(h.page, 1)
   const reordered = await board.evaluate((element) => {
     const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
@@ -90,13 +90,13 @@ async function checkSameSectionReorder(h: Harness, board: Locator, first: Locato
     return structuredClone(section)
   })
   h.check(
-    'dropping the first member on the far edge of the second swaps their grid order',
+    'dropping one member on the bottom edge of the other places it directly below in the same column',
     reordered.items.join() === 'deck-hebrew,deck-small' &&
       reordered.cells.find((cell) => cell.id === 'deck-hebrew')?.row === 0 &&
       reordered.cells.find((cell) => cell.id === 'deck-hebrew')?.column === 0 &&
-      reordered.cells.find((cell) => cell.id === 'deck-small')?.row === 0 &&
-      reordered.cells.find((cell) => cell.id === 'deck-small')?.column === 1 &&
-      reordered.rectangle.height === before.rectangle.height,
+      reordered.cells.find((cell) => cell.id === 'deck-small')?.row === 1 &&
+      reordered.cells.find((cell) => cell.id === 'deck-small')?.column === 0 &&
+      reordered.rectangle.height > before.rectangle.height,
     JSON.stringify({ before, reordered }),
   )
 }
@@ -175,7 +175,7 @@ export async function checkBoardEditingSections(
   )
 
   await reset()
-  await checkSameSectionReorder(h, board, first, second)
+  await checkSameSectionColumnDrop(h, board, first, second)
 
   await reset()
   const firstBox = await first.boundingBox()
