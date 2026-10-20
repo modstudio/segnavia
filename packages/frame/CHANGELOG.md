@@ -1,5 +1,15 @@
 # @segnavia/frame
 
+## 0.15.0
+
+### Minor Changes
+
+- 784441c: Serialize notes saves per slide, adopt host notes without a reload, treat a pending move as dirty, expose `draftDeck()` for export, keep an internal load moving while a notes save is in flight, and unmount far rail thumbnails.
+
+### Patch Changes
+
+- @segnavia/format@0.15.0
+
 ## 0.14.0
 
 ### Minor Changes
