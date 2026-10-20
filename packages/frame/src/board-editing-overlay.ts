@@ -5,6 +5,7 @@ import {
   type BoardShapes,
   type BoardView,
   boardToScreen,
+  type GridDropTarget,
   itemHeight,
   type Point,
   resizeItem,
@@ -93,7 +94,7 @@ export function renderDropMarker(
   overlay: HTMLElement,
   board: Board | undefined,
   sectionId: string | undefined,
-  target: { row: number; column: number; axis: 'row' | 'column' } | undefined,
+  target: GridDropTarget | undefined,
   view: BoardView,
   shapes: BoardShapes,
 ) {

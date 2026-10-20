@@ -24,13 +24,20 @@ export const BoardLabel = z.object({
 })
 export type BoardLabel = z.infer<typeof BoardLabel>
 
+export const GridCell = z.object({
+  id: z.string(),
+  row: z.number(),
+  column: z.number(),
+})
+export type GridCell = z.infer<typeof GridCell>
+
 export const BoardSection = z.object({
   id: z.string(),
   title: z.string(),
   rectangle: Box,
   items: z.array(z.string()),
   layout: z.enum(['auto', 'manual']).optional(),
-  cells: z.array(z.object({ id: z.string(), row: z.number(), column: z.number() })).optional(),
+  cells: z.array(GridCell).optional(),
 })
 export type BoardSection = z.infer<typeof BoardSection>
 

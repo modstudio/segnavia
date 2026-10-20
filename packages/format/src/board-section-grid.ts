@@ -1,13 +1,7 @@
-import type { Board, BoardSection } from './board.ts'
+import type { Board, BoardSection, GridCell } from './board.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
-import { SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
+import { SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
 import type { Point } from './deck.ts'
-
-export interface GridCell {
-  id: string
-  row: number
-  column: number
-}
 
 export interface GridDropTarget {
   row: number
@@ -55,7 +49,8 @@ export function deriveSectionCells(board: Board, shapes: BoardShapes, id: string
 }
 
 function cellsFor(board: Board, shapes: BoardShapes, section: BoardSection): GridCell[] {
-  return section.cells?.map((cell) => ({ ...cell })) ?? deriveSectionCells(board, shapes, section.id)
+  const members = new Set(section.items)
+  return section.cells?.filter((cell) => members.has(cell.id)).map((cell) => ({ ...cell })) ?? deriveSectionCells(board, shapes, section.id)
 }
 
 function normalized(cells: readonly GridCell[]): GridCell[] {
@@ -199,15 +194,18 @@ export function insertIntoGrid(board: Board, id: string, ids: readonly string[],
   const section = sectionOf(removed, id)
   if (!section || section.layout === 'manual') return removed
   const cells = [...(section.cells ?? [])]
-  const shifted = cells.map((cell) => {
-    if (target.axis === 'row' && cell.row === target.row && cell.column >= target.column) return { ...cell, column: cell.column + unique.length }
-    if (target.axis === 'column' && cell.column === target.column && cell.row >= target.row) return { ...cell, row: cell.row + unique.length }
-    return cell
-  })
   const inserted = unique.map((member, index) => ({
     id: member,
     row: target.row + (target.axis === 'column' ? index : 0),
     column: target.column + (target.axis === 'row' ? index : 0),
   }))
+  const occupied = inserted.some((placement) => cells.some((cell) => cell.row === placement.row && cell.column === placement.column))
+  const shifted = occupied
+    ? cells.map((cell) => {
+        if (target.axis === 'row' && cell.row === target.row && cell.column >= target.column) return { ...cell, column: cell.column + unique.length }
+        if (target.axis === 'column' && cell.column === target.column && cell.row >= target.row) return { ...cell, row: cell.row + unique.length }
+        return cell
+      })
+    : cells
   return { ...removed, sections: removed.sections.map((entry) => (entry.id === id ? updateSection(entry, [...shifted, ...inserted]) : entry)) }
 }

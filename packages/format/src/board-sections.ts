@@ -2,13 +2,11 @@ import type { Board, BoardSection } from './board.ts'
 import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import { layoutSection } from './board-section-grid.ts'
-import type { Box, Point } from './deck.ts'
 
-export const SECTION_PADDING = 24
-export const SECTION_TITLE_ROOM = 32
-export const SECTION_MIN_SIZE = { width: 240, height: 160 } as const
-export const SECTION_GAP = 16
-export const MAKE_ROOM_LIMIT = 50
+export { MAKE_ROOM_LIMIT, SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
+
+import { MAKE_ROOM_LIMIT, SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
+import type { Box, Point } from './deck.ts'
 
 function itemRectangle(board: Board, shapes: BoardShapes, id: string): Box | undefined {
   const item = board.items.find((entry) => entry.id === id)
