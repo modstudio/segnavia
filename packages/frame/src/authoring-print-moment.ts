@@ -69,8 +69,9 @@ export class AuthoringPrintMoment {
   }
 
   private useCurrentFrame() {
-    const { slide, playing } = this.player.controller.state
+    const { slide, playing, slideElapsedMs } = this.player.controller.state
     if (slide?.content.kind !== 'html' || playing) return
+    this.queue.edit(slide.id, Math.round(slideElapsedMs))
   }
 
   private reset() {
