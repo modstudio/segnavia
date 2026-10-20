@@ -40,42 +40,55 @@ export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
 export const MARK_GAP_MM = 1
 
-// Millimeters per named paper, portrait.
-export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: number }> = {
-  letter: { width: 215.9, height: 279.4 },
-  legal: { width: 215.9, height: 355.6 },
-  tabloid: { width: 279.4, height: 431.8 },
-  a3: { width: 297, height: 420 },
-  a4: { width: 210, height: 297 },
-  a5: { width: 148, height: 210 },
-  'business-card-us': { width: 50.8, height: 88.9 },
-  'business-card-eu': { width: 55, height: 85 },
-  'business-card-square-us': { width: 63.5, height: 63.5 },
-  'business-card-slim-us': { width: 44.45, height: 88.9 },
-  'postcard-4x6': { width: 101.6, height: 152.4 },
-  'postcard-5x7': { width: 127, height: 177.8 },
-  'postcard-6x9': { width: 152.4, height: 228.6 },
-  'postcard-6x11': { width: 152.4, height: 279.4 },
-  'card-square-4in': { width: 101.6, height: 101.6 },
-  'half-letter': { width: 139.7, height: 215.9 },
-  a6: { width: 105, height: 148 },
-  dl: { width: 99, height: 210 },
-  'rack-card-4x9': { width: 101.6, height: 228.6 },
-  'rack-card-3.5x8.5': { width: 88.9, height: 215.9 },
-  'poster-12x18': { width: 304.8, height: 457.2 },
-  'poster-16x20': { width: 406.4, height: 508 },
-  'poster-18x24': { width: 457.2, height: 609.6 },
-  'poster-24x36': { width: 609.6, height: 914.4 },
-  a2: { width: 420, height: 594 },
-  a1: { width: 594, height: 841 },
-  a0: { width: 841, height: 1189 },
-}
-
 export const roundMillimeters = (mm: number) => Math.round(mm * 100) / 100
 
 export function toMillimeters(value: number, unit: 'mm' | 'in' | 'pt'): number {
   return value * (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
 }
+
+type NamedPaper = Extract<Paper, string>
+type PaperSize = { width: number; height: number; unit: 'mm' | 'in' }
+
+const PAPER_SIZE = {
+  letter: { width: 8.5, height: 11, unit: 'in' },
+  legal: { width: 8.5, height: 14, unit: 'in' },
+  tabloid: { width: 11, height: 17, unit: 'in' },
+  a3: { width: 297, height: 420, unit: 'mm' },
+  a4: { width: 210, height: 297, unit: 'mm' },
+  a5: { width: 148, height: 210, unit: 'mm' },
+  'business-card-us': { width: 2, height: 3.5, unit: 'in' },
+  'business-card-eu': { width: 55, height: 85, unit: 'mm' },
+  'business-card-square-us': { width: 2.5, height: 2.5, unit: 'in' },
+  'business-card-slim-us': { width: 1.75, height: 3.5, unit: 'in' },
+  'postcard-4x6': { width: 4, height: 6, unit: 'in' },
+  'postcard-5x7': { width: 5, height: 7, unit: 'in' },
+  'postcard-6x9': { width: 6, height: 9, unit: 'in' },
+  'postcard-6x11': { width: 6, height: 11, unit: 'in' },
+  'card-square-4in': { width: 4, height: 4, unit: 'in' },
+  'half-letter': { width: 5.5, height: 8.5, unit: 'in' },
+  a6: { width: 105, height: 148, unit: 'mm' },
+  dl: { width: 99, height: 210, unit: 'mm' },
+  'rack-card-4x9': { width: 4, height: 9, unit: 'in' },
+  'rack-card-3.5x8.5': { width: 3.5, height: 8.5, unit: 'in' },
+  'poster-12x18': { width: 12, height: 18, unit: 'in' },
+  'poster-16x20': { width: 16, height: 20, unit: 'in' },
+  'poster-18x24': { width: 18, height: 24, unit: 'in' },
+  'poster-24x36': { width: 24, height: 36, unit: 'in' },
+  a2: { width: 420, height: 594, unit: 'mm' },
+  a1: { width: 594, height: 841, unit: 'mm' },
+  a0: { width: 841, height: 1189, unit: 'mm' },
+} satisfies Record<NamedPaper, PaperSize>
+
+const paperMillimeters = (): Record<NamedPaper, { width: number; height: number }> =>
+  Object.fromEntries(
+    NAMED_PAPERS.map((paper) => {
+      const { width, height, unit } = PAPER_SIZE[paper]
+      return [paper, { width: roundMillimeters(toMillimeters(width, unit)), height: roundMillimeters(toMillimeters(height, unit)) }]
+    }),
+  ) as Record<NamedPaper, { width: number; height: number }>
+
+// Millimeters per named paper, portrait.
+export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: number }> = paperMillimeters()
 
 // The sheet a print setting describes, in millimeters, with orientation applied.
 export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: number; height: number } {

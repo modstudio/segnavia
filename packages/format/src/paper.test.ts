@@ -3,6 +3,12 @@ import { Page, Print } from './index.ts'
 import { PAPER_MM, printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
 
 const printerPapers = [
+  ['letter', 215.9, 279.4],
+  ['legal', 215.9, 355.6],
+  ['tabloid', 279.4, 431.8],
+  ['a3', 297, 420],
+  ['a4', 210, 297],
+  ['a5', 148, 210],
   ['business-card-us', 50.8, 88.9],
   ['business-card-eu', 55, 85],
   ['business-card-square-us', 63.5, 63.5],
