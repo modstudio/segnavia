@@ -40,6 +40,37 @@ function sectionState(element: Element) {
   return { section: structuredClone(section), hebrew: structuredClone(hebrew), small: structuredClone(small) }
 }
 
+async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pageItem: Locator) {
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    const item = next.items.find((entry) => entry.id === 'deck-small')
+    if (item) item.x = 100
+    value.board = next
+    const state = window as unknown as DemoWindow
+    state.boardChanges = []
+    state.hostBoard = next
+  })
+  const itemBox = await first.boundingBox()
+  const from = await center(pageItem)
+  if (!itemBox) throw new Error('The right-to-left grid item has no box.')
+  await drag(h.page, from, itemBox.x + itemBox.width - 1 - from.x, itemBox.y + itemBox.height / 2 - from.y)
+  await waitChanges(h.page, 1)
+  const cells = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+      cells: Array<{ id: string; row: number; column: number }>
+    }
+    return structuredClone(section.cells)
+  })
+  const page = cells.find((cell) => cell.id === 'page')
+  const item = cells.find((cell) => cell.id === 'deck-small')
+  h.check(
+    'a physical right-edge drop inserts before the item in right-to-left reading order',
+    page?.row === item?.row && page?.column === 0 && item?.column === 1,
+    JSON.stringify(cells),
+  )
+}
+
 export async function checkBoardEditingSections(
   h: Harness,
   board: Locator,
@@ -285,6 +316,9 @@ export async function checkBoardEditingSections(
     emptyLabelEdit.changes === 0 && emptyLabelEdit.errors === 0,
     JSON.stringify(emptyLabelEdit),
   )
+
+  await reset('rtl')
+  await checkRtlRightEdge(h, board, first, pageItem)
 
   await reset('rtl')
   const rtlBefore = await board.evaluate(sectionState)
