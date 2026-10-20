@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.16.0
+
+### Minor Changes
+
+- 3c52b32: Lay out auto-managed board sections as explicit grids and edit their cell placements.
+
 ## 0.15.0
 
 ## 0.14.0
