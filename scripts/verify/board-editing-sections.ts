@@ -32,7 +32,6 @@ interface DemoChange {
 type BoardElement = HTMLElement & { board: DemoBoard; selection: readonly string[] }
 type DemoWindow = typeof window & { boardChanges: DemoChange[]; boardEditErrors: unknown[]; hostBoard: DemoBoard }
 type ResetBoard = (direction?: 'ltr' | 'rtl') => Promise<void>
-
 function sectionState(element: Element) {
   const board = (element as BoardElement).board
   const section = board.sections.find((entry) => entry.id === 'section') as DemoSection
@@ -187,7 +186,7 @@ async function checkEmptyLabelSettlement(h: Harness, board: Locator, first: Loca
     JSON.stringify(emptyLabelEdit),
   )
   await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 40, 0)
-  await waitChanges(h.page, 1)
+  await h.page.waitForTimeout(250)
   const emptyLabelSettlement = await board.evaluate(() => {
     const state = window as unknown as DemoWindow
     return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }

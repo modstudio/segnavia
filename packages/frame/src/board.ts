@@ -123,6 +123,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
       const resolved = this.resolutions.value(item.address)
       this.shapes.items[item.id] = resolved ? boardPolicy.resolvedShape(resolved) : boardPolicy.provisionalShape(item.kind)
     }
+    for (const label of this.value?.labels ?? []) this.shapes.labels[label.id] = { width: Math.max(1, label.text.length * 8), height: 19 }
     if (this.value) this.dir = this.value.direction
     this.names.update(this.value?.items ?? [], this.nameProvider)
     this.mounts.reconcile(previous, this.value)
