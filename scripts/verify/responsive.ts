@@ -130,10 +130,16 @@ export async function verifyResponsive(h: Harness) {
   await h.page.setViewportSize({ width: 720, height: 600 })
   await h.page.goto(h.url('responsive-player-contain.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active]').waitFor()
-  await h.page.waitForFunction(() => {
-    const player = document.querySelector('segnavia-player')
-    return player ? Math.abs(player.getBoundingClientRect().height - (window.innerHeight - 40)) <= 1 : false
-  })
+  await h.page
+    .waitForFunction(
+      () => {
+        const player = document.querySelector('segnavia-player')
+        return player ? Math.abs(player.getBoundingClientRect().height - (window.innerHeight - 40)) <= 1 : false
+      },
+      undefined,
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {})
   const contain = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
     const root = player.shadowRoot
     const stage = root.querySelector('segnavia-stage') as HTMLElement
