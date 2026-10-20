@@ -3,6 +3,7 @@ import path from 'node:path'
 import { type Harness, SITE } from './harness.ts'
 import { playerGeometry, railGeometry } from './rail-geometry.ts'
 import { verifyReactAuthoring } from './react-authoring.ts'
+import { verifyDeskRailUnmount } from './rail-unmount.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -367,6 +368,7 @@ export async function verifyRailAuthoring(h: Harness) {
   )
 
   await verifyReloadedNotes(h)
+  await verifyDeskRailUnmount(h)
   await verifyReactAuthoring(h)
 
   const playerBundle = readFileSync(path.join(SITE, 'segnavia-player.js'), 'utf8')

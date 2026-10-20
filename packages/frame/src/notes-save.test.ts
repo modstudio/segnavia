@@ -62,26 +62,38 @@ describe('notes save queue', () => {
     expect(queue.dirty).toBe(false)
   })
 
-  test('a newer save supersedes an older in-flight save', async () => {
+  test('keeps one save in flight per slide and coalesces later edits', async () => {
     const time = scheduler()
+    const saves: string[] = []
     const releases: Array<() => void> = []
     const queue = new NotesSaveQueue(
-      () => new Promise<void>((resolve) => releases.push(resolve)),
+      ({ notes }) => {
+        saves.push(notes)
+        return new Promise<void>((resolve) => releases.push(resolve))
+      },
       () => {},
       time,
     )
     queue.seed('a', '')
     queue.edit('a', 'first')
     time.run()
+    await Promise.resolve()
     queue.edit('a', 'second')
     time.run()
+    expect(saves).toEqual(['first'])
+    expect(queue.dirty).toBe(true)
     releases[0]?.()
     await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['first', 'second'])
+    expect(queue.dirty).toBe(true)
     expect(queue.state('a')).toMatchObject({ text: 'second', status: 'saving' })
     releases[1]?.()
     await Promise.resolve()
     await Promise.resolve()
+    expect(saves).toEqual(['first', 'second'])
     expect(queue.state('a')).toMatchObject({ text: 'second', status: 'saved' })
+    expect(queue.dirty).toBe(false)
   })
 
   test('flushes pending notes and waits for in-flight saves before detach', async () => {

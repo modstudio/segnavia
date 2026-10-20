@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
 import { DeckController } from './controller.ts'
+import { setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import { printableDeck } from './print-document.ts'
 
@@ -224,4 +225,60 @@ test('a rejected reorder does not replace a newer host deck and reports the move
 
   expect(deckController.state.deck?.title).toBe('New host deck')
   expect(errors).toEqual([{ message: 'Move refused', operation: 'move', slideId: 'a', error: expect.any(Error) }])
+})
+
+async function authoringWithHeldNotesSave() {
+  const deckController = new DeckController({ hash: null })
+  await deckController.load({
+    title: 'Deck',
+    slides: [
+      { id: 'a', content: { kind: 'html', html: 'A' }, notes: 'old' },
+      { id: 'b', content: { kind: 'html', html: 'B' } },
+    ],
+  })
+  const field = { value: 'old' }
+  const rail = {
+    setReorderEnabled() {},
+    subscribeReorder: () => () => {},
+  }
+  const player = Object.assign(new EventTarget(), {
+    controller: deckController,
+    authoringRail: () => rail,
+    setAuthoringScriptsRefused() {},
+  })
+  let reachedMove = false
+  const authoring = new AuthoringController(
+    player as never,
+    {
+      moveSlide: async () => {
+        reachedMove = true
+      },
+    },
+    { notesMaxLength: 20_000 },
+  )
+  const queue = new NotesSaveQueue(
+    () => new Promise<void>(() => {}),
+    () => {},
+  )
+  queue.seed('a', 'old')
+  queue.edit('a', 'held draft')
+  field.value = 'held draft'
+  Object.assign(authoring, {
+    notes: queue,
+    notesSlideId: 'a',
+    notesRoot: { querySelector: () => field, remove() {} },
+  })
+  const guarded = authoring as unknown as { beforeNavigate(reason: 'load' | 'navigate'): Promise<void> }
+  setNavigationGuard(deckController, (reason) => guarded.beforeNavigate(reason))
+  return { authoring, deckController, field, reachedMove: () => reachedMove }
+}
+
+test('a load that preserves a draft does not wait for a never-settling save before a move', async () => {
+  const { authoring, deckController, field, reachedMove } = await authoringWithHeldNotesSave()
+  const moving = (authoring as unknown as { move(fromIndex: number, toIndex: number): Promise<void> }).move(0, 1)
+  const outcome = await Promise.race([moving.then(() => 'moved' as const), new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 80))])
+  expect(outcome).toBe('moved')
+  expect(reachedMove()).toBe(true)
+  expect(deckController.state.deck?.slides.map((slide) => slide.id)).toEqual(['b', 'a'])
+  expect(field.value).toBe('held draft')
 })

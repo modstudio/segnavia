@@ -16,7 +16,7 @@ interface Entry extends NotesSaveState {
   host: string
   version: number
   timer: number | null
-  saves: Map<number, Promise<boolean>>
+  inflight: Promise<boolean> | null
 }
 
 const browserTimers: Timers = {
@@ -50,7 +50,7 @@ export class NotesSaveQueue {
 
   hasLocalWork(slideId: string): boolean {
     const entry = this.entry(slideId)
-    return entry.text !== entry.saved || entry.saves.size > 0
+    return entry.text !== entry.saved || entry.inflight !== null
   }
 
   seed(slideId: string, notes: string): boolean {
@@ -62,13 +62,13 @@ export class NotesSaveQueue {
         host: notes,
         version: 0,
         timer: null,
-        saves: new Map(),
+        inflight: null,
         status: 'idle',
         message: '',
       })
       return true
     }
-    if (existing.text !== existing.saved || existing.saves.size > 0) return false
+    if (existing.text !== existing.saved || existing.inflight !== null) return false
     if (existing.host === notes) return false
     if (existing.text === notes) {
       existing.host = notes
@@ -125,7 +125,7 @@ export class NotesSaveQueue {
       }
       if (entry.text !== entry.saved) void this.start(slideId, entry.version)
     }
-    const pending = [...this.entries.values()].flatMap((entry) => [...entry.saves.values()])
+    const pending = [...this.entries.values()].flatMap((entry) => (entry.inflight ? [entry.inflight] : []))
     const results = await Promise.all(pending)
     return results.every(Boolean) && !this.dirty
   }
@@ -144,34 +144,39 @@ export class NotesSaveQueue {
     return entry
   }
 
-  private start(slideId: string, version: number): Promise<boolean> {
+  private start(slideId: string, _version: number): Promise<boolean> {
     const entry = this.entry(slideId)
-    const existing = entry.saves.get(version)
-    if (existing) return existing
-    const text = entry.text
-    entry.status = 'saving'
-    entry.message = ''
-    this.notify(slideId)
-    const saving = this.save({ slideId, notes: text })
-      .then(() => {
-        if (entry.version !== version) return true
+    if (entry.inflight) return entry.inflight
+    if (entry.text === entry.saved) return Promise.resolve(true)
+    const running = this.pump(slideId)
+    entry.inflight = running.finally(() => {
+      if (entry.inflight === running) entry.inflight = null
+      this.notify(slideId)
+    })
+    return entry.inflight
+  }
+
+  private async pump(slideId: string): Promise<boolean> {
+    const entry = this.entry(slideId)
+    while (entry.text !== entry.saved) {
+      const version = entry.version
+      const text = entry.text
+      entry.status = 'saving'
+      entry.message = ''
+      this.notify(slideId)
+      try {
+        await this.save({ slideId, notes: text })
         entry.saved = text
-        entry.status = 'saved'
-        return true
-      })
-      .catch((error: unknown) => {
-        if (entry.version !== version) return false
+        if (entry.version === version) entry.status = 'saved'
+      } catch (error: unknown) {
+        if (entry.version !== version) continue
         entry.status = 'error'
         entry.message = message(error)
         this.failed(slideId, error)
         return false
-      })
-      .finally(() => {
-        entry.saves.delete(version)
-        this.notify(slideId)
-      })
-    entry.saves.set(version, saving)
-    return saving
+      }
+    }
+    return true
   }
 
   private notify(slideId: string) {
