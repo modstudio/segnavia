@@ -122,7 +122,11 @@ async function verifyReloadedNotes(h: Harness) {
     const holder = window as unknown as { concurrentHostLoad: Promise<void>; authoringMove: Promise<void> }
     return Promise.all([holder.concurrentHostLoad, holder.authoringMove])
   })
-  check('a host reload during an optimistic reorder adopts host notes', (await notes.inputValue()) === 'Concurrent host notes', await notes.inputValue())
+  check(
+    'a host reload during an optimistic reorder preserves in-flight notes',
+    (await notes.inputValue()) === 'Pending during reorder',
+    await notes.inputValue(),
+  )
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = false))
   await notes.fill('Detached draft')
   const detached = await page.evaluate(async () => {

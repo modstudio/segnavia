@@ -24,20 +24,21 @@ export async function verifyDeskRailUnmount(h: Harness) {
     const player = document.createElement('segnavia-player') as HTMLElement & {
       controller: { load(input: unknown): Promise<void> }
     }
-    player.setAttribute('rail', '')
-    player.style.cssText = 'position:fixed;inset:0;block-size:100vh;inline-size:100%'
     document.body.append(player)
     await player.controller.load(deck)
-    const rail = player.shadowRoot?.querySelector('segnavia-rail')
-    const list = rail?.shadowRoot?.querySelector('ol')
+    const rail = document.createElement('segnavia-rail') as HTMLElement & { controller: unknown; refresh(): void }
+    rail.style.cssText = 'display:block;position:fixed;inset-block-start:0;inset-inline-start:0;block-size:480px;inline-size:180px'
+    document.body.append(rail)
+    rail.controller = player.controller
+    const list = rail.shadowRoot?.querySelector('ol')
     if (!list) throw new Error('The desk rail list was not ready.')
-    const frames = () => rail?.shadowRoot?.querySelectorAll('iframe').length ?? 0
+    const frames = () => rail.shadowRoot?.querySelectorAll('iframe').length ?? 0
     const settle = async () => {
       let previous = -1
       for (let attempt = 0; attempt < 20; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 100))
         const next = frames()
-        if (next === previous) return next
+        if (next === previous && next > 0) return next
         previous = next
       }
       return frames()
@@ -47,12 +48,14 @@ export async function verifyDeskRailUnmount(h: Harness) {
     const atEnd = await settle()
     list.scrollTop = 0
     const back = await settle()
+    const overflowing = list.scrollHeight > list.clientHeight + 40
+    rail.remove()
     player.remove()
-    return { atStart, atEnd, back, max: Math.max(atStart, atEnd, back) }
+    return { atStart, atEnd, back, max: Math.max(atStart, atEnd, back), overflowing }
   }, longDeck())
   check(
     'desk rail keeps mounted thumbnail frames bounded while scrolling first to last',
-    counts.max > 0 && counts.max < SLIDE_COUNT / 2 && counts.atEnd < SLIDE_COUNT / 2 && counts.back < SLIDE_COUNT / 2,
+    counts.overflowing && counts.atStart > 0 && counts.max < SLIDE_COUNT / 2 && counts.atEnd <= counts.atStart + 3 && counts.back <= counts.atStart + 3,
     JSON.stringify(counts),
   )
 }
