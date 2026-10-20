@@ -130,12 +130,36 @@ export async function verifyResponsive(h: Harness) {
   await h.page.setViewportSize({ width: 720, height: 600 })
   await h.page.goto(h.url('responsive-player-contain.html'))
   await h.page.locator('.segnavia-stage__canvas[data-active]').waitFor()
-  await h.page.waitForFunction(() => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-stage')?.clientHeight === 560)
-  const contain = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
-    const stage = player.shadowRoot.querySelector('segnavia-stage') as HTMLElement
-    return { width: stage.clientWidth, height: stage.clientHeight }
+  await h.page.waitForFunction(() => {
+    const player = document.querySelector('segnavia-player')
+    return player ? Math.abs(player.getBoundingClientRect().height - (window.innerHeight - 40)) <= 1 : false
   })
-  h.check('responsive contain fills viewport height minus reserve at full width', contain.width === 720 && contain.height === 560, JSON.stringify(contain))
+  const contain = await h.page.locator('segnavia-player').evaluate((player: HTMLElement & { shadowRoot: ShadowRoot }) => {
+    const root = player.shadowRoot
+    const stage = root.querySelector('segnavia-stage') as HTMLElement
+    const bar = root.querySelector('.bar') as HTMLElement
+    const below = root.querySelector('.below') as HTMLElement
+    const playerBox = player.getBoundingClientRect()
+    const stageBox = stage.getBoundingClientRect()
+    return {
+      width: stage.clientWidth,
+      playerHeight: playerBox.height,
+      viewport: window.innerHeight,
+      stageBottom: stageBox.bottom,
+      barTop: bar.getBoundingClientRect().top,
+      belowTop: below.getBoundingClientRect().top,
+    }
+  })
+  h.check(
+    'responsive contain fills viewport height minus reserve at full width',
+    contain.width === 720 && Math.abs(contain.playerHeight - (contain.viewport - 40)) <= 1,
+    JSON.stringify(contain),
+  )
+  h.check(
+    'responsive contain keeps the bar and below content uncovered by the stage',
+    contain.stageBottom <= contain.barTop + 1 && contain.stageBottom <= contain.belowTop + 1,
+    JSON.stringify(contain),
+  )
 
   await h.page.setViewportSize({ width: 720, height: 520 })
   await h.page.goto(h.url('responsive-player-height.html'))

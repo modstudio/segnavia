@@ -50,7 +50,8 @@ segnavia-caption[data-empty]{display:block}
 :host([controls="overlay"][data-controls-hidden]:not([data-presenting])) .bar{opacity:0;pointer-events:none}
 :host([controls="overlay"][data-controls-hidden]:not([data-presenting])) segnavia-caption{padding-block-end:10px}
 segnavia-rail{grid-area:rail;min-block-size:0;display:none;border-inline-end:1px solid var(--_line);background:var(--_surface)}
-:host([rail]) segnavia-rail{display:block}
+/* Desk: size from the body row so the list scrolls. Compact restores auto height. */
+:host([rail]) segnavia-rail{display:block;contain:size;block-size:0;min-block-size:100%;overflow:hidden}
 .below{grid-area:below}
 segnavia-track{inline-size:100%}
 .control-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-block-size:var(--_play-size)}
@@ -75,7 +76,7 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   :host([data-layout="responsive"][fit="height"]) .player,:host([data-layout="responsive"][data-presenting]) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto}
   :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "rail" "below";grid-template-rows:auto auto auto}
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
-  segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line)}
+  :host([rail]) segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line);contain:none;block-size:auto;min-block-size:0;overflow:visible}
   /* Compact: a light, even edge; the desk shadow's downward throw muddies the controls packed right under the slide. */
   :host(:not([data-presenting])) segnavia-stage{box-shadow:0 0 0 1px var(--_line),0 1px 3px rgb(0 0 0 / .06)}
   /* Compact: host actions leave the transport row and share one row at the bottom, below the rail, so none can overlap Play or push Present off-screen. */

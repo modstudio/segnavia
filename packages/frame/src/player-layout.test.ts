@@ -7,6 +7,7 @@ import {
   containSlideSize,
   measuredBarHeight,
   PlayerMeasureChanges,
+  playerChromeHeight,
   playerControls,
   playerFit,
 } from './player-layout.ts'
@@ -47,6 +48,12 @@ test('measured bar height prefers the bar box and otherwise sums the flattened r
       }),
     ),
   ).toBe(102)
+})
+
+test('player chrome height includes caption, bar, below and a stacked rail', () => {
+  expect(playerChromeHeight({ overlay: false, captionHeight: 40, barHeight: 90, belowHeight: 120, stackedRailHeight: 80, screenPadding: 8 })).toBe(338)
+  expect(playerChromeHeight({ overlay: true, captionHeight: 40, barHeight: 90, belowHeight: 120, stackedRailHeight: 80, screenPadding: 0 })).toBe(200)
+  expect(playerChromeHeight({ overlay: false, captionHeight: 40, barHeight: 90, belowHeight: 0, stackedRailHeight: 0, screenPadding: 8 })).toBe(138)
 })
 
 test('contain sizing respects width, available height and its height floor', () => {
