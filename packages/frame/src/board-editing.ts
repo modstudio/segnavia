@@ -1,4 +1,15 @@
-import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard, settleBoard } from '@segnavia/format'
+import {
+  type ArrangeOptions,
+  addItem,
+  arrange,
+  type Board,
+  type BoardItem,
+  type Point,
+  removeFromGrid,
+  removeItems,
+  screenToBoard,
+  settleBoard,
+} from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
@@ -21,7 +32,7 @@ import { provisionalShape } from './board-policy.ts'
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
 
-type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section'
+type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section' | 'settle'
 type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[EditKind]
 type HistoryBoardEdit = { [Kind in 'undo' | 'redo']: { kind: Kind; edit: BoardEdit } }['undo' | 'redo']
 export type BoardEdit = DirectBoardEdit | HistoryBoardEdit
@@ -83,6 +94,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     board.addEventListener('segnavia-board-view', this.renderHandles)
     board.addEventListener('keyup', this.onKeyUp)
     this.renderHandles()
+    queueMicrotask(() => this.settleInitial())
   }
 
   get canUndo() {
@@ -129,7 +141,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
-    const removed = removeItems(current, existing)
+    const removed = removeItems(removeFromGrid(current, this.bridge.shapes(), existing), existing)
     this.apply(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
     this.board.focus()
   }
@@ -268,6 +280,14 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   private live(value: Board) {
     this.bridge.setOptimistic(value)
     this.renderHandles()
+  }
+
+  private settleInitial() {
+    const current = this.state?.value
+    if (!current || this.stopped) return
+    const ids = current.sections.map((section) => section.id)
+    const settled = settleBoard(current, current, this.bridge.shapes(), ids)
+    if (JSON.stringify(settled) !== JSON.stringify(current)) this.apply(settled, { kind: 'settle', ids })
   }
 
   private renderHandles = () => {

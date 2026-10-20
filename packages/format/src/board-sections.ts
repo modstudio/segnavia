@@ -1,13 +1,12 @@
 import type { Board, BoardSection } from './board.ts'
 import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
-import type { Box, Point } from './deck.ts'
+import { layoutSection } from './board-section-grid.ts'
 
-export const SECTION_PADDING = 24
-export const SECTION_TITLE_ROOM = 32
-export const SECTION_MIN_SIZE = { width: 240, height: 160 } as const
-export const SECTION_GAP = 16
-export const MAKE_ROOM_LIMIT = 50
+export { MAKE_ROOM_LIMIT, SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
+
+import { MAKE_ROOM_LIMIT, SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
+import type { Box, Point } from './deck.ts'
 
 function itemRectangle(board: Board, shapes: BoardShapes, id: string): Box | undefined {
   const item = board.items.find((entry) => entry.id === id)
@@ -171,11 +170,17 @@ function touchedSections(previous: Board, board: Board, touched: readonly string
 }
 
 function fitSections(board: Board, shapes: BoardShapes, sectionIds: readonly string[]): Board {
-  return sectionIds.reduce((value, id) => fitSection(value, shapes, id), board)
+  return sectionIds.reduce((value, id) => {
+    const section = value.sections.find((entry) => entry.id === id)
+    return section?.layout === 'manual' ? fitSection(value, shapes, id) : layoutSection(value, shapes, id)
+  }, board)
 }
 
 export function fitTouchedSections(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
-  return fitSections(board, shapes, touchedSections(previous, board, touched))
+  return touchedSections(previous, board, touched).reduce((value, id) => {
+    const section = value.sections.find((entry) => entry.id === id)
+    return section?.layout === 'manual' ? fitSection(value, shapes, id) : value
+  }, board)
 }
 
 export function settleBoard(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {

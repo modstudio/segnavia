@@ -5,6 +5,8 @@ import {
   type BoardShapes,
   type BoardView,
   boardToScreen,
+  type GridDropTarget,
+  gridDropMarkerBox,
   itemHeight,
   type Point,
   resizeItem,
@@ -48,6 +50,25 @@ export function placeMarquee(node: HTMLElement, start: Point, point: Point) {
     width: `${Math.abs(point.x - start.x)}px`,
     height: `${Math.abs(point.y - start.y)}px`,
   })
+}
+
+export function renderDropMarker(
+  overlay: HTMLElement,
+  board: Board | undefined,
+  sectionId: string | undefined,
+  target: GridDropTarget | undefined,
+  view: BoardView,
+  shapes: BoardShapes,
+) {
+  overlay.querySelector('[part~="drop-marker"]')?.remove()
+  if (!board || !sectionId || !target) return
+  const box = gridDropMarkerBox(board, shapes, sectionId, target)
+  if (!box) return
+  const point = boardToScreen(view, box)
+  const marker = document.createElement('div')
+  marker.part.add('drop-marker')
+  Object.assign(marker.style, { left: `${point.x}px`, top: `${point.y}px`, width: `${box.width * view.zoom}px`, height: `${box.height * view.zoom}px` })
+  overlay.append(marker)
 }
 
 export function renderResizeHandles(overlay: HTMLElement, item: BoardItem | undefined, view: BoardView, shape: { width: number; height: number } | undefined) {

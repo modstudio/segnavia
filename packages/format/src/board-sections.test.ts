@@ -24,8 +24,8 @@ const board = (direction: Board['direction'] = 'ltr'): Board => ({
   ],
   labels: [],
   sections: [
-    { id: 'first', title: 'First', rectangle: { x: 50, y: 40, width: 320, height: 220 }, items: ['one', 'two'] },
-    { id: 'second', title: 'Second', rectangle: { x: 450, y: 40, width: 200, height: 220 }, items: ['three'] },
+    { id: 'first', title: 'First', rectangle: { x: 50, y: 40, width: 320, height: 220 }, items: ['one', 'two'], layout: 'manual' },
+    { id: 'second', title: 'Second', rectangle: { x: 450, y: 40, width: 200, height: 220 }, items: ['three'], layout: 'manual' },
   ],
 })
 
@@ -173,6 +173,15 @@ describe('section room', () => {
     const fitted = fitTouchedSections(value, moved, shapes, ['two'])
     expect(fitted.sections[0]?.rectangle.width).toBe(440 + SECTION_PADDING * 2)
     expect(fitted.items[2]?.x).toBe(500)
+  })
+
+  test('does not reflow an auto section during a live edit', () => {
+    const value = board()
+    const first = value.sections[0]
+    if (!first) throw new Error('fixture section is missing')
+    const auto = { ...value, sections: [{ ...first, layout: 'auto' as const }, ...value.sections.slice(1)] }
+    const moved = moveItems(auto, ['two'], { x: 200, y: 0 })
+    expect(fitTouchedSections(auto, moved, shapes, ['two'])).toBe(moved)
   })
 
   test('settles a section that lost a touched member', () => {

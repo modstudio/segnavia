@@ -11,7 +11,7 @@ import { Lexicon } from './lexicon.ts'
 import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
-export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection } from './board.ts'
+export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
   addItem,
   type BoardItemAnchor,
@@ -40,6 +40,15 @@ export {
   zoomToFit,
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
+export {
+  deriveSectionCells,
+  type GridDropTarget,
+  gridDropMarkerBox,
+  gridDropTarget,
+  insertIntoGrid,
+  layoutSection,
+  removeFromGrid,
+} from './board-section-grid.ts'
 export {
   assignMembership,
   fitSection,

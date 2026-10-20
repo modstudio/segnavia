@@ -157,7 +157,7 @@ export async function checkBoardChrome(h: Harness) {
   await item.click()
   const boardBox = await board.boundingBox()
   if (!boardBox) throw new Error('The board has no box for selection checks.')
-  await h.page.mouse.click(boardBox.x + boardBox.width - 12, boardBox.y + boardBox.height - 12)
+  await h.page.mouse.click(boardBox.x + 12, boardBox.y + boardBox.height - 12)
   const emptySelected = await board.evaluate((element) => (element as HTMLElement & { selection: readonly string[] }).selection)
   h.check('clicking empty board surface clears selection', emptySelected.length === 0, String(emptySelected))
 
