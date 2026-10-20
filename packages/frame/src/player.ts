@@ -177,6 +177,14 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.setAuthoringScriptsRefused(refused)
   }
 
+  freezeAuthoringFrame(atMs: number) {
+    this.stage.freezeAuthoringFrame(atMs)
+  }
+
+  releaseAuthoringFrame() {
+    this.stage.releaseAuthoringFrame()
+  }
+
   connectedCallback() {
     this.resize.observe(this)
     // Overlay keeps the host still when the bar grows, so the bar is observed too.

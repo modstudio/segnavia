@@ -55,12 +55,17 @@ export class PrintMomentSaveQueue {
   }
 
   edit(slideId: string, value: number | null) {
+    this.editDraft(slideId, value)
+    void this.start(slideId)
+  }
+
+  editDraft(slideId: string, value: number | null) {
     const entry = this.entry(slideId)
+    if (entry.value === value) return
     entry.value = value
     entry.version++
     entry.status = 'idle'
     this.notify(slideId)
-    void this.start(slideId)
   }
 
   async flush(slideId: string): Promise<boolean> {

@@ -4,46 +4,101 @@ const PLAYER = 'segnavia-player'
 
 export async function verifyAuthoredPrintMoment(h: Harness) {
   const { page, check } = h
-  await page.evaluate(async () => {
-    const player = document.querySelector('segnavia-player') as HTMLElement & { controller: { seek(position: number): Promise<void> } }
-    const facts = (window as unknown as { authoringFacts: { deferPrintMoment: boolean } }).authoringFacts
-    facts.deferPrintMoment = true
-    await player.controller.seek(420)
+  await page.goto(h.url('authoring-print-frames.html'))
+  await page.waitForFunction(() => 'authoring' in window)
+  await page.waitForFunction(
+    () => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll('.slide-menu').length === 2,
+  )
+  const controls = await page.locator(PLAYER).evaluate((player) => {
+    const items = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll<HTMLLIElement>('li') ?? []
+    return [...items].map((item) => ({ id: item.dataset.slideId, menu: Boolean(item.querySelector('.slide-menu')) }))
   })
-  await page.locator(`${PLAYER} [data-use-frame]`).click()
-  const label = await page.locator(`${PLAYER} [data-authoring-print-moment] output`).textContent()
+  check(
+    'a static slide has no menu while animated and canvas slides do',
+    JSON.stringify(controls) ===
+      JSON.stringify([
+        { id: 'static', menu: false },
+        { id: 'animated', menu: true },
+        { id: 'canvas', menu: true },
+      ]),
+    JSON.stringify(controls),
+  )
+
+  const canvasMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="canvas"] .slide-menu`)
+  await canvasMenu.click()
+  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
+  const canvasMax = await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).getAttribute('max')
+  check('a canvas-only slide uses the ten second scrubber range', canvasMax === '10000', String(canvasMax))
+  await page.keyboard.press('Escape')
+
+  const animatedMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"] .slide-menu`)
+  await animatedMenu.focus()
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  const slider = page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`)
+  await slider.press('ArrowRight')
+  const keyboardDraft = await page.evaluate(
+    () =>
+      (window as unknown as { authoring: { draftDeck(): { slides: Array<{ id: string; printAtMs?: number }> } } }).authoring
+        .draftDeck()
+        .slides.find((slide) => slide.id === 'animated')?.printAtMs,
+  )
+  check('the print frame menu and scrubber work from the keyboard', keyboardDraft === 1, String(keyboardDraft))
+  await slider.evaluate((input: HTMLInputElement) => {
+    input.value = '420'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const frozen = await page
+    .frameLocator(`${PLAYER} segnavia-stage iframe`)
+    .locator('html')
+    .evaluate(() => Number(document.getAnimations()[0]?.currentTime))
+  check('moving the scrubber freezes the live slide at that time', frozen === 420, String(frozen))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(30)
+  const released = await page
+    .frameLocator(`${PLAYER} segnavia-stage iframe`)
+    .locator('html')
+    .evaluate(() => document.getAnimations()[0]?.playState)
+  check('closing the scrubber releases the live animation', released === 'running', String(released))
+
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { deferPrintMoment: boolean } }).authoringFacts.deferPrintMoment = true))
+  await animatedMenu.click()
+  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
+  await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).evaluate((input: HTMLInputElement) => {
+    input.value = '1200'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await page.locator(`${PLAYER} segnavia-rail [data-done]`).click()
+  await page.waitForFunction(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves.length === 2)
+  const saveFacts = await page.evaluate(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves)
+  check(
+    'Done saves the chosen frame once',
+    JSON.stringify(saveFacts.at(-1)) === JSON.stringify({ slideId: 'animated', printAtMs: 1200 }),
+    JSON.stringify(saveFacts),
+  )
+
   await page.evaluate(async () => {
     const bundle = '/segnavia.js'
     const { printDeck } = (await import(bundle)) as { printDeck(deck: unknown, options: unknown): Promise<void> }
-    const holder = window as unknown as {
-      authoring: { draftDeck(): unknown }
-      authoredPrint?: Promise<void>
-      releaseAuthoredPrint?: () => void
-    }
-    holder.authoredPrint = printDeck(holder.authoring.draftDeck(), {
-      print: () => new Promise<void>((resolve) => (holder.releaseAuthoredPrint = resolve)),
-    })
+    const holder = window as unknown as { authoring: { draftDeck(): unknown }; authoredPrint?: Promise<void>; releaseAuthoredPrint?: () => void }
+    holder.authoredPrint = printDeck(holder.authoring.draftDeck(), { print: () => new Promise<void>((resolve) => (holder.releaseAuthoredPrint = resolve)) })
   })
   await page.waitForFunction(() => typeof (window as unknown as { releaseAuthoredPrint?: unknown }).releaseAuthoredPrint === 'function')
-  const frozen = await page
+  const printed = await page
     .frameLocator('body > iframe[style*="-20000px"]')
     .frameLocator('iframe')
-    .first()
+    .nth(1)
     .locator('#print-target')
-    .evaluate((target) => ({ opacity: getComputedStyle(target).opacity, time: Number(document.getAnimations()[0]?.currentTime) }))
+    .evaluate(() => Number(document.getAnimations()[0]?.currentTime))
   await page.evaluate(async () => {
     const holder = window as unknown as {
-      authoredPrint?: Promise<void>
-      releaseAuthoredPrint?: () => void
+      authoredPrint: Promise<void>
+      releaseAuthoredPrint(): void
       authoringFacts: { releasePrintMoment(): void }
     }
-    holder.releaseAuthoredPrint?.()
+    holder.releaseAuthoredPrint()
     await holder.authoredPrint
     holder.authoringFacts.releasePrintMoment()
   })
-  check(
-    'printing draftDeck freezes an animated slide at the frame chosen while its save is pending',
-    label === 'Prints at 0.42 s' && frozen.time === 420 && Math.abs(Number(frozen.opacity) - 0.42) < 0.01,
-    JSON.stringify({ label, frozen }),
-  )
+  check('printing draftDeck freezes the printed slide at the chosen time', printed === 1200, String(printed))
 }

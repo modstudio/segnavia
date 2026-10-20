@@ -235,4 +235,12 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private onResize = () => this.measure()
+
+  freezeAuthoringFrame(atMs: number) {
+    this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.freeze, atMs }, '*')
+  }
+
+  releaseAuthoringFrame() {
+    this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
+  }
 }

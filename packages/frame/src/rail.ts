@@ -11,13 +11,22 @@ ol{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;block-size:
 ol{--_fade-dir:to bottom;--_fade-before:0px;--_fade-after:0px;mask-image:linear-gradient(var(--_fade-dir),transparent,#000 var(--_fade-before),#000 calc(100% - var(--_fade-after)),transparent)}
 ol[data-more-before]{--_fade-before:32px}ol[data-more-after]{--_fade-after:32px}
 li{flex:none;position:relative}
-button{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
+button{font:inherit}
+button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:16/9;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
 [aria-selected="true"] .preview{border:2px solid var(--segnavia-accent,#356ae6)}
 button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
 button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
 .number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
+.slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:6px;background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
+li:hover>.slide-menu,li:focus-within>.slide-menu,.slide-menu[aria-expanded="true"]{opacity:1;pointer-events:auto}
+.print-mark{position:absolute;z-index:3;inset-inline-end:6px;inset-block-end:5px;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);font:12px/1 system-ui}
+.print-menu-panel,.print-frame-panel{position:absolute;z-index:8;inset-block-start:36px;inset-inline-end:5px;box-sizing:border-box;min-inline-size:150px;padding:6px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:8px;background:Canvas;color:CanvasText;box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 system-ui}
+.print-menu-panel button{inline-size:100%;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:inherit;text-align:start;cursor:pointer}
+.print-menu-panel button:hover,.print-menu-panel button:focus-visible{background:color-mix(in srgb,CanvasText 8%,transparent)}
+.print-frame-panel{display:grid;gap:8px;inline-size:min(230px,calc(100vw - 24px));padding:10px}
+.print-frame-panel output{font-weight:600}.print-frame-panel input{inline-size:100%}.print-frame-actions{display:flex;justify-content:space-between;gap:8px}.print-frame-actions button{padding:5px 9px}
 .segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));pointer-events:none}
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
@@ -33,6 +42,12 @@ export interface RailReorderIntent {
   toIndex: number
 }
 
+export interface RailPrintFrameItem {
+  slideId: string
+  label: string
+  markLabel?: string
+}
+
 export class SegnaviaRail extends SegnaviaControl {
   mountMargin = 400
   private observer: IntersectionObserver | null = null
@@ -45,6 +60,8 @@ export class SegnaviaRail extends SegnaviaControl {
   private reorderEnabled = false
   private dragFrom: number | null = null
   private reorderListeners = new Set<(intent: RailReorderIntent) => void>()
+  private printFrames = new Map<string, RailPrintFrameItem>()
+  private openPrintFrame: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
 
   protected styles() {
     return RAIL_CSS
@@ -116,7 +133,39 @@ export class SegnaviaRail extends SegnaviaControl {
     this.root.querySelector('ol')?.replaceChildren()
   }
 
+  setPrintFrames(items: readonly RailPrintFrameItem[], open: ((slideId: string, anchor: HTMLButtonElement) => void) | null) {
+    this.printFrames = new Map(items.map((item) => [item.slideId, item]))
+    this.openPrintFrame = open
+    if (this.controller?.state.deck) this.reconcile(this.controller.state)
+  }
+
+  animationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
+    const data = event.data as { type?: unknown; animated?: unknown; lengthMs?: unknown }
+    if (data.type !== 'segnavia:animation' || typeof data.animated !== 'boolean') return null
+    for (const item of this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')) {
+      const frame = item.querySelector('iframe')
+      if (frame?.contentWindow !== event.source) continue
+      const lengthMs = typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) ? data.lengthMs : null
+      return { slideId: item.dataset.slideId ?? '', animated: data.animated, lengthMs }
+    }
+    return null
+  }
+
+  itemForSlide(slideId: string): HTMLLIElement | null {
+    return [...this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')].find((item) => item.dataset.slideId === slideId) ?? null
+  }
+
+  requestAnimationReports() {
+    for (const frame of this.root.querySelectorAll<HTMLIFrameElement>('iframe')) frame.contentWindow?.postMessage({ type: 'segnavia:inspect' }, '*')
+  }
+
   protected clicked(event: Event) {
+    const menu = (event.target as Element).closest<HTMLButtonElement>('.slide-menu')
+    if (menu) {
+      const slideId = menu.closest<HTMLLIElement>('li')?.dataset.slideId
+      if (slideId) this.openPrintFrame?.(slideId, menu)
+      return
+    }
     const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
     if (!button) return
     this.selected = Number(button.dataset.index)
@@ -141,6 +190,31 @@ export class SegnaviaRail extends SegnaviaControl {
       button.draggable = this.reorderEnabled
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
+      const authoring = this.printFrames.get(slide.id)
+      let menu = item.querySelector<HTMLButtonElement>('.slide-menu')
+      let mark = item.querySelector<HTMLElement>('.print-mark')
+      if (authoring) {
+        if (!menu) {
+          menu = document.createElement('button')
+          menu.type = 'button'
+          menu.className = 'slide-menu'
+          menu.textContent = '⋯'
+          item.append(menu)
+        }
+        menu.setAttribute('aria-label', authoring.label)
+        if (authoring.markLabel) {
+          if (!mark) {
+            mark = document.createElement('span')
+            mark.className = 'print-mark'
+            mark.textContent = '⎙'
+            item.append(mark)
+          }
+          mark.setAttribute('aria-label', authoring.markLabel)
+        } else mark?.remove()
+      } else {
+        menu?.remove()
+        mark?.remove()
+      }
       list.append(item)
     })
   }

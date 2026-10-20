@@ -1,19 +1,15 @@
 import { expect, test } from 'bun:test'
 import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
-import { AuthoringPrintMoment } from './authoring-print-moment.ts'
+import { printFrameBounds } from './authoring-print-moment.ts'
 import { DeckController } from './controller.ts'
 import { PrintMomentSaveQueue } from './print-moment-save.ts'
 
-function printMomentControl(
-  state: { slide: { id: string; content: { kind: 'html'; html: string } }; playing: boolean; slideElapsedMs: number },
-  queue: PrintMomentSaveQueue,
-) {
-  const control = Object.create(AuthoringPrintMoment.prototype) as AuthoringPrintMoment
-  Object.assign(control, { player: { controller: { state } }, queue })
-  return control as unknown as { useCurrentFrame(): void; reset(): void }
-}
+test('the slider uses the animation length and falls back to ten seconds', () => {
+  expect(printFrameBounds(3250)).toEqual({ min: 0, max: 3250, step: 1 })
+  expect(printFrameBounds(null)).toEqual({ min: 0, max: 10_000, step: 1 })
+})
 
-test('Use this frame saves the rounded slide-local position and Reset clears it', async () => {
+test('the slider draft changes without saving and Done saves once', async () => {
   const saves: Array<{ slideId: string; printAtMs: number | null }> = []
   const queue = new PrintMomentSaveQueue(
     async (input) => {
@@ -22,18 +18,26 @@ test('Use this frame saves the rounded slide-local position and Reset clears it'
     () => {},
   )
   queue.seed('animated', null)
-  const state = { slide: { id: 'animated', content: { kind: 'html' as const, html: '' } }, playing: false, slideElapsedMs: 1234.6 }
-  const control = printMomentControl(state, queue)
-
-  control.useCurrentFrame()
+  queue.editDraft('animated', 1235)
+  expect(queue.draft('animated')).toBe(1235)
+  expect(saves).toEqual([])
   await queue.flush('animated')
-  control.reset()
   await queue.flush('animated')
+  expect(saves).toEqual([{ slideId: 'animated', printAtMs: 1235 }])
+})
 
-  expect(saves).toEqual([
-    { slideId: 'animated', printAtMs: 1235 },
-    { slideId: 'animated', printAtMs: null },
-  ])
+test('Reset drafts and sends null', async () => {
+  const saves: Array<number | null> = []
+  const queue = new PrintMomentSaveQueue(
+    async ({ printAtMs }) => {
+      saves.push(printAtMs)
+    },
+    () => {},
+  )
+  queue.seed('animated', 1200)
+  queue.editDraft('animated', null)
+  await queue.flush('animated')
+  expect(saves).toEqual([null])
 })
 
 test('a failed print moment save reports its operation and remains in draftDeck', async () => {

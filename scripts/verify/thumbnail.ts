@@ -18,7 +18,7 @@ export async function verifyThumbnail(h: Harness) {
   })
   check('a thumbnail renders an HTML slide at the host width and deck aspect ratio', facts.width === 320 && facts.height === 180, JSON.stringify(facts))
   check('a thumbnail exposes its host styling part', facts.part === 'thumbnail', String(facts.part))
-  check('a thumbnail frame has an empty sandbox', facts.sandbox === '', String(facts.sandbox))
+  check('a thumbnail frame lets only the nonce-protected bridge run', facts.sandbox === 'allow-scripts', String(facts.sandbox))
 
   const background = await page
     .locator('#html iframe')

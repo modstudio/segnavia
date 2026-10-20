@@ -27,6 +27,22 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
   })
   writeFileSync(path.join(site, 'deck-probe.json'), JSON.stringify(probe))
   writeFileSync(path.join(site, 'deck-probe-rtl.json'), JSON.stringify({ ...probe, dir: 'rtl' }))
+  const printFrames = Deck.parse({
+    title: 'Print frame probe',
+    scripts: 'sandboxed',
+    slides: [
+      { id: 'static', content: { kind: 'html', html: '<h1>Static</h1>' } },
+      {
+        id: 'animated',
+        content: {
+          kind: 'html',
+          html: '<style>@keyframes authoring-fade{from{opacity:0}to{opacity:1}}#print-target{animation:authoring-fade 3s linear both}</style><div id="print-target">Animated</div>',
+        },
+      },
+      { id: 'canvas', content: { kind: 'html', html: '<canvas width="80" height="40"></canvas>' } },
+    ],
+  })
+  writeFileSync(path.join(site, 'deck-print-frames.json'), JSON.stringify(printFrames))
   writeFileSync(
     path.join(site, 'authoring.html'),
     shell(
@@ -36,6 +52,12 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
   writeFileSync(
     path.join(site, 'authoring-rtl.html'),
     shell('<segnavia-player id="player" rail src="deck-probe-rtl.json" hash="off"></segnavia-player><script type="module" src="authoring-demo.js"></script>'),
+  )
+  writeFileSync(
+    path.join(site, 'authoring-print-frames.html'),
+    shell(
+      '<segnavia-player id="player" rail src="deck-print-frames.json" hash="off"></segnavia-player><script type="module" src="authoring-demo.js"></script>',
+    ),
   )
   writeFileSync(
     path.join(site, 'react.html'),

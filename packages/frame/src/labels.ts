@@ -17,9 +17,11 @@ export interface PlayerLabels {
   savingNotes: string
   savedNotes: string
   tryNotesAgain: string
-  printsAtStart: string
   printsAt: (seconds: string) => string
-  useThisFrame: string
+  slideOptions: string
+  printFrame: string
+  printFrameValue: (current: string, total: string) => string
+  done: string
   resetPrintMoment: string
   noSpeakerNotes: string
   notes: string
@@ -63,9 +65,11 @@ export const ENGLISH_LABELS: PlayerLabels = {
   savingNotes: 'Saving…',
   savedNotes: 'Saved',
   tryNotesAgain: 'Try again',
-  printsAtStart: 'Prints at the start',
   printsAt: (seconds) => `Prints at ${seconds} s`,
-  useThisFrame: 'Use this frame',
+  slideOptions: 'Slide options',
+  printFrame: 'Print frame…',
+  printFrameValue: (current, total) => `${current} s / ${total} s`,
+  done: 'Done',
   resetPrintMoment: 'Reset',
   noSpeakerNotes: 'No speaker notes',
   notes: 'Notes',

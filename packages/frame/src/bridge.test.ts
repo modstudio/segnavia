@@ -34,7 +34,7 @@ describe('frame document', () => {
   test('sandboxed scripts carry no script policy, so the author code runs', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
     expect(html).not.toContain('script-src')
-    expect(html).not.toContain('segnavia:print')
+    expect(html).toContain("new CustomEvent('segnavia:print'")
   })
 
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
@@ -44,7 +44,7 @@ describe('frame document', () => {
     expect(html).not.toMatch(/fragment=decodeURIComponent/)
     expect(html.match(/decodeURIComponent/g)).toHaveLength(1)
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
-    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.key, MESSAGE.height, MESSAGE.ready])
+    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.animation, MESSAGE.key, MESSAGE.height, MESSAGE.ready])
     expect(html).toContain(
       "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
     )

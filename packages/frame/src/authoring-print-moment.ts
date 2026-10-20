@@ -1,12 +1,6 @@
 import type { SegnaviaPlayer } from './player.ts'
 import { PrintMomentSaveQueue } from './print-moment-save.ts'
-
-const PRINT_MOMENT_CSS = `<style>
-[data-authoring-print-moment]{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;border-block-start:1px solid var(--_line);background:var(--_surface);font:13px/1.4 system-ui;color:var(--_ink)}
-[data-authoring-print-moment] output{font-weight:600;margin-inline-end:auto}
-[data-authoring-print-moment] button{padding:6px 9px;border:1px solid var(--_line);border-radius:8px;background:var(--_bg);color:var(--_ink);font:inherit;cursor:pointer}
-[data-authoring-print-moment] button:disabled{cursor:default;opacity:.5}
-</style>`
+import type { RailPrintFrameItem, SegnaviaRail } from './rail.ts'
 
 export interface SavePrintMomentInput {
   slideId: string
@@ -15,10 +9,28 @@ export interface SavePrintMomentInput {
 
 export type SavePrintMoment = (input: SavePrintMomentInput) => Promise<void>
 
+interface AnimationMetadata {
+  animated: boolean
+  lengthMs: number | null
+}
+
+interface OpenPanel {
+  slideId: string
+  anchor: HTMLButtonElement
+  initial: number | null
+  popover: boolean
+}
+
+export function printFrameBounds(lengthMs: number | null): { min: number; max: number; step: number } {
+  return { min: 0, max: lengthMs ?? 10_000, step: 1 }
+}
+
 export class AuthoringPrintMoment {
   readonly queue: PrintMomentSaveQueue
-  private root: HTMLElement
+  private rail: SegnaviaRail
+  private metadata = new Map<string, AnimationMetadata>()
   private renderedDeck: unknown = null
+  private open: OpenPanel | null = null
 
   constructor(
     private player: SegnaviaPlayer,
@@ -26,16 +38,13 @@ export class AuthoringPrintMoment {
     dirtyChanged: () => void,
     failed: (slideId: string, error: unknown) => void,
   ) {
-    this.root = document.createElement('div')
-    this.root.dataset.authoringPrintMoment = ''
-    this.root.innerHTML = `${PRINT_MOMENT_CSS}<output></output><button type="button" data-use-frame></button><button type="button" data-reset></button>`
-    this.player.authoringMount().prepend(this.root)
+    this.rail = player.authoringRail()
     this.queue = new PrintMomentSaveQueue(save, dirtyChanged, this.render, failed)
-    this.root.querySelector('[data-use-frame]')?.addEventListener('click', () => this.useCurrentFrame())
-    this.root.querySelector('[data-reset]')?.addEventListener('click', () => this.reset())
+    window.addEventListener('message', this.onMessage)
     this.player.controller.addEventListener('change', this.render)
     this.player.addEventListener('segnavia-labels', this.render)
     this.render()
+    this.rail.requestAnimationReports()
   }
 
   setSave(save: SavePrintMoment) {
@@ -43,43 +52,133 @@ export class AuthoringPrintMoment {
   }
 
   dispose() {
+    this.close(false)
+    window.removeEventListener('message', this.onMessage)
+    window.removeEventListener('pointerdown', this.outside)
     this.player.controller.removeEventListener('change', this.render)
     this.player.removeEventListener('segnavia-labels', this.render)
-    this.root.remove()
+    this.rail.setPrintFrames([], null)
+  }
+
+  private onMessage = (event: MessageEvent) => {
+    const report = this.rail.animationMessage(event)
+    if (!report?.slideId) return
+    this.metadata.set(report.slideId, { animated: report.animated, lengthMs: report.lengthMs })
+    this.render()
   }
 
   private render = () => {
-    const { deck, slide, playing } = this.player.controller.state
+    const deck = this.player.controller.state.deck
     if (deck !== this.renderedDeck) {
       this.renderedDeck = deck
-      for (const deckSlide of deck?.slides ?? []) this.queue.seed(deckSlide.id, deckSlide.printAtMs ?? null)
+      for (const slide of deck?.slides ?? []) this.queue.seed(slide.id, slide.printAtMs ?? null)
     }
-    const html = slide?.content.kind === 'html'
-    this.root.hidden = !html
-    if (!slide || !html) return
-    const value = this.queue.state(slide.id).value
-    const output = this.root.querySelector('output')
-    const use = this.root.querySelector('[data-use-frame]') as HTMLButtonElement
-    const reset = this.root.querySelector('[data-reset]') as HTMLButtonElement
-    if (output) output.textContent = value === null ? this.player.labels.printsAtStart : this.player.labels.printsAt(seconds(value))
-    use.textContent = this.player.labels.useThisFrame
-    use.disabled = playing
+    const items: RailPrintFrameItem[] = []
+    for (const slide of deck?.slides ?? []) {
+      if (slide.content.kind !== 'html' || !this.metadata.get(slide.id)?.animated) continue
+      const value = this.queue.state(slide.id).value
+      items.push({
+        slideId: slide.id,
+        label: this.player.labels.slideOptions,
+        ...(value === null ? {} : { markLabel: this.player.labels.printsAt(seconds(value)) }),
+      })
+    }
+    this.rail.setPrintFrames(items, this.openMenu)
+  }
+
+  private openMenu = (slideId: string, anchor: HTMLButtonElement) => {
+    if (this.open?.slideId === slideId) return this.close(false)
+    this.close(true)
+    const item = this.rail.itemForSlide(slideId)
+    if (!item) return
+    anchor.setAttribute('aria-expanded', 'true')
+    const panel = document.createElement('div')
+    panel.className = 'print-menu-panel'
+    panel.innerHTML = '<button type="button"></button>'
+    const choose = panel.querySelector('button') as HTMLButtonElement
+    choose.textContent = this.player.labels.printFrame
+    choose.addEventListener('click', () => void this.openPopover(slideId, panel))
+    panel.addEventListener('keydown', this.onKey)
+    item.append(panel)
+    this.open = { slideId, anchor, initial: this.queue.state(slideId).value, popover: false }
+    choose.focus()
+    setTimeout(() => window.addEventListener('pointerdown', this.outside), 0)
+  }
+
+  private async openPopover(slideId: string, menu: HTMLElement) {
+    const deck = this.player.controller.state.deck
+    const index = deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1
+    if (index < 0) return
+    if (this.player.controller.state.index !== index) await this.player.controller.go(index)
+    if (this.open?.slideId !== slideId) return
+    menu.remove()
+    const item = this.rail.itemForSlide(slideId)
+    if (!item) return
+    const bounds = printFrameBounds(this.metadata.get(slideId)?.lengthMs ?? null)
+    const saved = this.queue.state(slideId).value
+    const value = Math.min(bounds.max, Math.max(bounds.min, saved ?? 0))
+    const panel = document.createElement('div')
+    panel.className = 'print-frame-panel'
+    panel.innerHTML =
+      '<output></output><input type="range"><div class="print-frame-actions"><button type="button" data-reset></button><button type="button" data-done></button></div>'
+    const slider = panel.querySelector('input') as HTMLInputElement
+    slider.min = String(bounds.min)
+    slider.max = String(bounds.max)
+    slider.step = String(bounds.step)
+    slider.value = String(value)
+    const show = () => {
+      const current = Number(slider.value)
+      const output = panel.querySelector('output') as HTMLOutputElement
+      output.textContent = this.player.labels.printFrameValue(seconds(current), seconds(bounds.max))
+      this.player.freezeAuthoringFrame(current)
+    }
+    slider.addEventListener('input', () => {
+      this.queue.editDraft(slideId, Math.round(Number(slider.value)))
+      show()
+    })
+    const reset = panel.querySelector('[data-reset]') as HTMLButtonElement
     reset.textContent = this.player.labels.resetPrintMoment
-    reset.disabled = value === null
+    reset.addEventListener('click', () => {
+      slider.value = '0'
+      this.queue.editDraft(slideId, null)
+      show()
+    })
+    const done = panel.querySelector('[data-done]') as HTMLButtonElement
+    done.textContent = this.player.labels.done
+    done.addEventListener('click', () => this.close(true))
+    panel.addEventListener('keydown', this.onKey)
+    item.append(panel)
+    this.open.popover = true
+    show()
+    slider.focus()
   }
 
-  private useCurrentFrame() {
-    const { slide, playing, slideElapsedMs } = this.player.controller.state
-    if (slide?.content.kind !== 'html' || playing) return
-    this.queue.edit(slide.id, Math.round(slideElapsedMs))
+  private onKey = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    this.close(true)
   }
 
-  private reset() {
-    const slide = this.player.controller.state.slide
-    if (slide?.content.kind === 'html') this.queue.edit(slide.id, null)
+  private outside = (event: PointerEvent) => {
+    const item = this.open && this.rail.itemForSlide(this.open.slideId)
+    if (item?.contains(event.target as Node)) return
+    this.close(true)
+  }
+
+  private close(save: boolean) {
+    const open = this.open
+    if (!open) return
+    this.open = null
+    window.removeEventListener('pointerdown', this.outside)
+    this.rail.itemForSlide(open.slideId)?.querySelector('.print-menu-panel,.print-frame-panel')?.remove()
+    open.anchor.setAttribute('aria-expanded', 'false')
+    if (open.popover) this.player.releaseAuthoringFrame()
+    if (save && this.queue.state(open.slideId).value !== open.initial) void this.queue.flush(open.slideId)
+    open.anchor.focus()
   }
 }
 
 function seconds(milliseconds: number): string {
-  return String(milliseconds / 1000)
+  return (milliseconds / 1000).toFixed(1)
 }

@@ -3,4 +3,4 @@
 '@segnavia/react': minor
 ---
 
-Let authors choose or reset an HTML slide's print moment through the opt-in authoring handlers and controls.
+Let authors choose or reset an animated HTML slide's print moment from its thumbnail menu with a live frame scrubber.
