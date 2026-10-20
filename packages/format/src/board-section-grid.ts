@@ -203,6 +203,8 @@ export function insertIntoGrid(board: Board, shapes: BoardShapes, id: string, id
     row: target.axis === 'column' ? Math.max(0, target.row - offset) : target.row,
     column: target.axis === 'row' ? Math.max(0, target.column - offset) : target.column,
   }
+  const onlyCell = unique.length === 1 ? originalCells.find((cell) => cell.id === unique[0]) : undefined
+  if (onlyCell && onlyCell.row === adjusted.row && onlyCell.column === adjusted.column) return board
   const removed = removeFromGrid(board, shapes, unique)
   const section = sectionOf(removed, id)
   if (!section || section.layout === 'manual') return removed

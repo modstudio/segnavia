@@ -72,6 +72,10 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
 }
 
 async function checkSameSectionReorder(h: Harness, board: Locator, first: Locator, second: Locator) {
+  const before = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection
+    return structuredClone(section)
+  })
   const secondBox = await second.boundingBox()
   const firstFrom = await center(first)
   if (!secondBox) throw new Error('The second grid item has no box.')
@@ -85,8 +89,13 @@ async function checkSameSectionReorder(h: Harness, board: Locator, first: Locato
   })
   h.check(
     'dropping the first member on the far edge of the second swaps their grid order',
-    reordered.items.join() === 'deck-hebrew,deck-small',
-    JSON.stringify(reordered),
+    reordered.items.join() === 'deck-hebrew,deck-small' &&
+      reordered.cells.find((cell) => cell.id === 'deck-hebrew')?.row === 0 &&
+      reordered.cells.find((cell) => cell.id === 'deck-hebrew')?.column === 0 &&
+      reordered.cells.find((cell) => cell.id === 'deck-small')?.row === 0 &&
+      reordered.cells.find((cell) => cell.id === 'deck-small')?.column === 1 &&
+      reordered.rectangle.height === before.rectangle.height,
+    JSON.stringify({ before, reordered }),
   )
 }
 
@@ -109,6 +118,21 @@ export async function checkBoardEditingSections(
     JSON.stringify(attached),
   )
   await reset()
+  const reassigned = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+      cells: Array<{ id: string; row: number; column: number }>
+    }
+    return { cells: structuredClone(section.cells), changes: (window as unknown as DemoWindow).boardChanges.map((change) => change.edit.kind) }
+  })
+  h.check(
+    'assigning a host board with stored cells does not derive them or settle again',
+    reassigned.cells.find((cell) => cell.id === 'deck-small')?.row === 0 &&
+      reassigned.cells.find((cell) => cell.id === 'deck-small')?.column === 0 &&
+      reassigned.cells.find((cell) => cell.id === 'deck-hebrew')?.row === 0 &&
+      reassigned.cells.find((cell) => cell.id === 'deck-hebrew')?.column === 1 &&
+      !reassigned.changes.includes('settle'),
+    JSON.stringify(reassigned),
+  )
   const titleBox = await board.locator('[part~="section-title"]').boundingBox()
   const labelBox = await board.locator('[part~="label"]').first().boundingBox()
   const initialOverlap =

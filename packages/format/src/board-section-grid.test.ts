@@ -181,6 +181,11 @@ describe('auto section grid edits', () => {
 
   test('a drop on a member own neighboring edge preserves row order', () => {
     expect(insertIntoGrid(singleRow(), shapes, 'grid', ['wide'], { row: 0, column: 1, axis: 'row' }).sections[0]?.items).toEqual(['wide', 'tall', 'small'])
+    expect(insertIntoGrid(singleRow(), shapes, 'grid', ['wide'], { row: 0, column: 0, axis: 'column' }).sections[0]?.cells).toEqual([
+      { id: 'wide', row: 0, column: 0 },
+      { id: 'tall', row: 0, column: 1 },
+      { id: 'small', row: 0, column: 2 },
+    ])
   })
 
   test('translates column targets after removing a member from its original cell', () => {
