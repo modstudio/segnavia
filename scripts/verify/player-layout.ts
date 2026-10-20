@@ -1,5 +1,6 @@
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 import { verifyCompactPlayerActions } from './player-compact.ts'
+import { verifyContainment } from './player-containment.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -184,6 +185,7 @@ export async function verifyPlayerLayout(h: Harness) {
   )
   await verifyRemoval(h)
   await verifyCompactPlayerActions(h)
+  await verifyContainment(h)
 }
 
 async function verifyRemoval(h: Harness) {

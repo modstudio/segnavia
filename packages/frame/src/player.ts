@@ -21,7 +21,16 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import { containSlideSize, measuredBarHeight, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import {
+  containSlideSize,
+  measuredBarHeight,
+  type PlayerControls,
+  type PlayerFit,
+  PlayerMeasureChanges,
+  playerChromeHeight,
+  playerControls,
+  playerFit,
+} from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -172,6 +181,7 @@ export class SegnaviaPlayer extends HTMLElement {
     this.resize.observe(this)
     // Overlay keeps the host still when the bar grows, so the bar is observed too.
     this.resize.observe(this.root.querySelector('.bar') as HTMLElement)
+    this.resize.observe(this.root.querySelector('.below') as HTMLElement)
     window.addEventListener('resize', this.scheduleMeasure)
     window.addEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.addEventListener('resize', this.scheduleMeasure)
@@ -315,15 +325,18 @@ export class SegnaviaPlayer extends HTMLElement {
     const availableHeight = viewport?.height ?? window.innerHeight
     const screenStyle = getComputedStyle(screen)
     const rail = this.root.querySelector('segnavia-rail') as HTMLElement
-    const railHeight = this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0
-    const chromeHeight =
-      (this.controls === 'overlay' ? 0 : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + this.barHeight()) +
-      railHeight +
-      (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
-      (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)
+    const below = this.root.querySelector('.below') as HTMLElement
+    const chromeHeight = playerChromeHeight({
+      overlay: this.controls === 'overlay',
+      captionHeight: caption.offsetHeight,
+      barHeight: this.barHeight(),
+      belowHeight: below.offsetHeight,
+      stackedRailHeight: this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0,
+      screenPadding: (Number.parseFloat(screenStyle.paddingBlockStart) || 0) + (Number.parseFloat(screenStyle.paddingBlockEnd) || 0),
+    })
     const reserve = (this.root.querySelector('.fit-reserve') as HTMLElement).offsetHeight
     if (deck.layout === 'responsive') {
-      const height = Math.max(0, availableHeight - reserve)
+      const height = Math.max(0, availableHeight - reserve - chromeHeight)
       screen.style.blockSize = `${height}px`
       this.stage.style.inlineSize = '100%'
       this.stage.style.blockSize = `${height}px`

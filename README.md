@@ -51,10 +51,11 @@ Use the finished player as it is:
 The player defaults to `fit="contain"`, keeping its slide, caption and controls
 within the visible viewport. Use `fit="width"` for width-only sizing or
 `fit="height"` inside a definite-height host. Controls remain below the slide
-by default; `controls="overlay"` draws them over it. A host can use
-`--segnavia-fit-reserve` for height kept by fixed or sticky chrome, or for
-content that must remain visible with the player, and can set the overlay scrim
-with `--segnavia-overlay-scrim`.
+by default; `controls="overlay"` draws them over it. `--segnavia-fit-reserve`
+is only the host page's chrome — the space above and below the player. The
+player itself accounts for caption, bar, `.below` and a stacked rail, so a host
+must not put those in the reserve. A host can set the overlay scrim with
+`--segnavia-overlay-scrim`.
 
 The published `@segnavia/frame/browser/headless`, `/browser/controls` and
 `/browser/player` files are self-contained browser bundles. Controls include

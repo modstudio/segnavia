@@ -16,3 +16,10 @@ test('compact widths put host actions on one row at the bottom, below the rail',
   expect(PLAYER_CSS).not.toContain('padding:0 0 12px 12px')
   expect(PLAYER_CSS).toContain('padding-block-end:var(--segnavia-bar-height,96px)')
 })
+
+test('the desk rail takes its size from the body row and compact restores content height', () => {
+  expect(PLAYER_CSS).toContain(':host([rail]) segnavia-rail{display:block;contain:size;block-size:0;min-block-size:100%;overflow:hidden}')
+  expect(PLAYER_CSS).toContain(
+    ':host([rail]) segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line);contain:none;block-size:auto;min-block-size:0;overflow:visible}',
+  )
+})

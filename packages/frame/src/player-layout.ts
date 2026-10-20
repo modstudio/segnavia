@@ -71,6 +71,20 @@ export class PlayerMeasureChanges {
   }
 }
 
+export interface PlayerChromeInput {
+  overlay: boolean
+  captionHeight: number
+  barHeight: number
+  belowHeight: number
+  stackedRailHeight: number
+  screenPadding: number
+}
+
+// One place for the player's own chrome. Host page chrome stays in --segnavia-fit-reserve.
+export function playerChromeHeight(input: PlayerChromeInput): number {
+  return (input.overlay ? 0 : input.captionHeight + input.barHeight) + input.belowHeight + input.stackedRailHeight + input.screenPadding
+}
+
 export function containSlideSize(input: ContainSizeInput): { width: number; height: number } {
   const widthLimitedHeight = input.availableWidth / input.ratio
   const heightLimitedHeight = Math.max(240, input.availableHeight - input.chromeHeight - input.reserve)

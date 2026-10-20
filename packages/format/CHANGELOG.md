@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.14.0
+
+### Minor Changes
+
+- aea4e97: Fit board sections to their members across membership changes, preserve membership within the starting box, show drop targets, and move overlapping items, sections and labels clear as one undoable edit.
+
 ## 0.13.0
 
 ### Minor Changes
