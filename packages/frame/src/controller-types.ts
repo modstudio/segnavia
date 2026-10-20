@@ -16,7 +16,7 @@ export interface DeckState {
   elapsedMs: number
   totalMs: number
   slideElapsedMs: number
-  playback: 'step' | 'continuous'
+  playback: 'segmented' | 'continuous'
   muted: boolean
   captionsVisible: boolean
   presenting: boolean
@@ -29,7 +29,7 @@ export interface ControllerOptions {
   keys?: 'stage' | 'page'
   hash?: string | null
   clock?: (slide: Slide, audio: string | null) => Clock
-  playback?: 'step' | 'continuous'
+  playback?: 'segmented' | 'continuous'
   captions?: 'on' | 'off' | 'viewer'
   persist?: boolean
   schedule?: (tick: () => void) => () => void
@@ -49,7 +49,7 @@ export function initialDeckState(): DeckState {
     elapsedMs: 0,
     totalMs: 0,
     slideElapsedMs: 0,
-    playback: 'step',
+    playback: 'segmented',
     muted: false,
     captionsVisible: true,
     presenting: false,

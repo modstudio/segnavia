@@ -66,6 +66,13 @@ describe('deck', () => {
     expect(parsed.slides[0]).not.toHaveProperty('holdMs')
   })
 
+  test('a deck saved with the earlier step playback reads as segmented', () => {
+    const slides = [{ id: 's', content: { kind: 'html', html: '' } }]
+    expect(Deck.parse({ title: 'T', playback: 'step', slides }).playback).toBe('segmented')
+    expect(Deck.parse({ title: 'T', playback: 'segmented', slides }).playback).toBe('segmented')
+    expect(Deck.safeParse({ title: 'T', playback: 'paged', slides }).success).toBe(false)
+  })
+
   test('a cue naming an annotation the shot lacks is refused when the deck is read', () => {
     const result = Deck.safeParse({
       title: 'T',

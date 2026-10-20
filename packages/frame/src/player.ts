@@ -57,7 +57,7 @@ function playerOptions(player: HTMLElement): Pick<ControllerOptions, 'playback' 
   const playback = player.getAttribute('playback')
   const captions = player.getAttribute('captions')
   return {
-    playback: playback === 'continuous' || playback === 'step' ? playback : undefined,
+    playback: playback === 'continuous' || playback === 'segmented' ? playback : playback === 'step' ? 'segmented' : undefined,
     captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
   }
 }
@@ -343,7 +343,7 @@ export class SegnaviaPlayer extends HTMLElement {
       return
     }
     const size = containSlideSize({
-      availableWidth: screen.clientWidth,
+      availableWidth: screen.clientWidth - (Number.parseFloat(screenStyle.paddingInlineStart) || 0) - (Number.parseFloat(screenStyle.paddingInlineEnd) || 0),
       availableHeight,
       chromeHeight,
       reserve,

@@ -23,7 +23,7 @@ export async function verifyPlayer(h: Harness) {
 
   await page.goto(h.url(''))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
-  await verifyControlBar(h, 'step')
+  await verifyControlBar(h, 'segmented')
   let s = await h.state(PLAYER)
   check('opens on the static title slide, not playing', s.slide === '1' && s.playing === 'false')
   const frame = await page.locator(`${PLAYER} iframe`).evaluate((iframe: HTMLIFrameElement) => ({
@@ -124,7 +124,7 @@ async function verifyDynamicPlayerOptions(h: Harness) {
   check('player policy attributes set before src override the loaded deck', state.playback === 'continuous' && !state.captionsVisible, JSON.stringify(state))
 }
 
-async function verifyControlBar(h: Harness, mode: 'step' | 'continuous') {
+async function verifyControlBar(h: Harness, mode: 'segmented' | 'continuous') {
   const { page, check } = h
   for (const width of [960, 560, 360]) {
     await page.setViewportSize({ width: width + 48, height: 816 })

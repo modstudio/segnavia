@@ -18,7 +18,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 |---|---|
 | The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, a helper turning a host's slide rows into a deck, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
-| Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, step or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
+| Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, segmented or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
 | Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
 | The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
 | A finished player, a layout of those components, with an optional thumbnail rail: `<segnavia-player>` | `@segnavia/frame/player` |

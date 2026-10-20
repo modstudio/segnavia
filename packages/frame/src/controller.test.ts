@@ -5,7 +5,7 @@ import { DeckController } from './controller.ts'
 
 // A clock the test moves by hand, and a scheduler that runs a tick only when
 // the test asks, so the controller is driven without a browser or real time.
-function harness(options: { playback?: 'step' | 'continuous'; persist?: boolean } = {}) {
+function harness(options: { playback?: 'segmented' | 'continuous'; persist?: boolean } = {}) {
   const clocks: Array<{ word: number | null; ended: boolean; elapsed: number; muted: boolean; pauses: number; resumes: number }> = []
   let pending: (() => void) | null = null
   const controller = new DeckController({
@@ -145,7 +145,7 @@ describe('deck controller', () => {
   })
 
   test('hold slides advance and untimed slides stop in either playback mode', async () => {
-    for (const playback of ['step', 'continuous'] as const) {
+    for (const playback of ['segmented', 'continuous'] as const) {
       const { controller, clocks, tick } = harness({ playback })
       await controller.load({
         title: 'T',
