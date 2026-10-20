@@ -9,7 +9,7 @@
 // and below slots add host chrome. Parts expose the player, stage, notes,
 // caption, bar, controls, track segments and caption words. Data attributes
 // mirror the state for styling: data-slide, data-playing, data-word,
-// data-shown and data-direction.
+// data-shown, data-direction and data-actions.
 
 import type { TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
@@ -21,7 +21,7 @@ import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { handlePlayerKey } from './player-key.ts'
-import { containSlideSize, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import { containSlideSize, measuredBarHeight, type PlayerControls, type PlayerFit, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -36,7 +36,7 @@ const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="pl
     <div class="control-row">
       <div class="start"><segnavia-counter exportparts="count:counter"></segnavia-counter><span class="time-separator">·</span><segnavia-time exportparts="time"></segnavia-time></div>
       <div class="center"><segnavia-step to="previous" exportparts="step-button,button:previous-button">${forwardedIconSlot('previous')}</segnavia-step><segnavia-play exportparts="button:play-button">${forwardedIconSlot('play')}${forwardedIconSlot('pause')}</segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button">${forwardedIconSlot('next')}</segnavia-step></div>
-      <div class="end"><slot name="actions"></slot><segnavia-mute exportparts="button:mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute><segnavia-captions exportparts="button:captions-button">${forwardedIconSlot('captionsOn')}${forwardedIconSlot('captionsOff')}</segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${iconSlot('notes')}</button><segnavia-fullscreen exportparts="button:presentation-button">${forwardedIconSlot('enterPresentation')}${forwardedIconSlot('exitPresentation')}</segnavia-fullscreen></div>
+      <div class="end"><div class="actions"><slot name="actions"></slot></div><div class="end-controls"><segnavia-mute exportparts="button:mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute><segnavia-captions exportparts="button:captions-button">${forwardedIconSlot('captionsOn')}${forwardedIconSlot('captionsOff')}</segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${iconSlot('notes')}</button><segnavia-fullscreen exportparts="button:presentation-button">${forwardedIconSlot('enterPresentation')}${forwardedIconSlot('exitPresentation')}</segnavia-fullscreen></div></div>
     </div>
   </div><segnavia-rail exportparts="rail,thumbnail,thumbnail-current,thumbnail-number"></segnavia-rail><div class="below"><slot name="below"></slot></div></div>`
 
@@ -90,6 +90,11 @@ export class SegnaviaPlayer extends HTMLElement {
     this.addEventListener('focusin', this.focusOverlay)
     this.addEventListener('focusout', this.blurOverlay)
     this.root.querySelector('.notes-toggle')?.addEventListener('click', () => this.toggleAttribute('notes'))
+    this.actionsSlot().addEventListener('slotchange', () => {
+      this.syncAssignedActions()
+      this.scheduleMeasure()
+    })
+    this.syncAssignedActions()
   }
 
   get labels(): PlayerLabels {
@@ -165,6 +170,8 @@ export class SegnaviaPlayer extends HTMLElement {
 
   connectedCallback() {
     this.resize.observe(this)
+    // Overlay keeps the host still when the bar grows, so the bar is observed too.
+    this.resize.observe(this.root.querySelector('.bar') as HTMLElement)
     window.addEventListener('resize', this.scheduleMeasure)
     window.addEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.addEventListener('resize', this.scheduleMeasure)
@@ -201,6 +208,20 @@ export class SegnaviaPlayer extends HTMLElement {
     if (name === 'fit' || name === 'controls') this.scheduleMeasure()
     if (name === 'transition' || name === 'transition-duration') this.passTransitionAttributes()
     if (name === 'presentation') void this.configurePresentation()
+  }
+
+  // The bar's height, or, when compact CSS flattens it into the player grid
+  // (display:contents, no box), the rows its pieces now occupy.
+  private barHeight(): number {
+    return measuredBarHeight(this.root)
+  }
+
+  private actionsSlot(): HTMLSlotElement {
+    return this.root.querySelector('slot[name="actions"]') as HTMLSlotElement
+  }
+
+  private syncAssignedActions() {
+    this.toggleAttribute('data-actions', this.actionsSlot().assignedElements().length > 0)
   }
 
   private passPlayerOptions() {
@@ -274,6 +295,13 @@ export class SegnaviaPlayer extends HTMLElement {
   }
 
   private measure() {
+    // Overlay clearance reads this on the caption. It must not live on the host:
+    // a slotted action sized from it would feed barHeight() and grow without bound.
+    const caption = this.root.querySelector('segnavia-caption') as HTMLElement
+    const barHeightPx = `${this.barHeight()}px`
+    if (caption.style.getPropertyValue('--segnavia-bar-height') !== barHeightPx) {
+      caption.style.setProperty('--segnavia-bar-height', barHeightPx)
+    }
     const screen = this.root.querySelector('.screen') as HTMLElement
     if (this.fit !== 'contain' || this.controller.state.presenting) {
       screen.style.removeProperty('block-size')
@@ -289,9 +317,7 @@ export class SegnaviaPlayer extends HTMLElement {
     const rail = this.root.querySelector('segnavia-rail') as HTMLElement
     const railHeight = this.rail && rail.offsetWidth === screen.clientWidth ? rail.offsetHeight : 0
     const chromeHeight =
-      (this.controls === 'overlay'
-        ? 0
-        : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + (this.root.querySelector('.bar') as HTMLElement).offsetHeight) +
+      (this.controls === 'overlay' ? 0 : (this.root.querySelector('segnavia-caption') as HTMLElement).offsetHeight + this.barHeight()) +
       railHeight +
       (Number.parseFloat(screenStyle.paddingBlockStart) || 0) +
       (Number.parseFloat(screenStyle.paddingBlockEnd) || 0)

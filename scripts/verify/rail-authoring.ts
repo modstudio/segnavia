@@ -1,40 +1,10 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { type Harness, SITE } from './harness.ts'
+import { playerGeometry, railGeometry } from './rail-geometry.ts'
 import { verifyReactAuthoring } from './react-authoring.ts'
 
 const PLAYER = 'segnavia-player'
-
-async function railGeometry(h: Harness, file: string) {
-  await h.page.goto(h.url(file))
-  await h.waitFor(PLAYER, (data) => data.slide === '1')
-  return h.page.locator(PLAYER).evaluate((player) => {
-    const root = player.shadowRoot as ShadowRoot
-    const box = (selector: string) => (root.querySelector(selector) as HTMLElement).getBoundingClientRect()
-    const rail = box('segnavia-rail')
-    const screen = box('.screen')
-    const bar = box('.bar')
-    return { rail: { left: rail.left, right: rail.right, top: rail.top }, screen: { left: screen.left, right: screen.right }, barBottom: bar.bottom }
-  })
-}
-
-async function playerGeometry(h: Harness, file: string, width: number) {
-  await h.page.setViewportSize({ width, height: 816 })
-  await h.page.goto(h.url(file))
-  await h.waitFor(PLAYER, (data) => data.slide === '1')
-  return h.page.locator(PLAYER).evaluate((player) => {
-    const stage = player.shadowRoot?.querySelector('segnavia-stage') as HTMLElement
-    const screen = player.shadowRoot?.querySelector('.screen') as HTMLElement
-    const playerBox = player.getBoundingClientRect()
-    const stageBox = stage.getBoundingClientRect()
-    const screenBox = screen.getBoundingClientRect()
-    return {
-      player: { width: playerBox.width, height: playerBox.height },
-      screen: { width: screenBox.width, height: screenBox.height },
-      stage: { width: stageBox.width, height: stageBox.height },
-    }
-  })
-}
 
 async function verifyReloadedNotes(h: Harness) {
   const { page, check } = h
@@ -193,7 +163,29 @@ export async function verifyRailAuthoring(h: Harness) {
   await h.evidence('rail-rtl.png')
   await page.setViewportSize({ width: 408, height: 816 })
   const narrow = await railGeometry(h, 'rail.html')
-  check('rail moves below the bar at a 360px container', narrow.rail.top >= narrow.barBottom, JSON.stringify(narrow))
+  check('rail moves below the transport row at a 360px container', narrow.rail.top >= narrow.transportBottom, JSON.stringify(narrow))
+  await h.page.locator(PLAYER).evaluate((player) => {
+    for (const label of ['Settings', 'Export']) {
+      const action = document.createElement('button')
+      action.slot = 'actions'
+      action.setAttribute('aria-label', label)
+      player.append(action)
+    }
+  })
+  await h.page.waitForTimeout(200)
+  const withActions = await h.page.locator(PLAYER).evaluate((player) => {
+    const root = player.shadowRoot as ShadowRoot
+    const box = (selector: string) => (root.querySelector(selector) as HTMLElement).getBoundingClientRect()
+    const rail = box('segnavia-rail')
+    const transport = box('.center')
+    const actions = box('.actions')
+    return { railTop: rail.top, railBottom: rail.bottom, transportBottom: transport.bottom, actionsTop: actions.top }
+  })
+  check(
+    'rail at a 360px container sits below transport and above host actions',
+    withActions.railTop >= withActions.transportBottom && withActions.railBottom <= withActions.actionsTop,
+    JSON.stringify(withActions),
+  )
   await h.evidence('rail-360.png')
 
   const second = page.locator(`${PLAYER} segnavia-rail button[data-index="1"]`)

@@ -1,12 +1,44 @@
 export type PlayerFit = 'width' | 'height' | 'contain'
 export type PlayerControls = 'below' | 'overlay'
 
+// Shared with the player's compact container query, so measure and CSS cannot disagree.
+export const COMPACT_PLAYER_WIDTH = 560
+
 export function playerFit(value: string | null): PlayerFit {
   return value === 'width' || value === 'height' ? value : 'contain'
 }
 
 export function playerControls(value: string | null): PlayerControls {
   return value === 'overlay' ? 'overlay' : 'below'
+}
+
+export interface CompactBarParts {
+  track: number
+  start: number
+  center: number
+  endControls: number
+  actions: number
+}
+
+// Flattened compact chrome: track + the tallest transport cell + host actions.
+export function compactBarHeight(parts: CompactBarParts): number {
+  return parts.track + Math.max(parts.start, parts.center, parts.endControls) + parts.actions
+}
+
+// The bar's box, or, when compact CSS flattens it (display:contents, no box),
+// the rows its pieces now occupy. Player measure and every verify read this.
+export function measuredBarHeight(root: ShadowRoot): number {
+  const height = (selector: string) => (root.querySelector(selector) as HTMLElement | null)?.offsetHeight ?? 0
+  return (
+    height('.bar') ||
+    compactBarHeight({
+      track: height('segnavia-track'),
+      start: height('.start'),
+      center: height('.center'),
+      endControls: height('.end-controls'),
+      actions: height('.actions'),
+    })
+  )
 }
 
 export interface ContainSizeInput {

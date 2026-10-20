@@ -1,5 +1,6 @@
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
+import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railMoveTarget, railSelection } from './rail-navigation.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
@@ -18,7 +19,7 @@ button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
 [data-annotation]{opacity:1}
-@container (max-width:560px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px}
+@container (max-width:${COMPACT_PLAYER_WIDTH}px){ol{flex-direction:row;block-size:auto;inline-size:100%;padding:8px 12px}
 button[data-insert="before"]::before,button[data-insert="after"]::after{inset-block:0;inline-size:3px;block-size:auto}
 button[data-insert="before"]::before{inset-inline-start:-6px;inset-inline-end:auto}button[data-insert="after"]::after{inset-inline-end:-6px;inset-inline-start:auto}}
 `
