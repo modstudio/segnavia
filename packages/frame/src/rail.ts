@@ -188,9 +188,9 @@ export class SegnaviaRail extends SegnaviaControl {
   private unmount(index: number, state: DeckState) {
     if (index === state.index) return
     const preview = this.root.querySelector<HTMLElement>(`button[data-index="${index}"] .preview`)
-    if (!preview?.childElementCount) return
+    if (!preview) return
     preview.dataset.generation = String(Number(preview.dataset.generation ?? '0') + 1)
-    preview.replaceChildren()
+    if (preview.childElementCount) preview.replaceChildren()
   }
 
   private measure() {

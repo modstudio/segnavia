@@ -65,8 +65,7 @@ async function verifyPendingRailUnmount(h: Harness) {
   const { page, check } = h
   const result = await page.evaluate(async (deck) => {
     const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-    const existing = document.querySelector(PLAYER)
-    existing?.remove()
+    document.querySelector('segnavia-player')?.remove()
     const player = document.createElement('segnavia-player') as HTMLElement & {
       controller: {
         load(input: unknown): Promise<void>
@@ -91,8 +90,7 @@ async function verifyPendingRailUnmount(h: Harness) {
       return new Promise(() => {})
     }
     const rail = document.createElement('segnavia-rail') as HTMLElement & { controller: unknown; mountMargin: number }
-    rail.mountMargin = 0
-    rail.style.cssText = 'display:block;position:fixed;inset-block-start:0;inset-inline-start:0;block-size:200px;inline-size:180px'
+    rail.style.cssText = 'display:block;position:fixed;inset-block-start:0;inset-inline-start:0;block-size:480px;inline-size:180px'
     document.body.append(rail)
     rail.controller = player.controller
     for (let attempt = 0; attempt < 40 && heldIndex === null; attempt++) await pause(50)
@@ -115,6 +113,7 @@ async function verifyPendingRailUnmount(h: Harness) {
     for (let attempt = 0; attempt < 40 && !far(); attempt++) await pause(50)
     await pause(200)
     const emptyWhenLeft = preview.childElementCount === 0
+    const wasFar = far()
     let appended = 0
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) appended += mutation.addedNodes.length
@@ -126,7 +125,7 @@ async function verifyPendingRailUnmount(h: Harness) {
     const childrenAfter = preview.childElementCount
     rail.remove()
     player.remove()
-    return { heldIndex, emptyWhenHeld, emptyWhenLeft, far: far(), appended, childrenAfter }
+    return { heldIndex, emptyWhenHeld, emptyWhenLeft, far: wasFar, appended, childrenAfter }
   }, longDeck())
   check(
     'desk rail does not append a thumbnail that left the margin while its content was pending',
