@@ -48,10 +48,12 @@ function bridgeScript(options: FrameOptions): string {
     options.printAtMs === undefined
       ? ''
       : `var printAt=${JSON.stringify(options.printAtMs)};
-var freeze=function(){if(!document.getAnimations)return;var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
+var freeze=function(){if(!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
 var printWaits=[];
 var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
-var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};`
+var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
+var finishPrint=function(){freeze();document.documentElement.setAttribute('data-segnavia-print-ready','');post({type:'${MESSAGE.ready}'});};
+var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,1000);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
@@ -82,7 +84,7 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? '' : "freeze();document.documentElement.setAttribute('data-segnavia-print-ready','');"}post({type:'${MESSAGE.ready}'});});}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -114,6 +116,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
     `<script nonce="${options.nonce}">${bridgeScript(options)}</script>`,
+    options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
