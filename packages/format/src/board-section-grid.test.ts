@@ -74,6 +74,13 @@ describe('auto section grid geometry', () => {
     expect(laidOut.items.find((item) => item.id === 'tall')?.x).toBe(SECTION_PADDING)
   })
 
+  test('maps a physical right-edge drop to before in right-to-left reading order', () => {
+    const laidOut = layoutSection(fixture('rtl'), shapes, 'grid')
+    const wide = laidOut.items.find((item) => item.id === 'wide')
+    if (!wide) throw new Error('fixture item is missing')
+    expect(gridDropTarget(laidOut, shapes, 'grid', { x: wide.x + wide.width - 1, y: wide.y + 50 })).toEqual({ row: 0, column: 0, axis: 'row' })
+  })
+
   test('inserts on all four item edges and in track gaps', () => {
     const laidOut = layoutSection(fixture(), shapes, 'grid')
     const item = laidOut.items[0]

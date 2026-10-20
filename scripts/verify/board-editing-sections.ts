@@ -47,6 +47,17 @@ export async function checkBoardEditingSections(
   second: Locator,
   reset: (direction?: 'ltr' | 'rtl') => Promise<void>,
 ) {
+  const pageItem = board.locator('[data-board-item="page"]')
+  const attached = await board.evaluate((element) => {
+    const value = (element as BoardElement).board
+    const section = value.sections.find((entry) => entry.id === 'section') as DemoSection & { cells?: unknown[] }
+    return { changes: (window as unknown as DemoWindow).boardChanges.map((change) => change.edit.kind), section }
+  })
+  h.check(
+    'attaching editing sends one settle change that stores cells and fits the section',
+    attached.changes.filter((kind) => kind === 'settle').length === 1 && attached.section.cells?.length === 2 && attached.section.rectangle.height > 236,
+    JSON.stringify(attached),
+  )
   await reset()
   const titleBox = await board.locator('[part~="section-title"]').boundingBox()
   const labelBox = await board.locator('[part~="label"]').first().boundingBox()
@@ -67,6 +78,7 @@ export async function checkBoardEditingSections(
     attribute: node.hasAttribute('data-drop-target'),
     part: node.getAttribute('part'),
   }))
+  const markerDuringDrag = await board.locator('[part~="drop-marker"]').count()
   await h.page.mouse.up()
   await waitChanges(h.page, 1)
   const nudged = await board.evaluate(sectionState)
@@ -76,12 +88,54 @@ export async function checkBoardEditingSections(
   }))
   h.check('a member nudged inside its starting box stays a member', nudged.section.items.includes('deck-hebrew'), JSON.stringify(nudged))
   h.check(
-    'the receiving section is marked during drag and the mark clears on release',
+    'the receiving section shows an insertion marker during drag and clears it on release',
     targetDuringDrag.attribute &&
       targetDuringDrag.part?.split(' ').includes('drop-target') === true &&
+      markerDuringDrag === 1 &&
       !targetAfterDrop.attribute &&
-      !targetAfterDrop.part?.includes('drop-target'),
-    JSON.stringify({ targetDuringDrag, targetAfterDrop }),
+      !targetAfterDrop.part?.includes('drop-target') &&
+      (await board.locator('[part~="drop-marker"]').count()) === 0,
+    JSON.stringify({ targetDuringDrag, markerDuringDrag, targetAfterDrop }),
+  )
+
+  await reset()
+  const firstBox = await first.boundingBox()
+  const pageFrom = await center(pageItem)
+  if (!firstBox) throw new Error('The first grid item has no box.')
+  await drag(h.page, pageFrom, firstBox.x + firstBox.width - 1 - pageFrom.x, firstBox.y + firstBox.height / 2 - pageFrom.y)
+  await waitChanges(h.page, 1)
+  const rightEdge = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+      cells: Array<{ id: string; row: number; column: number }>
+    }
+    return structuredClone(section)
+  })
+  const pageCell = rightEdge.cells.find((cell) => cell.id === 'page')
+  const firstCell = rightEdge.cells.find((cell) => cell.id === 'deck-small')
+  h.check(
+    'dropping a page on a member right edge inserts it after that member in the row',
+    pageCell?.row === firstCell?.row && pageCell?.column === (firstCell?.column ?? -1) + 1,
+    JSON.stringify(rightEdge),
+  )
+
+  await reset()
+  const bottomBox = await first.boundingBox()
+  const bottomFrom = await center(pageItem)
+  if (!bottomBox) throw new Error('The first grid item has no box.')
+  await drag(h.page, bottomFrom, bottomBox.x + bottomBox.width / 2 - bottomFrom.x, bottomBox.y + bottomBox.height - 1 - bottomFrom.y)
+  await waitChanges(h.page, 1)
+  const bottomEdge = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+      cells: Array<{ id: string; row: number; column: number }>
+    }
+    return structuredClone(section)
+  })
+  const bottomPage = bottomEdge.cells.find((cell) => cell.id === 'page')
+  const bottomFirst = bottomEdge.cells.find((cell) => cell.id === 'deck-small')
+  h.check(
+    'dropping on a member bottom edge starts the following row',
+    bottomPage?.row === (bottomFirst?.row ?? -1) + 1 && bottomPage?.column === bottomFirst?.column,
+    JSON.stringify(bottomEdge),
   )
 
   await reset()
@@ -138,9 +192,9 @@ export async function checkBoardEditingSections(
   await waitChanges(h.page, 2)
   const joined = await board.evaluate(sectionState)
   h.check(
-    'dragging the Hebrew deck back into Two decks appends it and grows the section',
-    joined.section.items.join() === 'deck-small,deck-hebrew' &&
-      joined.section.rectangle.width > outsideAgain.section.rectangle.width &&
+    'dragging the Hebrew deck back into Two decks places it in the grid and grows the section',
+    joined.section.items.includes('deck-small') &&
+      joined.section.items.includes('deck-hebrew') &&
       joined.section.rectangle.height > outsideAgain.section.rectangle.height,
     JSON.stringify({ outside: outsideAgain, joined }),
   )
@@ -176,8 +230,8 @@ export async function checkBoardEditingSections(
     return { overlap, page: structuredClone(page), changes: (window as unknown as DemoWindow).boardChanges.length }
   })
   h.check(
-    'growing Two decks toward the page nudges the page clear on the settled write',
-    !room.overlap && (room.page.x !== pageBefore.x || room.page.y !== pageBefore.y) && room.changes === 1,
+    'widening a grid member changes only its column and leaves a clear page in place',
+    !room.overlap && room.page.x === pageBefore.x && room.page.y === pageBefore.y && room.changes === 1,
     JSON.stringify({ pageBefore, room }),
   )
 
@@ -204,8 +258,8 @@ export async function checkBoardEditingSections(
     grownSectionBox.y < movedLabelBox.y + movedLabelBox.height &&
     grownSectionBox.y + grownSectionBox.height > movedLabelBox.y
   h.check(
-    'a section that grows into a measured label nudges the label clear',
-    (labelAfter?.x !== labelBefore?.x || labelAfter?.y !== labelBefore?.y) && !labelOverlap,
+    'a clear measured label stays in place when a grid column grows elsewhere',
+    labelAfter?.x === labelBefore?.x && labelAfter?.y === labelBefore?.y && !labelOverlap,
     JSON.stringify({ labelBefore, labelAfter, grownSectionBox, movedLabelBox }),
   )
 
@@ -222,14 +276,13 @@ export async function checkBoardEditingSections(
   })
   await first.click()
   await h.page.keyboard.press('ArrowRight')
-  await waitChanges(h.page, 1)
   const emptyLabelEdit = await board.evaluate(() => {
     const state = window as unknown as DemoWindow
     return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }
   })
   h.check(
-    'an empty label keeps section settlement working until it can be measured',
-    emptyLabelEdit.changes === 1 && emptyLabelEdit.errors === 0,
+    'keyboard nudges inside an auto section are ignored even with an unmeasured label',
+    emptyLabelEdit.changes === 0 && emptyLabelEdit.errors === 0,
     JSON.stringify(emptyLabelEdit),
   )
 
