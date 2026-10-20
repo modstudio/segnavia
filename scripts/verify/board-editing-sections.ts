@@ -44,8 +44,10 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
   await board.evaluate((element) => {
     const value = element as BoardElement
     const next = structuredClone(value.board)
-    const item = next.items.find((entry) => entry.id === 'deck-small')
-    if (item) item.x = 100
+    const small = next.items.find((entry) => entry.id === 'deck-small')
+    const hebrew = next.items.find((entry) => entry.id === 'deck-hebrew')
+    if (small) small.x = 336
+    if (hebrew) hebrew.x = 0
     value.board = next
     const state = window as unknown as DemoWindow
     state.boardChanges = []
@@ -287,6 +289,13 @@ export async function checkBoardEditingSections(
 
   await reset()
   await second.click()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    const page = next.items.find((item) => item.id === 'page')
+    if (page) page.x = 900
+    value.board = next
+  })
   const pageBefore = await board.evaluate((element) => {
     const value = (element as BoardElement).board
     return structuredClone(value.items.find((item) => item.id === 'page') as DemoItem)
@@ -316,7 +325,7 @@ export async function checkBoardEditingSections(
   await board.evaluate((element) => {
     const value = element as BoardElement
     const next = structuredClone(value.board)
-    next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 620, y: 80 } : label))
+    next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 1200, y: 80 } : label))
     value.board = next
     ;(window as unknown as DemoWindow).boardChanges = []
   })
