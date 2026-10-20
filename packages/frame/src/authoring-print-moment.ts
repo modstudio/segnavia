@@ -130,7 +130,7 @@ export class AuthoringPrintMoment {
       const current = Number(slider.value)
       const output = panel.querySelector('output') as HTMLOutputElement
       output.textContent = this.player.labels.printFrameValue(seconds(current), seconds(bounds.max))
-      this.player.freezeAuthoringFrame(current)
+      this.player.freezeAuthoringFrame(slideId, current)
     }
     slider.addEventListener('input', () => {
       this.queue.editDraft(slideId, Math.round(Number(slider.value)))
@@ -154,15 +154,15 @@ export class AuthoringPrintMoment {
   }
 
   private onKey = (event: KeyboardEvent) => {
+    event.stopPropagation()
     if (event.key !== 'Escape') return
     event.preventDefault()
-    event.stopPropagation()
     this.close(true)
   }
 
   private outside = (event: PointerEvent) => {
     const item = this.open && this.rail.itemForSlide(this.open.slideId)
-    if (item?.contains(event.target as Node)) return
+    if (item && event.composedPath().includes(item)) return
     this.close(true)
   }
 
@@ -173,7 +173,7 @@ export class AuthoringPrintMoment {
     window.removeEventListener('pointerdown', this.outside)
     this.rail.itemForSlide(open.slideId)?.querySelector('.print-menu-panel,.print-frame-panel')?.remove()
     open.anchor.setAttribute('aria-expanded', 'false')
-    if (open.popover) this.player.releaseAuthoringFrame()
+    if (open.popover) this.player.releaseAuthoringFrame(open.slideId)
     if (save && this.queue.state(open.slideId).value !== open.initial) void this.queue.flush(open.slideId)
     open.anchor.focus()
   }

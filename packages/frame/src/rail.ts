@@ -136,7 +136,7 @@ export class SegnaviaRail extends SegnaviaControl {
   setPrintFrames(items: readonly RailPrintFrameItem[], open: ((slideId: string, anchor: HTMLButtonElement) => void) | null) {
     this.printFrames = new Map(items.map((item) => [item.slideId, item]))
     this.openPrintFrame = open
-    if (this.controller?.state.deck) this.reconcile(this.controller.state)
+    for (const item of this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')) this.decoratePrintFrame(item, item.dataset.slideId ?? '')
   }
 
   animationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
@@ -190,33 +190,36 @@ export class SegnaviaRail extends SegnaviaControl {
       button.draggable = this.reorderEnabled
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
-      const authoring = this.printFrames.get(slide.id)
-      let menu = item.querySelector<HTMLButtonElement>('.slide-menu')
-      let mark = item.querySelector<HTMLElement>('.print-mark')
-      if (authoring) {
-        if (!menu) {
-          menu = document.createElement('button')
-          menu.type = 'button'
-          menu.className = 'slide-menu'
-          menu.textContent = '⋯'
-          item.append(menu)
-        }
-        menu.setAttribute('aria-label', authoring.label)
-        if (authoring.markLabel) {
-          if (!mark) {
-            mark = document.createElement('span')
-            mark.className = 'print-mark'
-            mark.textContent = '⎙'
-            item.append(mark)
-          }
-          mark.setAttribute('aria-label', authoring.markLabel)
-        } else mark?.remove()
-      } else {
-        menu?.remove()
-        mark?.remove()
-      }
       list.append(item)
+      this.decoratePrintFrame(item, slide.id)
     })
+  }
+
+  private decoratePrintFrame(item: HTMLLIElement, slideId: string) {
+    const authoring = this.printFrames.get(slideId)
+    let menu = item.querySelector<HTMLButtonElement>('.slide-menu')
+    let mark = item.querySelector<HTMLElement>('.print-mark')
+    if (!authoring) {
+      menu?.remove()
+      mark?.remove()
+      return
+    }
+    if (!menu) {
+      menu = document.createElement('button')
+      menu.type = 'button'
+      menu.className = 'slide-menu'
+      menu.textContent = '⋯'
+      item.append(menu)
+    }
+    menu.setAttribute('aria-label', authoring.label)
+    if (!authoring.markLabel) return mark?.remove()
+    if (!mark) {
+      mark = document.createElement('span')
+      mark.className = 'print-mark'
+      mark.textContent = '⎙'
+      item.append(mark)
+    }
+    mark.setAttribute('aria-label', authoring.markLabel)
   }
 
   private syncSelection(state: DeckState) {
@@ -298,6 +301,7 @@ export class SegnaviaRail extends SegnaviaControl {
 
   private onKey = (event: KeyboardEvent) => {
     if (!this.controller?.state.deck) return
+    if ((event.target as Element).closest('.slide-menu,.print-menu-panel,.print-frame-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
     if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && this.reorderEnabled) {

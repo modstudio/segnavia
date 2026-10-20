@@ -177,12 +177,12 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.setAuthoringScriptsRefused(refused)
   }
 
-  freezeAuthoringFrame(atMs: number) {
-    this.stage.freezeAuthoringFrame(atMs)
+  freezeAuthoringFrame(slideId: string, atMs: number) {
+    this.stage.freezeAuthoringFrame(slideId, atMs)
   }
 
-  releaseAuthoringFrame() {
-    this.stage.releaseAuthoringFrame()
+  releaseAuthoringFrame(slideId: string) {
+    this.stage.releaseAuthoringFrame(slideId)
   }
 
   connectedCallback() {

@@ -25,6 +25,7 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   )
 
   const canvasMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="canvas"] .slide-menu`)
+  await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="canvas"]`).hover()
   await canvasMenu.click()
   await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
   const canvasMax = await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).getAttribute('max')
@@ -33,8 +34,8 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
 
   const animatedMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"] .slide-menu`)
   await animatedMenu.focus()
-  await page.keyboard.press('Enter')
-  await page.keyboard.press('Enter')
+  await animatedMenu.press('Enter')
+  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).press('Enter')
   const slider = page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`)
   await slider.press('ArrowRight')
   const keyboardDraft = await page.evaluate(
@@ -48,20 +49,22 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
     input.value = '420'
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
+  const liveAnimatedFrame = `${PLAYER} segnavia-stage iframe[title$="slide 2"]`
   const frozen = await page
-    .frameLocator(`${PLAYER} segnavia-stage iframe`)
+    .frameLocator(liveAnimatedFrame)
     .locator('html')
     .evaluate(() => Number(document.getAnimations()[0]?.currentTime))
   check('moving the scrubber freezes the live slide at that time', frozen === 420, String(frozen))
   await page.keyboard.press('Escape')
   await page.waitForTimeout(30)
   const released = await page
-    .frameLocator(`${PLAYER} segnavia-stage iframe`)
+    .frameLocator(liveAnimatedFrame)
     .locator('html')
     .evaluate(() => document.getAnimations()[0]?.playState)
   check('closing the scrubber releases the live animation', released === 'running', String(released))
 
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferPrintMoment: boolean } }).authoringFacts.deferPrintMoment = true))
+  await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"]`).hover()
   await animatedMenu.click()
   await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
   await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).evaluate((input: HTMLInputElement) => {

@@ -236,11 +236,13 @@ export class SegnaviaStage extends HTMLElement {
 
   private onResize = () => this.measure()
 
-  freezeAuthoringFrame(atMs: number) {
-    this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.freeze, atMs }, '*')
+  freezeAuthoringFrame(slideId: string, atMs: number) {
+    const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
+    frame?.contentWindow?.postMessage({ type: MESSAGE.freeze, atMs }, '*')
   }
 
-  releaseAuthoringFrame() {
-    this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
+  releaseAuthoringFrame(slideId: string) {
+    const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
+    frame?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
   }
 }
