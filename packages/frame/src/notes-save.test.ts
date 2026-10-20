@@ -62,26 +62,38 @@ describe('notes save queue', () => {
     expect(queue.dirty).toBe(false)
   })
 
-  test('a newer save supersedes an older in-flight save', async () => {
+  test('keeps one save in flight per slide and coalesces later edits', async () => {
     const time = scheduler()
+    const saves: string[] = []
     const releases: Array<() => void> = []
     const queue = new NotesSaveQueue(
-      () => new Promise<void>((resolve) => releases.push(resolve)),
+      ({ notes }) => {
+        saves.push(notes)
+        return new Promise<void>((resolve) => releases.push(resolve))
+      },
       () => {},
       time,
     )
     queue.seed('a', '')
     queue.edit('a', 'first')
     time.run()
+    await Promise.resolve()
     queue.edit('a', 'second')
     time.run()
+    expect(saves).toEqual(['first'])
+    expect(queue.dirty).toBe(true)
     releases[0]?.()
     await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['first', 'second'])
+    expect(queue.dirty).toBe(true)
     expect(queue.state('a')).toMatchObject({ text: 'second', status: 'saving' })
     releases[1]?.()
     await Promise.resolve()
     await Promise.resolve()
+    expect(saves).toEqual(['first', 'second'])
     expect(queue.state('a')).toMatchObject({ text: 'second', status: 'saved' })
+    expect(queue.dirty).toBe(false)
   })
 
   test('flushes pending notes and waits for in-flight saves before detach', async () => {
@@ -102,11 +114,14 @@ describe('notes save queue', () => {
     queue.edit('a', 'final')
     let settled = false
     const flushing = queue.flushAll().then(() => (settled = true))
-    expect(saves).toEqual(['first', 'final'])
-    releases[1]?.()
-    await Promise.resolve()
+    expect(saves).toEqual(['first'])
     expect(settled).toBe(false)
     releases[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['first', 'final'])
+    expect(settled).toBe(false)
+    releases[1]?.()
     await flushing
     expect(settled).toBe(true)
   })
@@ -126,6 +141,46 @@ describe('notes save queue', () => {
     queue.edit('a', 'draft')
     expect(await queue.flushAll()).toBe(false)
     expect(failures).toEqual(['Offline'])
+  })
+
+  test('an in-flight save that differs from the current text stays dirty until the compensating write settles', async () => {
+    const time = scheduler()
+    const saves: string[] = []
+    const releases: Array<() => void> = []
+    const queue = new NotesSaveQueue(
+      ({ notes }) => {
+        saves.push(notes)
+        return new Promise<void>((resolve) => releases.push(resolve))
+      },
+      () => {},
+      time,
+    )
+    queue.seed('a', 'A')
+    queue.edit('a', 'B')
+    time.run()
+    await Promise.resolve()
+    expect(saves).toEqual(['B'])
+    queue.edit('a', 'A')
+    expect(queue.dirty).toBe(true)
+    expect(queue.hasLocalWork('a')).toBe(true)
+    let flushed = false
+    const flushing = queue.flush('a').then((ok) => {
+      flushed = true
+      return ok
+    })
+    await Promise.resolve()
+    expect(flushed).toBe(false)
+    releases[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['B', 'A'])
+    expect(flushed).toBe(false)
+    expect(queue.dirty).toBe(true)
+    releases[1]?.()
+    expect(await flushing).toBe(true)
+    expect(flushed).toBe(true)
+    expect(saves.at(-1)).toBe('A')
+    expect(queue.dirty).toBe(false)
   })
 
   test('adopts host notes only when local work is settled', async () => {

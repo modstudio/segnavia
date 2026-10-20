@@ -28,6 +28,8 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
 | Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |
 
+Authoring print and export should call `authoring.draftDeck()`, which returns the deck as shown, including unsaved notes, without waiting for the host save. `flush()` still waits until every save settles, so a paused save would hang export. `useAuthoring` returns the same controller, including `draftDeck()` and `adoptNotes()`.
+
 ## Quick look
 
 Four ways to use it, from bare to finished:

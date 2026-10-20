@@ -1,7 +1,7 @@
 import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
 import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
-import { activeNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
+import { activeNavigationGuard, type NavigationGuardReason, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { SegnaviaRail } from './rail.ts'
@@ -70,7 +70,7 @@ export class AuthoringController extends EventTarget {
   }
 
   get dirty(): boolean {
-    return this.notes?.dirty ?? false
+    return this.pendingMove || (this.notes?.dirty ?? false)
   }
 
   // Saves pending notes without starting a save on a clean deck, then returns
@@ -81,6 +81,26 @@ export class AuthoringController extends EventTarget {
     const notes = this.notes ?? this.lastNotes
     await notes?.flushAll()
     return this.authoredDeck(notes)
+  }
+
+  // The authored deck with each slide's current draft notes, without waiting
+  // for a host save to settle. Export and print should use this so a paused
+  // save cannot hang the document; flush() still waits for persistence.
+  draftDeck(): Deck | null {
+    return this.authoredDeck(this.notes ?? this.lastNotes)
+  }
+
+  adoptNotes(notes: Record<string, string | null>) {
+    if (!this.notes) return
+    const slideId = this.player.controller.state.slide?.id
+    const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
+    let visibleChanged = false
+    for (const [id, text] of Object.entries(notes)) {
+      if (this.notes.seed(id, text ?? '') && id === slideId) visibleChanged = true
+    }
+    if (!visibleChanged || !field || !slideId) return
+    field.value = this.notes.state(slideId).text
+    this.renderNotesStatus()
   }
 
   update(handlers: AuthoringHandlers, options: AuthoringOptions = {}): Promise<void> {
@@ -154,7 +174,7 @@ export class AuthoringController extends EventTarget {
     notes.querySelector('[data-authoring-status]')?.addEventListener('click', this.retryNotes)
     this.notes = new NotesSaveQueue(
       save,
-      (dirty) => this.dispatchEvent(new CustomEvent<DirtyChangeDetail>('dirty-change', { detail: { dirty } })),
+      () => this.emitDirty(),
       undefined,
       (slideId) => {
         if (slideId === this.notesSlideId) this.renderNotesStatus()
@@ -163,16 +183,27 @@ export class AuthoringController extends EventTarget {
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    this.removeNavigationGuard = setNavigationGuard(this.player.controller, async (reason) => {
-      const slideId = this.player.controller.state.slide?.id
-      if (!slideId) return
-      if (reason === 'load' && this.notes?.hasLocalWork(slideId)) {
-        const load = activeNavigationGuard(this.player.controller)
-        if (load) preserveNotesForLoad(load, slideId)
-      }
-      await this.notes?.flush(slideId)
-    })
+    this.removeNavigationGuard = setNavigationGuard(this.player.controller, this.beforeNavigate)
     this.renderNotes()
+  }
+
+  private beforeNavigate = async (reason: NavigationGuardReason) => {
+    const slideId = this.player.controller.state.slide?.id
+    const notes = this.notes
+    if (!slideId || !notes) return
+    if (reason === 'load' && notes.hasLocalWork(slideId)) {
+      const load = activeNavigationGuard(this.player.controller)
+      if (load) {
+        preserveNotesForLoad(load, slideId)
+        void notes.flush(slideId)
+        return
+      }
+    }
+    await notes.flush(slideId)
+  }
+
+  private emitDirty() {
+    this.dispatchEvent(new CustomEvent<DirtyChangeDetail>('dirty-change', { detail: { dirty: this.dirty } }))
   }
 
   private detachNotes(): NotesSaveQueue | null {
@@ -267,6 +298,7 @@ export class AuthoringController extends EventTarget {
     if (!handler || !slideId || this.pendingMove || fromIndex === toIndex) return
     this.pendingMove = true
     this.rail?.setReorderEnabled(false)
+    this.emitDirty()
     try {
       await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler, this.loadInternalDeck)
     } catch (error) {
@@ -275,6 +307,7 @@ export class AuthoringController extends EventTarget {
     } finally {
       this.pendingMove = false
       this.rail?.setReorderEnabled(true)
+      this.emitDirty()
     }
   }
 
