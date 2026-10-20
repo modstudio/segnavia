@@ -217,6 +217,7 @@ export class SegnaviaRail extends SegnaviaControl {
       mark = document.createElement('span')
       mark.className = 'print-mark'
       mark.textContent = '⎙'
+      mark.setAttribute('role', 'img')
       item.append(mark)
     }
     mark.setAttribute('aria-label', authoring.markLabel)
@@ -264,7 +265,7 @@ export class SegnaviaRail extends SegnaviaControl {
       .then((content) => {
         if (!preview.isConnected || controller.state.deck?.slides[index]?.id !== slide.id) return
         if (Number(preview.dataset.generation ?? '0') !== generation) return
-        const canvas = thumbnailCanvas(controller, deck, slide, index, content)
+        const canvas = thumbnailCanvas(controller, deck, slide, index, content, '', true)
         preview.append(canvas)
         this.measure()
       })

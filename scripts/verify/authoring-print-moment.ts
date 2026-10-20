@@ -104,4 +104,6 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
     holder.authoringFacts.releasePrintMoment()
   })
   check('printing draftDeck freezes the printed slide at the chosen time', printed === 1200, String(printed))
+  await page.goto(h.url('authoring.html'))
+  await page.waitForFunction(() => 'authoring' in window)
 }

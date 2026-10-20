@@ -66,10 +66,11 @@ var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${print}
 var liveAt=null;
+var sawAnimations=false,canvasSeen=false,animationUnreadable=false,animationLength=0;
 var animationReport=function(){
-var animations=document.getAnimations?document.getAnimations():[];var animated=animations.length>0||Boolean(document.querySelector('canvas'));var length=null;
-if(animations.length){length=0;for(var a=0;a<animations.length;a++){var timing=animations[a].effect&&animations[a].effect.getComputedTiming?animations[a].effect.getComputedTiming():null;if(!timing||!isFinite(timing.endTime)||!isFinite(timing.iterations)){length=null;break;}length=Math.max(length,timing.endTime);}}
-post({type:'${MESSAGE.animation}',animated:animated,lengthMs:length});};
+var animations=document.getAnimations?document.getAnimations():[];canvasSeen=canvasSeen||Boolean(document.querySelector('canvas'));
+if(animations.length){sawAnimations=true;for(var a=0;a<animations.length;a++){var timing=animations[a].effect&&animations[a].effect.getComputedTiming?animations[a].effect.getComputedTiming():null;if(!timing||!isFinite(timing.endTime)||!isFinite(timing.iterations)){animationUnreadable=true;break;}animationLength=Math.max(animationLength,timing.endTime);}}
+post({type:'${MESSAGE.animation}',animated:sawAnimations||canvasSeen,lengthMs:sawAnimations&&!animationUnreadable?animationLength:null});};
 var dispatchAt=function(at){var detail={atMs:at,waitUntil:function(){}};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var freezeLive=function(){if(liveAt===null||!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var f=0;f<animations.length;f++){try{animations[f].pause();animations[f].currentTime=liveAt;}catch(error){}}};
 window.addEventListener('message',function(e){var data=e.data;if(!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}});
