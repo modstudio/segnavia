@@ -114,7 +114,7 @@ export class BoardEditingInput implements BoardInputDelegate {
       const fitted = fitTouchedSections(gesture.before, moved, bridge.shapes(), gesture.ids)
       this.callbacks.live(fitted)
       const boardPoint = screenToBoard(bridge.view(), point)
-      const assigned = assignMembership(fitted, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
+      const assigned = assignMembership(moved, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
       const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
       bridge.setDropTarget(target?.id)
     } else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
@@ -152,8 +152,11 @@ export class BoardEditingInput implements BoardInputDelegate {
     if (!next) return
     const bridge = this.callbacks.bridge()
     if (gesture.kind === 'move' && this.enabled.move) {
-      const release = screenToBoard(bridge.view(), bridge.local(event))
-      const assigned = assignMembership(next, bridge.shapes(), gesture.ids, release, gesture.before.sections)
+      const point = bridge.local(event)
+      const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
+      const moved = moveItems(gesture.before, gesture.ids, delta)
+      const release = screenToBoard(bridge.view(), point)
+      const assigned = assignMembership(moved, bridge.shapes(), gesture.ids, release, gesture.before.sections)
       this.callbacks.commit(gesture.before, settleBoard(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []

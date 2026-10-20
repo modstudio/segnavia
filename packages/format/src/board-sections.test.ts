@@ -6,6 +6,7 @@ import {
   fitTouchedSections,
   MAKE_ROOM_LIMIT,
   makeRoom,
+  moveItems,
   SECTION_MIN_SIZE,
   SECTION_PADDING,
   SECTION_TITLE_ROOM,
@@ -67,6 +68,19 @@ describe('section fitting and membership', () => {
     }
     expect(assignMembership(live, shapes, ['two'], { x: 300, y: 130 }, value.sections).sections[0]?.items).toEqual(['one', 'two'])
     expect(assignMembership(live, shapes, ['two'], { x: 800, y: 130 }, value.sections).sections[0]?.items).toEqual(['one'])
+  })
+
+  test('lets a sole member leave when membership is assigned on the moved, unfitted board', () => {
+    const fixture = board()
+    const first = fixture.sections[0]
+    if (!first) throw new Error('fixture section is missing')
+    const value = {
+      ...fixture,
+      sections: [{ ...first, items: ['one'] }],
+    }
+    const moved = moveItems(value, ['one'], { x: 800, y: 800 })
+    const assigned = assignMembership(moved, shapes, ['one'], { x: 950, y: 925 }, value.sections)
+    expect(assigned.sections[0]?.items).toEqual([])
   })
 
   test('uses the same physical coordinates on right-to-left boards', () => {

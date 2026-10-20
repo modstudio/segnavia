@@ -97,7 +97,41 @@ export async function checkBoardEditingSections(
     JSON.stringify({ original, outside }),
   )
 
-  const outsideValue = structuredClone(outside)
+  const lastMemberTopLeft = { x: outside.section.rectangle.x, y: outside.section.rectangle.y }
+  await drag(h.page, await center(first), 0, 500)
+  await waitChanges(h.page, 2)
+  const emptiedOneAtATime = await board.evaluate(sectionState)
+  h.check(
+    'dragging the last member out leaves an empty minimum-size section at its previous top-left',
+    emptiedOneAtATime.section.items.length === 0 &&
+      emptiedOneAtATime.section.rectangle.x === lastMemberTopLeft.x &&
+      emptiedOneAtATime.section.rectangle.y === lastMemberTopLeft.y &&
+      emptiedOneAtATime.section.rectangle.width === 240 &&
+      emptiedOneAtATime.section.rectangle.height === 160,
+    JSON.stringify({ lastMemberTopLeft, emptiedOneAtATime }),
+  )
+
+  await reset()
+  const togetherBefore = await board.evaluate(sectionState)
+  await board.evaluate((element) => ((element as BoardElement).selection = ['deck-small', 'deck-hebrew']))
+  await drag(h.page, await center(first), 0, 500)
+  await waitChanges(h.page, 1)
+  const emptiedTogether = await board.evaluate(sectionState)
+  h.check(
+    'dragging every member out together leaves an empty minimum-size section at its starting top-left',
+    emptiedTogether.section.items.length === 0 &&
+      emptiedTogether.section.rectangle.x === togetherBefore.section.rectangle.x &&
+      emptiedTogether.section.rectangle.y === togetherBefore.section.rectangle.y &&
+      emptiedTogether.section.rectangle.width === 240 &&
+      emptiedTogether.section.rectangle.height === 160,
+    JSON.stringify({ togetherBefore, emptiedTogether }),
+  )
+
+  await reset()
+  await drag(h.page, await center(second), 0, 500)
+  await waitChanges(h.page, 1)
+  const outsideAgain = await board.evaluate(sectionState)
+  const outsideValue = structuredClone(outsideAgain)
   const from = await center(second)
   const to = await center(first)
   await drag(h.page, from, to.x - from.x, to.y - from.y)
@@ -106,9 +140,9 @@ export async function checkBoardEditingSections(
   h.check(
     'dragging the Hebrew deck back into Two decks appends it and grows the section',
     joined.section.items.join() === 'deck-small,deck-hebrew' &&
-      joined.section.rectangle.width > outside.section.rectangle.width &&
-      joined.section.rectangle.height > outside.section.rectangle.height,
-    JSON.stringify({ outside, joined }),
+      joined.section.rectangle.width > outsideAgain.section.rectangle.width &&
+      joined.section.rectangle.height > outsideAgain.section.rectangle.height,
+    JSON.stringify({ outside: outsideAgain, joined }),
   )
 
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
