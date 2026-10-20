@@ -1,7 +1,35 @@
 import { z } from 'zod'
 import type { Print } from './index.ts'
 
-export const NAMED_PAPERS = ['letter', 'legal', 'tabloid', 'a3', 'a4', 'a5'] as const
+export const NAMED_PAPERS = [
+  'letter',
+  'legal',
+  'tabloid',
+  'a3',
+  'a4',
+  'a5',
+  'business-card-us',
+  'business-card-eu',
+  'business-card-square-us',
+  'business-card-slim-us',
+  'postcard-4x6',
+  'postcard-5x7',
+  'postcard-6x9',
+  'postcard-6x11',
+  'card-square-4in',
+  'half-letter',
+  'a6',
+  'dl',
+  'rack-card-4x9',
+  'rack-card-3.5x8.5',
+  'poster-12x18',
+  'poster-16x20',
+  'poster-18x24',
+  'poster-24x36',
+  'a2',
+  'a1',
+  'a0',
+] as const
 export const Paper = z.union([
   z.enum(NAMED_PAPERS),
   z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in', 'pt']) }),
@@ -12,21 +40,55 @@ export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
 export const MARK_GAP_MM = 1
 
-// Millimeters per named paper, portrait.
-export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: number }> = {
-  letter: { width: 215.9, height: 279.4 },
-  legal: { width: 215.9, height: 355.6 },
-  tabloid: { width: 279.4, height: 431.8 },
-  a3: { width: 297, height: 420 },
-  a4: { width: 210, height: 297 },
-  a5: { width: 148, height: 210 },
-}
-
 export const roundMillimeters = (mm: number) => Math.round(mm * 100) / 100
 
 export function toMillimeters(value: number, unit: 'mm' | 'in' | 'pt'): number {
   return value * (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
 }
+
+type NamedPaper = Extract<Paper, string>
+type PaperSize = { width: number; height: number; unit: 'mm' | 'in' }
+
+const PAPER_SIZE = {
+  letter: { width: 8.5, height: 11, unit: 'in' },
+  legal: { width: 8.5, height: 14, unit: 'in' },
+  tabloid: { width: 11, height: 17, unit: 'in' },
+  a3: { width: 297, height: 420, unit: 'mm' },
+  a4: { width: 210, height: 297, unit: 'mm' },
+  a5: { width: 148, height: 210, unit: 'mm' },
+  'business-card-us': { width: 2, height: 3.5, unit: 'in' },
+  'business-card-eu': { width: 55, height: 85, unit: 'mm' },
+  'business-card-square-us': { width: 2.5, height: 2.5, unit: 'in' },
+  'business-card-slim-us': { width: 1.75, height: 3.5, unit: 'in' },
+  'postcard-4x6': { width: 4, height: 6, unit: 'in' },
+  'postcard-5x7': { width: 5, height: 7, unit: 'in' },
+  'postcard-6x9': { width: 6, height: 9, unit: 'in' },
+  'postcard-6x11': { width: 6, height: 11, unit: 'in' },
+  'card-square-4in': { width: 4, height: 4, unit: 'in' },
+  'half-letter': { width: 5.5, height: 8.5, unit: 'in' },
+  a6: { width: 105, height: 148, unit: 'mm' },
+  dl: { width: 99, height: 210, unit: 'mm' },
+  'rack-card-4x9': { width: 4, height: 9, unit: 'in' },
+  'rack-card-3.5x8.5': { width: 3.5, height: 8.5, unit: 'in' },
+  'poster-12x18': { width: 12, height: 18, unit: 'in' },
+  'poster-16x20': { width: 16, height: 20, unit: 'in' },
+  'poster-18x24': { width: 18, height: 24, unit: 'in' },
+  'poster-24x36': { width: 24, height: 36, unit: 'in' },
+  a2: { width: 420, height: 594, unit: 'mm' },
+  a1: { width: 594, height: 841, unit: 'mm' },
+  a0: { width: 841, height: 1189, unit: 'mm' },
+} satisfies Record<NamedPaper, PaperSize>
+
+const paperMillimeters = (): Record<NamedPaper, { width: number; height: number }> =>
+  Object.fromEntries(
+    NAMED_PAPERS.map((paper) => {
+      const { width, height, unit } = PAPER_SIZE[paper]
+      return [paper, { width: roundMillimeters(toMillimeters(width, unit)), height: roundMillimeters(toMillimeters(height, unit)) }]
+    }),
+  ) as Record<NamedPaper, { width: number; height: number }>
+
+// Millimeters per named paper, portrait.
+export const PAPER_MM: Record<Extract<Paper, string>, { width: number; height: number }> = paperMillimeters()
 
 // The sheet a print setting describes, in millimeters, with orientation applied.
 export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: number; height: number } {

@@ -1,6 +1,36 @@
 import { describe, expect, test } from 'bun:test'
 import { Page, Print } from './index.ts'
-import { printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
+import { PAPER_MM, printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
+
+const printerPapers = [
+  ['letter', 215.9, 279.4],
+  ['legal', 215.9, 355.6],
+  ['tabloid', 279.4, 431.8],
+  ['a3', 297, 420],
+  ['a4', 210, 297],
+  ['a5', 148, 210],
+  ['business-card-us', 50.8, 88.9],
+  ['business-card-eu', 55, 85],
+  ['business-card-square-us', 63.5, 63.5],
+  ['business-card-slim-us', 44.45, 88.9],
+  ['postcard-4x6', 101.6, 152.4],
+  ['postcard-5x7', 127, 177.8],
+  ['postcard-6x9', 152.4, 228.6],
+  ['postcard-6x11', 152.4, 279.4],
+  ['card-square-4in', 101.6, 101.6],
+  ['half-letter', 139.7, 215.9],
+  ['a6', 105, 148],
+  ['dl', 99, 210],
+  ['rack-card-4x9', 101.6, 228.6],
+  ['rack-card-3.5x8.5', 88.9, 215.9],
+  ['poster-12x18', 304.8, 457.2],
+  ['poster-16x20', 406.4, 508],
+  ['poster-18x24', 457.2, 609.6],
+  ['poster-24x36', 609.6, 914.4],
+  ['a2', 420, 594],
+  ['a1', 594, 841],
+  ['a0', 841, 1189],
+] as const
 
 describe('paper', () => {
   test('converts supported length units to millimeters', () => {
@@ -12,6 +42,12 @@ describe('paper', () => {
   test('orientation swaps the sides of a named and a custom paper', () => {
     expect(sheetMm(Print.parse({ paper: 'a4', orientation: 'landscape' }))).toEqual({ width: 297, height: 210 })
     expect(sheetMm(Print.parse({ paper: { width: 6, height: 4, unit: 'in' }, orientation: 'portrait' }))).toEqual({ width: 101.6, height: 152.4 })
+  })
+
+  test.each(printerPapers)('%s has its trim size in both orientations', (paper, width, height) => {
+    expect(PAPER_MM[paper]).toEqual({ width, height })
+    expect(sheetMm(Print.parse({ paper, orientation: 'portrait' }))).toEqual({ width, height })
+    expect(sheetMm(Print.parse({ paper, orientation: 'landscape' }))).toEqual({ width: height, height: width })
   })
 
   test('no bleed and no marks makes the media equal the trim', () => {
