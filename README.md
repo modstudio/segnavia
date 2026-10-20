@@ -90,6 +90,12 @@ const renderer = await openRenderer({ executablePath: '/usr/bin/chromium', concu
 const pdf = await renderer.deckPdf(deck, { layout: 'notes', limits: { maxSheets: 600 } })
 ```
 
+An HTML slide may set `printAtMs` to choose the millisecond at which its CSS
+and Web Animations are frozen for `printDeck` and `deckPdf`; printing defaults
+to the slide's start at 0 ms. Scripted slides can listen for
+`segnavia:print` and pass drawing work to `event.detail.waitUntil(promise)`.
+Host-served URL slides have no Segnavia bridge and are unaffected.
+
 Capture an app through its own adapter:
 
 ```ts

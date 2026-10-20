@@ -51,7 +51,11 @@ function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): 
 
 const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
 
-export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, html: string, options: { css?: string; nonce: string }): string {
+export function htmlSlideDocument(
+  deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>,
+  html: string,
+  options: { css?: string; nonce: string; printAtMs?: number },
+): string {
   return frameDocument(html, {
     scripts: deck.scripts,
     nonce: options.nonce,
@@ -60,6 +64,7 @@ export function htmlSlideDocument(deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>, 
     css: `${PRINT_COLOR_CSS}${options.css ?? ''}`,
     reportHeight: false,
     relayKeys: false,
+    printAtMs: options.printAtMs ?? 0,
   })
 }
 
@@ -95,7 +100,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
   const frame = (html: string) =>
-    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0 }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)

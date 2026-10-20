@@ -348,6 +348,25 @@ is a handout of six slides to a paper. The notes layout and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 
+Each built HTML slide document freezes its Web Animations, including CSS
+animations and transitions, at the slide's nonnegative `printAtMs`, or at 0 ms
+when that field is absent. It freezes before and after authored print work so an
+animation started by that work cannot keep moving. The bridge dispatches a
+`segnavia:print` `CustomEvent` on the slide window with
+`detail: { atMs, waitUntil(promise) }`; `waitUntil` lets a canvas, WebGL or other
+scripted slide finish drawing that instant before it reports ready:
+
+```js
+window.addEventListener('segnavia:print', (event) => {
+  event.detail.waitUntil(drawSceneAt(event.detail.atMs))
+})
+```
+
+Image, font and authored print waits share the existing four-second print
+deadline; a wait that never settles cannot hold printing beyond it. A
+host-served URL slide has no Segnavia bridge, so `printAtMs` does not affect it.
+The live stage and thumbnails do not pass a print moment and never freeze.
+
 The notes layout belongs to the slide whose number it carries. It uses the
 slide's speaker notes when present and falls back to narration text only when
 speaker notes are absent. A slide whose notes fall back to narration counts as

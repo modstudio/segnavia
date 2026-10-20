@@ -10,10 +10,12 @@ export type DeckFromSlidesOptions = Omit<DeckInput, 'slides'> & {
   omitNotes?: boolean
 }
 
+const optionalPrintAt = (printAtMs: number | undefined) => (printAtMs === undefined ? {} : { printAtMs })
+
 export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions) {
   const { omitNotes = false, ...deckOptions } = options
   const slides = rows.map(({ kind, ...row }) => {
-    const { id, notes, narration, beforeMs, afterMs, holdMs } = row
+    const { id, notes, narration, beforeMs, afterMs, holdMs, printAtMs } = row
     const common = {
       id,
       ...(!omitNotes && notes !== undefined ? { notes } : {}),
@@ -21,6 +23,7 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
       ...(beforeMs !== undefined ? { beforeMs } : {}),
       ...(afterMs !== undefined ? { afterMs } : {}),
       ...(holdMs !== undefined ? { holdMs } : {}),
+      ...optionalPrintAt(printAtMs),
     }
     return kind === 'html'
       ? { ...common, content: { kind, html: (row as Extract<SlideRow, { kind: 'html' }>).html } }

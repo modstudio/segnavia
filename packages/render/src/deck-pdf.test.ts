@@ -100,7 +100,7 @@ test('an imposed deck renders every slide alone and enforces the composed papers
   expect(documents[0]?.html).toContain('<p>HTML</p>')
   expect(documents[0]?.html).not.toContain('<iframe')
   expect(documents[1]?.html).toContain('<img src="image.png"')
-  expect(documents.map(({ beforeOutput }) => typeof beforeOutput)).toEqual(['undefined', 'function'])
+  expect(documents.map(({ beforeOutput }) => typeof beforeOutput)).toEqual(['function', 'function'])
   expect(limitsSeen).toEqual([{ maxSheets: 1 }])
 })
 

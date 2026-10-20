@@ -31,6 +31,9 @@ export interface FrameOptions {
   csp?: string
   relayKeys?: boolean
   reportHeight?: boolean
+  // Set only for a print document, to freeze its animations and let authored
+  // code draw the frame that will be printed.
+  printAtMs?: number
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -41,9 +44,18 @@ export interface FrameOptions {
 // cross-origin frame that is off screen, and the report would never be sent.
 function bridgeScript(options: FrameOptions): string {
   const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
+  const print =
+    options.printAtMs === undefined
+      ? ''
+      : `var printAt=${JSON.stringify(options.printAtMs)};
+var freeze=function(){if(!document.getAnimations)return;var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
+var printWaits=[];
+var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
+var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};`
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
+${print}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
@@ -69,7 +81,8 @@ if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentEl
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
 function ready(){var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null])).then(function(){post({type:'${MESSAGE.ready}'});});}
+${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? '' : "freeze();document.documentElement.setAttribute('data-segnavia-print-ready','');"}post({type:'${MESSAGE.ready}'});});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
