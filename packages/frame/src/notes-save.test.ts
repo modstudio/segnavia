@@ -114,11 +114,14 @@ describe('notes save queue', () => {
     queue.edit('a', 'final')
     let settled = false
     const flushing = queue.flushAll().then(() => (settled = true))
-    expect(saves).toEqual(['first', 'final'])
-    releases[1]?.()
-    await Promise.resolve()
+    expect(saves).toEqual(['first'])
     expect(settled).toBe(false)
     releases[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['first', 'final'])
+    expect(settled).toBe(false)
+    releases[1]?.()
     await flushing
     expect(settled).toBe(true)
   })

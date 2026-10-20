@@ -154,7 +154,11 @@ export class SegnaviaRail extends SegnaviaControl {
     const list = this.root.querySelector('ol') as HTMLOListElement
     this.observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) if (entry.isIntersecting) this.mount(Number((entry.target as HTMLElement).dataset.index), state)
+        for (const entry of entries) {
+          const index = Number((entry.target as HTMLElement).dataset.index)
+          if (entry.isIntersecting) this.mount(index, state)
+          else this.unmount(index, state)
+        }
       },
       { root: list, rootMargin: `${this.mountMargin}px` },
     )
@@ -168,15 +172,25 @@ export class SegnaviaRail extends SegnaviaControl {
     const slide = deck?.slides[index]
     const preview = this.root.querySelector<HTMLElement>(`button[data-index="${index}"] .preview`)
     if (!controller || !deck || !slide || !preview || preview.childElementCount) return
+    const generation = Number(preview.dataset.generation ?? '0')
     void controller
       .contentFor(index)
       .then((content) => {
         if (!preview.isConnected || controller.state.deck?.slides[index]?.id !== slide.id) return
+        if (Number(preview.dataset.generation ?? '0') !== generation) return
         const canvas = thumbnailCanvas(controller, deck, slide, index, content)
         preview.append(canvas)
         this.measure()
       })
       .catch(() => {})
+  }
+
+  private unmount(index: number, state: DeckState) {
+    if (index === state.index) return
+    const preview = this.root.querySelector<HTMLElement>(`button[data-index="${index}"] .preview`)
+    if (!preview?.childElementCount) return
+    preview.dataset.generation = String(Number(preview.dataset.generation ?? '0') + 1)
+    preview.replaceChildren()
   }
 
   private measure() {

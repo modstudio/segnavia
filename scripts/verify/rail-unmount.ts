@@ -33,18 +33,20 @@ export async function verifyDeskRailUnmount(h: Harness) {
     if (!list) throw new Error('The desk rail list was not ready.')
     const frames = () => rail?.shadowRoot?.querySelectorAll('iframe').length ?? 0
     const settle = async () => {
-      const start = frames()
-      await new Promise((resolve) => setTimeout(resolve, 400))
-      return { start, next: frames() }
+      let previous = -1
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        const next = frames()
+        if (next === previous) return next
+        previous = next
+      }
+      return frames()
     }
-    await settle()
-    const atStart = frames()
+    const atStart = await settle()
     list.scrollTop = list.scrollHeight
-    await settle()
-    const atEnd = frames()
+    const atEnd = await settle()
     list.scrollTop = 0
-    await settle()
-    const back = frames()
+    const back = await settle()
     player.remove()
     return { atStart, atEnd, back, max: Math.max(atStart, atEnd, back) }
   }, longDeck())

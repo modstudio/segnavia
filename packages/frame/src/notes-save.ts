@@ -118,14 +118,14 @@ export class NotesSaveQueue {
   }
 
   async flushAll(): Promise<boolean> {
+    const pending: Promise<boolean>[] = []
     for (const [slideId, entry] of this.entries) {
       if (entry.timer !== null) {
         this.timers.clear(entry.timer)
         entry.timer = null
       }
-      if (entry.text !== entry.saved) void this.start(slideId, entry.version)
+      if (entry.text !== entry.saved || entry.inflight) pending.push(this.start(slideId, entry.version))
     }
-    const pending = [...this.entries.values()].flatMap((entry) => (entry.inflight ? [entry.inflight] : []))
     const results = await Promise.all(pending)
     return results.every(Boolean) && !this.dirty
   }
@@ -146,37 +146,44 @@ export class NotesSaveQueue {
 
   private start(slideId: string, _version: number): Promise<boolean> {
     const entry = this.entry(slideId)
-    if (entry.inflight) return entry.inflight
+    if (entry.inflight) {
+      return entry.inflight.then((ok) => {
+        if (!ok || entry.text === entry.saved) return ok
+        return this.start(slideId, entry.version)
+      })
+    }
     if (entry.text === entry.saved) return Promise.resolve(true)
     const running = this.pump(slideId)
-    entry.inflight = running.finally(() => {
-      if (entry.inflight === running) entry.inflight = null
-      this.notify(slideId)
-    })
-    return entry.inflight
+    entry.inflight = running
+    return running
   }
 
   private async pump(slideId: string): Promise<boolean> {
     const entry = this.entry(slideId)
-    while (entry.text !== entry.saved) {
-      const version = entry.version
-      const text = entry.text
-      entry.status = 'saving'
-      entry.message = ''
-      this.notify(slideId)
-      try {
-        await this.save({ slideId, notes: text })
-        entry.saved = text
-        if (entry.version === version) entry.status = 'saved'
-      } catch (error: unknown) {
-        if (entry.version !== version) continue
-        entry.status = 'error'
-        entry.message = message(error)
-        this.failed(slideId, error)
-        return false
+    try {
+      while (entry.text !== entry.saved) {
+        const version = entry.version
+        const text = entry.text
+        entry.status = 'saving'
+        entry.message = ''
+        this.notify(slideId)
+        try {
+          await this.save({ slideId, notes: text })
+          entry.saved = text
+          if (entry.version === version) entry.status = 'saved'
+        } catch (error: unknown) {
+          if (entry.version !== version) continue
+          entry.status = 'error'
+          entry.message = message(error)
+          this.failed(slideId, error)
+          return false
+        }
       }
+      return true
+    } finally {
+      entry.inflight = null
+      this.notify(slideId)
     }
-    return true
   }
 
   private notify(slideId: string) {

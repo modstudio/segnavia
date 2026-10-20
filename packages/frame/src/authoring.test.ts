@@ -282,3 +282,11 @@ test('a load that preserves a draft does not wait for a never-settling save befo
   expect(deckController.state.deck?.slides.map((slide) => slide.id)).toEqual(['b', 'a'])
   expect(field.value).toBe('held draft')
 })
+
+test('slide navigation still waits for a pending notes save', async () => {
+  const { deckController } = await authoringWithHeldNotesSave()
+  const going = deckController.go(1)
+  const outcome = await Promise.race([going.then(() => 'went' as const), new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 80))])
+  expect(outcome).toBe('timeout')
+  expect(deckController.state.index).toBe(0)
+})
