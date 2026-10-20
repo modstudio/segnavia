@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
-import { deriveSectionCells, gridDropTarget, insertIntoGrid, layoutSection, removeFromGrid } from './board-section-grid.ts'
+import { deriveSectionCells, gridDropMarkerBox, gridDropTarget, insertIntoGrid, layoutSection, removeFromGrid } from './board-section-grid.ts'
 import { SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
 
 const shapes = {
@@ -103,6 +103,27 @@ describe('auto section grid geometry', () => {
     expect(gridDropTarget(laidOut, shapes, 'grid', { x: item.x + 100, y: item.y + 1 })).toEqual({ row: 0, column: 0, axis: 'column' })
     expect(gridDropTarget(laidOut, shapes, 'grid', { x: item.x + 100, y: item.y + 99 })).toEqual({ row: 1, column: 0, axis: 'column' })
     expect(gridDropTarget(laidOut, shapes, 'grid', { x: item.x + item.width + SECTION_GAP / 2, y: item.y + 50 })).toEqual({ row: 0, column: 1, axis: 'row' })
+  })
+
+  test('uses grid track geometry for row and column markers', () => {
+    const laidOut = layoutSection(fixture(), shapes, 'grid')
+    expect(gridDropMarkerBox(laidOut, shapes, 'grid', { row: 0, column: 1, axis: 'row' })).toEqual({
+      x: SECTION_PADDING + 200 + SECTION_GAP,
+      y: SECTION_PADDING + SECTION_TITLE_ROOM,
+      width: 2,
+      height: 300,
+    })
+    expect(gridDropMarkerBox(laidOut, shapes, 'grid', { row: 1, column: 0, axis: 'column' })).toEqual({
+      x: SECTION_PADDING,
+      y: SECTION_PADDING + SECTION_TITLE_ROOM + 300 + SECTION_GAP,
+      width: 200,
+      height: 2,
+    })
+  })
+
+  test('mirrors row marker edges with right-to-left columns', () => {
+    const laidOut = layoutSection(fixture('rtl'), shapes, 'grid')
+    expect(gridDropMarkerBox(laidOut, shapes, 'grid', { row: 0, column: 1, axis: 'row' })?.x).toBe(SECTION_PADDING + 100)
   })
 })
 

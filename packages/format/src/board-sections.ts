@@ -177,7 +177,10 @@ function fitSections(board: Board, shapes: BoardShapes, sectionIds: readonly str
 }
 
 export function fitTouchedSections(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
-  return fitSections(board, shapes, touchedSections(previous, board, touched))
+  return touchedSections(previous, board, touched).reduce((value, id) => {
+    const section = value.sections.find((entry) => entry.id === id)
+    return section?.layout === 'manual' ? fitSection(value, shapes, id) : value
+  }, board)
 }
 
 export function settleBoard(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {

@@ -43,6 +43,7 @@ export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearc
 export {
   deriveSectionCells,
   type GridDropTarget,
+  gridDropMarkerBox,
   gridDropTarget,
   insertIntoGrid,
   layoutSection,

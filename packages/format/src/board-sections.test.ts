@@ -175,6 +175,15 @@ describe('section room', () => {
     expect(fitted.items[2]?.x).toBe(500)
   })
 
+  test('does not reflow an auto section during a live edit', () => {
+    const value = board()
+    const first = value.sections[0]
+    if (!first) throw new Error('fixture section is missing')
+    const auto = { ...value, sections: [{ ...first, layout: 'auto' as const }, ...value.sections.slice(1)] }
+    const moved = moveItems(auto, ['two'], { x: 200, y: 0 })
+    expect(fitTouchedSections(auto, moved, shapes, ['two'])).toBe(moved)
+  })
+
   test('settles a section that lost a touched member', () => {
     const value = board()
     const assigned = assignMembership(value, shapes, ['two'], { x: 900, y: 900 })

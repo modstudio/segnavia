@@ -6,11 +6,10 @@ import {
   type BoardView,
   boardToScreen,
   type GridDropTarget,
+  gridDropMarkerBox,
   itemHeight,
   type Point,
   resizeItem,
-  SECTION_PADDING,
-  SECTION_TITLE_ROOM,
   screenToBoard,
 } from '@segnavia/format'
 import { provisionalShape } from './board-policy.ts'
@@ -53,43 +52,6 @@ export function placeMarquee(node: HTMLElement, start: Point, point: Point) {
   })
 }
 
-interface MarkerItemBox {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-function markerItemBox(board: Board, shapes: BoardShapes, id: string | undefined): MarkerItemBox | undefined {
-  const item = board.items.find((entry) => entry.id === id)
-  const shape = id ? shapes.items[id] : undefined
-  return item && shape ? { ...item, height: itemHeight(item, shape) } : undefined
-}
-
-function rowMarkerBox(board: Board, shapes: BoardShapes, section: Board['sections'][number], row: number, column: number): MarkerItemBox {
-  const cells = section.cells?.filter((cell) => cell.row === row) ?? []
-  const next = markerItemBox(board, shapes, cells.find((cell) => cell.column === column)?.id)
-  const previous = markerItemBox(board, shapes, cells.find((cell) => cell.column === column - 1)?.id)
-  let x = section.rectangle.x + SECTION_PADDING
-  if (next) x = board.direction === 'rtl' ? next.x + next.width : next.x
-  else if (previous) x = board.direction === 'rtl' ? previous.x : previous.x + previous.width
-  const boxes = cells.map((cell) => markerItemBox(board, shapes, cell.id)).filter((box): box is MarkerItemBox => Boolean(box))
-  const y = boxes.length ? Math.min(...boxes.map((box) => box.y)) : section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM
-  const height = boxes.length ? Math.max(...boxes.map((box) => box.height)) : section.rectangle.height - SECTION_PADDING * 2 - SECTION_TITLE_ROOM
-  return { x, y, width: 2, height }
-}
-
-function columnMarkerBox(board: Board, shapes: BoardShapes, section: Board['sections'][number], row: number, column: number): MarkerItemBox {
-  const cells = section.cells?.filter((cell) => cell.column === column) ?? []
-  const next = markerItemBox(board, shapes, cells.find((cell) => cell.row === row)?.id)
-  const previous = markerItemBox(board, shapes, cells.find((cell) => cell.row === row - 1)?.id)
-  const y = next?.y ?? (previous ? previous.y + previous.height : section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM)
-  const boxes = cells.map((cell) => markerItemBox(board, shapes, cell.id)).filter((box): box is MarkerItemBox => Boolean(box))
-  const x = boxes.length ? Math.min(...boxes.map((box) => box.x)) : section.rectangle.x + SECTION_PADDING
-  const width = boxes.length ? Math.max(...boxes.map((box) => box.width)) : section.rectangle.width - SECTION_PADDING * 2
-  return { x, y, width, height: 2 }
-}
-
 export function renderDropMarker(
   overlay: HTMLElement,
   board: Board | undefined,
@@ -99,10 +61,9 @@ export function renderDropMarker(
   shapes: BoardShapes,
 ) {
   overlay.querySelector('[part~="drop-marker"]')?.remove()
-  const section = board?.sections.find((entry) => entry.id === sectionId)
-  if (!board || !section || !target) return
-  const box =
-    target.axis === 'row' ? rowMarkerBox(board, shapes, section, target.row, target.column) : columnMarkerBox(board, shapes, section, target.row, target.column)
+  if (!board || !sectionId || !target) return
+  const box = gridDropMarkerBox(board, shapes, sectionId, target)
+  if (!box) return
   const point = boardToScreen(view, box)
   const marker = document.createElement('div')
   marker.part.add('drop-marker')

@@ -1,7 +1,7 @@
 import type { Board, BoardSection, GridCell } from './board.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import { SECTION_GAP, SECTION_MIN_SIZE, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-section-constants.ts'
-import type { Point } from './deck.ts'
+import type { Box, Point } from './deck.ts'
 
 export interface GridDropTarget {
   row: number
@@ -165,6 +165,32 @@ export function gridDropTarget(board: Board, shapes: BoardShapes, id: string, po
     { distance: Math.abs(size.height - localY), target: { row: cell.row + 1, column: cell.column, axis: 'column' as const } },
   ]
   return edges.reduce((best, edge) => (edge.distance < best.distance ? edge : best)).target
+}
+
+export function gridDropMarkerBox(board: Board, shapes: BoardShapes, id: string, target: GridDropTarget): Box | undefined {
+  const section = sectionOf(board, id)
+  if (!section || section.layout === 'manual') return undefined
+  const cells = normalized(cellsFor(board, shapes, section))
+  const innerX = section.rectangle.x + SECTION_PADDING
+  const innerY = section.rectangle.y + SECTION_PADDING + SECTION_TITLE_ROOM
+  if (cells.length === 0) {
+    const width = Math.max(0, section.rectangle.width - SECTION_PADDING * 2)
+    const height = Math.max(0, section.rectangle.height - SECTION_PADDING * 2 - SECTION_TITLE_ROOM)
+    return target.axis === 'row' ? { x: innerX, y: innerY, width: 2, height } : { x: innerX, y: innerY, width, height: 2 }
+  }
+  const { widths, heights } = trackSizes(board, shapes, cells)
+  const columnStarts = starts(widths)
+  const rowStarts = starts(heights)
+  const gridWidth = widths.reduce((sum, width) => sum + width, 0) + SECTION_GAP * Math.max(0, widths.length - 1)
+  const columnStart = columnStarts[target.column] ?? gridWidth
+  const rowStart = rowStarts[target.row] ?? heights.reduce((sum, height) => sum + height, 0) + SECTION_GAP * Math.max(0, heights.length - 1)
+  if (target.axis === 'row') {
+    const x = board.direction === 'rtl' ? innerX + gridWidth - columnStart : innerX + columnStart
+    return { x, y: innerY + rowStart, width: 2, height: heights[target.row] ?? 0 }
+  }
+  const width = widths[target.column] ?? 0
+  const x = board.direction === 'rtl' ? innerX + gridWidth - columnStart - width : innerX + columnStart
+  return { x, y: innerY + rowStart, width, height: 2 }
 }
 
 function updateSection(section: BoardSection, cells: readonly GridCell[]): BoardSection {

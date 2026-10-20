@@ -1,6 +1,7 @@
 import {
   assignMembership,
   type Board,
+  fitTouchedSections,
   gridDropTarget,
   insertIntoGrid,
   makeRoom,
@@ -123,7 +124,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
     if (gesture.kind === 'move' && this.enabled.move) {
       const moved = moveItems(gesture.before, gesture.ids, delta)
-      this.callbacks.live(moved)
+      this.callbacks.live(fitTouchedSections(gesture.before, moved, bridge.shapes(), gesture.ids))
       const boardPoint = screenToBoard(bridge.view(), point)
       const assigned = assignMembership(moved, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
       const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
@@ -136,7 +137,7 @@ export class BoardEditingInput implements BoardInputDelegate {
       const shape = bridge.shapes().items[gesture.id]
       if (shape) {
         const resized = resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape)
-        this.callbacks.live(resized)
+        this.callbacks.live(fitTouchedSections(gesture.before, resized, bridge.shapes(), [gesture.id]))
       }
     }
     event.preventDefault()
