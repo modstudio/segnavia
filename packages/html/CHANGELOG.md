@@ -1,5 +1,12 @@
 # @segnavia/html
 
+## 0.14.0
+
+### Patch Changes
+
+- Updated dependencies [aea4e97]
+  - @segnavia/format@0.14.0
+
 ## 0.13.0
 
 ### Patch Changes

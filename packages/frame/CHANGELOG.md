@@ -1,5 +1,17 @@
 # @segnavia/frame
 
+## 0.14.0
+
+### Minor Changes
+
+- aea4e97: Fit board sections to their members across membership changes, preserve membership within the starting box, show drop targets, and move overlapping items, sections and labels clear as one undoable edit.
+
+### Patch Changes
+
+- f67a5db: Contain-fit accounts for the player's own caption, bar, below slot and stacked rail, so a host reserve is only page chrome. The desk rail is a scroll box bounded by the body row and mounts only nearby thumbnails.
+- Updated dependencies [aea4e97]
+  - @segnavia/format@0.14.0
+
 ## 0.13.0
 
 ### Minor Changes
