@@ -90,7 +90,7 @@ async function facts(h: Harness): Promise<ContainmentFacts> {
       belowHeight: below.getBoundingClientRect().height,
       railHeight: rail.clientHeight,
       railContentHeight: list?.scrollHeight ?? 0,
-      bodyGridAreaHeight: captionBox.bottom - bodyBox.top,
+      bodyGridAreaHeight: (captionBox.height > 0 ? captionBox.bottom : bodyBox.bottom) - bodyBox.top,
       listClientHeight: list?.clientHeight ?? 0,
       listScrollHeight: list?.scrollHeight ?? 0,
       screenPadding: (Number.parseFloat(screenStyle.paddingBlockStart) || 0) + (Number.parseFloat(screenStyle.paddingBlockEnd) || 0),
@@ -164,7 +164,9 @@ function railUsedEqualsContent(boxes: ContainmentFacts) {
 
 function compactStackEqualsPlayer(boxes: ContainmentFacts) {
   return (
-    Math.abs(boxes.playerHeight - (boxes.stageHeight + boxes.captionHeight + boxes.barHeight + boxes.railHeight + boxes.belowHeight + boxes.screenPadding)) <= 2
+    Math.abs(
+      boxes.playerHeight - (boxes.stageHeight + boxes.captionHeight + boxes.barHeight + boxes.railContentHeight + boxes.belowHeight + boxes.screenPadding),
+    ) <= 2
   )
 }
 
@@ -208,6 +210,7 @@ export async function probeContainment(h: Harness) {
   await waitForThumbnails(h)
   const collapsed = await withPlayerStyle(h, DESK_RAIL_WITHOUT_MIN_BLOCK, () => facts(h))
   h.check('desk rail client height equals the body grid area', railEqualsBodyGridArea(collapsed), JSON.stringify(collapsed))
+  await page.waitForTimeout(200)
   const desk = await facts(h)
   h.check('desk rail client height equals the body grid area', railEqualsBodyGridArea(desk), JSON.stringify(desk))
 
@@ -216,6 +219,7 @@ export async function probeContainment(h: Harness) {
   await page.waitForTimeout(200)
   const stretched = await withPlayerStyle(h, DESK_RAIL_AT_COMPACT, () => facts(h))
   checkCompact(h, stretched)
+  await page.waitForTimeout(200)
   const compact = await facts(h)
   checkCompact(h, compact)
 }
