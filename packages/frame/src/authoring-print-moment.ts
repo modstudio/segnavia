@@ -94,12 +94,15 @@ export class AuthoringPrintMoment {
     anchor.setAttribute('aria-expanded', 'true')
     const panel = document.createElement('div')
     panel.className = 'print-menu-panel'
+    panel.popover = 'manual'
     panel.innerHTML = '<button type="button"></button>'
     const choose = panel.querySelector('button') as HTMLButtonElement
     choose.textContent = this.player.labels.printFrame
     choose.addEventListener('click', () => void this.openPopover(slideId, panel))
     panel.addEventListener('keydown', this.onKey)
     item.append(panel)
+    panel.showPopover()
+    this.position(panel, item)
     this.open = { slideId, anchor, initial: this.queue.state(slideId).value, popover: false }
     choose.focus()
     setTimeout(() => window.addEventListener('pointerdown', this.outside), 0)
@@ -119,6 +122,7 @@ export class AuthoringPrintMoment {
     const value = Math.min(bounds.max, Math.max(bounds.min, saved ?? 0))
     const panel = document.createElement('div')
     panel.className = 'print-frame-panel'
+    panel.popover = 'manual'
     panel.innerHTML =
       '<output></output><input type="range"><div class="print-frame-actions"><button type="button" data-reset></button><button type="button" data-done></button></div>'
     const slider = panel.querySelector('input') as HTMLInputElement
@@ -148,9 +152,34 @@ export class AuthoringPrintMoment {
     done.addEventListener('click', () => this.close(true))
     panel.addEventListener('keydown', this.onKey)
     item.append(panel)
+    panel.showPopover()
+    this.position(panel, item)
     this.open.popover = true
     show()
     slider.focus()
+  }
+
+  private position(panel: HTMLElement, item: HTMLElement) {
+    const gap = 8
+    const margin = 12
+    const anchor = item.getBoundingClientRect()
+    const box = panel.getBoundingClientRect()
+    const horizontal = getComputedStyle(item.parentElement as HTMLElement).flexDirection === 'row'
+    let left: number
+    let top: number
+    if (horizontal) {
+      const above = anchor.top - box.height - gap
+      top = above >= margin ? above : anchor.bottom + gap
+      left = getComputedStyle(this.rail).direction === 'rtl' ? anchor.right - box.width : anchor.left
+    } else {
+      const rail = this.rail.getBoundingClientRect()
+      const stage = this.player.shadowRoot?.querySelector('segnavia-stage')?.getBoundingClientRect()
+      const stageIsAfter = stage ? stage.left >= rail.right : getComputedStyle(this.rail).direction === 'ltr'
+      left = stageIsAfter ? anchor.right + gap : anchor.left - box.width - gap
+      top = anchor.top
+    }
+    panel.style.left = `${Math.max(margin, Math.min(left, innerWidth - box.width - margin))}px`
+    panel.style.top = `${Math.max(margin, Math.min(top, innerHeight - box.height - margin))}px`
   }
 
   private onKey = (event: KeyboardEvent) => {

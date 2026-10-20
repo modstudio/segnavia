@@ -2,6 +2,26 @@ import type { Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
+async function visiblePopoverControls(h: Harness, context: string) {
+  const facts = await h.page.locator(`${PLAYER} segnavia-rail .print-frame-panel`).evaluate((panel) => {
+    const controls = [panel.querySelector('output'), panel.querySelector('input'), panel.querySelector('[data-reset]'), panel.querySelector('[data-done]')]
+    const viewport = (element: Element) => {
+      const rect = element.getBoundingClientRect()
+      const x = rect.left + rect.width / 2
+      const y = rect.top + rect.height / 2
+      let centre = document.elementFromPoint(x, y)
+      while (centre?.shadowRoot) centre = centre.shadowRoot.elementFromPoint(x, y)
+      return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && (centre === element || element.contains(centre))
+    }
+    return {
+      panel: viewport(panel),
+      controls: controls.map((control) => (control ? viewport(control) : false)),
+      rect: panel.getBoundingClientRect().toJSON(),
+    }
+  })
+  h.check(`${context} print frame popover and controls stay visible`, facts.panel && facts.controls.every(Boolean), JSON.stringify(facts))
+}
+
 export async function verifyAuthoredPrintMoment(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('authoring-print-frames.html'))
@@ -36,6 +56,7 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   await animatedMenu.focus()
   await animatedMenu.press('Enter')
   await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).press('Enter')
+  await visiblePopoverControls(h, 'wide rail')
   const slider = page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`)
   await slider.press('ArrowRight')
   const keyboardDraft = await page.evaluate(
@@ -104,6 +125,19 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
     holder.authoringFacts.releasePrintMoment()
   })
   check('printing draftDeck freezes the printed slide at the chosen time', printed === 1200, String(printed))
+
+  await page.goto(h.url('authoring-rtl.html'))
+  await page.waitForFunction(() => 'authoring' in window)
+  await page.waitForFunction(
+    () => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll('.slide-menu').length === 1,
+  )
+  const rtlMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="probe"] .slide-menu`)
+  await rtlMenu.focus()
+  await rtlMenu.press('Enter')
+  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).press('Enter')
+  await visiblePopoverControls(h, 'RTL rail')
+  await page.keyboard.press('Escape')
+
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
 }

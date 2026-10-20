@@ -22,7 +22,7 @@ button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="
 .slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:6px;background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
 li:hover>.slide-menu,li:focus-within>.slide-menu,.slide-menu[aria-expanded="true"]{opacity:1;pointer-events:auto}
 .print-mark{position:absolute;z-index:3;inset-inline-end:6px;inset-block-end:5px;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);font:12px/1 system-ui}
-.print-menu-panel,.print-frame-panel{position:absolute;z-index:8;inset-block-start:36px;inset-inline-end:5px;box-sizing:border-box;min-inline-size:150px;padding:6px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:8px;background:Canvas;color:CanvasText;box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 system-ui}
+.print-menu-panel,.print-frame-panel{position:fixed;z-index:8;inset:auto;margin:0;box-sizing:border-box;min-inline-size:150px;padding:6px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:8px;background:Canvas;color:CanvasText;box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 system-ui}
 .print-menu-panel button{inline-size:100%;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:inherit;text-align:start;cursor:pointer}
 .print-menu-panel button:hover,.print-menu-panel button:focus-visible{background:color-mix(in srgb,CanvasText 8%,transparent)}
 .print-frame-panel{display:grid;gap:8px;inline-size:min(230px,calc(100vw - 24px));padding:10px}
