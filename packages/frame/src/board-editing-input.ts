@@ -1,4 +1,4 @@
-import { type Board, moveItems, moveSection, type Point } from '@segnavia/format'
+import { assignMembership, type Board, fitTouchedSections, makeRoom, moveItems, moveSection, type Point, screenToBoard, settleBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, resizedAtPointer } from './board-editing-overlay.ts'
@@ -109,12 +109,22 @@ export class BoardEditingInput implements BoardInputDelegate {
     if (!gesture.dragged && Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) <= 4) return true
     gesture.dragged = true
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
-    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.live(moveItems(gesture.before, gesture.ids, delta))
-    else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
+    if (gesture.kind === 'move' && this.enabled.move) {
+      const moved = moveItems(gesture.before, gesture.ids, delta)
+      const fitted = fitTouchedSections(gesture.before, moved, bridge.shapes(), gesture.ids)
+      this.callbacks.live(fitted)
+      const boardPoint = screenToBoard(bridge.view(), point)
+      const assigned = assignMembership(moved, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
+      const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
+      bridge.setDropTarget(target?.id)
+    } else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
     else if (gesture.kind === 'resize') {
       const shape = bridge.shapes().items[gesture.id]
-      if (shape) this.callbacks.live(resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape))
+      if (shape) {
+        const resized = resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape)
+        this.callbacks.live(fitTouchedSections(gesture.before, resized, bridge.shapes(), [gesture.id]))
+      }
     }
     event.preventDefault()
     return true
@@ -124,11 +134,12 @@ export class BoardEditingInput implements BoardInputDelegate {
     const gesture = this.gesture
     if (!gesture || gesture.pointerId !== event.pointerId) return false
     this.gesture = null
+    this.callbacks.bridge().setDropTarget()
     if (gesture.kind === 'marquee') {
       gesture.node.remove()
       if (!gesture.dragged) this.board.selection = []
     } else if (!gesture.dragged && gesture.kind === 'move' && gesture.itemId) this.finishClick(gesture)
-    else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture)
+    else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture, event)
     return true
   }
 
@@ -136,14 +147,26 @@ export class BoardEditingInput implements BoardInputDelegate {
     this.board.selection = selectBoardItem(gesture.base ?? [], gesture.itemId as string, gesture.shift ?? false)
   }
 
-  private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>) {
+  private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>, event: PointerEvent) {
     const next = this.board.board
     if (!next) return
-    if (gesture.kind === 'move' && this.enabled.move) this.callbacks.commit(gesture.before, next, { kind: 'move', ids: gesture.ids })
-    else if (gesture.kind === 'section' && gesture.sectionId) {
+    const bridge = this.callbacks.bridge()
+    if (gesture.kind === 'move' && this.enabled.move) {
+      const point = bridge.local(event)
+      const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
+      const moved = moveItems(gesture.before, gesture.ids, delta)
+      const release = screenToBoard(bridge.view(), point)
+      const assigned = assignMembership(moved, bridge.shapes(), gesture.ids, release, gesture.before.sections)
+      this.callbacks.commit(gesture.before, settleBoard(gesture.before, assigned, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
+    } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
-      this.callbacks.commit(gesture.before, next, { kind: 'move-section', ids: [gesture.sectionId, ...members] })
-    } else if (gesture.kind === 'resize') this.callbacks.commit(gesture.before, next, { kind: 'resize', ids: [gesture.id] })
+      this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
+        kind: 'move-section',
+        ids: [gesture.sectionId, ...members],
+      })
+    } else if (gesture.kind === 'resize') {
+      this.callbacks.commit(gesture.before, settleBoard(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
+    }
   }
 
   pointerCancel(event: PointerEvent): boolean {
@@ -188,7 +211,13 @@ export class BoardEditingInput implements BoardInputDelegate {
       y: event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0,
     }
     const current = this.callbacks.current()
-    if (current) this.callbacks.commit(current, moveItems(current, this.board.selection, delta), { kind: 'move', ids: [...this.board.selection] })
+    if (current) {
+      const moved = moveItems(current, this.board.selection, delta)
+      this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), this.board.selection), {
+        kind: 'move',
+        ids: [...this.board.selection],
+      })
+    }
     return true
   }
 
@@ -200,6 +229,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const gesture = this.gesture
     this.gesture = null
     if (!gesture) return
+    this.callbacks.bridge().setDropTarget()
     if (gesture.kind === 'marquee') gesture.node.remove()
     else if (restore && gesture.kind !== 'noop') this.callbacks.bridge().setOptimistic(gesture.before)
   }

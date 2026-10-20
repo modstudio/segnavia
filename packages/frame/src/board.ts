@@ -218,6 +218,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
       value: () => this.value,
       view: () => this.currentView,
       shapes: () => this.shapes,
+      setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),
       optimistic: (board) => this.setBoardValue(board, false),
       detachInput: () => {
@@ -318,6 +319,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
       return
     }
     this.decorations.render(board, this.currentView)
+    Object.assign(this.shapes.labels, this.decorations.labelShapes(this.currentView.zoom))
     const half = new Set(
       visibleItems(board, this.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height) / 2).map(
         (item) => item.id,

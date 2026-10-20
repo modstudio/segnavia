@@ -1,4 +1,4 @@
-import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard } from '@segnavia/format'
+import { type ArrangeOptions, addItem, arrange, type Board, type BoardItem, type Point, removeItems, screenToBoard, settleBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
@@ -118,7 +118,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       y: center.y - (width * shape.height) / shape.width / 2,
       width,
     }
-    this.apply(addItem(current, item), { kind: 'add', ids: [item.id] })
+    const added = addItem(current, item)
+    this.apply(settleBoard(current, added, this.bridge.shapes(), [item.id]), { kind: 'add', ids: [item.id] })
     this.board.selection = [item.id]
     return item.id
   }
@@ -128,7 +129,8 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
-    this.apply(removeItems(current, existing), { kind: 'remove', ids: existing })
+    const removed = removeItems(current, existing)
+    this.apply(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
     this.board.focus()
   }
 
@@ -137,7 +139,15 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     if (!this.enabled.arrange || !current) return
     const next = arrange(current, this.bridge.shapes(), options)
     const ids = current.items.filter((item, index) => item.x !== next.items[index]?.x || item.y !== next.items[index]?.y).map((item) => item.id)
-    this.apply(next, { kind: 'arrange', ids })
+    this.apply(
+      settleBoard(
+        current,
+        next,
+        this.bridge.shapes(),
+        current.items.map((item) => item.id),
+      ),
+      { kind: 'arrange', ids },
+    )
   }
 
   undo() {

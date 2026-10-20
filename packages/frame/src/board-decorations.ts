@@ -4,6 +4,7 @@ import { placeBoardNode } from './board-placement.ts'
 export class BoardDecorations {
   private readonly sectionNodes = new Map<string, HTMLElement>()
   private readonly labelNodes = new Map<string, HTMLElement>()
+  private dropTargetId: string | undefined
 
   constructor(private readonly surface: HTMLElement) {}
 
@@ -14,6 +15,7 @@ export class BoardDecorations {
     this.removeMissing(this.labelNodes, labelIds)
     for (const section of board.sections) {
       const node = this.sectionNodes.get(section.id) ?? this.mountSection(section.id)
+      this.markDropTarget(node, section.id === this.dropTargetId)
       placeBoardNode(node, view, section.rectangle)
       const title = node.firstElementChild as HTMLElement
       title.textContent = section.title
@@ -37,6 +39,20 @@ export class BoardDecorations {
     this.labelNodes.clear()
   }
 
+  labelShapes(zoom: number) {
+    return Object.fromEntries(
+      [...this.labelNodes].flatMap(([id, node]) => {
+        const rectangle = node.getBoundingClientRect()
+        return rectangle.width > 0 && rectangle.height > 0 ? [[id, { width: rectangle.width / zoom, height: rectangle.height / zoom }]] : []
+      }),
+    )
+  }
+
+  setDropTarget(id?: string) {
+    this.dropTargetId = id
+    for (const [sectionId, node] of this.sectionNodes) this.markDropTarget(node, sectionId === id)
+  }
+
   private removeMissing(nodes: Map<string, HTMLElement>, present: Set<string>) {
     for (const [id, node] of nodes) {
       if (present.has(id)) continue
@@ -56,6 +72,12 @@ export class BoardDecorations {
     this.sectionNodes.set(id, node)
     this.insert(node)
     return node
+  }
+
+  private markDropTarget(node: HTMLElement, target: boolean) {
+    node.toggleAttribute('data-drop-target', target)
+    if (target) node.part.add('drop-target')
+    else node.part.remove('drop-target')
   }
 
   private mountLabel(id: string): HTMLElement {
