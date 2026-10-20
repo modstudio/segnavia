@@ -54,7 +54,7 @@ var printWaits=[];
 var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
 var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var finishPrint=function(){freeze();document.documentElement.setAttribute('data-segnavia-print-ready','');post({type:'${MESSAGE.ready}'});};
-var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,1000);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
+var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};

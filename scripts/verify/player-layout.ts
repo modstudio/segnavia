@@ -6,9 +6,11 @@ const PLAYER = 'segnavia-player'
 
 interface Geometry {
   player: { width: number; height: number }
+  screen: { top: number; right: number; bottom: number; left: number; width: number; height: number }
   stage: { top: number; right: number; bottom: number; left: number; width: number; height: number }
   rail: { top: number; right: number; bottom: number; left: number; width: number; height: number }
   bar: { top: number; right: number; bottom: number; left: number; opacity: string }
+  gutter: { inline: number; block: number }
 }
 
 async function geometry(h: Harness): Promise<Geometry> {
@@ -19,12 +21,19 @@ async function geometry(h: Harness): Promise<Geometry> {
       return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height }
     }
     const bar = root.querySelector('.bar') as HTMLElement
+    const screen = root.querySelector('.screen') as HTMLElement
+    const screenStyle = getComputedStyle(screen)
     const barBox = box(bar)
     return {
       player: box(player),
+      screen: box(screen),
       stage: box(root.querySelector('segnavia-stage') as HTMLElement),
       rail: box(root.querySelector('segnavia-rail') as HTMLElement),
       bar: { ...barBox, opacity: getComputedStyle(bar).opacity },
+      gutter: {
+        inline: Number.parseFloat(screenStyle.paddingInlineStart) + Number.parseFloat(screenStyle.paddingInlineEnd),
+        block: Number.parseFloat(screenStyle.paddingBlockStart) + Number.parseFloat(screenStyle.paddingBlockEnd),
+      },
     }
   })
 }
@@ -106,12 +115,20 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.setViewportSize({ width: 1280, height: 1400 })
   await page.waitForTimeout(100)
   boxes = await geometry(h)
-  check('contain fills the available width in a tall viewport', Math.abs(boxes.stage.width - 1280) < 1, JSON.stringify(boxes))
+  check(
+    'contain fills the width available inside the gutter in a tall viewport',
+    Math.abs(boxes.stage.width - (boxes.screen.width - boxes.gutter.inline)) < 1,
+    JSON.stringify(boxes),
+  )
 
   await page.setViewportSize({ width: 360, height: 720 })
   await page.waitForTimeout(100)
   boxes = await geometry(h)
-  check('contain fills the available width at 360px', Math.abs(boxes.stage.width - 360) < 1, JSON.stringify(boxes))
+  check(
+    'contain fills the width available inside the gutter at 360px',
+    Math.abs(boxes.stage.width - (boxes.screen.width - boxes.gutter.inline)) < 1,
+    JSON.stringify(boxes),
+  )
   await h.evidence('player-contain-360x720.png')
 
   await page.setViewportSize({ width: 360, height: 640 })
@@ -137,7 +154,11 @@ export async function verifyPlayerLayout(h: Harness) {
   await h.waitFor(PLAYER, (data) => data.slide === '1')
   await page.waitForTimeout(200)
   boxes = await geometry(h)
-  check('overlay makes the player and slide the same height', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
+  check(
+    'overlay makes the player and guttered slide area the same height',
+    Math.abs(boxes.player.height - boxes.screen.height) < 1 && Math.abs(boxes.stage.height - (boxes.screen.height - boxes.gutter.block)) < 1,
+    JSON.stringify(boxes),
+  )
   check('overlay controls are visible while paused', boxes.bar.opacity === '1', JSON.stringify(boxes))
   await h.evidence('player-overlay-1280x720.png')
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
@@ -158,12 +179,14 @@ export async function verifyPlayerLayout(h: Harness) {
   boxes = await geometry(h)
   check(
     'wide overlay rail sits at inline start beside the slide',
-    boxes.rail.right <= boxes.stage.left && Math.abs(boxes.player.height - boxes.stage.height) < 1,
+    boxes.rail.right <= boxes.screen.left &&
+      Math.abs(boxes.player.height - boxes.screen.height) < 1 &&
+      Math.abs(boxes.stage.height - (boxes.screen.height - boxes.gutter.block)) < 1,
     JSON.stringify(boxes),
   )
   check(
     'wide overlay bar stays within the slide instead of the rail',
-    boxes.bar.left >= boxes.stage.left && boxes.bar.right <= boxes.stage.right && boxes.bar.bottom <= boxes.stage.bottom,
+    boxes.bar.left >= boxes.screen.left && boxes.bar.right <= boxes.screen.right && boxes.bar.bottom <= boxes.screen.bottom,
     JSON.stringify(boxes),
   )
 
@@ -172,7 +195,11 @@ export async function verifyPlayerLayout(h: Harness) {
   await h.waitFor(PLAYER, (data) => data.slide === '1')
   await page.waitForTimeout(200)
   boxes = await geometry(h)
-  check('overlay keeps the player and slide the same height at 360px', Math.abs(boxes.player.height - boxes.stage.height) < 1, JSON.stringify(boxes))
+  check(
+    'overlay keeps the player and guttered slide area the same height at 360px',
+    Math.abs(boxes.player.height - boxes.screen.height) < 1 && Math.abs(boxes.stage.height - (boxes.screen.height - boxes.gutter.block)) < 1,
+    JSON.stringify(boxes),
+  )
   await h.evidence('player-overlay-360x720.png')
 
   await page.locator(PLAYER).evaluate((player) => player.setAttribute('rail', ''))
@@ -180,7 +207,7 @@ export async function verifyPlayerLayout(h: Harness) {
   boxes = await geometry(h)
   check(
     'narrow overlay rail stacks below the slide',
-    boxes.rail.top >= boxes.stage.bottom && Math.abs(boxes.player.height - boxes.stage.height - boxes.rail.height) < 1,
+    boxes.rail.top >= boxes.screen.bottom && Math.abs(boxes.player.height - boxes.screen.height - boxes.rail.height) < 1,
     JSON.stringify(boxes),
   )
   await verifyRemoval(h)
