@@ -16,6 +16,7 @@ import { verifyClippedBleed } from './verify/clipped-bleed.ts'
 import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { imageSize } from './verify/image-size.ts'
+import { verifyNamedPaperRender } from './verify/named-paper-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
@@ -65,6 +66,7 @@ try {
   check('a PDF over the byte ceiling is refused, naming both sizes', /^refused: The PDF is \d+ bytes; the limit is 2000\.$/.test(big), big)
   await verifyClippedBleed(renderer, work, CHROMIUM, check)
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
+  await verifyNamedPaperRender(renderer, work, check)
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
