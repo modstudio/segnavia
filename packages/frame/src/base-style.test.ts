@@ -58,6 +58,7 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('[part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb)')
     expect(BASE_CSS).toContain('inline-size:8px;block-size:8px;translate:-50% -50%')
     expect(BASE_CSS).toContain('var(--segnavia-board-handle-background,#fff)')
+    expect(BASE_CSS).toContain('[part~="section"][part~="drop-target"]){outline:2px solid var(--segnavia-board-drop-target-color,#2463eb)')
   })
 
   test('the board list exposes geometry and custom-property colors for every part', () => {

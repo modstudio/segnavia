@@ -1,6 +1,7 @@
 import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
+import { checkBoardEditingSections } from './board-editing-sections.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface DemoItem {
@@ -56,7 +57,7 @@ export async function checkBoardEditing(h: Harness) {
           return item
         })
         next.sections = next.sections.map((section) =>
-          section.id === 'section' ? { ...section, rectangle: { x: -24, y: -30, width: 670, height: 250 } } : section,
+          section.id === 'section' ? { ...section, rectangle: { x: -24, y: -56, width: 668, height: 236 }, items: ['deck-small', 'deck-hebrew'] } : section,
         )
         value.board = next
         value.selection = []
@@ -74,6 +75,8 @@ export async function checkBoardEditing(h: Harness) {
   const second = board.locator('[data-board-item="deck-hebrew"]')
   const hostBox = await board.boundingBox()
   if (!hostBox) throw new Error('The board has no box for editing checks.')
+
+  await checkBoardEditingSections(h, board, first, second, reset)
 
   await checkBoardSelectionCompatibility(h, board, second, reset)
   await reset()
@@ -146,6 +149,7 @@ export async function checkBoardEditing(h: Harness) {
     const value = (element as BoardElement).board
     return {
       rectangle: (value.sections.find((entry) => entry.id === 'section') as DemoSection).rectangle,
+      members: (value.sections.find((entry) => entry.id === 'section') as DemoSection).items,
       items: value.items.filter((item) => ['deck-small', 'deck-hebrew'].includes(item.id)).map(({ id, x, y }) => ({ id, x, y })),
     }
   })
@@ -155,6 +159,7 @@ export async function checkBoardEditing(h: Harness) {
     const value = (element as BoardElement).board
     return {
       rectangle: (value.sections.find((entry) => entry.id === 'section') as DemoSection).rectangle,
+      members: (value.sections.find((entry) => entry.id === 'section') as DemoSection).items,
       items: value.items.filter((item) => ['deck-small', 'deck-hebrew'].includes(item.id)).map(({ id, x, y }) => ({ id, x, y })),
       kind: (window as unknown as DemoWindow).boardChanges[0]?.edit.kind,
     }
@@ -164,6 +169,7 @@ export async function checkBoardEditing(h: Harness) {
     sectionAfter.items.every((item, i) => item.x === (sectionBefore.items[i]?.x ?? 0) + 35 && item.y === (sectionBefore.items[i]?.y ?? 0) + 20) &&
       sectionAfter.rectangle.x === sectionBefore.rectangle.x + 35 &&
       sectionAfter.rectangle.y === sectionBefore.rectangle.y + 20 &&
+      sectionAfter.members.join() === sectionBefore.members.join() &&
       sectionAfter.kind === 'move-section',
     JSON.stringify({ sectionBefore, sectionAfter }),
   )
