@@ -2,14 +2,8 @@ import { type Imposed, MM_PER_PT } from '@segnavia/format'
 import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
+import type { PdfRectangle } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
-
-export interface PdfRectangle {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 export async function embedOnePage(output: PDFDocument, bytes: Uint8Array, name: string): Promise<PDFEmbeddedPage> {
   const source = await loadPdf(bytes)

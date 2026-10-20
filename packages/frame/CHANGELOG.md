@@ -1,5 +1,17 @@
 # @segnavia/frame
 
+## 0.13.0
+
+### Minor Changes
+
+- c70aceb: Add opt-in multi-selection board editing with queued writes and undo history. The existing `selected` board property remains as the single-item view of `selection`, and selection events carry both `items` and `item`.
+
+### Patch Changes
+
+- 44ebc49: At compact widths with controls below, show host actions side by side on one row below the rail, with a lighter stage edge; a bare text button stretches to its share. Keyboard order stays Next, host actions, end controls, then the rail. Overlay captions clear the measured bar height.
+- Updated dependencies [c70aceb]
+  - @segnavia/format@0.13.0
+
 ## 0.12.0
 
 ### Minor Changes

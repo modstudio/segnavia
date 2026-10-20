@@ -135,7 +135,7 @@ export async function verifyClippedBleed(
     actualText && expectedText.length === 4
       ? {
           horizontal: close(actualText[0] ?? Number.NaN, expectedText[0] ?? Number.NaN, 0.5),
-          vertical: close(actualText[1] ?? Number.NaN, expectedText[1] ?? Number.NaN, 1.5),
+          vertical: close(actualText[1] ?? Number.NaN, expectedText[1] ?? Number.NaN, 0.5),
           width: close((actualText[2] ?? Number.NaN) - (actualText[0] ?? Number.NaN), (expectedText[2] ?? Number.NaN) - (expectedText[0] ?? Number.NaN), 0.5),
           height: close((actualText[3] ?? Number.NaN) - (actualText[1] ?? Number.NaN), (expectedText[3] ?? Number.NaN) - (expectedText[1] ?? Number.NaN), 0.5),
           verticalOffset: (actualText[1] ?? Number.NaN) - (expectedText[1] ?? Number.NaN),

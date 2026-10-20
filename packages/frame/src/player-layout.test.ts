@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
-import { containSlideSize, PlayerMeasureChanges, playerControls, playerFit } from './player-layout.ts'
+import {
+  COMPACT_PLAYER_WIDTH,
+  compactBarHeight,
+  containSlideSize,
+  measuredBarHeight,
+  PlayerMeasureChanges,
+  playerControls,
+  playerFit,
+} from './player-layout.ts'
 
 test('player layout attributes use the documented values and defaults', () => {
   expect(playerFit(null)).toBe('contain')
@@ -11,6 +19,34 @@ test('player layout attributes use the documented values and defaults', () => {
   expect(playerControls(null)).toBe('below')
   expect(playerControls('overlay')).toBe('overlay')
   expect(playerControls('other')).toBe('below')
+})
+
+test('compact chrome height is track plus the tallest transport cell plus actions', () => {
+  expect(COMPACT_PLAYER_WIDTH).toBe(560)
+  expect(compactBarHeight({ track: 10, start: 40, center: 44, endControls: 42, actions: 48 })).toBe(102)
+  expect(compactBarHeight({ track: 10, start: 40, center: 44, endControls: 42, actions: 0 })).toBe(54)
+})
+
+function fakeRoot(heights: Record<string, number>): ShadowRoot {
+  return {
+    querySelector: (selector: string) => (selector in heights ? { offsetHeight: heights[selector] } : null),
+  } as ShadowRoot
+}
+
+test('measured bar height prefers the bar box and otherwise sums the flattened rows', () => {
+  expect(measuredBarHeight(fakeRoot({ '.bar': 96 }))).toBe(96)
+  expect(
+    measuredBarHeight(
+      fakeRoot({
+        '.bar': 0,
+        'segnavia-track': 10,
+        '.start': 40,
+        '.center': 44,
+        '.end-controls': 42,
+        '.actions': 48,
+      }),
+    ),
+  ).toBe(102)
 })
 
 test('contain sizing respects width, available height and its height floor', () => {
