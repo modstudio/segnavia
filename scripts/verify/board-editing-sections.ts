@@ -71,6 +71,25 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
   )
 }
 
+async function checkSameSectionReorder(h: Harness, board: Locator, first: Locator, second: Locator) {
+  const secondBox = await second.boundingBox()
+  const firstFrom = await center(first)
+  if (!secondBox) throw new Error('The second grid item has no box.')
+  await drag(h.page, firstFrom, secondBox.x + secondBox.width - 1 - firstFrom.x, secondBox.y + secondBox.height / 2 - firstFrom.y)
+  await waitChanges(h.page, 1)
+  const reordered = await board.evaluate((element) => {
+    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+      cells: Array<{ id: string; row: number; column: number }>
+    }
+    return structuredClone(section)
+  })
+  h.check(
+    'dropping the first member on the far edge of the second swaps their grid order',
+    reordered.items.join() === 'deck-hebrew,deck-small',
+    JSON.stringify(reordered),
+  )
+}
+
 export async function checkBoardEditingSections(
   h: Harness,
   board: Locator,
@@ -128,6 +147,9 @@ export async function checkBoardEditingSections(
       (await board.locator('[part~="drop-marker"]').count()) === 0,
     JSON.stringify({ targetDuringDrag, markerDuringDrag, targetAfterDrop }),
   )
+
+  await reset()
+  await checkSameSectionReorder(h, board, first, second)
 
   await reset()
   const firstBox = await first.boundingBox()

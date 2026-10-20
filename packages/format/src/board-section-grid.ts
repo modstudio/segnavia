@@ -172,13 +172,13 @@ function updateSection(section: BoardSection, cells: readonly GridCell[]): Board
   return { ...section, cells: next, items: next.map((cell) => cell.id) }
 }
 
-export function removeFromGrid(board: Board, ids: readonly string[]): Board {
+export function removeFromGrid(board: Board, shapes: BoardShapes, ids: readonly string[]): Board {
   const removed = new Set(ids)
   return {
     ...board,
     sections: board.sections.map((section) => {
       if (section.layout === 'manual') return { ...section, items: section.items.filter((id) => !removed.has(id)) }
-      const cells = section.cells ?? section.items.map((id, column) => ({ id, row: 0, column }))
+      const cells = cellsFor(board, shapes, section)
       const removedCells = cells.filter((cell) => removed.has(cell.id))
       const kept = cells
         .filter((cell) => !removed.has(cell.id))
@@ -188,22 +188,35 @@ export function removeFromGrid(board: Board, ids: readonly string[]): Board {
   }
 }
 
-export function insertIntoGrid(board: Board, id: string, ids: readonly string[], target: GridDropTarget): Board {
+export function insertIntoGrid(board: Board, shapes: BoardShapes, id: string, ids: readonly string[], target: GridDropTarget): Board {
   const unique = ids.filter((member, index) => ids.indexOf(member) === index)
-  const removed = removeFromGrid(board, unique)
+  const original = sectionOf(board, id)
+  const originalCells = original ? cellsFor(board, shapes, original) : []
+  const moved = new Set(unique)
+  const offset = originalCells.filter(
+    (cell) =>
+      moved.has(cell.id) &&
+      (target.axis === 'row' ? cell.row === target.row && cell.column < target.column : cell.column === target.column && cell.row < target.row),
+  ).length
+  const adjusted = {
+    ...target,
+    row: target.axis === 'column' ? Math.max(0, target.row - offset) : target.row,
+    column: target.axis === 'row' ? Math.max(0, target.column - offset) : target.column,
+  }
+  const removed = removeFromGrid(board, shapes, unique)
   const section = sectionOf(removed, id)
   if (!section || section.layout === 'manual') return removed
   const cells = [...(section.cells ?? [])]
   const inserted = unique.map((member, index) => ({
     id: member,
-    row: target.row + (target.axis === 'column' ? index : 0),
-    column: target.column + (target.axis === 'row' ? index : 0),
+    row: adjusted.row + (adjusted.axis === 'column' ? index : 0),
+    column: adjusted.column + (adjusted.axis === 'row' ? index : 0),
   }))
   const occupied = inserted.some((placement) => cells.some((cell) => cell.row === placement.row && cell.column === placement.column))
   const shifted = occupied
     ? cells.map((cell) => {
-        if (target.axis === 'row' && cell.row === target.row && cell.column >= target.column) return { ...cell, column: cell.column + unique.length }
-        if (target.axis === 'column' && cell.column === target.column && cell.row >= target.row) return { ...cell, row: cell.row + unique.length }
+        if (adjusted.axis === 'row' && cell.row === adjusted.row && cell.column >= adjusted.column) return { ...cell, column: cell.column + unique.length }
+        if (adjusted.axis === 'column' && cell.column === adjusted.column && cell.row >= adjusted.row) return { ...cell, row: cell.row + unique.length }
         return cell
       })
     : cells

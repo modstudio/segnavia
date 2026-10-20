@@ -141,7 +141,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
-    const removed = removeFromGrid(removeItems(current, existing), existing)
+    const removed = removeItems(removeFromGrid(current, this.bridge.shapes(), existing), existing)
     this.apply(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
     this.board.focus()
   }

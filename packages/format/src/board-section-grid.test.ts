@@ -108,7 +108,7 @@ describe('auto section grid geometry', () => {
 
 describe('auto section grid edits', () => {
   test('inserts several ids together and shifts only the target row', () => {
-    const inserted = insertIntoGrid(fixture(), 'grid', ['extra', 'small'], { row: 0, column: 1, axis: 'row' })
+    const inserted = insertIntoGrid(fixture(), shapes, 'grid', ['extra', 'small'], { row: 0, column: 1, axis: 'row' })
     expect(inserted.sections[0]?.cells).toEqual([
       { id: 'wide', row: 0, column: 0 },
       { id: 'extra', row: 0, column: 1 },
@@ -118,7 +118,7 @@ describe('auto section grid edits', () => {
   })
 
   test('column insertion leaves cells in other rows alone', () => {
-    const inserted = insertIntoGrid(fixture(), 'grid', ['extra'], { row: 1, column: 1, axis: 'column' })
+    const inserted = insertIntoGrid(fixture(), shapes, 'grid', ['extra'], { row: 1, column: 1, axis: 'column' })
     expect(inserted.sections[0]?.cells).toContainEqual({ id: 'wide', row: 0, column: 0 })
     expect(inserted.sections[0]?.cells).toContainEqual({ id: 'tall', row: 0, column: 1 })
     expect(inserted.sections[0]?.cells).toContainEqual({ id: 'small', row: 1, column: 0 })
@@ -126,21 +126,21 @@ describe('auto section grid edits', () => {
   })
 
   test('fills a vacant cell without shifting a later cell in that row', () => {
-    const withHole = insertIntoGrid(fixture(), 'grid', ['extra'], { row: 2, column: 1, axis: 'column' })
+    const withHole = insertIntoGrid(fixture(), shapes, 'grid', ['extra'], { row: 2, column: 1, axis: 'column' })
     const laidOut = layoutSection(withHole, shapes, 'grid')
     const extra = laidOut.items.find((item) => item.id === 'extra')
     if (!extra) throw new Error('fixture item is missing')
     const target = gridDropTarget(laidOut, shapes, 'grid', { x: SECTION_PADDING + 50, y: extra.y + 50 })
     expect(target).toEqual({ row: 2, column: 0, axis: 'row' })
-    const filled = target ? insertIntoGrid(laidOut, 'grid', ['loose'], target) : laidOut
+    const filled = target ? insertIntoGrid(laidOut, shapes, 'grid', ['loose'], target) : laidOut
     expect(filled.sections[0]?.cells).toContainEqual({ id: 'loose', row: 2, column: 0 })
     expect(filled.sections[0]?.cells).toContainEqual({ id: 'extra', row: 2, column: 1 })
   })
 
   test('closes a row gap and renumbers after a column empties', () => {
-    const rowClosed = removeFromGrid(fixture(), ['wide'])
+    const rowClosed = removeFromGrid(fixture(), shapes, ['wide'])
     expect(rowClosed.sections[0]?.cells).toContainEqual({ id: 'tall', row: 0, column: 0 })
-    const columnClosed = removeFromGrid(fixture(), ['tall'])
+    const columnClosed = removeFromGrid(fixture(), shapes, ['tall'])
     expect(columnClosed.sections[0]?.cells).toEqual([
       { id: 'wide', row: 0, column: 0 },
       { id: 'small', row: 1, column: 0 },
@@ -148,8 +148,8 @@ describe('auto section grid edits', () => {
   })
 
   test('removes an empty column from a grid containing vacant cells', () => {
-    const withHole = insertIntoGrid(fixture(), 'grid', ['extra'], { row: 2, column: 1, axis: 'column' })
-    const withoutSecondColumn = removeFromGrid(withHole, ['tall', 'extra'])
+    const withHole = insertIntoGrid(fixture(), shapes, 'grid', ['extra'], { row: 2, column: 1, axis: 'column' })
+    const withoutSecondColumn = removeFromGrid(withHole, shapes, ['tall', 'extra'])
     expect(withoutSecondColumn.sections[0]?.cells).toEqual([
       { id: 'wide', row: 0, column: 0 },
       { id: 'small', row: 1, column: 0 },
@@ -162,5 +162,43 @@ describe('auto section grid edits', () => {
     if (!section) throw new Error('fixture section is missing')
     value.sections[0] = { ...section, layout: 'manual' }
     expect(layoutSection(value, shapes, 'grid')).toBe(value)
+  })
+
+  function singleRow() {
+    const value = fixture()
+    const section = value.sections[0]
+    if (!section) throw new Error('fixture section is missing')
+    return { ...value, sections: [{ ...section, items: ['wide', 'tall', 'small'], cells: section.items.map((id, column) => ({ id, row: 0, column })) }] }
+  }
+
+  test('reorders forwards within a row in post-removal coordinates', () => {
+    expect(insertIntoGrid(singleRow(), shapes, 'grid', ['wide'], { row: 0, column: 2, axis: 'row' }).sections[0]?.items).toEqual(['tall', 'wide', 'small'])
+  })
+
+  test('reorders backwards within a row in post-removal coordinates', () => {
+    expect(insertIntoGrid(singleRow(), shapes, 'grid', ['small'], { row: 0, column: 1, axis: 'row' }).sections[0]?.items).toEqual(['wide', 'small', 'tall'])
+  })
+
+  test('a drop on a member own neighboring edge preserves row order', () => {
+    expect(insertIntoGrid(singleRow(), shapes, 'grid', ['wide'], { row: 0, column: 1, axis: 'row' }).sections[0]?.items).toEqual(['wide', 'tall', 'small'])
+  })
+
+  test('translates column targets after removing a member from its original cell', () => {
+    const value = fixture()
+    const section = value.sections[0]
+    if (!section) throw new Error('fixture section is missing')
+    const column = { ...value, sections: [{ ...section, items: ['wide', 'tall', 'small'], cells: section.items.map((id, row) => ({ id, row, column: 0 })) }] }
+    expect(insertIntoGrid(column, shapes, 'grid', ['wide'], { row: 2, column: 0, axis: 'column' }).sections[0]?.items).toEqual(['tall', 'wide', 'small'])
+  })
+
+  test('derives two rows before removing from a section without stored cells', () => {
+    const value = fixture()
+    const section = value.sections[0]
+    if (!section) throw new Error('fixture section is missing')
+    const withoutCells = { ...value, sections: [{ ...section, cells: undefined }] }
+    expect(removeFromGrid(withoutCells, shapes, ['wide']).sections[0]?.cells).toEqual([
+      { id: 'tall', row: 0, column: 0 },
+      { id: 'small', row: 1, column: 0 },
+    ])
   })
 })

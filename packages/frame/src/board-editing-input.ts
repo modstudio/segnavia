@@ -170,11 +170,11 @@ export class BoardEditingInput implements BoardInputDelegate {
       const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
       const moved = moveItems(gesture.before, gesture.ids, delta)
       const release = screenToBoard(bridge.view(), point)
-      const withoutGridPlacement = removeFromGrid(moved, gesture.ids)
+      const withoutGridPlacement = removeFromGrid(moved, bridge.shapes(), gesture.ids)
       const assigned = assignMembership(withoutGridPlacement, bridge.shapes(), gesture.ids, release, gesture.before.sections)
       const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
       const drop = target?.layout === 'manual' ? undefined : target ? gridDropTarget(gesture.before, bridge.shapes(), target.id, release) : undefined
-      const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(assigned, target.id, gesture.ids, drop) : assigned
+      const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, gesture.ids, drop) : assigned
       this.callbacks.commit(gesture.before, settleBoard(gesture.before, placed, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
