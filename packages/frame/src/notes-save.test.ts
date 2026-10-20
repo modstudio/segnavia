@@ -143,6 +143,46 @@ describe('notes save queue', () => {
     expect(failures).toEqual(['Offline'])
   })
 
+  test('an in-flight save that differs from the current text stays dirty until the compensating write settles', async () => {
+    const time = scheduler()
+    const saves: string[] = []
+    const releases: Array<() => void> = []
+    const queue = new NotesSaveQueue(
+      ({ notes }) => {
+        saves.push(notes)
+        return new Promise<void>((resolve) => releases.push(resolve))
+      },
+      () => {},
+      time,
+    )
+    queue.seed('a', 'A')
+    queue.edit('a', 'B')
+    time.run()
+    await Promise.resolve()
+    expect(saves).toEqual(['B'])
+    queue.edit('a', 'A')
+    expect(queue.dirty).toBe(true)
+    expect(queue.hasLocalWork('a')).toBe(true)
+    let flushed = false
+    const flushing = queue.flush('a').then((ok) => {
+      flushed = true
+      return ok
+    })
+    await Promise.resolve()
+    expect(flushed).toBe(false)
+    releases[0]?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(saves).toEqual(['B', 'A'])
+    expect(flushed).toBe(false)
+    expect(queue.dirty).toBe(true)
+    releases[1]?.()
+    expect(await flushing).toBe(true)
+    expect(flushed).toBe(true)
+    expect(saves.at(-1)).toBe('A')
+    expect(queue.dirty).toBe(false)
+  })
+
   test('adopts host notes only when local work is settled', async () => {
     const time = scheduler()
     let release = () => {}

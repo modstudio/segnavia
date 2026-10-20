@@ -41,7 +41,7 @@ export class NotesSaveQueue {
   ) {}
 
   get dirty(): boolean {
-    return [...this.entries.values()].some((entry) => entry.text !== entry.saved)
+    return [...this.entries.values()].some((entry) => entry.text !== entry.saved || entry.inflight !== null)
   }
 
   setSave(save: (input: { slideId: string; notes: string }) => Promise<void>) {
@@ -112,9 +112,11 @@ export class NotesSaveQueue {
       this.timers.clear(entry.timer)
       entry.timer = null
     }
-    if (entry.text === entry.saved) return true
-    const saved = await this.start(slideId, entry.version)
-    return saved && entry.text === entry.saved
+    if (entry.inflight || entry.text !== entry.saved) {
+      const saved = await this.start(slideId, entry.version)
+      return saved && entry.text === entry.saved
+    }
+    return true
   }
 
   async flushAll(): Promise<boolean> {
