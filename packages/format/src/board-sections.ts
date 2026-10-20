@@ -1,8 +1,8 @@
 import type { Board, BoardSection } from './board.ts'
 import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
-import type { Box, Point } from './deck.ts'
 import { layoutSection } from './board-section-grid.ts'
+import type { Box, Point } from './deck.ts'
 
 export const SECTION_PADDING = 24
 export const SECTION_TITLE_ROOM = 32

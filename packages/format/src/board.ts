@@ -30,7 +30,7 @@ export const BoardSection = z.object({
   rectangle: Box,
   items: z.array(z.string()),
   layout: z.enum(['auto', 'manual']).optional(),
-  rows: z.array(z.array(z.string().nullable())).optional(),
+  cells: z.array(z.object({ id: z.string(), row: z.number(), column: z.number() })).optional(),
 })
 export type BoardSection = z.infer<typeof BoardSection>
 
@@ -71,29 +71,43 @@ export const Board = BoardShape.superRefine((board, ctx) => {
         })
       }
     })
-    if (section.rows) {
-      section.rows.forEach((row, rowIndex) => {
-        if (row.at(-1) === null) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['sections', sectionIndex, 'rows', rowIndex],
-            message: `section "${section.id}" row ${rowIndex} ends in null; remove trailing empty cells`,
-          })
-        }
-      })
-      const rowItems = section.rows.flat().filter((id): id is string => id !== null)
-      const length = Math.max(section.items.length, rowItems.length)
-      for (let index = 0; index < length; index += 1) {
-        if (section.items[index] === rowItems[index]) continue
-        const id = section.items[index] ?? rowItems[index] ?? '(missing)'
+    if (section.layout === 'manual' || !section.cells) return
+    const members = new Set(section.items)
+    const positions = new Set<string>()
+    const cellIds = new Set<string>()
+    section.cells.forEach((cell, cellIndex) => {
+      const path = ['sections', sectionIndex, 'cells', cellIndex]
+      if (!members.has(cell.id))
+        ctx.addIssue({ code: 'custom', path, message: `section "${section.id}" cell "${cell.id}" is not a member; use the id of a section member` })
+      if (!Number.isInteger(cell.row) || cell.row < 0 || !Number.isInteger(cell.column) || cell.column < 0)
         ctx.addIssue({
           code: 'custom',
-          path: ['sections', sectionIndex, 'rows'],
-          message: `section "${section.id}" rows disagree with items at "${id}"; make rows contain every item exactly once in row order`,
+          path,
+          message: `section "${section.id}" cell "${cell.id}" has an invalid track index; use non-negative integer row and column indexes`,
         })
-        break
-      }
-    }
+      const position = `${cell.row}:${cell.column}`
+      if (positions.has(position))
+        ctx.addIssue({
+          code: 'custom',
+          path,
+          message: `section "${section.id}" cell "${cell.id}" shares position (${cell.row}, ${cell.column}); give every cell a unique position`,
+        })
+      positions.add(position)
+      if (cellIds.has(cell.id))
+        ctx.addIssue({
+          code: 'custom',
+          path,
+          message: `section "${section.id}" cell "${cell.id}" is duplicated; provide exactly one cell for each member`,
+        })
+      cellIds.add(cell.id)
+    })
+    for (const id of section.items)
+      if (!cellIds.has(id))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['sections', sectionIndex, 'cells'],
+          message: `section "${section.id}" member "${id}" has no cell; add one cell for every member`,
+        })
   })
 })
 export type Board = z.infer<typeof Board>

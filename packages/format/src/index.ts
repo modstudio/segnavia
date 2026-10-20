@@ -41,6 +41,15 @@ export {
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
 export {
+  deriveSectionCells,
+  type GridCell,
+  type GridDropTarget,
+  gridDropTarget,
+  insertIntoGrid,
+  layoutSection,
+  removeFromGrid,
+} from './board-section-grid.ts'
+export {
   assignMembership,
   fitSection,
   fitTouchedSections,
@@ -52,14 +61,6 @@ export {
   SECTION_TITLE_ROOM,
   settleBoard,
 } from './board-sections.ts'
-export {
-  deriveSectionRows,
-  type GridDropTarget,
-  gridDropTarget,
-  insertIntoGrid,
-  layoutSection,
-  removeFromGrid,
-} from './board-section-grid.ts'
 export {
   Book,
   BookContents,

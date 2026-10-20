@@ -18,7 +18,7 @@
 //   --segnavia-board-marquee-fill the board editing marquee fill
 //   --segnavia-board-handle-color the board editing handle border
 //   --segnavia-board-handle-background the board editing handle fill
-//   --segnavia-board-drop-target-color the section drop-target outline
+//   --segnavia-board-drop-marker-color the grid insertion marker
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
@@ -49,6 +49,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="editing-overlay"]){position:absolute;inset:0;z-index:4;pointer-events:none}
 :where(:host(segnavia-board:not([unstyled])) [part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb);background:var(--segnavia-board-marquee-fill,rgba(36,99,235,.12))}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:8px;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);pointer-events:auto}
+:where(:host(segnavia-board:not([unstyled])) [part~="drop-marker"]){position:absolute;box-sizing:border-box;background:var(--segnavia-board-drop-marker-color,#2463eb)}
 :where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="item"][data-selected]){cursor:move}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-left"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-right"]){cursor:nwse-resize}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-right"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-left"]){cursor:nesw-resize}

@@ -20,9 +20,39 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
-  test('refuses section rows that disagree with items or end in null', () => {
-    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], rows: [['other']] }] })).toContain('section "group" rows disagree with items at "deck"')
-    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], rows: [['deck', null]] }] })).toContain('section "group" row 0 ends in null')
+  test('refuses invalid auto-section cells', () => {
+    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [{ id: 'other', row: 0, column: 0 }] }] })).toContain('cell "other" is not a member')
+    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [] }] })).toContain('member "deck" has no cell')
+    expect(
+      refusal({
+        ...valid,
+        sections: [
+          {
+            ...valid.sections[0],
+            cells: [
+              { id: 'deck', row: 0, column: 0 },
+              { id: 'deck', row: 0, column: 1 },
+            ],
+          },
+        ],
+      }),
+    ).toContain('cell "deck" is duplicated')
+    expect(
+      refusal({
+        ...valid,
+        sections: [
+          {
+            ...valid.sections[0],
+            items: ['deck', 'deck'],
+            cells: [
+              { id: 'deck', row: 0, column: 0 },
+              { id: 'deck', row: 0, column: 0 },
+            ],
+          },
+        ],
+      }),
+    ).toContain('shares position (0, 0)')
+    expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [{ id: 'deck', row: -1, column: 0.5 }] }] })).toContain('invalid track index')
   })
 
   test('refuses an id duplicated across lists and says what clears it', () => {
