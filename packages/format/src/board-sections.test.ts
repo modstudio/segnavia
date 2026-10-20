@@ -3,6 +3,7 @@ import {
   assignMembership,
   type Board,
   fitSection,
+  fitTouchedSections,
   MAKE_ROOM_LIMIT,
   makeRoom,
   SECTION_MIN_SIZE,
@@ -150,6 +151,14 @@ describe('section room', () => {
     const manyShapes = { items: Object.fromEntries(items.map((item) => [item.id, { width: 80, height: 80 }])), labels: {} }
     const settled = makeRoom(value, manyShapes, ['changed'])
     expect(settled.items.at(-1)?.x).toBe(items.at(-1)?.x)
+  })
+
+  test('fits a touched member for a live edit without making room', () => {
+    const value = board()
+    const moved = { ...value, items: value.items.map((item) => (item.id === 'two' ? { ...item, x: 460 } : item)) }
+    const fitted = fitTouchedSections(value, moved, shapes, ['two'])
+    expect(fitted.sections[0]?.rectangle.width).toBe(440 + SECTION_PADDING * 2)
+    expect(fitted.items[2]?.x).toBe(500)
   })
 
   test('settles a section that lost a touched member', () => {

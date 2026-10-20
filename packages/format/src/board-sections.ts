@@ -162,7 +162,7 @@ export function makeRoom(board: Board, shapes: BoardShapes, changed: readonly st
   return next
 }
 
-export function touchedSections(previous: Board, board: Board, touched: readonly string[]): string[] {
+function touchedSections(previous: Board, board: Board, touched: readonly string[]): string[] {
   const touchedIds = new Set(touched)
   return [...previous.sections, ...board.sections]
     .filter((section) => touchedIds.has(section.id) || section.items.some((id) => touchedIds.has(id)))
@@ -170,8 +170,15 @@ export function touchedSections(previous: Board, board: Board, touched: readonly
     .filter((id, index, ids) => ids.indexOf(id) === index)
 }
 
+function fitSections(board: Board, shapes: BoardShapes, sectionIds: readonly string[]): Board {
+  return sectionIds.reduce((value, id) => fitSection(value, shapes, id), board)
+}
+
+export function fitTouchedSections(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
+  return fitSections(board, shapes, touchedSections(previous, board, touched))
+}
+
 export function settleBoard(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
   const sectionIds = touchedSections(previous, board, touched)
-  const fitted = sectionIds.reduce((value, id) => fitSection(value, shapes, id), board)
-  return makeRoom(fitted, shapes, sectionIds)
+  return makeRoom(fitSections(board, shapes, sectionIds), shapes, sectionIds)
 }

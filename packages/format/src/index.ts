@@ -43,6 +43,7 @@ export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearc
 export {
   assignMembership,
   fitSection,
+  fitTouchedSections,
   MAKE_ROOM_LIMIT,
   makeRoom,
   SECTION_GAP,
@@ -50,7 +51,6 @@ export {
   SECTION_PADDING,
   SECTION_TITLE_ROOM,
   settleBoard,
-  touchedSections,
 } from './board-sections.ts'
 export {
   Book,

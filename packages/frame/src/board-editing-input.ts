@@ -1,6 +1,5 @@
-import { assignMembership, type Board, makeRoom, moveItems, moveSection, type Point, screenToBoard, settleBoard } from '@segnavia/format'
+import { assignMembership, type Board, fitTouchedSections, makeRoom, moveItems, moveSection, type Point, screenToBoard, settleBoard } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
-import { fitTouchedSections } from './board-edit-settlement.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
@@ -112,7 +111,7 @@ export class BoardEditingInput implements BoardInputDelegate {
     const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
     if (gesture.kind === 'move' && this.enabled.move) {
       const moved = moveItems(gesture.before, gesture.ids, delta)
-      const fitted = fitTouchedSections(moved, bridge.shapes(), gesture.ids)
+      const fitted = fitTouchedSections(gesture.before, moved, bridge.shapes(), gesture.ids)
       this.callbacks.live(fitted)
       const boardPoint = screenToBoard(bridge.view(), point)
       const assigned = assignMembership(fitted, bridge.shapes(), gesture.ids, boardPoint, gesture.before.sections)
@@ -124,7 +123,7 @@ export class BoardEditingInput implements BoardInputDelegate {
       const shape = bridge.shapes().items[gesture.id]
       if (shape) {
         const resized = resizedAtPointer(gesture.before, gesture.id, gesture.corner, point, bridge.view(), shape)
-        this.callbacks.live(fitTouchedSections(resized, bridge.shapes(), [gesture.id]))
+        this.callbacks.live(fitTouchedSections(gesture.before, resized, bridge.shapes(), [gesture.id]))
       }
     }
     event.preventDefault()
