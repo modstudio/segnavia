@@ -10,7 +10,7 @@ interface Geometry {
   stage: { top: number; right: number; bottom: number; left: number; width: number; height: number }
   rail: { top: number; right: number; bottom: number; left: number; width: number; height: number }
   bar: { top: number; right: number; bottom: number; left: number; opacity: string }
-  gutter: { inline: number; block: number }
+  gutter: { inlineStart: number; inlineEnd: number; blockStart: number; blockEnd: number; inline: number; block: number }
 }
 
 async function geometry(h: Harness): Promise<Geometry> {
@@ -31,6 +31,10 @@ async function geometry(h: Harness): Promise<Geometry> {
       rail: box(root.querySelector('segnavia-rail') as HTMLElement),
       bar: { ...barBox, opacity: getComputedStyle(bar).opacity },
       gutter: {
+        inlineStart: Number.parseFloat(screenStyle.paddingInlineStart),
+        inlineEnd: Number.parseFloat(screenStyle.paddingInlineEnd),
+        blockStart: Number.parseFloat(screenStyle.paddingBlockStart),
+        blockEnd: Number.parseFloat(screenStyle.paddingBlockEnd),
         inline: Number.parseFloat(screenStyle.paddingInlineStart) + Number.parseFloat(screenStyle.paddingInlineEnd),
         block: Number.parseFloat(screenStyle.paddingBlockStart) + Number.parseFloat(screenStyle.paddingBlockEnd),
       },
@@ -180,13 +184,18 @@ export async function verifyPlayerLayout(h: Harness) {
   check(
     'wide overlay rail sits at inline start beside the slide',
     boxes.rail.right <= boxes.screen.left &&
+      Math.abs(boxes.stage.left - boxes.screen.left - boxes.gutter.inlineStart) < 1 &&
       Math.abs(boxes.player.height - boxes.screen.height) < 1 &&
       Math.abs(boxes.stage.height - (boxes.screen.height - boxes.gutter.block)) < 1,
     JSON.stringify(boxes),
   )
   check(
     'wide overlay bar stays within the slide instead of the rail',
-    boxes.bar.left >= boxes.screen.left && boxes.bar.right <= boxes.screen.right && boxes.bar.bottom <= boxes.screen.bottom,
+    boxes.bar.left >= boxes.screen.left &&
+      boxes.bar.right <= boxes.screen.right &&
+      boxes.bar.bottom <= boxes.screen.bottom &&
+      Math.abs(boxes.stage.left - boxes.bar.left - boxes.gutter.inlineStart) < 1 &&
+      Math.abs(boxes.bar.right - boxes.stage.right - boxes.gutter.inlineEnd) < 1,
     JSON.stringify(boxes),
   )
 
