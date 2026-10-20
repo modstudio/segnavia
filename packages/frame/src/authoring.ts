@@ -174,7 +174,7 @@ export class AuthoringController extends EventTarget {
     notes.querySelector('[data-authoring-status]')?.addEventListener('click', this.retryNotes)
     this.notes = new NotesSaveQueue(
       save,
-      (dirty) => this.emitDirty(this.pendingMove || dirty),
+      () => this.emitDirty(),
       undefined,
       (slideId) => {
         if (slideId === this.notesSlideId) this.renderNotesStatus()
@@ -202,8 +202,8 @@ export class AuthoringController extends EventTarget {
     await notes.flush(slideId)
   }
 
-  private emitDirty(dirty: boolean) {
-    this.dispatchEvent(new CustomEvent<DirtyChangeDetail>('dirty-change', { detail: { dirty } }))
+  private emitDirty() {
+    this.dispatchEvent(new CustomEvent<DirtyChangeDetail>('dirty-change', { detail: { dirty: this.dirty } }))
   }
 
   private detachNotes(): NotesSaveQueue | null {
@@ -298,7 +298,7 @@ export class AuthoringController extends EventTarget {
     if (!handler || !slideId || this.pendingMove || fromIndex === toIndex) return
     this.pendingMove = true
     this.rail?.setReorderEnabled(false)
-    this.emitDirty(true)
+    this.emitDirty()
     try {
       await moveSlideOptimistically(this.player.controller, fromIndex, toIndex, handler, this.loadInternalDeck)
     } catch (error) {
@@ -307,7 +307,7 @@ export class AuthoringController extends EventTarget {
     } finally {
       this.pendingMove = false
       this.rail?.setReorderEnabled(true)
-      this.emitDirty(this.dirty)
+      this.emitDirty()
     }
   }
 

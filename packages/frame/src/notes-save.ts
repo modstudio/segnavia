@@ -41,7 +41,7 @@ export class NotesSaveQueue {
   ) {}
 
   get dirty(): boolean {
-    return [...this.entries.values()].some((entry) => entry.text !== entry.saved || entry.inflight !== null)
+    return [...this.entries.values()].some((entry) => this.unsettled(entry))
   }
 
   setSave(save: (input: { slideId: string; notes: string }) => Promise<void>) {
@@ -49,8 +49,7 @@ export class NotesSaveQueue {
   }
 
   hasLocalWork(slideId: string): boolean {
-    const entry = this.entry(slideId)
-    return entry.text !== entry.saved || entry.inflight !== null
+    return this.unsettled(this.entry(slideId))
   }
 
   seed(slideId: string, notes: string): boolean {
@@ -68,7 +67,7 @@ export class NotesSaveQueue {
       })
       return true
     }
-    if (existing.text !== existing.saved || existing.inflight !== null) return false
+    if (this.unsettled(existing)) return false
     if (existing.host === notes) return false
     if (existing.text === notes) {
       existing.host = notes
@@ -112,7 +111,7 @@ export class NotesSaveQueue {
       this.timers.clear(entry.timer)
       entry.timer = null
     }
-    if (entry.inflight || entry.text !== entry.saved) {
+    if (this.unsettled(entry)) {
       const saved = await this.start(slideId, entry.version)
       return saved && entry.text === entry.saved
     }
@@ -126,7 +125,7 @@ export class NotesSaveQueue {
         this.timers.clear(entry.timer)
         entry.timer = null
       }
-      if (entry.text !== entry.saved || entry.inflight) pending.push(this.start(slideId, entry.version))
+      if (this.unsettled(entry)) pending.push(this.start(slideId, entry.version))
     }
     const results = await Promise.all(pending)
     return results.every(Boolean) && !this.dirty
@@ -138,6 +137,10 @@ export class NotesSaveQueue {
 
   dispose() {
     for (const entry of this.entries.values()) if (entry.timer !== null) this.timers.clear(entry.timer)
+  }
+
+  private unsettled(entry: Entry): boolean {
+    return entry.text !== entry.saved || entry.inflight !== null
   }
 
   private entry(slideId: string): Entry {
