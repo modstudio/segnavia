@@ -31,6 +31,7 @@ interface DemoChange {
 }
 type BoardElement = HTMLElement & { board: DemoBoard; selection: readonly string[] }
 type DemoWindow = typeof window & { boardChanges: DemoChange[]; boardEditErrors: unknown[]; hostBoard: DemoBoard }
+type ResetBoard = (direction?: 'ltr' | 'rtl') => Promise<void>
 
 function sectionState(element: Element) {
   const board = (element as BoardElement).board
@@ -101,13 +102,104 @@ async function checkSameSectionColumnDrop(h: Harness, board: Locator, first: Loc
   )
 }
 
-export async function checkBoardEditingSections(
-  h: Harness,
-  board: Locator,
-  first: Locator,
-  second: Locator,
-  reset: (direction?: 'ltr' | 'rtl') => Promise<void>,
-) {
+async function checkGrowingSectionMakesRoom(h: Harness, board: Locator, second: Locator, reset: ResetBoard) {
+  await reset()
+  await second.click()
+  const pageBefore = await board.evaluate((element) => {
+    const value = (element as BoardElement).board
+    return structuredClone(value.items.find((item) => item.id === 'page') as DemoItem)
+  })
+  const handle = board.locator('[part~="resize-handle"][data-corner="bottom-right"]')
+  await drag(h.page, await center(handle), 160, 0)
+  await waitChanges(h.page, 1)
+  const room = await board.evaluate((element) => {
+    const value = (element as BoardElement).board
+    const section = value.sections.find((entry) => entry.id === 'section') as DemoSection
+    const page = value.items.find((item) => item.id === 'page') as DemoItem
+    const pageHeight = (page.width * 900) / 640
+    const overlap =
+      section.rectangle.x < page.x + page.width &&
+      section.rectangle.x + section.rectangle.width > page.x &&
+      section.rectangle.y < page.y + pageHeight &&
+      section.rectangle.y + section.rectangle.height > page.y
+    return { overlap, page: structuredClone(page), changes: (window as unknown as DemoWindow).boardChanges.length }
+  })
+  h.check(
+    'growing Two decks toward the page nudges the page clear on the settled write',
+    !room.overlap && (room.page.x !== pageBefore.x || room.page.y !== pageBefore.y) && room.changes === 1,
+    JSON.stringify({ pageBefore, room }),
+  )
+
+  await reset()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 620, y: 80 } : label))
+    value.board = next
+    ;(window as unknown as DemoWindow).boardChanges = []
+  })
+  const labelBefore = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  await second.click()
+  await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 160, 0)
+  await waitChanges(h.page, 1)
+  const labelAfter = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  const grownSectionBox = await board.locator('[part~="section"]').boundingBox()
+  const movedLabelBox = await board.locator('[part~="label"]').first().boundingBox()
+  const labelOverlap =
+    grownSectionBox &&
+    movedLabelBox &&
+    grownSectionBox.x < movedLabelBox.x + movedLabelBox.width &&
+    grownSectionBox.x + grownSectionBox.width > movedLabelBox.x &&
+    grownSectionBox.y < movedLabelBox.y + movedLabelBox.height &&
+    grownSectionBox.y + grownSectionBox.height > movedLabelBox.y
+  h.check(
+    'a section that grows into a measured label nudges the label clear',
+    (labelAfter?.x !== labelBefore?.x || labelAfter?.y !== labelBefore?.y) && !labelOverlap,
+    JSON.stringify({ labelBefore, labelAfter, grownSectionBox, movedLabelBox }),
+  )
+}
+
+async function checkEmptyLabelSettlement(h: Harness, board: Locator, first: Locator, reset: ResetBoard) {
+  await reset()
+  await board.evaluate((element) => {
+    const value = element as BoardElement
+    const next = structuredClone(value.board)
+    next.labels = [...next.labels, { id: 'empty-label', text: '', x: 2000, y: 2000 }]
+    value.board = next
+    const emptyLabel = value.shadowRoot?.querySelectorAll<HTMLElement>('[part~="label"]').item(next.labels.length - 1)
+    if (!emptyLabel) throw new Error('The empty label has no decoration.')
+    emptyLabel.style.display = 'none'
+    value.board = next
+    const state = window as unknown as DemoWindow
+    state.boardChanges = []
+    state.boardEditErrors = []
+    state.hostBoard = next
+  })
+  await first.click()
+  await h.page.keyboard.press('ArrowRight')
+  const emptyLabelEdit = await board.evaluate(() => {
+    const state = window as unknown as DemoWindow
+    return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }
+  })
+  h.check(
+    'keyboard nudges inside an auto section are ignored even with an unmeasured label',
+    emptyLabelEdit.changes === 0 && emptyLabelEdit.errors === 0,
+    JSON.stringify(emptyLabelEdit),
+  )
+  await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 40, 0)
+  await waitChanges(h.page, 1)
+  const emptyLabelSettlement = await board.evaluate(() => {
+    const state = window as unknown as DemoWindow
+    return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }
+  })
+  h.check(
+    'an empty label keeps section settlement working until it can be measured',
+    emptyLabelSettlement.changes === 1 && emptyLabelSettlement.errors === 0,
+    JSON.stringify(emptyLabelSettlement),
+  )
+}
+
+export async function checkBoardEditingSections(h: Harness, board: Locator, first: Locator, second: Locator, reset: ResetBoard) {
   const pageItem = board.locator('[data-board-item="page"]')
   const attached = await board.evaluate((element) => {
     const value = (element as BoardElement).board
@@ -287,90 +379,8 @@ export async function checkBoardEditingSections(
     JSON.stringify({ outsideValue, undone }),
   )
 
-  await reset()
-  await second.click()
-  await board.evaluate((element) => {
-    const value = element as BoardElement
-    const next = structuredClone(value.board)
-    const page = next.items.find((item) => item.id === 'page')
-    if (page) page.x = 900
-    value.board = next
-  })
-  const pageBefore = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
-    return structuredClone(value.items.find((item) => item.id === 'page') as DemoItem)
-  })
-  const handle = board.locator('[part~="resize-handle"][data-corner="bottom-right"]')
-  await drag(h.page, await center(handle), 160, 0)
-  await waitChanges(h.page, 1)
-  const room = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
-    const section = value.sections.find((entry) => entry.id === 'section') as DemoSection
-    const page = value.items.find((item) => item.id === 'page') as DemoItem
-    const pageHeight = (page.width * 900) / 640
-    const overlap =
-      section.rectangle.x < page.x + page.width &&
-      section.rectangle.x + section.rectangle.width > page.x &&
-      section.rectangle.y < page.y + pageHeight &&
-      section.rectangle.y + section.rectangle.height > page.y
-    return { overlap, page: structuredClone(page), changes: (window as unknown as DemoWindow).boardChanges.length }
-  })
-  h.check(
-    'widening a grid member changes only its column and leaves a clear page in place',
-    !room.overlap && room.page.x === pageBefore.x && room.page.y === pageBefore.y && room.changes === 1,
-    JSON.stringify({ pageBefore, room }),
-  )
-
-  await reset()
-  await board.evaluate((element) => {
-    const value = element as BoardElement
-    const next = structuredClone(value.board)
-    next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 1200, y: 80 } : label))
-    value.board = next
-    ;(window as unknown as DemoWindow).boardChanges = []
-  })
-  const labelBefore = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
-  await second.click()
-  await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 160, 0)
-  await waitChanges(h.page, 1)
-  const labelAfter = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
-  const grownSectionBox = await board.locator('[part~="section"]').boundingBox()
-  const movedLabelBox = await board.locator('[part~="label"]').first().boundingBox()
-  const labelOverlap =
-    grownSectionBox &&
-    movedLabelBox &&
-    grownSectionBox.x < movedLabelBox.x + movedLabelBox.width &&
-    grownSectionBox.x + grownSectionBox.width > movedLabelBox.x &&
-    grownSectionBox.y < movedLabelBox.y + movedLabelBox.height &&
-    grownSectionBox.y + grownSectionBox.height > movedLabelBox.y
-  h.check(
-    'a clear measured label stays in place when a grid column grows elsewhere',
-    labelAfter?.x === labelBefore?.x && labelAfter?.y === labelBefore?.y && !labelOverlap,
-    JSON.stringify({ labelBefore, labelAfter, grownSectionBox, movedLabelBox }),
-  )
-
-  await reset()
-  await board.evaluate((element) => {
-    const value = element as BoardElement
-    const next = structuredClone(value.board)
-    next.labels = [...next.labels, { id: 'empty-label', text: '', x: 2000, y: 2000 }]
-    value.board = next
-    const state = window as unknown as DemoWindow
-    state.boardChanges = []
-    state.boardEditErrors = []
-    state.hostBoard = next
-  })
-  await first.click()
-  await h.page.keyboard.press('ArrowRight')
-  const emptyLabelEdit = await board.evaluate(() => {
-    const state = window as unknown as DemoWindow
-    return { changes: state.boardChanges.length, errors: state.boardEditErrors.length }
-  })
-  h.check(
-    'keyboard nudges inside an auto section are ignored even with an unmeasured label',
-    emptyLabelEdit.changes === 0 && emptyLabelEdit.errors === 0,
-    JSON.stringify(emptyLabelEdit),
-  )
+  await checkGrowingSectionMakesRoom(h, board, second, reset)
+  await checkEmptyLabelSettlement(h, board, first, reset)
 
   await reset('rtl')
   await checkRtlRightEdge(h, board, first, pageItem)
