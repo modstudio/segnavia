@@ -1,0 +1,104 @@
+#!/bin/sh
+
+zero=0000000000000000000000000000000000000000
+risk_paths='^packages/html/src/sanitize|^packages/frame/src/bridge|^packages/format/src/'
+failed=0
+
+json_field() {
+  sed -n "s/^  \"$2\":[[:space:]]*\"\{0,1\}\([^\",]*\)\"\{0,1\},\{0,1\}$/\1/p" "$1" | head -n 1
+}
+
+pushed_files() {
+  local_sha=$1
+  remote_sha=$2
+  if [ "$remote_sha" != "$zero" ]; then
+    git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null
+    return
+  fi
+  base=$(git merge-base "$local_sha" origin/main 2>/dev/null || git merge-base "$local_sha" main 2>/dev/null)
+  if [ -n "$base" ]; then
+    git diff --name-only "$base" "$local_sha" 2>/dev/null
+  else
+    git diff-tree --root -r --name-only --pretty=format: "$local_sha" 2>/dev/null
+  fi
+}
+
+unreviewed_commits() {
+  local_sha=$1
+  remote_sha=$2
+  reviewed_tree=$3
+  covered=
+  for commit in $(git rev-list "$local_sha" 2>/dev/null); do
+    tree=$(git rev-parse "$commit^{tree}" 2>/dev/null)
+    if [ "$tree" = "$reviewed_tree" ]; then
+      covered=$commit
+      break
+    fi
+  done
+  if [ -n "$covered" ]; then
+    git log --oneline "$covered..$local_sha" 2>/dev/null
+  elif [ "$remote_sha" != "$zero" ]; then
+    git log --oneline "$remote_sha..$local_sha" 2>/dev/null
+  else
+    git log --oneline "$local_sha" --not --remotes 2>/dev/null
+  fi
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_ref" ] && continue
+  [ "$local_sha" = "$zero" ] && continue
+  case "$remote_ref" in
+    refs/heads/main) continue ;;
+    refs/heads/*) ;;
+    *) continue ;;
+  esac
+
+  case "$local_ref" in
+    refs/heads/*) branch=${local_ref#refs/heads/} ;;
+    *)
+      echo "pre-push: cannot address a review artifact for $local_ref." >&2
+      failed=1
+      continue
+      ;;
+  esac
+
+  slug=$(printf '%s' "$branch" | tr '/' '-')
+  artifact=$(ls -t ".review-logs/${slug}"-round-[0-9]*.json 2>/dev/null | head -n 1)
+  if [ -z "$artifact" ]; then
+    echo "pre-push: no recorded review for '$branch'." >&2
+    echo "  Run: bun run review:log --tier <0-3> --reason \"<why>\" --agents <count>" >&2
+    failed=1
+    continue
+  fi
+
+  reviewed_tree=$(json_field "$artifact" reviewedTree)
+  pushed_tree=$(git rev-parse "$local_sha^{tree}" 2>/dev/null)
+  if [ -z "$reviewed_tree" ] || [ "$reviewed_tree" != "$pushed_tree" ]; then
+    echo "pre-push: the review for '$branch' does not cover the tree being pushed." >&2
+    commits=$(unreviewed_commits "$local_sha" "$remote_sha" "$reviewed_tree")
+    echo "  Commits nobody reviewed:" >&2
+    if [ -n "$commits" ]; then
+      printf '%s\n' "$commits" | sed 's/^/    /' >&2
+    else
+      echo "    (the pushed tree has no matching reviewed commit)" >&2
+    fi
+    echo "  Review again and record the current tree with bun run review:log." >&2
+    failed=1
+    continue
+  fi
+
+  risky=$(pushed_files "$local_sha" "$remote_sha" | grep -E "$risk_paths")
+  if [ -n "$risky" ]; then
+    tier=$(json_field "$artifact" tier)
+    case "$tier" in
+      '' | *[!0-9]*) tier= ;;
+    esac
+    if [ -z "$tier" ] || [ "$tier" -lt 2 ]; then
+      echo "pre-push: risk-surface changes require a recorded review tier of at least 2; '$artifact' records '${tier:-none}'." >&2
+      printf '%s\n' "$risky" | sed 's/^/    /' >&2
+      failed=1
+    fi
+  fi
+done
+
+exit "$failed"

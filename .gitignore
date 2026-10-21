@@ -3,4 +3,5 @@ dist
 out
 .claude/worktrees
 host-names.local
+.review-logs/
 /packages/*/LICENSE
