@@ -1,5 +1,17 @@
 # @segnavia/frame
 
+## 0.20.0
+
+### Minor Changes
+
+- 1f9f4c6: Show ordered page documents on responsive, lazily mounted paper sheets; draw a
+  page thumbnail at its paper aspect ratio; measure page backgrounds through the
+  browser print pipeline; and expose React wrappers for pages, papers, and documents.
+
+### Patch Changes
+
+- @segnavia/format@0.20.0
+
 ## 0.19.0
 
 ### Minor Changes
