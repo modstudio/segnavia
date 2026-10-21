@@ -1,3 +1,6 @@
+// This guard raises a floor against accidental vacuity, not deliberate evasion. It cannot tell when an assertion
+// is only inside an uncalled nested function, and it does not recognize `bun:test` imports aliased to other names.
+
 import path from 'node:path'
 import ts from 'typescript'
 
@@ -53,8 +56,10 @@ function isAssertion(node: ts.Node, file: string): boolean {
   if (!ts.isCallExpression(node)) return false
   const chain = callChain(node.expression)
   if (!chain) return false
-  if (chain.root === 'expect' || chain.root === 'assert' || chain.root === 'toThrow' || chain.modifiers.includes('toThrow')) return true
-  return path.normalize(file).startsWith(path.join('scripts', 'verify') + path.sep) && chain.root === 'check'
+  if (chain.root === 'expect') return chain.modifiers.length > 0
+  if (chain.root === 'assert') return node.arguments.length > 0
+  if (chain.root === 'toThrow' || chain.modifiers.includes('toThrow')) return true
+  return path.normalize(file).startsWith(path.join('scripts', 'verify') + path.sep) && chain.root === 'check' && node.arguments.length > 1
 }
 
 function declarationKind(chain: { root: string; modifiers: string[] }): 'test' | 'suite' | undefined {

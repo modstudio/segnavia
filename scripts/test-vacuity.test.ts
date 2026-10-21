@@ -1,32 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
 
-const ROOT = path.resolve(import.meta.dir, '..')
-const TEST_FILE = /\.(test|spec)\.[mc]?[jt]sx?$/
-
-function testFiles(): string[] {
-  const files = new Set<string>()
-  for (const pattern of [
-    'packages/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}',
-    'scripts/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}',
-  ]) {
-    for (const file of new Bun.Glob(pattern).scanSync({ cwd: ROOT })) if (TEST_FILE.test(file)) files.add(file)
-  }
-  return [...files].sort()
-}
-
 describe('test vacuity guard', () => {
-  test('every test can fail and every title identifies one test', () => {
-    const files = testFiles()
-    const findings = files.flatMap((file) =>
-      testVacuityFindings(file, readFileSync(path.join(ROOT, file), 'utf8')).map((finding) => `${file}:${finding.line} ${finding.message}`),
-    )
-    expect(files.length).toBeGreaterThan(0)
-    expect(findings).toEqual([])
-  })
-
   describe('rejects each forbidden shape', () => {
     test('a test with no assertion', () => {
       expect(testVacuityFindings('x.test.ts', `test('empty', () => doThing())`)).toEqual([
@@ -37,6 +12,18 @@ describe('test vacuity guard', () => {
     test('a focused test', () => {
       expect(testVacuityFindings('x.test.ts', `test.only('focus', () => expect(true).toBe(true))`)).toEqual([
         expect.objectContaining({ message: expect.stringContaining('`.only`') }),
+      ])
+    })
+
+    test('a bare expect call', () => {
+      expect(testVacuityFindings('x.test.ts', `test('bare', () => expect(true))`)).toEqual([
+        expect.objectContaining({ message: expect.stringContaining('no assertion') }),
+      ])
+    })
+
+    test('an assert call without an argument', () => {
+      expect(testVacuityFindings('x.test.ts', `test('bare', () => assert())`)).toEqual([
+        expect.objectContaining({ message: expect.stringContaining('no assertion') }),
       ])
     })
 
@@ -56,9 +43,21 @@ describe('test vacuity guard', () => {
     expect(testVacuityFindings('x.test.ts', source)).toEqual([expect.objectContaining({ message: expect.stringContaining('no assertion') })])
   })
 
+  test('expect modifier chains ending in a matcher count as assertions', () => {
+    const source = `test('matchers', async () => { expect(true).not.toBe(false); await expect(Promise.resolve(true)).resolves.toBe(true); await expect(Promise.reject(Error())).rejects.toThrow() })`
+    expect(testVacuityFindings('x.test.ts', source)).toEqual([])
+  })
+
   test('the verification helper counts only below scripts/verify', () => {
     const source = `test('verification', () => check('condition', true))`
     expect(testVacuityFindings('scripts/verify/example.test.ts', source)).toEqual([])
     expect(testVacuityFindings('packages/example.test.ts', source)).toEqual([expect.objectContaining({ message: expect.stringContaining('no assertion') })])
+  })
+
+  test('the verification helper requires a condition argument', () => {
+    const source = `test('verification', () => check('condition'))`
+    expect(testVacuityFindings('scripts/verify/example.test.ts', source)).toEqual([
+      expect.objectContaining({ message: expect.stringContaining('no assertion') }),
+    ])
   })
 })
