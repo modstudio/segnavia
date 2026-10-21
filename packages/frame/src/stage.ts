@@ -13,7 +13,7 @@
 
 import type { TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { MESSAGE, messageFrom } from './bridge.ts'
+import { animationMessage, MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
@@ -235,4 +235,27 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private onResize = () => this.measure()
+
+  freezeAuthoringFrame(slideId: string, atMs: number) {
+    const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
+    frame?.contentWindow?.postMessage({ type: MESSAGE.freeze, atMs }, '*')
+  }
+
+  releaseAuthoringFrame(slideId: string) {
+    const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
+    frame?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
+  }
+
+  authoringAnimationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
+    for (const frame of this.pool.frames()) {
+      const report = animationMessage(event, frame)
+      const slideId = frame.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
+      if (report && slideId) return { slideId, animated: report.animated, lengthMs: report.lengthMs }
+    }
+    return null
+  }
+
+  requestAuthoringAnimationReport() {
+    this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.inspect }, '*')
+  }
 }

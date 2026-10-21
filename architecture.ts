@@ -32,6 +32,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/svg.ts',
       'src/timeline.ts',
       'src/bridge.ts',
+      'src/animation-timing.ts',
       'src/fit.ts',
       'src/image-fit.ts',
       'src/notes-layout.ts',

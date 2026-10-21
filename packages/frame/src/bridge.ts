@@ -8,14 +8,28 @@
 // Pure string building, so the browser and a server produce the same bytes.
 
 import type { Scripts } from '@segnavia/format'
+import { animationReport } from './animation-timing.ts'
 
 export const MESSAGE = {
   key: 'segnavia:key',
   height: 'segnavia:height',
   ready: 'segnavia:ready',
+  animation: 'segnavia:animation',
+  freeze: 'segnavia:freeze',
+  release: 'segnavia:release',
+  inspect: 'segnavia:inspect',
 } as const
 
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
+
+export interface AnimationReport {
+  animated: boolean
+  lengthMs: number | null
+}
+
+export interface AnimationMessage extends AnimationReport {
+  type: typeof MESSAGE.animation
+}
 
 // Only these leave the frame, and only by name: nothing else about a
 // keystroke crosses. Escape rides with them so full screen can be left while
@@ -61,6 +75,19 @@ var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPr
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${print}
+var liveAt=null;
+var sawAnimations=false,canvasSeen=false,animationUnreadable=false,animationLength=0;
+var calculateAnimationReport=${animationReport.toString()};
+var animationReport=function(){
+var animations=document.getAnimations?document.getAnimations():[],timings=[];canvasSeen=canvasSeen||Boolean(document.querySelector('canvas'));
+for(var a=0;a<animations.length;a++){var timing=animations[a].effect&&animations[a].effect.getComputedTiming?animations[a].effect.getComputedTiming():null;timings.push(timing||{endTime:NaN,iterations:NaN});}
+var current=calculateAnimationReport(timings,canvasSeen);if(animations.length){sawAnimations=true;if(current.lengthMs===null){animationUnreadable=true;}else{animationLength=Math.max(animationLength,current.lengthMs);}}
+post({type:'${MESSAGE.animation}',animated:sawAnimations||canvasSeen,lengthMs:sawAnimations&&!animationUnreadable?animationLength:null});};
+var dispatchAt=function(at){var detail={atMs:at,waitUntil:function(){}};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
+var freezeLive=function(){if(liveAt===null||!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var f=0;f<animations.length;f++){try{animations[f].pause();animations[f].currentTime=liveAt;}catch(error){}}};
+window.addEventListener('message',function(e){var data=e.data;if(!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}});
+document.addEventListener('animationstart',function(){animationReport();freezeLive();},true);document.addEventListener('transitionrun',function(){animationReport();freezeLive();},true);
+if(window.MutationObserver){new MutationObserver(function(){animationReport();freezeLive();}).observe(document.documentElement,{childList:true,subtree:true});}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
@@ -85,7 +112,7 @@ function report(){if(pending)return;pending=true;setTimeout(send,0);}
 if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
-function ready(){var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
+function ready(){animationReport();var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
@@ -150,13 +177,26 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 export function messageFrom(
   event: MessageEvent,
   frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
-): { type: string; key?: string; height?: number } | null {
+): { type: string; key?: string; height?: number; animated?: boolean; lengthMs?: number | null } | null {
   const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
-  const data = event.data as { type?: unknown; key?: unknown; height?: unknown }
+  const data = event.data as { type?: unknown; key?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown }
   if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
     return { type: MESSAGE.key, key: data.key }
   if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
   if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
+  if (
+    data?.type === MESSAGE.animation &&
+    typeof data.animated === 'boolean' &&
+    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
+  )
+    return { type: MESSAGE.animation, animated: data.animated, lengthMs: data.lengthMs }
   return null
+}
+
+export function animationMessage(event: MessageEvent, frames: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): AnimationMessage | null {
+  const message = messageFrom(event, frames)
+  return message?.type === MESSAGE.animation && typeof message.animated === 'boolean'
+    ? { type: MESSAGE.animation, animated: message.animated, lengthMs: message.lengthMs ?? null }
+    : null
 }

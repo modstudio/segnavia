@@ -206,4 +206,29 @@ describe('notes save queue', () => {
     expect(queue.seed('a', 'host three')).toBe(false)
     expect(queue.dirty).toBe(false)
   })
+
+  test('does not redirect a failed draft when the save handler changes', async () => {
+    const oldCalls: string[] = []
+    const newCalls: string[] = []
+    const queue = new NotesSaveQueue(
+      async ({ notes }) => {
+        oldCalls.push(notes)
+        throw new Error('Old handler refused')
+      },
+      () => {},
+      scheduler(),
+    )
+    queue.seed('shared', '')
+    queue.edit('shared', 'draft')
+    expect(await queue.flush('shared')).toBe(false)
+    expect(
+      await queue.setSave(async ({ notes }) => {
+        newCalls.push(notes)
+      }),
+    ).toBe(false)
+    expect(queue.seed('shared', '')).toBe(false)
+    expect(await queue.flush('shared')).toBe(false)
+    expect(oldCalls).toEqual(['draft', 'draft', 'draft'])
+    expect(newCalls).toEqual([])
+  })
 })
