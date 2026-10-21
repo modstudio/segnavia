@@ -1,5 +1,15 @@
 # @segnavia/frame
 
+## 0.19.0
+
+### Minor Changes
+
+- 0f1cf64: Let authors choose or reset an animated HTML slide's print moment from a Slide settings list with a live frame scrubber.
+
+### Patch Changes
+
+- @segnavia/format@0.19.0
+
 ## 0.18.0
 
 ### Minor Changes
