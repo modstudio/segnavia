@@ -71,7 +71,16 @@ if (run.results.some((result) => result.ok === EXPECTED_FAILURES.has(result.name
 writeFileSync(
   path.join(OUT, 'capture-facts.json'),
   JSON.stringify(
-    { observed, outputFacts, results: run.results.map(({ name, ok, error, failureScreenshot }) => ({ name, ok, error, failureScreenshot })) },
+    {
+      observed,
+      outputFacts,
+      results: run.results.map(({ name, ok, error, failureScreenshot }) => ({
+        name,
+        ok,
+        error,
+        failureScreenshot: failureScreenshot ? path.relative(ROOT, failureScreenshot) : undefined,
+      })),
+    },
     null,
     2,
   ),

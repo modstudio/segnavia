@@ -9,10 +9,10 @@ success only when every job below succeeds:
   `out/` for the verifier jobs.
 - `verify-demo` downloads that build and runs three Ubuntu jobs, each with one
   shard of the browser verification and poppler's PDF tools.
-- `verify-render` runs the rendering verification on macOS under both Bun and
-  Node. It uses macOS because Ubuntu's poppler (24.02) draws sampled shadings
-  differently from the current release the press-colour checks are calibrated
-  against.
+- `verify-render` runs the rendering verification on Ubuntu under both Bun and
+  Node. It uses a cached current poppler environment from conda-forge because
+  Ubuntu's packaged poppler (24.02) draws sampled shadings differently from the
+  current release the press-colour checks are calibrated against.
 
 CI installs Chrome for Testing and passes its executable path to the demo and
 rendering scripts through `SEGNAVIA_CHROMIUM`. Each job caches Bun's install

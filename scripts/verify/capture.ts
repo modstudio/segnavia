@@ -58,7 +58,7 @@ function verifyFailedFlows(h: Harness, facts: Facts, manifest: Manifest) {
   )
   h.check(
     'a failed flow leaves a screenshot of the moment and writes none of its shots',
-    Boolean(broken?.failureScreenshot && existsSync(broken.failureScreenshot)) &&
+    Boolean(broken?.failureScreenshot && existsSync(path.join(ROOT, broken.failureScreenshot))) &&
       !manifest.shots['broken.missing'] &&
       !existsSync(path.join(ROOT, 'out/shots/broken.missing.webp')),
   )

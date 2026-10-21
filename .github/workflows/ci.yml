@@ -97,17 +97,14 @@ jobs:
 
   verify-render:
     name: Verify rendering (${{ matrix.runtime }})
-    # macOS, not Ubuntu: the press-colour checks rasterize PDFs with poppler,
-    # and Ubuntu's poppler 24.02 draws sampled shadings differently from the
-    # current release the checks are calibrated against.
-    runs-on: macos-latest
+    # Ubuntu's packaged poppler 24.02 draws sampled shadings differently from
+    # the current release the press-colour checks are calibrated against, so
+    # rendering uses the current conda-forge build instead.
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         runtime: [bun, node]
-    env:
-      HOMEBREW_NO_AUTO_UPDATE: 1
-      HOMEBREW_NO_INSTALL_CLEANUP: 1
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
@@ -123,18 +120,27 @@ jobs:
           node-version: 22.14.0
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
-      - name: Install poppler
-        run: brew install poppler
+      - name: Install current poppler
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: poppler
+          create-args: poppler
+          cache-environment: true
+          init-shell: none
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Verify rendering under Bun
         if: matrix.runtime == 'bun'
-        run: bun --conditions=@segnavia/source scripts/verify-render.ts
+        run: |
+          export PATH="${MAMBA_ROOT_PREFIX}/envs/poppler/bin:${PATH}"
+          bun --conditions=@segnavia/source scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
       - name: Verify rendering under Node
         if: matrix.runtime == 'node'
-        run: node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts
+        run: |
+          export PATH="${MAMBA_ROOT_PREFIX}/envs/poppler/bin:${PATH}"
+          node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
 

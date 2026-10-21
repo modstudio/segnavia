@@ -224,6 +224,13 @@ async function checkBoardUpdateKeepsFrames(h: Harness) {
 export async function verifyBoard(h: Harness) {
   await h.page.goto(h.url('board.html'))
   const board = h.page.locator('segnavia-board')
+  // Initial auto-section settlement writes through the asynchronous host seam.
+  // Let that write finish before checks start assigning newer host board values.
+  await h.page.waitForFunction(
+    () => (window as typeof window & { boardChanges?: Array<{ edit: { kind: string } }> }).boardChanges?.some((change) => change.edit.kind === 'settle'),
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
   await h.page.waitForFunction(() => document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('[data-board-item]').length, undefined, {
     timeout: BOUNDED_WAIT_MS,
   })
