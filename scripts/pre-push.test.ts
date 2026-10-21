@@ -4,30 +4,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const HOOK = join(ROOT, '.githooks/pre-push')
-const GIT_LOCATION_KEYS = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_PREFIX',
-]
 const temporaryRepositories: string[] = []
-
-function fixtureEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env }
-  for (const key of GIT_LOCATION_KEYS) delete env[key]
-  return env
-}
 
 function git(repository: string, ...arguments_: string[]): string {
   return execFileSync('git', ['-C', repository, ...arguments_], {
     encoding: 'utf8',
-    env: fixtureEnv(),
+    env: cleanGitEnv(),
   }).trim()
 }
 
@@ -73,7 +59,7 @@ function push(repository: string, base: string, localRef = 'refs/heads/feature/S
   const result = spawnSync('sh', [HOOK], {
     cwd: repository,
     encoding: 'utf8',
-    env: fixtureEnv(),
+    env: cleanGitEnv(),
     input: `${localRef} ${head} refs/heads/feature/SEGNA-130 ${base}\n`,
   })
   return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` }

@@ -13,7 +13,9 @@ const GIT_LOCATION_KEYS = [
   'GIT_PREFIX',
 ]
 
-function cleanGitEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+// Git exports these to a hook. A git call aimed at another repository must drop
+// them, or it acts on the repository the hook runs in.
+export function cleanGitEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const key of GIT_LOCATION_KEYS) delete env[key]
   return { ...env, ...extra }

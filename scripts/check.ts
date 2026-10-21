@@ -20,6 +20,7 @@ import {
   type Workspace,
 } from './checks/rules.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
+import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const transpiler = new Bun.Transpiler({ loader: 'ts' })
@@ -116,7 +117,9 @@ function structural(names: string[]): Finding[] {
 }
 
 async function run(name: string, command: string[]): Promise<boolean> {
-  const proc = Bun.spawn(command, { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' })
+  // Under a hook, git's location variables point at the repository being
+  // committed; a step that runs git elsewhere must not inherit them.
+  const proc = Bun.spawn(command, { cwd: ROOT, stdout: 'pipe', stderr: 'pipe', env: cleanGitEnv() })
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
   if (code !== 0) console.error(`\n✗ ${name}\n${(out + err).trim()}`)
   else console.log(`✓ ${name}`)
