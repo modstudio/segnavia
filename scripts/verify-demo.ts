@@ -22,11 +22,10 @@ import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
-import { parseVerifyShard, sectionsForShard, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
+import { parseVerifyShard, sectionsForShard, unlistedSections, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
 
 type VerifySection = Readonly<{ name: string; run: () => void | Promise<void> }>
 
-const h = await openHarness()
 const sections: readonly VerifySection[] = [
   { name: 'verifyCapture', run: () => verifyCapture(h) },
   { name: 'verifyPlayer', run: () => verifyPlayer(h) },
@@ -48,7 +47,18 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
 ]
 
+const listing = unlistedSections(
+  sections.map((section) => section.name),
+  VERIFY_DEMO_SECTIONS_BY_DURATION,
+)
+if (listing.unlisted.length > 0 || listing.stale.length > 0) {
+  throw new Error(
+    `VERIFY_DEMO_SECTIONS_BY_DURATION in verify-demo-shards.ts must name every section exactly: add ${listing.unlisted.join(', ') || 'none'}; remove ${listing.stale.join(', ') || 'none'}.`,
+  )
+}
 const shard = parseVerifyShard(process.env.SEGNAVIA_VERIFY_SHARD)
+// The sections reach the harness only when they run, so the listing is refused before a browser starts.
+const h = await openHarness()
 const selected = sectionsForShard(VERIFY_DEMO_SECTIONS_BY_DURATION, shard)
 try {
   for (const section of sections) {

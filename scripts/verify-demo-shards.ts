@@ -32,10 +32,21 @@ export function parseVerifyShard(value: string | undefined): VerifyShard | undef
   const match = /^(\d+)\/(\d+)$/.exec(value)
   const index = Number(match?.[1])
   const count = Number(match?.[2])
-  if (!match || count < 1 || index < 1 || index > count) {
-    throw new Error(`SEGNAVIA_VERIFY_SHARD must be an index/count pair with 1 <= index <= count; received ${value}`)
+  // More shards than sections would leave a shard with nothing to run, which passes.
+  const most = VERIFY_DEMO_SECTIONS_BY_DURATION.length
+  if (!match || count < 1 || count > most || index < 1 || index > count) {
+    throw new Error(`SEGNAVIA_VERIFY_SHARD must be an index/count pair with 1 <= index <= count <= ${most}; received ${value}`)
   }
   return { index, count }
+}
+
+// Shards select from the duration list, so a section missing from it would
+// run in no shard at all.
+export function unlistedSections(defined: readonly string[], listed: readonly string[]): Readonly<{ unlisted: string[]; stale: string[] }> {
+  return {
+    unlisted: defined.filter((name) => !listed.includes(name)),
+    stale: listed.filter((name) => !defined.includes(name)),
+  }
 }
 
 export function sectionsForShard(sectionNames: readonly string[], shard: VerifyShard | undefined): ReadonlySet<string> {
