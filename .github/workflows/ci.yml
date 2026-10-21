@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-and-browser-verification:
+    name: Check and browser verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+      - id: chrome
+        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check
+        run: bun run check
+      - name: Build browser demo
+        run: bun --conditions=@segnavia/source scripts/build-demo.ts
+        env:
+          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify browser demo
+        run: bun --conditions=@segnavia/source scripts/verify-demo.ts
+        env:
+          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify rendering under Bun
+        run: bun --conditions=@segnavia/source scripts/verify-render.ts
+        env:
+          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify rendering under Node
+        run: node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts
+        env:
+          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}

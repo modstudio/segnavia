@@ -1,0 +1,15 @@
+# Continuous integration
+
+The `CI` workflow runs for every pull request to `main` and every push to
+`main`. Its required job name is `Check and browser verification`.
+
+The job installs the locked dependencies, runs the repository check, builds
+the browser demo, verifies that demo in Chromium, and verifies rendering in
+Chromium under both Bun and Node. CI installs Chrome for Testing and passes its
+executable path to the demo and rendering scripts through
+`SEGNAVIA_CHROMIUM`.
+
+The PHP host fixture is not part of CI. It needs a separate Composer install
+and does not add coverage to the Bun and Node browser verification performed
+by the required job. Run `bun run setup:php` and `bun run demo` locally to
+include that fixture.
