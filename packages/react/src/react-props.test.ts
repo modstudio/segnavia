@@ -48,4 +48,22 @@ describe('React element prop wiring', () => {
     element.dispatchEvent(new Event('segnavia-labels'))
     expect(labels).toBe(1)
   })
+
+  test.each([
+    [ELEMENTS.page, 'page'],
+    [ELEMENTS.thumbnail, 'page'],
+    [ELEMENTS.thumbnail, 'print'],
+    [ELEMENTS.document, 'pages'],
+    [ELEMENTS.document, 'print'],
+  ] as const)('removes and replaces the %s object property', (descriptor, property) => {
+    const element = new FakeElement() as unknown as HTMLElement & Record<string, unknown>
+    const first = { value: 1 }
+    const replacement = { value: 2 }
+    syncElementProps(descriptor, element, { [property]: first }, {})
+    expect(element[property]).toBe(first)
+    syncElementProps(descriptor, element, {}, { [property]: first })
+    expect(element[property]).toBeUndefined()
+    syncElementProps(descriptor, element, { [property]: replacement }, {})
+    expect(element[property]).toBe(replacement)
+  })
 })

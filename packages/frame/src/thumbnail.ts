@@ -1,7 +1,8 @@
-import { Deck, Page, type PageInput, Print, type PrintInput, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { Deck, Page, type PageInput, Print, type PrintInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { SegnaviaPage } from './page.ts'
+import { projectPageOnPaper } from './paper-geometry.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
@@ -52,8 +53,8 @@ export class SegnaviaThumbnail extends HTMLElement {
     return this.pageValue
   }
 
-  set page(input: PageInput | Page | null) {
-    this.pageValue = input === null ? null : Page.parse(input)
+  set page(input: PageInput | Page | null | undefined) {
+    this.pageValue = input == null ? null : Page.parse(input)
     if (this.pageValue) this.value = null
     this.updatePageAspect()
     this.changed()
@@ -63,8 +64,8 @@ export class SegnaviaThumbnail extends HTMLElement {
     return this.printValue
   }
 
-  set print(input: PrintInput | Print | null) {
-    this.printValue = input === null ? null : Print.parse(input)
+  set print(input: PrintInput | Print | null | undefined) {
+    this.printValue = input == null ? null : Print.parse(input)
     this.updatePageAspect()
     this.changed()
   }
@@ -180,22 +181,25 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   private updatePageAspect() {
     const print = this.printValue ?? this.pageValue?.print ?? null
-    if (!this.pageValue || !print) return
-    const paper = sheetMm(print)
-    this.style.setProperty('--segnavia-aspect', `${paper.width} / ${paper.height}`)
+    if (!this.pageValue || !print) {
+      if (!this.value) this.style.removeProperty('--segnavia-aspect')
+      return
+    }
+    const projection = projectPageOnPaper(this.pageValue, print)
+    this.style.setProperty('--segnavia-aspect', String(projection.aspect))
   }
 
   private mountPage() {
     const source = this.pageValue
     const print = this.printValue ?? source?.print ?? null
     if (!source || !print || this.viewport.firstElementChild) return
-    const paper = sheetMm(print)
+    const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.css = this.stylesheet
     page.cspExtra = ''
     page.part.add('canvas')
     page.style.inlineSize = '100%'
     this.viewport.append(page)
-    page.load({ ...source, size: { width: Math.round(paper.width * PX_PER_MM), height: Math.round(paper.height * PX_PER_MM) } })
+    page.load(projection.page)
   }
 }

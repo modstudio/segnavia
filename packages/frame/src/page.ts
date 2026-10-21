@@ -27,10 +27,14 @@ export class SegnaviaPage extends HTMLElement {
     return this.pageValue
   }
 
-  set page(value: PageInput | Page | null) {
-    if (value === null) {
+  set page(value: PageInput | Page | null | undefined) {
+    if (value == null) {
       this.pageValue = null
+      this.contentHeight = 0
       this.replaceChildren()
+      this.style.removeProperty('height')
+      delete this.dataset.height
+      delete this.dataset.measured
       return
     }
     this.load(value)

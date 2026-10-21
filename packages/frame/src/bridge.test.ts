@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bridgeForHost, frameDocument, MESSAGE, newNonce, RELAYED_KEYS } from './bridge.ts'
+import { bridgeForHost, frameDocument, MESSAGE, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
   test('relays viewer and presentation shortcuts', () => {
@@ -67,6 +67,11 @@ describe('frame document', () => {
     expect(html).toContain('imgs=imgs.concat(backgroundImages())')
     expect(html).toContain("settle(elements[i],'::before')")
     expect(html).toContain('data-segnavia-print-background-image')
+    expect(html).toContain("elementStyle.display==='none'||elementStyle.visibility==='hidden'||!rect.width||!rect.height")
+    expect(html).toContain(`resourceCount>=${PRINT_BACKGROUND_RESOURCE_LIMIT}`)
+    expect(html).toContain('resources[url]')
+    expect(html).toContain("layer.indexOf('gradient(')")
+    expect(html).toContain("document.createElement('canvas')")
   })
 
   test('nonces are unguessable and never repeat', () => {

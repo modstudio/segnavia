@@ -2,9 +2,10 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Page, type PageInput, Print, type PrintInput, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { Page, type PageInput, Print, type PrintInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { SegnaviaPage } from './page.ts'
+import { projectPageOnPaper } from './paper-geometry.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -37,8 +38,8 @@ export class SegnaviaDocument extends HTMLElement {
     return this.pageValues
   }
 
-  set pages(value: PageInput[]) {
-    this.pageValues = value.map((page) => Page.parse(page))
+  set pages(value: PageInput[] | undefined) {
+    this.pageValues = (value ?? []).map((page) => Page.parse(page))
     this.paint()
   }
 
@@ -46,8 +47,8 @@ export class SegnaviaDocument extends HTMLElement {
     return this.printValue
   }
 
-  set print(value: PrintInput | null) {
-    this.printValue = value === null ? null : Print.parse(value)
+  set print(value: PrintInput | null | undefined) {
+    this.printValue = value == null ? null : Print.parse(value)
     this.paint()
   }
 
@@ -74,12 +75,11 @@ export class SegnaviaDocument extends HTMLElement {
     this.observer?.disconnect()
     this.observer = null
     this.replaceChildren()
+    this.style.removeProperty('--segnavia-document-paper-aspect')
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
-    const paper = sheetMm(print)
-    const width = paper.width * PX_PER_MM
-    this.style.setProperty('--segnavia-document-paper-width', `${width}px`)
-    this.style.setProperty('--segnavia-document-paper-aspect', `${paper.width} / ${paper.height}`)
+    const projection = projectPageOnPaper(this.pageValues[0] as Page, print)
+    this.style.setProperty('--segnavia-document-paper-aspect', String(projection.aspect))
     const list = document.createElement('div')
     list.className = 'segnavia-document__pages'
     const sheets = this.pageValues.map((_, index) => {
@@ -88,7 +88,7 @@ export class SegnaviaDocument extends HTMLElement {
       const sheet = document.createElement('div')
       sheet.className = 'segnavia-document__sheet'
       sheet.dataset.page = String(index)
-      sheet.style.width = `${width}px`
+      sheet.style.width = `${projection.box.width}px`
       const number = document.createElement('div')
       number.className = 'segnavia-document__number'
       number.innerHTML = `Page <bdi dir="ltr">${index + 1}</bdi>`
@@ -116,16 +116,12 @@ export class SegnaviaDocument extends HTMLElement {
     const source = this.pageValues[index]
     const print = this.printValue
     if (!source || !print) return
-    const paper = sheetMm(print)
+    const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
     page.part.add('page')
     sheet.append(page)
-    page.load(
-      typeof source.size === 'object' && source.size.height !== 'auto'
-        ? source
-        : { ...source, size: { width: Math.round(paper.width * PX_PER_MM), height: Math.round(paper.height * PX_PER_MM) } },
-    )
+    page.load(projection.page)
   }
 }
