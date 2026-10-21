@@ -18,6 +18,7 @@ import {
   packageOf,
   type Workspace,
 } from './checks/rules.ts'
+import { testVacuityFindings } from './checks/test-vacuity.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const transpiler = new Bun.Transpiler({ loader: 'ts' })
@@ -52,10 +53,20 @@ function workspaces(): Map<string, Workspace> {
 }
 
 const PATTERNS = ['packages/*/src/**/*.ts', 'packages/*/test-fixtures/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
+const TEST_PATTERNS = ['packages/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}', 'scripts/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}']
+const TEST_FILE = /\.(test|spec)\.[mc]?[jt]sx?$/
 
 function sources(): string[] {
   const found = new Set<string>()
   for (const pattern of PATTERNS) for (const file of new Bun.Glob(pattern).scanSync({ cwd: ROOT })) found.add(file)
+  return [...found].sort()
+}
+
+function testFiles(): string[] {
+  const found = new Set<string>()
+  for (const pattern of TEST_PATTERNS) {
+    for (const file of new Bun.Glob(pattern).scanSync({ cwd: ROOT })) if (TEST_FILE.test(file)) found.add(file)
+  }
   return [...found].sort()
 }
 
@@ -94,6 +105,12 @@ function structural(names: string[]): Finding[] {
     }
     findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkCeiling(file))
   }
+  for (const relative of testFiles()) {
+    const text = readFileSync(path.join(ROOT, relative), 'utf8')
+    for (const finding of testVacuityFindings(relative, text)) {
+      findings.push({ rule: 'test-vacuity', path: `${relative}:${finding.line}`, message: finding.message })
+    }
+  }
   return findings
 }
 
@@ -110,7 +127,7 @@ const findings = structural(names)
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
 if (names.length === 0) console.log('! host-name rule was not enforced; create host-names.local to enable it.')
 if (findings.length === 0) {
-  const rules = names.length === 0 ? 'architecture, comments, file ceiling' : 'architecture, host names, comments, file ceiling'
+  const rules = names.length === 0 ? 'architecture, comments, file ceiling, test vacuity' : 'architecture, host names, comments, file ceiling, test vacuity'
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 
