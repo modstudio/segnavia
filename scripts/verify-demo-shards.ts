@@ -25,6 +25,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyThumbnail',
   'verifyImageFit',
   'verifyCapture',
+  'verifySlots',
 ] as const
 
 export function parseVerifyShard(value: string | undefined): VerifyShard | undefined {

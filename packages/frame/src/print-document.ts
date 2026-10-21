@@ -16,6 +16,7 @@ import {
   printProperties,
   resolveDirection,
   type Slide,
+  type SlotsOptions,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -44,6 +45,7 @@ export interface PrintOptions {
   nonce?: string
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
+  slots?: SlotsOptions
 }
 
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
@@ -143,6 +145,7 @@ export interface PrintablePagesOptions {
   css?: string
   nonce?: string
   cspExtra?: string
+  slots?: SlotsOptions
 }
 
 export interface PrintablePagesDocument {

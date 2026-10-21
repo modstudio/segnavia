@@ -3,6 +3,7 @@ import { frameDocument, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
+import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
 type CanvasSize = { width: number; height: number }
@@ -26,6 +27,7 @@ export function stageCanvas(
   csp: string,
   frameTitle: FrameTitle,
   loaded: () => void,
+  slots?: PreparedSlots,
 ): HTMLElement {
   const canvas = document.createElement('div')
   canvas.className = 'segnavia-stage__canvas'
@@ -38,7 +40,7 @@ export function stageCanvas(
     iframe.title = frameTitle(deck.title, index + 1)
     iframe.addEventListener('load', loaded, { once: true })
     if (content.kind === 'html') {
-      iframe.srcdoc = frameDocument(content.html, {
+      iframe.srcdoc = frameDocument(slotHtml(content.html, slots), {
         scripts: deck.scripts,
         nonce: newNonce(),
         dir: deck.dir,

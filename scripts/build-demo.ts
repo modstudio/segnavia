@@ -20,6 +20,7 @@ import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
+import { buildSlotDemo, buildSlotPdf } from './build-slot-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
 import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
@@ -313,8 +314,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
-buildBookDemo(SITE)
-buildPaperDemo(SITE)
+for (const buildDemo of [buildBookDemo, buildPaperDemo, buildSlotDemo]) buildDemo(SITE)
 await buildDocumentDemo(ROOT, SITE)
 await buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
 const schemas = path.join(OUT, 'schema')
@@ -377,6 +377,7 @@ try {
   writeFileSync(path.join(OUT, 'page-fixed.jpeg'), await renderer.pageImage(fixedPage, { format: 'jpeg' }))
   writeFileSync(path.join(OUT, 'page-letter.pdf'), await renderer.pagePdf(marginPage))
   writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
+  await buildSlotPdf(renderer, OUT)
   await buildDeckPdfs(renderer, OUT, `shots/${listShot.file}`, listShot, inline)
   await buildPagePdfs(renderer, OUT)
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))

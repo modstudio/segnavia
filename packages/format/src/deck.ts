@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
 import { Scripts } from './scripts.ts'
+import { Slots } from './slots.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
@@ -139,6 +140,7 @@ export const DeckShape = z.object({
   transition: Transition.optional(),
   playback: Playback.optional(),
   captions: z.enum(['on', 'off', 'viewer']).optional(),
+  slots: Slots.optional(),
   slides: z.array(Slide).min(1),
 })
 

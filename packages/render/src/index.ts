@@ -1,5 +1,4 @@
-// Renders pages, slides and decks in a host-named headless Chromium. Every
-// render is offline, and everything it shows arrives inside the document.
+// Renders pages, slides and decks in a host-named, offline headless Chromium.
 
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
@@ -20,24 +19,22 @@ import { loadPdf } from './pdf-load.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 import type { JpegDecoder } from './press/image.ts'
+import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
+import { filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export type { Font, ImageOptions, OverflowContribution, OverflowEntry, OverflowPart, OverflowReport, RenderLimits, RenderOptions } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
+export { RenderTimeoutError } from './render-deadline.ts'
 
 export const RENDER_BOUND_MS = 60_000
-// How long a page that runs its own code gets to call window.pageReady().
 export const PAGE_READY_BOUND_MS = 10_000
 const FLUID_WIDTH = 1024
 
-// Docker's small /dev/shm crashes Chromium mid-render rather than at launch.
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
-export class RenderTimeoutError extends Error {
-  override name = 'RenderTimeoutError'
-}
 export interface RendererOptions {
   executablePath: string
   args?: string[]
@@ -64,18 +61,6 @@ export function fontFaces(fonts: Font[] = []): string {
         `@font-face{font-family:${JSON.stringify(font.family)};src:url(data:font/${font.format === 'truetype' ? 'ttf' : font.format === 'opentype' ? 'otf' : font.format};base64,${Buffer.from(font.data).toString('base64')}) format(${JSON.stringify(font.format)});font-weight:${font.weight ?? 'normal'};font-style:${font.style ?? 'normal'};font-display:block}`,
     )
     .join('')
-}
-
-async function withinBound<T>(ms: number, work: Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const bound = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new RenderTimeoutError(`The render did not finish within ${ms / 1000}s.`)), ms)
-  })
-  try {
-    return await Promise.race([work, bound])
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 async function sheets(pdf: Uint8Array): Promise<number> {
@@ -187,15 +172,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       html: string
       waitForReady: boolean
       boundMs?: number
+      deadline?: RenderDeadline
       beforeOutput?: (tab: Tab) => Promise<void>
     },
     body: (tab: Tab) => Promise<T>,
   ): Promise<T> {
-    await acquire()
     let context: BrowserContext | undefined
     try {
       return await withinBound(
-        setup.boundMs ?? RENDER_BOUND_MS,
+        setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
         (async () => {
           context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
           await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
@@ -219,7 +204,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       )
     } finally {
       await context?.close().catch(() => {})
-      release()
     }
   }
   function pageDocument(page: Page, options: RenderOptions, printing = false): string {
@@ -229,9 +213,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
   }
 
-  async function finishWithBrowser(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array> {
+  async function finishWithBrowser(
+    pdf: Uint8Array,
+    options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
+    deadline?: RenderDeadline,
+  ): Promise<Uint8Array> {
     if (!options.press || new TextDecoder().decode(options.press.profile.subarray(16, 20)) !== 'GRAY') return finishPdf(pdf, options)
-    return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false }, (tab) =>
+    return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
@@ -245,7 +233,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const image = captureImage
 
-  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number): Promise<PrintResult<true>> {
+  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page, undefined, true)
     return withTab(
@@ -255,6 +243,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         html: pageDocument(page, opts, true),
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
+        deadline,
         beforeOutput: opts.beforeOutput,
       },
       async (tab) => {
@@ -276,7 +265,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     )
   }
 
-  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions): Promise<Uint8Array> {
+  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
     const html = frameDocument(page.html, {
       scripts: page.scripts,
       nonce: newNonce(),
@@ -293,6 +282,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         html,
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
+        deadline,
         beforeOutput: opts.beforeOutput,
       },
       (tab) =>
@@ -309,76 +299,95 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   const renderer: Renderer = {
     bookPdf(input, opts = {}) {
-      return renderBrowserBookPdf(input, opts, {
-        render: (setup, pdf, pageWidth, part) => withTab(setup, (tab) => printWithOverflow(tab, pageWidth, part, pdf)),
-        fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishWithBrowser,
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, (deadline) => {
+        return renderBrowserBookPdf(input, opts, {
+          render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printWithOverflow(tab, pageWidth, part, pdf)),
+          fontFaces: (options) => fontFaces(options.fonts),
+          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+        })
       })
     },
 
     async pagePdf(input, opts = {}) {
-      const printed = await renderPagePdf(Page.parse(input), opts)
-      const output = await finishWithBrowser(printed.bytes, opts)
-      if (printed.overflow) opts.overflow?.report?.({ entries: [printed.overflow] })
-      return output
-    },
-
-    async pageImage(input, opts = {}) {
-      const page = Page.parse(input)
-      const viewport = pageViewport(page, opts.width)
-      const grows = page.size === 'fluid' || (typeof page.size === 'object' && page.size.height === 'auto')
-      return withTab(
-        {
-          viewport,
-          scripts: page.scripts === 'sandboxed',
-          scale: opts.scale,
-          html: pageDocument(page, opts),
-          waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
-          boundMs: opts.boundMs,
-          beforeOutput: opts.beforeOutput,
-        },
-        async (tab) => {
-          if (grows) await contentHeight(tab)
-          return image(tab, opts, false)
-        },
-      )
-    },
-
-    pagesPdf(inputs, opts = {}) {
-      return renderPagesPdf(inputs, opts, {
-        pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex),
-        piecePdf: renderPiecePdf,
-        fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishWithBrowser,
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const page = await filledPage(Page.parse(input), opts.slots, deadline.signal)
+        const printed = await renderPagePdf(page, opts, undefined, deadline)
+        const output = await finishWithBrowser(printed.bytes, opts, deadline)
+        if (printed.overflow) opts.overflow?.report?.({ entries: [printed.overflow] })
+        return output
       })
     },
 
-    deckPdf(deck, opts = {}) {
-      return renderDeckPdf(deck, opts, {
-        renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false }, (tab) => tab.pdf(pdf)),
-        fontFaces: (options) => fontFaces(options.fonts),
-        finish: finishWithBrowser,
+    async pageImage(input, opts = {}) {
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const page = await filledPage(Page.parse(input), opts.slots, deadline.signal)
+        const viewport = pageViewport(page, opts.width)
+        const grows = page.size === 'fluid' || (typeof page.size === 'object' && page.size.height === 'auto')
+        return withTab(
+          {
+            viewport,
+            scripts: page.scripts === 'sandboxed',
+            scale: opts.scale,
+            html: pageDocument(page, opts),
+            waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+            boundMs: opts.boundMs,
+            deadline,
+            beforeOutput: opts.beforeOutput,
+          },
+          async (tab) => {
+            if (grows) await contentHeight(tab)
+            return image(tab, opts, false)
+          },
+        )
+      })
+    },
+
+    async pagesPdf(inputs, opts = {}) {
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const parsed = inputs.map((input) => Page.parse(input))
+        const pages = await filledPages(parsed, opts.slots, deadline.signal)
+        return renderPagesPdf(pages, opts, {
+          pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex, deadline),
+          piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, deadline),
+          fontFaces: (options) => fontFaces(options.fonts),
+          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+        })
+      })
+    },
+
+    async deckPdf(deck, opts = {}) {
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const prepared = await filledDeck(deck, opts.slots, deadline.signal)
+        return renderDeckPdf(prepared, opts, {
+          renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
+          fontFaces: (options) => fontFaces(options.fonts),
+          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+        })
       })
     },
 
     async slideImage(deck, index, opts = {}) {
-      const slide = deck.slides[index]
-      if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
-      const single: Deck = { ...deck, slides: [slide] }
-      const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-      const html = printableDeck(single, { inline: opts.inline, css })
-      return withTab(
-        {
-          viewport: deck.size,
-          scripts: true,
-          scale: opts.scale,
-          html,
-          waitForReady: false,
-          boundMs: opts.boundMs,
-          beforeOutput: opts.beforeOutput,
-        },
-        (tab) => image(tab, opts, false),
-      )
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const preparedDeck = await filledDeck(deck, opts.slots, deadline.signal)
+        const slide = preparedDeck.slides[index]
+        if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
+        const single: Deck = { ...preparedDeck, slides: [slide] }
+        const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
+        const html = printableDeck(single, { inline: opts.inline, css })
+        return withTab(
+          {
+            viewport: deck.size,
+            scripts: true,
+            scale: opts.scale,
+            html,
+            waitForReady: false,
+            boundMs: opts.boundMs,
+            deadline,
+            beforeOutput: opts.beforeOutput,
+          },
+          (tab) => image(tab, opts, false),
+        )
+      })
     },
 
     close: () => browser.close(),

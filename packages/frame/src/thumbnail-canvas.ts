@@ -1,6 +1,7 @@
 import type { Deck, Slide } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { defaultFrameTitle } from './frame-title.ts'
+import type { PreparedSlots } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
 
 export function thumbnailScale(width: number, deckWidth: number): number {
@@ -15,8 +16,9 @@ export function thumbnailCanvas(
   content: ResolvedContent,
   css = '',
   bridge = false,
+  slots?: PreparedSlots,
 ): HTMLElement {
-  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, css, '', defaultFrameTitle, () => {})
+  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, css, '', defaultFrameTitle, () => {}, slots)
   canvas.querySelector('iframe')?.setAttribute('sandbox', bridge ? 'allow-scripts' : '')
   return canvas
 }

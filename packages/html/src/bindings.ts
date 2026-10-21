@@ -28,6 +28,9 @@ export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins'> {
   data: Record<string, unknown>
   // Paths the host knows it cannot supply, reported with those that resolved to nothing.
   unavailable?: Iterable<string>
+  // Keeps authored text and URLs when a value is absent. Slot filling uses
+  // this so an unfilled design remains a useful preview.
+  preserveUnavailable?: boolean
 }
 
 export interface Filled {
@@ -134,6 +137,7 @@ export function fill(html: string, options: FillOptions): Filled {
     const path = take(element, names.value)
     if (path === undefined) return
     const value = resolve(path, stack)
+    if (value === undefined && options.preserveUnavailable) return
     element.children = []
     if (typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))) {
       const text = new Text(String(value))
@@ -147,10 +151,12 @@ export function fill(html: string, options: FillOptions): Filled {
   }
 
   const applyUrls = (element: Element, stack: unknown[]) => {
+    const preserves = (value: unknown) => value === undefined && options.preserveUnavailable
     for (const attribute of ['href', 'src'] as const) {
       const path = take(element, names[attribute])
       if (path === undefined) continue
       const value = resolve(path, stack)
+      if (preserves(value)) continue
       const allowed = typeof value === 'string' && (attribute === 'href' ? safeHref(value, origins) : /^data:image\//i.test(value))
       if (allowed) element.attribs[attribute] = value
       else {

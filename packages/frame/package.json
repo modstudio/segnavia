@@ -114,6 +114,7 @@
     }
   },
   "dependencies": {
-    "@segnavia/format": "workspace:*"
+    "@segnavia/format": "workspace:*",
+    "@segnavia/html": "workspace:*"
   }
 }

@@ -18,6 +18,7 @@ import {
 } from './print-document.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
+import { prepareSlotCollection, prepareSlots } from './slot-render.ts'
 
 export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
@@ -86,11 +87,18 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+  const resolvedSlots = await prepareSlots(deck.slots, options.slots)
+  const preparedDeck = {
+    ...deck,
+    slides: deck.slides.map((slide) =>
+      slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: resolvedSlots.apply(slide.content.html) } } : slide,
+    ),
+  }
   if (options.imposition) {
-    const printable = printableDeckDocument(deck, { ...options, imposition: options.imposition })
+    const printable = printableDeckDocument(preparedDeck, { ...options, imposition: options.imposition })
     return printFrame({ ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options })
   }
-  return printFrame({ ...deck.size, html: printableDeck(deck, options), ...options })
+  return printFrame({ ...deck.size, html: printableDeck(preparedDeck, options), ...options })
 }
 
 export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}
@@ -98,7 +106,12 @@ export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDi
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
-  const printable = printablePagesDocument(pages, imposition, options)
+  const resolvedSlots = await prepareSlotCollection(
+    pages.map((page) => page.slots),
+    options.slots,
+  )
+  const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
+  const printable = printablePagesDocument(filled, imposition, options)
   const paper = paperBoxSize(printable.imposed.paper)
   return printFrame({ ...paper, html: printable.html, ...options })
 }

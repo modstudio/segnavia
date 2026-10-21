@@ -81,6 +81,16 @@ controller.addEventListener('change', ({ detail: state }) => render(state))   //
 nextButton.onclick = () => controller.next()
 ```
 
+Fill a reusable design through its existing inert bindings before it enters a
+sandboxed frame:
+
+```ts
+page.slots = [{ key: 'person.name', label: 'Name', type: 'text', required: true }]
+page.html = '<strong data-slot-value="person.name">Design Name</strong>'
+viewer.slots = { fill: { id: 'ada', values: { 'person.name': 'Ada' } } }
+viewer.page = page
+```
+
 Render it on a server:
 
 ```ts

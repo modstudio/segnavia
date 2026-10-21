@@ -10,6 +10,7 @@ import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
+import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
@@ -288,6 +289,7 @@ export const Page = z.object({
   dir: Direction.optional(),
   lang: z.string().optional(),
   print: Print.optional(),
+  slots: Slots.optional(),
 })
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>
@@ -305,5 +307,9 @@ export function jsonSchemas() {
     board: z.toJSONSchema(Board, { io: 'input' }),
     printSetting: z.toJSONSchema(PrintSetting, { io: 'input' }),
     printSettingInput: z.toJSONSchema(PrintSettingInput, { io: 'input' }),
+    slotDeclaration: z.toJSONSchema(SlotDeclaration, { io: 'input' }),
+    slotDeclarationInput: z.toJSONSchema(SlotDeclarationInput, { io: 'input' }),
   }
 }
+
+export * from './slots.ts'

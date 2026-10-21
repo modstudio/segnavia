@@ -11,7 +11,7 @@
 // mirror the state for styling: data-slide, data-playing, data-word,
 // data-shown, data-direction and data-actions.
 
-import { parsePlayback, type TransitionInput } from '@segnavia/format'
+import { parsePlayback, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
@@ -129,6 +129,10 @@ export class SegnaviaPlayer extends HTMLElement {
 
   set cspExtra(csp: string) {
     this.stage.cspExtra = csp
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    this.stage.slots = value
   }
 
   get rail(): boolean {

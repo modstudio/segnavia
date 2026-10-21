@@ -65,14 +65,14 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENTS = {
   player: element<SegnaviaPlayer, PlayerProps, typeof STYLED_ELEMENTS.player>(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition'],
+    ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition', 'slots'],
     {
       onSegnaviaLabels: 'segnavia-labels',
     },
   ),
   stage: element<SegnaviaStage, StageProps, typeof HEADLESS_ELEMENTS.stage>(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve'],
+    ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve', 'slots'],
     {
       onSegnaviaController: 'segnavia-controller',
       onSegnaviaFit: 'segnavia-fit',
@@ -80,7 +80,7 @@ export const ELEMENTS = {
   ),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin'],
+    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots'],
     {
       onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
     },
@@ -88,9 +88,13 @@ export const ELEMENTS = {
   paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof STYLED_ELEMENTS.paperPicker>(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], {
     onChange: 'change',
   }),
-  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra'], {}),
-  paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(HEADLESS_ELEMENTS.paper, ['paper', 'side', 'css', 'cspExtra'], {}),
-  document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(HEADLESS_ELEMENTS.document, ['css', 'cspExtra', 'pages', 'print'], {}),
+  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'slots'], {}),
+  paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(HEADLESS_ELEMENTS.paper, ['paper', 'side', 'css', 'cspExtra', 'slots'], {}),
+  document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
+    HEADLESS_ELEMENTS.document,
+    ['css', 'cspExtra', 'pages', 'print', 'slots'],
+    {},
+  ),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),
   step: element<SegnaviaStep, StepProps, typeof STYLED_ELEMENTS.step>(STYLED_ELEMENTS.step, controlProperties, {}),
   track: element<SegnaviaTrack, TrackProps, typeof STYLED_ELEMENTS.track>(STYLED_ELEMENTS.track, controlProperties, {}),

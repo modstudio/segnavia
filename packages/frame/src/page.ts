@@ -9,9 +9,10 @@
 // (`bridgeForHost`) to report its height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Page, type PageInput, printProperties } from '@segnavia/format'
+import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotHtml } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 
@@ -22,6 +23,18 @@ export class SegnaviaPage extends HTMLElement {
   private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
+  private slotOptions: SlotsOptions | undefined
+  private loadGeneration = 0
+  private slotPreparation: AbortController | undefined
+
+  get slots(): SlotsOptions | undefined {
+    return this.slotOptions
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    this.slotOptions = value
+    if (this.pageValue) this.load(this.pageValue)
+  }
 
   get page(): Page | null {
     return this.pageValue
@@ -29,6 +42,8 @@ export class SegnaviaPage extends HTMLElement {
 
   set page(value: PageInput | Page | null | undefined) {
     if (value == null) {
+      this.cancelSlotPreparation()
+      this.loadGeneration++
       this.pageValue = null
       this.contentHeight = 0
       this.replaceChildren()
@@ -44,9 +59,11 @@ export class SegnaviaPage extends HTMLElement {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
+    if (this.pageValue) this.load(this.pageValue)
   }
 
   disconnectedCallback() {
+    this.cancelSlotPreparation()
     window.removeEventListener('message', this.onMessage)
     this.resize.disconnect()
   }
@@ -60,7 +77,23 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
+    this.cancelSlotPreparation()
+    const controller = new AbortController()
+    this.slotPreparation = controller
+    const generation = ++this.loadGeneration
     const iframe = this.mount(page)
+    const show = (resolved: PreparedSlots) => {
+      if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+      iframe.srcdoc = frameDocument(slotHtml(page.html, resolved), {
+        scripts: page.scripts,
+        nonce: newNonce(),
+        dir: page.dir,
+        lang: page.lang,
+        css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
+        csp: this.cspExtra || undefined,
+        relayKeys: false,
+      })
+    }
     iframe.srcdoc = frameDocument(page.html, {
       scripts: page.scripts,
       nonce: newNonce(),
@@ -70,10 +103,20 @@ export class SegnaviaPage extends HTMLElement {
       csp: this.cspExtra || undefined,
       relayKeys: false,
     })
+    if (hasSlotWork(page.slots, this.slotOptions)) {
+      void prepareSlots(page.slots, this.slotOptions, controller.signal)
+        .then(show)
+        .catch((error) => {
+          if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
+            this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+        })
+    }
     this.fit()
   }
 
   showUrl(url: string, size: Page['size'] = 'fluid') {
+    this.cancelSlotPreparation()
+    this.loadGeneration++
     const iframe = this.mount(Page.parse({ html: '', size }))
     iframe.src = new URL(url, location.href).href
     this.fit()
@@ -95,6 +138,11 @@ export class SegnaviaPage extends HTMLElement {
     sheet.append(iframe)
     this.replaceChildren(sheet)
     return iframe
+  }
+
+  private cancelSlotPreparation() {
+    this.slotPreparation?.abort()
+    this.slotPreparation = undefined
   }
 
   private fit() {

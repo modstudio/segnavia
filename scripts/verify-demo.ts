@@ -21,6 +21,7 @@ import { verifyPlayerLayout } from './verify/player-layout.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
+import { verifySlots } from './verify/slots.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
 import { parseVerifyShard, sectionsForShard, unlistedSections, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
 
@@ -40,6 +41,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyRtl', run: () => verifyRtl(h) },
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },
+  { name: 'verifySlots', run: () => verifySlots(h) },
   { name: 'verifyImageFit', run: () => verifyImageFit(h) },
   { name: 'verifyComponents', run: () => verifyComponents(h) },
   { name: 'verifyDeckHost', run: () => verifyDeckHost(h) },
