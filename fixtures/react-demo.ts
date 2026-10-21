@@ -1,6 +1,6 @@
 import type { SegnaviaPaper } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
-import { Page, Document as PageDocument, Paper, Player, useAuthoring, useDeckController } from '@segnavia/react'
+import { Page, Document as PageDocument, Paper, Player, Thumbnail, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, Fragment, StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -34,13 +34,21 @@ const wrapperPrint = { paper: 'business-card-square-us' as const, orientation: '
 
 function PageWrappers() {
   const paper = useRef<SegnaviaPaper | null>(null)
+  const [objects, setObjects] = useState(0)
   useEffect(() => paper.current?.load([wrapperPage], { ...wrapperPrint, columns: 1, rows: 1, cell: { width: 63.5, height: 63.5 }, unit: 'mm' }), [])
+  useEffect(() => {
+    Object.assign(window, { reactSetWrapperObjects: setObjects })
+  }, [])
+  const page = objects === 1 ? undefined : { ...wrapperPage, html: `${wrapperPage.html}<!-- ${objects} -->`, size: { width: 240, height: 240 } as const }
+  const pages = objects === 1 ? undefined : [{ ...wrapperPage, html: `${wrapperPage.html}<!-- ${objects} -->` }]
+  const print = objects === 1 ? undefined : { ...wrapperPrint }
   return createElement(
     Fragment,
     null,
-    createElement(Page, { id: 'react-page', page: { ...wrapperPage, size: { width: 240, height: 240 } } }),
+    createElement(Page, { id: 'react-page', page }),
+    createElement(Thumbnail, { id: 'react-thumbnail', page, print }),
     createElement(Paper, { id: 'react-paper', ref: paper }),
-    createElement(PageDocument, { id: 'react-document', pages: [wrapperPage], print: wrapperPrint }),
+    createElement(PageDocument, { id: 'react-document', pages, print }),
   )
 }
 
