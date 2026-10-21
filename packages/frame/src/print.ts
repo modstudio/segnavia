@@ -87,9 +87,9 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
-  const slotWork = hasSlotWork(deck.slots, options.slots)
-  const refusal = slotFillRefusal(deck.scripts, slotWork)
+  const refusal = slotFillRefusal(deck.scripts, deck.slots, options.slots)
   if (refusal) throw refusal
+  const slotWork = hasSlotWork(deck.slots, options.slots)
   const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
   const preparedDeck = {
     ...deck,
@@ -109,11 +109,11 @@ export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDi
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
-  const work = pages.map((page) => hasSlotWork(page.slots, options.slots))
-  for (const [index, page] of pages.entries()) {
-    const refusal = slotFillRefusal(page.scripts, work[index] ?? false)
+  for (const page of pages) {
+    const refusal = slotFillRefusal(page.scripts, page.slots, options.slots)
     if (refusal) throw refusal
   }
+  const work = pages.map((page) => hasSlotWork(page.slots, options.slots))
   const resolvedSlots = work.some(Boolean)
     ? await prepareSlotCollection(
         pages.map((page) => page.slots),

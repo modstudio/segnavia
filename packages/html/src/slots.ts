@@ -29,14 +29,19 @@ export class SlotFillRefusedError extends Error {
   }
 }
 
-/** Whether slot preparation can change an item's HTML. */
+/** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
 export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
-  return Boolean(options?.fill && (declarations?.length || options.declarations?.length))
+  return Boolean(declarations?.length || options?.declarations?.length || options?.fill || options?.resolveAsset || options?.report)
 }
 
 /** Refuses exposing filled values to an item's own scripts. */
-export function slotFillRefusal(scripts: Scripts, work: boolean): SlotFillRefusedError | undefined {
-  return scripts !== 'refuse' && work ? new SlotFillRefusedError(scripts) : undefined
+export function slotFillRefusal(
+  scripts: Scripts,
+  declarations: readonly SlotDeclaration[] | undefined,
+  options: SlotsOptions | undefined,
+): SlotFillRefusedError | undefined {
+  const fillsValues = options?.fill && (declarations?.length || options.declarations?.length)
+  return scripts !== 'refuse' && fillsValues ? new SlotFillRefusedError(scripts) : undefined
 }
 
 interface ResolvedSlots {

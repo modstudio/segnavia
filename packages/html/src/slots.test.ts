@@ -10,19 +10,24 @@ const declarations: SlotDeclaration[] = [
   { key: 'logo', label: 'Logo', type: 'image', required: false },
 ]
 
-test('slot fill policy refuses work for an item that runs scripts', () => {
-  const refusal = slotFillRefusal('sandboxed', true)
+test('slot fill policy refuses only fills with declarations for an item that runs scripts', () => {
+  const options = { fill: { id: 'x', values: {} } }
+  const refusal = slotFillRefusal('sandboxed', declarations, options)
   expect(refusal).toBeInstanceOf(SlotFillRefusedError)
   expect(refusal?.message).toContain("scripts: 'sandboxed'")
-  expect(slotFillRefusal('refuse', true)).toBeUndefined()
-  expect(slotFillRefusal('sandboxed', false)).toBeUndefined()
+  expect(slotFillRefusal('refuse', declarations, options)).toBeUndefined()
+  expect(slotFillRefusal('sandboxed', declarations, undefined)).toBeUndefined()
+  expect(slotFillRefusal('sandboxed', undefined, options)).toBeUndefined()
+  expect(slotFillRefusal('sandboxed', undefined, { ...options, declarations })).toBeInstanceOf(SlotFillRefusedError)
 })
 
-test('slot work requires a fill and declarations that it can apply', () => {
-  expect(hasSlotWork(declarations, undefined)).toBe(false)
-  expect(hasSlotWork(declarations, { report() {} })).toBe(false)
-  expect(hasSlotWork(undefined, { fill: { id: 'x', values: {} } })).toBe(false)
-  expect(hasSlotWork(declarations, { fill: { id: 'x', values: {} } })).toBe(true)
+test('slot work includes every reason preparation must run', () => {
+  expect(hasSlotWork(undefined, undefined)).toBe(false)
+  expect(hasSlotWork(declarations, undefined)).toBe(true)
+  expect(hasSlotWork(undefined, { declarations })).toBe(true)
+  expect(hasSlotWork(undefined, { fill: { id: 'x', values: {} } })).toBe(true)
+  expect(hasSlotWork(undefined, { resolveAsset: async () => 'data:image/png;base64,AAAA' })).toBe(true)
+  expect(hasSlotWork(undefined, { report() {} })).toBe(true)
 })
 
 test('slot filling resolves assets, preserves designs, escapes markup and reports every state', async () => {

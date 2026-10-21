@@ -118,15 +118,12 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     this.paintResolved(print)
-    const work = declarations.map((item) => hasSlotWork(item, this.slotOptions))
-    if (!work.some(Boolean)) {
-      return
-    }
-    const refusal = this.pageValues.map((page, index) => slotFillRefusal(page.scripts, work[index] ?? false)).find((error) => error !== undefined)
+    const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
     if (refusal) {
       this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
       return
     }
+    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) return
     const controller = new AbortController()
     this.slotPreparation = controller
     void prepareSlotCollection(declarations, this.slotOptions, controller.signal)

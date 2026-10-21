@@ -193,8 +193,8 @@ export class SegnaviaStage extends HTMLElement {
     if (this.slotDeck !== deck) {
       this.cancelSlotPreparation()
       this.slotGeneration++
+      const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
       const slotWork = hasSlotWork(deck.slots, this.slotOptions)
-      const refusal = slotFillRefusal(deck.scripts, slotWork)
       if (!slotWork || refusal) {
         this.slotDeck = deck
         this.resolvedSlots = EMPTY_SLOTS

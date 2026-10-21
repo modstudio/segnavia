@@ -76,3 +76,24 @@ test('server preparation still fills items whose scripts are refused', async () 
   })
   expect((await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'Private value' } } })).html).toContain('Private value')
 })
+
+test('server preparation reports placeholders for scripted items without a fill', async () => {
+  const reports: unknown[] = []
+  const page = Page.parse({
+    html: '<p data-slot-value="name">Design text</p>',
+    scripts: 'sandboxed',
+    slots: [{ key: 'name', label: 'Name', type: 'text', required: false, placeholder: 'Placeholder' }],
+  })
+  const result = await filledPage(page, { report: (report) => reports.push(report) })
+  expect(result.html).toContain('Placeholder')
+  expect(reports).toEqual([{ fill: null, slots: { name: 'placeholder' } }])
+})
+
+test('server preparation rejects unsafe bindings for scripted items without a fill', async () => {
+  const page = Page.parse({
+    html: '<style data-slot-value="name">Design text</style>',
+    scripts: 'sandboxed',
+    slots: [{ key: 'name', label: 'Name', type: 'text', required: false }],
+  })
+  await expect(filledPage(page, undefined)).rejects.toThrow('Slot "name" uses a value binding on <style>')
+})

@@ -181,13 +181,12 @@ export class SegnaviaThumbnail extends HTMLElement {
       authored.part.add('canvas')
       this.viewport.append(authored)
       this.measure()
-      const slotWork = hasSlotWork(deck.slots, this.slotOptions)
-      if (!slotWork) return
-      const refusal = slotFillRefusal(deck.scripts, slotWork)
+      const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
       if (refusal) {
         this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: refusal, bubbles: true, composed: true }))
         return
       }
+      if (!hasSlotWork(deck.slots, this.slotOptions)) return
       const slotPreparation = new AbortController()
       this.slotPreparation = slotPreparation
       try {

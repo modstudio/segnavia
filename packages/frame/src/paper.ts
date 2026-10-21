@@ -132,15 +132,14 @@ export class SegnaviaPaper extends HTMLElement {
     const declarations = this.pages.map((page) => page.slots)
     const generation = ++this.slotGeneration
     this.resolvedSlots = undefined
-    const work = declarations.map((item) => hasSlotWork(item, this.slotOptions))
-    if (!work.some(Boolean)) {
-      this.paintResolved(imposition, imposed)
-      return
-    }
-    const refusal = this.pages.map((page, index) => slotFillRefusal(page.scripts, work[index] ?? false)).find((error) => error !== undefined)
+    const refusal = this.pages.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
     if (refusal) {
       this.paintResolved(imposition, imposed)
       this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
+      return
+    }
+    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+      this.paintResolved(imposition, imposed)
       return
     }
     const pages = this.pages

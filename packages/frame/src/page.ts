@@ -103,11 +103,10 @@ export class SegnaviaPage extends HTMLElement {
       csp: this.cspExtra || undefined,
       relayKeys: false,
     })
-    const slotWork = hasSlotWork(page.slots, this.slotOptions)
-    const refusal = slotFillRefusal(page.scripts, slotWork)
+    const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
     if (refusal) {
       this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
-    } else if (slotWork) {
+    } else if (hasSlotWork(page.slots, this.slotOptions)) {
       void prepareSlots(page.slots, this.slotOptions, controller.signal)
         .then(show)
         .catch((error) => {
