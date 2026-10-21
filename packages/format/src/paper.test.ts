@@ -3,12 +3,17 @@ import { Page, Print } from './index.ts'
 import {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
+  fromMillimeters,
   MM_PER_PT,
   NAMED_PAPERS,
+  ORIENTATIONS,
+  Orientation,
   PAPER_GROUPS,
   PAPER_METADATA,
   PAPER_MM,
+  PAPER_UNITS,
   Paper,
+  PaperUnit,
   PrintSetting,
   PrintSettingInput,
   printBoxes,
@@ -53,6 +58,17 @@ describe('paper', () => {
     expect(PAPER_GROUPS).toEqual(['Office', 'Cards', 'Leaflets', 'Posters'])
     expect(PAPER_METADATA['business-card-us']).toEqual({ name: 'Business card (US)', group: 'Cards', size: '3.5 × 2 in' })
     expect(PAPER_METADATA.a4).toEqual({ name: 'A4', group: 'Office', size: '210 × 297 mm' })
+    expect(PAPER_METADATA['postcard-4x6'].name).toBe('Postcard')
+    expect(PAPER_METADATA['rack-card-4x9'].name).toBe('Rack card')
+    expect(PAPER_METADATA['poster-18x24'].name).toBe('Poster')
+    expect(PAPER_METADATA['card-square-4in'].name).toBe('Square card')
+  })
+
+  test('paper units and orientations have one runtime vocabulary', () => {
+    expect(PAPER_UNITS).toEqual(['mm', 'in', 'pt'])
+    expect(PaperUnit.options).toEqual([...PAPER_UNITS])
+    expect(ORIENTATIONS).toEqual(['portrait', 'landscape'])
+    expect(Orientation.options).toEqual([...ORIENTATIONS])
   })
 
   test.each([
@@ -83,6 +99,12 @@ describe('paper', () => {
     expect(toMillimeters(12, 'mm')).toBe(12)
     expect(toMillimeters(1, 'in')).toBe(25.4)
     expect(toMillimeters(72, 'pt')).toBe(25.4)
+  })
+
+  test.each([...PAPER_UNITS])('round trips both custom-paper bounds without loss in %s', (unit) => {
+    for (const millimeters of [CUSTOM_PAPER_MIN_MM, CUSTOM_PAPER_MAX_MM]) {
+      expect(toMillimeters(fromMillimeters(millimeters, unit), unit)).toBe(millimeters)
+    }
   })
 
   test('orientation swaps the sides of a named and a custom paper', () => {

@@ -35,5 +35,60 @@ export async function verifyPaperPicker(h: Harness) {
     'the paper picker refuses a custom side below its bound',
     refused.paper.width === 100 && (await width.evaluate((input: HTMLInputElement) => !input.validity.valid)),
   )
+
+  const boundaries = await picker.evaluate((element) => {
+    const pickerElement = element as typeof element & {
+      value: { paper: string | { width: number; height: number; unit: 'mm' | 'in' | 'pt' }; orientation: 'portrait' | 'landscape' }
+    }
+    const unit = pickerElement.shadowRoot?.querySelector<HTMLSelectElement>('select[name="unit"]')
+    if (!unit) return []
+    const millimetersPerUnit = { mm: 1, in: 25.4, pt: 25.4 / 72 }
+    const results: Array<{ bound: number; unit: string; millimeters: number }> = []
+    for (const bound of [10, 2000]) {
+      for (const nextUnit of ['mm', 'in', 'pt'] as const) {
+        pickerElement.value = { paper: { width: bound, height: bound, unit: 'mm' }, orientation: 'portrait' }
+        unit.value = nextUnit
+        unit.dispatchEvent(new Event('change', { bubbles: true }))
+        const paper = pickerElement.value.paper
+        if (typeof paper !== 'string') {
+          results.push({ bound, unit: nextUnit, millimeters: paper.width * millimetersPerUnit[paper.unit] })
+        }
+      }
+    }
+    return results
+  })
+  check(
+    'the paper picker preserves both custom-paper bounds in every unit',
+    boundaries.length === 6 && boundaries.every(({ bound, millimeters }) => millimeters === bound),
+    JSON.stringify(boundaries),
+  )
+
+  const resets = await picker.evaluate((element) => {
+    const pickerElement = element as typeof element & {
+      value: { paper: string; orientation: string } | undefined
+      labels: { paper?: string } | undefined
+    }
+    const result = { value: '', label: '', errors: [] as string[] }
+    try {
+      pickerElement.value = { paper: 'letter', orientation: 'landscape' }
+      pickerElement.value = undefined
+      result.value = JSON.stringify(pickerElement.value)
+    } catch (error) {
+      result.errors.push(error instanceof Error ? error.message : String(error))
+    }
+    try {
+      pickerElement.labels = { paper: 'Stock' }
+      pickerElement.labels = undefined
+      result.label = pickerElement.shadowRoot?.querySelector('.paper span')?.textContent ?? ''
+    } catch (error) {
+      result.errors.push(error instanceof Error ? error.message : String(error))
+    }
+    return result
+  })
+  check(
+    'the React wrapper can set then unset both optional paper picker properties',
+    resets.value === '{"paper":"a4","orientation":"portrait"}' && resets.label === 'Paper' && resets.errors.length === 0,
+    JSON.stringify(resets),
+  )
   check('the paper picker follows its right-to-left host', (await picker.evaluate((element) => getComputedStyle(element).direction)) === 'rtl')
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
 import { NoteMarker, NumberSystem } from './numbering.ts'
-import { Paper, sheetMm } from './paper.ts'
+import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
@@ -36,7 +36,7 @@ export type Chapter = z.infer<typeof Chapter>
 
 export const BookPage = z.object({
   paper: Paper,
-  orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+  orientation: Orientation.default('portrait'),
   margin: z.object({
     top: z.number().nonnegative(),
     bottom: z.number().nonnegative(),

@@ -8,7 +8,7 @@ import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
-import { Paper, PrintSetting, PrintSettingInput, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
@@ -121,19 +121,23 @@ export * from './numbering.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
+  fromMillimeters,
   MARK_GAP_MM,
   MARK_LENGTH_MM,
   MM_PER_PT,
   NAMED_PAPERS,
   type NamedPaper,
   type NamedPaperMetadata,
+  ORIENTATIONS,
+  Orientation,
   PAPER_GROUPS,
   PAPER_METADATA,
   PAPER_MM,
+  PAPER_UNITS,
   Paper,
   type PaperBox,
   type PaperGroup,
-  type PaperUnit,
+  PaperUnit,
   PrintSetting,
   PrintSettingInput,
   PX_PER_MM,
@@ -161,7 +165,7 @@ export const Margin = z.object({
 export const Print = z
   .object({
     paper: Paper,
-    orientation: z.enum(['portrait', 'landscape']).default('portrait'),
+    orientation: Orientation.default('portrait'),
     margin: Margin.optional(),
     bleed: z.number().nonnegative().default(0),
     safe: z.number().nonnegative().default(0),
@@ -197,8 +201,8 @@ export const MAX_IMPOSITION_CELLS = 10_000
 export const Imposition = z
   .object({
     paper: Paper,
-    orientation: z.enum(['portrait', 'landscape']).default('portrait'),
-    unit: z.enum(['mm', 'in', 'pt']).default('mm'),
+    orientation: Orientation.default('portrait'),
+    unit: PaperUnit.default('mm'),
     margin: Margin.default({ top: 0, right: 0, bottom: 0, left: 0 }),
     columns: z.number().int().positive(),
     rows: z.number().int().positive(),

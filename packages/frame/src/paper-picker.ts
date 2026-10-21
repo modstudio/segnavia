@@ -1,12 +1,16 @@
 import {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
+  fromMillimeters,
   NAMED_PAPERS,
+  ORIENTATIONS,
+  Orientation,
   PAPER_GROUPS,
   PAPER_METADATA,
+  PAPER_UNITS,
   Paper,
   type PaperGroup,
-  type PaperUnit,
+  PaperUnit,
   type PrintSetting,
   PrintSettingInput,
   toMillimeters,
@@ -51,7 +55,7 @@ export type PaperPickerLabelOverrides = Partial<Omit<PaperPickerLabels, 'groups'
   paperSizes?: Partial<PaperPickerLabels['paperSizes']>
 }
 
-function pickerLabels(overrides: PaperPickerLabelOverrides): PaperPickerLabels {
+function pickerLabels(overrides: PaperPickerLabelOverrides = {}): PaperPickerLabels {
   return {
     ...ENGLISH_PAPER_PICKER_LABELS,
     ...overrides,
@@ -61,15 +65,14 @@ function pickerLabels(overrides: PaperPickerLabelOverrides): PaperPickerLabels {
   }
 }
 
-function inUnit(millimeters: number, unit: PaperUnit): number {
-  const divisor = unit === 'in' ? 25.4 : unit === 'pt' ? 25.4 / 72 : 1
-  return Math.round((millimeters / divisor) * 10000) / 10000
-}
+const DEFAULT_SETTING: PrintSetting = { paper: 'a4', orientation: 'portrait' }
+const DEFAULT_CUSTOM: Extract<PrintSetting['paper'], object> = { width: 210, height: 297, unit: 'mm' }
+const displayDimension = (value: number) => Math.round(value * 10000) / 10000
 
 export class SegnaviaPaperPicker extends HTMLElement {
   private root = this.attachShadow({ mode: 'open' })
-  private setting: PrintSetting = { paper: 'a4', orientation: 'portrait' }
-  private custom: Extract<PrintSetting['paper'], object> = { width: 210, height: 297, unit: 'mm' }
+  private setting: PrintSetting = DEFAULT_SETTING
+  private custom: Extract<PrintSetting['paper'], object> = DEFAULT_CUSTOM
   private words = ENGLISH_PAPER_PICKER_LABELS
   private drawn = false
 
@@ -77,8 +80,9 @@ export class SegnaviaPaperPicker extends HTMLElement {
     return this.setting
   }
 
-  set value(value: PrintSetting) {
-    this.setting = PrintSettingInput.parse(value)
+  set value(value: PrintSetting | undefined) {
+    this.setting = PrintSettingInput.parse(value ?? DEFAULT_SETTING)
+    if (value === undefined) this.custom = DEFAULT_CUSTOM
     if (typeof this.setting.paper !== 'string') this.custom = this.setting.paper
     this.render()
   }
@@ -87,7 +91,7 @@ export class SegnaviaPaperPicker extends HTMLElement {
     return this.words
   }
 
-  set labels(value: PaperPickerLabelOverrides) {
+  set labels(value: PaperPickerLabelOverrides | undefined) {
     this.words = pickerLabels(value)
     this.render()
   }
@@ -99,9 +103,9 @@ export class SegnaviaPaperPicker extends HTMLElement {
         <div class="custom">
           <label><span data-label="width"></span><input name="width" type="number" step="any"></label>
           <label><span data-label="height"></span><input name="height" type="number" step="any"></label>
-          <label><span data-label="unit"></span><select name="unit"><option value="mm">mm</option><option value="in">in</option><option value="pt">pt</option></select></label>
+          <label><span data-label="unit"></span><select name="unit">${PAPER_UNITS.map((unit) => `<option value="${unit}">${unit}</option>`).join('')}</select></label>
         </div>
-        <fieldset><legend></legend><div class="orientation"><button type="button" value="portrait"></button><button type="button" value="landscape"></button></div></fieldset>
+        <fieldset><legend></legend><div class="orientation">${ORIENTATIONS.map((orientation) => `<button type="button" value="${orientation}"></button>`).join('')}</div></fieldset>
       </div>`
       this.root.addEventListener('change', this.changed)
       this.root.addEventListener('click', this.clicked)
@@ -122,13 +126,19 @@ export class SegnaviaPaperPicker extends HTMLElement {
       return
     }
     if (target.name === 'unit') {
-      const unit = target.value as PaperUnit
-      this.custom = {
-        width: inUnit(toMillimeters(this.custom.width, this.custom.unit), unit),
-        height: inUnit(toMillimeters(this.custom.height, this.custom.unit), unit),
+      const unit = PaperUnit.parse(target.value)
+      const paper = {
+        width: fromMillimeters(toMillimeters(this.custom.width, this.custom.unit), unit),
+        height: fromMillimeters(toMillimeters(this.custom.height, this.custom.unit), unit),
         unit,
       }
-      this.setting = { ...this.setting, paper: this.custom }
+      const converted = PrintSettingInput.safeParse({ ...this.setting, paper })
+      if (!converted.success) {
+        this.render()
+        return
+      }
+      this.custom = paper
+      this.setting = converted.data
       this.render()
       this.emit()
       return
@@ -141,7 +151,7 @@ export class SegnaviaPaperPicker extends HTMLElement {
   private clicked = (event: Event) => {
     const target = event.target
     if (!(target instanceof HTMLButtonElement) || !target.closest('.orientation')) return
-    this.setting = { ...this.setting, orientation: target.value as PrintSetting['orientation'] }
+    this.setting = { ...this.setting, orientation: Orientation.parse(target.value) }
     this.renderOrientation()
     this.emit()
   }
@@ -185,9 +195,9 @@ export class SegnaviaPaperPicker extends HTMLElement {
     for (const side of ['width', 'height'] as const) {
       ;(this.root.querySelector(`[data-label="${side}"]`) as HTMLElement).textContent = this.words[side]
       const input = this.root.querySelector(`input[name="${side}"]`) as HTMLInputElement
-      input.valueAsNumber = this.custom[side]
-      input.min = String(inUnit(CUSTOM_PAPER_MIN_MM, this.custom.unit))
-      input.max = String(inUnit(CUSTOM_PAPER_MAX_MM, this.custom.unit))
+      input.valueAsNumber = displayDimension(this.custom[side])
+      input.min = String(displayDimension(fromMillimeters(CUSTOM_PAPER_MIN_MM, this.custom.unit)))
+      input.max = String(displayDimension(fromMillimeters(CUSTOM_PAPER_MAX_MM, this.custom.unit)))
       input.setCustomValidity('')
     }
     ;(this.root.querySelector('[data-label="unit"]') as HTMLElement).textContent = this.words.unit
@@ -198,7 +208,7 @@ export class SegnaviaPaperPicker extends HTMLElement {
 
   private renderOrientation() {
     if (!this.drawn) return
-    for (const orientation of ['portrait', 'landscape'] as const) {
+    for (const orientation of ORIENTATIONS) {
       const button = this.root.querySelector(`button[value="${orientation}"]`) as HTMLButtonElement
       button.textContent = this.words[orientation]
       button.setAttribute('aria-pressed', String(this.setting.orientation === orientation))
