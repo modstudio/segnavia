@@ -19,6 +19,7 @@
     "changeset": "changeset",
     "version": "changeset version && bun install",
     "release": "bun scripts/publish.ts",
+    "review:log": "bun scripts/review-log.ts",
     "setup:php": "composer install --working-dir=fixtures/php-host --no-interaction"
   },
   "dependencies": {
