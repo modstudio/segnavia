@@ -1,4 +1,15 @@
-import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, SegnaviaThumbnail, StageReserve } from '@segnavia/frame'
+import type {
+  ControllerOptions,
+  DeckController,
+  FittedSize,
+  HostTransition,
+  SegnaviaDocument,
+  SegnaviaPage,
+  SegnaviaPaper,
+  SegnaviaStage,
+  SegnaviaThumbnail,
+  StageReserve,
+} from '@segnavia/frame'
 import type {
   PlayerLabels,
   SegnaviaCaption,
@@ -65,12 +76,38 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   deck?: SegnaviaThumbnail['deck']
+  page?: SegnaviaThumbnail['page']
+  print?: SegnaviaThumbnail['print']
   index?: number
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
   css?: string
   mountMargin?: number
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
+}
+
+export interface PageProps extends ElementProps<SegnaviaPage> {
+  page?: SegnaviaPage['page']
+  css?: string
+  cspExtra?: string
+  src?: string
+  unstyled?: boolean
+}
+
+export interface PaperProps extends ElementProps<SegnaviaPaper> {
+  paper?: number
+  side?: SegnaviaPaper['side']
+  css?: string
+  cspExtra?: string
+  unstyled?: boolean
+}
+
+export interface DocumentProps extends ElementProps<SegnaviaDocument> {
+  pages?: SegnaviaDocument['pages']
+  print?: SegnaviaDocument['print']
+  css?: string
+  cspExtra?: string
+  unstyled?: boolean
 }
 
 export type PlayProps = ControlProps<SegnaviaPlay>

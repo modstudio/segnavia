@@ -8,6 +8,7 @@ import { verifyBooks } from './verify/books.ts'
 import { verifyCapture } from './verify/capture.ts'
 import { verifyComponents } from './verify/components.ts'
 import { verifyDeckHost } from './verify/deck-host.ts'
+import { verifyDocuments } from './verify/documents.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
@@ -31,6 +32,7 @@ try {
   await verifyBooks(h)
   await verifyBoard(h)
   await verifyPapers(h)
+  await verifyDocuments(h)
   await verifyRtl(h)
   await verifyHeadless(h)
   await verifyThumbnail(h)

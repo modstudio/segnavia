@@ -1,11 +1,14 @@
-import { Deck } from '@segnavia/format'
+import { Deck, Page, type PageInput, Print, type PrintInput, PX_PER_MM, sheetMm } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
+import { SegnaviaPage } from './page.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
   private margin = 400
   private value: Deck | null = null
+  private pageValue: Page | null = null
+  private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
   private baseUrl: string | undefined
@@ -39,8 +42,30 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   set deck(input: Deck | null) {
     this.value = input === null ? null : Deck.parse(input)
+    if (this.value) this.pageValue = null
     if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
     else this.style.removeProperty('--segnavia-aspect')
+    this.changed()
+  }
+
+  get page(): Page | null {
+    return this.pageValue
+  }
+
+  set page(input: PageInput | Page | null) {
+    this.pageValue = input === null ? null : Page.parse(input)
+    if (this.pageValue) this.value = null
+    this.updatePageAspect()
+    this.changed()
+  }
+
+  get print(): Print | null {
+    return this.printValue
+  }
+
+  set print(input: PrintInput | Print | null) {
+    this.printValue = input === null ? null : Print.parse(input)
+    this.updatePageAspect()
     this.changed()
   }
 
@@ -123,6 +148,10 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private async mount() {
+    if (this.pageValue) {
+      this.mountPage()
+      return
+    }
     const deck = this.value
     const slide = deck?.slides[this.slideIndex]
     if (!deck || !slide || this.controller) return
@@ -147,5 +176,26 @@ export class SegnaviaThumbnail extends HTMLElement {
   private measure() {
     const canvas = this.viewport.firstElementChild as HTMLElement | null
     if (canvas && this.value) canvas.style.transform = `scale(${thumbnailScale(this.clientWidth, this.value.size.width)})`
+  }
+
+  private updatePageAspect() {
+    const print = this.printValue ?? this.pageValue?.print ?? null
+    if (!this.pageValue || !print) return
+    const paper = sheetMm(print)
+    this.style.setProperty('--segnavia-aspect', `${paper.width} / ${paper.height}`)
+  }
+
+  private mountPage() {
+    const source = this.pageValue
+    const print = this.printValue ?? source?.print ?? null
+    if (!source || !print || this.viewport.firstElementChild) return
+    const paper = sheetMm(print)
+    const page = new SegnaviaPage()
+    page.css = this.stylesheet
+    page.cspExtra = ''
+    page.part.add('canvas')
+    page.style.inlineSize = '100%'
+    this.viewport.append(page)
+    page.load({ ...source, size: { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM } })
   }
 }

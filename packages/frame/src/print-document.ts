@@ -252,9 +252,9 @@ export function printablePaper(
     .join('')
 }
 
-// This frame-based document is for a browser to show and print. Chromium loses
-// backgrounds inside sandboxed frames when producing a PDF, so the server
-// renderer composes top-level page renders instead of printing this document.
+// This frame-based document is for a browser to show and print. The server
+// renderer still composes top-level page renders for vector output and press
+// features that a browser print dialog does not provide.
 export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)
