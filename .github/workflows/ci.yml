@@ -16,44 +16,138 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-and-browser-verification:
-    name: Check and browser verification
-    # macOS, not Ubuntu: the press-colour checks rasterize PDFs with poppler,
-    # and Ubuntu's poppler 24.02 draws sampled shadings differently from the
-    # current release the checks are calibrated against.
-    runs-on: macos-latest
+  check:
+    name: Check
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
           bun-version: 1.4.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
-          node-version: 22.14.0
-      - id: chrome
-        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
-      # The demo build makes its narration test tone with ffmpeg; the verify
-      # scripts read the PDFs they render with poppler's pdfinfo, pdftotext,
-      # pdftoppm, pdfimages and pdffonts.
-      - name: Install ffmpeg and poppler
-        run: brew install ffmpeg poppler
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Check
         run: bun run check
+
+  build-demo:
+    name: Build demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+      - id: chrome
+        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Build browser demo
         run: bun --conditions=@segnavia/source scripts/build-demo.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Upload browser demo
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: demo
+          path: out/
+
+  verify-demo:
+    name: Verify demo (${{ matrix.shard }}/3)
+    needs: build-demo
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+      - id: chrome
+        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install --yes poppler-utils
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Download browser demo
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: demo
+          path: out/
       - name: Verify browser demo
         run: bun --conditions=@segnavia/source scripts/verify-demo.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+          SEGNAVIA_VERIFY_SHARD: ${{ matrix.shard }}/3
+
+  verify-render:
+    name: Verify rendering (${{ matrix.runtime }})
+    # macOS, not Ubuntu: the press-colour checks rasterize PDFs with poppler,
+    # and Ubuntu's poppler 24.02 draws sampled shadings differently from the
+    # current release the checks are calibrated against.
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [bun, node]
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+      - if: matrix.runtime == 'node'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+      - id: chrome
+        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+      - name: Install poppler
+        run: brew install poppler
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Verify rendering under Bun
+        if: matrix.runtime == 'bun'
         run: bun --conditions=@segnavia/source scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
       - name: Verify rendering under Node
+        if: matrix.runtime == 'node'
         run: node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+
+  ci:
+    name: CI passed
+    needs: [check, build-demo, verify-demo, verify-render]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to succeed
+        if: >-
+          needs.check.result != 'success' ||
+          needs.build-demo.result != 'success' ||
+          needs.verify-demo.result != 'success' ||
+          needs.verify-render.result != 'success'
+        run: exit 1

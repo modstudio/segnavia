@@ -22,7 +22,7 @@ import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
-import { parseVerifyShard, sectionsForShard } from './verify-demo-shards.ts'
+import { parseVerifyShard, sectionsForShard, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
 
 type VerifySection = Readonly<{ name: string; run: () => void | Promise<void> }>
 
@@ -48,38 +48,13 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
 ]
 
-// Slowest first from a local macOS run, in seconds: player 20.5, player layout
-// 13.3, RTL 11.0, deck host 8.4, rail authoring 8.2, papers 6.5, headless
-// 4.5, media 4.5, components 1.9, and the remaining sections under 1 each.
-// Round-robin assignment from this fixed order keeps the common three shards
-// close in duration. Sections still execute in their original order below.
-const sectionsByDuration = [
-  'verifyPlayer',
-  'verifyPlayerLayout',
-  'verifyRtl',
-  'verifyDeckHost',
-  'verifyRailAuthoring',
-  'verifyPapers',
-  'verifyHeadless',
-  'verifyMedia',
-  'verifyComponents',
-  'verifyPages',
-  'verifyBooks',
-  'verifyBoard',
-  'verifyDocuments',
-  'verifyResponsive',
-  'verifyPaperPicker',
-  'verifyThumbnail',
-  'verifyImageFit',
-  'verifyCapture',
-] as const
-
 const shard = parseVerifyShard(process.env.SEGNAVIA_VERIFY_SHARD)
-const selected = sectionsForShard(sectionsByDuration, shard)
+const selected = sectionsForShard(VERIFY_DEMO_SECTIONS_BY_DURATION, shard)
 try {
   for (const section of sections) {
     if (!selected.has(section.name)) continue
     console.log(`section ${section.name}`)
+    await h.page.setViewportSize({ width: 1280, height: 816 })
     await section.run()
   }
   h.check('no errors in any page', h.errors.length === 0, h.errors.join('; '))

@@ -1,20 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { parseVerifyShard, sectionsForShard } from './verify-demo-shards.ts'
+import { parseVerifyShard, sectionsForShard, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
 
-const sections = Array.from({ length: 18 }, (_, index) => `section-${index + 1}`)
+const sections = VERIFY_DEMO_SECTIONS_BY_DURATION
 
 describe('demo verification shards', () => {
   test('every section belongs to exactly one shard for any shard count', () => {
     for (let count = 1; count <= sections.length + 2; count++) {
-      const assigned = Array.from({ length: count }, (_, index) =>
-        Array.from(sectionsForShard(sections, { index: index + 1, count })),
-      ).flat()
-      expect(assigned.toSorted()).toEqual(sections.toSorted())
+      const assigned = Array.from({ length: count }, (_, index) => Array.from(sectionsForShard(sections, { index: index + 1, count }))).flat()
+      expect(assigned.sort()).toEqual([...sections].sort())
     }
   })
 
   test('an unset shard selects every section', () => {
-    expect(Array.from(sectionsForShard(sections, parseVerifyShard(undefined)))).toEqual(sections)
+    expect(Array.from(sectionsForShard(sections, parseVerifyShard(undefined)))).toEqual([...sections])
   })
 
   test('the shard is one-based and bounded by its count', () => {
