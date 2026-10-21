@@ -128,11 +128,9 @@ bun run demo       # capture, narrate, build and render; then check it in Chromi
 Repository commands go through `bun run`, which enables workspace source
 resolution and refuses stale built output.
 
-The pre-commit hook checks the staged files, running unit tests in each changed
-package and its dependents. Changes under `scripts/`, or to `architecture.ts`,
-also run the script tests. Package-shape and release dry-run checks remain in
-the full `bun run check` used by CI, and run locally only when their inputs
-change. See [`docs/continuous-integration.md`](docs/continuous-integration.md).
+The pre-commit hook checks the staged files and runs only the unit tests they
+reach; the full `bun run check` runs in CI. The selection rules are in
+[`docs/continuous-integration.md`](docs/continuous-integration.md).
 The commit-msg hook refuses AI attribution and a subject without the project's
 task key, whose prefix is in `.githooks/key-prefix`. `AGENTS.md` holds the rules
 every change follows.
