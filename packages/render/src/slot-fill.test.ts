@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, Page } from '@segnavia/format'
+import { SlotFillRefusedError } from '@segnavia/html'
 import { filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 const slots = {
@@ -44,4 +45,34 @@ test('asset resolution receives the render abort signal', async () => {
     controller.signal,
   )
   expect(received).toBe(controller.signal)
+})
+
+test('server preparation refuses fills for scripted items before reporting or resolving assets', async () => {
+  let reports = 0
+  let resolutions = 0
+  const page = Page.parse({
+    html: '<p data-slot-value="host.name">Design text</p>',
+    scripts: 'sandboxed',
+    slots: [{ key: 'host.name', label: 'Name', type: 'text', required: false }],
+  })
+  const options = {
+    fill: { id: 'host', values: { 'host.name': 'Private value' } },
+    report: () => reports++,
+    resolveAsset: async () => {
+      resolutions++
+      return 'data:image/png;base64,AAAA'
+    },
+  }
+  await expect(filledPage(page, options)).rejects.toBeInstanceOf(SlotFillRefusedError)
+  expect(reports).toBe(0)
+  expect(resolutions).toBe(0)
+})
+
+test('server preparation still fills items whose scripts are refused', async () => {
+  const page = Page.parse({
+    html: '<p data-slot-value="host.name">Design text</p>',
+    scripts: 'refuse',
+    slots: [{ key: 'host.name', label: 'Name', type: 'text', required: false }],
+  })
+  expect((await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'Private value' } } })).html).toContain('Private value')
 })

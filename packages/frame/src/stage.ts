@@ -19,7 +19,7 @@ import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
-import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots } from './slot-render.ts'
+import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
 import type { HostTransition } from './transition.ts'
@@ -193,9 +193,12 @@ export class SegnaviaStage extends HTMLElement {
     if (this.slotDeck !== deck) {
       this.cancelSlotPreparation()
       this.slotGeneration++
-      if (!hasSlotWork(deck.slots, this.slotOptions)) {
+      const slotWork = hasSlotWork(deck.slots, this.slotOptions)
+      const refusal = slotFillRefusal(deck.scripts, slotWork)
+      if (!slotWork || refusal) {
         this.slotDeck = deck
         this.resolvedSlots = EMPTY_SLOTS
+        if (refusal) this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
       } else {
         const generation = this.slotGeneration
         const controller = new AbortController()

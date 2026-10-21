@@ -18,7 +18,7 @@ import {
 } from './print-document.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
-import { prepareSlotCollection, prepareSlots } from './slot-render.ts'
+import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
@@ -87,7 +87,10 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
-  const resolvedSlots = await prepareSlots(deck.slots, options.slots)
+  const slotWork = hasSlotWork(deck.slots, options.slots)
+  const refusal = slotFillRefusal(deck.scripts, slotWork)
+  if (refusal) throw refusal
+  const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
   const preparedDeck = {
     ...deck,
     slides: deck.slides.map((slide) =>
@@ -106,10 +109,17 @@ export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDi
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
-  const resolvedSlots = await prepareSlotCollection(
-    pages.map((page) => page.slots),
-    options.slots,
-  )
+  const work = pages.map((page) => hasSlotWork(page.slots, options.slots))
+  for (const [index, page] of pages.entries()) {
+    const refusal = slotFillRefusal(page.scripts, work[index] ?? false)
+    if (refusal) throw refusal
+  }
+  const resolvedSlots = work.some(Boolean)
+    ? await prepareSlotCollection(
+        pages.map((page) => page.slots),
+        options.slots,
+      )
+    : EMPTY_SLOTS
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
   const printable = printablePagesDocument(filled, imposition, options)
   const paper = paperBoxSize(printable.imposed.paper)

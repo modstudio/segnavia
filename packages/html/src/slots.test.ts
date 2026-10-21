@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { SlotDeclaration, SlotReport } from '@segnavia/format'
-import { MAX_SLOT_DECLARATIONS, prepareSlotCollection, prepareSlots } from './slots.ts'
+import { hasSlotWork, MAX_SLOT_DECLARATIONS, prepareSlotCollection, prepareSlots, SlotFillRefusedError, slotFillRefusal } from './slots.ts'
 
 const declarations: SlotDeclaration[] = [
   { key: 'name', label: 'Name', type: 'text', required: true },
@@ -9,6 +9,21 @@ const declarations: SlotDeclaration[] = [
   { key: 'site', label: 'Website', type: 'link', required: false },
   { key: 'logo', label: 'Logo', type: 'image', required: false },
 ]
+
+test('slot fill policy refuses work for an item that runs scripts', () => {
+  const refusal = slotFillRefusal('sandboxed', true)
+  expect(refusal).toBeInstanceOf(SlotFillRefusedError)
+  expect(refusal?.message).toContain("scripts: 'sandboxed'")
+  expect(slotFillRefusal('refuse', true)).toBeUndefined()
+  expect(slotFillRefusal('sandboxed', false)).toBeUndefined()
+})
+
+test('slot work requires a fill and declarations that it can apply', () => {
+  expect(hasSlotWork(declarations, undefined)).toBe(false)
+  expect(hasSlotWork(declarations, { report() {} })).toBe(false)
+  expect(hasSlotWork(undefined, { fill: { id: 'x', values: {} } })).toBe(false)
+  expect(hasSlotWork(declarations, { fill: { id: 'x', values: {} } })).toBe(true)
+})
 
 test('slot filling resolves assets, preserves designs, escapes markup and reports every state', async () => {
   let report: SlotReport | undefined

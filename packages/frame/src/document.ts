@@ -6,7 +6,7 @@ import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from 
 import { ensureBaseStyle } from './base-style.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
-import { hasSlotWork, prepareSlotCollection } from './slot-render.ts'
+import { hasSlotWork, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -118,7 +118,13 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     this.paintResolved(print)
-    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+    const work = declarations.map((item) => hasSlotWork(item, this.slotOptions))
+    if (!work.some(Boolean)) {
+      return
+    }
+    const refusal = this.pageValues.map((page, index) => slotFillRefusal(page.scripts, work[index] ?? false)).find((error) => error !== undefined)
+    if (refusal) {
+      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
       return
     }
     const controller = new AbortController()

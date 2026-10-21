@@ -12,7 +12,7 @@
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotHtml } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 
@@ -103,7 +103,11 @@ export class SegnaviaPage extends HTMLElement {
       csp: this.cspExtra || undefined,
       relayKeys: false,
     })
-    if (hasSlotWork(page.slots, this.slotOptions)) {
+    const slotWork = hasSlotWork(page.slots, this.slotOptions)
+    const refusal = slotFillRefusal(page.scripts, slotWork)
+    if (refusal) {
+      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
+    } else if (slotWork) {
       void prepareSlots(page.slots, this.slotOptions, controller.signal)
         .then(show)
         .catch((error) => {

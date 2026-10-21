@@ -3,7 +3,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
-import { hasSlotWork, prepareSlots } from './slot-render.ts'
+import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
@@ -181,7 +181,13 @@ export class SegnaviaThumbnail extends HTMLElement {
       authored.part.add('canvas')
       this.viewport.append(authored)
       this.measure()
-      if (!hasSlotWork(deck.slots, this.slotOptions)) return
+      const slotWork = hasSlotWork(deck.slots, this.slotOptions)
+      if (!slotWork) return
+      const refusal = slotFillRefusal(deck.scripts, slotWork)
+      if (refusal) {
+        this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: refusal, bubbles: true, composed: true }))
+        return
+      }
       const slotPreparation = new AbortController()
       this.slotPreparation = slotPreparation
       try {

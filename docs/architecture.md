@@ -355,6 +355,9 @@ to `filled`, `placeholder`, `unavailable` or `invalid`. A fill is applied by
 the page, document, paper, stage, thumbnail, browser print and server render
 paths before they construct a frame document, so values never cross the frame
 boundary as script or markup.
+An item that runs its own scripts cannot receive a fill, because those scripts
+could read filled values and resolved assets; set `scripts` to `refuse` or show
+the item without a fill.
 
 **Sides.** An imposition's `sides` is `one` by default or `two`, and its `flip`
 is `long` by default or `short`. With two sides, pages are a front followed by

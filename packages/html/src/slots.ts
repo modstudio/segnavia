@@ -1,4 +1,13 @@
-import { mergeSlotDeclarations, type SlotDeclaration, type SlotReport, type SlotState, SlotsInput, type SlotsOptions, type SlotValue } from '@segnavia/format'
+import {
+  mergeSlotDeclarations,
+  type Scripts,
+  type SlotDeclaration,
+  type SlotReport,
+  type SlotState,
+  SlotsInput,
+  type SlotsOptions,
+  type SlotValue,
+} from '@segnavia/format'
 import { type Element, isTag, Text } from 'domhandler'
 import { bindingNames, hasBindings } from './bindings.ts'
 import { elements, parse, serialize } from './sanitize.ts'
@@ -9,6 +18,25 @@ const ASSET_RESOLUTION_CONCURRENCY = 4
 export interface PreparedSlots {
   report: SlotReport
   apply(html: string): string
+}
+
+export class SlotFillRefusedError extends Error {
+  constructor(scripts: Exclude<Scripts, 'refuse'>) {
+    super(
+      `A fill was not applied because this item runs its own scripts (scripts: '${scripts}'), which could read the filled values. Set the item's scripts to 'refuse', or show it without a fill.`,
+    )
+    this.name = 'SlotFillRefusedError'
+  }
+}
+
+/** Whether slot preparation can change an item's HTML. */
+export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
+  return Boolean(options?.fill && (declarations?.length || options.declarations?.length))
+}
+
+/** Refuses exposing filled values to an item's own scripts. */
+export function slotFillRefusal(scripts: Scripts, work: boolean): SlotFillRefusedError | undefined {
+  return scripts !== 'refuse' && work ? new SlotFillRefusedError(scripts) : undefined
 }
 
 interface ResolvedSlots {

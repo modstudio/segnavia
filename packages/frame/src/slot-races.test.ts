@@ -225,7 +225,7 @@ test('stage invalidates a pending fill when slot options are removed', async () 
 
 test('paper invalidates a pending fill when slot options are removed', async () => {
   const asset = deferred<string>()
-  const pages: Array<{ html: string; slots?: typeof assetSlot }> = [{ html: '<img data-slot-src="logo">' }]
+  const pages: Array<{ html: string; scripts: 'refuse'; slots?: typeof assetSlot }> = [{ html: '<img data-slot-src="logo">', scripts: 'refuse' }]
   let paints = 0
   const paper = {
     isConnected: true,
@@ -260,7 +260,7 @@ test('disconnecting paper aborts a pending fill without reporting or repainting'
   let paints = 0
   const paper = {
     isConnected: true,
-    pages: [{ html: '<img data-slot-src="logo">', slots: assetSlot }],
+    pages: [{ html: '<img data-slot-src="logo">', scripts: 'refuse', slots: assetSlot }],
     imposition: {},
     imposed: {},
     slotGeneration: 0,
@@ -293,7 +293,7 @@ test('document reports invalid bindings prepared before a page is mounted', asyn
   let paints = 0
   const documentViewer = {
     isConnected: true,
-    pageValues: [{ html: '<source data-slot-src="logo">', slots: assetSlot }],
+    pageValues: [{ html: '<source data-slot-src="logo">', scripts: 'refuse', slots: assetSlot }],
     printValue: {},
     slotOptions: { fill: { id: 'x', values: { logo: 'data:image/png;base64,AAAA' } } } as SlotsOptions,
     slotGeneration: 0,
