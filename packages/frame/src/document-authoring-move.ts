@@ -11,7 +11,7 @@ export type MovePageHandler = (input: MovePageInput) => Promise<void>
 export function pageIdentityError(pages: readonly Page[]): string | null {
   const ids = new Set<string>()
   for (const [index, page] of pages.entries()) {
-    if (!page.id) return `Page ${index + 1} has no id. Give every page a unique id to reorder this document.`
+    if (page.id === undefined) return `Page ${index + 1} has no id. Give every page a unique id to reorder this document.`
     if (ids.has(page.id)) return `Page id "${page.id}" is repeated. Give every page a unique id to reorder this document.`
     ids.add(page.id)
   }
@@ -32,6 +32,7 @@ export async function movePageOptimistically(
   fromIndex: number,
   toIndex: number,
   show: (pages: Page[]) => void,
+  current: () => readonly Page[],
   save: MovePageHandler,
 ): Promise<void> {
   if (fromIndex === toIndex) return
@@ -40,10 +41,11 @@ export async function movePageOptimistically(
   const page = pages[fromIndex] as Page & { id: string }
   const next = reorderPages(pages, fromIndex, toIndex)
   show(next)
+  const optimistic = current()
   try {
     await save({ pageId: page.id, fromIndex, toIndex })
   } catch (error) {
-    show([...pages])
+    if (current() === optimistic) show([...pages])
     throw error
   }
 }

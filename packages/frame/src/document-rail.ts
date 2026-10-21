@@ -1,6 +1,6 @@
 import type { Page, Print } from '@segnavia/format'
 import { railSelection } from './rail-navigation.ts'
-import { RAIL_REORDER_CSS, RailDragReorder } from './rail-reorder.ts'
+import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import type { SegnaviaThumbnail } from './thumbnail.ts'
 
 const CSS = `
@@ -16,26 +16,18 @@ ${RAIL_REORDER_CSS}
 .number{position:absolute;z-index:2;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
 `
 
-export interface DocumentRailReorderIntent {
-  fromIndex: number
-  toIndex: number
-}
-
 export class SegnaviaDocumentRail extends HTMLElement {
   private readonly root = this.attachShadow({ mode: 'open' })
   private pages: readonly Page[] = []
   private selected = 0
-  private enabled = false
-  private drag = new RailDragReorder({
+  private reorder = new RailReorder({
     root: this.root,
-    enabled: () => this.enabled,
     count: () => this.pages.length,
     horizontal: () => false,
     direction: () => (getComputedStyle(this).direction === 'rtl' ? 'rtl' : 'ltr'),
     buttons: () => this.buttons(),
-    reorder: (fromIndex, toIndex) => this.emitReorder(fromIndex, toIndex),
+    excludes: () => false,
   })
-  private listeners = new Set<(intent: DocumentRailReorderIntent) => void>()
   private selectPage: (index: number) => void = () => {}
 
   constructor() {
@@ -48,7 +40,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
     this.setAttribute('aria-label', 'Pages')
     this.root.addEventListener('click', this.clicked)
     this.root.addEventListener('keydown', this.keydown as EventListener)
-    this.drag.attach()
+    this.reorder.attach()
   }
 
   configure(pages: readonly Page[], print: Print | null, css: string, select: (index: number) => void) {
@@ -62,7 +54,6 @@ export class SegnaviaDocumentRail extends HTMLElement {
       const button = document.createElement('button')
       button.type = 'button'
       button.dataset.index = String(index)
-      button.draggable = this.enabled
       button.setAttribute('role', 'option')
       button.setAttribute('aria-label', `Page ${index + 1} of ${pages.length}`)
       const preview = document.createElement('span')
@@ -80,18 +71,16 @@ export class SegnaviaDocumentRail extends HTMLElement {
       item.append(button)
       list.append(item)
     })
+    this.reorder.sync()
     this.setSelected(Math.min(this.selected, Math.max(0, pages.length - 1)))
   }
 
   setReorderEnabled(enabled: boolean) {
-    this.enabled = enabled
-    for (const button of this.buttons()) button.draggable = enabled
-    if (!enabled) this.drag.clear()
+    this.reorder.setEnabled(enabled)
   }
 
-  subscribeReorder(listener: (intent: DocumentRailReorderIntent) => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+  subscribeReorder(listener: (intent: RailReorderIntent) => void): () => void {
+    return this.reorder.subscribe(listener)
   }
 
   setSelected(index: number) {
@@ -118,24 +107,12 @@ export class SegnaviaDocumentRail extends HTMLElement {
   }
 
   private keydown = (event: KeyboardEvent) => {
-    const from = Number((event.target as Element).closest<HTMLButtonElement>('button[data-index]')?.dataset.index ?? this.selected)
     const direction = getComputedStyle(this).direction === 'rtl' ? 'rtl' : 'ltr'
-    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && this.enabled) {
-      const to = railSelection(from, event.key, this.pages.length, false, direction)
-      if (to === from) return
-      event.preventDefault()
-      this.emitReorder(from, to)
-      return
-    }
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     const next = railSelection(this.selected, event.key, this.pages.length, false, direction)
     if (next === this.selected) return
     event.preventDefault()
     this.setSelected(next)
     this.buttons()[next]?.focus()
-  }
-
-  private emitReorder(fromIndex: number, toIndex: number) {
-    for (const listener of this.listeners) listener({ fromIndex, toIndex })
   }
 }

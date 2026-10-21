@@ -1,30 +1,52 @@
-import { railMoveTarget } from './rail-navigation.ts'
+import { railMoveTarget, railSelection } from './rail-navigation.ts'
 
 export const RAIL_REORDER_CSS = `
 button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
 button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
 `
 
-interface RailDragOptions {
+export interface RailReorderIntent {
+  fromIndex: number
+  toIndex: number
+}
+
+interface RailReorderOptions {
   root: ShadowRoot
-  enabled: () => boolean
   count: () => number
   horizontal: () => boolean
   direction: () => 'ltr' | 'rtl'
   buttons: () => HTMLButtonElement[]
-  reorder: (fromIndex: number, toIndex: number) => void
+  excludes: (target: Element) => boolean
 }
 
-export class RailDragReorder {
+export class RailReorder {
   private from: number | null = null
+  private enabled = false
+  private listeners = new Set<(intent: RailReorderIntent) => void>()
 
-  constructor(private options: RailDragOptions) {}
+  constructor(private options: RailReorderOptions) {}
 
   attach() {
+    this.options.root.addEventListener('keydown', this.keydown as EventListener)
     this.options.root.addEventListener('dragstart', this.start as EventListener)
     this.options.root.addEventListener('dragover', this.over as EventListener)
     this.options.root.addEventListener('drop', this.drop as EventListener)
     this.options.root.addEventListener('dragend', this.clear)
+  }
+
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled
+    this.sync()
+    if (!enabled) this.clear()
+  }
+
+  sync() {
+    for (const button of this.options.buttons()) button.draggable = this.enabled
+  }
+
+  subscribe(listener: (intent: RailReorderIntent) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
   }
 
   clear = () => {
@@ -33,8 +55,9 @@ export class RailDragReorder {
   }
 
   private start = (event: DragEvent) => {
-    if (!this.options.enabled()) return event.preventDefault()
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
+    const target = event.target as Element
+    if (!this.enabled || this.options.excludes(target)) return event.preventDefault()
+    const button = target.closest<HTMLButtonElement>('button[data-index]')
     if (!button) return
     this.from = Number(button.dataset.index)
     event.dataTransfer?.setData('text/plain', button.dataset.index ?? '')
@@ -62,6 +85,23 @@ export class RailDragReorder {
     const from = this.from
     const to = railMoveTarget(from, Number(button.dataset.index), button.dataset.insert === 'after', this.options.count())
     this.clear()
-    this.options.reorder(from, to)
+    this.emit(from, to)
+  }
+
+  private keydown = (event: KeyboardEvent) => {
+    if (!this.enabled || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    const target = event.target as Element
+    if (this.options.excludes(target)) return
+    const button = target.closest<HTMLButtonElement>('button[data-index]')
+    if (!button) return
+    const from = Number(button.dataset.index)
+    const to = railSelection(from, event.key, this.options.count(), this.options.horizontal(), this.options.direction())
+    if (to === from) return
+    event.preventDefault()
+    this.emit(from, to)
+  }
+
+  private emit(fromIndex: number, toIndex: number) {
+    for (const listener of this.listeners) listener({ fromIndex, toIndex })
   }
 }

@@ -3,8 +3,10 @@ import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
-import { RAIL_REORDER_CSS, RailDragReorder } from './rail-reorder.ts'
+import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
+
+export type { RailReorderIntent } from './rail-reorder.ts'
 
 const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
@@ -43,11 +45,6 @@ button[data-insert="before"]::before,button[data-insert="after"]::after{inset-bl
 button[data-insert="before"]::before{inset-inline-start:-6px;inset-inline-end:auto}button[data-insert="after"]::after{inset-inline-end:-6px;inset-inline-start:auto}}
 `
 
-export interface RailReorderIntent {
-  fromIndex: number
-  toIndex: number
-}
-
 export interface RailSlideSettingsItem {
   slideId: string
   label: string
@@ -63,17 +60,14 @@ export class SegnaviaRail extends SegnaviaControl {
   })
   private selected = 0
   private active = -1
-  private reorderEnabled = false
-  private drag = new RailDragReorder({
+  private reorder = new RailReorder({
     root: this.root,
-    enabled: () => this.reorderEnabled,
     count: () => this.controller?.state.deck?.slides.length ?? 0,
     horizontal: () => getComputedStyle(this.root.querySelector('ol') as HTMLOListElement).flexDirection === 'row',
     direction: () => this.controller?.state.direction ?? 'ltr',
     buttons: () => this.itemElements(),
-    reorder: (fromIndex, toIndex) => this.emitReorder(fromIndex, toIndex),
+    excludes: (target) => target.closest('.slide-menu,.slide-settings-list,.slide-settings-panel') !== null,
   })
-  private reorderListeners = new Set<(intent: RailReorderIntent) => void>()
   private slideSettings = new Map<string, RailSlideSettingsItem>()
   private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
 
@@ -89,7 +83,7 @@ export class SegnaviaRail extends SegnaviaControl {
     super.connectedCallback()
     this.setAttribute('role', 'listbox')
     this.root.addEventListener('keydown', this.onKey as EventListener)
-    this.drag.attach()
+    this.reorder.attach()
     this.root.addEventListener('scroll', this.markOverflow, { capture: true, passive: true })
     this.resize.observe(this)
   }
@@ -126,14 +120,11 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   setReorderEnabled(enabled: boolean) {
-    this.reorderEnabled = enabled
-    for (const button of this.itemElements()) button.draggable = enabled
-    if (!enabled) this.drag.clear()
+    this.reorder.setEnabled(enabled)
   }
 
   subscribeReorder(listener: (intent: RailReorderIntent) => void): () => void {
-    this.reorderListeners.add(listener)
-    return () => this.reorderListeners.delete(listener)
+    return this.reorder.subscribe(listener)
   }
 
   itemElements(): HTMLButtonElement[] {
@@ -195,12 +186,12 @@ export class SegnaviaRail extends SegnaviaControl {
       }
       const button = item.querySelector('button') as HTMLButtonElement
       button.dataset.index = String(index)
-      button.draggable = this.reorderEnabled
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
       list.append(item)
       this.decorateSlideSettings(item, slide.id)
     })
+    this.reorder.sync()
   }
 
   private decorateSlideSettings(item: HTMLLIElement, slideId: string) {
@@ -313,16 +304,6 @@ export class SegnaviaRail extends SegnaviaControl {
     if ((event.target as Element).closest('.slide-menu,.slide-settings-list,.slide-settings-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
-    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && this.reorderEnabled) {
-      const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-      if (!button) return
-      const fromIndex = Number(button.dataset.index)
-      const toIndex = railSelection(fromIndex, event.key, this.controller.state.deck.slides.length, horizontal, this.controller.state.direction)
-      if (toIndex === fromIndex) return
-      event.preventDefault()
-      this.emitReorder(fromIndex, toIndex)
-      return
-    }
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     const next = railSelection(this.selected, event.key, this.controller.state.deck.slides.length, horizontal, this.controller.state.direction)
     if (next === this.selected) return
@@ -330,9 +311,5 @@ export class SegnaviaRail extends SegnaviaControl {
     this.selected = next
     this.syncSelection(this.controller.state)
     this.root.querySelector<HTMLButtonElement>(`button[data-index="${next}"]`)?.focus()
-  }
-
-  private emitReorder(fromIndex: number, toIndex: number) {
-    for (const listener of this.reorderListeners) listener({ fromIndex, toIndex })
   }
 }

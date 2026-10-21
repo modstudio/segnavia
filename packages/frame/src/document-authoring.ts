@@ -84,17 +84,21 @@ export class DocumentAuthoringController extends EventTarget {
         toIndex,
         (next) => {
           this.document.pages = next
+          if (this.stopped) return
           this.document.setAuthoringRail(this.rail)
           this.rail.configure(next, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))
         },
+        () => this.document.pages,
         this.handlers.movePage,
       )
     } catch (error) {
-      this.error(pageId, error)
+      if (!this.stopped) this.error(pageId, error)
     } finally {
       this.pending = false
-      this.refresh()
-      this.emitDirty()
+      if (!this.stopped) {
+        this.refresh()
+        this.emitDirty()
+      }
     }
   }
 
