@@ -26,6 +26,33 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('authoring-print-frames.html'))
   await page.waitForFunction(() => 'authoring' in window)
+  const menuCount = () =>
+    document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll('.slide-menu').length
+  await page.waitForFunction(() => {
+    const player = document.querySelector('segnavia-player') as HTMLElement & { controller: { state: { index: number } } }
+    return player.controller.state.index === 0
+  })
+  check('script-refused thumbnails do not claim script-created animation', (await page.evaluate(menuCount)) === 0, String(await page.evaluate(menuCount)))
+  await page.locator(PLAYER).evaluate(async (player) => {
+    await (player as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(1)
+  })
+  await page.waitForFunction(() =>
+    Boolean(
+      document
+        .querySelector('segnavia-player')
+        ?.shadowRoot?.querySelector('segnavia-rail')
+        ?.shadowRoot?.querySelector('li[data-slide-id="animated"] .slide-menu'),
+    ),
+  )
+  await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"]`).hover()
+  await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"] .slide-menu`).click()
+  await page.locator(`${PLAYER} segnavia-rail .slide-settings-list button`).click()
+  const animatedMax = await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).getAttribute('max')
+  check('a script-created animation reports its live length', animatedMax === '3000', String(animatedMax))
+  await page.keyboard.press('Escape')
+  await page.locator(PLAYER).evaluate(async (player) => {
+    await (player as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(2)
+  })
   await page.waitForFunction(
     () => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll('.slide-menu').length === 2,
   )
@@ -102,13 +129,21 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
     .locator('html')
     .evaluate(() => Number(document.getAnimations()[0]?.currentTime))
   check('moving the scrubber freezes the live slide at that time', frozen === 420, String(frozen))
-  await page.keyboard.press('Escape')
+  await page.locator(PLAYER).evaluate(async (player) => {
+    const typed = player as HTMLElement & {
+      transition: { kind: 'fade'; duration: number }
+      controller: { go(index: number): Promise<void> }
+    }
+    typed.transition = { kind: 'fade', duration: 1000 }
+    await typed.controller.go(2)
+  })
   await page.waitForTimeout(30)
+  check('controller navigation closes the slide settings panel', (await page.locator(`${PLAYER} segnavia-rail .print-frame-panel`).count()) === 0, '')
   const released = await page
     .frameLocator(liveAnimatedFrame)
     .locator('html')
     .evaluate(() => document.getAnimations()[0]?.playState)
-  check('closing the scrubber releases the live animation', released === 'running', String(released))
+  check('controller navigation releases the previous live animation', released === 'running', String(released))
 
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferPrintMoment: boolean } }).authoringFacts.deferPrintMoment = true))
   await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"]`).hover()

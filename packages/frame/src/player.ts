@@ -185,6 +185,14 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.releaseAuthoringFrame(slideId)
   }
 
+  authoringAnimationMessage(event: MessageEvent) {
+    return this.stage.authoringAnimationMessage(event)
+  }
+
+  requestAuthoringAnimationReport() {
+    this.stage.requestAuthoringAnimationReport()
+  }
+
   connectedCallback() {
     this.resize.observe(this)
     // Overlay keeps the host still when the bar grows, so the bar is observed too.

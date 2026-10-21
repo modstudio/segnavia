@@ -1,3 +1,4 @@
+import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
@@ -145,13 +146,10 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   animationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
-    const data = event.data as { type?: unknown; animated?: unknown; lengthMs?: unknown }
-    if (data.type !== 'segnavia:animation' || typeof data.animated !== 'boolean') return null
     for (const item of this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')) {
       const frame = item.querySelector('iframe')
-      if (frame?.contentWindow !== event.source) continue
-      const lengthMs = typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) ? data.lengthMs : null
-      return { slideId: item.dataset.slideId ?? '', animated: data.animated, lengthMs }
+      const report = animationMessage(event, frame)
+      if (report) return { slideId: item.dataset.slideId ?? '', animated: report.animated, lengthMs: report.lengthMs }
     }
     return null
   }
@@ -161,7 +159,7 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   requestAnimationReports() {
-    for (const frame of this.root.querySelectorAll<HTMLIFrameElement>('iframe')) frame.contentWindow?.postMessage({ type: 'segnavia:inspect' }, '*')
+    for (const frame of this.root.querySelectorAll<HTMLIFrameElement>('iframe')) frame.contentWindow?.postMessage({ type: MESSAGE.inspect }, '*')
   }
 
   protected clicked(event: Event) {

@@ -36,10 +36,16 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
         id: 'animated',
         content: {
           kind: 'html',
-          html: '<style>@keyframes authoring-fade{from{opacity:0}to{opacity:1}}#print-target{animation:authoring-fade 3s linear both}</style><div id="print-target">Animated</div>',
+          html: '<div id="print-target">Animated</div><script>document.getElementById("print-target").animate([{opacity:0},{opacity:1}],{duration:3000,fill:"both"})</script>',
         },
       },
-      { id: 'canvas', content: { kind: 'html', html: '<canvas width="80" height="40"></canvas>' } },
+      {
+        id: 'canvas',
+        content: {
+          kind: 'html',
+          html: '<div>Canvas scene</div><script>const canvas=document.createElement("canvas");canvas.width=80;canvas.height=40;document.body.append(canvas)</script>',
+        },
+      },
     ],
   })
   writeFileSync(path.join(site, 'deck-print-frames.json'), JSON.stringify(printFrames))

@@ -86,3 +86,27 @@ test('print moment saves are serialized per slide', async () => {
   await queue.flush('animated')
   expect(calls).toEqual([100, 200])
 })
+
+test('a replacement handler never receives a draft that failed under the old handler', async () => {
+  const oldCalls: Array<number | null> = []
+  const newCalls: Array<number | null> = []
+  const queue = new PrintMomentSaveQueue(
+    async ({ printAtMs }) => {
+      oldCalls.push(printAtMs)
+      throw new Error('Old handler refused')
+    },
+    () => {},
+  )
+  queue.seed('shared', null)
+  queue.editDraft('shared', 900)
+  expect(await queue.flush('shared')).toBe(false)
+  expect(
+    await queue.setSave(async ({ printAtMs }) => {
+      newCalls.push(printAtMs)
+    }),
+  ).toBe(false)
+  expect(queue.seed('shared', null)).toBe(false)
+  expect(await queue.flush('shared')).toBe(false)
+  expect(oldCalls).toEqual([900, 900, 900])
+  expect(newCalls).toEqual([])
+})

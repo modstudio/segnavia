@@ -3,10 +3,7 @@ export interface AnimationTiming {
   iterations: number
 }
 
-export interface AnimationReport {
-  animated: boolean
-  lengthMs: number | null
-}
+import type { AnimationReport } from './bridge.ts'
 
 export function animationReport(timings: readonly AnimationTiming[], hasCanvas: boolean): AnimationReport {
   if (timings.length === 0) return { animated: hasCanvas, lengthMs: null }

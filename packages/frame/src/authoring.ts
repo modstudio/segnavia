@@ -127,17 +127,25 @@ export class AuthoringController extends EventTarget {
     const hasPrintMoment = Boolean(handlers.savePrintMoment)
     if (hadNotes && !hasNotes && !(await this.removeNotesForUpdate(generation))) return
     if (hadPrintMoment && !hasPrintMoment && !(await this.removePrintMomentForUpdate(generation))) return
+    if (!(await this.replaceSaveHandlers(handlers, hadNotes, hadPrintMoment))) return
+    if (this.stopped || generation !== this.updateGeneration) return
     this.handlers = handlers
     if (!hadMove && hasMove) this.attachReorder()
     else if (hadMove && !hasMove) this.detachReorder()
     if (!hadNotes && handlers.saveNotes) this.attachNotes(handlers.saveNotes)
-    else if (handlers.saveNotes) this.notes?.setSave(handlers.saveNotes)
     if (!hadPrintMoment && handlers.savePrintMoment) this.attachPrintMoment(handlers.savePrintMoment)
-    else if (handlers.savePrintMoment) this.printMoment?.setSave(handlers.savePrintMoment)
     this.syncNavigationGuard()
     this.options.notesMaxLength = options.notesMaxLength ?? 20_000
     const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
     if (field) field.maxLength = this.options.notesMaxLength
+  }
+
+  private async replaceSaveHandlers(handlers: AuthoringHandlers, hadNotes: boolean, hadPrintMoment: boolean): Promise<boolean> {
+    if (hadNotes && handlers.saveNotes && handlers.saveNotes !== this.handlers.saveNotes && !(await this.notes?.setSave(handlers.saveNotes))) return false
+    if (hadPrintMoment && handlers.savePrintMoment && handlers.savePrintMoment !== this.handlers.savePrintMoment) {
+      return (await this.printMoment?.setSave(handlers.savePrintMoment)) !== false
+    }
+    return true
   }
 
   private async removeNotesForUpdate(generation: number): Promise<boolean> {
@@ -220,6 +228,7 @@ export class AuthoringController extends EventTarget {
   }
 
   private beforeNavigate = async (reason: NavigationGuardReason) => {
+    this.printMoment?.beforeNavigate()
     const slideId = this.player.controller.state.slide?.id
     const notes = this.notes
     if (!slideId) return

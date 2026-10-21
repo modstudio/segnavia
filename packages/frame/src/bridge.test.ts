@@ -37,6 +37,27 @@ describe('frame document', () => {
     expect(html).toContain("new CustomEvent('segnavia:print'")
   })
 
+  test('the emitted bridge uses the shared animation calculation', async () => {
+    const messages: unknown[] = []
+    const document = {
+      addEventListener: () => {},
+      fonts: null,
+      images: [],
+      readyState: 'complete',
+      documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+      getAnimations: () => [
+        { effect: { getComputedTiming: () => ({ endTime: 1250, iterations: 1 }) } },
+        { effect: { getComputedTiming: () => ({ endTime: 3200, iterations: 2 }) } },
+      ],
+      querySelector: () => null,
+    }
+    const parent = { postMessage: (value: unknown) => messages.push(value) }
+    const window = { addEventListener: () => {} }
+    Function('document', 'parent', 'window', 'MutationObserver', bridgeForHost({ reportHeight: false }))(document, parent, window, undefined)
+    await Promise.resolve()
+    expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
+  })
+
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
     expect(html).toContain("window.addEventListener('click'")
