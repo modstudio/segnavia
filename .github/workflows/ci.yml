@@ -29,9 +29,11 @@ jobs:
           node-version: 22.14.0
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
-      # The demo build generates its narration test tone with ffmpeg.
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg
+      # The demo build makes its narration test tone with ffmpeg; the verify
+      # scripts read the PDFs they render with poppler's pdfinfo, pdftotext,
+      # pdftoppm, pdfimages and pdffonts.
+      - name: Install ffmpeg and poppler
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg poppler-utils
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Check
