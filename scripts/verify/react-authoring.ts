@@ -9,24 +9,39 @@ export async function verifyReactAuthoring(h: Harness) {
   await page.evaluate(() => (window as unknown as { reactMount(): void }).reactMount())
   await page.waitForFunction(() => document.querySelector('segnavia-player'))
   await page.waitForFunction(() => {
-    const holder = window as unknown as { reactAuthoring?: unknown; reactDeckController?: unknown }
-    const player = document.querySelector('segnavia-player') as HTMLElement & { controller?: unknown }
+    const holder = window as unknown as {
+      reactAuthoring?: unknown
+      reactDeckController?: unknown
+    }
+    const player = document.querySelector('segnavia-player') as HTMLElement & {
+      controller?: unknown
+    }
     return Boolean(player?.shadowRoot?.querySelector('[data-authoring-notes]')) && holder.reactAuthoring && holder.reactDeckController === player?.controller
   })
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
   await notes.fill('Strict replacement draft')
   await page.evaluate(() => {
-    const holder = window as unknown as { reactAuthoring?: unknown; reactOldAuthoring?: unknown; reactReplaceAuthoring(): void }
+    const holder = window as unknown as {
+      reactAuthoring?: unknown
+      reactOldAuthoring?: unknown
+      reactReplaceAuthoring(): void
+    }
     holder.reactOldAuthoring = holder.reactAuthoring
     holder.reactReplaceAuthoring()
   })
   await page.waitForFunction(() => {
-    const holder = window as unknown as { reactAuthoring?: unknown; reactOldAuthoring?: unknown }
+    const holder = window as unknown as {
+      reactAuthoring?: unknown
+      reactOldAuthoring?: unknown
+    }
     return holder.reactAuthoring !== holder.reactOldAuthoring
   })
   const strictModeMount = await page.evaluate(() => {
     const facts = (window as unknown as { reactFacts: { notesRoots: number[] } }).reactFacts
-    return { current: document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll('[data-authoring-notes]').length, seen: facts.notesRoots }
+    return {
+      current: document.querySelector('segnavia-player')?.shadowRoot?.querySelectorAll('[data-authoring-notes]').length,
+      seen: facts.notesRoots,
+    }
   })
   await page.evaluate(() => window.dispatchEvent(new Event('react-release-replacement')))
   await page.waitForTimeout(0)
@@ -66,16 +81,28 @@ export async function verifyReactAuthoring(h: Harness) {
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
     reactLabel ?? '',
   )
+  await page.evaluate(() => (window as unknown as { reactUnsetPaperPicker(): void }).reactUnsetPaperPicker())
+  await page.waitForFunction(() => {
+    const picker = document.querySelector('segnavia-paper-picker') as HTMLElement & { value?: { paper: string; orientation: string } }
+    return picker?.value?.paper === 'a4' && picker.value.orientation === 'portrait' && picker.shadowRoot?.querySelector('.paper span')?.textContent === 'Paper'
+  })
+  check('React can set then unset both optional paper picker properties', true)
   await page.locator('#react-thumbnail').scrollIntoViewIfNeeded()
   await page.waitForFunction(() => document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 1)
-  const wrappers = await page
-    .locator('#react-page,#react-thumbnail,#react-paper')
-    .evaluateAll((elements) =>
-      elements.map((element) => ({ tag: element.localName, frames: (element.shadowRoot ?? element).querySelectorAll('iframe').length })),
-    )
+  const wrappers = await page.locator('#react-page,#react-thumbnail,#react-paper').evaluateAll((elements) =>
+    elements.map((element) => ({
+      tag: element.localName,
+      frames: (element.shadowRoot ?? element).querySelectorAll('iframe').length,
+    })),
+  )
   await page.locator('#react-document').scrollIntoViewIfNeeded()
   await page.waitForFunction(() => document.querySelectorAll('#react-document iframe').length === 1)
-  wrappers.push(await page.locator('#react-document').evaluate((element) => ({ tag: element.localName, frames: element.querySelectorAll('iframe').length })))
+  wrappers.push(
+    await page.locator('#react-document').evaluate((element) => ({
+      tag: element.localName,
+      frames: element.querySelectorAll('iframe').length,
+    })),
+  )
   check(
     'React Page, Paper, and Document wrappers assign object properties and render sandboxed frames',
     wrappers.map(({ tag }) => tag).join(',') === 'segnavia-page,segnavia-thumbnail,segnavia-paper,segnavia-document' &&
@@ -107,7 +134,11 @@ export async function verifyReactAuthoring(h: Harness) {
   const authoringUpdate = await page.evaluate(() => {
     const field = document.querySelector('segnavia-player')?.shadowRoot?.querySelector('textarea')
     const facts = (window as unknown as { reactFacts: { saves: string[] } }).reactFacts
-    return { text: field?.value, maxLength: field?.maxLength, saves: facts.saves }
+    return {
+      text: field?.value,
+      maxLength: field?.maxLength,
+      saves: facts.saves,
+    }
   })
   check(
     'React authoring updates preserve a debounced draft',

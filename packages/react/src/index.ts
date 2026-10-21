@@ -8,7 +8,9 @@ import { createElement, forwardRef, type ReactNode, type Ref, useCallback, useEf
 import { type AnyElementDescriptor, ELEMENTS, type ElementFor, type PropsFor } from './elements.ts'
 import { syncElementProps } from './react-props.ts'
 
-type ElementWithController = HTMLElement & { controller?: DeckController | null }
+type ElementWithController = HTMLElement & {
+  controller?: DeckController | null
+}
 
 function assignRef<T>(ref: Ref<T>, value: T | null) {
   if (typeof ref === 'function') ref(value)
@@ -53,6 +55,7 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
 export const Player = createComponent(ELEMENTS.player)
 export const Stage = createComponent(ELEMENTS.stage)
 export const Thumbnail = createComponent(ELEMENTS.thumbnail)
+export const PaperPicker = createComponent(ELEMENTS.paperPicker)
 export const Page = createComponent(ELEMENTS.page)
 export const Paper = createComponent(ELEMENTS.paper)
 export const Document = createComponent(ELEMENTS.document)

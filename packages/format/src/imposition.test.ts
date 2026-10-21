@@ -155,7 +155,7 @@ describe('imposition', () => {
   test('accepts exactly the cell ceiling', () => {
     expect(
       Imposition.parse({
-        paper: { width: 10, height: 1, unit: 'mm' },
+        paper: { width: 10, height: 10, unit: 'mm' },
         orientation: 'landscape',
         columns: MAX_IMPOSITION_CELLS,
         rows: 1,
@@ -166,7 +166,7 @@ describe('imposition', () => {
 
   test('refuses a grid over the cell ceiling with both counts', () => {
     const result = Imposition.safeParse({
-      paper: { width: 10.001, height: 1, unit: 'mm' },
+      paper: { width: 10.001, height: 10, unit: 'mm' },
       columns: MAX_IMPOSITION_CELLS + 1,
       rows: 1,
       cell: { width: 0.001, height: 1 },
@@ -178,7 +178,7 @@ describe('imposition', () => {
 
   test('refuses a huge factor before impose can allocate placements', () => {
     const result = Imposition.safeParse({
-      paper: { width: Number.MAX_SAFE_INTEGER, height: 1, unit: 'mm' },
+      paper: 'a4',
       columns: Number.MAX_SAFE_INTEGER,
       rows: 1,
       cell: { width: 1, height: 1 },

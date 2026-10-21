@@ -14,6 +14,7 @@ import { verifyHeadless } from './verify/headless.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
 import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
+import { verifyPaperPicker } from './verify/paper-picker.ts'
 import { verifyPapers } from './verify/papers.ts'
 import { verifyPlayer } from './verify/player.ts'
 import { verifyPlayerLayout } from './verify/player-layout.ts'
@@ -32,6 +33,7 @@ try {
   await verifyBooks(h)
   await verifyBoard(h)
   await verifyPapers(h)
+  await verifyPaperPicker(h)
   await verifyDocuments(h)
   await verifyRtl(h)
   await verifyHeadless(h)

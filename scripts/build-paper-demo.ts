@@ -1,8 +1,10 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { buildPaperPickerDemo } from './build-paper-picker-demo.ts'
 import { labelPages, labelsImposition, twoSidedCardImposition, twoSidedCardPages } from './demo-page-fixtures.ts'
 
 export function buildPaperDemo(site: string): void {
+  buildPaperPickerDemo(site)
   writeFileSync(path.join(site, 'label-pages.json'), JSON.stringify(labelPages))
   writeFileSync(path.join(site, 'labels-imposition.json'), JSON.stringify(labelsImposition))
   writeFileSync(path.join(site, 'two-sided-card-pages.json'), JSON.stringify(twoSidedCardPages))

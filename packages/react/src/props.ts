@@ -13,6 +13,7 @@ import type {
   StageReserve,
 } from '@segnavia/frame'
 import type {
+  PaperPickerLabelOverrides,
   PlayerLabels,
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -20,6 +21,7 @@ import type {
   SegnaviaFullscreen,
   SegnaviaMute,
   SegnaviaNotes,
+  SegnaviaPaperPicker,
   SegnaviaPlay,
   SegnaviaRail,
   SegnaviaStep,
@@ -88,6 +90,12 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
+export type PaperPickerProps = Omit<ElementProps<SegnaviaPaperPicker>, 'onChange'> & {
+  value?: SegnaviaPaperPicker['value']
+  labels?: PaperPickerLabelOverrides
+  onChange?: CustomEventProp<SegnaviaPaperPicker['value']>
+}
+
 export interface PageProps extends ElementProps<SegnaviaPage> {
   page?: PageInput | null
   css?: string
@@ -113,7 +121,9 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
 }
 
 export type PlayProps = ControlProps<SegnaviaPlay>
-export type StepProps = ControlProps<SegnaviaStep> & { to?: 'previous' | 'next' }
+export type StepProps = ControlProps<SegnaviaStep> & {
+  to?: 'previous' | 'next'
+}
 export type TrackProps = ControlProps<SegnaviaTrack>
 export type CounterProps = ControlProps<SegnaviaCounter>
 export type TimeProps = ControlProps<SegnaviaTime>
