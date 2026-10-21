@@ -7,7 +7,8 @@ The job installs the locked dependencies, runs the repository check, builds
 the browser demo, verifies that demo in Chromium, and verifies rendering in
 Chromium under both Bun and Node. CI installs Chrome for Testing and passes its
 executable path to the demo and rendering scripts through
-`SEGNAVIA_CHROMIUM`.
+`SEGNAVIA_CHROMIUM`, and installs ffmpeg, which the demo build uses to make
+its narration test tone.
 
 The PHP host fixture is not part of CI. It needs a separate Composer install
 and does not add coverage to the Bun and Node browser verification performed
