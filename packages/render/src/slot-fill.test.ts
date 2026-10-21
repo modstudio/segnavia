@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, Page } from '@segnavia/format'
-import { SlotFillRefusedError } from '@segnavia/html'
+import { RequiredSlotsRefusedError, SlotFillRefusedError } from '@segnavia/html'
 import { filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 const slots = {
@@ -96,4 +96,19 @@ test('server preparation rejects unsafe bindings for scripted items without a fi
     slots: [{ key: 'name', label: 'Name', type: 'text', required: false }],
   })
   await expect(filledPage(page, undefined)).rejects.toThrow('Slot "name" uses a value binding on <style>')
+})
+
+test('server render preparation refuses all unfilled required slots and accepts filled required slots', async () => {
+  const page = Page.parse({
+    html: '<p data-slot-value="name">Name</p>',
+    slots: [
+      { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Preview' },
+      { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'site', label: 'Site', type: 'link', required: true },
+    ],
+  })
+  const refused = filledPage(page, { fill: { id: 'x', values: { email: 'invalid', site: 'ftp://example.com' } } })
+  await expect(refused).rejects.toBeInstanceOf(RequiredSlotsRefusedError)
+  await expect(refused).rejects.toThrow('"name" (placeholder), "email" (invalid), "site" (invalid)')
+  await expect(filledPage(page, { fill: { id: 'x', values: { name: 'Ada', email: 'ada@example.com', site: 'https://example.com' } } })).resolves.toBeDefined()
 })

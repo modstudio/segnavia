@@ -18,7 +18,7 @@ import {
 } from './print-document.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
-import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal } from './slot-render.ts'
 
 export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
@@ -91,6 +91,8 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
   if (refusal) throw refusal
   const slotWork = hasSlotWork(deck.slots, options.slots)
   const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
+  const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
+  if (requiredRefusal) throw requiredRefusal
   const preparedDeck = {
     ...deck,
     slides: deck.slides.map((slide) =>
@@ -120,6 +122,8 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
         options.slots,
       )
     : EMPTY_SLOTS
+  const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
+  if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
   const printable = printablePagesDocument(filled, imposition, options)
   const paper = paperBoxSize(printable.imposed.paper)

@@ -19,6 +19,15 @@ describe('slot declarations', () => {
     expect(Slots.safeParse([name, name]).success).toBe(false)
   })
 
+  test('QR is a declared slot type', () => {
+    expect(SlotDeclaration.parse({ key: 'website', label: 'Website QR', type: 'qr' })).toEqual({
+      key: 'website',
+      label: 'Website QR',
+      type: 'qr',
+      required: false,
+    })
+  })
+
   test('document declarations merge identical slots and name conflicts', () => {
     const parsed = SlotDeclaration.parse(name)
     expect(mergeSlotDeclarations([parsed], [parsed])).toEqual([parsed])
