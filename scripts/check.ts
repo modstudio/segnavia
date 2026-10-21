@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES, SOURCE_CONDITION } from '../architecture.ts'
+import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import {
   checkCeiling,
@@ -122,6 +123,23 @@ async function run(name: string, command: string[]): Promise<boolean> {
   return code === 0
 }
 
+function gitLines(args: string[]): string[] {
+  const result = Bun.spawnSync(['git', ...args], { cwd: ROOT, stderr: 'pipe' })
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString().trim() || `git ${args.join(' ')} failed.`)
+  return result.stdout
+    .toString()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function changedFiles(staged: boolean): string[] {
+  if (staged) return gitLines(['diff', '--cached', '--name-only', '--no-renames', '--diff-filter=ACMRD'])
+  const [mergeBase] = gitLines(['merge-base', 'HEAD', 'origin/main'])
+  if (!mergeBase) throw new Error('Could not find the merge base with origin/main.')
+  return gitLines(['diff', '--name-only', '--no-renames', '--diff-filter=ACMRD', mergeBase])
+}
+
 const names = hostNames()
 const findings = structural(names)
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
@@ -131,13 +149,17 @@ if (findings.length === 0) {
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 
-const results = [
-  await run('biome', ['bunx', 'biome', 'check', '.']),
-  await run('typecheck', ['bunx', 'tsc', '--noEmit', '-p', '.']),
-  await run('unit tests', ['bun', '--conditions=@segnavia/source', 'test', 'packages', 'scripts']),
-  await run('package shape', ['bun', '--conditions=@segnavia/source', 'scripts/check-packages.ts']),
-  await run('release dry run', ['bun', 'run', 'release', '--dry-run', '--offline']),
-]
+const changed = process.argv.includes('--changed')
+const selection = changed ? selectChangedTests(changedFiles(process.argv.includes('--staged')), PACKAGES) : undefined
+const testPaths = selection ? [...selection.packages.map((name) => `packages/${name}`), ...(selection.scripts ? ['scripts'] : [])] : ['packages', 'scripts']
+
+const results = [await run('biome', ['bunx', 'biome', 'check', '.']), await run('typecheck', ['bunx', 'tsc', '--noEmit', '-p', '.'])]
+if (testPaths.length > 0) results.push(await run(`unit tests (${testPaths.join(', ')})`, ['bun', '--conditions=@segnavia/source', 'test', ...testPaths]))
+else console.log('✓ unit tests (none selected)')
+if (!selection || selection.packageChecks) {
+  results.push(await run('package shape', ['bun', '--conditions=@segnavia/source', 'scripts/check-packages.ts']))
+  results.push(await run('release dry run', ['bun', 'run', 'release', '--dry-run', '--offline']))
+}
 
 const hooks = Bun.spawnSync(['git', 'config', 'core.hooksPath'], { cwd: ROOT }).stdout.toString().trim()
 if (hooks !== '.githooks') console.warn('! git hooks are not configured; run `bun run setup`.')

@@ -32,3 +32,27 @@ The PHP host fixture is not part of CI. It needs a separate Composer install
 and does not add coverage to the Bun and Node browser verification performed
 by the required job. Run `bun run setup:php` and `bun run demo` locally to
 include that fixture.
+
+## Locally
+
+`bun run check` is the full gate CI runs. It checks repository structure,
+formatting and lint with Biome, types, every unit test, package shape, and a
+release dry run.
+
+The pre-commit hook runs `bun run check --changed --staged`. The structural,
+Biome and type checks still cover the repository. Unit tests run for:
+
+- every package with a staged file, and every transitive dependent declared in
+  `architecture.ts`;
+- the script tests, when a package is selected (script tests import package
+  source), or a file under `scripts/` or `architecture.ts` changed;
+- every package and the script tests, for any other path, such as
+  `package.json`, `bun.lock`, `tsconfig.json`, `biome.json` or `fixtures/`.
+
+Markdown files and `docs/` select no tests. A rename counts as both its old and
+its new path.
+
+Run `bun run check --changed` by hand for the same focused check against the
+branch diff from its merge base with `origin/main`. Package-shape checks and
+the release dry run normally run only in the full gate; changed mode runs both
+when a `package.json` or `scripts/publish.ts` changed.
