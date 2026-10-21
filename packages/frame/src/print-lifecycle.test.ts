@@ -49,7 +49,13 @@ test('afterprint ends the native print lifetime before the fallback', async () =
   const win = new EventTarget() as Window
   Object.assign(win, { setTimeout, clearTimeout })
   const waiting = waitForAfterPrint(win, 100)
+  let ended = false
+  void waiting.then(() => {
+    ended = true
+  })
   win.dispatchEvent(new Event('afterprint'))
+  await Promise.resolve()
+  expect(ended).toBeTrue()
   await waiting
 })
 
