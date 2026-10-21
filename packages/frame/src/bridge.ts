@@ -76,12 +76,13 @@ var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${print}
 var liveAt=null;
-var animationTimings=[],canvasSeen=false;
+var sawAnimations=false,canvasSeen=false,animationUnreadable=false,animationLength=0;
 var calculateAnimationReport=${animationReport.toString()};
 var animationReport=function(){
-var animations=document.getAnimations?document.getAnimations():[];canvasSeen=canvasSeen||Boolean(document.querySelector('canvas'));
-for(var a=0;a<animations.length;a++){var timing=animations[a].effect&&animations[a].effect.getComputedTiming?animations[a].effect.getComputedTiming():null;animationTimings.push(timing||{endTime:NaN,iterations:NaN});}
-var report=calculateAnimationReport(animationTimings,canvasSeen);post({type:'${MESSAGE.animation}',animated:report.animated,lengthMs:report.lengthMs});};
+var animations=document.getAnimations?document.getAnimations():[],timings=[];canvasSeen=canvasSeen||Boolean(document.querySelector('canvas'));
+for(var a=0;a<animations.length;a++){var timing=animations[a].effect&&animations[a].effect.getComputedTiming?animations[a].effect.getComputedTiming():null;timings.push(timing||{endTime:NaN,iterations:NaN});}
+var current=calculateAnimationReport(timings,canvasSeen);if(animations.length){sawAnimations=true;if(current.lengthMs===null){animationUnreadable=true;}else{animationLength=Math.max(animationLength,current.lengthMs);}}
+post({type:'${MESSAGE.animation}',animated:sawAnimations||canvasSeen,lengthMs:sawAnimations&&!animationUnreadable?animationLength:null});};
 var dispatchAt=function(at){var detail={atMs:at,waitUntil:function(){}};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var freezeLive=function(){if(liveAt===null||!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var f=0;f<animations.length;f++){try{animations[f].pause();animations[f].currentTime=liveAt;}catch(error){}}};
 window.addEventListener('message',function(e){var data=e.data;if(!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}});
