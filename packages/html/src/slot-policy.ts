@@ -29,15 +29,19 @@ export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], re
   return refused.length === 0 ? undefined : new RequiredSlotsRefusedError(refused)
 }
 
-/** Refuses filled refuse-overflow slots that were marked in the page but not measured before output; a slot no page binds has nothing to measure. */
+/**
+ * Refuses filled refuse-overflow slots that some frame marked but did not report before output. Counts are per key:
+ * frames that marked it, against fit reports received, so one frame's report cannot stand in for another's.
+ * A slot no frame binds has nothing to measure.
+ */
 export function unmeasuredSlotRefusal(
   declarations: readonly SlotDeclaration[],
   report: SlotReport,
-  marked: ReadonlySet<string>,
-  measuredKeys: ReadonlySet<string>,
+  marked: ReadonlyMap<string, number>,
+  measured: ReadonlyMap<string, number>,
 ): UnmeasuredSlotsRefusedError | undefined {
   const unmeasured = declarations.flatMap((slot) =>
-    slot.overflow === 'refuse' && report.slots[slot.key] === 'filled' && marked.has(slot.key) && !measuredKeys.has(slot.key) ? [slot.key] : [],
+    slot.overflow === 'refuse' && report.slots[slot.key] !== 'overflowed' && (measured.get(slot.key) ?? 0) < (marked.get(slot.key) ?? 0) ? [slot.key] : [],
   )
   return unmeasured.length === 0 ? undefined : new UnmeasuredSlotsRefusedError(unmeasured)
 }

@@ -24,16 +24,16 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
     )
     .catch(() => {})
   const messages = await tab.evaluate(() => (window as typeof window & { __segnaviaSlotFit?: unknown[] }).__segnaviaSlotFit ?? [])
-  const measuredKeys = new Set<string>()
+  const measured = new Map<string, number>()
   for (const data of messages) {
     const fit = slotFitMessageData(data)
     if (fit) {
-      for (const key of Object.keys(fit.slots)) measuredKeys.add(key)
+      for (const key of Object.keys(fit.slots)) measured.set(key, (measured.get(key) ?? 0) + 1)
       slots.mergeFit(fit.slots)
     }
   }
   const refusal = requiredSlotRefusal(slots.declarations, slots.report)
   if (refusal) throw refusal
-  const measurementRefusal = unmeasuredSlotRefusal(slots.declarations, slots.report, slots.marked, measuredKeys)
+  const measurementRefusal = unmeasuredSlotRefusal(slots.declarations, slots.report, slots.marked, measured)
   if (measurementRefusal) throw measurementRefusal
 }

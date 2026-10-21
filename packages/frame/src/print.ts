@@ -64,21 +64,21 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     }
     const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
     const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
-    const measuredKeys = new Set<string>()
+    const measured = new Map<string, number>()
     const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
       images,
       deadline,
       (fit) => {
-        for (const key of Object.keys(fit)) measuredKeys.add(key)
+        for (const key of Object.keys(fit)) measured.set(key, (measured.get(key) ?? 0) + 1)
         options.slots.mergeFit(fit)
       },
     )
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
     const overflowRefusal = requiredSlotRefusal(options.slots.declarations, options.slots.report)
     if (overflowRefusal) throw overflowRefusal
-    const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measuredKeys)
+    const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measured)
     if (measurementRefusal) throw measurementRefusal
     placePrintImages(win.document)
     paginateNotes(win.document)

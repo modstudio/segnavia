@@ -19,8 +19,8 @@ const ASSET_RESOLUTION_CONCURRENCY = 4
 export interface PreparedSlots {
   declarations: SlotDeclaration[]
   report: SlotReport
-  /** Keys of slots that `apply` marked for measurement; only these can be measured. */
-  marked: ReadonlySet<string>
+  /** For each slot key, how many applications (one per rendered frame) marked it for measurement. */
+  marked: ReadonlyMap<string, number>
   apply(html: string): string
   mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>): SlotReport
 }
@@ -66,7 +66,8 @@ interface ResolvedSlots {
   linkOrigins: Set<string>
   reportState?: (report: SlotReport) => void
   declarations: Map<string, SlotDeclaration>
-  marked: Set<string>
+  marked: Map<string, number>
+  markedHere: Set<string>
 }
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
@@ -169,7 +170,7 @@ function markOverflow(element: Element, names: ReturnType<typeof bindingNames>, 
     // Only a value the fill supplied is measured: the design's placeholder text says nothing about the fill.
     if (!declaration || overflow === 'wrap' || resolved.report.slots[key] !== 'filled') continue
     element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
-    resolved.marked.add(key)
+    resolved.markedHere.add(key)
     return
   }
 }
@@ -299,7 +300,8 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
     linkOrigins,
     reportState: options.report,
     declarations: new Map(declarations.map((slot) => [slot.key, slot])),
-    marked: new Set(),
+    marked: new Map(),
+    markedHere: new Set(),
   }
 }
 
@@ -316,7 +318,10 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
   })
   const refusal = bindingRefusal(roots, names, resolved)
   if (refusal) throw refusal
+  resolved.markedHere.clear()
   const kept = applyElements(roots, names, resolved)
+  // Each application becomes one frame, and each frame reports a key at most once.
+  for (const key of resolved.markedHere) resolved.marked.set(key, (resolved.marked.get(key) ?? 0) + 1)
   const replacements = roots
     .map((root) => ({ start: root.startIndex, end: root.endIndex, html: kept.includes(root) ? serialize(root) : '' }))
     .filter((part): part is { start: number; end: number; html: string } => part.start !== null && part.end !== null)

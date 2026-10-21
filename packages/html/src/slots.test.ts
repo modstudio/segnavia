@@ -227,12 +227,12 @@ test('filled refuse slots must be measured before output', () => {
     { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'wrap' },
   ] as const
   const report = { fill: 'x', slots: { name: 'filled' as const, role: 'filled' as const } }
-  const marked = new Set(['name'])
-  const refusal = unmeasuredSlotRefusal(declared, report, marked, new Set())
+  const marked = new Map([['name', 1]])
+  const refusal = unmeasuredSlotRefusal(declared, report, marked, new Map())
   expect(refusal).toBeInstanceOf(UnmeasuredSlotsRefusedError)
   expect(refusal?.message).toContain('overflow could not be measured for slots: "name"')
   expect(refusal?.message).toContain("change the slot's overflow from 'refuse'")
-  expect(unmeasuredSlotRefusal(declared, report, marked, new Set(['name']))).toBeUndefined()
+  expect(unmeasuredSlotRefusal(declared, report, marked, new Map([['name', 1]]))).toBeUndefined()
 })
 
 test('a filled refuse slot that no page binds has nothing to measure and does not block output', async () => {
@@ -242,9 +242,19 @@ test('a filled refuse slot that no page binds has nothing to measure and does no
   ]
   const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Mina', role: 'Teacher' } } })
   prepared.apply('<p data-slot-value="name">Name</p>')
-  expect([...prepared.marked]).toEqual(['name'])
-  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Set())?.message).toContain('slots: "name".')
-  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Set(['name']))).toBeUndefined()
+  expect([...prepared.marked]).toEqual([['name', 1]])
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Map())?.message).toContain('slots: "name".')
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Map([['name', 1]]))).toBeUndefined()
+})
+
+test('one frame reporting a refuse slot does not stand in for another frame with the same slot', async () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Mina' } } })
+  prepared.apply('<p data-slot-value="name">Front</p>')
+  prepared.apply('<p data-slot-value="name">Back</p>')
+  const report = prepared.mergeFit({ name: 'fit' })
+  expect(unmeasuredSlotRefusal(declared, report, prepared.marked, new Map([['name', 1]]))?.message).toContain('slots: "name".')
+  expect(unmeasuredSlotRefusal(declared, report, prepared.marked, new Map([['name', 2]]))).toBeUndefined()
 })
 
 test('present removes an optional slot element a fill leaves empty, so its layout item collapses', async () => {

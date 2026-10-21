@@ -26,7 +26,7 @@ export {
 export const EMPTY_SLOTS: PreparedSlots = {
   declarations: [],
   report: { fill: null, slots: {} },
-  marked: new Set(),
+  marked: new Map(),
   apply: (html) => html,
   mergeFit: () => EMPTY_SLOTS.report,
 }
