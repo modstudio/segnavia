@@ -22,6 +22,11 @@ export const MESSAGE = {
 
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
 
+// A frame may legitimately reuse a small set of artwork many times. Sixty-four
+// distinct backgrounds covers that case while bounding hostile or accidental
+// pages before they can turn print readiness into an unbounded fetch queue.
+export const PRINT_BACKGROUND_RESOURCE_LIMIT = 64
+
 export interface AnimationReport {
   animated: boolean
   lengthMs: number | null
@@ -50,6 +55,9 @@ export interface FrameOptions {
   // Set only for a print document, to freeze its animations and let authored
   // code draw the frame that will be printed.
   printAtMs?: number
+  // Set only for a print document whose sandboxed frame must carry its root
+  // background into the browser print pipeline.
+  printBackground?: boolean
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -71,10 +79,39 @@ var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(f
 var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var finishPrint=function(){freeze();document.documentElement.setAttribute('${PRINT_READY_ATTRIBUTE}','');post({type:'${MESSAGE.ready}'});};
 var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
+  const printBackground = options.printBackground
+    ? `var printBackground=function(){
+var root=document.documentElement;var body=document.body;if(!body)return;
+var rootStyle=getComputedStyle(root);var bodyStyle=getComputedStyle(body);
+var visible=function(style){return style.backgroundImage!=='none'||(style.backgroundColor!=='rgba(0, 0, 0, 0)'&&style.backgroundColor!=='transparent')};
+var source=visible(rootStyle)?rootStyle:bodyStyle;if(!visible(source))return;
+var layer=document.createElement('div');layer.setAttribute('data-segnavia-print-background','');
+var names=['backgroundColor','backgroundImage','backgroundPosition','backgroundSize','backgroundRepeat','backgroundOrigin','backgroundClip','backgroundAttachment','backgroundBlendMode'];
+for(var i=0;i<names.length;i++)layer.style[names[i]]=source[names[i]];
+layer.style.position='fixed';layer.style.inset='0';layer.style.pointerEvents='none';layer.style.zIndex='-2147483647';
+// Chromium omits the frame canvas background when printing. A negative layer
+// in an isolated root paints the same computed background behind all content.
+root.style.isolation='isolate';root.style.background='transparent';body.style.background='transparent';body.insertBefore(layer,body.firstChild);
+};
+var backgroundImages=function(){var elements=[document.documentElement,document.body].concat(Array.prototype.slice.call(document.querySelectorAll('*')));var resources={};var resourceCount=0;
+var split=function(value){var parts=[];var start=0;var depth=0;for(var i=0;i<value.length;i++){var character=value.charAt(i);if(character==='(')depth++;else if(character===')')depth--;else if(character===','&&depth===0){parts.push(value.slice(start,i).trim());start=i+1;}}parts.push(value.slice(start).trim());return parts;};
+var at=function(parts,index,fallback){return parts[index%parts.length]||fallback;};
+var load=function(url){if(resources[url])return resources[url];if(resourceCount>=${PRINT_BACKGROUND_RESOURCE_LIMIT})return Promise.resolve(null);resourceCount++;var image=new Image();var ready=new Promise(function(resolve){image.onload=function(){resolve(image);};image.onerror=function(){resolve(null);};image.src=url;if(image.complete&&image.naturalWidth)resolve(image);});resources[url]=image.decode?image.decode().then(function(){return image;},function(){return null;}):ready;return resources[url];};
+var length=function(value,total){if(value.slice(-1)==='%')return total*parseFloat(value)/100;var parsed=parseFloat(value);return isFinite(parsed)?parsed:0;};
+var offset=function(value,free,axis){if(value==='center')return free/2;if(value===(axis==='x'?'right':'bottom'))return free;if(value===(axis==='x'?'left':'top'))return 0;if(value.slice(-1)==='%')return free*parseFloat(value)/100;return length(value,free);};
+var geometry=function(size,position,repeat,image,width,height){var sizes=size.trim().split(/\\s+/);var naturalWidth=image.naturalWidth;var naturalHeight=image.naturalHeight;var drawWidth=naturalWidth;var drawHeight=naturalHeight;if(size==='cover'||size==='contain'){var scale=size==='cover'?Math.max(width/naturalWidth,height/naturalHeight):Math.min(width/naturalWidth,height/naturalHeight);drawWidth=naturalWidth*scale;drawHeight=naturalHeight*scale;}else{var first=sizes[0]||'auto';var second=sizes[1]||'auto';if(first!=='auto')drawWidth=length(first,width);if(second!=='auto')drawHeight=length(second,height);if(first==='auto'&&second!=='auto')drawWidth=naturalWidth*drawHeight/naturalHeight;if(second==='auto'&&first!=='auto')drawHeight=naturalHeight*drawWidth/naturalWidth;}var repeats=repeat.trim().split(/\\s+/);var repeatX=repeats[0]||'repeat';var repeatY=repeats[1]||repeatX;if(repeatX==='repeat-x'){repeatX='repeat';repeatY='no-repeat';}if(repeatX==='repeat-y'){repeatX='no-repeat';repeatY='repeat';}if(repeatX==='round'){drawWidth=width/Math.max(1,Math.round(width/drawWidth));}if(repeatY==='round'){drawHeight=height/Math.max(1,Math.round(height/drawHeight));}var positions=position.trim().split(/\\s+/);var x=offset(positions[0]||'0%',width-drawWidth,'x');var y=offset(positions[1]||'50%',height-drawHeight,'y');return {width:drawWidth,height:drawHeight,x:x,y:y,repeatX:repeatX,repeatY:repeatY};};
+var coordinates=function(start,size,total,repeat){if(repeat==='no-repeat')return [start];if(repeat==='space'){var count=Math.floor(total/size);if(count<2)return [start];var spaced=[];var gap=(total-count*size)/(count-1);for(var i=0;i<count;i++)spaced.push(i*(size+gap));return spaced;}var values=[];start=((start%size)+size)%size-size;for(var value=start;value<total;value+=size)values.push(value);return values;};
+var hostFor=function(element,pseudo,style){if(!pseudo)return element;var host=document.createElement('span');host.setAttribute('data-segnavia-print-background-pseudo',pseudo);host.style.position=style.position==='static'?'absolute':style.position;var names=['left','right','top','bottom','width','height','boxSizing','borderRadius','transform','transformOrigin','opacity'];for(var i=0;i<names.length;i++)host.style[names[i]]=style[names[i]];if(getComputedStyle(element).position==='static')element.style.position='relative';element.insertBefore(host,element.firstChild);return host;};
+var lift=function(element,pseudo,host,style,layers,loaded){var rect=host.getBoundingClientRect();if(!pseudo){element.style.backgroundImage='none';if(getComputedStyle(element).position==='static')element.style.position='relative';if(style.zIndex==='auto')element.style.zIndex='0';element.style.isolation='isolate';}var wrapper=document.createElement('span');wrapper.setAttribute('data-segnavia-print-background-image','');wrapper.style.position='absolute';wrapper.style.inset='0';wrapper.style.overflow='hidden';wrapper.style.pointerEvents='none';wrapper.style.zIndex='-1';host.insertBefore(wrapper,host.firstChild);var sizes=split(style.backgroundSize);var positions=split(style.backgroundPosition);var repeats=split(style.backgroundRepeat);for(var index=layers.length-1;index>=0;index--){var layer=layers[index];var image=loaded[index];if(image){var canvas=document.createElement('canvas');canvas.width=Math.ceil(rect.width);canvas.height=Math.ceil(rect.height);canvas.style.position='absolute';canvas.style.inset='0';canvas.style.width='100%';canvas.style.height='100%';var context=canvas.getContext('2d');var box=geometry(at(sizes,index,'auto'),at(positions,index,'0% 0%'),at(repeats,index,'repeat'),image,rect.width,rect.height);var xs=coordinates(box.x,box.width,rect.width,box.repeatX);var ys=coordinates(box.y,box.height,rect.height,box.repeatY);for(var x=0;x<xs.length;x++)for(var y=0;y<ys.length;y++)context.drawImage(image,xs[x],ys[y],box.width,box.height);wrapper.append(canvas);}else if(!pseudo&&layer.indexOf('gradient(')!==-1){var gradient=document.createElement('span');gradient.style.position='absolute';gradient.style.inset='0';gradient.style.backgroundImage=layer;gradient.style.backgroundSize=at(sizes,index,'auto');gradient.style.backgroundPosition=at(positions,index,'0% 0%');gradient.style.backgroundRepeat=at(repeats,index,'repeat');wrapper.append(gradient);}}};
+var settle=function(element,pseudo){var elementStyle=getComputedStyle(element);var rect=element.getBoundingClientRect();if(elementStyle.display==='none'||elementStyle.visibility==='hidden'||!rect.width||!rect.height)return null;var style=getComputedStyle(element,pseudo);if(style.display==='none'||style.visibility==='hidden')return null;var layers=split(style.backgroundImage);var pattern=/^url\\((?:"([^"]*)"|'([^']*)'|([^)]*))\\)$/;var urls=layers.map(function(layer){var match=pattern.exec(layer);return match?(match[1]||match[2]||match[3]||'').trim():null;});if(!urls.some(function(url){return !!url;}))return null;var host=hostFor(element,pseudo,style);var backgroundRect=host.getBoundingClientRect();if(!backgroundRect.width||!backgroundRect.height){if(pseudo)host.remove();return null;}return Promise.all(urls.map(function(url){return url?load(url):null;})).then(function(loaded){lift(element,pseudo,host,style,layers,loaded);});};
+var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.push(settle(elements[i],null),settle(elements[i],'::before'),settle(elements[i],'::after'));}return waits;
+};`
+    : ''
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${print}
+${printBackground}
 var liveAt=null;
 var sawAnimations=false,canvasSeen=false,animationUnreadable=false,animationLength=0;
 var calculateAnimationReport=${animationReport.toString()};
@@ -112,7 +149,7 @@ function report(){if(pending)return;pending=true;setTimeout(send,0);}
 if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
-function ready(){animationReport();var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
+function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}

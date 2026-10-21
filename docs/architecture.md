@@ -240,16 +240,18 @@ differs from their deck.
 
 A page stays a page: it is laid out as on screen, and everything about paper
 is in its print setting or in an imposition. A host shows a page alone with
-`<segnavia-page>` and in an imposition's cells with `<segnavia-paper>`; switching
+`<segnavia-page>`, an ordered document with `<segnavia-document>`, and an
+imposition's cells with `<segnavia-paper>`; switching
 between them is the host's control. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
 into that PDF, and a deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
-papers. `printPages` prints the imposed papers from the browser, with the known
-limit that its print dialog loses backgrounds inside frames; a host that needs
-them uses the renderer's `pagesPdf`. Two-sided imposition is built; marks on
+papers. `printPages` prints the imposed papers from the browser. Its print-only
+frame bridge carries a propagated root or body background onto a full-page
+element, so root colours reach paper without changing the on-screen page.
+Two-sided imposition is built; marks on
 an imposed paper and folds are not. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
@@ -303,6 +305,20 @@ fixed height is clipped at its cell's bleed box if it is taller.
 
 A host shows one paper of an imposition with `<segnavia-paper>`, a headless
 element that scales the paper and all of its cells to the box the host gives it.
+
+`<segnavia-document>` takes `pages` and `print` properties, or the same values
+through `load(pages, print)`. It shows one scrolling column in source order,
+labels each sheet with its one-based page number, follows the host's direction,
+and caps every sheet at its paper's natural CSS-pixel size. The sheet edge and
+shadow use overridable `--segnavia-sheet-edge` and `--segnavia-paper` values.
+Only pages near the viewport receive `<segnavia-page>` children, so a long
+document keeps its sandboxed frames bounded. `<segnavia-thumbnail>` accepts a
+`page` and `print` instead of a `deck` to draw a document cover at its paper's
+aspect ratio with the same lazy thumbnail lifecycle.
+
+`@segnavia/react` exports `Page`, `Paper`, and `Document` wrappers in addition
+to `Thumbnail`; object values are assigned as element properties rather than
+serialized as attributes.
 
 A label template is an imposition: label stock is a grid. The host supplies
 the grid of the stock it sells or uses, and the library ships no catalogue of
@@ -387,14 +403,19 @@ imposed documents, and omit the tag when that title is empty. Browser hosts boun
 printing with `exceedsLimits` and `maxNotesBytes`; the renderer also stops notes
 pagination at its `maxSheets` limit.
 
-Every sandboxed slide document used for printing receives
+Every sandboxed slide and page document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
 putting those properties only on the containing print document cannot cross a
-frame boundary. A URL slide keeps its own print styling; color-adjust injection
-covers only the slide documents the library builds. Chromium still omits those backgrounds in printed output, so
-the browser dialog is best effort and `deckPdf` is the faithful path. The
-sandbox remains without same-origin access. Browser printing waits for slide
-readiness and fonts only until one shared deadline, then crosses a
+frame boundary. For documents the library builds, root and propagated body
+backgrounds print through a fixed layer behind the content; element background
+colours, CSS background images and `<img>` elements print as authored when the
+user enables Background graphics. The bridge decodes both CSS and element
+images before reporting readiness, and moves a decoded CSS image resource onto
+an image layer because Chromium drops it as a sandboxed-frame background. A URL
+slide keeps its own print styling and readiness because the library cannot
+inject into it. The sandbox remains without same-origin access. Browser
+printing waits for slide readiness, images and fonts only until one shared
+deadline, then crosses a
 two-animation-frame paint barrier before opening the dialog. The off-screen
 host stays alive until `afterprint`, with a bounded fallback for engines that
 do not dispatch it; a host-provided print hook remains synchronous for

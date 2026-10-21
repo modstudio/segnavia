@@ -67,6 +67,7 @@ export function htmlSlideDocument(
     reportHeight: false,
     relayKeys: false,
     printAtMs: options.printAtMs ?? 0,
+    printBackground: true,
   })
 }
 
@@ -227,6 +228,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,
+    printBackground: true,
   })
   return placementBox(
     (dimensions) => `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
@@ -252,9 +254,9 @@ export function printablePaper(
     .join('')
 }
 
-// This frame-based document is for a browser to show and print. Chromium loses
-// backgrounds inside sandboxed frames when producing a PDF, so the server
-// renderer composes top-level page renders instead of printing this document.
+// This frame-based document is for a browser to show and print. The frame
+// bridge carries propagated root backgrounds onto a printable element; the
+// server renderer still uses top-level page renders for PDF composition.
 export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   const imposed = impose(imposition, pages.length)

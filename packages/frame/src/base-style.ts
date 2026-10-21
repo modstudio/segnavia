@@ -91,6 +91,12 @@ export const BASE_CSS = `
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
+:where(segnavia-document:not([unstyled])){display:block}
+:where(segnavia-document:not([unstyled]) .segnavia-document__pages){display:flex;flex-direction:column;align-items:center;gap:var(--segnavia-document-gap,32px)}
+:where(segnavia-document:not([unstyled]) .segnavia-document__item){display:flex;flex-direction:column;align-items:center;inline-size:100%}
+:where(segnavia-document:not([unstyled]) .segnavia-document__sheet){position:relative;max-inline-size:100%;aspect-ratio:var(--segnavia-document-paper-aspect);overflow:hidden;background:var(--segnavia-paper,#fff);box-shadow:0 0 0 1px var(--segnavia-sheet-edge,rgb(0 0 0/.12)),0 1px 3px rgb(0 0 0/.06)}
+:where(segnavia-document:not([unstyled]) .segnavia-document__sheet > segnavia-page){position:absolute;inset:0;inline-size:100%;block-size:100%}
+:where(segnavia-document:not([unstyled]) .segnavia-document__number){margin-block-start:8px;color:var(--segnavia-document-number,currentColor);unicode-bidi:isolate}
 :where([data-presenting]),:where(:host([data-presenting])){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}
 `
 

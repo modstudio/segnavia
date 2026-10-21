@@ -9,6 +9,12 @@ export interface Raster {
   pixels: Uint8Array
 }
 
+function rasterStart(bytes: Buffer, offset: number): number {
+  if (bytes[offset] === 13 && bytes[offset + 1] === 10) return offset + 2
+  if ((bytes[offset] ?? 0) <= 32) return offset + 1
+  throw new Error('The raster header has no whitespace separator before its pixels.')
+}
+
 export function readPpm(file: string): Raster {
   const bytes = readFileSync(file)
   let offset = 0
@@ -22,8 +28,7 @@ export function readPpm(file: string): Raster {
   const width = Number(token())
   const height = Number(token())
   if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit RGB.`)
-  while ((bytes[offset] ?? 0) <= 32) offset++
-  return { width, height, pixels: bytes.subarray(offset) }
+  return { width, height, pixels: bytes.subarray(rasterStart(bytes, offset)) }
 }
 
 export function readPgm(file: string): Raster {
@@ -43,8 +48,7 @@ export function readPgm(file: string): Raster {
   const width = Number(token())
   const height = Number(token())
   if (token() !== '255') throw new Error(`The raster at ${file} is not 8-bit grayscale.`)
-  while ((bytes[offset] ?? 0) <= 32) offset++
-  return { width, height, pixels: bytes.subarray(offset) }
+  return { width, height, pixels: bytes.subarray(rasterStart(bytes, offset)) }
 }
 
 export function rasterPoint(raster: Raster, x: number, y: number): number {

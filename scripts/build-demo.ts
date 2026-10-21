@@ -1,6 +1,4 @@
-// The whole loop on the demo app: capture shots, narrate, assemble a deck that
-// mixes static and playing slides, render it every way a host needs, and
-// publish a player for it.
+// Capture shots, narrate, assemble a deck, render every host output, and publish a player.
 import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -18,6 +16,7 @@ import { buildBookDemo } from './build-book-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
+import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
@@ -316,6 +315,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 buildPageDemo(SITE, (body) => shell(body))
 buildBookDemo(SITE)
 buildPaperDemo(SITE)
+buildDocumentDemo(SITE)
 await buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })

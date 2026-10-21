@@ -8,12 +8,14 @@ import { SegnaviaBoard } from './board.ts'
 import { SegnaviaBoardList } from './board-list.ts'
 import { SegnaviaBoardToolbar } from './board-toolbar.ts'
 import { SegnaviaBook } from './book.ts'
+import { SegnaviaDocument } from './document.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaStage } from './stage.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
+export type { PageInput, PrintInput } from '@segnavia/format'
 export { BASE_CSS } from './base-style.ts'
 export { SegnaviaBoard } from './board.ts'
 export type { BoardItemAction, BoardItemKind } from './board-actions.ts'
@@ -26,6 +28,7 @@ export { type BoardToolbarLabels, SegnaviaBoardToolbar } from './board-toolbar.t
 export { SegnaviaBook } from './book.ts'
 export { bridgeForHost, frameDocument, MESSAGE, RELAYED_KEYS } from './bridge.ts'
 export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'
+export { SegnaviaDocument } from './document.ts'
 export { type FitInputs, type FittedSize, fitSheet } from './fit.ts'
 export { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 export { HEADLESS_ELEMENT_NAMES, HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -48,4 +51,5 @@ if (!customElements.get(HEADLESS_ELEMENTS.boardToolbar)) customElements.define(H
 if (!customElements.get(HEADLESS_ELEMENTS.thumbnail)) customElements.define(HEADLESS_ELEMENTS.thumbnail, SegnaviaThumbnail)
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)
+if (!customElements.get(HEADLESS_ELEMENTS.document)) customElements.define(HEADLESS_ELEMENTS.document, SegnaviaDocument)
 if (!customElements.get(HEADLESS_ELEMENTS.book)) customElements.define(HEADLESS_ELEMENTS.book, SegnaviaBook)

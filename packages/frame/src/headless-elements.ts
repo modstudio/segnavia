@@ -6,6 +6,7 @@ export const HEADLESS_ELEMENTS = {
   boardToolbar: 'segnavia-board-toolbar',
   page: 'segnavia-page',
   paper: 'segnavia-paper',
+  document: 'segnavia-document',
   book: 'segnavia-book',
 } as const
 

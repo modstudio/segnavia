@@ -66,6 +66,41 @@ export async function verifyReactAuthoring(h: Harness) {
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
     reactLabel ?? '',
   )
+  await page.locator('#react-thumbnail').scrollIntoViewIfNeeded()
+  await page.waitForFunction(() => document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 1)
+  const wrappers = await page
+    .locator('#react-page,#react-thumbnail,#react-paper')
+    .evaluateAll((elements) =>
+      elements.map((element) => ({ tag: element.localName, frames: (element.shadowRoot ?? element).querySelectorAll('iframe').length })),
+    )
+  await page.locator('#react-document').scrollIntoViewIfNeeded()
+  await page.waitForFunction(() => document.querySelectorAll('#react-document iframe').length === 1)
+  wrappers.push(await page.locator('#react-document').evaluate((element) => ({ tag: element.localName, frames: element.querySelectorAll('iframe').length })))
+  check(
+    'React Page, Paper, and Document wrappers assign object properties and render sandboxed frames',
+    wrappers.map(({ tag }) => tag).join(',') === 'segnavia-page,segnavia-thumbnail,segnavia-paper,segnavia-document' &&
+      wrappers.every(({ frames }) => frames === 1),
+    JSON.stringify(wrappers),
+  )
+  await page.locator('#react-thumbnail').scrollIntoViewIfNeeded()
+  await page.waitForFunction(() => document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 1)
+  await page.evaluate(() => (window as unknown as { reactSetWrapperObjects(value: number): void }).reactSetWrapperObjects(1))
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('#react-page iframe,#react-document iframe').length === 0 &&
+      document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 0 &&
+      !(document.querySelector('#react-thumbnail') as HTMLElement).style.getPropertyValue('--segnavia-aspect') &&
+      !(document.querySelector('#react-document') as HTMLElement).style.getPropertyValue('--segnavia-document-paper-aspect'),
+  )
+  await page.evaluate(() => (window as unknown as { reactSetWrapperObjects(value: number): void }).reactSetWrapperObjects(2))
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('#react-page iframe').length === 1 &&
+      document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 1,
+  )
+  await page.locator('#react-document').scrollIntoViewIfNeeded()
+  await page.waitForFunction(() => document.querySelectorAll('#react-document iframe').length === 1)
+  check('React Page, Thumbnail, and Document wrappers clear and replace their object props on rerender', true)
   await notes.fill('React draft')
   await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
   await page.waitForTimeout(700)
