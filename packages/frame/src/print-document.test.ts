@@ -136,6 +136,7 @@ describe('printableDeck', () => {
     const document = htmlSlideDocument(deck, '<style>body{background:red}</style>', { nonce: 'known' })
     expect(document).toContain('print-color-adjust:exact')
     expect(document).toContain('-webkit-print-color-adjust:exact')
+    expect(document).toContain('data-segnavia-print-background')
   })
 
   test('freezes built HTML slide documents at their chosen print moments and leaves URL slides alone', () => {
@@ -272,6 +273,11 @@ describe('printableDeck', () => {
 })
 
 describe('printablePages', () => {
+  test('lifts frame root backgrounds for browser printing', () => {
+    const html = printablePages([fluid], grid, { nonce: 'test' })
+    expect(html).toContain('data-segnavia-print-background')
+  })
+
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
     const imposed = impose(grid, pages.length)

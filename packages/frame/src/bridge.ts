@@ -36,6 +36,9 @@ export interface FrameOptions {
   // Set only for a print document, to freeze its animations and let authored
   // code draw the frame that will be printed.
   printAtMs?: number
+  // Set only for a print document whose sandboxed frame must carry its root
+  // background into the browser print pipeline.
+  printBackground?: boolean
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -57,10 +60,39 @@ var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(f
 var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var finishPrint=function(){freeze();document.documentElement.setAttribute('${PRINT_READY_ATTRIBUTE}','');post({type:'${MESSAGE.ready}'});};
 var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
+  const printBackground = options.printBackground
+    ? `var printBackground=function(){
+var root=document.documentElement;var body=document.body;if(!body)return;
+var rootStyle=getComputedStyle(root);var bodyStyle=getComputedStyle(body);
+var visible=function(style){return style.backgroundImage!=='none'||(style.backgroundColor!=='rgba(0, 0, 0, 0)'&&style.backgroundColor!=='transparent')};
+var source=visible(rootStyle)?rootStyle:bodyStyle;if(!visible(source))return;
+var layer=document.createElement('div');layer.setAttribute('data-segnavia-print-background','');
+var names=['backgroundColor','backgroundImage','backgroundPosition','backgroundSize','backgroundRepeat','backgroundOrigin','backgroundClip','backgroundAttachment','backgroundBlendMode'];
+for(var i=0;i<names.length;i++)layer.style[names[i]]=source[names[i]];
+layer.style.position='fixed';layer.style.inset='0';layer.style.pointerEvents='none';layer.style.zIndex='-2147483647';
+// Chromium omits the frame canvas background when printing. A negative layer
+// in an isolated root paints the same computed background behind all content.
+root.style.isolation='isolate';root.style.background='transparent';body.style.background='transparent';body.insertBefore(layer,body.firstChild);
+};
+var backgroundImages=function(){var elements=[document.documentElement,document.body].concat(Array.prototype.slice.call(document.querySelectorAll('*')));
+var settle=function(element,pseudo){var style=getComputedStyle(element,pseudo);var value=style.backgroundImage;var pattern=/url\\((?:"([^"]*)"|'([^']*)'|([^)]*))\\)/g;var matches=[];var match;
+while((match=pattern.exec(value))){var url=(match[1]||match[2]||match[3]||'').trim();if(url)matches.push({text:match[0],url:url});}
+return Promise.all(matches.map(function(found){var image=new Image();image.src=found.url;var ready=image.decode?image.decode():new Promise(function(resolve,reject){if(image.complete){resolve();return;}image.onload=resolve;image.onerror=reject;});return ready.then(function(){
+if(pseudo)return;try{var canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;canvas.getContext('2d').drawImage(image,0,0);found.width=image.naturalWidth;found.height=image.naturalHeight;found.data=canvas.toDataURL('image/png');}catch(error){}
+},function(){}); })).then(function(){if(pseudo||matches.length!==1||!matches[0].data)return;
+var image=document.createElement('img');image.src=matches[0].data;image.setAttribute('data-segnavia-print-background-image','');image.style.position='absolute';image.style.pointerEvents='none';image.style.zIndex='-2147483647';
+var size=style.backgroundSize.split(' ');var position=style.backgroundPosition.split(' ');var x=position[0]||'0%';var y=position[1]||'0%';
+if(style.backgroundSize==='cover'||style.backgroundSize==='contain'){image.style.inset='0';image.style.width='100%';image.style.height='100%';image.style.objectFit=style.backgroundSize;image.style.objectPosition=x+' '+y;}else{image.style.width=size[0]==='auto'?matches[0].width+'px':size[0];image.style.height=(size[1]||size[0])==='auto'?matches[0].height+'px':(size[1]||size[0]);image.style.left=x;image.style.top=y;image.style.transform='translate('+(x.indexOf('%')<0?'0':('-'+x))+','+(y.indexOf('%')<0?'0':('-'+y))+')';}
+if(getComputedStyle(element).position==='static')element.style.position='relative';element.style.isolation='isolate';element.style.backgroundImage='none';element.insertBefore(image,element.firstChild);
+});};
+var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.push(settle(elements[i],null),settle(elements[i],'::before'),settle(elements[i],'::after'));}return waits;
+};`
+    : ''
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${print}
+${printBackground}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
@@ -85,7 +117,7 @@ function report(){if(pending)return;pending=true;setTimeout(send,0);}
 if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
-function ready(){var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});
+function ready(){${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}

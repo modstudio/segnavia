@@ -170,10 +170,12 @@ playing slide reveals them on cue.
 ## Rendering
 
 **Rendered PDFs are composed from top-level documents.** `printableDeck` and
-`printablePages` are frame-based documents for a browser to show and print;
-its print dialog loses backgrounds because Chromium does not paint them in a
-sandboxed frame, whose sandbox is never removed. The renderer instead renders
-each slide or page at top level and places it with the same geometry functions.
+`printablePages` are frame-based documents for a browser to show and print.
+Their print bridge lifts the computed root or propagated body background onto
+a full-page layer because Chromium does not paint a sandboxed frame's canvas
+background. The renderer renders each slide or page at top level and places it
+with the same geometry functions so PDF composition remains independent of the
+browser print document.
 
 **Bleed is root padding on a page with no browser margin.** Chromium paints
 no background in its page margins and clips content placed there, so a margin

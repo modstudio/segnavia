@@ -47,42 +47,59 @@ async function verifyPagePrintBackgrounds(h: Harness) {
     const lib = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
     const image = (color: string) =>
       `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='${color.replace('#', '%23')}'/%3E%3C/svg%3E`
-    const pageHtml = (background: string, imageColor: string) =>
-      `<!doctype html><html style="background-color:${background};background-image:url(${image(imageColor)});background-size:50% 100%;background-position:right;background-repeat:no-repeat"><body style="margin:0"></body></html>`
+    const pageHtml = (root: string, element: string, backgroundImage: string, img: string) =>
+      `<!doctype html><html style="background:${root}"><body style="margin:0"><div style="position:fixed;inset:0 0 50% 50%;background:${element}"></div><div style="position:fixed;inset:50% 50% 0 0;background:url(${image(backgroundImage)}) center/cover no-repeat"></div><img alt="print sample" src="${image(img)}" style="position:fixed;inset:50% 0 0 50%;width:50%;height:50%"></body></html>`
     let html = ''
     await lib.printPages(
-      [{ html: pageHtml('rgb(190,30,45)', '#1455cc') }, { html: pageHtml('rgb(20,150,75)', '#8822aa') }],
+      [
+        { html: pageHtml('rgb(190,30,45)', 'rgb(240,160,20)', '#1455cc', '#22aa77') },
+        { html: pageHtml('rgb(20,150,75)', 'rgb(110,40,190)', '#8822aa', '#dd6633') },
+      ],
       { paper: 'a4', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 210, height: 297 }, unit: 'mm' },
       { print: (win: Window) => (html = win.document.documentElement.outerHTML) },
     )
     return html
   })
-  await page.setContent(`<!doctype html>${printHtml}`)
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-  const pdf = await page.pdf({ preferCSSPageSize: true })
-  const parsed = await PDFDocument.load(pdf)
-  const sizes = parsed.getPages().map((sheet) => sheet.getSize())
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
-    const file = path.join(work, 'pages.pdf')
-    writeFileSync(file, pdf)
-    const samples = [1, 2].map((number) => {
-      const prefix = path.join(work, `page-${number}`)
-      execFileSync('pdftoppm', ['-r', '72', '-f', String(number), '-l', String(number), '-singlefile', file, prefix])
-      const raster = readPpm(`${prefix}.ppm`)
-      const sample = (x: number) => {
-        const offset = (Math.round(raster.height / 2) * raster.width + Math.round(raster.width * x)) * 3
-        return [...raster.pixels.subarray(offset, offset + 3)]
-      }
-      return { base: sample(0.25), image: sample(0.75) }
-    })
-    const blank = (actual: number[]) => actual.every((value) => value === 255)
+    const render = async (printBackground: boolean) => {
+      await page.setContent(`<!doctype html>${printHtml}`)
+      // Frame load and image decode can finish after setContent; this check
+      // deliberately crosses a real readiness interval before invoking print.
+      await page.waitForTimeout(2500)
+      const pdf = await page.pdf({ preferCSSPageSize: true, printBackground })
+      const parsed = await PDFDocument.load(pdf)
+      const sizes = parsed.getPages().map((sheet) => sheet.getSize())
+      const file = path.join(work, `pages-${printBackground}.pdf`)
+      writeFileSync(file, pdf)
+      const samples = [1, 2].map((number) => {
+        const prefix = path.join(work, `page-${printBackground}-${number}`)
+        execFileSync('pdftoppm', ['-r', '72', '-f', String(number), '-l', String(number), '-singlefile', file, prefix])
+        const raster = readPpm(`${prefix}.ppm`)
+        const sample = (x: number, y: number) => {
+          const offset = (Math.round(raster.height * y) * raster.width + Math.round(raster.width * x)) * 3
+          return [...raster.pixels.subarray(offset, offset + 3)]
+        }
+        return { root: sample(0.25, 0.25), element: sample(0.75, 0.25), cssImage: sample(0.25, 0.75), image: sample(0.75, 0.75) }
+      })
+      return { sizes, samples }
+    }
+    const withBackgrounds = await render(true)
+    const withoutBackgrounds = await render(false)
+    const expected = [
+      { root: [190, 30, 45], element: [240, 160, 20], cssImage: [20, 85, 204], image: [34, 170, 119] },
+      { root: [20, 150, 75], element: [110, 40, 190], cssImage: [136, 34, 170], image: [221, 102, 51] },
+    ]
+    const matches = (actual: number[], wanted: number[]) => actual.every((channel, index) => Math.abs(channel - (wanted[index] ?? 0)) <= 2)
     check(
-      'the Chromium print pipeline produces two A4 sheets but records its sandboxed-frame background limitation',
-      sizes.length === 2 &&
-        sizes.every((size) => Math.abs(size.width - 595.28) < 1 && Math.abs(size.height - 841.89) < 1) &&
-        samples.every((sample) => blank(sample.base) && blank(sample.image)),
-      JSON.stringify({ sizes, samples }),
+      'the Chromium print pipeline preserves root, element, CSS image, and img backgrounds on two A4 sheets',
+      withBackgrounds.sizes.length === 2 &&
+        withBackgrounds.sizes.every((size) => Math.abs(size.width - 595.28) < 1 && Math.abs(size.height - 841.89) < 1) &&
+        withBackgrounds.samples.every((sample, index) => {
+          const wanted = expected[index]
+          return !!wanted && Object.entries(sample).every(([key, actual]) => matches(actual, wanted[key as keyof typeof wanted]))
+        }),
+      JSON.stringify({ printBackgroundTrue: withBackgrounds, printBackgroundFalse: withoutBackgrounds }),
     )
   } finally {
     rmSync(work, { recursive: true, force: true })

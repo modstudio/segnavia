@@ -248,9 +248,10 @@ into that PDF, and a deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
-papers. `printPages` prints the imposed papers from the browser, with the known
-limit that its print dialog loses backgrounds inside frames; a host that needs
-them uses the renderer's `pagesPdf`. Two-sided imposition is built; marks on
+papers. `printPages` prints the imposed papers from the browser. Its print-only
+frame bridge carries a propagated root or body background onto a full-page
+element, so root colours reach paper without changing the on-screen page.
+Two-sided imposition is built; marks on
 an imposed paper and folds are not. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
@@ -405,12 +406,15 @@ pagination at its `maxSheets` limit.
 Every sandboxed slide and page document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
 putting those properties only on the containing print document cannot cross a
-frame boundary. A URL slide keeps its own print styling; color-adjust injection
-covers only the documents the library builds. Chromium still omits those
-backgrounds in printed output, so the browser dialog is best effort and
-`deckPdf` and `pagesPdf` are the faithful paths. The sandbox remains without
-same-origin access. Browser printing waits for slide
-readiness and fonts only until one shared deadline, then crosses a
+frame boundary. For documents the library builds, root and propagated body
+backgrounds print through a fixed layer behind the content; element background
+colours, CSS background images and `<img>` elements print as authored when the
+user enables Background graphics. The bridge decodes both CSS and element
+images before reporting readiness, and rasterizes decoded CSS image resources
+because Chromium drops their original form inside a sandboxed frame. A URL slide keeps its own print styling and
+readiness because the library cannot inject into it. The sandbox remains
+without same-origin access. Browser printing waits for slide readiness, images
+and fonts only until one shared deadline, then crosses a
 two-animation-frame paint barrier before opening the dialog. The off-screen
 host stays alive until `afterprint`, with a bounded fallback for engines that
 do not dispatch it; a host-provided print hook remains synchronous for

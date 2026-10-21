@@ -60,6 +60,15 @@ describe('frame document', () => {
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
   })
 
+  test('print documents lift root backgrounds and wait for CSS background images', () => {
+    const html = frameDocument('<html><body>print</body></html>', { scripts: 'refuse', nonce: 'n', printBackground: true })
+    expect(html).toContain("data-segnavia-print-background")
+    expect(html).toContain("root.style.isolation='isolate'")
+    expect(html).toContain('imgs=imgs.concat(backgroundImages())')
+    expect(html).toContain("settle(elements[i],'::before')")
+    expect(html).toContain("canvas.toDataURL('image/png')")
+  })
+
   test('nonces are unguessable and never repeat', () => {
     const a = newNonce()
     expect(a).toMatch(/^[0-9a-f]{32}$/)
