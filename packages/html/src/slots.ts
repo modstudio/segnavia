@@ -74,8 +74,28 @@ interface ResolvedSlots {
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
 
+// Void elements have no content to fill: a value bound to one would serialize after it.
+const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
+// The largest QR payload considered before encoding; level M at version 40 holds 2331 bytes.
+const QR_PAYLOAD_LIMIT = 4096
+
 function refusesValueBinding(tag: string): boolean {
-  return UNENCODED_TEXT_ELEMENTS.has(tag)
+  return UNENCODED_TEXT_ELEMENTS.has(tag) || VOID_ELEMENTS.has(tag)
+}
+
+// The QR payload is the link's ASCII form (percent-encoded path, punycode host),
+// which opens the same address; the encoder writes each character as one byte.
+function qrPayload(value: string): string | undefined {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.href.length > QR_PAYLOAD_LIMIT) return undefined
+    const code = qrcode(0, 'M')
+    code.addData(url.href)
+    code.make()
+    return url.href
+  } catch {
+    return undefined
+  }
 }
 
 function assertDeclarationLimit(declarations: readonly SlotDeclaration[], subject: string): void {
@@ -99,7 +119,7 @@ function mergedDeclarations(groups: ReadonlyArray<readonly SlotDeclaration[]>, o
 
 function qrSvg(value: string): Element {
   const code = qrcode(0, 'M')
-  code.addData(value)
+  code.addData(qrPayload(value) ?? value)
   code.make()
   const modules = code.getModuleCount()
   const children: Element[] = []
@@ -144,7 +164,7 @@ function invalidBinding(element: Element, names: ReturnType<typeof bindingNames>
   const value = element.attribs[names.value]
   if (value !== undefined && report.slots[value] !== undefined && refusesValueBinding(tag)) {
     report.slots[value] = 'invalid'
-    return `Slot "${value}" uses a value binding on <${tag}>, whose raw-text content cannot be filled safely.`
+    return `Slot "${value}" uses a value binding on <${tag}>, whose content cannot be filled safely.`
   }
   const src = element.attribs[names.src]
   if (src !== undefined && report.slots[src] !== undefined && tag !== 'img') {
@@ -215,7 +235,8 @@ function bindingRefusal(roots: Element[], names: ReturnType<typeof bindingNames>
 
 function validString(type: SlotDeclaration['type'], value: string): boolean {
   if (type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-  if (type === 'link' || type === 'qr') {
+  if (type === 'qr') return qrPayload(value) !== undefined
+  if (type === 'link') {
     try {
       return new URL(value).protocol === 'https:'
     } catch {

@@ -151,7 +151,7 @@ test('QR values render the level M module matrix with a four-module quiet zone a
   })
   const html = prepared.apply('<div data-slot-value="code">Authored fallback</div>')
   const expected = qrcode(0, 'M')
-  expected.addData(link)
+  expected.addData(new URL(link).href)
   expected.make()
   const modules = expected.getModuleCount()
   expect(html).toContain(`<svg viewBox="0 0 ${modules + 8} ${modules + 8}" shape-rendering="crispEdges" role="img"`)
@@ -171,6 +171,31 @@ test('invalid QR links report invalid and keep authored content', async () => {
   })
   expect(prepared.report.slots.code).toBe('invalid')
   expect(prepared.apply('<div data-slot-value="code">Authored fallback</div>')).toContain('Authored fallback')
+})
+
+test('a QR link outside ASCII encodes the address it opens, not truncated characters', async () => {
+  const declarations = [{ key: 'code', label: 'Code', type: 'qr', required: false }] as const
+  const hebrew = 'https://example.co.il/שלום'
+  const svg = async (link: string) =>
+    (await prepareSlots([...declarations], { fill: { id: 'x', values: { code: link } } }))
+      .apply('<div data-slot-value="code"></div>')
+      .replace(/aria-label="[^"]*"/, '')
+  expect(await svg(hebrew)).toBe(await svg(new URL(hebrew).href))
+})
+
+test('a QR link too long to encode reports invalid, so a required one blocks output', async () => {
+  const declarations = [{ key: 'code', label: 'Code', type: 'qr', required: true }] as const
+  const prepared = await prepareSlots([...declarations], { fill: { id: 'x', values: { code: `https://example.com/${'x'.repeat(3000)}` } } })
+  expect(prepared.report.slots.code).toBe('invalid')
+  expect(requiredSlotRefusal([...declarations], prepared.report)?.message).toContain('"code" (invalid)')
+  expect(prepared.apply('<div data-slot-value="code">Authored fallback</div>')).toContain('Authored fallback')
+})
+
+test('a value binding on a void element is refused', async () => {
+  const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {
+    fill: { id: 'x', values: { code: 'https://example.com/' } },
+  })
+  expect(() => prepared.apply('<div><img data-slot-value="code" alt="QR"></div>')).toThrow('value binding on <img>')
 })
 
 test('required-slot policy lists every unfilled key and state', () => {
