@@ -315,7 +315,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 buildPageDemo(SITE, (body) => shell(body))
 buildBookDemo(SITE)
 buildPaperDemo(SITE)
-buildDocumentDemo(SITE)
+await buildDocumentDemo(ROOT, SITE)
 await buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })

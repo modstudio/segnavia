@@ -2,8 +2,11 @@ import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
-import { railMoveTarget, railOverflow, railSelection } from './rail-navigation.ts'
+import { railOverflow, railSelection } from './rail-navigation.ts'
+import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
+
+export type { RailReorderIntent } from './rail-reorder.ts'
 
 const RAIL_CSS = `
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
@@ -17,8 +20,7 @@ button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:var
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:16/9;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
 [aria-selected="true"] .preview{border:2px solid var(--segnavia-accent,#356ae6)}
-button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
-button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
+${RAIL_REORDER_CSS}
 .number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
 .slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:6px;background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
 li:hover>.slide-menu,li:focus-within>.slide-menu,.slide-menu[aria-expanded="true"]{opacity:1;pointer-events:auto}
@@ -43,11 +45,6 @@ button[data-insert="before"]::before,button[data-insert="after"]::after{inset-bl
 button[data-insert="before"]::before{inset-inline-start:-6px;inset-inline-end:auto}button[data-insert="after"]::after{inset-inline-end:-6px;inset-inline-start:auto}}
 `
 
-export interface RailReorderIntent {
-  fromIndex: number
-  toIndex: number
-}
-
 export interface RailSlideSettingsItem {
   slideId: string
   label: string
@@ -63,9 +60,14 @@ export class SegnaviaRail extends SegnaviaControl {
   })
   private selected = 0
   private active = -1
-  private reorderEnabled = false
-  private dragFrom: number | null = null
-  private reorderListeners = new Set<(intent: RailReorderIntent) => void>()
+  private reorder = new RailReorder({
+    root: this.root,
+    count: () => this.controller?.state.deck?.slides.length ?? 0,
+    horizontal: () => getComputedStyle(this.root.querySelector('ol') as HTMLOListElement).flexDirection === 'row',
+    direction: () => this.controller?.state.direction ?? 'ltr',
+    buttons: () => this.itemElements(),
+    excludes: (target) => target.closest('.slide-menu,.slide-settings-list,.slide-settings-panel') !== null,
+  })
   private slideSettings = new Map<string, RailSlideSettingsItem>()
   private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
 
@@ -81,10 +83,7 @@ export class SegnaviaRail extends SegnaviaControl {
     super.connectedCallback()
     this.setAttribute('role', 'listbox')
     this.root.addEventListener('keydown', this.onKey as EventListener)
-    this.root.addEventListener('dragstart', this.onDragStart as EventListener)
-    this.root.addEventListener('dragover', this.onDragOver as EventListener)
-    this.root.addEventListener('drop', this.onDrop as EventListener)
-    this.root.addEventListener('dragend', this.clearDrag)
+    this.reorder.attach()
     this.root.addEventListener('scroll', this.markOverflow, { capture: true, passive: true })
     this.resize.observe(this)
   }
@@ -121,14 +120,11 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   setReorderEnabled(enabled: boolean) {
-    this.reorderEnabled = enabled
-    for (const button of this.itemElements()) button.draggable = enabled
-    if (!enabled) this.clearDrag()
+    this.reorder.setEnabled(enabled)
   }
 
   subscribeReorder(listener: (intent: RailReorderIntent) => void): () => void {
-    this.reorderListeners.add(listener)
-    return () => this.reorderListeners.delete(listener)
+    return this.reorder.subscribe(listener)
   }
 
   itemElements(): HTMLButtonElement[] {
@@ -190,12 +186,12 @@ export class SegnaviaRail extends SegnaviaControl {
       }
       const button = item.querySelector('button') as HTMLButtonElement
       button.dataset.index = String(index)
-      button.draggable = this.reorderEnabled
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
       list.append(item)
       this.decorateSlideSettings(item, slide.id)
     })
+    this.reorder.sync()
   }
 
   private decorateSlideSettings(item: HTMLLIElement, slideId: string) {
@@ -308,16 +304,6 @@ export class SegnaviaRail extends SegnaviaControl {
     if ((event.target as Element).closest('.slide-menu,.slide-settings-list,.slide-settings-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
-    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && this.reorderEnabled) {
-      const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-      if (!button) return
-      const fromIndex = Number(button.dataset.index)
-      const toIndex = railSelection(fromIndex, event.key, this.controller.state.deck.slides.length, horizontal, this.controller.state.direction)
-      if (toIndex === fromIndex) return
-      event.preventDefault()
-      this.emitReorder(fromIndex, toIndex)
-      return
-    }
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     const next = railSelection(this.selected, event.key, this.controller.state.deck.slides.length, horizontal, this.controller.state.direction)
     if (next === this.selected) return
@@ -325,50 +311,5 @@ export class SegnaviaRail extends SegnaviaControl {
     this.selected = next
     this.syncSelection(this.controller.state)
     this.root.querySelector<HTMLButtonElement>(`button[data-index="${next}"]`)?.focus()
-  }
-
-  private onDragStart = (event: DragEvent) => {
-    if (!this.reorderEnabled) return event.preventDefault()
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (!button) return
-    this.dragFrom = Number(button.dataset.index)
-    event.dataTransfer?.setData('text/plain', button.dataset.index ?? '')
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  }
-
-  private onDragOver = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (this.dragFrom === null || !button || !this.controller) return
-    event.preventDefault()
-    const list = this.root.querySelector('ol') as HTMLOListElement
-    const horizontal = getComputedStyle(list).flexDirection === 'row'
-    const rect = button.getBoundingClientRect()
-    const after = horizontal
-      ? this.controller.state.direction === 'rtl'
-        ? event.clientX < rect.left + rect.width / 2
-        : event.clientX >= rect.left + rect.width / 2
-      : event.clientY >= rect.top + rect.height / 2
-    for (const item of this.itemElements()) item.removeAttribute('data-insert')
-    button.dataset.insert = after ? 'after' : 'before'
-  }
-
-  private onDrop = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    const count = this.controller?.state.deck?.slides.length ?? 0
-    if (this.dragFrom === null || !button || !count) return
-    event.preventDefault()
-    const fromIndex = this.dragFrom
-    const toIndex = railMoveTarget(fromIndex, Number(button.dataset.index), button.dataset.insert === 'after', count)
-    this.clearDrag()
-    this.emitReorder(fromIndex, toIndex)
-  }
-
-  private clearDrag = () => {
-    this.dragFrom = null
-    for (const button of this.itemElements()) button.removeAttribute('data-insert')
-  }
-
-  private emitReorder(fromIndex: number, toIndex: number) {
-    for (const listener of this.reorderListeners) listener({ fromIndex, toIndex })
   }
 }

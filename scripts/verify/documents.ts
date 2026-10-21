@@ -4,12 +4,13 @@ import type { Harness } from './harness.ts'
 export async function verifyDocuments(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('document.html'))
+  await page.waitForFunction(() => 'documentAuthoring' in window)
   await page.waitForFunction(
-    () => document.querySelectorAll('#brochure iframe').length > 0 && document.querySelector('#cover')?.shadowRoot?.querySelector('iframe'),
+    () => document.querySelectorAll('#brochure iframe').length > 0 && document.querySelector('#cover-thumbnail')?.shadowRoot?.querySelector('iframe'),
   )
   const facts = await page.evaluate(() => {
     const sheets = [...document.querySelectorAll<HTMLElement>('#brochure .segnavia-document__sheet')]
-    const cover = document.querySelector<HTMLElement>('#cover')
+    const cover = document.querySelector<HTMLElement>('#cover-thumbnail')
     return {
       sheets: sheets.map((sheet) => ({ width: sheet.getBoundingClientRect().width, height: sheet.getBoundingClientRect().height, page: sheet.dataset.page })),
       numbers: [...document.querySelectorAll('#brochure .segnavia-document__number')].map((number) => number.textContent?.trim()),
@@ -24,6 +25,43 @@ export async function verifyDocuments(h: Harness) {
       sandboxes: [...document.querySelectorAll('#brochure iframe')].map((frame) => frame.getAttribute('sandbox')),
     }
   })
+
+  const rail = page.locator('#brochure segnavia-document-rail')
+  await rail.evaluate((element) => {
+    const buttons = element.shadowRoot?.querySelectorAll<HTMLButtonElement>('button[data-index]')
+    const first = buttons?.[0]
+    const second = buttons?.[1]
+    if (!first || !second) throw new Error('Document reorder thumbnails were not ready.')
+    const transfer = new DataTransfer()
+    first.dispatchEvent(new DragEvent('dragstart', { bubbles: true, composed: true, dataTransfer: transfer }))
+    const box = second.getBoundingClientRect()
+    second.dispatchEvent(new DragEvent('dragover', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
+    second.dispatchEvent(new DragEvent('drop', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
+  })
+  await page.waitForFunction(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'inside')
+  check(
+    'document rail drag reorders pages',
+    await page.evaluate(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'inside'),
+  )
+  await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
+  await page.waitForFunction(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'cover')
+  check(
+    'document rail keyboard reorders pages',
+    await page.evaluate(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'cover'),
+  )
+  await page.evaluate(() => ((window as unknown as { documentAuthoringFacts: { rejectMove: boolean } }).documentAuthoringFacts.rejectMove = true))
+  await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
+  await page.waitForFunction(() => (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length > 0)
+  const failed = await page.evaluate(() => ({
+    ids: (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages.map((page) => page.id).join(','),
+    errors: (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length,
+  }))
+  check('a rejected document reorder rolls back and reports an authoring error', failed.ids === 'cover,inside' && failed.errors === 1, JSON.stringify(failed))
+  await rail.locator('button[data-index="1"]').click()
+  const selection = await page
+    .locator('#brochure .segnavia-document__item[data-page-index="1"]')
+    .evaluate((item) => Math.abs(item.getBoundingClientRect().top) < 80)
+  check('selecting a document thumbnail scrolls its page into view', selection)
   const a4 = { width: 210 * PX_PER_MM, height: 297 * PX_PER_MM }
   check(
     'a document shows its pages in order on A4 sheets at no more than their natural 96 dpi size',

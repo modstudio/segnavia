@@ -316,6 +316,18 @@ document keeps its sandboxed frames bounded. `<segnavia-thumbnail>` accepts a
 `page` and `print` instead of a `deck` to draw a document cover at its paper's
 aspect ratio with the same lazy thumbnail lifecycle.
 
+Pages may carry an optional `id`. Viewing, printing, and thumbnails do not
+require it. `attachDocumentAuthoring(document, { movePage })` from
+`@segnavia/frame/document-authoring` adds a page rail
+whose thumbnails use the document paper, tracks the page in view, and scrolls
+the selected page into view. Dragging or pressing Alt with an arrow moves a
+page optimistically and calls `movePage({ pageId, fromIndex, toIndex })`.
+Rejection restores the prior order and emits `authoring-error`; `dirty` and
+`dirty-change` cover the pending write. Reordering is disabled, without
+removing the thumbnails, unless every page has a unique id. Each rail item
+leaves room for page settings but registers none yet. `useDocumentAuthoring`
+exposes the same attachment through `@segnavia/react`.
+
 `@segnavia/react` exports `Page`, `Paper`, and `Document` wrappers in addition
 to `Thumbnail`; object values are assigned as element properties rather than
 serialized as attributes.
