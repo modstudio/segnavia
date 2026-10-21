@@ -1,5 +1,11 @@
 # @segnavia/html
 
+## 0.20.0
+
+### Patch Changes
+
+- @segnavia/format@0.20.0
+
 ## 0.19.0
 
 ### Patch Changes
