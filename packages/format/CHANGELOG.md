@@ -1,5 +1,16 @@
 # @segnavia/format
 
+## 0.20.0
+
+## 0.19.0
+
+## 0.18.0
+
+### Minor Changes
+
+- 3dfbd5a: Add common online-printer trim sizes as named papers.
+- 02c3457: Let each slide choose the frozen animation moment used by browser and PDF deck printing, and let scripted slides hold readiness while drawing that moment.
+
 ## 0.17.0
 
 ### Minor Changes

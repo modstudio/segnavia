@@ -136,6 +136,7 @@ describe('printableDeck', () => {
     const document = htmlSlideDocument(deck, '<style>body{background:red}</style>', { nonce: 'known' })
     expect(document).toContain('print-color-adjust:exact')
     expect(document).toContain('-webkit-print-color-adjust:exact')
+    expect(document).toContain('data-segnavia-print-background')
   })
 
   test('freezes built HTML slide documents at their chosen print moments and leaves URL slides alone', () => {
@@ -281,6 +282,7 @@ describe('printablePages', () => {
     expect(wrapped).toBe(content)
     expect(printable.imposed).toEqual(imposed)
     expect(printablePages(pages, grid, { nonce: 'test' })).toBe(printable.html)
+    expect(printable.html).toContain('data-segnavia-print-background')
   })
 
   test('builds papers with every placement clipped to its bleed box', () => {

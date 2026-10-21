@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { verifyAuthoredPrintMoment } from './authoring-print-moment.ts'
 import { type Harness, SITE } from './harness.ts'
 import { playerGeometry, railGeometry } from './rail-geometry.ts'
 import { verifyDeskRailUnmount } from './rail-unmount.ts'
@@ -266,6 +267,8 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.setViewportSize({ width: 1000, height: 816 })
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
+
+  await verifyAuthoredPrintMoment(h)
 
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
   await notes.fill('Draft one')

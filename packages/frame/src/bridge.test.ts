@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { bridgeForHost, frameDocument, MESSAGE, newNonce, RELAYED_KEYS } from './bridge.ts'
+import { animationReport } from './animation-timing.ts'
+import { bridgeForHost, frameDocument, MESSAGE, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
   test('relays viewer and presentation shortcuts', () => {
@@ -34,7 +35,29 @@ describe('frame document', () => {
   test('sandboxed scripts carry no script policy, so the author code runs', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
     expect(html).not.toContain('script-src')
-    expect(html).not.toContain('segnavia:print')
+    expect(html).toContain("new CustomEvent('segnavia:print'")
+  })
+
+  test('the emitted bridge uses the shared animation calculation', async () => {
+    expect(bridgeForHost({ reportHeight: false })).toContain(animationReport.toString())
+    const messages: unknown[] = []
+    const document = {
+      addEventListener: () => {},
+      fonts: null,
+      images: [],
+      readyState: 'complete',
+      documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+      getAnimations: () => [
+        { effect: { getComputedTiming: () => ({ endTime: 1250, iterations: 1 }) } },
+        { effect: { getComputedTiming: () => ({ endTime: 3200, iterations: 2 }) } },
+      ],
+      querySelector: () => null,
+    }
+    const parent = { postMessage: (value: unknown) => messages.push(value) }
+    const window = { addEventListener: () => {} }
+    Function('document', 'parent', 'window', 'MutationObserver', bridgeForHost({ reportHeight: false }))(document, parent, window, undefined)
+    await Promise.resolve()
+    expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
   })
 
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
@@ -44,7 +67,7 @@ describe('frame document', () => {
     expect(html).not.toMatch(/fragment=decodeURIComponent/)
     expect(html.match(/decodeURIComponent/g)).toHaveLength(1)
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
-    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.key, MESSAGE.height, MESSAGE.ready])
+    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.animation, MESSAGE.key, MESSAGE.height, MESSAGE.ready])
     expect(html).toContain(
       "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
     )
@@ -58,6 +81,20 @@ describe('frame document', () => {
   test('block direction comes before the host style, so the host can override it', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', css: 'p{unicode-bidi:normal}' })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
+  })
+
+  test('print documents lift root backgrounds and wait for CSS background images', () => {
+    const html = frameDocument('<html><body>print</body></html>', { scripts: 'refuse', nonce: 'n', printBackground: true })
+    expect(html).toContain('data-segnavia-print-background')
+    expect(html).toContain("root.style.isolation='isolate'")
+    expect(html).toContain('imgs=imgs.concat(backgroundImages())')
+    expect(html).toContain("settle(elements[i],'::before')")
+    expect(html).toContain('data-segnavia-print-background-image')
+    expect(html).toContain("elementStyle.display==='none'||elementStyle.visibility==='hidden'||!rect.width||!rect.height")
+    expect(html).toContain(`resourceCount>=${PRINT_BACKGROUND_RESOURCE_LIMIT}`)
+    expect(html).toContain('resources[url]')
+    expect(html).toContain("layer.indexOf('gradient(')")
+    expect(html).toContain("document.createElement('canvas')")
   })
 
   test('nonces are unguessable and never repeat', () => {

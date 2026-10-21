@@ -1,6 +1,6 @@
 {
   "name": "@segnavia/frame",
-  "version": "0.17.0",
+  "version": "0.20.0",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -81,6 +81,11 @@
       "@segnavia/source": "./src/authoring.ts",
       "types": "./dist/authoring.d.ts",
       "default": "./dist/authoring.js"
+    },
+    "./document-authoring": {
+      "@segnavia/source": "./src/document-authoring.ts",
+      "types": "./dist/document-authoring.d.ts",
+      "default": "./dist/document-authoring.js"
     },
     "./board-editing": {
       "@segnavia/source": "./src/board-editing.ts",

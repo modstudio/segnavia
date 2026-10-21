@@ -1,4 +1,4 @@
-import type { SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
+import type { SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -20,10 +20,13 @@ import type {
   CaptionProps,
   CaptionsProps,
   CounterProps,
+  DocumentProps,
   FullscreenProps,
   MuteProps,
   NotesProps,
+  PageProps,
   PaperPickerProps,
+  PaperProps,
   PlayerProps,
   PlayProps,
   RailProps,
@@ -77,7 +80,7 @@ export const ELEMENTS = {
   ),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'index', 'resolveSlide', 'base', 'css', 'mountMargin'],
+    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin'],
     {
       onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
     },
@@ -85,6 +88,9 @@ export const ELEMENTS = {
   paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof STYLED_ELEMENTS.paperPicker>(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], {
     onChange: 'change',
   }),
+  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra'], {}),
+  paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(HEADLESS_ELEMENTS.paper, ['paper', 'side', 'css', 'cspExtra'], {}),
+  document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(HEADLESS_ELEMENTS.document, ['css', 'cspExtra', 'pages', 'print'], {}),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),
   step: element<SegnaviaStep, StepProps, typeof STYLED_ELEMENTS.step>(STYLED_ELEMENTS.step, controlProperties, {}),
   track: element<SegnaviaTrack, TrackProps, typeof STYLED_ELEMENTS.track>(STYLED_ELEMENTS.track, controlProperties, {}),

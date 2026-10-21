@@ -1,5 +1,39 @@
 # @segnavia/frame
 
+## 0.20.0
+
+### Minor Changes
+
+- 1f9f4c6: Show ordered page documents on responsive, lazily mounted paper sheets; draw a
+  page thumbnail at its paper aspect ratio; measure page backgrounds through the
+  browser print pipeline; and expose React wrappers for pages, papers, and documents.
+
+### Patch Changes
+
+- @segnavia/format@0.20.0
+
+## 0.19.0
+
+### Minor Changes
+
+- 0f1cf64: Let authors choose or reset an animated HTML slide's print moment from a Slide settings list with a live frame scrubber.
+
+### Patch Changes
+
+- @segnavia/format@0.19.0
+
+## 0.18.0
+
+### Minor Changes
+
+- 02c3457: Let each slide choose the frozen animation moment used by browser and PDF deck printing, and let scripted slides hold readiness while drawing that moment.
+
+### Patch Changes
+
+- Updated dependencies [3dfbd5a]
+- Updated dependencies [02c3457]
+  - @segnavia/format@0.18.0
+
 ## 0.17.0
 
 ### Minor Changes

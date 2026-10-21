@@ -1,12 +1,16 @@
 import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
+import { attachDocumentAuthoring, type DocumentAuthoringController, type DocumentAuthoringHandlers } from '@segnavia/frame/document-authoring'
 import '@segnavia/frame/player'
+import type { SegnaviaDocument } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, useCallback, useEffect, useRef, useState } from 'react'
 import { type AnyElementDescriptor, ELEMENTS, type ElementFor, type PropsFor } from './elements.ts'
 import { syncElementProps } from './react-props.ts'
 
-type ElementWithController = HTMLElement & { controller?: DeckController | null }
+type ElementWithController = HTMLElement & {
+  controller?: DeckController | null
+}
 
 function assignRef<T>(ref: Ref<T>, value: T | null) {
   if (typeof ref === 'function') ref(value)
@@ -52,6 +56,9 @@ export const Player = createComponent(ELEMENTS.player)
 export const Stage = createComponent(ELEMENTS.stage)
 export const Thumbnail = createComponent(ELEMENTS.thumbnail)
 export const PaperPicker = createComponent(ELEMENTS.paperPicker)
+export const Page = createComponent(ELEMENTS.page)
+export const Paper = createComponent(ELEMENTS.paper)
+export const Document = createComponent(ELEMENTS.document)
 export const Play = createComponent(ELEMENTS.play)
 export const Step = createComponent(ELEMENTS.step)
 export const Track = createComponent(ELEMENTS.track)
@@ -99,6 +106,23 @@ export function useAuthoring(player: SegnaviaPlayer | null, handlers: AuthoringH
   return controller
 }
 
+export function useDocumentAuthoring(document: SegnaviaDocument | null, handlers: DocumentAuthoringHandlers): DocumentAuthoringController | null {
+  const [controller, setController] = useState<DocumentAuthoringController | null>(null)
+  const latestHandlers = useRef(handlers)
+  latestHandlers.current = handlers
+  useEffect(() => {
+    if (!document) return
+    const attached = attachDocumentAuthoring(document, latestHandlers.current)
+    setController(attached)
+    return () => {
+      attached.detach()
+      setController(null)
+    }
+  }, [document])
+  useEffect(() => controller?.update(handlers), [controller, handlers])
+  return controller
+}
+
 export type {
   AuthoringController,
   AuthoringErrorDetail,
@@ -106,6 +130,14 @@ export type {
   AuthoringOptions,
   DirtyChangeDetail,
   SaveNotesInput,
+  SavePrintMomentInput,
 } from '@segnavia/frame/authoring'
+export type {
+  DocumentAuthoringController,
+  DocumentAuthoringErrorDetail,
+  DocumentAuthoringHandlers,
+  MovePageHandler,
+  MovePageInput,
+} from '@segnavia/frame/document-authoring'
 export type { SegnaviaIntrinsicElements } from './jsx.ts'
 export type * from './props.ts'

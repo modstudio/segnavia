@@ -17,11 +17,28 @@ const PLACEHOLDER_HEIGHT = 150
 
 export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src']
-  page: Page | null = null
   css = ''
   cspExtra = ''
+  private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
+
+  get page(): Page | null {
+    return this.pageValue
+  }
+
+  set page(value: PageInput | Page | null | undefined) {
+    if (value == null) {
+      this.pageValue = null
+      this.contentHeight = 0
+      this.replaceChildren()
+      this.style.removeProperty('height')
+      delete this.dataset.height
+      delete this.dataset.measured
+      return
+    }
+    this.load(value)
+  }
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
@@ -63,7 +80,7 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   private mount(page: Page): HTMLIFrameElement {
-    this.page = page
+    this.pageValue = page
     this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
     const sheet = document.createElement('div')

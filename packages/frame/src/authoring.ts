@@ -1,5 +1,6 @@
 import type { Deck } from '@segnavia/format'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
+import { AuthoringPrintMoment, type SavePrintMoment, type SavePrintMomentInput } from './authoring-print-moment.ts'
 import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
 import { activeNavigationGuard, type NavigationGuardReason, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
@@ -23,6 +24,7 @@ export interface SaveNotesInput {
 export interface AuthoringHandlers {
   moveSlide?: MoveSlideHandler
   saveNotes?: (input: SaveNotesInput) => Promise<void>
+  savePrintMoment?: SavePrintMoment
 }
 
 export interface AuthoringOptions {
@@ -30,7 +32,7 @@ export interface AuthoringOptions {
 }
 
 export interface AuthoringErrorDetail {
-  operation: 'move' | 'notes'
+  operation: 'move' | 'notes' | 'printMoment'
   slideId: string
   message: string
   error: unknown
@@ -53,6 +55,8 @@ export class AuthoringController extends EventTarget {
   private lastNotes: NotesSaveQueue | null = null
   private notesRoot: HTMLElement | null = null
   private notesSlideId: string | null = null
+  private printMoment: AuthoringPrintMoment | null = null
+  private lastPrintMoment: AuthoringPrintMoment | null = null
   private updateGeneration = 0
   private updateTail = Promise.resolve()
   private detachPromise: Promise<void> | null = null
@@ -67,10 +71,12 @@ export class AuthoringController extends EventTarget {
     super()
     if (handlers.moveSlide) this.attachReorder()
     if (handlers.saveNotes) this.attachNotes(handlers.saveNotes)
+    if (handlers.savePrintMoment) this.attachPrintMoment(handlers.savePrintMoment)
+    this.syncNavigationGuard()
   }
 
   get dirty(): boolean {
-    return this.pendingMove || (this.notes?.dirty ?? false)
+    return this.pendingMove || (this.notes?.dirty ?? false) || (this.printMoment?.queue.dirty ?? false)
   }
 
   // Saves pending notes without starting a save on a clean deck, then returns
@@ -79,15 +85,16 @@ export class AuthoringController extends EventTarget {
   // returns those drafts; after detach, flush uses the last queue the same way.
   async flush(): Promise<Deck | null> {
     const notes = this.notes ?? this.lastNotes
-    await notes?.flushAll()
-    return this.authoredDeck(notes)
+    const printMoment = this.printMoment ?? this.lastPrintMoment
+    await Promise.all([notes?.flushAll(), printMoment?.queue.flushAll()])
+    return this.authoredDeck(notes, printMoment)
   }
 
   // The authored deck with each slide's current draft notes, without waiting
   // for a host save to settle. Export and print should use this so a paused
   // save cannot hang the document; flush() still waits for persistence.
   draftDeck(): Deck | null {
-    return this.authoredDeck(this.notes ?? this.lastNotes)
+    return this.authoredDeck(this.notes ?? this.lastNotes, this.printMoment ?? this.lastPrintMoment)
   }
 
   adoptNotes(notes: Record<string, string | null>) {
@@ -114,22 +121,45 @@ export class AuthoringController extends EventTarget {
     if (this.stopped || generation !== this.updateGeneration) return
     const hadMove = Boolean(this.handlers.moveSlide)
     const hadNotes = Boolean(this.handlers.saveNotes)
+    const hadPrintMoment = Boolean(this.handlers.savePrintMoment)
     const hasMove = Boolean(handlers.moveSlide)
     const hasNotes = Boolean(handlers.saveNotes)
-    if (hadNotes && !hasNotes) {
-      const saved = await this.notes?.flushAll()
-      if (this.stopped || generation !== this.updateGeneration) return
-      if (saved === false) return
-      this.detachNotes()?.dispose()
-    }
+    const hasPrintMoment = Boolean(handlers.savePrintMoment)
+    if (hadNotes && !hasNotes && !(await this.removeNotesForUpdate(generation))) return
+    if (hadPrintMoment && !hasPrintMoment && !(await this.removePrintMomentForUpdate(generation))) return
+    if (!(await this.replaceSaveHandlers(handlers, hadNotes, hadPrintMoment))) return
+    if (this.stopped || generation !== this.updateGeneration) return
     this.handlers = handlers
     if (!hadMove && hasMove) this.attachReorder()
     else if (hadMove && !hasMove) this.detachReorder()
     if (!hadNotes && handlers.saveNotes) this.attachNotes(handlers.saveNotes)
-    else if (handlers.saveNotes) this.notes?.setSave(handlers.saveNotes)
+    if (!hadPrintMoment && handlers.savePrintMoment) this.attachPrintMoment(handlers.savePrintMoment)
+    this.syncNavigationGuard()
     this.options.notesMaxLength = options.notesMaxLength ?? 20_000
     const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
     if (field) field.maxLength = this.options.notesMaxLength
+  }
+
+  private async replaceSaveHandlers(handlers: AuthoringHandlers, hadNotes: boolean, hadPrintMoment: boolean): Promise<boolean> {
+    if (hadNotes && handlers.saveNotes && handlers.saveNotes !== this.handlers.saveNotes && !(await this.notes?.setSave(handlers.saveNotes))) return false
+    if (hadPrintMoment && handlers.savePrintMoment && handlers.savePrintMoment !== this.handlers.savePrintMoment) {
+      return (await this.printMoment?.setSave(handlers.savePrintMoment)) !== false
+    }
+    return true
+  }
+
+  private async removeNotesForUpdate(generation: number): Promise<boolean> {
+    const saved = await this.notes?.flushAll()
+    if (this.stopped || generation !== this.updateGeneration || saved === false) return false
+    this.detachNotes()?.dispose()
+    return true
+  }
+
+  private async removePrintMomentForUpdate(generation: number): Promise<boolean> {
+    const saved = await this.printMoment?.queue.flushAll()
+    if (this.stopped || generation !== this.updateGeneration || saved === false) return false
+    this.detachPrintMoment()
+    return true
   }
 
   detach(): Promise<void> {
@@ -137,25 +167,36 @@ export class AuthoringController extends EventTarget {
     this.stopped = true
     this.detachReorder()
     const notes = this.detachNotes()
-    this.detachPromise = this.finishDetach(notes)
+    const printMoment = this.detachPrintMoment()
+    this.syncNavigationGuard()
+    this.detachPromise = this.finishDetach(notes, printMoment)
     return this.detachPromise
   }
 
-  private async finishDetach(notes: NotesSaveQueue | null) {
-    await notes?.flushAll()
+  private async finishDetach(notes: NotesSaveQueue | null, printMoment: AuthoringPrintMoment | null) {
+    await Promise.all([notes?.flushAll(), printMoment?.queue.flushAll()])
     notes?.dispose()
   }
 
-  private authoredDeck(notes: NotesSaveQueue | null): Deck | null {
+  private authoredDeck(notes: NotesSaveQueue | null, printMoment: AuthoringPrintMoment | null): Deck | null {
     const deck = this.player.controller.state.deck
     if (!deck) return null
-    if (!notes) return deck
+    if (!notes && !printMoment) return deck
     return {
       ...deck,
       slides: deck.slides.map((slide) => {
-        const text = notes.draft(slide.id)
-        if (text === undefined || text === (slide.notes ?? '')) return slide
-        return { ...slide, notes: text }
+        const text = notes?.draft(slide.id)
+        const moment = printMoment?.queue.draft(slide.id)
+        const notesChanged = text !== undefined && text !== (slide.notes ?? '')
+        const momentChanged = moment !== undefined && moment !== (slide.printAtMs ?? null)
+        if (!notesChanged && !momentChanged) return slide
+        const authored = { ...slide, ...(notesChanged ? { notes: text } : {}) }
+        if (!momentChanged) return authored
+        if (moment === null) {
+          const { printAtMs: _, ...withoutPrintMoment } = authored
+          return withoutPrintMoment
+        }
+        return { ...authored, printAtMs: moment }
       }),
     }
   }
@@ -183,23 +224,31 @@ export class AuthoringController extends EventTarget {
     )
     this.player.controller.addEventListener('change', this.renderNotes)
     this.player.addEventListener('segnavia-labels', this.renderNotes)
-    this.removeNavigationGuard = setNavigationGuard(this.player.controller, this.beforeNavigate)
     this.renderNotes()
   }
 
   private beforeNavigate = async (reason: NavigationGuardReason) => {
+    this.printMoment?.beforeNavigate()
     const slideId = this.player.controller.state.slide?.id
     const notes = this.notes
-    if (!slideId || !notes) return
-    if (reason === 'load' && notes.hasLocalWork(slideId)) {
+    if (!slideId) return
+    if (notes && reason === 'load' && notes.hasLocalWork(slideId)) {
       const load = activeNavigationGuard(this.player.controller)
       if (load) {
         preserveNotesForLoad(load, slideId)
         void notes.flush(slideId)
+        await this.printMoment?.queue.flush(slideId)
         return
       }
     }
-    await notes.flush(slideId)
+    await notes?.flush(slideId)
+    await this.printMoment?.queue.flush(slideId)
+  }
+
+  private syncNavigationGuard() {
+    this.removeNavigationGuard?.()
+    this.removeNavigationGuard = null
+    if (this.notes || this.printMoment) this.removeNavigationGuard = setNavigationGuard(this.player.controller, this.beforeNavigate)
   }
 
   private emitDirty() {
@@ -210,8 +259,6 @@ export class AuthoringController extends EventTarget {
     const notes = this.notes
     this.player.controller.removeEventListener('change', this.renderNotes)
     this.player.removeEventListener('segnavia-labels', this.renderNotes)
-    this.removeNavigationGuard?.()
-    this.removeNavigationGuard = null
     this.notes = null
     if (notes) this.lastNotes = notes
     this.notesRoot?.remove()
@@ -220,6 +267,25 @@ export class AuthoringController extends EventTarget {
     this.renderedDeck = null
     this.refuseStageScripts(false)
     return notes
+  }
+
+  private attachPrintMoment(save: SavePrintMoment) {
+    this.printMoment = new AuthoringPrintMoment(this.player, save, () => this.emitDirty(), this.printMomentFailed)
+  }
+
+  private detachPrintMoment(): AuthoringPrintMoment | null {
+    const printMoment = this.printMoment
+    this.printMoment = null
+    if (printMoment) {
+      this.lastPrintMoment = printMoment
+      printMoment.dispose()
+    }
+    return printMoment
+  }
+
+  private printMomentFailed = (slideId: string, error: unknown) => {
+    const detail: AuthoringErrorDetail = { operation: 'printMoment', slideId, message: errorMessage(error), error }
+    this.dispatchEvent(new CustomEvent<AuthoringErrorDetail>('authoring-error', { detail }))
   }
 
   private renderNotes = () => {
@@ -319,3 +385,5 @@ export class AuthoringController extends EventTarget {
 export function attachAuthoring(player: SegnaviaPlayer, handlers: AuthoringHandlers, options: AuthoringOptions = {}): AuthoringController {
   return new AuthoringController(player, handlers, { notesMaxLength: options.notesMaxLength ?? 20_000 })
 }
+
+export type { SavePrintMomentInput }

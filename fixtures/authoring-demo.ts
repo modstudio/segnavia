@@ -16,6 +16,9 @@ const facts = {
   rejectNotes: false,
   deferNotes: false,
   releaseNotes: () => {},
+  printSaves: [] as unknown[],
+  deferPrintMoment: false,
+  releasePrintMoment: () => {},
   dirty: [] as boolean[],
   errors: 0,
 }
@@ -33,6 +36,10 @@ const authoring = attachAuthoring(player as never, {
     facts.saves.push(input)
     if (facts.deferNotes) await new Promise<void>((resolve) => (facts.releaseNotes = resolve))
     if (facts.rejectNotes) throw new Error('Notes refused')
+  },
+  async savePrintMoment(input) {
+    facts.printSaves.push(input)
+    if (facts.deferPrintMoment) await new Promise<void>((resolve) => (facts.releasePrintMoment = resolve))
   },
 })
 authoring.addEventListener('dirty-change', (event) => facts.dirty.push((event as CustomEvent<{ dirty: boolean }>).detail.dirty))

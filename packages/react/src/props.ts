@@ -1,4 +1,17 @@
-import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, SegnaviaThumbnail, StageReserve } from '@segnavia/frame'
+import type {
+  ControllerOptions,
+  DeckController,
+  FittedSize,
+  HostTransition,
+  PageInput,
+  PrintInput,
+  SegnaviaDocument,
+  SegnaviaPage,
+  SegnaviaPaper,
+  SegnaviaStage,
+  SegnaviaThumbnail,
+  StageReserve,
+} from '@segnavia/frame'
 import type {
   PaperPickerLabelOverrides,
   PlayerLabels,
@@ -67,6 +80,8 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   deck?: SegnaviaThumbnail['deck']
+  page?: PageInput | null
+  print?: PrintInput | null
   index?: number
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
@@ -81,8 +96,34 @@ export type PaperPickerProps = Omit<ElementProps<SegnaviaPaperPicker>, 'onChange
   onChange?: CustomEventProp<SegnaviaPaperPicker['value']>
 }
 
+export interface PageProps extends ElementProps<SegnaviaPage> {
+  page?: PageInput | null
+  css?: string
+  cspExtra?: string
+  src?: string
+  unstyled?: boolean
+}
+
+export interface PaperProps extends ElementProps<SegnaviaPaper> {
+  paper?: number
+  side?: SegnaviaPaper['side']
+  css?: string
+  cspExtra?: string
+  unstyled?: boolean
+}
+
+export interface DocumentProps extends ElementProps<SegnaviaDocument> {
+  pages?: PageInput[]
+  print?: PrintInput | null
+  css?: string
+  cspExtra?: string
+  unstyled?: boolean
+}
+
 export type PlayProps = ControlProps<SegnaviaPlay>
-export type StepProps = ControlProps<SegnaviaStep> & { to?: 'previous' | 'next' }
+export type StepProps = ControlProps<SegnaviaStep> & {
+  to?: 'previous' | 'next'
+}
 export type TrackProps = ControlProps<SegnaviaTrack>
 export type CounterProps = ControlProps<SegnaviaCounter>
 export type TimeProps = ControlProps<SegnaviaTime>
