@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { animationReport } from './animation-timing.ts'
 import { bridgeForHost, frameDocument, MESSAGE, newNonce, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
@@ -38,6 +39,7 @@ describe('frame document', () => {
   })
 
   test('the emitted bridge uses the shared animation calculation', async () => {
+    expect(bridgeForHost({ reportHeight: false })).toContain(animationReport.toString())
     const messages: unknown[] = []
     const document = {
       addEventListener: () => {},
