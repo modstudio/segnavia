@@ -6,7 +6,6 @@ import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
-import { buildPressProfile } from '../../packages/render/src/color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../../packages/render/src/press/adapter.ts'
 import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
@@ -17,7 +16,13 @@ import { type Raster, readPpm } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-const genericProfile = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
+// The checks read the converted PDF through Poppler, which draws DeviceCMYK
+// with a fixed model of press inks, so the proof they compare against needs a
+// profile of a real press condition.
+const pressProfiles = [
+  { name: 'FOGRA39L coated (colord)', path: '/usr/share/color/icc/colord/FOGRA39L_coated.icc' },
+  { name: 'macOS Generic CMYK', path: '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc' },
+]
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
 const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
 
@@ -251,7 +256,7 @@ async function verifyPressGradients(renderer: Renderer, work: string, check: Che
     },
   ]
   const press = readProfile(profile)
-  // Proof-mean on Generic CMYK is 12.7–15.7; a 90-degree rotation of the same box is 53–83. Bound 22 fails a rotated or missing quadrant.
+  // Proof-mean is 9.7–13.5 on FOGRA39L and 12.7–15.7 on Generic CMYK; a 90-degree rotation of the same box is 53–83. Bound 22 fails a rotated or missing quadrant.
   const regionMeanBound = 22
   for (const region of regions) {
     const stats = regionProofStats(originalGradients, convertedGradientRaster, region, press)
@@ -287,9 +292,14 @@ async function verifyPressGradients(renderer: Renderer, work: string, check: Che
 }
 
 export async function verifyPressRender(renderer: Renderer, work: string, check: Check): Promise<void> {
-  const profile = existsSync(genericProfile) ? new Uint8Array(readFileSync(genericProfile)) : buildPressProfile('mft1')
-  const profileName = existsSync(genericProfile) ? 'macOS Generic CMYK' : 'synthetic CMYK'
-  console.log(`PRESS PROFILE [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: ${profileName}`)
+  const found = pressProfiles.find((candidate) => existsSync(candidate.path))
+  if (!found) {
+    throw new Error(
+      `No press CMYK profile was found at ${pressProfiles.map((candidate) => candidate.path).join(' or ')}. Install colord-data to provide FOGRA39L.`,
+    )
+  }
+  const profile = new Uint8Array(readFileSync(found.path))
+  console.log(`PRESS PROFILE [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: ${found.name}`)
   const page = { html, scripts: 'sandboxed' as const, size: { width: 1200, height: 800 } }
   const unconverted = await renderer.pagePdf(page)
   let pageReport: PressReport | undefined

@@ -10,9 +10,10 @@ success only when every job below succeeds:
 - `verify-demo` downloads that build and runs three Ubuntu jobs, each with one
   shard of the browser verification and poppler's PDF tools.
 - `verify-render` runs the rendering verification on Ubuntu under both Bun and
-  Node. It uses a cached current poppler environment from conda-forge because
-  Ubuntu's packaged poppler (24.02) draws sampled shadings differently from the
-  current release the press-colour checks are calibrated against.
+  Node, with Ubuntu's poppler and the FOGRA39L press profile from colord-data.
+  Poppler draws DeviceCMYK with a fixed model of press inks rather than the
+  PDF's output intent, so the press-colour checks proof against a profile of a
+  real press condition: FOGRA39L, or macOS's Generic CMYK where that is present.
 
 CI installs Chrome for Testing and passes its executable path to the demo and
 rendering scripts through `SEGNAVIA_CHROMIUM`. Each job caches Bun's install
