@@ -411,10 +411,11 @@ backgrounds print through a fixed layer behind the content; element background
 colours, CSS background images and `<img>` elements print as authored when the
 user enables Background graphics. The bridge decodes both CSS and element
 images before reporting readiness, and moves a decoded CSS image resource onto
-an image layer because Chromium drops it as a sandboxed-frame background. A URL slide keeps its own print styling and
-readiness because the library cannot inject into it. The sandbox remains
-without same-origin access. Browser printing waits for slide readiness, images
-and fonts only until one shared deadline, then crosses a
+an image layer because Chromium drops it as a sandboxed-frame background. A URL
+slide keeps its own print styling and readiness because the library cannot
+inject into it. The sandbox remains without same-origin access. Browser
+printing waits for slide readiness, images and fonts only until one shared
+deadline, then crosses a
 two-animation-frame paint barrier before opening the dialog. The off-screen
 host stays alive until `afterprint`, with a bounded fallback for engines that
 do not dispatch it; a host-provided print hook remains synchronous for
