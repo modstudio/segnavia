@@ -12,8 +12,9 @@ pushed_files() {
   local_sha=$1
   remote_sha=$2
   if [ "$remote_sha" != "$zero" ]; then
-    git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null
-    return
+    git rev-parse --verify --quiet "$remote_sha^{commit}" >/dev/null || return 1
+    git diff --name-only "$remote_sha" "$local_sha"
+    return $?
   fi
   base=$(git merge-base "$local_sha" origin/main 2>/dev/null || git merge-base "$local_sha" main 2>/dev/null)
   if [ -n "$base" ]; then
@@ -55,6 +56,16 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
   case "$local_ref" in
     refs/heads/*) branch=${local_ref#refs/heads/} ;;
+    HEAD)
+      branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+      if [ -n "$branch" ]; then
+        :
+      else
+        echo "pre-push: cannot address a review artifact for HEAD because HEAD is detached." >&2
+        failed=1
+        continue
+      fi
+      ;;
     *)
       echo "pre-push: cannot address a review artifact for $local_ref." >&2
       failed=1
@@ -87,7 +98,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
-  risky=$(pushed_files "$local_sha" "$remote_sha" | grep -E "$risk_paths")
+  if ! pushed=$(pushed_files "$local_sha" "$remote_sha" 2>/dev/null); then
+    echo "pre-push: cannot determine the files being pushed because remote SHA '$remote_sha' cannot be resolved or the diff failed." >&2
+    echo "  Fetch the remote branch and retry the push." >&2
+    failed=1
+    continue
+  fi
+  risky=$(printf '%s\n' "$pushed" | grep -E "$risk_paths")
   if [ -n "$risky" ]; then
     tier=$(json_field "$artifact" tier)
     case "$tier" in

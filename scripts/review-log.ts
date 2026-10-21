@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { artifactPath, currentBranch, reviewCoverage } from './review-artifact'
 
 const COVERAGE_KEYS = ['reviewedSha', 'reviewedTree'] as const
+const RESERVED_FINDING_KEYS = ['branch', 'round', 'timestamp', 'tier', 'tierReason', 'agentCount', ...COVERAGE_KEYS] as const
 
 function argument(name: string): string | undefined {
   const position = process.argv.indexOf(`--${name}`)
@@ -49,12 +50,13 @@ if (findingsPath) {
   } catch (error: unknown) {
     refuse(`--findings is not valid JSON: ${(error as Error).message}`)
   }
-  for (const key of COVERAGE_KEYS) {
-    if (key in findings) refuse(`--findings may not set '${key}' — it is computed from git`)
+  for (const key of RESERVED_FINDING_KEYS) {
+    if (key in findings) refuse(`--findings may not set reserved key '${key}'`)
   }
 }
 
 const artifact = {
+  ...findings,
   branch,
   round,
   timestamp: new Date().toISOString(),
@@ -62,7 +64,6 @@ const artifact = {
   tierReason: reason,
   agentCount,
   ...reviewCoverage(),
-  ...findings,
 }
 
 mkdirSync('.review-logs', { recursive: true })

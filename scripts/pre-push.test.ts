@@ -68,13 +68,13 @@ function recordReview(repository: string, tier: number): void {
   )
 }
 
-function push(repository: string, base: string): { status: number; output: string } {
+function push(repository: string, base: string, localRef = 'refs/heads/feature/SEGNA-130'): { status: number; output: string } {
   const head = git(repository, 'rev-parse', 'HEAD')
   const result = spawnSync('sh', [HOOK], {
     cwd: repository,
     encoding: 'utf8',
     env: fixtureEnv(),
-    input: `refs/heads/feature/SEGNA-130 ${head} refs/heads/feature/SEGNA-130 ${base}\n`,
+    input: `${localRef} ${head} refs/heads/feature/SEGNA-130 ${base}\n`,
   })
   return { status: result.status ?? -1, output: `${result.stdout}${result.stderr}` }
 }
@@ -123,5 +123,35 @@ describe('pre-push review gate', () => {
 
     expect(git(repository, 'rev-parse', 'HEAD')).not.toBe(before)
     expect(push(repository, base).status).toBe(0)
+  })
+
+  it('fails closed when the remote SHA cannot be resolved', () => {
+    const { repository } = makeRepository()
+    commit(repository, 'packages/frame/src/bridge-extra.ts', 'risky\n', 'bridge change')
+    recordReview(repository, 1)
+
+    const result = push(repository, '1111111111111111111111111111111111111111')
+    expect(result.status).toBe(1)
+    expect(result.output).toContain('cannot be resolved or the diff failed')
+    expect(result.output).toContain('Fetch the remote branch and retry')
+  })
+
+  it('resolves an attached branch from a HEAD push tuple', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'ordinary.txt', 'reviewed\n', 'reviewed work')
+    recordReview(repository, 1)
+
+    expect(push(repository, base, 'HEAD').status).toBe(0)
+  })
+
+  it('refuses a HEAD push tuple from a detached HEAD', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'ordinary.txt', 'reviewed\n', 'reviewed work')
+    recordReview(repository, 1)
+    git(repository, 'switch', '--detach', '-q')
+
+    const result = push(repository, base, 'HEAD')
+    expect(result.status).toBe(1)
+    expect(result.output).toContain('HEAD is detached')
   })
 })
