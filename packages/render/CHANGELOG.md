@@ -1,5 +1,28 @@
 # @segnavia/render
 
+## 0.19.0
+
+### Patch Changes
+
+- Updated dependencies [0f1cf64]
+  - @segnavia/frame@0.19.0
+  - @segnavia/format@0.19.0
+  - @segnavia/html@0.19.0
+
+## 0.18.0
+
+### Minor Changes
+
+- 02c3457: Let each slide choose the frozen animation moment used by browser and PDF deck printing, and let scripted slides hold readiness while drawing that moment.
+
+### Patch Changes
+
+- Updated dependencies [3dfbd5a]
+- Updated dependencies [02c3457]
+  - @segnavia/format@0.18.0
+  - @segnavia/frame@0.18.0
+  - @segnavia/html@0.18.0
+
 ## 0.17.0
 
 ### Patch Changes

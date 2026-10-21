@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { animationReport } from './animation-timing.ts'
 import { bridgeForHost, frameDocument, MESSAGE, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS } from './bridge.ts'
 
 describe('frame document', () => {
@@ -34,7 +35,29 @@ describe('frame document', () => {
   test('sandboxed scripts carry no script policy, so the author code runs', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
     expect(html).not.toContain('script-src')
-    expect(html).not.toContain('segnavia:print')
+    expect(html).toContain("new CustomEvent('segnavia:print'")
+  })
+
+  test('the emitted bridge uses the shared animation calculation', async () => {
+    expect(bridgeForHost({ reportHeight: false })).toContain(animationReport.toString())
+    const messages: unknown[] = []
+    const document = {
+      addEventListener: () => {},
+      fonts: null,
+      images: [],
+      readyState: 'complete',
+      documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+      getAnimations: () => [
+        { effect: { getComputedTiming: () => ({ endTime: 1250, iterations: 1 }) } },
+        { effect: { getComputedTiming: () => ({ endTime: 3200, iterations: 2 }) } },
+      ],
+      querySelector: () => null,
+    }
+    const parent = { postMessage: (value: unknown) => messages.push(value) }
+    const window = { addEventListener: () => {} }
+    Function('document', 'parent', 'window', 'MutationObserver', bridgeForHost({ reportHeight: false }))(document, parent, window, undefined)
+    await Promise.resolve()
+    expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
   })
 
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
@@ -44,7 +67,7 @@ describe('frame document', () => {
     expect(html).not.toMatch(/fragment=decodeURIComponent/)
     expect(html.match(/decodeURIComponent/g)).toHaveLength(1)
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
-    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.key, MESSAGE.height, MESSAGE.ready])
+    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.animation, MESSAGE.key, MESSAGE.height, MESSAGE.ready])
     expect(html).toContain(
       "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
     )

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { EVIDENCE, type Harness } from './harness.ts'
 
-const EXISTING_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready'])
+const EXISTING_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
   return h.page

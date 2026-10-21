@@ -108,6 +108,7 @@ export type {
   AuthoringOptions,
   DirtyChangeDetail,
   SaveNotesInput,
+  SavePrintMomentInput,
 } from '@segnavia/frame/authoring'
 export type { SegnaviaIntrinsicElements } from './jsx.ts'
 export type * from './props.ts'

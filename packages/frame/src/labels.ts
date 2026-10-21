@@ -17,6 +17,18 @@ export interface PlayerLabels {
   savingNotes: string
   savedNotes: string
   tryNotesAgain: string
+  printsAt: (seconds: string) => string
+  slideOptions: string
+  slideSettings: string
+  printFrame: string
+  printFrameDescription: string
+  printFrameStart: string
+  printFrameAt: (seconds: string) => string
+  printFrameMark: (value: string) => string
+  printFrameValue: (current: string, total: string) => string
+  back: string
+  done: string
+  resetPrintMoment: string
   noSpeakerNotes: string
   notes: string
   showNotes: string
@@ -59,6 +71,18 @@ export const ENGLISH_LABELS: PlayerLabels = {
   savingNotes: 'Saving…',
   savedNotes: 'Saved',
   tryNotesAgain: 'Try again',
+  printsAt: (seconds) => `Prints at ${seconds} s`,
+  slideOptions: 'Slide options',
+  slideSettings: 'Slide settings',
+  printFrame: 'Print frame',
+  printFrameDescription: 'The moment this slide is frozen at when it is printed or exported to PDF.',
+  printFrameStart: 'Start',
+  printFrameAt: (seconds) => `${seconds} s`,
+  printFrameMark: (value) => `Print frame: ${value}`,
+  printFrameValue: (current, total) => `${current} s / ${total} s`,
+  back: 'Back',
+  done: 'Done',
+  resetPrintMoment: 'Reset',
   noSpeakerNotes: 'No speaker notes',
   notes: 'Notes',
   showNotes: 'Show notes',
