@@ -22,11 +22,16 @@ button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="
 .slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:6px;background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
 li:hover>.slide-menu,li:focus-within>.slide-menu,.slide-menu[aria-expanded="true"]{opacity:1;pointer-events:auto}
 .print-mark{position:absolute;z-index:3;inset-inline-end:6px;inset-block-end:5px;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);font:12px/1 system-ui}
-.print-menu-panel,.print-frame-panel{position:fixed;z-index:8;inset:auto;margin:0;box-sizing:border-box;min-inline-size:150px;padding:6px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:8px;background:Canvas;color:CanvasText;box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 system-ui}
-.print-menu-panel button{inline-size:100%;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:inherit;text-align:start;cursor:pointer}
-.print-menu-panel button:hover,.print-menu-panel button:focus-visible{background:color-mix(in srgb,CanvasText 8%,transparent)}
-.print-frame-panel{display:grid;gap:8px;inline-size:min(230px,calc(100vw - 24px));padding:10px}
-.print-frame-panel output{font-weight:600}.print-frame-panel input{inline-size:100%}.print-frame-actions{display:flex;justify-content:space-between;gap:8px}.print-frame-actions button{padding:5px 9px}
+.slide-settings-list,.slide-settings-panel{position:fixed;z-index:8;inset:auto;margin:0;box-sizing:border-box;min-inline-size:180px;padding:6px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:8px;background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 var(--segnavia-font,system-ui)}
+.slide-settings-list button{all:unset;box-sizing:border-box;display:block;inline-size:100%;padding:7px 9px;border-radius:5px;color:inherit;text-align:start;cursor:pointer}
+.slide-settings-list button:hover,.slide-settings-list button:focus-visible{background:var(--segnavia-line,color-mix(in srgb,CanvasText 8%,transparent))}
+.slide-settings-list button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:1px}
+.slide-settings-panel{display:grid;gap:10px;inline-size:min(300px,calc(100vw - 24px));padding:12px}
+.slide-settings-panel header{display:flex;align-items:start;gap:8px}.slide-settings-panel h2{margin:0;font:600 14px/1.4 inherit}.slide-settings-panel p{margin:2px 0 0;color:var(--segnavia-muted,color-mix(in srgb,CanvasText 65%,transparent));font-size:12px}
+.slide-settings-panel output{font-weight:600}.slide-settings-panel input{inline-size:100%}.print-frame-actions{display:flex;justify-content:space-between;gap:8px}
+.slide-settings-panel button{all:unset;box-sizing:border-box;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:7px;background:var(--segnavia-surface,Canvas);color:inherit;cursor:pointer}
+.slide-settings-panel button:hover{background:var(--segnavia-line,color-mix(in srgb,CanvasText 8%,transparent))}.slide-settings-panel button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:1px}
+.slide-settings-panel [data-back]{flex:none;padding:4px 7px}.slide-settings-panel [data-done]{border-color:var(--segnavia-accent,#356ae6);background:var(--segnavia-accent,#356ae6);color:var(--segnavia-accent-ink,#fff)}
 .segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));pointer-events:none}
 .segnavia-stage__canvas>iframe{position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 .segnavia-stage__annotations{pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
@@ -42,7 +47,7 @@ export interface RailReorderIntent {
   toIndex: number
 }
 
-export interface RailPrintFrameItem {
+export interface RailSlideSettingsItem {
   slideId: string
   label: string
   markLabel?: string
@@ -60,8 +65,8 @@ export class SegnaviaRail extends SegnaviaControl {
   private reorderEnabled = false
   private dragFrom: number | null = null
   private reorderListeners = new Set<(intent: RailReorderIntent) => void>()
-  private printFrames = new Map<string, RailPrintFrameItem>()
-  private openPrintFrame: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
+  private slideSettings = new Map<string, RailSlideSettingsItem>()
+  private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
 
   protected styles() {
     return RAIL_CSS
@@ -133,10 +138,10 @@ export class SegnaviaRail extends SegnaviaControl {
     this.root.querySelector('ol')?.replaceChildren()
   }
 
-  setPrintFrames(items: readonly RailPrintFrameItem[], open: ((slideId: string, anchor: HTMLButtonElement) => void) | null) {
-    this.printFrames = new Map(items.map((item) => [item.slideId, item]))
-    this.openPrintFrame = open
-    for (const item of this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')) this.decoratePrintFrame(item, item.dataset.slideId ?? '')
+  setSlideSettings(items: readonly RailSlideSettingsItem[], open: ((slideId: string, anchor: HTMLButtonElement) => void) | null) {
+    this.slideSettings = new Map(items.map((item) => [item.slideId, item]))
+    this.openSlideSettings = open
+    for (const item of this.root.querySelectorAll<HTMLLIElement>('li[data-slide-id]')) this.decorateSlideSettings(item, item.dataset.slideId ?? '')
   }
 
   animationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
@@ -163,7 +168,7 @@ export class SegnaviaRail extends SegnaviaControl {
     const menu = (event.target as Element).closest<HTMLButtonElement>('.slide-menu')
     if (menu) {
       const slideId = menu.closest<HTMLLIElement>('li')?.dataset.slideId
-      if (slideId) this.openPrintFrame?.(slideId, menu)
+      if (slideId) this.openSlideSettings?.(slideId, menu)
       return
     }
     const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
@@ -191,12 +196,12 @@ export class SegnaviaRail extends SegnaviaControl {
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
       list.append(item)
-      this.decoratePrintFrame(item, slide.id)
+      this.decorateSlideSettings(item, slide.id)
     })
   }
 
-  private decoratePrintFrame(item: HTMLLIElement, slideId: string) {
-    const authoring = this.printFrames.get(slideId)
+  private decorateSlideSettings(item: HTMLLIElement, slideId: string) {
+    const authoring = this.slideSettings.get(slideId)
     let menu = item.querySelector<HTMLButtonElement>('.slide-menu')
     let mark = item.querySelector<HTMLElement>('.print-mark')
     if (!authoring) {
@@ -302,7 +307,7 @@ export class SegnaviaRail extends SegnaviaControl {
 
   private onKey = (event: KeyboardEvent) => {
     if (!this.controller?.state.deck) return
-    if ((event.target as Element).closest('.slide-menu,.print-menu-panel,.print-frame-panel')) return
+    if ((event.target as Element).closest('.slide-menu,.slide-settings-list,.slide-settings-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
     if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && this.reorderEnabled) {

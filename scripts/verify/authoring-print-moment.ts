@@ -2,9 +2,9 @@ import type { Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
-async function visiblePopoverControls(h: Harness, context: string) {
-  const facts = await h.page.locator(`${PLAYER} segnavia-rail .print-frame-panel`).evaluate((panel) => {
-    const controls = [panel.querySelector('output'), panel.querySelector('input'), panel.querySelector('[data-reset]'), panel.querySelector('[data-done]')]
+async function visiblePopoverControls(h: Harness, context: string, selector: string, controlSelectors: string[]) {
+  const facts = await h.page.locator(`${PLAYER} segnavia-rail ${selector}`).evaluate((panel, selectors) => {
+    const controls = selectors.map((selector) => panel.querySelector(selector))
     const viewport = (element: Element) => {
       const rect = element.getBoundingClientRect()
       const x = rect.left + rect.width / 2
@@ -18,8 +18,8 @@ async function visiblePopoverControls(h: Harness, context: string) {
       controls: controls.map((control) => (control ? viewport(control) : false)),
       rect: panel.getBoundingClientRect().toJSON(),
     }
-  })
-  h.check(`${context} print frame popover and controls stay visible`, facts.panel && facts.controls.every(Boolean), JSON.stringify(facts))
+  }, controlSelectors)
+  h.check(`${context} slide settings and controls stay visible`, facts.panel && facts.controls.every(Boolean), JSON.stringify(facts))
 }
 
 export async function verifyAuthoredPrintMoment(h: Harness) {
@@ -31,15 +31,15 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   )
   const controls = await page.locator(PLAYER).evaluate((player) => {
     const items = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll<HTMLLIElement>('li') ?? []
-    return [...items].map((item) => ({ id: item.dataset.slideId, menu: Boolean(item.querySelector('.slide-menu')) }))
+    return [...items].map((item) => ({ id: item.dataset.slideId, menu: item.querySelector('.slide-menu')?.getAttribute('aria-label') ?? null }))
   })
   check(
-    'a static slide has no menu while animated and canvas slides do',
+    'only slides with an applicable setting have a menu',
     JSON.stringify(controls) ===
       JSON.stringify([
-        { id: 'static', menu: false },
-        { id: 'animated', menu: true },
-        { id: 'canvas', menu: true },
+        { id: 'static', menu: null },
+        { id: 'animated', menu: 'Slide settings' },
+        { id: 'canvas', menu: 'Slide settings' },
       ]),
     JSON.stringify(controls),
   )
@@ -47,7 +47,8 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   const canvasMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="canvas"] .slide-menu`)
   await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="canvas"]`).hover()
   await canvasMenu.click()
-  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
+  await visiblePopoverControls(h, 'wide rail list', '.slide-settings-list', ['[data-setting="print-frame"]'])
+  await page.locator(`${PLAYER} segnavia-rail .slide-settings-list button`).click()
   const canvasMax = await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).getAttribute('max')
   check('a canvas-only slide uses the ten second scrubber range', canvasMax === '10000', String(canvasMax))
   await page.keyboard.press('Escape')
@@ -55,17 +56,42 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   const animatedMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"] .slide-menu`)
   await animatedMenu.focus()
   await animatedMenu.press('Enter')
-  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).press('Enter')
-  await visiblePopoverControls(h, 'wide rail')
+  const settingRow = page.locator(`${PLAYER} segnavia-rail .slide-settings-list [data-setting="print-frame"]`)
+  check(
+    'the settings list shows print frame and its current value',
+    (await settingRow.textContent()) === 'Print frame · Start',
+    String(await settingRow.textContent()),
+  )
+  await settingRow.press('Enter')
+  const heading = page.locator(`${PLAYER} segnavia-rail .print-frame-panel h2`)
+  const description = page.locator(`${PLAYER} segnavia-rail .print-frame-panel p`)
+  check(
+    'the print frame panel names and explains the setting',
+    (await heading.textContent()) === 'Print frame' &&
+      (await description.textContent()) === 'The moment this slide is frozen at when it is printed or exported to PDF.',
+    `${await heading.textContent()} | ${await description.textContent()}`,
+  )
+  await page.locator(`${PLAYER} segnavia-rail [data-back]`).click()
+  check('Back returns to the settings list', await settingRow.isVisible(), String(await settingRow.isVisible()))
+  await settingRow.press('Enter')
+  await visiblePopoverControls(h, 'wide rail panel', '.print-frame-panel', ['h2', 'p', 'output', 'input', '[data-back]', '[data-reset]', '[data-done]'])
   const slider = page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`)
   await slider.press('ArrowRight')
-  const keyboardDraft = await page.evaluate(
+  const hundredMillisecondDraft = await page.evaluate(
     () =>
       (window as unknown as { authoring: { draftDeck(): { slides: Array<{ id: string; printAtMs?: number }> } } }).authoring
         .draftDeck()
         .slides.find((slide) => slide.id === 'animated')?.printAtMs,
   )
-  check('the print frame menu and scrubber work from the keyboard', keyboardDraft === 1, String(keyboardDraft))
+  check('ArrowRight moves the print frame by 100 milliseconds', hundredMillisecondDraft === 100, String(hundredMillisecondDraft))
+  await slider.press('Shift+ArrowRight')
+  const oneSecondDraft = await page.evaluate(
+    () =>
+      (window as unknown as { authoring: { draftDeck(): { slides: Array<{ id: string; printAtMs?: number }> } } }).authoring
+        .draftDeck()
+        .slides.find((slide) => slide.id === 'animated')?.printAtMs,
+  )
+  check('Shift+ArrowRight moves the print frame by 1000 milliseconds', oneSecondDraft === 1100, String(oneSecondDraft))
   await slider.evaluate((input: HTMLInputElement) => {
     input.value = '420'
     input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -87,12 +113,14 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferPrintMoment: boolean } }).authoringFacts.deferPrintMoment = true))
   await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"]`).hover()
   await animatedMenu.click()
-  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).click()
+  await page.locator(`${PLAYER} segnavia-rail .slide-settings-list button`).click()
   await page.locator(`${PLAYER} segnavia-rail .print-frame-panel input`).evaluate((input: HTMLInputElement) => {
     input.value = '1200'
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await page.locator(`${PLAYER} segnavia-rail [data-done]`).click()
+  const markLabel = await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"] .print-mark`).getAttribute('aria-label')
+  check('the thumbnail print mark names the setting and value', markLabel === 'Print frame: 1.2 s', String(markLabel))
   await page.waitForFunction(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves.length === 2)
   const saveFacts = await page.evaluate(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves)
   check(
@@ -134,8 +162,9 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   const rtlMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="probe"] .slide-menu`)
   await rtlMenu.focus()
   await rtlMenu.press('Enter')
-  await page.locator(`${PLAYER} segnavia-rail .print-menu-panel button`).press('Enter')
-  await visiblePopoverControls(h, 'RTL rail')
+  await visiblePopoverControls(h, 'RTL rail list', '.slide-settings-list', ['[data-setting="print-frame"]'])
+  await page.locator(`${PLAYER} segnavia-rail .slide-settings-list button`).press('Enter')
+  await visiblePopoverControls(h, 'RTL rail panel', '.print-frame-panel', ['h2', 'p', 'output', 'input', '[data-back]', '[data-reset]', '[data-done]'])
   await page.keyboard.press('Escape')
 
   await page.goto(h.url('authoring.html'))
