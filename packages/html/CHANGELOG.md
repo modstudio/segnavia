@@ -1,5 +1,16 @@
 # @segnavia/html
 
+## 0.22.0
+
+### Minor Changes
+
+- 20cdad3: Declare reusable item slots and fill them consistently in viewers, thumbnails, browser print, and server renders.
+
+### Patch Changes
+
+- Updated dependencies [20cdad3]
+  - @segnavia/format@0.22.0
+
 ## 0.21.0
 
 ### Patch Changes
