@@ -359,6 +359,18 @@ An item that runs its own scripts cannot receive a fill, because those scripts
 could read filled values and resolved assets; set `scripts` to `refuse` or show
 the item without a fill.
 
+A `qr` slot accepts the same HTTPS link value as a `link` slot. Its value binding
+is replaced by an accessible SVG QR code with error correction level M, a
+four-module quiet zone and dark modules coloured by the bound element's CSS.
+
+Required declarations must be `filled` before browser printing or server
+rendering begins. A refusal lists every required key and its report state;
+viewers and thumbnails still show the prepared design for inspection.
+
+An optional slot can put `data-slot-present="key"` on its layout item. The item
+is removed unless that slot is `filled`, so its flex or grid gap collapses with
+it while authored content without that binding remains available as a preview.
+
 **Sides.** An imposition's `sides` is `one` by default or `two`, and its `flip`
 is `long` by default or `short`. With two sides, pages are a front followed by
 its back, and an odd last page has a blank back. `impose` mirrors a back across

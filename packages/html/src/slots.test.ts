@@ -1,6 +1,16 @@
 import { expect, test } from 'bun:test'
 import type { SlotDeclaration, SlotReport } from '@segnavia/format'
-import { hasSlotWork, MAX_SLOT_DECLARATIONS, prepareSlotCollection, prepareSlots, SlotFillRefusedError, slotFillRefusal } from './slots.ts'
+import qrcode from 'qrcode-generator'
+import {
+  hasSlotWork,
+  MAX_SLOT_DECLARATIONS,
+  prepareSlotCollection,
+  prepareSlots,
+  RequiredSlotsRefusedError,
+  requiredSlotRefusal,
+  SlotFillRefusedError,
+  slotFillRefusal,
+} from './slots.ts'
 
 const declarations: SlotDeclaration[] = [
   { key: 'name', label: 'Name', type: 'text', required: true },
@@ -132,4 +142,85 @@ test('collections merge host and item declarations once and cap each item', asyn
 test('items without slot declarations pass through byte for byte', async () => {
   const html = '<script>window.authored = true</script><p>Original</p>'
   expect((await prepareSlots([], {})).apply(html)).toBe(html)
+})
+
+test('QR values render the level M module matrix with a four-module quiet zone and CSS colour', async () => {
+  const link = 'https://example.com/path?a=1&b="two"'
+  const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {
+    fill: { id: 'x', values: { code: link } },
+  })
+  const html = prepared.apply('<div data-slot-value="code">Authored fallback</div>')
+  const expected = qrcode(0, 'M')
+  expected.addData(new URL(link).href)
+  expected.make()
+  const modules = expected.getModuleCount()
+  expect(html).toContain(`<svg viewBox="0 0 ${modules + 8} ${modules + 8}" shape-rendering="crispEdges" role="img"`)
+  expect(html).toContain('aria-label="https://example.com/path?a=1&amp;b=&quot;two&quot;"')
+  expect(html).not.toContain('Authored fallback')
+  const rectangles = [...html.matchAll(/<rect x="(\d+)" y="(\d+)" width="1" height="1" fill="currentColor"\/>/g)].map(([, x, y]) => [Number(x), Number(y)])
+  const expectedDark: number[][] = []
+  for (let row = 0; row < modules; row++) {
+    for (let column = 0; column < modules; column++) if (expected.isDark(row, column)) expectedDark.push([column + 4, row + 4])
+  }
+  expect(rectangles).toEqual(expectedDark)
+})
+
+test('invalid QR links report invalid and keep authored content', async () => {
+  const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {
+    fill: { id: 'x', values: { code: 'javascript:alert(1)' } },
+  })
+  expect(prepared.report.slots.code).toBe('invalid')
+  expect(prepared.apply('<div data-slot-value="code">Authored fallback</div>')).toContain('Authored fallback')
+})
+
+test('a QR link outside ASCII encodes the address it opens, not truncated characters', async () => {
+  const declarations = [{ key: 'code', label: 'Code', type: 'qr', required: false }] as const
+  const hebrew = 'https://example.co.il/שלום'
+  const svg = async (link: string) =>
+    (await prepareSlots([...declarations], { fill: { id: 'x', values: { code: link } } }))
+      .apply('<div data-slot-value="code"></div>')
+      .replace(/aria-label="[^"]*"/, '')
+  expect(await svg(hebrew)).toBe(await svg(new URL(hebrew).href))
+})
+
+test('a QR link too long to encode reports invalid, so a required one blocks output', async () => {
+  const declarations = [{ key: 'code', label: 'Code', type: 'qr', required: true }] as const
+  const prepared = await prepareSlots([...declarations], { fill: { id: 'x', values: { code: `https://example.com/${'x'.repeat(3000)}` } } })
+  expect(prepared.report.slots.code).toBe('invalid')
+  expect(requiredSlotRefusal([...declarations], prepared.report)?.message).toContain('"code" (invalid)')
+  expect(prepared.apply('<div data-slot-value="code">Authored fallback</div>')).toContain('Authored fallback')
+})
+
+test('a value binding on a void element is refused', async () => {
+  const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {
+    fill: { id: 'x', values: { code: 'https://example.com/' } },
+  })
+  expect(() => prepared.apply('<div><img data-slot-value="code" alt="QR"></div>')).toThrow('value binding on <img>')
+})
+
+test('required-slot policy lists every unfilled key and state', () => {
+  const required = declarations.slice(0, 3).map((slot) => ({ ...slot, required: true }))
+  const refusal = requiredSlotRefusal(required, {
+    fill: 'x',
+    slots: { name: 'placeholder', role: 'unavailable', email: 'invalid' },
+  })
+  expect(refusal).toBeInstanceOf(RequiredSlotsRefusedError)
+  expect(refusal?.message).toContain('"name" (placeholder), "role" (unavailable), "email" (invalid)')
+  expect(refusal?.message).toContain('Fill those slots, or mark them optional')
+  expect(requiredSlotRefusal(required, { fill: 'x', slots: { name: 'filled', role: 'filled', email: 'filled' } })).toBeUndefined()
+})
+
+test('present removes an optional slot element a fill leaves empty, so its layout item collapses', async () => {
+  const role = [{ key: 'role', label: 'Role', type: 'text', required: false }] as const
+  const html = '<div class="grid"><p>Kept</p><p data-slot-present="role" data-slot-value="role">Role</p></div>'
+  const filled = await prepareSlots([...role], { fill: { id: 'mina', values: {} } })
+  expect(filled.apply(html)).toBe('<div class="grid"><p>Kept</p></div>')
+  const unfilled = await prepareSlots([...role])
+  expect(unfilled.apply(html)).toBe('<div class="grid"><p>Kept</p><p>Role</p></div>')
+})
+
+test('preparation keeps required items viewable when their slots are unfilled', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: true }])
+  expect(prepared.report.slots.name).toBe('unavailable')
+  expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toContain('Design name')
 })

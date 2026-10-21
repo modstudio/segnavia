@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'image'] as const
+export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'qr', 'image'] as const
 export const SlotType = z.enum(SLOT_TYPES)
 export type SlotType = z.infer<typeof SlotType>
 

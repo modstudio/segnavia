@@ -8,7 +8,8 @@ import {
   type SlotsOptions,
   type SlotValue,
 } from '@segnavia/format'
-import { type Element, isTag, Text } from 'domhandler'
+import { type ChildNode, Element, isTag, Text } from 'domhandler'
+import qrcode from 'qrcode-generator'
 import { bindingNames, hasBindings } from './bindings.ts'
 import { elements, parse, serialize } from './sanitize.ts'
 
@@ -16,6 +17,7 @@ export const MAX_SLOT_DECLARATIONS = 200
 const ASSET_RESOLUTION_CONCURRENCY = 4
 
 export interface PreparedSlots {
+  declarations: SlotDeclaration[]
   report: SlotReport
   apply(html: string): string
 }
@@ -27,6 +29,24 @@ export class SlotFillRefusedError extends Error {
     )
     this.name = 'SlotFillRefusedError'
   }
+}
+
+export class RequiredSlotsRefusedError extends Error {
+  constructor(slots: ReadonlyArray<{ key: string; state: SlotState }>) {
+    super(
+      `Output was refused because required slots are unfilled: ${slots.map(({ key, state }) => `"${key}" (${state})`).join(', ')}. Fill those slots, or mark them optional, to clear this refusal.`,
+    )
+    this.name = 'RequiredSlotsRefusedError'
+  }
+}
+
+/** Returns the print/render refusal for required declarations that remain unfilled. */
+export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], report: SlotReport): RequiredSlotsRefusedError | undefined {
+  const unfilled = declarations.flatMap((slot) => {
+    const state = report.slots[slot.key]
+    return slot.required && state !== 'filled' && state !== undefined ? [{ key: slot.key, state }] : []
+  })
+  return unfilled.length === 0 ? undefined : new RequiredSlotsRefusedError(unfilled)
 }
 
 /** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
@@ -46,6 +66,7 @@ export function slotFillRefusal(
 
 interface ResolvedSlots {
   data: Record<string, string>
+  types: Record<string, SlotDeclaration['type']>
   report: SlotReport
   linkOrigins: Set<string>
   reportState?: (report: SlotReport) => void
@@ -53,8 +74,28 @@ interface ResolvedSlots {
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
 
+// Void elements have no content to fill: a value bound to one would serialize after it.
+const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
+// The largest QR payload considered before encoding; level M at version 40 holds 2331 bytes.
+const QR_PAYLOAD_LIMIT = 4096
+
 function refusesValueBinding(tag: string): boolean {
-  return UNENCODED_TEXT_ELEMENTS.has(tag)
+  return UNENCODED_TEXT_ELEMENTS.has(tag) || VOID_ELEMENTS.has(tag)
+}
+
+// The QR payload is the link's ASCII form (percent-encoded path, punycode host),
+// which opens the same address; the encoder writes each character as one byte.
+function qrPayload(value: string): string | undefined {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.href.length > QR_PAYLOAD_LIMIT) return undefined
+    const code = qrcode(0, 'M')
+    code.addData(url.href)
+    code.make()
+    return url.href
+  } catch {
+    return undefined
+  }
 }
 
 function assertDeclarationLimit(declarations: readonly SlotDeclaration[], subject: string): void {
@@ -76,12 +117,42 @@ function mergedDeclarations(groups: ReadonlyArray<readonly SlotDeclaration[]>, o
   return mergeSlotDeclarations(parsedHostDeclarations(options), ...groups)
 }
 
-function applyText(element: Element, name: string, data: Record<string, string>): void {
+function qrSvg(value: string): Element {
+  const code = qrcode(0, 'M')
+  code.addData(qrPayload(value) ?? value)
+  code.make()
+  const modules = code.getModuleCount()
+  const children: Element[] = []
+  for (let row = 0; row < modules; row++) {
+    for (let column = 0; column < modules; column++) {
+      if (code.isDark(row, column))
+        children.push(new Element('rect', { x: String(column + 4), y: String(row + 4), width: '1', height: '1', fill: 'currentColor' }))
+    }
+  }
+  return new Element(
+    'svg',
+    {
+      viewBox: `0 0 ${modules + 8} ${modules + 8}`,
+      'shape-rendering': 'crispEdges',
+      role: 'img',
+      'aria-label': value,
+    },
+    children,
+  )
+}
+
+function applyValue(element: Element, name: string, resolved: ResolvedSlots): void {
   const path = element.attribs[name]
   if (path === undefined) return
   delete element.attribs[name]
-  const value = data[path]
+  const value = resolved.data[path]
   if (value === undefined) return
+  if (resolved.types[path] === 'qr') {
+    const svg = qrSvg(value)
+    svg.parent = element
+    element.children = [svg]
+    return
+  }
   const text = new Text(value)
   text.parent = element
   element.children = [text]
@@ -93,7 +164,7 @@ function invalidBinding(element: Element, names: ReturnType<typeof bindingNames>
   const value = element.attribs[names.value]
   if (value !== undefined && report.slots[value] !== undefined && refusesValueBinding(tag)) {
     report.slots[value] = 'invalid'
-    return `Slot "${value}" uses a value binding on <${tag}>, whose raw-text content cannot be filled safely.`
+    return `Slot "${value}" uses a value binding on <${tag}>, whose content cannot be filled safely.`
   }
   const src = element.attribs[names.src]
   if (src !== undefined && report.slots[src] !== undefined && tag !== 'img') {
@@ -123,11 +194,30 @@ function applyUrl(element: Element, attribute: 'href' | 'src', name: string, res
   } catch {}
 }
 
-function applyElement(element: Element, names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): void {
-  applyText(element, names.value, resolved.data)
-  applyUrl(element, 'href', names.href, resolved)
-  applyUrl(element, 'src', names.src, resolved)
-  for (const child of element.children) if (isTag(child)) applyElement(child, names, resolved)
+// Without a fill the design shows as authored, placeholders included; an element
+// collapses only when a fill leaves its slot empty.
+function applyPresent(element: Element, name: string, report: SlotReport): boolean {
+  const path = element.attribs[name]
+  if (path === undefined) return true
+  delete element.attribs[name]
+  return report.fill === null || report.slots[path] === 'filled'
+}
+
+function applyElements(elements: Element[], names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): Element[] {
+  return elements.flatMap((element) => {
+    if (!applyPresent(element, names.present, resolved.report)) return []
+    applyValue(element, names.value, resolved)
+    applyUrl(element, 'href', names.href, resolved)
+    applyUrl(element, 'src', names.src, resolved)
+    element.children = element.children.flatMap((child): ChildNode[] => {
+      if (!isTag(child)) return [child]
+      return applyElements([child], names, resolved).map((kept) => {
+        kept.parent = element
+        return kept
+      })
+    })
+    return [element]
+  })
 }
 
 function bindingRefusal(roots: Element[], names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): RangeError | undefined {
@@ -145,6 +235,7 @@ function bindingRefusal(roots: Element[], names: ReturnType<typeof bindingNames>
 
 function validString(type: SlotDeclaration['type'], value: string): boolean {
   if (type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  if (type === 'qr') return qrPayload(value) !== undefined
   if (type === 'link') {
     try {
       return new URL(value).protocol === 'https:'
@@ -209,11 +300,13 @@ async function valueFor(
 
 async function resolveSlots(declarations: readonly SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<ResolvedSlots> {
   const data: Record<string, string> = {}
+  const types: Record<string, SlotDeclaration['type']> = {}
   const states: Record<string, SlotState> = {}
   const linkOrigins = new Set<string>()
   const resolveAsset = assetResolver(options, signal)
   await Promise.all(
     declarations.map(async (slot) => {
+      types[slot.key] = slot.type
       const resolved = await valueFor(slot, options.fill?.values[slot.key], resolveAsset)
       states[slot.key] = resolved.state
       if (resolved.value !== undefined) {
@@ -225,7 +318,7 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   signal.throwIfAborted()
   const report = { fill: options.fill?.id ?? null, slots: states }
   options.report?.(report)
-  return { data, report, linkOrigins, reportState: options.report }
+  return { data, types, report, linkOrigins, reportState: options.report }
 }
 
 function applySlots(html: string, resolved: ResolvedSlots): string {
@@ -239,9 +332,9 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
   })
   const refusal = bindingRefusal(roots, names, resolved)
   if (refusal) throw refusal
-  for (const root of roots) applyElement(root, names, resolved)
+  const kept = applyElements(roots, names, resolved)
   const replacements = roots
-    .map((root) => ({ start: root.startIndex, end: root.endIndex, html: serialize(root) }))
+    .map((root) => ({ start: root.startIndex, end: root.endIndex, html: kept.includes(root) ? serialize(root) : '' }))
     .filter((part): part is { start: number; end: number; html: string } => part.start !== null && part.end !== null)
     .sort((a, b) => b.start - a.start)
   return replacements.reduce((output, part) => `${output.slice(0, part.start)}${part.html}${output.slice(part.end + 1)}`, html)
@@ -249,7 +342,7 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
 
 async function prepared(declarations: SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<PreparedSlots> {
   const resolved = await resolveSlots(declarations, options, signal)
-  return { report: resolved.report, apply: (html) => applySlots(html, resolved) }
+  return { declarations, report: resolved.report, apply: (html) => applySlots(html, resolved) }
 }
 
 /** Prepares and applies the slots declared by one item. */
