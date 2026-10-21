@@ -8,7 +8,7 @@ import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { Lexicon } from './lexicon.ts'
-import { Paper, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { Paper, PrintSetting, PrintSettingInput, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
@@ -119,13 +119,23 @@ export {
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export * from './numbering.ts'
 export {
+  CUSTOM_PAPER_MAX_MM,
+  CUSTOM_PAPER_MIN_MM,
   MARK_GAP_MM,
   MARK_LENGTH_MM,
   MM_PER_PT,
   NAMED_PAPERS,
+  type NamedPaper,
+  type NamedPaperMetadata,
+  PAPER_GROUPS,
+  PAPER_METADATA,
   PAPER_MM,
   Paper,
   type PaperBox,
+  type PaperGroup,
+  type PaperUnit,
+  PrintSetting,
+  PrintSettingInput,
   PX_PER_MM,
   printBoxes,
   printPadding,
@@ -288,5 +298,7 @@ export function jsonSchemas() {
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
     board: z.toJSONSchema(Board, { io: 'input' }),
+    printSetting: z.toJSONSchema(PrintSetting, { io: 'input' }),
+    printSettingInput: z.toJSONSchema(PrintSettingInput, { io: 'input' }),
   }
 }

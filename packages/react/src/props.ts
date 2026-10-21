@@ -1,5 +1,6 @@
 import type { ControllerOptions, DeckController, FittedSize, HostTransition, SegnaviaStage, SegnaviaThumbnail, StageReserve } from '@segnavia/frame'
 import type {
+  PaperPickerLabelOverrides,
   PlayerLabels,
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -7,6 +8,7 @@ import type {
   SegnaviaFullscreen,
   SegnaviaMute,
   SegnaviaNotes,
+  SegnaviaPaperPicker,
   SegnaviaPlay,
   SegnaviaRail,
   SegnaviaStep,
@@ -71,6 +73,12 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   css?: string
   mountMargin?: number
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
+}
+
+export type PaperPickerProps = Omit<ElementProps<SegnaviaPaperPicker>, 'onChange'> & {
+  value?: SegnaviaPaperPicker['value']
+  labels?: PaperPickerLabelOverrides
+  onChange?: CustomEventProp<SegnaviaPaperPicker['value']>
 }
 
 export type PlayProps = ControlProps<SegnaviaPlay>

@@ -30,11 +30,74 @@ export const NAMED_PAPERS = [
   'a1',
   'a0',
 ] as const
-export const Paper = z.union([
-  z.enum(NAMED_PAPERS),
-  z.object({ width: z.number().positive(), height: z.number().positive(), unit: z.enum(['mm', 'in', 'pt']) }),
-])
+export type NamedPaper = (typeof NAMED_PAPERS)[number]
+
+export const PAPER_GROUPS = ['Office', 'Cards', 'Leaflets', 'Posters'] as const
+export type PaperGroup = (typeof PAPER_GROUPS)[number]
+
+export interface NamedPaperMetadata {
+  name: string
+  group: PaperGroup
+  size: string
+}
+
+export const PAPER_METADATA = {
+  letter: { name: 'Letter', group: 'Office', size: '8.5 × 11 in' },
+  legal: { name: 'Legal', group: 'Office', size: '8.5 × 14 in' },
+  tabloid: { name: 'Tabloid', group: 'Office', size: '11 × 17 in' },
+  a3: { name: 'A3', group: 'Office', size: '297 × 420 mm' },
+  a4: { name: 'A4', group: 'Office', size: '210 × 297 mm' },
+  a5: { name: 'A5', group: 'Office', size: '148 × 210 mm' },
+  'business-card-us': { name: 'Business card (US)', group: 'Cards', size: '3.5 × 2 in' },
+  'business-card-eu': { name: 'Business card (EU)', group: 'Cards', size: '85 × 55 mm' },
+  'business-card-square-us': { name: 'Square business card (US)', group: 'Cards', size: '2.5 × 2.5 in' },
+  'business-card-slim-us': { name: 'Slim business card (US)', group: 'Cards', size: '3.5 × 1.75 in' },
+  'postcard-4x6': { name: 'Postcard 4 × 6', group: 'Cards', size: '4 × 6 in' },
+  'postcard-5x7': { name: 'Postcard 5 × 7', group: 'Cards', size: '5 × 7 in' },
+  'postcard-6x9': { name: 'Postcard 6 × 9', group: 'Cards', size: '6 × 9 in' },
+  'postcard-6x11': { name: 'Postcard 6 × 11', group: 'Cards', size: '6 × 11 in' },
+  'card-square-4in': { name: 'Square card 4 in', group: 'Cards', size: '4 × 4 in' },
+  'half-letter': { name: 'Half letter', group: 'Leaflets', size: '5.5 × 8.5 in' },
+  a6: { name: 'A6', group: 'Leaflets', size: '105 × 148 mm' },
+  dl: { name: 'DL', group: 'Leaflets', size: '99 × 210 mm' },
+  'rack-card-4x9': { name: 'Rack card 4 × 9', group: 'Leaflets', size: '4 × 9 in' },
+  'rack-card-3.5x8.5': { name: 'Rack card 3.5 × 8.5', group: 'Leaflets', size: '3.5 × 8.5 in' },
+  'poster-12x18': { name: 'Poster 12 × 18', group: 'Posters', size: '12 × 18 in' },
+  'poster-16x20': { name: 'Poster 16 × 20', group: 'Posters', size: '16 × 20 in' },
+  'poster-18x24': { name: 'Poster 18 × 24', group: 'Posters', size: '18 × 24 in' },
+  'poster-24x36': { name: 'Poster 24 × 36', group: 'Posters', size: '24 × 36 in' },
+  a2: { name: 'A2', group: 'Posters', size: '420 × 594 mm' },
+  a1: { name: 'A1', group: 'Posters', size: '594 × 841 mm' },
+  a0: { name: 'A0', group: 'Posters', size: '841 × 1189 mm' },
+} satisfies Record<NamedPaper, NamedPaperMetadata>
+
+export const CUSTOM_PAPER_MIN_MM = 10
+export const CUSTOM_PAPER_MAX_MM = 2000
+const PaperUnit = z.enum(['mm', 'in', 'pt'])
+export type PaperUnit = z.infer<typeof PaperUnit>
+
+const CustomPaper = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit }).superRefine((paper, ctx) => {
+  for (const side of ['width', 'height'] as const) {
+    const millimeters = toMillimeters(paper[side], paper.unit)
+    if (millimeters < CUSTOM_PAPER_MIN_MM || millimeters > CUSTOM_PAPER_MAX_MM) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [side],
+        message: `${side} must be between ${CUSTOM_PAPER_MIN_MM}mm and ${CUSTOM_PAPER_MAX_MM}mm`,
+      })
+    }
+  }
+})
+export const Paper = z.union([z.enum(NAMED_PAPERS), CustomPaper])
 export type Paper = z.infer<typeof Paper>
+
+const PrintSettingShape = { paper: Paper, orientation: z.enum(['portrait', 'landscape']) } as const
+// Reading stored history ignores fields added by a newer host. Writes use the
+// strict form so a typo cannot silently enter storage.
+export const PrintSetting = z.object(PrintSettingShape)
+export type PrintSetting = z.infer<typeof PrintSetting>
+export const PrintSettingInput = z.strictObject(PrintSettingShape)
+export type PrintSettingInput = z.input<typeof PrintSettingInput>
 
 export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
@@ -46,7 +109,6 @@ export function toMillimeters(value: number, unit: 'mm' | 'in' | 'pt'): number {
   return value * (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
 }
 
-type NamedPaper = Extract<Paper, string>
 type PaperSize = { width: number; height: number; unit: 'mm' | 'in' }
 
 const PAPER_SIZE = {

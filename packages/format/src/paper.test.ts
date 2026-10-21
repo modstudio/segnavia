@@ -1,6 +1,21 @@
 import { describe, expect, test } from 'bun:test'
 import { Page, Print } from './index.ts'
-import { PAPER_MM, printBoxes, printProperties, sheetMm, toMillimeters } from './paper.ts'
+import {
+  CUSTOM_PAPER_MAX_MM,
+  CUSTOM_PAPER_MIN_MM,
+  MM_PER_PT,
+  NAMED_PAPERS,
+  PAPER_GROUPS,
+  PAPER_METADATA,
+  PAPER_MM,
+  Paper,
+  PrintSetting,
+  PrintSettingInput,
+  printBoxes,
+  printProperties,
+  sheetMm,
+  toMillimeters,
+} from './paper.ts'
 
 const printerPapers = [
   ['letter', 215.9, 279.4],
@@ -33,6 +48,37 @@ const printerPapers = [
 ] as const
 
 describe('paper', () => {
+  test('metadata covers every named paper and uses the stable group order', () => {
+    expect(Object.keys(PAPER_METADATA)).toEqual([...NAMED_PAPERS])
+    expect(PAPER_GROUPS).toEqual(['Office', 'Cards', 'Leaflets', 'Posters'])
+    expect(PAPER_METADATA['business-card-us']).toEqual({ name: 'Business card (US)', group: 'Cards', size: '3.5 × 2 in' })
+    expect(PAPER_METADATA.a4).toEqual({ name: 'A4', group: 'Office', size: '210 × 297 mm' })
+  })
+
+  test.each([
+    ['mm', 1],
+    ['in', 25.4],
+    ['pt', MM_PER_PT],
+  ] as const)('custom paper boundaries are normalized from %s', (unit, millimetersPerUnit) => {
+    const minimum = CUSTOM_PAPER_MIN_MM / millimetersPerUnit
+    const maximum = CUSTOM_PAPER_MAX_MM / millimetersPerUnit
+    expect(Paper.safeParse({ width: minimum, height: maximum, unit }).success).toBe(true)
+    expect(Paper.safeParse({ width: minimum - 0.001, height: maximum, unit }).success).toBe(false)
+    expect(Paper.safeParse({ width: minimum, height: maximum + 0.001, unit }).success).toBe(false)
+  })
+
+  test('custom paper refuses non-finite and extreme dimensions', () => {
+    expect(Paper.safeParse({ width: 10_000_000, height: 10_000_000, unit: 'in' }).success).toBe(false)
+    expect(Paper.safeParse({ width: 1e300, height: 1e300, unit: 'mm' }).success).toBe(false)
+    expect(Paper.safeParse({ width: Number.POSITIVE_INFINITY, height: 10, unit: 'mm' }).success).toBe(false)
+  })
+
+  test('stored print settings validate writes strictly and read history tolerantly', () => {
+    const stored = { paper: 'a4', orientation: 'portrait', future: true }
+    expect(PrintSetting.parse(stored)).toEqual({ paper: 'a4', orientation: 'portrait' })
+    expect(PrintSettingInput.safeParse(stored).success).toBe(false)
+  })
+
   test('converts supported length units to millimeters', () => {
     expect(toMillimeters(12, 'mm')).toBe(12)
     expect(toMillimeters(1, 'in')).toBe(25.4)
