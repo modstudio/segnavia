@@ -24,6 +24,7 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardNode } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
+import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
@@ -268,21 +269,17 @@ export class SegnaviaBoard extends BoardSelectionElement {
   }
 
   reveal(id: string): boolean {
-    const board = this.value
-    if (!board || this.clientWidth <= 96 || this.clientHeight <= 96) return false
-    const item = board.items.find((entry) => entry.id === id)
-    const section = board.sections.find((entry) => entry.id === id)
-    if (!item && !section) return false
-    const bounds = section?.rectangle ?? {
-      x: item?.x ?? 0,
-      y: item?.y ?? 0,
-      width: item?.width ?? 0,
-      height: item ? itemHeight(item, this.shapes.items[item.id] as { width: number; height: number }) : 0,
-    }
+    return this.revealItem(id, true)
+  }
+
+  private revealItem(id: string, focus: boolean): boolean {
+    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapes.items, id) : undefined
+    if (!target) return false
+    const item = target.item
     this.pendingReveal = undefined
-    this.setView(revealView(bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
-    if (item) this.pendingReveal = { id: item.id, height: bounds.height }
-    if (item) requestAnimationFrame(() => this.mounts.nodes.get(item.id)?.focus())
+    this.setView(revealView(target.bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
+    if (item) this.pendingReveal = { id: item.id, height: target.bounds.height }
+    if (item && focus) focusAfterReveal(() => this.mounts.nodes.get(item.id)?.focus())
     return true
   }
 
@@ -374,7 +371,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
           pendingItem ? itemHeight(pendingItem, shape) : 0,
         )
         for (const current of this.value?.items ?? []) if (current.address === resolvedItem.address) this.shapes.items[current.id] = shape
-        if (refit && resolvedId) this.reveal(resolvedId)
+        if (refit && resolvedId) this.revealItem(resolvedId, false)
         else this.render()
         if (resolved.title) this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
       },
