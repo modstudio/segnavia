@@ -46,7 +46,7 @@ async function verifyPagePrintBackgrounds(h: Harness) {
     const bundle = '/segnavia.js'
     const lib = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
     const image = (color: string) =>
-      `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='${color.replace('#', '%23')}'/%3E%3C/svg%3E`
+      `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${color}"/></svg>`)}`
     const pageHtml = (root: string, element: string, backgroundImage: string, img: string) =>
       `<!doctype html><html style="background:${root}"><body style="margin:0"><div style="position:fixed;inset:0 0 50% 50%;background:${element}"></div><div style="position:fixed;inset:50% 50% 0 0;background:url(${image(backgroundImage)}) center/cover no-repeat"></div><img alt="print sample" src="${image(img)}" style="position:fixed;inset:50% 0 0 50%;width:50%;height:50%"></body></html>`
     let html = ''

@@ -273,11 +273,6 @@ describe('printableDeck', () => {
 })
 
 describe('printablePages', () => {
-  test('lifts frame root backgrounds for browser printing', () => {
-    const html = printablePages([fluid], grid, { nonce: 'test' })
-    expect(html).toContain('data-segnavia-print-background')
-  })
-
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
     const imposed = impose(grid, pages.length)
@@ -287,6 +282,7 @@ describe('printablePages', () => {
     expect(wrapped).toBe(content)
     expect(printable.imposed).toEqual(imposed)
     expect(printablePages(pages, grid, { nonce: 'test' })).toBe(printable.html)
+    expect(printable.html).toContain('data-segnavia-print-background')
   })
 
   test('builds papers with every placement clipped to its bleed box', () => {

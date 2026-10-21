@@ -78,12 +78,14 @@ var backgroundImages=function(){var elements=[document.documentElement,document.
 var settle=function(element,pseudo){var style=getComputedStyle(element,pseudo);var value=style.backgroundImage;var pattern=/url\\((?:"([^"]*)"|'([^']*)'|([^)]*))\\)/g;var matches=[];var match;
 while((match=pattern.exec(value))){var url=(match[1]||match[2]||match[3]||'').trim();if(url)matches.push({text:match[0],url:url});}
 return Promise.all(matches.map(function(found){var image=new Image();image.src=found.url;var ready=image.decode?image.decode():new Promise(function(resolve,reject){if(image.complete){resolve();return;}image.onload=resolve;image.onerror=reject;});return ready.then(function(){
-if(pseudo)return;try{var canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;canvas.getContext('2d').drawImage(image,0,0);found.width=image.naturalWidth;found.height=image.naturalHeight;found.data=canvas.toDataURL('image/png');}catch(error){}
+if(pseudo)return;found.width=image.naturalWidth;found.height=image.naturalHeight;found.data=found.url;
 },function(){}); })).then(function(){if(pseudo||matches.length!==1||!matches[0].data)return;
-var image=document.createElement('img');image.src=matches[0].data;image.setAttribute('data-segnavia-print-background-image','');image.style.position='absolute';image.style.pointerEvents='none';image.style.zIndex='-2147483647';
+// Chromium also omits CSS image resources in sandboxed-frame backgrounds, so
+// a decoded resource becomes an equivalent image layer before readiness.
+var image=document.createElement('img');image.src=matches[0].data;image.setAttribute('data-segnavia-print-background-image','');image.style.position='absolute';image.style.pointerEvents='none';image.style.zIndex='-1';
 var size=style.backgroundSize.split(' ');var position=style.backgroundPosition.split(' ');var x=position[0]||'0%';var y=position[1]||'0%';
 if(style.backgroundSize==='cover'||style.backgroundSize==='contain'){image.style.inset='0';image.style.width='100%';image.style.height='100%';image.style.objectFit=style.backgroundSize;image.style.objectPosition=x+' '+y;}else{image.style.width=size[0]==='auto'?matches[0].width+'px':size[0];image.style.height=(size[1]||size[0])==='auto'?matches[0].height+'px':(size[1]||size[0]);image.style.left=x;image.style.top=y;image.style.transform='translate('+(x.indexOf('%')<0?'0':('-'+x))+','+(y.indexOf('%')<0?'0':('-'+y))+')';}
-if(getComputedStyle(element).position==='static')element.style.position='relative';element.style.isolation='isolate';element.style.backgroundImage='none';element.insertBefore(image,element.firstChild);
+if(getComputedStyle(element).position==='static')element.style.position='relative';if(style.zIndex==='auto')element.style.zIndex='0';element.style.isolation='isolate';element.style.backgroundImage='none';element.insertBefore(image,element.firstChild);return image.decode?image.decode().catch(function(){}):null;
 });};
 var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.push(settle(elements[i],null),settle(elements[i],'::before'),settle(elements[i],'::after'));}return waits;
 };`
