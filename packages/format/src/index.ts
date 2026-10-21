@@ -267,6 +267,7 @@ export const PageSize = z.union([z.literal('fluid'), Size, z.object({ width: z.n
 export type PageSize = z.infer<typeof PageSize>
 
 export const Page = z.object({
+  id: z.string().optional(),
   html: z.string(),
   size: PageSize.default('fluid'),
   scripts: Scripts.default('refuse'),

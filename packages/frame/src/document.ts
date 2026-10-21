@@ -15,6 +15,9 @@ export class SegnaviaDocument extends HTMLElement {
   private pageValues: Page[] = []
   private printValue: Print | null = null
   private observer: IntersectionObserver | null = null
+  private pageObserver: IntersectionObserver | null = null
+  private currentPage = 0
+  private authoringRail: HTMLElement | null = null
 
   get css(): string {
     return this.stylesheet
@@ -23,6 +26,7 @@ export class SegnaviaDocument extends HTMLElement {
   set css(value: string) {
     this.stylesheet = value
     this.paint()
+    this.changed()
   }
 
   get cspExtra(): string {
@@ -41,6 +45,7 @@ export class SegnaviaDocument extends HTMLElement {
   set pages(value: PageInput[] | undefined) {
     this.pageValues = (value ?? []).map((page) => Page.parse(page))
     this.paint()
+    this.changed()
   }
 
   get print(): Print | null {
@@ -50,6 +55,7 @@ export class SegnaviaDocument extends HTMLElement {
   set print(value: PrintInput | null | undefined) {
     this.printValue = value == null ? null : Print.parse(value)
     this.paint()
+    this.changed()
   }
 
   connectedCallback() {
@@ -59,6 +65,7 @@ export class SegnaviaDocument extends HTMLElement {
 
   disconnectedCallback() {
     this.observer?.disconnect()
+    this.pageObserver?.disconnect()
     this.observer = null
   }
 
@@ -69,22 +76,39 @@ export class SegnaviaDocument extends HTMLElement {
     this.pageValues = pages
     this.printValue = print
     this.paint()
+    this.changed()
+  }
+
+  /** Installs the optional authoring rail without making it part of the viewer entry. */
+  setAuthoringRail(rail: HTMLElement | null): void {
+    this.authoringRail = rail
+    this.paint()
+  }
+
+  scrollToPage(index: number): void {
+    this.querySelector<HTMLElement>(`.segnavia-document__item[data-page-index="${index}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 
   private paint() {
     this.observer?.disconnect()
     this.observer = null
+    this.pageObserver?.disconnect()
+    this.pageObserver = null
     this.replaceChildren()
     this.style.removeProperty('--segnavia-document-paper-aspect')
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     const projection = projectPageOnPaper(this.pageValues[0] as Page, print)
     this.style.setProperty('--segnavia-document-paper-aspect', String(projection.aspect))
+    const layout = document.createElement('div')
+    layout.className = 'segnavia-document__layout'
+    if (this.authoringRail) layout.append(this.authoringRail)
     const list = document.createElement('div')
     list.className = 'segnavia-document__pages'
     const sheets = this.pageValues.map((_, index) => {
       const item = document.createElement('div')
       item.className = 'segnavia-document__item'
+      item.dataset.pageIndex = String(index)
       const sheet = document.createElement('div')
       sheet.className = 'segnavia-document__sheet'
       sheet.dataset.page = String(index)
@@ -96,7 +120,8 @@ export class SegnaviaDocument extends HTMLElement {
       list.append(item)
       return sheet
     })
-    this.append(list)
+    layout.append(list)
+    this.append(layout)
     this.observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -108,6 +133,18 @@ export class SegnaviaDocument extends HTMLElement {
       { rootMargin: `${MOUNT_MARGIN}px` },
     )
     for (const sheet of sheets) this.observer.observe(sheet)
+    this.pageObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (!visible) return
+        const index = Number((visible.target as HTMLElement).dataset.pageIndex)
+        if (index === this.currentPage) return
+        this.currentPage = index
+        this.dispatchEvent(new CustomEvent('segnavia-document-page', { detail: { index } }))
+      },
+      { threshold: [0.25, 0.5, 0.75] },
+    )
+    for (const item of list.querySelectorAll<HTMLElement>('.segnavia-document__item')) this.pageObserver.observe(item)
   }
 
   private mount(sheet: HTMLElement) {
@@ -123,5 +160,9 @@ export class SegnaviaDocument extends HTMLElement {
     page.part.add('page')
     sheet.append(page)
     page.load(projection.page)
+  }
+
+  private changed() {
+    this.dispatchEvent(new CustomEvent('segnavia-document-change'))
   }
 }
