@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { currentTree } from './review-artifact'
+import { cleanGitEnv, currentTree } from './review-artifact'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SCRIPT = join(ROOT, 'scripts/review-log.ts')
@@ -12,7 +12,7 @@ const RESERVED_KEYS: string[] = ['branch', 'round', 'timestamp', 'tier', 'tierRe
 const temporaryRepositories: string[] = []
 
 function git(repository: string, ...arguments_: string[]): string {
-  return execFileSync('git', ['-C', repository, ...arguments_], { encoding: 'utf8' }).trim()
+  return execFileSync('git', ['-C', repository, ...arguments_], { encoding: 'utf8', env: cleanGitEnv() }).trim()
 }
 
 function makeRepository(): string {
@@ -32,6 +32,7 @@ function reviewLog(repository: string, findingsPath: string) {
   return spawnSync('bun', [SCRIPT, '--tier', '1', '--reason', 'test', '--agents', '2', '--findings', findingsPath], {
     cwd: repository,
     encoding: 'utf8',
+    env: cleanGitEnv(),
   })
 }
 
