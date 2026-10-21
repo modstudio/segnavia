@@ -134,10 +134,10 @@ function gitLines(args: string[]): string[] {
 }
 
 function changedFiles(staged: boolean): string[] {
-  if (staged) return gitLines(['diff', '--cached', '--name-only', '--diff-filter=ACMRD'])
+  if (staged) return gitLines(['diff', '--cached', '--name-only', '--no-renames', '--diff-filter=ACMRD'])
   const [mergeBase] = gitLines(['merge-base', 'HEAD', 'origin/main'])
   if (!mergeBase) throw new Error('Could not find the merge base with origin/main.')
-  return gitLines(['diff', '--name-only', '--diff-filter=ACMRD', mergeBase])
+  return gitLines(['diff', '--name-only', '--no-renames', '--diff-filter=ACMRD', mergeBase])
 }
 
 const names = hostNames()
