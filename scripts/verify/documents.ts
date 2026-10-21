@@ -58,7 +58,6 @@ export async function verifyDocuments(h: Harness) {
   }))
   check('a rejected document reorder rolls back and reports an authoring error', failed.ids === 'cover,inside' && failed.errors === 1, JSON.stringify(failed))
   await rail.locator('button[data-index="1"]').click()
-  await page.waitForTimeout(500)
   const selection = await page
     .locator('#brochure .segnavia-document__item[data-page-index="1"]')
     .evaluate((item) => Math.abs(item.getBoundingClientRect().top) < 80)

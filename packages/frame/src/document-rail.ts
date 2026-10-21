@@ -1,6 +1,7 @@
 import type { Page, Print } from '@segnavia/format'
-import { railMoveTarget, railSelection } from './rail-navigation.ts'
-import { SegnaviaThumbnail } from './thumbnail.ts'
+import { railSelection } from './rail-navigation.ts'
+import { RAIL_REORDER_CSS, RailDragReorder } from './rail-reorder.ts'
+import type { SegnaviaThumbnail } from './thumbnail.ts'
 
 const CSS = `
 :host{display:block;inline-size:var(--segnavia-rail-size,160px);min-block-size:0;color:var(--segnavia-ink,CanvasText)}
@@ -11,8 +12,7 @@ button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-of
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:var(--_page-aspect);border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
 [aria-selected="true"] .preview{border:2px solid var(--segnavia-accent,#356ae6)}
 segnavia-thumbnail{inline-size:100%;block-size:100%}
-button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
-button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
+${RAIL_REORDER_CSS}
 .number{position:absolute;z-index:2;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
 `
 
@@ -26,7 +26,15 @@ export class SegnaviaDocumentRail extends HTMLElement {
   private pages: readonly Page[] = []
   private selected = 0
   private enabled = false
-  private dragFrom: number | null = null
+  private drag = new RailDragReorder({
+    root: this.root,
+    enabled: () => this.enabled,
+    count: () => this.pages.length,
+    horizontal: () => false,
+    direction: () => (getComputedStyle(this).direction === 'rtl' ? 'rtl' : 'ltr'),
+    buttons: () => this.buttons(),
+    reorder: (fromIndex, toIndex) => this.emitReorder(fromIndex, toIndex),
+  })
   private listeners = new Set<(intent: DocumentRailReorderIntent) => void>()
   private selectPage: (index: number) => void = () => {}
 
@@ -40,10 +48,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
     this.setAttribute('aria-label', 'Pages')
     this.root.addEventListener('click', this.clicked)
     this.root.addEventListener('keydown', this.keydown as EventListener)
-    this.root.addEventListener('dragstart', this.dragStart as EventListener)
-    this.root.addEventListener('dragover', this.dragOver as EventListener)
-    this.root.addEventListener('drop', this.drop as EventListener)
-    this.root.addEventListener('dragend', this.clearDrag)
+    this.drag.attach()
   }
 
   configure(pages: readonly Page[], print: Print | null, css: string, select: (index: number) => void) {
@@ -62,7 +67,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
       button.setAttribute('aria-label', `Page ${index + 1} of ${pages.length}`)
       const preview = document.createElement('span')
       preview.className = 'preview'
-      const thumbnail = new SegnaviaThumbnail()
+      const thumbnail = document.createElement('segnavia-thumbnail') as SegnaviaThumbnail
       thumbnail.page = page
       thumbnail.print = print
       thumbnail.css = css
@@ -81,7 +86,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
   setReorderEnabled(enabled: boolean) {
     this.enabled = enabled
     for (const button of this.buttons()) button.draggable = enabled
-    if (!enabled) this.clearDrag()
+    if (!enabled) this.drag.clear()
   }
 
   subscribeReorder(listener: (intent: DocumentRailReorderIntent) => void): () => void {
@@ -128,38 +133,6 @@ export class SegnaviaDocumentRail extends HTMLElement {
     event.preventDefault()
     this.setSelected(next)
     this.buttons()[next]?.focus()
-  }
-
-  private dragStart = (event: DragEvent) => {
-    if (!this.enabled) return event.preventDefault()
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (!button) return
-    this.dragFrom = Number(button.dataset.index)
-    event.dataTransfer?.setData('text/plain', button.dataset.index ?? '')
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  }
-
-  private dragOver = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (this.dragFrom === null || !button) return
-    event.preventDefault()
-    for (const item of this.buttons()) item.removeAttribute('data-insert')
-    button.dataset.insert = event.clientY >= button.getBoundingClientRect().top + button.getBoundingClientRect().height / 2 ? 'after' : 'before'
-  }
-
-  private drop = (event: DragEvent) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
-    if (this.dragFrom === null || !button) return
-    event.preventDefault()
-    const from = this.dragFrom
-    const to = railMoveTarget(from, Number(button.dataset.index), button.dataset.insert === 'after', this.pages.length)
-    this.clearDrag()
-    this.emitReorder(from, to)
-  }
-
-  private clearDrag = () => {
-    this.dragFrom = null
-    for (const button of this.buttons()) button.removeAttribute('data-insert')
   }
 
   private emitReorder(fromIndex: number, toIndex: number) {

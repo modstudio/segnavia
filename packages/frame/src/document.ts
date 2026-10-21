@@ -86,7 +86,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   scrollToPage(index: number): void {
-    this.querySelector<HTMLElement>(`.segnavia-document__item[data-page-index="${index}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    this.querySelector<HTMLElement>(`.segnavia-document__item[data-page-index="${index}"]`)?.scrollIntoView({ block: 'start' })
   }
 
   private paint() {
