@@ -118,7 +118,8 @@ flows. `scripts/build-demo.ts` takes it through every package.
 bun install
 bun run setup      # point git at the tracked hooks
 bun run build      # build every package and the three self-contained browser bundles
-bun run check      # the gate: rules, Biome, types, tests, builds and packed-package shape
+bun run check              # the CI gate: rules, Biome, types, all tests and package/release checks
+bun run check --changed    # the local gate: rules, Biome, types and tests reached by this branch
 bun run setup:php  # the PHP host fixture's validator, once
 bun run demo       # capture, narrate, build and render; then check it in Chromium, under Bun and Node, and from PHP
 ```
@@ -127,9 +128,14 @@ bun run demo       # capture, narrate, build and render; then check it in Chromi
 Repository commands go through `bun run`, which enables workspace source
 resolution and refuses stale built output.
 
-The pre-commit hook runs `bun run check`. The commit-msg hook refuses AI
-attribution and a subject without the project's task key, whose prefix is in
-`.githooks/key-prefix`. `AGENTS.md` holds the rules every change follows.
+The pre-commit hook checks the staged files, running unit tests in each changed
+package and its dependents. Changes under `scripts/`, or to `architecture.ts`,
+also run the script tests. Package-shape and release dry-run checks remain in
+the full `bun run check` used by CI, and run locally only when their inputs
+change. See [`docs/continuous-integration.md`](docs/continuous-integration.md).
+The commit-msg hook refuses AI attribution and a subject without the project's
+task key, whose prefix is in `.githooks/key-prefix`. `AGENTS.md` holds the rules
+every change follows.
 
 ## Documentation
 
@@ -137,6 +143,7 @@ attribution and a subject without the project's task key, whose prefix is in
 - [`docs/vocabulary.md`](docs/vocabulary.md): the words the API uses and the ones it avoids
 - [`docs/architecture.md`](docs/architecture.md): packages, runtimes, seams and data flow
 - [`docs/decisions.md`](docs/decisions.md): what was decided and why
+- [`docs/continuous-integration.md`](docs/continuous-integration.md): local and CI checks
 
 ## License
 

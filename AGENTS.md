@@ -97,8 +97,9 @@ the deck in Chromium and checks what is on screen; it is not part of the gate.
 
 ## Commits
 
-- The pre-commit hook runs `bun run check`. A failed check means the commit
-  did not happen: fix it and commit again. Never pass `--no-verify`.
+- The pre-commit hook runs `bun run check --changed --staged`. A failed check
+  means the commit did not happen: fix it and commit again. Never pass
+  `--no-verify`. The full `bun run check` runs in CI.
 - The subject is `<KEY>-<n> <Imperative sentence>`, with no type prefix
   (`.githooks/commit-msg`). The key's prefix is the one in
   `.githooks/key-prefix`, which the project's tracker assigned.
