@@ -11,7 +11,7 @@ button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:100
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:var(--_page-aspect);border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
 [aria-selected="true"] .preview{border:2px solid var(--segnavia-accent,#356ae6)}
-segnavia-thumbnail{inline-size:100%;block-size:100%}
+segnavia-thumbnail{inline-size:100%;block-size:100%;pointer-events:none}
 ${RAIL_REORDER_CSS}
 .number{position:absolute;z-index:2;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
 `
