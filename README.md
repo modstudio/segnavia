@@ -133,6 +133,7 @@ attribution and a subject without the project's task key, whose prefix is in
 
 ## Documentation
 
+- [`docs/continuous-integration.md`](docs/continuous-integration.md): what the required CI job verifies and what remains local
 - [`docs/vocabulary.md`](docs/vocabulary.md): the words the API uses and the ones it avoids
 - [`docs/architecture.md`](docs/architecture.md): packages, runtimes, seams and data flow
 - [`docs/decisions.md`](docs/decisions.md): what was decided and why

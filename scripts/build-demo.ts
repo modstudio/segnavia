@@ -74,7 +74,7 @@ writeFileSync(
     { observed, outputFacts, results: run.results.map(({ name, ok, error, failureScreenshot }) => ({ name, ok, error, failureScreenshot })) },
     null,
     2,
-  ),
+  ).replaceAll(`${ROOT}${path.sep}`, ''),
 )
 const voice = pacedProvider({ wordsPerMinute: 170 })
 const cache = path.join(OUT, 'voice')

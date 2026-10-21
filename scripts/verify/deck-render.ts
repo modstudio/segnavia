@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { annotationFocusBox, fitImage } from '@segnavia/frame/image-fit'
@@ -81,18 +81,11 @@ function verifyFitPdf(output: string, work: string, check: Check): void {
     Object.keys(expected).every((key) => Math.abs(actual[key as keyof typeof actual] - expected[key as keyof typeof expected]) <= 1),
     `actual=${JSON.stringify(actual)}, expected=${JSON.stringify(expected)}`,
   )
-  execFileSync('pdftoppm', [
-    '-png',
-    '-r',
-    '72',
-    '-f',
-    '5',
-    '-l',
-    '5',
-    '-singlefile',
-    path.join(output, 'fit-slides.pdf'),
-    path.join(process.cwd(), 'out/evidence/framed-print'),
-  ])
+  // The render checks run without the browser harness, which is what
+  // otherwise creates the evidence folder.
+  const evidence = path.join(process.cwd(), 'out/evidence')
+  mkdirSync(evidence, { recursive: true })
+  execFileSync('pdftoppm', ['-png', '-r', '72', '-f', '5', '-l', '5', '-singlefile', path.join(output, 'fit-slides.pdf'), path.join(evidence, 'framed-print')])
 }
 
 export function verifyDeckRender(output: string, work: string, check: Check): void {

@@ -107,6 +107,15 @@ export async function openHarness(): Promise<Harness> {
       const box = await page.locator(selector).boundingBox({ timeout: 20000 })
       if (!box) throw new Error(`${selector} has no box to click.`)
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+      // A sandboxed frame runs in its own process, so focus reaches it after
+      // the click returns. A key pressed before then goes to the host page.
+      const frame = await (await page.locator(selector).elementHandle())?.contentFrame()
+      if (!frame) throw new Error(`${selector} has no frame to focus.`)
+      await frame
+        .waitForFunction(() => document.hasFocus(), undefined, { timeout: BOUNDED_WAIT_MS })
+        .catch(() => {
+          throw new Error(`${selector} did not take focus within ${BOUNDED_WAIT_MS} ms of the click.`)
+        })
     },
     evidence: async (name) => {
       await page.screenshot({ path: path.join(EVIDENCE, name) })
