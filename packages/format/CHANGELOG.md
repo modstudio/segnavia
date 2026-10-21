@@ -1,5 +1,12 @@
 # @segnavia/format
 
+## 0.21.0
+
+### Minor Changes
+
+- 2c84e8c: Add optional page identities and a document authoring rail with optimistic drag and keyboard reordering.
+- 77ae491: Add translatable named-paper metadata, bounded custom paper validation, stored print-setting schemas, and a paper picker with a React wrapper.
+
 ## 0.20.0
 
 ## 0.19.0
