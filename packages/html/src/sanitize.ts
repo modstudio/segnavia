@@ -40,7 +40,7 @@ export interface SanitizeOptions {
 }
 
 export function parse(html: string): Document {
-  return parseDocument(html, { lowerCaseAttributeNames: true, recognizeSelfClosing: true })
+  return parseDocument(html, { lowerCaseAttributeNames: true, recognizeSelfClosing: true, withStartIndices: true, withEndIndices: true })
 }
 
 export function serialize(node: Document | ChildNode | ChildNode[]): string {

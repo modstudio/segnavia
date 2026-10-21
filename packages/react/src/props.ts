@@ -45,6 +45,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   cspExtra?: string
   resolveSlide?: ControllerOptions['resolveSlide']
   transition?: HostTransition
+  slots?: SegnaviaPlayer['slots']
   src?: string
   theme?: string
   notes?: boolean
@@ -67,6 +68,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   frameTitle?: SegnaviaStage['frameTitle']
   transition?: HostTransition
   reserve?: StageReserve
+  slots?: SegnaviaStage['slots']
   src?: string
   hash?: string
   prefetch?: boolean
@@ -87,6 +89,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   base?: string
   css?: string
   mountMargin?: number
+  slots?: SegnaviaThumbnail['slots']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
@@ -100,6 +103,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   page?: PageInput | null
   css?: string
   cspExtra?: string
+  slots?: SegnaviaPage['slots']
   src?: string
   unstyled?: boolean
 }
@@ -109,6 +113,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   side?: SegnaviaPaper['side']
   css?: string
   cspExtra?: string
+  slots?: SegnaviaPaper['slots']
   unstyled?: boolean
 }
 
@@ -117,6 +122,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   print?: PrintInput | null
   css?: string
   cspExtra?: string
+  slots?: SegnaviaDocument['slots']
   unstyled?: boolean
 }
 

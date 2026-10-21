@@ -55,6 +55,8 @@ something else.
 | **Reading direction** | The deck's direction, from its `dir`, else its `lang`, else its title's first strong letter. Paging keys and the skin follow it. |
 | **Bridge** | The small script of the library's own that runs inside every frame. It relays paging keys, reports height and signals when the frame is painted. |
 | **Bindings** | `data-<prefix>-*` attributes that fill a page from data with no script. The prefix is the host's. |
+| **Slot** | A declared dotted binding path on a reusable page or deck. Slot HTML uses the fixed `slot` binding prefix; its declaration gives the host a label, type, required flag and optional placeholder. |
+| **Fill** | One named set of slot values applied before a viewer, thumbnail or print frame is built. Image values may name a host-resolved asset. |
 
 ## Words the API avoids
 

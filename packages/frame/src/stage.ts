@@ -11,7 +11,7 @@
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
-import type { TransitionInput } from '@segnavia/format'
+import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, messageFrom } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -19,6 +19,7 @@ import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
 import type { HostTransition } from './transition.ts'
@@ -44,6 +45,24 @@ export class SegnaviaStage extends HTMLElement {
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
+  private slotOptions: SlotsOptions | undefined
+  private resolvedSlots: PreparedSlots | undefined
+  private slotDeck: DeckState['deck'] = null
+  private slotGeneration = 0
+  private slotPreparation: AbortController | undefined
+
+  get slots(): SlotsOptions | undefined {
+    return this.slotOptions
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    this.cancelSlotPreparation()
+    this.slotGeneration++
+    this.slotOptions = value
+    this.slotDeck = null
+    this.pool.clear()
+    if (this.attached?.state.deck) this.update(this.attached.state)
+  }
 
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
@@ -97,6 +116,10 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   set controller(controller: DeckController | null) {
+    this.cancelSlotPreparation()
+    this.slotGeneration++
+    this.slotDeck = null
+    this.resolvedSlots = undefined
     this.attached?.removeEventListener('change', this.onChange)
     this.attached = controller
     if (this.isConnected) controller?.connectWindow()
@@ -124,6 +147,9 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSlotPreparation()
+    this.slotDeck = null
+    this.resolvedSlots = undefined
     this.pool.cancelPending()
     this.removeEventListener('keydown', this.onKey)
     window.removeEventListener('message', this.onMessage)
@@ -164,6 +190,38 @@ export class SegnaviaStage extends HTMLElement {
   private update(state: DeckState) {
     const deck = state.deck
     if (!deck || !state.content) return
+    if (this.slotDeck !== deck) {
+      this.cancelSlotPreparation()
+      this.slotGeneration++
+      const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
+      const slotWork = hasSlotWork(deck.slots, this.slotOptions)
+      if (!slotWork || refusal) {
+        this.slotDeck = deck
+        this.resolvedSlots = EMPTY_SLOTS
+        if (refusal) this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
+      } else {
+        const generation = this.slotGeneration
+        const controller = new AbortController()
+        this.slotPreparation = controller
+        this.slotDeck = deck
+        this.resolvedSlots = EMPTY_SLOTS
+        void prepareSlots(deck.slots, this.slotOptions, controller.signal)
+          .then((resolved) => {
+            if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
+            this.resolvedSlots = resolved
+            this.pool.clear()
+            if (this.attached) this.update(this.attached.state)
+          })
+          .catch((error) => {
+            if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
+            this.resolvedSlots = EMPTY_SLOTS
+            this.pool.clear()
+            if (this.attached) this.update(this.attached.state)
+            this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+          })
+      }
+    }
+    if (!this.resolvedSlots) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
     const shownState = this.authoringRefusesScripts && deck.scripts !== 'refuse' ? { ...state, deck: { ...deck, scripts: 'refuse' as const } } : state
@@ -174,6 +232,7 @@ export class SegnaviaStage extends HTMLElement {
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      slots: this.resolvedSlots,
     })
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
@@ -235,6 +294,11 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private onResize = () => this.measure()
+
+  private cancelSlotPreparation() {
+    this.slotPreparation?.abort()
+    this.slotPreparation = undefined
+  }
 
   freezeAuthoringFrame(slideId: string, atMs: number) {
     const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)

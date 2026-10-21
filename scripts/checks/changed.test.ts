@@ -9,7 +9,7 @@ describe('changed test selection', () => {
 
   test('both paths of a package move select their packages and dependents', () => {
     expect(selectChangedTests(['packages/html/src/moved.ts', 'packages/voice/src/moved.ts'], PACKAGES)).toEqual({
-      packages: ['html', 'voice', 'render', 'capture'],
+      packages: ['html', 'frame', 'react', 'voice', 'render', 'capture'],
       scripts: true,
       packageChecks: false,
     })

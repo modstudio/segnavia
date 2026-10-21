@@ -2,10 +2,11 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Page, type PageInput, Print, type PrintInput } from '@segnavia/format'
+import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
+import { hasSlotWork, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -18,6 +19,19 @@ export class SegnaviaDocument extends HTMLElement {
   private pageObserver: IntersectionObserver | null = null
   private currentPage = 0
   private authoringRail: HTMLElement | null = null
+  private slotOptions: SlotsOptions | undefined
+  private slotGeneration = 0
+  private slotPreparation: AbortController | undefined
+  private filledHtml: string[] | undefined
+
+  get slots(): SlotsOptions | undefined {
+    return this.slotOptions
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    this.slotOptions = value
+    this.paint()
+  }
 
   get css(): string {
     return this.stylesheet
@@ -64,6 +78,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSlotPreparation()
     this.observer?.disconnect()
     this.pageObserver?.disconnect()
     this.observer = null
@@ -90,6 +105,10 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   private paint() {
+    this.cancelSlotPreparation()
+    const declarations = this.pageValues.map((page) => page.slots)
+    const generation = ++this.slotGeneration
+    this.filledHtml = undefined
     this.observer?.disconnect()
     this.observer = null
     this.pageObserver?.disconnect()
@@ -98,6 +117,33 @@ export class SegnaviaDocument extends HTMLElement {
     this.style.removeProperty('--segnavia-document-paper-aspect')
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
+    this.paintResolved(print)
+    const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
+    if (refusal) {
+      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
+      return
+    }
+    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) return
+    const controller = new AbortController()
+    this.slotPreparation = controller
+    void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
+      .then((resolved) => {
+        if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
+        this.filledHtml = this.pageValues.map((page) => resolved.apply(page.html))
+        this.paintResolved(print)
+      })
+      .catch((error) => {
+        if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
+        this.filledHtml = undefined
+        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+      })
+  }
+
+  private paintResolved(print: Print) {
+    if (!this.isConnected) return
+    this.observer?.disconnect()
+    this.pageObserver?.disconnect()
+    this.replaceChildren()
     const projection = projectPageOnPaper(this.pageValues[0] as Page, print)
     this.style.setProperty('--segnavia-document-paper-aspect', String(projection.aspect))
     const layout = document.createElement('div')
@@ -159,7 +205,12 @@ export class SegnaviaDocument extends HTMLElement {
     page.cspExtra = this.extraCsp
     page.part.add('page')
     sheet.append(page)
-    page.load(projection.page)
+    page.load({ ...projection.page, html: this.filledHtml?.[index] ?? projection.page.html })
+  }
+
+  private cancelSlotPreparation() {
+    this.slotPreparation?.abort()
+    this.slotPreparation = undefined
   }
 
   private changed() {

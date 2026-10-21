@@ -2,6 +2,7 @@ import { type ContentValue, comparableContent, sameContent } from './content-val
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
 import type { FrameTitle } from './frame-title.ts'
+import type { PreparedSlots } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
 import { type HostTransition, type TurnTransition, transitionFor } from './transition.ts'
 
@@ -12,6 +13,7 @@ interface PoolOptions {
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean
+  slots?: PreparedSlots
 }
 
 interface PendingTurn {
@@ -349,9 +351,20 @@ export class FramePool {
     const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     if (existing && sameContent(existing.value, comparable)) return existing.canvas
     const entry = new FrameEntry(comparable)
-    const canvas = stageCanvas(controller, deck, slide, index, content, options.css, options.csp, options.frameTitle, () => {
-      entry.markLoaded()
-    })
+    const canvas = stageCanvas(
+      controller,
+      deck,
+      slide,
+      index,
+      content,
+      options.css,
+      options.csp,
+      options.frameTitle,
+      () => {
+        entry.markLoaded()
+      },
+      options.slots,
+    )
     entry.canvas = canvas
     this.entries.set(slide.id, entry)
     if (existing) existing.canvas.replaceWith(canvas)

@@ -32,6 +32,8 @@ the custom elements, but its server-safe entry points are the single source
 of the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
+Frame imports the universal HTML package for the one binding transform shared
+by live, thumbnail and print documents.
 
 `Board` is the portable value for an unbounded collection of referenced
 assets, labels and sections. It stores each item's width but not its height;
@@ -91,6 +93,7 @@ with `detail.message` when loading or validating an input fails.
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
+| `slots` | Page, deck, paper/document viewers, thumbnails, browser print and render options | A host supplies one `fill`, an async `resolveAsset` seam and an optional report callback. The resolver receives an `AbortSignal`, which the host should honour so timed-out rendering work stops promptly. Item HTML uses the fixed `slot` binding prefix, so filling is the existing inert `@segnavia/html` transform before a frame document is built. Paper and document options may add item-level `declarations`; those merge with declarations on their pages. |
 | `deckFromSlides` | `format` | A host can turn generic HTML and shot rows into a parsed `Deck`, carrying deck options and optional timing, narration and notes. `omitNotes` produces a public projection without notes; `Deck.parse` remains the validation edge. |
 | `rail`, `<segnavia-rail>` | player and `frame/controls` | A host can compose the styled listbox alone or enable it on the player. It lazily mounts script-refusing 16:9 previews near the viewport, clears a preview that leaves the observed margin, invalidates a pending mount for that thumbnail, never clears the current slide, follows current-slide identity, and navigates through the controller. The player places it at inline start; at compact below-controls it sits below the transport row and above host actions, and it hides during presentation. In the desk layout the rail's grid track takes its size from the body row, so the list is a scroll box and only nearby thumbnails stay mounted, whatever the deck length. `--segnavia-rail-size` sets thumbnail width. |
 | `<segnavia-thumbnail>` | `frame` and React | The headless seam for a host's deck covers in cards, strips and search results. It draws one HTML, image, URL or shot slide through a private `DeckController`, sharing the rail's script-refusing canvas policy. It follows its own inline size at the deck aspect ratio, mounts only near the viewport, and removes the canvas when far away. `deck`, `index`, `resolveSlide` and `base` select and resolve content; `thumbnail` and `canvas` parts let a host add rings, rounding or shadows. Resolution failures leave it empty and emit `segnavia-thumbnail-error`. It takes the host stylesheet through `css`, as the stage does, so a cover matches the slide in the player. |
@@ -338,6 +341,23 @@ A label template is an imposition: label stock is a grid. The host supplies
 the grid of the stock it sells or uses, and the library ships no catalogue of
 stock numbers. Filling labels from records is the host's use of bindings,
 one page per record.
+
+Pages and decks may declare reusable slots as dotted binding paths with a
+label, a `text`, `phone`, `email`, `link` or `image` type, an optional
+placeholder and an optional required flag. Their HTML places those values with
+the existing bindings under the fixed library prefix, for example
+`data-slot-value="person.name"` or `data-slot-src="logo"`. A fill has an id,
+an optional label and values keyed by those paths. Image values are data URLs
+or `{ asset }` references; a host resolves a reference to a data URL before
+the HTML reaches its sandbox. Missing values retain the design's authored
+text, while declared placeholders replace it. Reports map every declaration
+to `filled`, `placeholder`, `unavailable` or `invalid`. A fill is applied by
+the page, document, paper, stage, thumbnail, browser print and server render
+paths before they construct a frame document, so values never cross the frame
+boundary as script or markup.
+An item that runs its own scripts cannot receive a fill, because those scripts
+could read filled values and resolved assets; set `scripts` to `refuse` or show
+the item without a fill.
 
 **Sides.** An imposition's `sides` is `one` by default or `two`, and its `flip`
 is `long` by default or `short`. With two sides, pages are a front followed by

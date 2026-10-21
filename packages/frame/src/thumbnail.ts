@@ -1,8 +1,9 @@
-import { Deck, Page, type PageInput, Print, type PrintInput } from '@segnavia/format'
+import { Deck, Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
+import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
@@ -19,6 +20,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   private resize = new ResizeObserver(() => this.measure())
   private near = false
   private resolution = 0
+  private slotOptions: SlotsOptions | undefined
+  private slotPreparation: AbortController | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly viewport = document.createElement('div')
 
@@ -107,6 +110,15 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  get slots(): SlotsOptions | undefined {
+    return this.slotOptions
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    this.slotOptions = value
+    this.changed()
+  }
+
   connectedCallback() {
     ensureBaseStyle(this.viewport)
     this.resize.observe(this)
@@ -142,6 +154,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private clear() {
+    this.slotPreparation?.abort()
+    this.slotPreparation = undefined
     this.resolution++
     this.viewport.replaceChildren()
     this.controller?.destroy()
@@ -163,10 +177,29 @@ export class SegnaviaThumbnail extends HTMLElement {
       await controller.load(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      const canvas = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
-      canvas.part.add('canvas')
-      this.viewport.append(canvas)
+      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
+      authored.part.add('canvas')
+      this.viewport.append(authored)
       this.measure()
+      const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
+      if (refusal) {
+        this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: refusal, bubbles: true, composed: true }))
+        return
+      }
+      if (!hasSlotWork(deck.slots, this.slotOptions)) return
+      const slotPreparation = new AbortController()
+      this.slotPreparation = slotPreparation
+      try {
+        const slots = await prepareSlots(deck.slots, this.slotOptions, slotPreparation.signal)
+        if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
+        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet, false, slots)
+        filled.part.add('canvas')
+        this.viewport.replaceChildren(filled)
+        this.measure()
+      } catch (error) {
+        if (slotPreparation.signal.aborted || !this.isConnected || !isCurrentThumbnailResolution(resolution, this.resolution)) return
+        this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+      }
     } catch (error) {
       if (!isCurrentThumbnailResolution(resolution, this.resolution)) return
       this.clear()
@@ -195,6 +228,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     if (!source || !print || this.viewport.firstElementChild) return
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
+    page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = ''
     page.part.add('canvas')
