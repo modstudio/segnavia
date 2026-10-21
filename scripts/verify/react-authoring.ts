@@ -68,15 +68,18 @@ export async function verifyReactAuthoring(h: Harness) {
   )
   await page.locator('#react-thumbnail').scrollIntoViewIfNeeded()
   await page.waitForFunction(() => document.querySelector('#react-thumbnail')?.shadowRoot?.querySelectorAll('iframe').length === 1)
-  const wrappers = await page.locator('#react-page,#react-thumbnail,#react-paper').evaluateAll((elements) =>
-    elements.map((element) => ({ tag: element.localName, frames: (element.shadowRoot ?? element).querySelectorAll('iframe').length })),
-  )
+  const wrappers = await page
+    .locator('#react-page,#react-thumbnail,#react-paper')
+    .evaluateAll((elements) =>
+      elements.map((element) => ({ tag: element.localName, frames: (element.shadowRoot ?? element).querySelectorAll('iframe').length })),
+    )
   await page.locator('#react-document').scrollIntoViewIfNeeded()
   await page.waitForFunction(() => document.querySelectorAll('#react-document iframe').length === 1)
   wrappers.push(await page.locator('#react-document').evaluate((element) => ({ tag: element.localName, frames: element.querySelectorAll('iframe').length })))
   check(
     'React Page, Paper, and Document wrappers assign object properties and render sandboxed frames',
-    wrappers.map(({ tag }) => tag).join(',') === 'segnavia-page,segnavia-thumbnail,segnavia-paper,segnavia-document' && wrappers.every(({ frames }) => frames === 1),
+    wrappers.map(({ tag }) => tag).join(',') === 'segnavia-page,segnavia-thumbnail,segnavia-paper,segnavia-document' &&
+      wrappers.every(({ frames }) => frames === 1),
     JSON.stringify(wrappers),
   )
   await page.locator('#react-thumbnail').scrollIntoViewIfNeeded()
