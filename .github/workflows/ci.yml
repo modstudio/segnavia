@@ -123,8 +123,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22.14.0
-      - id: chrome
-        uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
       - name: Install current poppler
         uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
         with:
@@ -134,6 +132,10 @@ jobs:
           init-shell: none
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      # The press-colour checks are calibrated against the Chromium build
+      # playwright-core pins; Chrome stable draws sampled shadings that miss them on Linux.
+      - name: Install pinned Chromium
+        run: bunx playwright-core install --with-deps chromium
       - name: Download browser demo
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -145,14 +147,14 @@ jobs:
           export PATH="${MAMBA_ROOT_PREFIX}/envs/poppler/bin:${PATH}"
           bun --conditions=@segnavia/source scripts/verify-render.ts
         env:
-          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+          SEGNAVIA_CHROMIUM: /home/runner/.cache/ms-playwright/chromium-1193/chrome-linux/chrome
       - name: Verify rendering under Node
         if: matrix.runtime == 'node'
         run: |
           export PATH="${MAMBA_ROOT_PREFIX}/envs/poppler/bin:${PATH}"
           node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts
         env:
-          SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+          SEGNAVIA_CHROMIUM: /home/runner/.cache/ms-playwright/chromium-1193/chrome-linux/chrome
 
   ci:
     name: CI passed
