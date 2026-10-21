@@ -48,7 +48,8 @@ export class TestNode extends TestElement {
   }
 }
 
-Object.assign(globalThis, {
+// Some runtimes define these globals read-only, so they are redefined rather than assigned.
+const testGlobals: Record<string, unknown> = {
   HTMLElement: TestElement,
   CustomEvent: class<T> extends Event {
     detail: T
@@ -58,7 +59,10 @@ Object.assign(globalThis, {
     }
   },
   document: { createElement: (tag: string) => new TestNode(tag) },
-})
+}
+for (const [name, value] of Object.entries(testGlobals)) {
+  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value })
+}
 
 const { SegnaviaThumbnail } = await import('./thumbnail.ts')
 const textSlot = [{ key: 'name', label: 'Name', type: 'text' as const, required: false }]
