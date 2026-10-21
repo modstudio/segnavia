@@ -63,32 +63,5 @@ export async function verifyPaperPicker(h: Harness) {
     JSON.stringify(boundaries),
   )
 
-  const resets = await picker.evaluate((element) => {
-    const pickerElement = element as typeof element & {
-      value: { paper: string; orientation: string } | undefined
-      labels: { paper?: string } | undefined
-    }
-    const result = { value: '', label: '', errors: [] as string[] }
-    try {
-      pickerElement.value = { paper: 'letter', orientation: 'landscape' }
-      pickerElement.value = undefined
-      result.value = JSON.stringify(pickerElement.value)
-    } catch (error) {
-      result.errors.push(error instanceof Error ? error.message : String(error))
-    }
-    try {
-      pickerElement.labels = { paper: 'Stock' }
-      pickerElement.labels = undefined
-      result.label = pickerElement.shadowRoot?.querySelector('.paper span')?.textContent ?? ''
-    } catch (error) {
-      result.errors.push(error instanceof Error ? error.message : String(error))
-    }
-    return result
-  })
-  check(
-    'the React wrapper can set then unset both optional paper picker properties',
-    resets.value === '{"paper":"a4","orientation":"portrait"}' && resets.label === 'Paper' && resets.errors.length === 0,
-    JSON.stringify(resets),
-  )
   check('the paper picker follows its right-to-left host', (await picker.evaluate((element) => getComputedStyle(element).direction)) === 'rtl')
 }

@@ -66,6 +66,12 @@ export async function verifyReactAuthoring(h: Harness) {
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
     reactLabel ?? '',
   )
+  await page.evaluate(() => (window as unknown as { reactUnsetPaperPicker(): void }).reactUnsetPaperPicker())
+  await page.waitForFunction(() => {
+    const picker = document.querySelector('segnavia-paper-picker') as HTMLElement & { value?: { paper: string; orientation: string } }
+    return picker?.value?.paper === 'a4' && picker.value.orientation === 'portrait' && picker.shadowRoot?.querySelector('.paper span')?.textContent === 'Paper'
+  })
+  check('React can set then unset both optional paper picker properties', true)
   await notes.fill('React draft')
   await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
   await page.waitForTimeout(700)

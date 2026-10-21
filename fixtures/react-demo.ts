@@ -1,5 +1,5 @@
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
-import { Player, useAuthoring, useDeckController } from '@segnavia/react'
+import { PaperPicker, Player, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, Fragment, StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -34,6 +34,7 @@ function App() {
   const [mounted, setMounted] = useState(false)
   const [playerKey, setPlayerKey] = useState(0)
   const [authoringKey, setAuthoringKey] = useState(0)
+  const [paperPickerProps, setPaperPickerProps] = useState(true)
   const [player, setPlayer] = useState<SegnaviaPlayer | null>(null)
   const deckController = useDeckController(player)
   useEffect(() => {
@@ -43,6 +44,7 @@ function App() {
       reactMount: () => setMounted(true),
       reactReplaceAuthoring: () => setAuthoringKey((value) => value + 1),
       reactReplace: () => setPlayerKey((value) => value + 1),
+      reactUnsetPaperPicker: () => setPaperPickerProps(false),
       reactPlayer: player,
       reactDeckController: deckController,
     })
@@ -61,6 +63,7 @@ function App() {
       onClick: () => facts.changes++,
     }),
     createElement(Authoring, { key: authoringKey, player, configured }),
+    createElement(PaperPicker, paperPickerProps ? { value: { paper: 'letter', orientation: 'landscape' }, labels: { paper: 'Stock' } } : {}),
   )
 }
 
