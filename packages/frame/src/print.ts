@@ -1,5 +1,6 @@
 // Printing decks and imposed pages from the browser through frame-based print documents.
-// The browser's print dialog opens once every slide
+// The server instead composes top-level slide renders because Chromium loses
+// frame backgrounds in PDFs. The browser's print dialog opens once every slide
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
@@ -94,6 +95,8 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
 
 export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}
 
+// A browser print dialog loses backgrounds inside frames. A host that needs
+// those backgrounds uses the renderer's pagesPdf instead.
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)

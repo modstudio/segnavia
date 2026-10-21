@@ -196,6 +196,6 @@ export class SegnaviaThumbnail extends HTMLElement {
     page.part.add('canvas')
     page.style.inlineSize = '100%'
     this.viewport.append(page)
-    page.load({ ...source, size: { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM } })
+    page.load({ ...source, size: { width: Math.round(paper.width * PX_PER_MM), height: Math.round(paper.height * PX_PER_MM) } })
   }
 }

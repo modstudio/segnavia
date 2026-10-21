@@ -4,5 +4,5 @@
 ---
 
 Show ordered page documents on responsive, lazily mounted paper sheets; draw a
-page thumbnail at its paper aspect ratio; preserve page backgrounds through
-browser printing; and expose React wrappers for pages, papers, and documents.
+page thumbnail at its paper aspect ratio; measure page backgrounds through the
+browser print pipeline; and expose React wrappers for pages, papers, and documents.

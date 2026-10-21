@@ -248,8 +248,9 @@ into that PDF, and a deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
-papers. `printPages` prints the imposed papers from the browser. Two-sided
-imposition is built; marks on
+papers. `printPages` prints the imposed papers from the browser, with the known
+limit that its print dialog loses backgrounds inside frames; a host that needs
+them uses the renderer's `pagesPdf`. Two-sided imposition is built; marks on
 an imposed paper and folds are not. The rest of this section remains designed.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
@@ -341,10 +342,10 @@ its place on both sides. A stapled booklet, whose pages are reordered across
 several papers, is not covered.
 
 `printableDeck` and `printablePages`, in `frame`'s server-safe print entry, are
-the frame-based documents a browser shows and prints. Each built frame receives
-exact print color adjustment, and the Chromium print pipeline preserves page
-background colors and images while the sandbox stays in place without
-same-origin access. The renderer does not print those documents: it renders each
+the frame-based documents a browser shows and prints. Chromium paints no
+background inside a sandboxed frame when it prints to PDF, and the sandbox is
+never removed, so a browser's own print dialog loses slide and page
+backgrounds. The renderer does not print those documents: it renders each
 slide or page on its own as a top-level document and places the result using
 the same geometry functions as the frame-based layout. Backgrounds and bleed
 therefore print, the composed output stays vector, and the two paths cannot
@@ -405,7 +406,10 @@ Every sandboxed slide and page document used for printing receives
 `print-color-adjust: exact` and `-webkit-print-color-adjust: exact` itself;
 putting those properties only on the containing print document cannot cross a
 frame boundary. A URL slide keeps its own print styling; color-adjust injection
-covers only the documents the library builds. Browser printing waits for slide
+covers only the documents the library builds. Chromium still omits those
+backgrounds in printed output, so the browser dialog is best effort and
+`deckPdf` and `pagesPdf` are the faithful paths. The sandbox remains without
+same-origin access. Browser printing waits for slide
 readiness and fonts only until one shared deadline, then crosses a
 two-animation-frame paint barrier before opening the dialog. The off-screen
 host stays alive until `afterprint`, with a bounded fallback for engines that

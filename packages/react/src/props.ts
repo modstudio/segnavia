@@ -3,6 +3,8 @@ import type {
   DeckController,
   FittedSize,
   HostTransition,
+  PageInput,
+  PrintInput,
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
@@ -76,8 +78,8 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   deck?: SegnaviaThumbnail['deck']
-  page?: SegnaviaThumbnail['page']
-  print?: SegnaviaThumbnail['print']
+  page?: PageInput | null
+  print?: PrintInput | null
   index?: number
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
@@ -87,7 +89,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
 }
 
 export interface PageProps extends ElementProps<SegnaviaPage> {
-  page?: SegnaviaPage['page']
+  page?: PageInput | null
   css?: string
   cspExtra?: string
   src?: string
@@ -103,8 +105,8 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
 }
 
 export interface DocumentProps extends ElementProps<SegnaviaDocument> {
-  pages?: SegnaviaDocument['pages']
-  print?: SegnaviaDocument['print']
+  pages?: PageInput[]
+  print?: PrintInput | null
   css?: string
   cspExtra?: string
   unstyled?: boolean

@@ -125,7 +125,7 @@ export class SegnaviaDocument extends HTMLElement {
     page.load(
       typeof source.size === 'object' && source.size.height !== 'auto'
         ? source
-        : { ...source, size: { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM } },
+        : { ...source, size: { width: Math.round(paper.width * PX_PER_MM), height: Math.round(paper.height * PX_PER_MM) } },
     )
   }
 }

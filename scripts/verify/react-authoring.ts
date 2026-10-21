@@ -66,6 +66,21 @@ export async function verifyReactAuthoring(h: Harness) {
     reactLabel === 'React player' && (await page.locator(PLAYER).getAttribute('rail')) === '',
     reactLabel ?? '',
   )
+  await page.locator('#react-document').scrollIntoViewIfNeeded()
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('#react-page iframe').length === 1 &&
+      document.querySelectorAll('#react-paper iframe').length === 1 &&
+      document.querySelectorAll('#react-document iframe').length === 1,
+  )
+  const wrappers = await page
+    .locator('#react-page,#react-paper,#react-document')
+    .evaluateAll((elements) => elements.map((element) => ({ tag: element.localName, frames: element.querySelectorAll('iframe').length })))
+  check(
+    'React Page, Paper, and Document wrappers assign object properties and render sandboxed frames',
+    wrappers.map(({ tag }) => tag).join(',') === 'segnavia-page,segnavia-paper,segnavia-document' && wrappers.every(({ frames }) => frames === 1),
+    JSON.stringify(wrappers),
+  )
   await notes.fill('React draft')
   await page.evaluate(() => (window as unknown as { reactConfigureAuthoring(): void }).reactConfigureAuthoring())
   await page.waitForTimeout(700)
