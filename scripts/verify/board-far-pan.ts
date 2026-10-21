@@ -39,14 +39,16 @@ export async function checkFarBoardPan(h: Harness) {
     JSON.stringify({ before: before.view.pan, after: wheeled.view.pan }),
   )
 
-  await h.page
+  const present = await h.page
     .waitForFunction(
       () => Boolean((document.querySelector('segnavia-board') as FarPanBoard | null)?.board?.items.some((item) => item.id === 'deck-far')),
       undefined,
       { timeout: BOUNDED_WAIT_MS },
     )
-    .catch(() => undefined)
+    .then(() => true)
+    .catch(() => false)
   const target = await readFacts()
+  h.check('the far board item is still on the board before panning to it', present, present ? '' : JSON.stringify(await boardHistory(h)))
   if (target.item) {
     const shift = target.width / 2 - boardToScreen(target.view, target.item).x
     await board.evaluate((element, x) => {
@@ -62,4 +64,19 @@ export async function checkFarBoardPan(h: Harness) {
     .catch(() => false)
   const facts = await readFacts()
   h.check('panning to a far board item mounts it', mounted && facts.mounted, JSON.stringify(facts))
+}
+
+// What the board and its host went through, reported when the far item is missing so a recurrence names its cause.
+function boardHistory(h: Harness) {
+  return h.page.evaluate(() => {
+    type Change = { board: { items: Array<{ id: string }> }; edit: { kind: string; ids?: string[] } }
+    const page = window as typeof window & { boardChanges?: Change[]; boardEditErrors?: unknown[]; hostBoard?: Change['board'] }
+    const board = document.querySelector('segnavia-board') as FarPanBoard | null
+    return {
+      items: board?.board.items.map((item) => item.id),
+      changes: page.boardChanges?.map((change) => ({ kind: change.edit.kind, ids: change.edit.ids, items: change.board.items.map((item) => item.id) })),
+      editErrors: page.boardEditErrors?.map(String),
+      hostItems: page.hostBoard?.items.map((item) => item.id),
+    }
+  })
 }
