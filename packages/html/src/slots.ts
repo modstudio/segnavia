@@ -20,6 +20,7 @@ export interface PreparedSlots {
   declarations: SlotDeclaration[]
   report: SlotReport
   apply(html: string): string
+  mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>): SlotReport
 }
 
 export class SlotFillRefusedError extends Error {
@@ -31,23 +32,9 @@ export class SlotFillRefusedError extends Error {
   }
 }
 
-export class RequiredSlotsRefusedError extends Error {
-  constructor(slots: ReadonlyArray<{ key: string; state: SlotState }>) {
-    super(
-      `Output was refused because required slots are unfilled: ${slots.map(({ key, state }) => `"${key}" (${state})`).join(', ')}. Fill those slots, or mark them optional, to clear this refusal.`,
-    )
-    this.name = 'RequiredSlotsRefusedError'
-  }
-}
+export { mergeSlotFitResults, RequiredSlotsRefusedError, requiredSlotRefusal } from './slot-policy.ts'
 
-/** Returns the print/render refusal for required declarations that remain unfilled. */
-export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], report: SlotReport): RequiredSlotsRefusedError | undefined {
-  const unfilled = declarations.flatMap((slot) => {
-    const state = report.slots[slot.key]
-    return slot.required && state !== 'filled' && state !== undefined ? [{ key: slot.key, state }] : []
-  })
-  return unfilled.length === 0 ? undefined : new RequiredSlotsRefusedError(unfilled)
-}
+import { mergeSlotFitResults } from './slot-policy.ts'
 
 /** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
 export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
@@ -70,6 +57,7 @@ interface ResolvedSlots {
   report: SlotReport
   linkOrigins: Set<string>
   reportState?: (report: SlotReport) => void
+  declarations: Map<string, SlotDeclaration>
 }
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
@@ -203,9 +191,24 @@ function applyPresent(element: Element, name: string, report: SlotReport): boole
   return report.fill === null || report.slots[path] === 'filled'
 }
 
+function markOverflow(element: Element, names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): void {
+  if (resolved.report.fill === null) return
+  for (const binding of Object.values(names)) {
+    const key = element.attribs[binding]
+    if (key === undefined) continue
+    const declaration = resolved.declarations.get(key)
+    const overflow = declaration?.overflow ?? 'wrap'
+    // Only a value the fill supplied is measured: the design's placeholder text says nothing about the fill.
+    if (!declaration || overflow === 'wrap' || resolved.report.slots[key] !== 'filled') continue
+    element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
+    return
+  }
+}
+
 function applyElements(elements: Element[], names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): Element[] {
   return elements.flatMap((element) => {
     if (!applyPresent(element, names.present, resolved.report)) return []
+    markOverflow(element, names, resolved)
     applyValue(element, names.value, resolved)
     applyUrl(element, 'href', names.href, resolved)
     applyUrl(element, 'src', names.src, resolved)
@@ -318,7 +321,7 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   signal.throwIfAborted()
   const report = { fill: options.fill?.id ?? null, slots: states }
   options.report?.(report)
-  return { data, types, report, linkOrigins, reportState: options.report }
+  return { data, types, report, linkOrigins, reportState: options.report, declarations: new Map(declarations.map((slot) => [slot.key, slot])) }
 }
 
 function applySlots(html: string, resolved: ResolvedSlots): string {
@@ -342,7 +345,19 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
 
 async function prepared(declarations: SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<PreparedSlots> {
   const resolved = await resolveSlots(declarations, options, signal)
-  return { declarations, report: resolved.report, apply: (html) => applySlots(html, resolved) }
+  const result: PreparedSlots = {
+    declarations,
+    report: resolved.report,
+    apply: (html) => applySlots(html, resolved),
+    mergeFit: (slots) => {
+      const report = mergeSlotFitResults(declarations, result.report, slots)
+      result.report = report
+      resolved.report = report
+      options.report?.(report)
+      return report
+    },
+  }
+  return result
 }
 
 /** Prepares and applies the slots declared by one item. */

@@ -76,8 +76,10 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   Under `scripts: 'refuse'` a nonce CSP keeps author scripts from running
   while the bridge still runs. Never add `allow-same-origin`.
 - A message from a frame is trusted only by `event.source`, never by
-  `origin` (`messageFrom`). The bridge relays a key's name, a height and a
-  ready signal, never anything else.
+  `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
+  a ready signal, an animation report and a bounded slot-fit report. Slot fit
+  is safe because filled items refuse author scripts, leaving only the
+  nonce-authorized bridge able to post from a filled frame.
 - Rendering is offline. Never let a render reach the network.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.

@@ -13,7 +13,12 @@ import {
 export type { PreparedSlots }
 export { hasSlotWork, RequiredSlotsRefusedError, requiredSlotRefusal, SlotFillRefusedError, slotFillRefusal }
 
-export const EMPTY_SLOTS: PreparedSlots = { declarations: [], report: { fill: null, slots: {} }, apply: (html) => html }
+export const EMPTY_SLOTS: PreparedSlots = {
+  declarations: [],
+  report: { fill: null, slots: {} },
+  apply: (html) => html,
+  mergeFit: () => EMPTY_SLOTS.report,
+}
 
 export function prepareSlots(item: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined, signal?: AbortSignal): Promise<PreparedSlots> {
   return prepareHtmlSlots(item, options, signal)

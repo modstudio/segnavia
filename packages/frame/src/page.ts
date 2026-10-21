@@ -26,6 +26,7 @@ export class SegnaviaPage extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
+  private resolvedSlots: PreparedSlots | undefined
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -84,6 +85,7 @@ export class SegnaviaPage extends HTMLElement {
     const iframe = this.mount(page)
     const show = (resolved: PreparedSlots) => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+      this.resolvedSlots = resolved
       iframe.srcdoc = frameDocument(slotHtml(page.html, resolved), {
         scripts: page.scripts,
         nonce: newNonce(),
@@ -164,6 +166,7 @@ export class SegnaviaPage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const message = messageFrom(event, this.querySelector('iframe'))
     const page = this.page
+    if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (!page || message?.type !== MESSAGE.height || message.height === undefined) return
     // A fixed sheet keeps its own height whatever its content reports.
     if (typeof page.size === 'object' && page.size.height !== 'auto') return

@@ -4,6 +4,7 @@ import qrcode from 'qrcode-generator'
 import {
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
+  mergeSlotFitResults,
   prepareSlotCollection,
   prepareSlots,
   RequiredSlotsRefusedError,
@@ -206,8 +207,16 @@ test('required-slot policy lists every unfilled key and state', () => {
   })
   expect(refusal).toBeInstanceOf(RequiredSlotsRefusedError)
   expect(refusal?.message).toContain('"name" (placeholder), "role" (unavailable), "email" (invalid)')
-  expect(refusal?.message).toContain('Fill those slots, or mark them optional')
+  expect(refusal?.message).toContain('Fill required slots')
   expect(requiredSlotRefusal(required, { fill: 'x', slots: { name: 'filled', role: 'filled', email: 'filled' } })).toBeUndefined()
+})
+
+test('fit results merge only declared keys and overflowed refuse slots block output', () => {
+  const declared = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }] as const
+  const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: 'filled' } }, { name: 'overflowed', injected: 'fit' })
+  expect(report).toEqual({ fill: 'x', slots: { name: 'overflowed' } })
+  expect(requiredSlotRefusal(declared, report)).toBeInstanceOf(RequiredSlotsRefusedError)
+  expect(requiredSlotRefusal(declared, report)?.message).toContain("shorten its value or change the slot's overflow")
 })
 
 test('present removes an optional slot element a fill leaves empty, so its layout item collapses', async () => {
@@ -223,4 +232,24 @@ test('preparation keeps required items viewable when their slots are unfilled', 
   const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: true }])
   expect(prepared.report.slots.name).toBe('unavailable')
   expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toContain('Design name')
+})
+
+test('a fit result never turns an unfilled required slot into a printable one', () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: true, overflow: 'shrink', minSize: 6 }]
+  for (const state of ['placeholder', 'unavailable', 'invalid'] as const) {
+    const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: state } }, { name: 'fit' })
+    expect(report.slots.name).toBe(state)
+    expect(requiredSlotRefusal(declared, report)?.message).toContain(`"name" (${state})`)
+  }
+})
+
+test('only a slot the fill supplied is marked for measurement', async () => {
+  const declared: SlotDeclaration[] = [
+    { key: 'name', label: 'Name', type: 'text', required: true, overflow: 'shrink', minSize: 6 },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'refuse' },
+  ]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { role: 'Teacher' } } })
+  const html = prepared.apply('<p data-slot-value="name">Design name</p><p data-slot-value="role">Role</p>')
+  expect(html).toContain('<p>Design name</p>')
+  expect(html).toContain('data-slot-overflow="role:refuse"')
 })

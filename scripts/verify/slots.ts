@@ -13,10 +13,15 @@ export async function verifySlots(h: Harness) {
   const facts = await page.evaluate(() => {
     const logo = document.querySelector<HTMLIFrameElement>('#mina iframe')?.getAttribute('srcdoc')
     const exposed = window as unknown as {
-      slotFacts: { reports: Array<{ fill: string | null; slots: Record<string, string> }>; failedAsset?: { slots: Record<string, string> } }
+      slotFacts: {
+        reports: Array<{ fill: string | null; slots: Record<string, string> }>
+        refuseError?: string
+        failedAsset?: { slots: Record<string, string> }
+      }
       slotPrintFacts: string
     }
-    return { logo, ...exposed.slotFacts, printed: exposed.slotPrintFacts }
+    const shrink = document.querySelector<HTMLIFrameElement>('#shrink-card iframe')?.getAttribute('srcdoc')
+    return { logo, shrink, ...exposed.slotFacts, printed: exposed.slotPrintFacts }
   })
   const frameText = async (selector: string) => {
     const frames = page.locator(selector)
@@ -41,4 +46,10 @@ export async function verifySlots(h: Harness) {
   )
   check('a deck thumbnail renders its filled slot value', deckThumbnail.join(' ').includes('<em>Mina Patel</em>'))
   check('printPages prints filled values', facts.printed.includes('Noah Kim') && facts.printed.includes('noah@example.com'))
+  check(
+    'a long shrinking business-card name reports shrunk',
+    facts.reports.some((report) => report.fill === 'long-print' && report.slots.name === 'shrunk'),
+    JSON.stringify({ reports: facts.reports.filter((report) => report.fill === 'long-print'), marked: facts.shrink?.includes('data-slot-overflow') }),
+  )
+  check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
 }

@@ -3,13 +3,15 @@
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
+import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
-import type { Font, ImageOptions, RenderLimits, RenderOptions } from './options.ts'
+import { fontFaces } from './font-faces.ts'
+import type { ImageOptions, RenderLimits, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
@@ -20,10 +22,12 @@ import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 import type { JpegDecoder } from './press/image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
-import { filledDeck, filledPage, filledPages } from './slot-fill.ts'
+import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
+import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+export { fontFaces } from './font-faces.ts'
 export type { Font, ImageOptions, OverflowContribution, OverflowEntry, OverflowPart, OverflowReport, RenderLimits, RenderOptions } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
@@ -52,15 +56,6 @@ export interface Renderer {
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   close(): Promise<void>
-}
-
-export function fontFaces(fonts: Font[] = []): string {
-  return fonts
-    .map(
-      (font) =>
-        `@font-face{font-family:${JSON.stringify(font.family)};src:url(data:font/${font.format === 'truetype' ? 'ttf' : font.format === 'opentype' ? 'otf' : font.format};base64,${Buffer.from(font.data).toString('base64')}) format(${JSON.stringify(font.format)});font-weight:${font.weight ?? 'normal'};font-style:${font.style ?? 'normal'};font-display:block}`,
-    )
-    .join('')
 }
 
 async function sheets(pdf: Uint8Array): Promise<number> {
@@ -174,15 +169,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       boundMs?: number
       deadline?: RenderDeadline
       beforeOutput?: (tab: Tab) => Promise<void>
+      slots?: PreparedSlots
     },
     body: (tab: Tab) => Promise<T>,
   ): Promise<T> {
     let context: BrowserContext | undefined
+    const measureSlots = setup.slots && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
     try {
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
         (async () => {
           context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
+          if (measureSlots) await installSlotFitCapture(context)
           await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
           await context.routeWebSocket('**/*', (socket) => socket.close())
           const tab = await context.newPage()
@@ -198,6 +196,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             })
           }
           await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
+          if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
           await setup.beforeOutput?.(tab)
           return body(tab)
         })(),
@@ -239,7 +238,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return withTab(
       {
         viewport,
-        scripts: page.scripts === 'sandboxed',
+        scripts: true,
+        slots: preparedSlotsFor(page),
         html: pageDocument(page, opts, true),
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
@@ -278,7 +278,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return withTab(
       {
         viewport: geometry.viewport,
-        scripts: page.scripts === 'sandboxed',
+        scripts: true,
+        slots: preparedSlotsFor(page),
         html,
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
@@ -326,7 +327,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return withTab(
           {
             viewport,
-            scripts: page.scripts === 'sandboxed',
+            scripts: true,
+            slots: preparedSlotsFor(page),
             scale: opts.scale,
             html: pageDocument(page, opts),
             waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
@@ -359,7 +361,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await filledDeck(deck, opts.slots, deadline.signal)
         return renderDeckPdf(prepared, opts, {
-          renderPdf: (setup, pdf) => withTab({ ...setup, waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
+          renderPdf: (setup, pdf) => withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
         })
@@ -380,6 +382,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             scale: opts.scale,
             html,
+            slots: preparedSlotsFor(preparedDeck),
             waitForReady: false,
             boundMs: opts.boundMs,
             deadline,

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { EVIDENCE, type Harness } from './harness.ts'
 
-const EXISTING_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation'])
+const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
   return h.page
@@ -71,8 +71,8 @@ export async function verifyBooks(h: Harness) {
   check('the Hebrew continuous book root is right to left', direction === 'rtl', String(direction))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
   check(
-    'continuous books add no host message kind',
-    messages.every((kind) => EXISTING_MESSAGES.has(kind)),
+    'continuous books use only declared bridge message kinds',
+    messages.every((kind) => BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
 }

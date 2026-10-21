@@ -10,12 +10,28 @@ const SlotDeclarationShape = {
   type: SlotType,
   required: z.boolean().default(false),
   placeholder: z.string().optional(),
+  overflow: z.enum(['shrink', 'truncate', 'wrap', 'refuse']).default('wrap'),
+  minSize: z.number().positive().finite().optional(),
 } as const
 
+function validateOverflow(slot: { type: SlotType; overflow: 'shrink' | 'truncate' | 'wrap' | 'refuse'; minSize?: number }, ctx: z.RefinementCtx) {
+  if ((slot.type === 'qr' || slot.type === 'image') && slot.overflow !== 'wrap') {
+    ctx.addIssue({ code: 'custom', path: ['overflow'], message: `overflow cannot be declared for ${slot.type} slots` })
+  }
+  if (slot.type === 'qr' || slot.type === 'image') {
+    if (slot.minSize !== undefined) ctx.addIssue({ code: 'custom', path: ['minSize'], message: `minSize cannot be declared for ${slot.type} slots` })
+  } else if (slot.overflow !== 'shrink' && slot.minSize !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['minSize'], message: 'minSize can be declared only when overflow is shrink' })
+  }
+}
+
+const withOverflowDefaults = <T extends { overflow: 'shrink' | 'truncate' | 'wrap' | 'refuse'; minSize?: number }>(slot: T) =>
+  slot.overflow === 'shrink' ? { ...slot, minSize: slot.minSize ?? 6 } : slot
+
 // Stored items are read tolerantly. SlotDeclarationInput is the strict write edge.
-export const SlotDeclaration = z.object(SlotDeclarationShape)
-export type SlotDeclaration = z.infer<typeof SlotDeclaration>
-export const SlotDeclarationInput = z.strictObject(SlotDeclarationShape)
+export const SlotDeclaration = z.object(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
+export type SlotDeclaration = Omit<z.infer<typeof SlotDeclaration>, 'overflow'> & { overflow?: z.infer<typeof SlotDeclaration>['overflow'] }
+export const SlotDeclarationInput = z.strictObject(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
 export type SlotDeclarationInput = z.input<typeof SlotDeclarationInput>
 
 export const Slots = z.array(SlotDeclaration).superRefine((slots, ctx) => {
@@ -44,7 +60,7 @@ export interface Fill {
   values: Record<string, SlotValue>
 }
 
-export type SlotState = 'filled' | 'placeholder' | 'unavailable' | 'invalid'
+export type SlotState = 'filled' | 'placeholder' | 'unavailable' | 'invalid' | 'fit' | 'shrunk' | 'overflowed'
 
 export interface SlotReport {
   fill: string | null
@@ -67,9 +83,14 @@ export function mergeSlotDeclarations(...groups: ReadonlyArray<readonly SlotDecl
       merged.set(slot.key, slot)
       continue
     }
-    if (previous.type !== slot.type || previous.required !== slot.required) {
+    if (
+      previous.type !== slot.type ||
+      previous.required !== slot.required ||
+      (previous.overflow ?? 'wrap') !== (slot.overflow ?? 'wrap') ||
+      previous.minSize !== slot.minSize
+    ) {
       throw new RangeError(
-        `Slot "${slot.key}" has conflicting declarations: type ${previous.type}, required ${previous.required}; type ${slot.type}, required ${slot.required}.`,
+        `Slot "${slot.key}" has conflicting declarations: type ${previous.type}, required ${previous.required}, overflow ${previous.overflow ?? 'wrap'}; type ${slot.type}, required ${slot.required}, overflow ${slot.overflow ?? 'wrap'}.`,
       )
     }
   }

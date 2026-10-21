@@ -469,6 +469,16 @@ deterministic integration paths. The outer print document contains no inline
 script: host-context code paginates notes and places natural images after
 readiness, so a strict host content security policy cannot disable either.
 
+The frame bridge sends only five kinds of messages to its host: a relayed key,
+height, readiness, animation timing and slot fit. A filled item's author
+scripts are refused, so only the nonce-authorized bridge can send its bounded
+slot-fit record. A non-default text-slot overflow is marked on its bound
+element as `data-slot-overflow="<percent-encoded key>:<mode>[:<minimum px>]"`.
+After images and fonts settle, the bridge applies truncation or shrinking,
+measures the element's own inline and block overflow, and reports one worst
+state per slot before readiness. Browser and server printing consume that same
+report, and an overflowed `refuse` slot prevents output.
+
 **Sideways overflow.** On screen, content that overflows a page sideways is
 clipped at the page edge. Chromium's print path instead shrinks the whole page
 to fit it. A render at a fixed size (a page with a fixed width and height and

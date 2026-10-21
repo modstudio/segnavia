@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { animationReport } from './animation-timing.ts'
-import { bridgeForHost, frameDocument, MESSAGE, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS } from './bridge.ts'
+import { bridgeForHost, frameDocument, MESSAGE, messageFrom, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS, slotFitMessageData } from './bridge.ts'
 
 describe('frame document', () => {
   test('relays viewer and presentation shortcuts', () => {
@@ -52,6 +52,7 @@ describe('frame document', () => {
         { effect: { getComputedTiming: () => ({ endTime: 3200, iterations: 2 }) } },
       ],
       querySelector: () => null,
+      querySelectorAll: () => [],
     }
     const parent = { postMessage: (value: unknown) => messages.push(value) }
     const window = { addEventListener: () => {} }
@@ -65,9 +66,15 @@ describe('frame document', () => {
     expect(html).toContain("window.addEventListener('click'")
     expect(html).toContain("href.charAt(0)!=='#'")
     expect(html).not.toMatch(/fragment=decodeURIComponent/)
-    expect(html.match(/decodeURIComponent/g)).toHaveLength(1)
+    expect(html.match(/decodeURIComponent/g)).toHaveLength(2)
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
-    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([MESSAGE.animation, MESSAGE.key, MESSAGE.height, MESSAGE.ready])
+    expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([
+      MESSAGE.animation,
+      MESSAGE.slotFit,
+      MESSAGE.key,
+      MESSAGE.height,
+      MESSAGE.ready,
+    ])
     expect(html).toContain(
       "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
     )
@@ -101,5 +108,23 @@ describe('frame document', () => {
     const a = newNonce()
     expect(a).toMatch(/^[0-9a-f]{32}$/)
     expect(newNonce()).not.toBe(a)
+  })
+
+  test('slot fit messages accept only bounded records of known states', () => {
+    expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit', bio: 'overflowed' } })).toEqual({
+      type: MESSAGE.slotFit,
+      slots: { name: 'shrunk', role: 'fit', bio: 'overflowed' },
+    })
+    expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: [] })).toBeNull()
+    expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: { name: 'filled' } })).toBeNull()
+    expect(
+      slotFitMessageData({ type: MESSAGE.slotFit, slots: Object.fromEntries(Array.from({ length: 201 }, (_, index) => [String(index), 'fit'])) }),
+    ).toBeNull()
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    expect(messageFrom({ source, data: { type: MESSAGE.slotFit, slots: { name: 'fit' } } } as MessageEvent, frame)).toEqual({
+      type: MESSAGE.slotFit,
+      slots: { name: 'fit' },
+    })
   })
 })

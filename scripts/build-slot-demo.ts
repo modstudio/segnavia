@@ -53,13 +53,21 @@ export const slotLogo =
 export function buildSlotDemo(site: string): void {
   writeFileSync(
     path.join(site, 'slots.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail></div><script type="module" src="segnavia.js"></script><script type="module">
+    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-page id="shrink-card"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail></div><script type="module" src="segnavia.js"></script><script type="module">
       import { printPages } from './segnavia.js'
       await customElements.whenDefined('segnavia-document')
       const pages = ${JSON.stringify(slotCardPages)}
       const declarations = ${JSON.stringify(cardSlots)}
       const resolveAsset = async ref => ref === 'mark' ? ${JSON.stringify(slotLogo)} : Promise.reject(new Error('missing asset'))
       const reports = []
+      const overflowPage = mode => ({
+        size: { width: 336, height: 192 },
+        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }],
+        html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>',
+      })
+      const shrink = document.getElementById('shrink-card')
+      shrink.slots = { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } }, report: report => reports.push(report) }
+      shrink.page = overflowPage('shrink')
       for (const [id, fill] of [['mina', ${JSON.stringify(firstCardFill)}], ['noah', ${JSON.stringify(secondCardFill)}]]) {
         const viewer = document.getElementById(id)
         viewer.slots = { fill, declarations, resolveAsset, report: report => reports.push(report) }
@@ -93,7 +101,29 @@ export function buildSlotDemo(site: string): void {
           window.slotPrintFacts = [...win.document.querySelectorAll('iframe')].map(frame => frame.getAttribute('srcdoc') ?? '').join('|')
         },
       })
-      window.slotFacts = { reports, get failedAsset() { return failedAsset } }
+      await printPages([overflowPage('shrink')], ${JSON.stringify(slotCardImposition)}, {
+        slots: {
+          fill: { id: 'long-print', values: { name: 'Alexandria Montgomery' } },
+          report: report => reports.push(report),
+        },
+        print: () => {},
+      })
+      let refuseError
+      try {
+        await printPages([overflowPage('refuse')], ${JSON.stringify(slotCardImposition)}, {
+          slots: { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } } },
+          print: () => { throw new Error('overflowed refuse slot reached print') },
+        })
+      } catch (error) {
+        refuseError = error?.name === 'RequiredSlotsRefusedError' ? error.message : String(error)
+      }
+      await new Promise(resolve => {
+        const deadline = performance.now() + 2000
+        const settled = () => reports.some(report => report.fill === 'long-print' && report.slots.name !== 'filled') || performance.now() >= deadline
+        const check = () => settled() ? resolve() : setTimeout(check, 10)
+        check()
+      })
+      window.slotFacts = { reports, refuseError, get failedAsset() { return failedAsset } }
     </script></body></html>`,
   )
 }

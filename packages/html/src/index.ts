@@ -12,6 +12,7 @@ export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } f
 export {
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
+  mergeSlotFitResults,
   type PreparedSlots,
   prepareSlotCollection,
   prepareSlots,
