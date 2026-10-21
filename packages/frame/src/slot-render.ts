@@ -8,14 +8,25 @@ import {
   requiredSlotRefusal,
   SlotFillRefusedError,
   slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
 } from '@segnavia/html'
 
 export type { PreparedSlots }
-export { hasSlotWork, RequiredSlotsRefusedError, requiredSlotRefusal, SlotFillRefusedError, slotFillRefusal }
+export {
+  hasSlotWork,
+  RequiredSlotsRefusedError,
+  requiredSlotRefusal,
+  SlotFillRefusedError,
+  slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
+}
 
 export const EMPTY_SLOTS: PreparedSlots = {
   declarations: [],
   report: { fill: null, slots: {} },
+  marked: new Set(),
   apply: (html) => html,
   mergeFit: () => EMPTY_SLOTS.report,
 }

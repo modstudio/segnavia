@@ -10,6 +10,22 @@ export async function verifySlots(h: Harness) {
       document.querySelectorAll('#mina iframe').length === 2 &&
       document.querySelector('#filled-deck-thumbnail')?.shadowRoot?.querySelector('iframe'),
   )
+  await page.evaluate(() => {
+    const probe = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
+    probe.id = 'authored-overflow-marker'
+    probe.page = {
+      size: { width: 100, height: 100 },
+      scripts: 'refuse',
+      html: '<div data-slot-overflow="x:shrink:-1e308" style="width:1px;height:1px;overflow:hidden"><span style="display:block;width:100px;height:100px"></span></div>',
+    }
+    window.addEventListener('message', (event) => {
+      const frame = probe.querySelector('iframe')
+      if (frame?.contentWindow === event.source && event.data?.type === 'segnavia:ready')
+        (window as typeof window & { authoredOverflowMarkerReady?: boolean }).authoredOverflowMarkerReady = true
+    })
+    document.body.append(probe)
+  })
+  await page.waitForFunction(() => (window as typeof window & { authoredOverflowMarkerReady?: boolean }).authoredOverflowMarkerReady === true)
   const facts = await page.evaluate(() => {
     const logo = document.querySelector<HTMLIFrameElement>('#mina iframe')?.getAttribute('srcdoc')
     const exposed = window as unknown as {
@@ -52,4 +68,5 @@ export async function verifySlots(h: Harness) {
     JSON.stringify({ reports: facts.reports.filter((report) => report.fill === 'long-print'), marked: facts.shrink?.includes('data-slot-overflow') }),
   )
   check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
+  check('an invalid authored shrink marker cannot prevent page readiness', true)
 }

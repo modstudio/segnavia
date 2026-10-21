@@ -11,6 +11,8 @@ import {
   requiredSlotRefusal,
   SlotFillRefusedError,
   slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
 } from './slots.ts'
 
 const declarations: SlotDeclaration[] = [
@@ -219,6 +221,32 @@ test('fit results merge only declared keys and overflowed refuse slots block out
   expect(requiredSlotRefusal(declared, report)?.message).toContain("shorten its value or change the slot's overflow")
 })
 
+test('filled refuse slots must be measured before output', () => {
+  const declared = [
+    { key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'wrap' },
+  ] as const
+  const report = { fill: 'x', slots: { name: 'filled' as const, role: 'filled' as const } }
+  const marked = new Set(['name'])
+  const refusal = unmeasuredSlotRefusal(declared, report, marked, new Set())
+  expect(refusal).toBeInstanceOf(UnmeasuredSlotsRefusedError)
+  expect(refusal?.message).toContain('overflow could not be measured for slots: "name"')
+  expect(refusal?.message).toContain("change the slot's overflow from 'refuse'")
+  expect(unmeasuredSlotRefusal(declared, report, marked, new Set(['name']))).toBeUndefined()
+})
+
+test('a filled refuse slot that no page binds has nothing to measure and does not block output', async () => {
+  const declared: SlotDeclaration[] = [
+    { key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'refuse' },
+  ]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Mina', role: 'Teacher' } } })
+  prepared.apply('<p data-slot-value="name">Name</p>')
+  expect([...prepared.marked]).toEqual(['name'])
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Set())?.message).toContain('slots: "name".')
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Set(['name']))).toBeUndefined()
+})
+
 test('present removes an optional slot element a fill leaves empty, so its layout item collapses', async () => {
   const role = [{ key: 'role', label: 'Role', type: 'text', required: false }] as const
   const html = '<div class="grid"><p>Kept</p><p data-slot-present="role" data-slot-value="role">Role</p></div>'
@@ -252,4 +280,14 @@ test('only a slot the fill supplied is marked for measurement', async () => {
   const html = prepared.apply('<p data-slot-value="name">Design name</p><p data-slot-value="role">Role</p>')
   expect(html).toContain('<p>Design name</p>')
   expect(html).toContain('data-slot-overflow="role:refuse"')
+})
+
+test('slot application removes authored overflow markers before writing its own', async () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Ada' } } })
+  const html = prepared.apply(
+    '<p data-slot-overflow="forged:shrink:-1e308">Authored</p><p data-slot-value="name" data-slot-overflow="forged:truncate">Name</p>',
+  )
+  expect(html).not.toContain('forged')
+  expect(html).toContain('data-slot-overflow="name:refuse"')
 })

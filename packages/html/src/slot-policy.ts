@@ -9,6 +9,15 @@ export class RequiredSlotsRefusedError extends Error {
   }
 }
 
+export class UnmeasuredSlotsRefusedError extends Error {
+  constructor(slots: readonly string[]) {
+    super(
+      `Output was refused because overflow could not be measured for slots: ${slots.map((key) => `"${key}"`).join(', ')}. Ensure each filled slot frame becomes ready before the output deadline, or change the slot's overflow from 'refuse'.`,
+    )
+    this.name = 'UnmeasuredSlotsRefusedError'
+  }
+}
+
 /** Returns the print/render refusal for required or overflowing declarations. */
 export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], report: SlotReport): RequiredSlotsRefusedError | undefined {
   const refused = declarations.flatMap((slot) => {
@@ -18,6 +27,19 @@ export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], re
     return required || overflow ? [{ key: slot.key, state }] : []
   })
   return refused.length === 0 ? undefined : new RequiredSlotsRefusedError(refused)
+}
+
+/** Refuses filled refuse-overflow slots that were marked in the page but not measured before output; a slot no page binds has nothing to measure. */
+export function unmeasuredSlotRefusal(
+  declarations: readonly SlotDeclaration[],
+  report: SlotReport,
+  marked: ReadonlySet<string>,
+  measuredKeys: ReadonlySet<string>,
+): UnmeasuredSlotsRefusedError | undefined {
+  const unmeasured = declarations.flatMap((slot) =>
+    slot.overflow === 'refuse' && report.slots[slot.key] === 'filled' && marked.has(slot.key) && !measuredKeys.has(slot.key) ? [slot.key] : [],
+  )
+  return unmeasured.length === 0 ? undefined : new UnmeasuredSlotsRefusedError(unmeasured)
 }
 
 /** Merges measured fit states into filled declared slots; any other state, and any undeclared key, is left as it was. */
