@@ -9,7 +9,7 @@ Chromium under both Bun and Node. CI installs Chrome for Testing and passes its
 executable path to the demo and rendering scripts through
 `SEGNAVIA_CHROMIUM`. It also installs ffmpeg, which the demo build uses to make
 its narration test tone, and poppler-utils, whose PDF tools the verify scripts
-use to read what they render. The fidelity scripts () use
+use to read what they render. The fidelity scripts (`bun run fidelity`) use
 macOS tools and are not part of CI.
 
 The PHP host fixture is not part of CI. It needs a separate Composer install
