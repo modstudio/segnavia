@@ -72,6 +72,8 @@ export async function verifySlots(h: Harness) {
 
   await page.waitForFunction(() => document.querySelector('#card-settings')?.shadowRoot?.querySelector('[part~="fill-select"]'))
   const settings = page.locator('#card-settings')
+  // The panel sits below the cards; bring it into view first, as an author would scroll to it.
+  await settings.scrollIntoViewIfNeeded()
   const nameInput = settings.locator('[data-key="name"] input')
   check(
     'a source value is read-only with an override control',

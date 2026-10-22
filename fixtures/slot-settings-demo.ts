@@ -28,6 +28,9 @@ const panel = settings
 const rtlPanel = rtl
 const cardData = card
 
+// The page's own script reads the card's reports too, so its callback keeps running alongside the panels.
+const pageReport = viewer.slots?.report
+
 function applyCard(fillId: string) {
   const fill = fills.find((item) => item.id === fillId) ?? fills[0]
   if (!fill) return
@@ -38,6 +41,7 @@ function applyCard(fillId: string) {
     declarations: cardData.declarations,
     resolveAsset: cardData.resolveAsset,
     report: (report) => {
+      pageReport?.(report)
       panel.report = report
       rtlPanel.report = report
     },
@@ -80,8 +84,6 @@ const handlers: Parameters<typeof attachItemSettings>[1] = {
 const authoring = attachItemSettings(panel, handlers)
 // The right-to-left copy edits the same fills, so it shows the same controls.
 attachItemSettings(rtlPanel, handlers)
-// The card shows the hand fill over the directory source from the start, so both panels see its report.
-applyCard(minaHand.id)
 
 ;(window as unknown as { itemSettings: SegnaviaItemSettings; itemSettingsAuthoring: typeof authoring; itemSettingsFacts: { saves: Fill[] } }).itemSettings =
   panel
