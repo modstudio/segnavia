@@ -1,5 +1,6 @@
 import type { SlotDeclaration, SlotsOptions } from '@segnavia/format'
 import {
+  collectSlotPrintCopies,
   hasSlotWork,
   type PreparedSlots,
   prepareSlotCollection as prepareHtmlSlotCollection,
@@ -7,17 +8,23 @@ import {
   RequiredSlotsRefusedError,
   requiredSlotRefusal,
   SlotFillRefusedError,
+  SlotFillsConflictError,
+  SlotFillsRefusedError,
+  type SlotPrintOptions,
   slotFillRefusal,
   UnmeasuredSlotsRefusedError,
   unmeasuredSlotRefusal,
 } from '@segnavia/html'
 
-export type { PreparedSlots }
+export type { PreparedSlots, SlotPrintOptions }
 export {
+  collectSlotPrintCopies,
   hasSlotWork,
   RequiredSlotsRefusedError,
   requiredSlotRefusal,
   SlotFillRefusedError,
+  SlotFillsConflictError,
+  SlotFillsRefusedError,
   slotFillRefusal,
   UnmeasuredSlotsRefusedError,
   unmeasuredSlotRefusal,

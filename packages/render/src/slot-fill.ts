@@ -1,5 +1,13 @@
-import type { Deck, Page, SlotsOptions } from '@segnavia/format'
-import { hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal } from '@segnavia/html'
+import type { Deck, Page } from '@segnavia/format'
+import {
+  assertSingleSlotCopy,
+  hasSlotWork,
+  prepareSlotCollection,
+  prepareSlots,
+  requiredSlotRefusal,
+  type SlotPrintOptions,
+  slotFillRefusal,
+} from '@segnavia/html'
 
 const preparations = new WeakMap<object, Awaited<ReturnType<typeof prepareSlots>>>()
 
@@ -12,7 +20,8 @@ function refuseRequired(prepared: Awaited<ReturnType<typeof prepareSlots>>): voi
   if (refusal) throw refusal
 }
 
-export async function filledPage(page: Page, slots: SlotsOptions | undefined, signal?: AbortSignal): Promise<Page> {
+export async function filledPage(page: Page, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Page> {
+  assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(page.scripts, page.slots, slots)
   if (refusal) throw refusal
   if (!hasSlotWork(page.slots, slots)) return page
@@ -23,7 +32,8 @@ export async function filledPage(page: Page, slots: SlotsOptions | undefined, si
   return filled
 }
 
-export async function filledPages(pages: Page[], slots: SlotsOptions | undefined, signal?: AbortSignal): Promise<Page[]> {
+export async function filledPages(pages: Page[], slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Page[]> {
+  assertSingleSlotCopy(slots)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, slots)
     if (refusal) throw refusal
@@ -42,7 +52,8 @@ export async function filledPages(pages: Page[], slots: SlotsOptions | undefined
   })
 }
 
-export async function filledDeck(deck: Deck, slots: SlotsOptions | undefined, signal?: AbortSignal): Promise<Deck> {
+export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Deck> {
+  assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(deck.scripts, deck.slots, slots)
   if (refusal) throw refusal
   if (!hasSlotWork(deck.slots, slots)) return deck

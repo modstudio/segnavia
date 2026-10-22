@@ -1,11 +1,10 @@
 import { Imposition, type ImpositionInput, impose, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
-import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
-import { loadPdf } from './pdf-load.ts'
+import { joinPdfs } from './pdf-join.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -14,16 +13,6 @@ interface PagesPdfServices {
   piecePdf(page: Page, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
-}
-
-async function joinPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
-  const joined = await PDFDocument.create()
-  for (const bytes of pdfs) {
-    const source = await loadPdf(bytes)
-    const pages = await joined.copyPages(source, source.getPageIndices())
-    for (const page of pages) joined.addPage(page)
-  }
-  return joined.save()
 }
 
 function namePageError(error: unknown, page: number): never {

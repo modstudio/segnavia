@@ -8,20 +8,17 @@ import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'p
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
-import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import type { ImageOptions, RenderLimits, RenderOptions } from './options.ts'
+import type { ImageOptions, OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { loadPdf } from './pdf-load.ts'
-import { rewritePressPdf } from './press/adapter.ts'
-import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
-import type { JpegDecoder } from './press/image.ts'
+import { finishPdf } from './pdf-finish.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
+import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
@@ -56,40 +53,6 @@ export interface Renderer {
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   close(): Promise<void>
-}
-
-async function sheets(pdf: Uint8Array): Promise<number> {
-  return (await loadPdf(pdf)).getPageCount()
-}
-
-async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promise<Uint8Array> {
-  if (limits?.maxBytes !== undefined && pdf.byteLength > limits.maxBytes) {
-    throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${limits.maxBytes}.`)
-  }
-  if (limits?.maxSheets !== undefined) {
-    const count = await sheets(pdf)
-    if (count > limits.maxSheets) throw new RenderRefusedError(`The PDF has ${count} sheets; the limit is ${limits.maxSheets}.`)
-  }
-  return pdf
-}
-
-async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
-  if (options.limits?.maxBytes !== undefined && pdf.byteLength > options.limits.maxBytes)
-    throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${options.limits.maxBytes}.`)
-  let output = pdf
-  if (options.effects !== false) {
-    const rewritten = await rewriteEffectsPdf(output)
-    output = rewritten.bytes
-    options.effects?.report?.(rewritten.report)
-  }
-  if (options.press) {
-    const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
-    assertNeutralTolerance(neutralTolerance)
-    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance, decodeJpeg)
-    output = converted.bytes
-    options.press.report?.(converted.report)
-  }
-  return enforce(output, options.limits)
 }
 
 // One image of what a tab shows. Shared with capture, so a shot and a
@@ -311,10 +274,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pagePdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const page = await filledPage(Page.parse(input), opts.slots, deadline.signal)
-        const printed = await renderPagePdf(page, opts, undefined, deadline)
-        const output = await finishWithBrowser(printed.bytes, opts, deadline)
-        if (printed.overflow) opts.overflow?.report?.({ entries: [printed.overflow] })
+        const overflows: OverflowEntry[] = []
+        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
+          const page = await filledPage(Page.parse(input), copySlots, deadline.signal)
+          const printed = await renderPagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
+          if (printed.overflow) overflows.push(printed.overflow)
+          return printed.bytes
+        })
+        const output = await finishWithBrowser(bytes, opts, deadline)
+        if (overflows.length) opts.overflow?.report?.({ entries: overflows })
         return output
       })
     },
@@ -347,24 +315,38 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const parsed = inputs.map((input) => Page.parse(input))
-        const pages = await filledPages(parsed, opts.slots, deadline.signal)
-        return renderPagesPdf(pages, opts, {
-          pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex, deadline),
-          piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, deadline),
-          fontFaces: (options) => fontFaces(options.fonts),
-          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
+          const pages = await filledPages(parsed, copySlots, deadline.signal)
+          return renderPagesPdf(
+            pages,
+            { ...opts, effects: false, limits: undefined, press: undefined },
+            {
+              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex, deadline),
+              piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, deadline),
+              fontFaces: (options) => fontFaces(options.fonts),
+              finish: async (pdf) => pdf,
+            },
+          )
         })
+        return finishWithBrowser(bytes, opts, deadline)
       })
     },
 
     async deckPdf(deck, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const prepared = await filledDeck(deck, opts.slots, deadline.signal)
-        return renderDeckPdf(prepared, opts, {
-          renderPdf: (setup, pdf) => withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
-          fontFaces: (options) => fontFaces(options.fonts),
-          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
+          const prepared = await filledDeck(deck, copySlots, deadline.signal)
+          return renderDeckPdf(
+            prepared,
+            { ...opts, effects: false, press: undefined },
+            {
+              renderPdf: (setup, pdf) => withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
+              fontFaces: (options) => fontFaces(options.fonts),
+              finish: async (pdf) => pdf,
+            },
+          )
         })
+        return finishWithBrowser(bytes, opts, deadline)
       })
     },
 

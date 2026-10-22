@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
-import { RequiredSlotsRefusedError, SlotFillRefusedError } from '@segnavia/html'
+import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { printDeck, printPages } from './print.ts'
 
 test('browser print refuses a fill for a scripted deck before reporting', async () => {
@@ -43,5 +43,28 @@ test('browser deck and page printing refuse every required slot state before cre
     const printing = print()
     await expect(printing).rejects.toBeInstanceOf(RequiredSlotsRefusedError)
     await expect(printing).rejects.toThrow('"name" (placeholder), "email" (invalid), "site" (invalid)')
+  }
+})
+
+const imposition = { paper: { unit: 'mm' as const, width: 210, height: 297 }, columns: 1, rows: 1, cell: { width: 210, height: 297 } }
+
+test('browser print refuses fills together with fill', async () => {
+  const deck = Deck.parse({ title: 'Fills', slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
+  const slots = { fills: [{ fill: { id: 'ada', values: { name: 'Ada' } } }], fill: { id: 'ada', values: { name: 'Ada' } } }
+  await expect(printDeck(deck, { slots })).rejects.toBeInstanceOf(SlotFillsConflictError)
+  await expect(printPages([{ html: '<p>Design</p>' }], imposition, { slots })).rejects.toBeInstanceOf(SlotFillsConflictError)
+})
+
+test('browser print lists every refused fill before creating output', async () => {
+  const declarations = [{ key: 'name', label: 'Name', type: 'text' as const, required: true, placeholder: 'Preview' }]
+  const slots = {
+    fills: [{ fill: { id: 'missing', values: {} } }, { source: { id: 'staff', values: {} } }],
+  }
+  const deck = Deck.parse({ title: 'Required', slots: declarations, slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
+  const printings = [() => printDeck(deck, { slots }), () => printPages([{ html: '<p>Design</p>', slots: declarations }], imposition, { slots })]
+  for (const print of printings) {
+    const printing = print()
+    await expect(printing).rejects.toBeInstanceOf(SlotFillsRefusedError)
+    await expect(printing).rejects.toThrow('"missing" "name" (placeholder); 1 "name" (placeholder)')
   }
 })

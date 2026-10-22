@@ -1,4 +1,4 @@
-import type { SlotsOptions } from '@segnavia/format'
+import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import type { PressReport } from './press/types.ts'
@@ -59,7 +59,7 @@ export interface RenderOptions {
   waitForPageReady?: boolean
   preferCssPageSize?: boolean
   beforeOutput?: (tab: Tab) => Promise<void>
-  slots?: SlotsOptions
+  slots?: SlotPrintOptions
   effects?: false | { report?: (report: EffectsReport) => void }
   overflow?: { report?: (report: OverflowReport) => void }
   press?: {

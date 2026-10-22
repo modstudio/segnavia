@@ -1,20 +1,26 @@
 import type { SlotDeclaration, SlotReport, SlotState } from '@segnavia/format'
 
 export class RequiredSlotsRefusedError extends Error {
+  readonly slots: ReadonlyArray<{ key: string; state: SlotState }>
+
   constructor(slots: ReadonlyArray<{ key: string; state: SlotState }>) {
     super(
       `Output was refused because slots prevent printing: ${slots.map(({ key, state }) => `"${key}" (${state})`).join(', ')}. Fill required slots; for an overflowed refuse slot, shorten its value or change the slot's overflow.`,
     )
     this.name = 'RequiredSlotsRefusedError'
+    this.slots = slots
   }
 }
 
 export class UnmeasuredSlotsRefusedError extends Error {
+  readonly keys: readonly string[]
+
   constructor(slots: readonly string[]) {
     super(
       `Output was refused because overflow could not be measured for slots: ${slots.map((key) => `"${key}"`).join(', ')}. Ensure each filled slot frame becomes ready before the output deadline, or change the slot's overflow from 'refuse'.`,
     )
     this.name = 'UnmeasuredSlotsRefusedError'
+    this.keys = slots
   }
 }
 
