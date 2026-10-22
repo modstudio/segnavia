@@ -77,8 +77,8 @@ export async function verifyBackdropRaster(renderer: Renderer, work: string, che
   const text = execFileSync('pdftotext', [pdfFile, '-'], { encoding: 'utf8' })
   check('frosted panel text remains extractable', text.replace(/\s+/g, ' ').includes('FROSTED selectable'))
   const document = await loadPdf(pdf)
-  // Adobe draws an isolated group that declares no colour space with muted
-  // colours, so every transparency group on the page must name its space.
+  // Adobe draws an isolated group that declares no color space with muted
+  // colors, so every transparency group on the page must name its space.
   const groups = document.context
     .enumerateIndirectObjects()
     .map(([, object]) => (object instanceof PDFRawStream ? object.dict : object))
@@ -86,7 +86,7 @@ export async function verifyBackdropRaster(renderer: Renderer, work: string, che
     .map((dict) => dict.get(PDFName.of('Group')))
     .filter((group): group is PDFDict => group instanceof PDFDict && group.get(PDFName.of('S'))?.toString() === '/Transparency')
   check(
-    'every transparency group on a backdrop raster page declares its colour space',
+    'every transparency group on a backdrop raster page declares its color space',
     groups.length > 0 && groups.every((group) => group.has(PDFName.of('CS'))),
     `groups=${groups.length}`,
   )
