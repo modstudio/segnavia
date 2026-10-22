@@ -131,24 +131,21 @@ test('a gray press converts every stream that shares one registration Resources 
   expect(output.getPage(1).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
 })
 
-test.each(['registration-first', 'device-rgb-first'] as const)(
-  'refuses a shared content stream when page resources disagree on /All (%s)',
-  async (order) => {
-    const document = await PDFDocument.create()
-    const stream = document.context.register(document.context.stream('/All CS 1 SCN'))
-    const registration = document.context.obj({ ColorSpace: { All: registrationSpace(document) } })
-    const rgb = document.context.obj({ ColorSpace: { All: 'DeviceRGB' } })
-    const pages = order === 'registration-first' ? [registration, rgb] : [rgb, registration]
-    for (const resources of pages) {
-      const page = document.addPage([10, 10])
-      page.node.set(PDFName.of('Resources'), resources)
-      page.node.set(PDFName.of('Contents'), stream)
-    }
-    await expect(rewritePressPdf(await document.save(), grayProfile)).rejects.toThrow(
-      'The PDF has unsupported a content stream shared by pages whose resources disagree on /All; supported: give each page its own stream or the same resources.',
-    )
-  },
-)
+test.each(['registration-first', 'device-rgb-first'] as const)('refuses a shared content stream when page resources disagree on /All (%s)', async (order) => {
+  const document = await PDFDocument.create()
+  const stream = document.context.register(document.context.stream('/All CS 1 SCN'))
+  const registration = document.context.obj({ ColorSpace: { All: registrationSpace(document) } })
+  const rgb = document.context.obj({ ColorSpace: { All: 'DeviceRGB' } })
+  const pages = order === 'registration-first' ? [registration, rgb] : [rgb, registration]
+  for (const resources of pages) {
+    const page = document.addPage([10, 10])
+    page.node.set(PDFName.of('Resources'), resources)
+    page.node.set(PDFName.of('Contents'), stream)
+  }
+  await expect(rewritePressPdf(await document.save(), grayProfile)).rejects.toThrow(
+    'The PDF has unsupported a content stream shared by pages whose resources disagree on /All; supported: give each page its own stream or the same resources.',
+  )
+})
 
 test('a gray press converts a content stream shared by pages with the same registration resources', async () => {
   const document = await PDFDocument.create()

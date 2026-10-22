@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { pageContent } from './pdf-content.test-helper.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
+import { pageContent } from './pdf-content.test-helper.ts'
 
 test('pagesPdf refuses an empty collection with the action that clears it', async () => {
   const render = renderPagesPdf(
