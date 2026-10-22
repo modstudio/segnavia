@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fitPage, Imposition, impose, MM_PER_PT, Page, printBoxes } from '@segnavia/format'
+import { fitPage, Imposition, impose, impositionMarks, MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import {
   bleedGridImposition,
   bleedGridPages,
@@ -20,6 +20,7 @@ import {
   twoSidedSequenceImposition,
 } from '../demo-page-fixtures.ts'
 import { rasterPdf, rasterMillimeters as rasterValue } from './pdf-raster.ts'
+import { darkestNear } from './pgm.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -241,6 +242,14 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     shortCards.pages === 2 && shortCards.paired && shortCards.moved,
     JSON.stringify(shortCards),
   )
+
+  const markedInput = Imposition.parse({ ...twoSidedCardImposition, marks: true })
+  const markedSides = impositionMarks(markedInput)
+  const marksVisible = markedSides.every((side, index) => {
+    const raster = rasterPdf(output, work, 'pages-two-sided-marks', index + 1)
+    return side.marks.every((mark) => darkestNear(raster, (mark.x1 + mark.x2) / 2, (mark.y1 + mark.y2) / 2) < 245)
+  })
+  check('imposed crop marks render at their expected positions on both physical sides', marksVisible)
 
   const oddImposed = impose(Imposition.parse(twoSidedSequenceImposition), 5)
   const oddInfo = imposedInfo('pages-two-sided-odd.pdf')

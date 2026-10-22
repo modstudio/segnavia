@@ -1,5 +1,4 @@
 // Renders pages, slides and decks in a host-named, offline headless Chromium.
-
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
@@ -29,6 +28,7 @@ export { fontFaces } from './font-faces.ts'
 export type {
   Font,
   ImageOptions,
+  MarksReport,
   OverflowContribution,
   OverflowEntry,
   OverflowPart,

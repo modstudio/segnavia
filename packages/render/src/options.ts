@@ -1,3 +1,4 @@
+import type { OmittedImpositionMark } from '@segnavia/format'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
@@ -38,6 +39,10 @@ export interface OverflowReport {
   entries: OverflowEntry[]
 }
 
+export interface MarksReport {
+  omittedMarks: OmittedImpositionMark[]
+}
+
 export interface Font {
   family: string
   data: Uint8Array
@@ -62,6 +67,7 @@ export interface RenderOptions {
   slots?: SlotPrintOptions
   effects?: false | { report?: (report: EffectsReport) => void }
   overflow?: { report?: (report: OverflowReport) => void }
+  marks?: { report?: (report: MarksReport) => void }
   press?: {
     /** Whether authored raster images are left for the printer or converted through the press profile. */
     images?: 'keep' | 'convert'

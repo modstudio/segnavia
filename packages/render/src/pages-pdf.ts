@@ -1,4 +1,4 @@
-import { Imposition, type ImpositionInput, impose, type Page, printPadding, printProperties } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, impositionMarks, type Page, printPadding, printProperties } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import type { PrintResult } from './overflow.ts'
@@ -25,6 +25,8 @@ function namePageError(error: unknown, page: number): never {
 
 async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
   const imposed = impose(imposition, pages.length)
+  const marks = impositionMarks(imposition)
+  opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit)
   const properties = printProperties(imposition, imposition.unit)
   const hostCss = `${services.fontFaces(opts)}${opts.css ?? ''}`
@@ -50,6 +52,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       bytes,
       placements: group.placements,
     })),
+    marks,
   )
 }
 

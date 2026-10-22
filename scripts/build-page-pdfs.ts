@@ -34,6 +34,10 @@ export async function buildPagePdfs(renderer: Renderer, output: string): Promise
   writeFileSync(path.join(output, 'pages-growing-fixed.pdf'), await renderer.pagesPdf(growingFixedPages, { imposition: growingFixedImposition }))
   writeFileSync(path.join(output, 'pages-two-sided-long.pdf'), await renderer.pagesPdf(twoSidedCardPages, { imposition: twoSidedCardImposition }))
   writeFileSync(
+    path.join(output, 'pages-two-sided-marks.pdf'),
+    await renderer.pagesPdf(twoSidedCardPages, { imposition: { ...twoSidedCardImposition, marks: true } }),
+  )
+  writeFileSync(
     path.join(output, 'pages-two-sided-short.pdf'),
     await renderer.pagesPdf(twoSidedCardPages, { imposition: { ...twoSidedCardImposition, flip: 'short' } }),
   )
