@@ -104,4 +104,32 @@ describe('fill save queue', () => {
     expect(await flushing).toBe(true)
     expect(settled).toBe(true)
   })
+
+  test('keeps an edit made after a skipped host value instead of adopting that value', async () => {
+    const time = scheduler()
+    const releases: Array<() => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'mina', values: { name: 'Mina' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina A' } })
+    time.run()
+    queue.seed({ id: 'mina', values: { name: 'Host H' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina B' } })
+    time.run()
+    // The first save settles; the queue then saves the newer edit, and only
+    // after that does it decide whether to adopt the skipped host value.
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    time.run()
+    expect(releases).toHaveLength(1)
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(visible).toEqual([])
+  })
 })

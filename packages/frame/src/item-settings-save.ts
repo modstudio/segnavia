@@ -56,6 +56,9 @@ export class FillSaveQueue {
     this.entries.set(fill.id, entry)
     if (sameFill(entry.draft, fill) && sameFill(entry.saved, fill)) return
     entry.draft = cloneFill(fill)
+    // An edit made after a host value was skipped is newer than it, so that
+    // value must not replace the edit once the save settles.
+    entry.hostSnapshot = undefined
     entry.version++
     this.clearTimer(fill.id)
     this.timers.set(
