@@ -1,7 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 
-class ElementStub extends EventTarget {}
+class ElementStub extends EventTarget {
+  className = ''
+  attachShadow() {
+    return {
+      innerHTML: '',
+      addEventListener() {},
+      querySelector: () => ({ replaceChildren() {} }),
+      querySelectorAll: () => [],
+    }
+  }
+}
 Object.assign(globalThis, {
   HTMLElement: ElementStub,
   customElements: {
@@ -12,6 +22,25 @@ Object.assign(globalThis, {
 
 const { DocumentAuthoringController } = await import('./document-authoring.ts')
 type DocumentAuthoringControllerInstance = InstanceType<typeof DocumentAuthoringController>
+
+test('attachment reads the visible page before opening item settings', () => {
+  const opened: Array<{ pageId: string }> = []
+  const documentElement = Object.assign(new EventTarget(), {
+    currentPageIndex: 2,
+    pages: [] as Page[],
+    print: null,
+    css: '',
+    setAuthoringRail() {},
+    scrollToPage() {},
+  })
+  documentElement.addEventListener('segnavia-item-settings-open', (event) => opened.push((event as CustomEvent<{ pageId: string }>).detail))
+  const controller = new DocumentAuthoringController(documentElement as never, { movePage: async () => {} }, {})
+  documentElement.pages = ['first', 'second', 'third'].map((id) => Page.parse({ id, html: id }))
+
+  ;(controller as unknown as { openItemSettings(): void }).openItemSettings()
+
+  expect(opened).toEqual([{ pageId: 'third' }])
+})
 
 function heldController(outcome: 'resolve' | 'reject') {
   let settle = () => {}

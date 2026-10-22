@@ -1,12 +1,32 @@
 import { expect, test } from 'bun:test'
 import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
-import { printFrameBounds } from './authoring-print-moment.ts'
+import { AuthoringPrintMoment, printFrameBounds } from './authoring-print-moment.ts'
 import { DeckController } from './controller.ts'
 import { PrintMomentSaveQueue } from './print-moment-save.ts'
 
 test('the slider uses the animation length and falls back to ten seconds', () => {
   expect(printFrameBounds(3250)).toEqual({ min: 0, max: 3250, step: 1 })
   expect(printFrameBounds(null)).toEqual({ min: 0, max: 10_000, step: 1 })
+})
+
+test('an accepted animation report refreshes an already rendered section', () => {
+  let railRefreshes = 0
+  let sectionRefreshes = 0
+  const printMoment = Reflect.construct(Object, [], AuthoringPrintMoment) as AuthoringPrintMoment
+  Object.assign(printMoment, {
+    metadata: new Map(),
+    settings: { refresh: () => railRefreshes++ },
+    sectionChanges: new Set([() => sectionRefreshes++]),
+  })
+
+  ;(
+    printMoment as unknown as {
+      acceptReport(report: { slideId: string; animated: boolean; lengthMs: number | null }, source: 'stage' | 'thumbnail'): void
+    }
+  ).acceptReport({ slideId: 'animated', animated: true, lengthMs: 3000 }, 'stage')
+
+  expect(railRefreshes).toBe(1)
+  expect(sectionRefreshes).toBe(1)
 })
 
 test('the slider draft changes without saving and Done saves once', async () => {

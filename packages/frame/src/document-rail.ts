@@ -7,6 +7,7 @@ const CSS = `
 :host{display:block;inline-size:var(--segnavia-rail-size,160px);min-block-size:0;color:var(--segnavia-ink,CanvasText)}
 ol{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;max-block-size:100vh;overflow:auto;list-style:none;margin:0;padding:12px}
 li{flex:none;position:relative}button{font:inherit}
+.item-settings{box-sizing:border-box;inline-size:100%;min-block-size:36px;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:7px;background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);cursor:pointer;unicode-bidi:isolate}
 button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:100%;cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:var(--_page-aspect);border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
@@ -29,6 +30,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
     excludes: () => false,
   })
   private selectPage: (index: number) => void = () => {}
+  private itemSettings: { label: string; open: () => void } | null = null
 
   constructor() {
     super()
@@ -48,6 +50,17 @@ export class SegnaviaDocumentRail extends HTMLElement {
     this.selectPage = select
     const list = this.root.querySelector('ol') as HTMLOListElement
     list.replaceChildren()
+    if (this.itemSettings) {
+      const item = document.createElement('li')
+      item.dataset.itemSettings = ''
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'item-settings'
+      button.textContent = this.itemSettings.label
+      button.setAttribute('aria-label', this.itemSettings.label)
+      item.append(button)
+      list.append(item)
+    }
     pages.forEach((page, index) => {
       const item = document.createElement('li')
       if (page.id) item.dataset.pageId = page.id
@@ -79,6 +92,10 @@ export class SegnaviaDocumentRail extends HTMLElement {
     this.reorder.setEnabled(enabled)
   }
 
+  setItemSettings(label: string | null, open: (() => void) | null) {
+    this.itemSettings = label && open ? { label, open } : null
+  }
+
   subscribeReorder(listener: (intent: RailReorderIntent) => void): () => void {
     return this.reorder.subscribe(listener)
   }
@@ -99,6 +116,10 @@ export class SegnaviaDocumentRail extends HTMLElement {
   }
 
   private clicked = (event: Event) => {
+    if ((event.target as Element).closest('.item-settings')) {
+      this.itemSettings?.open()
+      return
+    }
     const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
     if (!button) return
     const index = Number(button.dataset.index)

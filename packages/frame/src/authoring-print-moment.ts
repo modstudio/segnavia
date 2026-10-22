@@ -26,6 +26,8 @@ export class AuthoringPrintMoment {
   private metadata = new Map<string, RankedAnimationMetadata>()
   private renderedDeck: unknown = null
   private settings: SlideSettingsController
+  private sectionChanges = new Set<() => void>()
+  private sectionBeforeNavigate = new Set<() => void>()
 
   constructor(
     private player: SegnaviaPlayer,
@@ -34,7 +36,7 @@ export class AuthoringPrintMoment {
     failed: (slideId: string, error: unknown) => void,
   ) {
     this.rail = player.authoringRail()
-    this.queue = new PrintMomentSaveQueue(save, dirtyChanged, () => this.settings?.refresh(), failed)
+    this.queue = new PrintMomentSaveQueue(save, dirtyChanged, this.changed, failed)
     window.addEventListener('message', this.onMessage)
     this.player.controller.addEventListener('change', this.render)
     this.settings = new SlideSettingsController(player, () => slideSettings(this.player.labels, this.openPrintFrame), this.info, this.withDraft)
@@ -47,6 +49,7 @@ export class AuthoringPrintMoment {
 
   beforeNavigate() {
     this.settings.beforeNavigate()
+    for (const close of this.sectionBeforeNavigate) close()
   }
 
   dispose() {
@@ -55,16 +58,108 @@ export class AuthoringPrintMoment {
     this.player.controller.removeEventListener('change', this.render)
   }
 
+  renderSection(container: HTMLElement) {
+    let panelCleanup: ((save: boolean) => void) | undefined
+    let panelOpen = false
+    const finalizePanel = (save: boolean) => {
+      const cleanup = panelCleanup
+      panelCleanup = undefined
+      panelOpen = false
+      cleanup?.(save)
+    }
+    const renderList = () => {
+      finalizePanel(false)
+      container.replaceChildren()
+      const slide = this.player.controller.state.slide
+      if (!slide) return this.renderEmpty(container)
+      const settings = slideSettings(this.player.labels, this.openPrintFrame).filter((setting) => setting.appliesTo(slide, this.info(slide.id)))
+      if (settings.length === 0) return this.renderEmpty(container)
+      for (const setting of settings) {
+        const row = document.createElement('button')
+        row.type = 'button'
+        row.dataset.setting = setting.id
+        row.textContent = `${setting.label} · ${setting.valueLabel(this.withDraft(slide))}`
+        row.addEventListener('click', () => {
+          panelOpen = true
+          void setting.panel({
+            slide,
+            info: this.info(slide.id),
+            mount: (panel, cleanup) => {
+              panelCleanup = cleanup
+              container.replaceChildren(panel)
+            },
+            back: () => {
+              finalizePanel(true)
+              renderList()
+            },
+            close: () => {
+              finalizePanel(true)
+              renderList()
+            },
+            navigateToSlide: async () => this.player.controller.state.slide?.id === slide.id,
+          })
+        })
+        container.append(row)
+      }
+    }
+    const changed = () => {
+      if (!panelOpen) renderList()
+    }
+    const navigated = () => {
+      finalizePanel(false)
+      renderList()
+    }
+    const labelsChanged = () => {
+      finalizePanel(true)
+      renderList()
+    }
+    const beforeNavigate = () => finalizePanel(false)
+    this.sectionChanges.add(changed)
+    this.sectionBeforeNavigate.add(beforeNavigate)
+    this.player.controller.addEventListener('change', navigated)
+    this.player.addEventListener('segnavia-labels', labelsChanged)
+    const observer = new MutationObserver(() => {
+      if (container.isConnected) return
+      observer.disconnect()
+      finalizePanel(false)
+      this.sectionChanges.delete(changed)
+      this.sectionBeforeNavigate.delete(beforeNavigate)
+      this.player.controller.removeEventListener('change', navigated)
+      this.player.removeEventListener('segnavia-labels', labelsChanged)
+    })
+    observer.observe(container.getRootNode(), { childList: true, subtree: true })
+    renderList()
+  }
+
+  private renderEmpty(container: HTMLElement) {
+    const note = document.createElement('p')
+    note.dir = 'auto'
+    note.textContent = this.player.labels.noSettingsForSlide
+    container.append(note)
+  }
+
+  private changed = () => {
+    this.refreshViews()
+  }
+
+  private refreshViews() {
+    this.settings?.refresh()
+    for (const refresh of this.sectionChanges) refresh()
+  }
+
   private info = (slideId: string): SlideSettingInfo => this.metadata.get(slideId) ?? { animated: false, lengthMs: null }
 
   private onMessage = (event: MessageEvent) => {
     const stage = this.player.authoringAnimationMessage(event)
     const report = stage ?? this.rail.animationMessage(event)
     if (!report?.slideId) return
-    const source = stage ? 'stage' : 'thumbnail'
+    this.acceptReport(report, stage ? 'stage' : 'thumbnail')
+  }
+
+  private acceptReport(report: { slideId: string; animated: boolean; lengthMs: number | null }, source: RankedAnimationMetadata['source']) {
     if (source === 'thumbnail' && this.metadata.get(report.slideId)?.source === 'stage') return
     this.metadata.set(report.slideId, { animated: report.animated, lengthMs: report.lengthMs, source })
-    this.settings.refresh()
+    this.refreshViews()
   }
 
   private render = () => {

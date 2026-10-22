@@ -16,6 +16,8 @@ test('labels added after a host translation fall back to English', () => {
   expect(labels.mute).toBe(ENGLISH_LABELS.mute)
   expect(ENGLISH_LABELS.noSpeakerNotes).toBe('No speaker notes')
   expect(labels.noSpeakerNotes).toBe(ENGLISH_LABELS.noSpeakerNotes)
+  expect(labels.itemSettings).toBe('Item settings')
+  expect(labels.noSettingsForSlide).toBe('No settings for this slide')
 })
 
 test('the unnamed book label follows English and Hebrew', () => {

@@ -59,6 +59,10 @@ export class SegnaviaDocument extends HTMLElement {
     return this.pageValues
   }
 
+  get currentPageIndex(): number {
+    return this.currentPage
+  }
+
   set pages(value: PageInput[] | undefined) {
     this.pageValues = (value ?? []).map((page) => Page.parse(page))
     this.paint()

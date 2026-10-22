@@ -62,7 +62,7 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
   writeFileSync(
     path.join(site, 'authoring-print-frames.html'),
     shell(
-      '<segnavia-player id="player" rail src="deck-print-frames.json" hash="off"></segnavia-player><script type="module" src="authoring-demo.js"></script>',
+      '<style>segnavia-item-settings{display:block;inline-size:22rem;margin-block-start:1rem;padding:1rem;border:1px solid #aaa}segnavia-item-settings[hidden]{display:none}</style><segnavia-player id="player" rail src="deck-print-frames.json" hash="off"></segnavia-player><segnavia-item-settings id="item-settings" hidden></segnavia-item-settings><script type="module" src="authoring-demo.js"></script>',
     ),
   )
   writeFileSync(
