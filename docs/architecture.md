@@ -579,7 +579,19 @@ images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte as the
 author supplied them and are the only RGB the result may retain. With
 `press.images: 'convert'`, RGB XObject, Type 3 glyph and inline images are
 rewritten as DeviceCMYK through the same profile and neutral policy as vector
-colour. Gray and CMYK images and image masks stay as supplied, and a soft mask
+colour. `press.imageEncoding` defaults to `lossless` (Flate with a PNG predictor).
+With `imageEncoding: 'jpeg'`, four-channel DeviceCMYK rasters are written as
+baseline sequential DCTDecode: 8-bit, no subsampling, the IJG luminance
+quantization table scaled by `press.imageQuality` (integer 1 to 100, default 85),
+and Annex K Huffman tables. The JPEG carries an APP14 Adobe marker with transform
+0 so readers treat four components as CMYK, not YCCK; samples stay PDF DeviceCMYK
+(0 = no ink) with no `/Decode` array, which is the polarity Poppler, pdf.js and
+Acrobat share. Soft masks stay lossless Flate, and a greyscale destination is
+unchanged. A quality given with lossless encoding, a quality outside 1–100, or
+`imageEncoding` without `images: 'convert'` is refused by name. On a 192×128
+noise-plus-gradient photograph, convert PDFs measured 138 078 bytes lossless,
+105 419 at JPEG quality 85 (mean/max CMYK channel error 1.67/21) and 98 526 at
+quality 60 (mean/max 3.29/59). Gray and CMYK images and image masks stay as supplied, and a soft mask
 remains attached to its converted image. Under a greyscale destination, supported supplied
 images are rewritten as DeviceGray through the profile; images inside mask
 sources instead use PDF luminosity so opacity does not receive dot gain.
@@ -656,7 +668,8 @@ with the browser's message. `MAX_IMAGE_PIXELS` (50 000 000) bounds one image,
 and `MAX_TOTAL_IMAGE_PIXELS` (400 000 000) bounds all images converted in one
 render. `MAX_IMAGE_BYTES` (200 000 000) bounds one encoded image and
 `MAX_TOTAL_IMAGE_BYTES` (800 000 000) bounds all encoded images decoded in one
-render. Converted samples use lossless Flate compression with a PNG predictor.
+render. Converted samples default to lossless Flate compression with a PNG predictor;
+`press.imageEncoding: 'jpeg'` stores four-channel CMYK as DCTDecode instead.
 An image painted both normally and inside a mask source gets a profile
 variant for the page and a luminosity variant for the mask. One used only in
 mask sources is replaced by its luminosity variant. No RGB copy is left in the

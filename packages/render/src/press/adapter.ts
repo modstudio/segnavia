@@ -9,6 +9,7 @@ import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySna
 import { rewriteContent } from './content.ts'
 import { convertedImageCount, createImageState, type JpegDecoder } from './image.ts'
 import { convertInlineImages } from './image-inline.ts'
+import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
 import { convertImageUses, type SuppliedImageUse } from './image-use.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
@@ -318,8 +319,15 @@ function addOutputIntent(document: PDFDocument, profile: Uint8Array, channels: 1
   document.catalog.set(key('OutputIntents'), document.context.obj([intentRef]))
 }
 
-async function convertSuppliedImages(document: PDFDocument, profile: Profile, tolerance: number, decodeJpeg?: JpegDecoder): Promise<number> {
-  const state = createImageState(document, profile, decodeJpeg, tolerance)
+async function convertSuppliedImages(
+  document: PDFDocument,
+  profile: Profile,
+  tolerance: number,
+  decodeJpeg?: JpegDecoder,
+  imageEncoding: PressImageEncoding = DEFAULT_IMAGE_ENCODING,
+  imageQuality = DEFAULT_IMAGE_QUALITY,
+): Promise<number> {
+  const state = createImageState(document, profile, decodeJpeg, tolerance, imageEncoding, imageQuality)
   const images: SuppliedImageUse[] = []
   const contents: Array<{ image: PDFRawStream; mask: MaskContext; replace: (object: PDFRawStream) => void }> = []
   walkPressGraph(document, {
@@ -352,6 +360,8 @@ export async function rewritePressPdf(
   tolerance = DEFAULT_NEUTRAL_TOLERANCE,
   decodeJpeg?: JpegDecoder,
   images: 'keep' | 'convert' = 'keep',
+  imageEncoding: PressImageEncoding = DEFAULT_IMAGE_ENCODING,
+  imageQuality = DEFAULT_IMAGE_QUALITY,
 ): Promise<{ bytes: Uint8Array; report: PressReport }> {
   try {
     const profile = readProfile(profileBytes)
@@ -360,7 +370,8 @@ export async function rewritePressPdf(
     const destination = pressDestination(profile)
     const counts = rewritePressDocument(document, profile, tolerance, destination === 'gray' || images === 'convert')
     let convertedImages = 0
-    if (destination === 'gray' || images === 'convert') convertedImages = await convertSuppliedImages(document, profile, tolerance, decodeJpeg)
+    if (destination === 'gray' || images === 'convert')
+      convertedImages = await convertSuppliedImages(document, profile, tolerance, decodeJpeg, imageEncoding, imageQuality)
     addOutputIntent(document, profileBytes, destination === 'gray' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
     const report = await inspectPressPdf(output, destination)

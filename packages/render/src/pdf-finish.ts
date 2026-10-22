@@ -5,6 +5,7 @@ import { loadPdf } from './pdf-load.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 import type { JpegDecoder } from './press/image.ts'
+import { assertPressImageOptions, DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY } from './press/image-options.ts'
 
 async function sheets(pdf: Uint8Array): Promise<number> {
   return (await loadPdf(pdf)).getPageCount()
@@ -33,7 +34,16 @@ export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'e
   if (options.press) {
     const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
     assertNeutralTolerance(neutralTolerance)
-    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance, decodeJpeg, options.press.images ?? 'keep')
+    assertPressImageOptions(options.press)
+    const converted = await rewritePressPdf(
+      output,
+      options.press.profile,
+      neutralTolerance,
+      decodeJpeg,
+      options.press.images ?? 'keep',
+      options.press.imageEncoding ?? DEFAULT_IMAGE_ENCODING,
+      options.press.imageQuality ?? DEFAULT_IMAGE_QUALITY,
+    )
     output = converted.bytes
     options.press.report?.(converted.report)
   }
