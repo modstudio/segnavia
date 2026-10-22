@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, Page } from '@segnavia/format'
-import { RequiredSlotsRefusedError, SlotFillRefusedError } from '@segnavia/html'
+import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
 import { filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 const slots = {
@@ -111,4 +111,11 @@ test('server render preparation refuses all unfilled required slots and accepts 
   await expect(refused).rejects.toBeInstanceOf(RequiredSlotsRefusedError)
   await expect(refused).rejects.toThrow('"name" (placeholder), "email" (invalid), "site" (invalid)')
   await expect(filledPage(page, { fill: { id: 'x', values: { name: 'Ada', email: 'ada@example.com', site: 'https://example.com' } } })).resolves.toBeDefined()
+})
+
+test('a single-copy fill refuses fills together with fill', async () => {
+  const page = Page.parse({ html: '<p>Design</p>' })
+  await expect(filledPage(page, { fills: [{ fill: { id: 'ada', values: {} } }], fill: { id: 'ada', values: {} } })).rejects.toBeInstanceOf(
+    SlotFillsConflictError,
+  )
 })

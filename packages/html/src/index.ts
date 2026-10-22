@@ -10,6 +10,19 @@ export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, Boo
 export { bookPrintPart } from './book/types.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
 export {
+  assertSingleSlotCopy,
+  assertSlotPrintOptions,
+  collectSlotPrintCopies,
+  isSlotCopyRefusal,
+  type SlotFillEntry,
+  type SlotFillRefusal,
+  SlotFillsConflictError,
+  SlotFillsRefusedError,
+  type SlotPrintOptions,
+  slotFillCopyId,
+  slotFillsConflict,
+} from './slot-print.ts'
+export {
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
   mergeSlotFitResults,

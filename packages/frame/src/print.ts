@@ -16,9 +16,20 @@ import {
   printablePagesDocument,
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
+import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
-import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal, unmeasuredSlotRefusal } from './slot-render.ts'
+import {
+  collectSlotPrintCopies,
+  EMPTY_SLOTS,
+  hasSlotWork,
+  prepareSlotCollection,
+  prepareSlots,
+  requiredSlotRefusal,
+  type SlotPrintOptions,
+  slotFillRefusal,
+  unmeasuredSlotRefusal,
+} from './slot-render.ts'
 
 export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
@@ -29,13 +40,16 @@ export interface PrintDialogOptions {
   print?: (win: Window) => void | Promise<void>
 }
 
-export interface BrowserPrintOptions extends PrintOptions, PrintDialogOptions {}
+export interface BrowserPrintOptions extends Omit<PrintOptions, 'slots'>, PrintDialogOptions {
+  slots?: SlotPrintOptions
+}
 
 interface PrintFrameOptions extends PrintDialogOptions {
   width: number
   height: number
   html: string
   slots: typeof EMPTY_SLOTS
+  output?: 'print' | 'measure'
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -80,6 +94,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     if (overflowRefusal) throw overflowRefusal
     const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measured)
     if (measurementRefusal) throw measurementRefusal
+    if (options.output === 'measure') return
     placePrintImages(win.document)
     paginateNotes(win.document)
     await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
@@ -96,7 +111,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
   }
 }
 
-export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+async function preparedDeckPrint(deck: Deck, options: BrowserPrintOptions): Promise<PrintFrameOptions> {
   const refusal = slotFillRefusal(deck.scripts, deck.slots, options.slots)
   if (refusal) throw refusal
   const slotWork = hasSlotWork(deck.slots, options.slots)
@@ -111,14 +126,12 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
   }
   if (options.imposition) {
     const printable = printableDeckDocument(preparedDeck, { ...options, imposition: options.imposition })
-    return printFrame({ ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots })
+    return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return printFrame({ ...deck.size, html: printableDeck(preparedDeck, options), ...options, slots: resolvedSlots })
+  return { ...deck.size, html: printableDeck(preparedDeck, options), ...options, slots: resolvedSlots }
 }
 
-export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}
-
-export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+async function preparedPagesPrint(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions): Promise<PrintFrameOptions> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
   for (const page of pages) {
@@ -136,6 +149,41 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
   const printable = printablePagesDocument(filled, imposition, options)
-  const paper = paperBoxSize(printable.imposed.paper)
-  return printFrame({ ...paper, html: printable.html, ...options, slots: resolvedSlots })
+  return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
+}
+
+/**
+ * The one print the copies become. Each copy was prepared from the caller's options with its own slots and was
+ * measured and checked on its own, so the caller's options are not applied again: their raw `fills` would replace
+ * the copy's prepared slots. Several copies print as one joined document whose slots were already settled per copy.
+ */
+export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOptions {
+  const first = copies[0]
+  if (!first) throw new RangeError('There is nothing to print. Pass at least one fill, or omit fills, to clear this refusal.')
+  if (copies.length === 1) return first
+  return { ...first, html: joinPrintDocuments(copies.map((copy) => copy.html)), slots: EMPTY_SLOTS }
+}
+
+export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, options))
+  const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
+    const prepared = await preparedDeckPrint(deck, { ...options, slots: copySlots })
+    await printFrame({ ...prepared, output: 'measure' })
+    return prepared
+  })
+  return printFrame(copiesPrint(copies))
+}
+
+export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions {
+  slots?: SlotPrintOptions
+}
+
+export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+  if (!options.slots?.fills) return printFrame(await preparedPagesPrint(pagesInput, impositionInput, options))
+  const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
+    const prepared = await preparedPagesPrint(pagesInput, impositionInput, { ...options, slots: copySlots })
+    await printFrame({ ...prepared, output: 'measure' })
+    return prepared
+  })
+  return printFrame(copiesPrint(copies))
 }

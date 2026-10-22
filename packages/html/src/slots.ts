@@ -26,11 +26,14 @@ export interface PreparedSlots {
 }
 
 export class SlotFillRefusedError extends Error {
+  readonly scripts: Exclude<Scripts, 'refuse'>
+
   constructor(scripts: Exclude<Scripts, 'refuse'>) {
     super(
       `A fill was not applied because this item runs its own scripts (scripts: '${scripts}'), which could read the filled values. Set the item's scripts to 'refuse', or show it without a fill.`,
     )
     this.name = 'SlotFillRefusedError'
+    this.scripts = scripts
   }
 }
 
