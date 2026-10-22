@@ -1,5 +1,25 @@
 # @segnavia/frame
 
+## 0.23.0
+
+### Minor Changes
+
+- b8d700b: Add measured per-slot overflow policies and refuse printing when configured text does not fit.
+- 2826705: Add host data sources as a second slot fill layer with per-value hand overrides.
+- c47e666: Add a standalone item settings element with a Fields section, fill switcher, and host-owned fill authoring.
+- 8a6826c: Print every slot fill in one PDF, skipping refused copies only when asked.
+- 20456e8: Add QR slots, refuse print and server output with unfilled required slots, and collapse unfilled optional slot elements.
+
+### Patch Changes
+
+- 68757a0: Revealing a board item no longer pulls focus back to it once its real size loads, so typing elsewhere after picking an item from the list cannot delete it.
+- Updated dependencies [b8d700b]
+- Updated dependencies [2826705]
+- Updated dependencies [8a6826c]
+- Updated dependencies [20456e8]
+  - @segnavia/format@0.23.0
+  - @segnavia/html@0.23.0
+
 ## 0.22.0
 
 ### Minor Changes
