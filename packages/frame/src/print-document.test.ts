@@ -384,6 +384,8 @@ describe('printablePages', () => {
     expect(refused).not.toContain('allow-same-origin')
     expect(refused).toContain("script-src 'nonce-known'")
     expect(sandboxed).not.toContain('script-src')
+    expect(refused).not.toContain('var printAt=')
+    expect(refused).not.toContain('dispatchPrint()')
   })
 
   test('adds extra content security policy directives when supplied', () => {

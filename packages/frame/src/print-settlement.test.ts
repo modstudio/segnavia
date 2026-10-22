@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { MESSAGE } from './bridge.ts'
-import { printDocumentSettled } from './print-settlement.ts'
+import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 
 function deferred() {
   let resolve = () => {}
@@ -39,10 +39,18 @@ class FakeDecodingImage extends EventTarget {
   }
 }
 
-function reportReady(messages: EventTarget, frame: EventTarget) {
-  const event = new MessageEvent('message', { data: { type: MESSAGE.ready } })
+function report(messages: EventTarget, frame: EventTarget, data: unknown) {
+  const event = new MessageEvent('message', { data })
   Object.defineProperty(event, 'source', { value: frame })
   messages.dispatchEvent(event)
+}
+
+function reportReady(messages: EventTarget, frame: EventTarget) {
+  report(messages, frame, { type: MESSAGE.ready })
+}
+
+function reportSlotFit(messages: EventTarget, frame: EventTarget, slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>) {
+  report(messages, frame, { type: MESSAGE.slotFit, slots })
 }
 
 async function resolutionOf(wait: Promise<void>) {
@@ -138,6 +146,77 @@ test('an already complete image does not hold printing', async () => {
   const resolved = await resolutionOf(wait)
   expect(resolved()).toBeFalse()
   pending.settle('load')
+  await wait
+  expect(resolved()).toBeTrue()
+})
+
+test('a marked slot still pending after ready holds printing until its fit report', async () => {
+  const messages = new EventTarget()
+  const frame = new EventTarget()
+  const measured = new Map<string, number>()
+  const wait = printDocumentSettled(
+    messages,
+    [frame],
+    [],
+    deferred().promise,
+    (slots) => {
+      for (const key of Object.keys(slots)) measured.set(key, (measured.get(key) ?? 0) + 1)
+    },
+    () => slotFitStillPending(new Map([['name', 1]]), measured, new Set(['name'])),
+  )
+  const resolved = await resolutionOf(wait)
+  reportReady(messages, frame)
+  await Promise.resolve()
+  expect(resolved()).toBeFalse()
+  expect(measured.size).toBe(0)
+  reportSlotFit(messages, frame, { name: 'overflowed' })
+  await wait
+  expect(resolved()).toBeTrue()
+  expect(measured.get('name')).toBe(1)
+})
+
+test('the deadline releases a print document still waiting for a fit report', async () => {
+  const deadline = deferred()
+  const messages = new EventTarget()
+  const frame = new EventTarget()
+  const wait = printDocumentSettled(messages, [frame], [], deadline.promise, undefined, () => true)
+  const resolved = await resolutionOf(wait)
+  reportReady(messages, frame)
+  await Promise.resolve()
+  expect(resolved()).toBeFalse()
+  deadline.resolve()
+  await wait
+  expect(resolved()).toBeTrue()
+})
+
+test('slotFitStillPending is true only while a marked key has fewer reports than frames', () => {
+  const marked = new Map([
+    ['name', 2],
+    ['role', 1],
+  ])
+  const refuseKeys = new Set(['name', 'role'])
+  expect(slotFitStillPending(marked, new Map(), refuseKeys)).toBeTrue()
+  expect(slotFitStillPending(marked, new Map([['name', 2]]), refuseKeys)).toBeTrue()
+  expect(
+    slotFitStillPending(
+      marked,
+      new Map([
+        ['name', 2],
+        ['role', 1],
+      ]),
+      refuseKeys,
+    ),
+  ).toBeFalse()
+  expect(slotFitStillPending(new Map(), new Map(), refuseKeys)).toBeFalse()
+})
+
+test('a missing shrink report does not hold printing until the deadline', async () => {
+  const messages = new EventTarget()
+  const frame = new EventTarget()
+  const deadline = deferred()
+  const wait = printDocumentSettled(messages, [frame], [], deadline.promise, undefined, () => slotFitStillPending(new Map([['name', 1]]), new Map(), new Set()))
+  const resolved = await resolutionOf(wait)
+  reportReady(messages, frame)
   await wait
   expect(resolved()).toBeTrue()
 })

@@ -2,6 +2,52 @@ import { describe, expect, test } from 'bun:test'
 import { animationReport } from './animation-timing.ts'
 import { bridgeForHost, frameDocument, MESSAGE, messageFrom, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS, slotFitMessageData } from './bridge.ts'
 
+function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
+  const messages: unknown[] = []
+  let ready = () => {}
+  const settled = new Promise<void>((resolve) => {
+    ready = resolve
+  })
+  const document = {
+    addEventListener: () => {},
+    fonts: null,
+    images: [],
+    readyState: 'complete',
+    documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+    getAnimations: () => [],
+    querySelector: () => null,
+    querySelectorAll: (selector: string) => (selector === '[data-slot-overflow]' ? elements : []),
+  }
+  const parent = {
+    postMessage: (message: { type?: string }) => {
+      messages.push(message)
+      if (message.type === MESSAGE.ready) ready()
+    },
+  }
+  const window = {
+    addEventListener: () => {},
+    getComputedStyle: (element: { style: { fontSize?: string } }) => ({ fontSize: element.style.fontSize ?? '16px' }),
+    requestAnimationFrame: frames ? (callback: () => void) => frames.push(callback) : undefined,
+  }
+  Function(
+    'document',
+    'parent',
+    'window',
+    'MutationObserver',
+    'setTimeout',
+    'clearTimeout',
+    bridgeForHost({ reportHeight: false }),
+  )(
+    document,
+    parent,
+    window,
+    undefined,
+    () => 1,
+    () => {},
+  )
+  return settled.then(() => messages)
+}
+
 describe('frame document', () => {
   test('relays viewer and presentation shortcuts', () => {
     expect(RELAYED_KEYS).toEqual(expect.arrayContaining(['m', 'c', 'f']))
@@ -88,6 +134,62 @@ describe('frame document', () => {
   test('block direction comes before the host style, so the host can override it', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', css: 'p{unicode-bidi:normal}' })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
+  })
+
+  test('print documents measure slot overflow after the layout wait and before ready', () => {
+    const html = frameDocument('<p>print</p>', { scripts: 'refuse', nonce: 'n', printAtMs: 0 })
+    expect(html).toContain('var finishPrint=function(){freeze();slotFit(function(){')
+    expect(html).toContain('.then(function(){settlePrint();})')
+    expect(html).not.toContain('then(function(){slotFit();settlePrint();})')
+    expect(html).toContain('if(element.getClientRects().length===0){unlaid=true;continue;}')
+    expect(html).toContain('if(unlaid&&slotFitTries<40)')
+  })
+
+  test('a laid-out inline refuse slot reports fit with zero client dimensions', async () => {
+    const element = {
+      clientWidth: 0,
+      clientHeight: 0,
+      scrollWidth: 0,
+      scrollHeight: 0,
+      getClientRects: () => [{}],
+      getAttribute: () => 'name:refuse',
+      style: {},
+    }
+    const messages = await runSlotFitBridge([element])
+    expect(messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'fit' } })
+    expect(messages.at(-1)).toEqual({ type: MESSAGE.ready })
+  })
+
+  test('a retry retains a shrink element first measurement', async () => {
+    const shrink = {
+      clientWidth: 100,
+      clientHeight: 20,
+      get scrollWidth() {
+        return Number.parseFloat(this.style.fontSize || '20') * 10
+      },
+      scrollHeight: 20,
+      getClientRects: () => [{}],
+      getAttribute: () => 'name:shrink:8',
+      style: { fontSize: '20px' },
+    }
+    let waiting = true
+    const delayed = {
+      clientWidth: 10,
+      clientHeight: 10,
+      scrollWidth: 10,
+      scrollHeight: 10,
+      getClientRects: () => (waiting ? [] : [{}]),
+      getAttribute: () => 'role:refuse',
+      style: {},
+    }
+    const frames: Array<() => void> = []
+    const pending = runSlotFitBridge([shrink, delayed], frames)
+    for (let turn = 0; turn < 4 && frames.length === 0; turn++) await Promise.resolve()
+    expect(frames).toHaveLength(1)
+    waiting = false
+    frames.shift()?.()
+    const messages = await pending
+    expect(messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit' } })
   })
 
   test('print documents lift root backgrounds and wait for CSS background images', () => {

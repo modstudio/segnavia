@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
+import { MESSAGE } from './bridge.ts'
 import { copiesPrint, printDeck, printPages } from './print.ts'
 import { EMPTY_SLOTS } from './slot-render.ts'
 
@@ -67,6 +68,99 @@ test('browser print lists every refused fill before creating output', async () =
     const printing = print()
     await expect(printing).rejects.toBeInstanceOf(SlotFillsRefusedError)
     await expect(printing).rejects.toThrow('"missing" "name" (placeholder); 1 "name" (placeholder)')
+  }
+})
+
+function dispatchFrom(target: EventTarget, source: EventTarget, data: unknown) {
+  const event = new MessageEvent('message', { data })
+  Object.defineProperty(event, 'source', { value: source })
+  target.dispatchEvent(event)
+}
+
+async function until(predicate: () => boolean, what: string) {
+  const start = Date.now()
+  while (!predicate()) {
+    if (Date.now() - start > 1000) throw new Error(what)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+}
+
+test('printPages refuses an overflowed slot when its fit report arrives after the call', async () => {
+  const inner = new EventTarget()
+  const printWindow = new EventTarget() as EventTarget & {
+    document: {
+      open: () => void
+      write: () => void
+      close: () => void
+      querySelectorAll: (selector: string) => unknown[]
+      fonts: { ready: Promise<void> }
+    }
+    setTimeout: typeof setTimeout
+  }
+  let listening = false
+  const add = printWindow.addEventListener.bind(printWindow)
+  printWindow.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+    if (type === 'message') listening = true
+    add(type, listener, options)
+  }) as EventTarget['addEventListener']
+  printWindow.document = {
+    open() {},
+    write() {},
+    close() {},
+    querySelectorAll(selector: string) {
+      if (selector === 'iframe') return [{ contentWindow: inner }]
+      return []
+    },
+    fonts: { ready: Promise.resolve() },
+  }
+  printWindow.setTimeout = setTimeout
+  const host = { style: { cssText: '' }, contentWindow: printWindow, remove() {} }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: () => host,
+      body: { append() {} },
+    },
+  })
+  try {
+    const printing = printPages(
+      [
+        {
+          size: { width: 336, height: 192 },
+          slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+          html: '<strong data-slot-value="name" style="display:block;inline-size:100px;white-space:nowrap">Design Name</strong>',
+        },
+      ],
+      imposition,
+      {
+        slots: { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } } },
+        print: () => {
+          throw new Error('overflowed refuse slot reached print')
+        },
+        deadlineMs: 2000,
+      },
+    )
+    await until(() => listening, 'printPages did not listen for frame messages')
+    dispatchFrom(printWindow, inner, { type: MESSAGE.ready })
+    await Promise.resolve()
+    let settled = false
+    void printing.then(
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
+    )
+    await Promise.resolve()
+    expect(settled).toBeFalse()
+    dispatchFrom(printWindow, inner, { type: MESSAGE.slotFit, slots: { name: 'overflowed' } })
+    await expect(printing).rejects.toBeInstanceOf(RequiredSlotsRefusedError)
+    await expect(printing).rejects.toThrow('"name" (overflowed)')
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous)
+    else Reflect.deleteProperty(globalThis, 'document')
   }
 })
 
