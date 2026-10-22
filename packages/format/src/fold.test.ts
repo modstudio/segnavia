@@ -121,9 +121,7 @@ describe('folded imposition', () => {
       panels: [100, 100],
     })
     expect(result.success).toBe(false)
-    expect(result.error?.issues).toEqual([
-      expect.objectContaining({ path: ['panels'], message: 'panels needs fold; set fold or remove panels' }),
-    ])
+    expect(result.error?.issues).toEqual([expect.objectContaining({ path: ['panels'], message: 'panels needs fold; set fold or remove panels' })])
   })
 
   test('a grid over the panel ceiling does not name a fold', () => {
@@ -164,9 +162,7 @@ describe('folded imposition', () => {
   })
 
   test('parse refuses a fold whose horizontal margins leave no width', () => {
-    const result = Imposition.safeParse(
-      foldInput({ fold: 'letter', margin: { top: 0, right: 200, bottom: 0, left: 200 } }),
-    )
+    const result = Imposition.safeParse(foldInput({ fold: 'letter', margin: { top: 0, right: 200, bottom: 0, left: 200 } }))
     expect(result.success).toBe(false)
     expect(result.error?.issues).toHaveLength(1)
     expect(result.error?.issues[0]).toMatchObject({

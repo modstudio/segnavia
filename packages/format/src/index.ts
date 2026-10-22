@@ -235,7 +235,7 @@ export const Imposition = z
     marks: z.boolean().default(false),
     cornerMarks: z.boolean().default(false),
     fold: z.enum(FOLD_KINDS).optional(),
-    panels: z.array(z.number().positive()).max(MAX_IMPOSITION_CELLS).optional(),
+    panels: z.array(z.number().positive()).optional(),
   })
   .superRefine((imposition, ctx) => {
     if (imposition.cornerMarks && !imposition.marks) {
