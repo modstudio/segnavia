@@ -1,9 +1,19 @@
 import type { Color, Color3 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { formatPdfNumber } from './color-policy.ts'
+import {
+  advanceColorSpaces,
+  type ContentColorSpaces,
+  currentNamedSpace,
+  emptyContentColorSpaces,
+  restoreColorSpaces,
+  snapshotColorSpaces,
+} from './content-color.ts'
 import { binaryString, inlineImageHeader, parseInlineImage } from './inline-image.ts'
 import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
 import type { PressDestination } from './types.ts'
+
+export { type ContentColorSpaces, emptyContentColorSpaces } from './content-color.ts'
 
 export const MAX_CONTENT_NESTING = 64
 // Color operators need at most four operands and Chromium's largest observed operator, cm, uses six; 32 leaves room without unbounded retention.
@@ -33,23 +43,6 @@ export interface ContentCounts {
 export interface ContentRewrite {
   bytes: Uint8Array
   counts: ContentCounts
-}
-export interface ContentColorSpaces {
-  fill?: string
-  stack: Array<{ fill?: string; stroke?: string }>
-  stroke?: string
-}
-
-export const emptyContentColorSpaces = (): ContentColorSpaces => ({ stack: [] })
-
-function snapshotColorSpaces(spaces: ContentColorSpaces): ContentColorSpaces {
-  return { fill: spaces.fill, stack: spaces.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke })), stroke: spaces.stroke }
-}
-
-function restoreColorSpaces(target: ContentColorSpaces, source: ContentColorSpaces): void {
-  target.fill = source.fill
-  target.stack = source.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke }))
-  target.stroke = source.stroke
 }
 
 const encoder = new TextEncoder()
@@ -226,34 +219,22 @@ function colorOperator(
   return undefined
 }
 
-function currentNamedSpace(operator: string, fill?: string, stroke?: string): string | undefined {
-  if (operator === operator.toLowerCase()) return fill
-  return stroke
-}
-
-function nextNamedSpace(operator: string, operands: Token[], fill?: string, stroke?: string): { fill?: string; stroke?: string } {
-  if (operator === 'cs') return { fill: spaceName(operands), stroke }
-  if (operator === 'CS') return { fill, stroke: spaceName(operands) }
-  if (operator === 'rg' || operator === 'g' || operator === 'k') return { fill: undefined, stroke }
-  if (operator === 'RG' || operator === 'G' || operator === 'K') return { fill, stroke: undefined }
-  return { fill, stroke }
-}
-
-function nextColorSpaces(
-  operator: string,
+function applyColorOperator(
+  token: Token,
   operands: Token[],
-  fill: string | undefined,
-  stroke: string | undefined,
+  convert: (rgb: Color3) => Color,
+  counts: ContentCounts,
+  inspect: boolean,
+  destination: PressDestination,
+  fillSpace: string | undefined,
+  strokeSpace: string | undefined,
   stack: Array<{ fill?: string; stroke?: string }>,
+  registrationNames: ReadonlySet<string> | undefined,
+  visit: ((found: Replacement) => void) | undefined,
 ): { fill?: string; stroke?: string } {
-  if (operator === 'q') {
-    if (stack.length >= MAX_CONTENT_NESTING)
-      refusal(`q operator nesting over ${MAX_CONTENT_NESTING}`, `at most ${MAX_CONTENT_NESTING} levels`)
-    stack.push({ fill, stroke })
-    return { fill, stroke }
-  }
-  if (operator === 'Q') return stack.pop() ?? { fill, stroke }
-  return nextNamedSpace(operator, operands, fill, stroke)
+  const found = colorOperator(token, operands, convert, counts, inspect, destination, currentNamedSpace(token.raw, fillSpace, strokeSpace), registrationNames)
+  if (found) visit?.(found)
+  return advanceColorSpaces(token.raw, operands, fillSpace, strokeSpace, stack, MAX_CONTENT_NESTING)
 }
 
 function scan(
@@ -290,20 +271,11 @@ function scan(
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
-      const found = colorOperator(
-        token,
-        operands,
-        convert,
-        counts,
-        inspect,
-        destination,
-        currentNamedSpace(token.raw, fillSpace, strokeSpace),
-        registrationNames,
-      )
-      if (found) visit?.(found)
-      const next = nextColorSpaces(token.raw, operands, fillSpace, strokeSpace, stack)
-      fillSpace = next.fill
-      strokeSpace = next.stroke
+      if (visit !== undefined || operatorVisit === undefined) {
+        const next = applyColorOperator(token, operands, convert, counts, inspect, destination, fillSpace, strokeSpace, stack, registrationNames, visit)
+        fillSpace = next.fill
+        strokeSpace = next.stroke
+      }
       operands = []
     } else {
       if (operands.length >= MAX_OPERANDS) refusal(`more than ${MAX_OPERANDS} operands before an operator`, `at most ${MAX_OPERANDS} operands`)
@@ -316,19 +288,11 @@ function scan(
   return counts
 }
 
-export function visitContentTokens(
-  bytes: Uint8Array,
-  visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void,
-  registrationNames?: ReadonlySet<string>,
-): void {
-  visitContentOperations(bytes, ({ operator, operands }) => visit(operator, operands), registrationNames)
+export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void): void {
+  visitContentOperations(bytes, ({ operator, operands }) => visit(operator, operands))
 }
 
-export function visitContentOperations(
-  bytes: Uint8Array,
-  visit: (operation: ContentOperation) => void,
-  registrationNames?: ReadonlySet<string>,
-): void {
+export function visitContentOperations(bytes: Uint8Array, visit: (operation: ContentOperation) => void): void {
   scan(
     binaryString(bytes),
     () => [0, 0, 0, 0],
@@ -346,7 +310,7 @@ export function visitContentOperations(
       })
     },
     true,
-    registrationNames,
+    undefined,
     emptyContentColorSpaces(),
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Print, printBoxes } from '@segnavia/format'
+import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
 import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
@@ -68,10 +68,21 @@ test('a single page with registration marks stores Separation All and strokes wi
   expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation')
 })
 
-test('a single page with default marks stays RGB black', async () => {
+function firstStroke(text: string): { end: { x: number; y: number }; start: { x: number; y: number } } {
+  const match = /([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+m\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+l/.exec(text)
+  if (!match) throw new Error(`no stroke path in: ${text}`)
+  return { start: { x: Number(match[1]), y: Number(match[2]) }, end: { x: Number(match[3]), y: Number(match[4]) } }
+}
+
+test('a single page with marks draws a crop mark at the mapped endpoints', async () => {
   const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true })
   const bytes = await addPressBoxes(await bleedSource(print), print)
-  const text = await pageContent(bytes)
-  expect(text).toContain('0 0 0 RG')
-  expect(text).not.toMatch(/\/All\s+CS/)
+  const boxes = printBoxes(print)
+  const mark = boxes.marks[0]
+  if (!mark) throw new Error('the print fixture has no crop mark')
+  const stroke = firstStroke(await pageContent(bytes))
+  expect(stroke.start.x).toBeCloseTo(mark.x1 / MM_PER_PT, 5)
+  expect(stroke.start.y).toBeCloseTo((boxes.media.height - mark.y1) / MM_PER_PT, 5)
+  expect(stroke.end.x).toBeCloseTo(mark.x2 / MM_PER_PT, 5)
+  expect(stroke.end.y).toBeCloseTo((boxes.media.height - mark.y2) / MM_PER_PT, 5)
 })

@@ -53,3 +53,58 @@ test('a gray press converts Separation All registration marks to DeviceGray blac
   expect(Buffer.from(converted.bytes).toString('latin1')).not.toContain('/DeviceCMYK')
   await expect(inspectPressPdf(converted.bytes)).resolves.toMatchObject({ destination: 'gray' })
 })
+
+function registrationSpace(document: PDFDocument) {
+  return document.context.obj([
+    'Separation',
+    'All',
+    'DeviceCMYK',
+    document.context.obj({ FunctionType: 2, Domain: [0, 1], C0: [0, 0, 0, 0], C1: [1, 1, 1, 1], N: 1 }),
+  ])
+}
+
+test('a CMYK press keeps Separation All under a resource name other than All', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Resources'), document.context.obj({ ColorSpace: { CS1: registrationSpace(document) } }))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/CS1 CS 1 SCN')))
+  const converted = await rewritePressPdf(await document.save(), cmykProfile)
+  const text = await pageContent(converted.bytes)
+  expect(text).toMatch(/\/CS1\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
+})
+
+test('a CMYK press refuses a resource named All that is not Separation All', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Resources'), document.context.obj({ ColorSpace: { All: 'DeviceRGB' } }))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/All CS 1 SCN')))
+  await expect(rewritePressPdf(await document.save(), cmykProfile)).rejects.toThrow(/CS operator/)
+})
+
+test('a CMYK press keeps All selected in one content stream and used in the next', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Resources'), document.context.obj({ ColorSpace: { All: registrationSpace(document) } }))
+  const select = document.context.register(document.context.stream('/All CS'))
+  const stroke = document.context.register(document.context.stream('1 SCN'))
+  page.node.set(PDFName.of('Contents'), document.context.obj([select, stroke]))
+  const converted = await rewritePressPdf(await document.save(), cmykProfile)
+  const text = await pageContent(converted.bytes)
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
+})
+
+test('a gray press converts All selected in one content stream and used in the next', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Resources'), document.context.obj({ ColorSpace: { All: registrationSpace(document) } }))
+  const select = document.context.register(document.context.stream('/All CS'))
+  const stroke = document.context.register(document.context.stream('1 SCN'))
+  page.node.set(PDFName.of('Contents'), document.context.obj([select, stroke]))
+  const converted = await rewritePressPdf(await document.save(), grayProfile)
+  const text = await pageContent(converted.bytes)
+  expect(text).toMatch(/\b0 G\b/)
+  expect(text).not.toMatch(/\/All\s+CS/)
+  expect(text).not.toMatch(/\bSCN\b/)
+})

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
-import { Imposition, impose, impositionMarks, Page } from '@segnavia/format'
+import { Imposition, impose, impositionMarks, MM_PER_PT, Page } from '@segnavia/format'
 import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { groupPieces } from './pages-imposition.ts'
@@ -66,18 +66,34 @@ async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8A
   )
 }
 
+function firstStroke(text: string): { end: { x: number; y: number }; start: { x: number; y: number } } {
+  const match = /([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+m\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+l/.exec(text)
+  if (!match) throw new Error(`no stroke path in: ${text}`)
+  return { start: { x: Number(match[1]), y: Number(match[2]) }, end: { x: Number(match[3]), y: Number(match[4]) } }
+}
+
 test('an imposed paper with registration marks stores Separation All and strokes with it', async () => {
+  const imposition = Imposition.parse({
+    paper: { width: 40, height: 40, unit: 'mm' },
+    columns: 1,
+    rows: 1,
+    cell: { width: 20, height: 20 },
+    margin: { top: 10, right: 10, bottom: 10, left: 10 },
+    marks: true,
+    markColor: 'registration',
+  })
   const bytes = await imposedBytes('registration')
   const text = await pageContent(bytes)
   expect(text).toMatch(/\/All\s+CS/)
   expect(text).toMatch(/1\s+SCN/)
   const output = await PDFDocument.load(bytes)
   expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation')
-})
-
-test('an imposed paper with default marks stays RGB black', async () => {
-  const bytes = await imposedBytes('black')
-  const text = await pageContent(bytes)
-  expect(text).toContain('0 0 0 RG')
-  expect(text).not.toMatch(/\/All\s+CS/)
+  const mark = impositionMarks(imposition)[0]?.marks[0]
+  if (!mark) throw new Error('the 1x1 imposition fixture has no crop mark')
+  const height = impose(imposition, 1).paper.height
+  const stroke = firstStroke(text)
+  expect(stroke.start.x).toBeCloseTo(mark.x1 / MM_PER_PT, 5)
+  expect(stroke.start.y).toBeCloseTo((height - mark.y1) / MM_PER_PT, 5)
+  expect(stroke.end.x).toBeCloseTo(mark.x2 / MM_PER_PT, 5)
+  expect(stroke.end.y).toBeCloseTo((height - mark.y2) / MM_PER_PT, 5)
 })

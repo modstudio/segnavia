@@ -86,7 +86,7 @@ with `detail.message` when loading or validating an input fails.
 | `title`, `labels.noSpeakerNotes` | print options | An escaped document `<title>` (the deck title by default; omitted when empty), and the placeholder printed on a notes sheet that has none when some other slide has notes. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
-| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. `markColor` is black by default or registration colour so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. Folds remain to come (SEGNA-12). |
+| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. Folds remain to come (SEGNA-12). |
 | `PAPER_METADATA`, `PAPER_GROUPS`, `PrintSetting`, `PrintSettingInput` | `format`, paper picker and hosts | Display names, sold-unit sizes and stable picker groups for every named paper; a tolerant stored-setting reader and a strict writer. Custom paper sides are normalized to millimeters and limited to 10–2000 mm by `Paper` itself. Picker labels can replace every displayed string. |
 | `<segnavia-paper-picker>` | `frame/controls` and React | A grouped named-paper select, bounded custom width, height and unit fields, and a portrait/landscape toggle. The host supplies and persists its `{ paper, orientation }` value; `change.detail` carries the next value. |
 | press profile | render options | A CMYK or greyscale ICC profile, as bytes, and a report callback for the destination, residual authored RGB images and conversion counts read back from the output. |
@@ -287,7 +287,7 @@ than refusing the render. `cornerMarks` optionally adds marks in usable cell
 gaps and is refused unless `marks` is enabled. Back-side geometry follows the
 duplex flip exactly, and right-to-left fill order does not change physical cut
 positions. The server PDF compositor draws these marks with the same 0.25-point
-lines as single-page crop marks, in black or in registration colour when
+lines as single-page crop marks, in black or in registration color when
 `markColor` is `'registration'`. `markColor` is refused unless `marks` is
 enabled. Under a CMYK press, Separation All is kept; under a greyscale press
 the marks become DeviceGray black. Single-page marks are render-only,

@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
-import { PDFDocument } from 'pdf-lib'
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -166,6 +166,28 @@ test('an imposed repeat deck embeds one rendered slide across each paper', async
   )
   expect(renders).toBe(1)
   expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
+})
+
+test('an imposed deck with registration marks strokes Separation All', async () => {
+  const output = await renderDeckPdf(
+    deck,
+    { imposition: { ...imposition, marks: true, markColor: 'registration' } },
+    {
+      renderPdf: async () => onePage(400, 200),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const document = await PDFDocument.load(output)
+  const contents = document.getPage(0).node.Contents()
+  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+  const text = streams
+    .map((object) => document.context.lookup(object))
+    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
+    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
+    .join('\n')
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
 })
 
 test('a two-sided imposed deck emits front and back PDF pages for one physical paper', async () => {

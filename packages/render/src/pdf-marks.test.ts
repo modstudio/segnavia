@@ -46,3 +46,21 @@ test('registration crop marks use a Separation All stroke', async () => {
   expect(fn?.lookup(PDFName.of('C1'), PDFArray).asArray().map(String)).toEqual(['1', '1', '1', '1'])
   expect(fn?.get(PDFName.of('N'))?.toString()).toBe('1')
 })
+
+test('registration crop marks skip an All resource that is not Separation All', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([100, 100])
+  const resources = page.node.normalizedEntries().Resources
+  resources.set(PDFName.of('ColorSpace'), document.context.obj({ All: 'DeviceRGB' }))
+  drawCropMarks(page, [{ start: { x: 10, y: 10 }, end: { x: 20, y: 10 } }], 'registration')
+  const bytes = await document.save()
+  const text = await pageContent(bytes)
+  expect(text).toMatch(/\/All1\s+CS/)
+  expect(text).not.toMatch(/\/All\s+CS/)
+  const output = await PDFDocument.load(bytes)
+  const spaces = output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'), PDFDict)
+  expect(spaces?.get(PDFName.of('All'))?.toString()).toBe('/DeviceRGB')
+  const space = spaces?.lookup(PDFName.of('All1'), PDFArray)
+  expect(space?.lookup(0, PDFName).toString()).toBe('/Separation')
+  expect(space?.lookup(1, PDFName).toString()).toBe('/All')
+})

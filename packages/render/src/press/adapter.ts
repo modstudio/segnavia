@@ -6,7 +6,7 @@ import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
-import { rewriteContent } from './content.ts'
+import { type ContentColorSpaces, emptyContentColorSpaces, rewriteContent } from './content.ts'
 import { convertGeneratedRasterImages, convertSuppliedImages, streamDictionary } from './document-images.ts'
 import type { JpegDecoder } from './image.ts'
 import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
@@ -20,6 +20,7 @@ import {
   MAX_DOCUMENT_CONTENT_BYTES,
   nameOf,
   numberOf,
+  registrationResourceNames,
   replaceArray,
   resolvedColorSpace,
 } from './pdf-objects.ts'
@@ -33,11 +34,13 @@ export { inspectPressPdf } from './report.ts'
 
 interface RewriteState {
   budget: ContentBudget
+  colorSpaces?: ContentColorSpaces
   convert: ReturnType<typeof cachedPressColor>
   convertImages: boolean
   destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
+  pendingGrayResources?: Array<PDFDict | undefined>
   profile: Profile
   sampleConvert: (rgb: Color3) => Color
   seenGroups: WeakSet<PDFDict>
@@ -239,10 +242,24 @@ function recordContentBounds(state: RewriteState, stream: PDFRawStream, resource
   else recordPatternPaintedBounds(bytes, resolve, state.painted, resolveGs, resolveShading, state.shadingPainted)
 }
 
-function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void, mask: MaskContext): void {
+function convertContent(
+  state: RewriteState,
+  object: PDFObject,
+  stream: PDFRawStream,
+  setDirect: (stream: PDFRawStream) => void,
+  mask: MaskContext,
+  resources: PDFDict | undefined,
+): void {
   const bytes = decodeContent(stream, state.budget)
   const destination = state.destination
-  const rewritten = rewriteContent(bytes, converterFor(state, mask), destination, state.convertImages)
+  const rewritten = rewriteContent(
+    bytes,
+    converterFor(state, mask),
+    destination,
+    state.convertImages,
+    registrationResourceNames(state.document, resources),
+    state.colorSpaces ?? emptyContentColorSpaces(),
+  )
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
   const replacement = state.document.context.stream(deflateSync(rewritten.bytes), streamDictionary(stream))
@@ -305,9 +322,20 @@ export function rewritePressDocument(
     shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
   })
   walkPressGraph(document, {
+    beginContentsSequence: () => {
+      state.colorSpaces = emptyContentColorSpaces()
+      state.pendingGrayResources = []
+    },
     content: (object, stream, replace, resources, mask) => {
-      convertContent(state, object, stream, replace, mask)
-      if (state.destination === 'gray') dropRegistrationColorSpaces(state.document, resources)
+      convertContent(state, object, stream, replace, mask, resources)
+      if (state.destination !== 'gray') return
+      if (state.pendingGrayResources) state.pendingGrayResources.push(resources)
+      else dropRegistrationColorSpaces(state.document, resources)
+    },
+    endContentsSequence: () => {
+      for (const resources of state.pendingGrayResources ?? []) dropRegistrationColorSpaces(state.document, resources)
+      state.colorSpaces = undefined
+      state.pendingGrayResources = undefined
     },
     function: (fn, decision, mask) => convertFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => convertGroup(state, owner, mask),
