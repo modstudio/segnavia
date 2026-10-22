@@ -216,11 +216,57 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
     JSON.stringify(sectionSaves.at(-1)) === JSON.stringify({ slideId: 'animated', printAtMs: 1500 }),
     JSON.stringify(sectionSaves),
   )
+  await page.evaluate(async () => {
+    const holder = window as unknown as {
+      authoring: { flush(): Promise<unknown> }
+      authoringFacts: { deferPrintMoment: boolean; releasePrintMoment(): void }
+    }
+    holder.authoringFacts.deferPrintMoment = false
+    holder.authoringFacts.releasePrintMoment()
+    await holder.authoring.flush()
+  })
   await page.locator(`${PLAYER} segnavia-rail li[data-slide-id="animated"]`).hover()
   await animatedMenu.click()
   const sharedValue = await page.locator(`${PLAYER} segnavia-rail .slide-settings-list [data-setting="print-frame"]`).textContent()
   check('the rail slide menu shows the value changed in the Slide section', sharedValue === 'Print frame · 1.5 s', String(sharedValue))
   await page.keyboard.press('Escape')
+
+  await itemSetting.click()
+  await page.locator('segnavia-item-settings .print-frame-panel input').evaluate((input: HTMLInputElement) => {
+    input.value = '1600'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await page.locator('segnavia-item-settings [data-back]').click()
+  await page.waitForFunction(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves.length === 4)
+  await itemSetting.click()
+  await page.locator('segnavia-item-settings [data-done]').click()
+  await page.waitForTimeout(30)
+  const backSaves = await page.evaluate(() => (window as unknown as { authoringFacts: { printSaves: unknown[] } }).authoringFacts.printSaves)
+  check(
+    'Back saves once and reopening then choosing Done does not save again',
+    backSaves.length === 4 && JSON.stringify(backSaves.at(-1)) === JSON.stringify({ slideId: 'animated', printAtMs: 1600 }),
+    JSON.stringify(backSaves),
+  )
+
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { rejectPrintMoment: boolean } }).authoringFacts.rejectPrintMoment = true))
+  await itemSetting.click()
+  await page.locator('segnavia-item-settings .print-frame-panel input').evaluate((input: HTMLInputElement) => {
+    input.value = '1700'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await page.locator(PLAYER).evaluate(async (player) => {
+    await (player as HTMLElement & { controller: { go(index: number): Promise<void> } }).controller.go(2)
+  })
+  const rejectedNavigation = await page.evaluate(() => {
+    const facts = (window as unknown as { authoringFacts: { printSaves: unknown[]; errors: number } }).authoringFacts
+    return { saves: facts.printSaves, errors: facts.errors }
+  })
+  check(
+    'a rejected section save during navigation reaches the host and reports an error once',
+    rejectedNavigation.saves.length === 5 && rejectedNavigation.errors === 1,
+    JSON.stringify(rejectedNavigation),
+  )
+  await page.evaluate(() => ((window as unknown as { authoringFacts: { rejectPrintMoment: boolean } }).authoringFacts.rejectPrintMoment = false))
 
   await page.goto(h.url('authoring-rtl.html'))
   await page.waitForFunction(() => 'authoring' in window)

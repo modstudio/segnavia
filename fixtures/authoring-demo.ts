@@ -20,6 +20,7 @@ const facts = {
   releaseNotes: () => {},
   printSaves: [] as unknown[],
   deferPrintMoment: false,
+  rejectPrintMoment: false,
   releasePrintMoment: () => {},
   dirty: [] as boolean[],
   errors: 0,
@@ -45,6 +46,7 @@ const authoring = attachAuthoring(
     async savePrintMoment(input) {
       facts.printSaves.push(input)
       if (facts.deferPrintMoment) await new Promise<void>((resolve) => (facts.releasePrintMoment = resolve))
+      if (facts.rejectPrintMoment) throw new Error('Print moment refused')
     },
   },
   { itemSettings: true },

@@ -62,6 +62,17 @@ export async function verifyDocuments(h: Harness) {
     .locator('#brochure .segnavia-document__item[data-page-index="1"]')
     .evaluate((item) => Math.abs(item.getBoundingClientRect().top) < 80)
   check('selecting a document thumbnail scrolls its page into view', selection)
+  await page.waitForFunction(() => (document.querySelector('#brochure') as HTMLElement & { currentPageIndex: number }).currentPageIndex === 1)
+  await page.evaluate(() => (window as unknown as { documentAuthoringFacts: { reattachItemSettings(): void } }).documentAuthoringFacts.reattachItemSettings())
+  await rail.locator('.item-settings').click()
+  const itemSettingsPage = await page.evaluate(
+    () => (window as unknown as { documentAuthoringFacts: { itemSettingsOpen: Array<{ pageId: string }> } }).documentAuthoringFacts.itemSettingsOpen,
+  )
+  check(
+    'attaching document authoring on the second page opens settings for that page',
+    JSON.stringify(itemSettingsPage) === JSON.stringify([{ pageId: 'inside' }]),
+    JSON.stringify(itemSettingsPage),
+  )
   const a4 = { width: 210 * PX_PER_MM, height: 297 * PX_PER_MM }
   check(
     'a document shows its pages in order on A4 sheets at no more than their natural 96 dpi size',

@@ -27,6 +27,7 @@ export class AuthoringPrintMoment {
   private renderedDeck: unknown = null
   private settings: SlideSettingsController
   private sectionChanges = new Set<() => void>()
+  private sectionBeforeNavigate = new Set<() => void>()
 
   constructor(
     private player: SegnaviaPlayer,
@@ -48,6 +49,7 @@ export class AuthoringPrintMoment {
 
   beforeNavigate() {
     this.settings.beforeNavigate()
+    for (const close of this.sectionBeforeNavigate) close()
   }
 
   dispose() {
@@ -59,10 +61,14 @@ export class AuthoringPrintMoment {
   renderSection(container: HTMLElement) {
     let panelCleanup: ((save: boolean) => void) | undefined
     let panelOpen = false
-    const renderList = () => {
-      panelCleanup?.(false)
+    const finalizePanel = (save: boolean) => {
+      const cleanup = panelCleanup
       panelCleanup = undefined
       panelOpen = false
+      cleanup?.(save)
+    }
+    const renderList = () => {
+      finalizePanel(false)
       container.replaceChildren()
       const slide = this.player.controller.state.slide
       if (!slide) return this.renderEmpty(container)
@@ -82,10 +88,12 @@ export class AuthoringPrintMoment {
               panelCleanup = cleanup
               container.replaceChildren(panel)
             },
-            back: renderList,
+            back: () => {
+              finalizePanel(true)
+              renderList()
+            },
             close: () => {
-              panelCleanup?.(true)
-              panelCleanup = undefined
+              finalizePanel(true)
               renderList()
             },
             navigateToSlide: async () => this.player.controller.state.slide?.id === slide.id,
@@ -98,20 +106,26 @@ export class AuthoringPrintMoment {
       if (!panelOpen) renderList()
     }
     const navigated = () => {
-      panelCleanup?.(true)
-      panelCleanup = undefined
+      finalizePanel(false)
       renderList()
     }
+    const labelsChanged = () => {
+      finalizePanel(true)
+      renderList()
+    }
+    const beforeNavigate = () => finalizePanel(false)
     this.sectionChanges.add(changed)
+    this.sectionBeforeNavigate.add(beforeNavigate)
     this.player.controller.addEventListener('change', navigated)
-    this.player.addEventListener('segnavia-labels', navigated)
+    this.player.addEventListener('segnavia-labels', labelsChanged)
     const observer = new MutationObserver(() => {
       if (container.isConnected) return
       observer.disconnect()
-      panelCleanup?.(false)
+      finalizePanel(false)
       this.sectionChanges.delete(changed)
+      this.sectionBeforeNavigate.delete(beforeNavigate)
       this.player.controller.removeEventListener('change', navigated)
-      this.player.removeEventListener('segnavia-labels', navigated)
+      this.player.removeEventListener('segnavia-labels', labelsChanged)
     })
     observer.observe(container.getRootNode(), { childList: true, subtree: true })
     renderList()
@@ -125,6 +139,10 @@ export class AuthoringPrintMoment {
   }
 
   private changed = () => {
+    this.refreshViews()
+  }
+
+  private refreshViews() {
     this.settings?.refresh()
     for (const refresh of this.sectionChanges) refresh()
   }
@@ -135,10 +153,13 @@ export class AuthoringPrintMoment {
     const stage = this.player.authoringAnimationMessage(event)
     const report = stage ?? this.rail.animationMessage(event)
     if (!report?.slideId) return
-    const source = stage ? 'stage' : 'thumbnail'
+    this.acceptReport(report, stage ? 'stage' : 'thumbnail')
+  }
+
+  private acceptReport(report: { slideId: string; animated: boolean; lengthMs: number | null }, source: RankedAnimationMetadata['source']) {
     if (source === 'thumbnail' && this.metadata.get(report.slideId)?.source === 'stage') return
     this.metadata.set(report.slideId, { animated: report.animated, lengthMs: report.lengthMs, source })
-    this.settings.refresh()
+    this.refreshViews()
   }
 
   private render = () => {

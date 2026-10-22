@@ -36,6 +36,7 @@ export class DocumentAuthoringController extends EventTarget {
     private options: DocumentAuthoringOptions,
   ) {
     super()
+    this.currentPage = document.currentPageIndex
     this.rail.className = 'segnavia-document__rail'
     this.unsubscribe = this.rail.subscribeReorder(({ fromIndex, toIndex }) => void this.move(fromIndex, toIndex))
     this.document.addEventListener('segnavia-document-page', this.pageChanged)
@@ -70,6 +71,7 @@ export class DocumentAuthoringController extends EventTarget {
     const pages = this.document.pages
     this.identityError = pageIdentityError(pages)
     this.rail.configure(pages, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))
+    this.rail.setSelected(this.currentPage)
     this.rail.setReorderEnabled(!this.pending && !this.identityError)
     if (this.identityError)
       queueMicrotask(() => {
