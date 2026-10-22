@@ -5,7 +5,7 @@ import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { rewritePressDocument, rewritePressPdf } from './adapter.ts'
-import { MAX_CONTENT_BYTES, MAX_DOCUMENT_CONTENT_BYTES, nameOf } from './pdf-objects.ts'
+import { nameOf } from './pdf-objects.ts'
 import { shadingSampleGridForUses } from './sample-shading.ts'
 
 const profileBytes = buildPressProfile('mft1')
@@ -240,6 +240,7 @@ test('one shading through scale 10 and scale 100 takes the larger sample grid', 
 })
 
 test('the bounds pass refuses over the document content ceiling before conversion', async () => {
+  const boundsContentCeiling = 64
   const document = await PDFDocument.create()
   const shadingDict = document.context.obj({
     ShadingType: 1,
@@ -252,18 +253,15 @@ test('the bounds pass refuses over the document content ceiling before conversio
   const page = document.addPage([20, 20])
   page.node.set(PDFName.of('Resources'), document.context.obj({ Pattern: { P1: pattern } }))
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Pattern cs /P1 scn 0 0 10 10 re f')))
-  const payload = new Uint8Array(MAX_CONTENT_BYTES)
-  for (let index = 0; index < 4; index++) {
-    const extra = document.addPage([20, 20])
-    extra.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(payload)))
-  }
-  expect(MAX_CONTENT_BYTES * 4).toBe(MAX_DOCUMENT_CONTENT_BYTES)
+  const extra = document.addPage([20, 20])
+  extra.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(new Uint8Array(boundsContentCeiling))))
   try {
-    rewritePressDocument(document, readProfile(profileBytes))
+    rewritePressDocument(document, readProfile(profileBytes), undefined, undefined, boundsContentCeiling)
     throw new Error('expected refuse')
   } catch (error) {
     expect(error).toBeInstanceOf(RenderRefusedError)
-    expect((error as Error).message).toMatch(/total decoded content length/)
+    expect((error as Error).message).toContain(`total decoded content length`)
+    expect((error as Error).message).toContain(`at most ${boundsContentCeiling} bytes`)
   }
   expect(nameOf(shadingDict.get(PDFName.of('ColorSpace')))).toBe('DeviceRGB')
 })
