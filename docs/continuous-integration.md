@@ -5,8 +5,8 @@ The `CI` workflow runs for every pull request to `main` and every push to
 success only when every job below succeeds:
 
 - `check` installs the locked dependencies and runs `bun run check` on Ubuntu.
-- `build-demo` installs ffmpeg, builds the browser demo on Ubuntu, and uploads
-  `out/` for the verifier jobs.
+- `build-demo` builds the browser demo on Ubuntu. The demo writes its own
+  `audio/tone.wav`, then the job uploads `out/` for the verifier jobs.
 - `verify-demo` downloads that build and runs three Ubuntu jobs, each with one
   shard of the browser verification and poppler's PDF tools.
 - `verify-render` runs the rendering verification on Ubuntu under both Bun and
