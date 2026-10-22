@@ -9,7 +9,7 @@ import { readPpm } from './pdf-raster.ts'
 
 const close = (left: number, right: number, tolerance: number) => Math.abs(left - right) <= tolerance
 
-function ppmRedBounds(file: string): number[] | undefined {
+function ppmBounds(file: string, matches: (red: number, green: number, blue: number) => boolean): number[] | undefined {
   const { width, height, pixels } = readPpm(file)
   let left = width
   let top = height
@@ -21,7 +21,7 @@ function ppmRedBounds(file: string): number[] | undefined {
       const red = pixels[pixel] ?? 255
       const green = pixels[pixel + 1] ?? 255
       const blue = pixels[pixel + 2] ?? 255
-      if (red >= 110 && red <= 130 && green < 10 && blue < 10) {
+      if (matches(red, green, blue)) {
         left = Math.min(left, x)
         top = Math.min(top, y)
         right = Math.max(right, x)
@@ -29,7 +29,22 @@ function ppmRedBounds(file: string): number[] | undefined {
       }
     }
   }
-  return right < left ? undefined : [left / 4, top / 4, (right + 1) / 4, (bottom + 1) / 4]
+  return right < left ? undefined : [left, top, right + 1, bottom + 1]
+}
+
+const ppmRedBounds = (file: string): number[] | undefined =>
+  ppmBounds(file, (red, green, blue) => red >= 110 && red <= 130 && green < 10 && blue < 10)?.map((value) => value / 4)
+
+function bottomMarkerComparison(
+  file: string,
+  screenInset: number | undefined,
+  matches: (red: number, green: number, blue: number) => boolean,
+): { ok: boolean; detail: string } {
+  const image = readPpm(file)
+  const marker = ppmBounds(file, matches)
+  const pdfInset = marker ? image.height - (marker[3] ?? Number.NaN) : Number.NaN
+  const expected = (screenInset ?? Number.NaN) * 4
+  return { ok: close(pdfInset, expected, 1), detail: `pdf=${pdfInset}px, screen=${expected}px, viewport=${screenInset}px` }
 }
 
 const clipMarginHtml = (width: number) =>
@@ -72,6 +87,32 @@ async function verifyClipMargin(renderer: Renderer, executablePath: string, chec
   }
 }
 
+async function verifyExactBottomAnchor(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
+  const page = Page.parse({
+    html: '<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}#bottom{position:absolute;right:24px;bottom:45px;width:20px;height:20px;background:rgb(0,120,120)}</style><div id="bottom"></div>',
+    size: 'fluid',
+    print: { paper: { width: 126.98, height: 253.98, unit: 'mm' }, bleed: 0.01 },
+  })
+  let screenInset: number | undefined
+  await renderer.pageImage(page, {
+    beforeOutput: async (tab) => {
+      screenInset = await tab
+        .locator('#bottom')
+        .evaluate((element) => document.documentElement.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom)
+    },
+  })
+  const file = path.join(work, 'exact-bottom.pdf')
+  writeFileSync(file, await renderer.pagePdf(page))
+  const raster = path.join(work, 'exact-bottom')
+  execFileSync('pdftoppm', ['-f', '1', '-singlefile', '-r', '384', file, raster])
+  const bottom = bottomMarkerComparison(
+    `${raster}.ppm`,
+    screenInset,
+    (red, green, blue) => red < 10 && green >= 110 && green <= 130 && blue >= 110 && blue <= 130,
+  )
+  check('a bottom-anchored marker on an exact-size press page keeps its screen distance from the bottom', bottom.ok, bottom.detail)
+}
+
 export async function verifyClippedBleed(
   renderer: Renderer,
   work: string,
@@ -85,24 +126,35 @@ export async function verifyClippedBleed(
       #text{position:absolute;left:24px;top:20px;width:160px;height:24px;overflow:visible;background:rgb(120,0,0)}
       #marker{font:16px Arial,sans-serif}
       #bleed{position:absolute;right:-18px;bottom:12px;width:80px;height:80px;transform:rotate(20deg);background:black}
+      #bottom{position:absolute;right:24px;bottom:45px;width:20px;height:20px;background:rgb(0,120,120)}
+      #fixed{position:fixed;left:24px;bottom:45px;width:20px;height:20px;background:rgb(120,0,120)}
       @media print{html,body{width:auto;height:auto;min-height:0}body{position:fixed;inset:0}}
-    </style><body><div id="trim"><svg id="text"><text id="marker" x="0" y="16">BLEED_MARKER</text></svg><div id="bleed"></div></div></body>`,
+    </style><body><div id="trim"><svg id="text"><text id="marker" x="0" y="16">BLEED_MARKER</text></svg><div id="bleed"></div><div id="bottom"></div></div><div id="fixed"></div></body>`,
     size: 'fluid',
-    print: { paper: { width: 100, height: 60, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
+    print: { paper: 'a5', orientation: 'portrait', bleed: 3 },
   })
   if (!page.print) throw new Error('The clipped-bleed fixture has no print setting.')
   let report: OverflowReport | undefined
   let screen: { x: number; y: number; width: number; height: number } | undefined
-  const bytes = await renderer.pagesPdf([page], {
-    effects: false,
-    overflow: { report: (value) => (report = value) },
+  let screenBottomInset: number | undefined
+  let screenFixedInset: number | undefined
+  await renderer.pageImage(page, {
     beforeOutput: async (tab) => {
-      await tab.emulateMedia({ media: 'print' })
       screen = await tab.locator('#text').evaluate((element) => {
         const box = element.getBoundingClientRect()
         return { x: box.x, y: box.y, width: box.width, height: box.height }
       })
+      screenBottomInset = await tab
+        .locator('#bottom')
+        .evaluate((element) => document.documentElement.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom)
+      screenFixedInset = await tab
+        .locator('#fixed')
+        .evaluate((element) => document.documentElement.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom)
     },
+  })
+  const bytes = await renderer.pagesPdf([page], {
+    effects: false,
+    overflow: { report: (value) => (report = value) },
   })
   const file = path.join(work, 'clipped-bleed.pdf')
   writeFileSync(file, bytes)
@@ -110,6 +162,8 @@ export async function verifyClippedBleed(
   const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
   const raster = path.join(work, 'clipped-bleed')
   execFileSync('pdftoppm', ['-f', '1', '-singlefile', '-r', '288', file, raster])
+  const bottomRaster = path.join(work, 'clipped-bleed-bottom')
+  execFileSync('pdftoppm', ['-f', '1', '-singlefile', '-r', '384', file, bottomRaster])
   const actualBox = (name: string) =>
     info
       .match(new RegExp(`${name}:\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)`))
@@ -155,5 +209,19 @@ export async function verifyClippedBleed(
     `scale=${scale}, boxes=${[actualBox('MediaBox'), actualBox('BleedBox'), actualBox('TrimBox')].map((box) => box?.join('/')).join(',')}, text=${actualText?.join('/')}/${expectedText.join('/')}, vertical offset=${textGeometry?.verticalOffset}pt, px/mm=${PX_PER_MM}`,
   )
 
+  const bottom = bottomMarkerComparison(
+    `${bottomRaster}.ppm`,
+    screenBottomInset,
+    (red, green, blue) => red < 10 && green >= 110 && green <= 130 && blue >= 110 && blue <= 130,
+  )
+  check('a bottom-anchored marker on a fractional bleed page keeps its screen distance from the bottom', bottom.ok, bottom.detail)
+  const fixed = bottomMarkerComparison(
+    `${bottomRaster}.ppm`,
+    screenFixedInset,
+    (red, green, blue) => red >= 110 && red <= 130 && green < 10 && blue >= 110 && blue <= 130,
+  )
+  check('a fixed marker stays within one device pixel of its screen distance from the bottom', fixed.ok, fixed.detail)
+
+  await verifyExactBottomAnchor(renderer, work, check)
   await verifyClipMargin(renderer, executablePath, check)
 }

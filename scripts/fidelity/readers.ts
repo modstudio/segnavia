@@ -5,6 +5,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { type Browser, chromium } from 'playwright-core'
 import { MARKER_BORDER_COLOR, MARKER_INSET, READER_RASTER_DPI, SCALE } from './config.ts'
+import { normalizeCropBox } from './pdf.ts'
 import type { ReaderResult } from './types.ts'
 
 const SRGB_PROFILE = '/System/Library/ColorSync/Profiles/sRGB Profile.icc'
@@ -218,16 +219,22 @@ export async function pressGhostscript(
 }
 
 export async function coreGraphics(pdf: string, output: string, width: number, height: number): Promise<ReaderResult> {
-  const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), pdf, '--out', output])
-  if (!result.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: result.error }
-  if (!(await Bun.file(output).exists())) {
-    return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: 'sips exited successfully without writing a PNG.' }
+  const normalized = `${output}.crop.pdf`
+  await normalizeCropBox(pdf, normalized)
+  try {
+    const result = ran(['sips', '-s', 'format', 'png', '-z', String(height), String(width), normalized, '--out', output])
+    if (!result.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: result.error }
+    if (!(await Bun.file(output).exists())) {
+      return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: 'sips exited successfully without writing a PNG.' }
+    }
+    const converted = `${output}.srgb.png`
+    const matched = ran(['sips', '-m', SRGB_PROFILE, output, '--out', converted])
+    if (!matched.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: matched.error }
+    await rename(converted, output)
+    return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: true, image: output }
+  } finally {
+    await unlink(normalized).catch(() => {})
   }
-  const converted = `${output}.srgb.png`
-  const matched = ran(['sips', '-m', SRGB_PROFILE, output, '--out', converted])
-  if (!matched.ok) return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: false, error: matched.error }
-  await rename(converted, output)
-  return { reader: 'coregraphics', engine: 'CoreGraphics via sips', worked: true, image: output }
 }
 
 export async function chromiumViewer(
