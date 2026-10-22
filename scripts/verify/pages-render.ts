@@ -13,6 +13,8 @@ import {
   growingFixedImposition,
   growingFixedPages,
   labelsImposition,
+  letterFoldImposition,
+  letterFoldPages,
   postcardBackPage,
   postcardPage,
   twoSidedCardImposition,
@@ -262,4 +264,32 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
   check('the imposed maxSheets ceiling counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+
+  const letterFolded = impose(Imposition.parse(letterFoldImposition), letterFoldPages.length)
+  const letterXml = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-letter-fold.pdf'), '-'], { encoding: 'utf8' })
+  const letterPdfPages = [...letterXml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
+  const letterWord = (pdfPage: number, label: string) => {
+    const words = [...(letterPdfPages[pdfPage] ?? '').matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]+)<\/word>/g)]
+    const word = words.find((entry) => entry[5] === label)
+    if (!word) return undefined
+    return { xMin: Number(word[1]), yMin: Number(word[2]), xMax: Number(word[3]), yMax: Number(word[4]) }
+  }
+  const letterInside = (box: ReturnType<typeof letterWord>, trim: { x: number; y: number; width: number; height: number }) =>
+    Boolean(
+      box &&
+        box.xMin >= trim.x / MM_PER_PT - 1 &&
+        box.yMin >= trim.y / MM_PER_PT - 1 &&
+        box.xMax <= (trim.x + trim.width) / MM_PER_PT + 1 &&
+        box.yMax <= (trim.y + trim.height) / MM_PER_PT + 1,
+    )
+  const letterPlaced = [1, 2, 3, 4, 5, 6].every((label) => {
+    const placement = letterFolded.placements.find((entry) => entry.page === label - 1)
+    if (!placement) return false
+    return letterInside(letterWord(placement.side === 'front' ? 0 : 1, String(label)), placement.trim)
+  })
+  check(
+    'a letter-fold brochure puts every panel in its place on both sides',
+    letterPdfPages.length === 2 && letterFolded.placements.length === 6 && letterPlaced,
+    `pages=${letterPdfPages.length} placements=${letterFolded.placements.length}`,
+  )
 }

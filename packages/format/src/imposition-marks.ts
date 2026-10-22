@@ -1,4 +1,4 @@
-import { impose, type Placement } from './imposition.ts'
+import { gridPlacements, type Placement } from './imposition.ts'
 import type { Imposition } from './index.ts'
 import { MARK_GAP_MM, MARK_LENGTH_MM, type MarkSegment, roundMillimeters } from './paper.ts'
 
@@ -27,6 +27,7 @@ function addMark(
   available: number,
   horizontal: boolean,
   direction: -1 | 1,
+  dashed = false,
 ): void {
   const length = Math.min(MARK_LENGTH_MM, roundMillimeters(available))
   if (length < MIN_MARK_LENGTH_MM) {
@@ -34,14 +35,15 @@ function addMark(
     return
   }
   const end = roundMillimeters(start + direction * length)
+  const dash = dashed ? { dashed: true as const } : {}
   result.marks.push(
     horizontal
-      ? { x1: Math.min(start, end), y1: cutPosition, x2: Math.max(start, end), y2: cutPosition }
-      : { x1: cutPosition, y1: Math.min(start, end), x2: cutPosition, y2: Math.max(start, end) },
+      ? { x1: Math.min(start, end), y1: cutPosition, x2: Math.max(start, end), y2: cutPosition, ...dash }
+      : { x1: cutPosition, y1: Math.min(start, end), x2: cutPosition, y2: Math.max(start, end), ...dash },
   )
 }
 
-function outerMarks(side: ImpositionSideMarks, placements: Placement[], paper: { width: number; height: number }): void {
+function outerMarks(side: ImpositionSideMarks, placements: Placement[], paper: { width: number; height: number }, foldCuts: Set<number>): void {
   const verticalCuts = unique(placements.flatMap(({ trim }) => [trim.x, trim.x + trim.width]))
   const horizontalCuts = unique(placements.flatMap(({ trim }) => [trim.y, trim.y + trim.height]))
   const top = Math.min(...placements.map(({ bleedBox }) => bleedBox.y))
@@ -49,12 +51,17 @@ function outerMarks(side: ImpositionSideMarks, placements: Placement[], paper: {
   const bottom = Math.max(...placements.map(({ bleedBox }) => bleedBox.y + bleedBox.height))
   const left = Math.min(...placements.map(({ bleedBox }) => bleedBox.x))
   for (const cut of verticalCuts) {
+    if (foldCuts.has(cut)) continue
     addMark(side, 'top', cut, roundMillimeters(top - MARK_GAP_MM), top - MARK_GAP_MM, false, -1)
     addMark(side, 'bottom', cut, roundMillimeters(bottom + MARK_GAP_MM), paper.height - bottom - MARK_GAP_MM, false, 1)
   }
   for (const cut of horizontalCuts) {
     addMark(side, 'left', cut, roundMillimeters(left - MARK_GAP_MM), left - MARK_GAP_MM, true, -1)
     addMark(side, 'right', cut, roundMillimeters(right + MARK_GAP_MM), paper.width - right - MARK_GAP_MM, true, 1)
+  }
+  for (const cut of foldCuts) {
+    addMark(side, 'top', cut, roundMillimeters(top - MARK_GAP_MM), top - MARK_GAP_MM, false, -1, true)
+    addMark(side, 'bottom', cut, roundMillimeters(bottom + MARK_GAP_MM), paper.height - bottom - MARK_GAP_MM, false, 1, true)
   }
 }
 
@@ -117,26 +124,31 @@ function cornerMarks(side: ImpositionSideMarks, placements: Placement[], rows: n
   }
 }
 
+function foldCutPositions(placements: Placement[]): Set<number> {
+  const left = Math.min(...placements.map(({ trim }) => trim.x))
+  const right = Math.max(...placements.map(({ trim }) => trim.x + trim.width))
+  return new Set(unique(placements.flatMap(({ trim }) => [trim.x, trim.x + trim.width])).filter((cut) => cut !== left && cut !== right))
+}
+
 /** Computes physical crop-mark geometry without changing the fixed paper size. */
 export function impositionMarks(imposition: Imposition): ImpositionSideMarks[] {
   if (!imposition.marks) return []
-  const cellCount = imposition.columns * imposition.rows
-  const frontImposed = impose({ ...imposition, sides: 'one', fill: 'sequence', skip: 0 }, cellCount)
-  const frontPlacements = frontImposed.placements
+  const { paper, placements: frontPlacements } = gridPlacements(imposition)
+  const foldCuts = imposition.fold ? foldCutPositions(frontPlacements) : new Set<number>()
   const build = (sideName: 'front' | 'back', placements: Placement[]) => {
     const side: ImpositionSideMarks = { side: sideName, marks: [], omittedMarks: [] }
-    outerMarks(side, placements, frontImposed.paper)
+    outerMarks(side, placements, paper, foldCuts)
     if (imposition.cornerMarks) cornerMarks(side, placements, imposition.rows)
     return side
   }
   const front = build('front', frontPlacements)
   if (imposition.sides === 'one') return [front]
-  const portrait = frontImposed.paper.width <= frontImposed.paper.height
+  const portrait = paper.width <= paper.height
   const axis = (imposition.flip === 'long') === portrait ? 'x' : 'y'
   const mirrorMark = (mark: MarkSegment): MarkSegment =>
     axis === 'x'
-      ? { ...mark, x1: roundMillimeters(frontImposed.paper.width - mark.x1), x2: roundMillimeters(frontImposed.paper.width - mark.x2) }
-      : { ...mark, y1: roundMillimeters(frontImposed.paper.height - mark.y1), y2: roundMillimeters(frontImposed.paper.height - mark.y2) }
+      ? { ...mark, x1: roundMillimeters(paper.width - mark.x1), x2: roundMillimeters(paper.width - mark.x2) }
+      : { ...mark, y1: roundMillimeters(paper.height - mark.y1), y2: roundMillimeters(paper.height - mark.y2) }
   const mirrorEdge = (edge: ImpositionMarkEdge): ImpositionMarkEdge => {
     if (axis === 'x') return edge === 'left' ? 'right' : edge === 'right' ? 'left' : edge
     return edge === 'top' ? 'bottom' : edge === 'bottom' ? 'top' : edge
@@ -149,9 +161,9 @@ export function impositionMarks(imposition: Imposition): ImpositionSideMarks[] {
       edge: mirrorEdge(edge),
       cutPosition: roundMillimeters(
         axis === 'x' && (edge === 'top' || edge === 'bottom')
-          ? frontImposed.paper.width - cutPosition
+          ? paper.width - cutPosition
           : axis === 'y' && (edge === 'left' || edge === 'right')
-            ? frontImposed.paper.height - cutPosition
+            ? paper.height - cutPosition
             : cutPosition,
       ),
     })),

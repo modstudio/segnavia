@@ -12,6 +12,8 @@ import {
   growingFixedPages,
   labelPages,
   labelsImposition,
+  letterFoldImposition,
+  letterFoldPages,
   postcardBackPage,
   postcardPage,
   twoSidedCardImposition,
@@ -32,6 +34,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string): Promise
   writeFileSync(path.join(output, 'pages-bleed-grid.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: bleedGridImposition }))
   writeFileSync(path.join(output, 'pages-bleed-grid-clipped.pdf'), await renderer.pagesPdf(bleedGridPages, { imposition: clippedBleedGridImposition }))
   writeFileSync(path.join(output, 'pages-growing-fixed.pdf'), await renderer.pagesPdf(growingFixedPages, { imposition: growingFixedImposition }))
+  writeFileSync(path.join(output, 'pages-letter-fold.pdf'), await renderer.pagesPdf(letterFoldPages, { imposition: letterFoldImposition }))
   writeFileSync(path.join(output, 'pages-two-sided-long.pdf'), await renderer.pagesPdf(twoSidedCardPages, { imposition: twoSidedCardImposition }))
   writeFileSync(
     path.join(output, 'pages-two-sided-marks.pdf'),

@@ -1,3 +1,4 @@
+import { foldCellPages, foldPageCountMessage } from './fold.ts'
 import type { Imposition, Page, Print } from './index.ts'
 import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 
@@ -52,19 +53,36 @@ export interface PagePlacementLayout {
 
 const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
 
+function columnWidthsMm(imposition: Imposition): number[] {
+  if (imposition.fold && imposition.panels) return imposition.panels.map((width) => toMillimeters(width, imposition.unit))
+  return Array.from({ length: imposition.columns }, () => toMillimeters(imposition.cell.width, imposition.unit))
+}
+
+function columnXMm(imposition: Imposition, column: number, widths: number[], paperWidth: number): number {
+  const mm = (value: number) => toMillimeters(value, imposition.unit)
+  const gap = mm(imposition.gap.column)
+  if (imposition.dir === 'rtl') {
+    let x = paperWidth - mm(imposition.margin.right)
+    for (let index = 0; index <= column; index += 1) x -= widths[index] ?? 0
+    for (let index = 0; index < column; index += 1) x -= gap
+    return x
+  }
+  let x = mm(imposition.margin.left)
+  for (let index = 0; index < column; index += 1) x += (widths[index] ?? 0) + gap
+  return x
+}
+
 function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
   const mm = (value: number) => toMillimeters(value, imposition.unit)
   const column = cell % imposition.columns
   const row = Math.floor(cell / imposition.columns)
   const physicalColumn = imposition.dir === 'rtl' ? imposition.columns - column - 1 : column
-  const cellWidth = mm(imposition.cell.width)
+  const widths = columnWidthsMm(imposition)
+  const cellWidth = widths[column] ?? mm(imposition.cell.width)
   const cellHeight = mm(imposition.cell.height)
   const columnGap = mm(imposition.gap.column)
   const rowGap = mm(imposition.gap.row)
-  const x =
-    imposition.dir === 'rtl'
-      ? paperSize.width - mm(imposition.margin.right) - cellWidth - column * (cellWidth + columnGap)
-      : mm(imposition.margin.left) + column * (cellWidth + columnGap)
+  const x = columnXMm(imposition, column, widths, paperSize.width)
   const y = mm(imposition.margin.top) + row * (cellHeight + rowGap)
   const requested = mm(imposition.bleed)
   const bleed = {
@@ -189,10 +207,34 @@ function expandAssignments(imposition: Imposition, assignments: PieceAssignment[
   return placements
 }
 
+function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['paper']): Imposed {
+  const fold = imposition.fold
+  if (!fold) throw new Error('imposeFold requires a fold')
+  const columns = imposition.columns
+  if (pageCount !== columns * 2) throw new Error(foldPageCountMessage(fold, pageCount, columns))
+  const cells = foldCellPages(fold, columns)
+  const fronts: Placement[] = []
+  const backs: Placement[] = []
+  for (const [cell, pages] of cells.entries()) {
+    if (!pages) continue
+    const front = placementAt(imposition, 0, cell, pages.front, paper)
+    fronts.push(front)
+    backs.push(mirrorPlacement(front, paper, imposition.flip, pages.back))
+  }
+  return { paper, papers: 1, sides: 2, placements: [...fronts, ...backs] }
+}
+
+export function gridPlacements(imposition: Imposition): { paper: Imposed['paper']; placements: Placement[] } {
+  const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
+  const cells = imposition.columns * imposition.rows
+  return { paper, placements: Array.from({ length: cells }, (_, cell) => placementAt(imposition, 0, cell, 0, paper)) }
+}
+
 export function impose(imposition: Imposition, pageCount: number): Imposed {
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const sides = imposition.sides === 'two' ? 2 : 1
+  if (imposition.fold) return imposeFold(imposition, pageCount, paper)
   if (pageCount === 0) return { paper, papers: 0, sides, placements: [] }
   const cells = imposition.columns * imposition.rows
   const pieces = imposition.sides === 'two' ? Math.ceil(pageCount / 2) : pageCount

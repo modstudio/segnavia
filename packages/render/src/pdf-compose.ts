@@ -1,4 +1,4 @@
-import { type Imposed, type ImpositionSideMarks, MM_PER_PT } from '@segnavia/format'
+import { type Imposed, type ImpositionSideMarks, type MarkSegment, MM_PER_PT } from '@segnavia/format'
 import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle, rgb } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
@@ -16,6 +16,21 @@ export function drawClippedPage(target: PDFPage, embedded: PDFEmbeddedPage, draw
   target.pushOperators(pushGraphicsState(), rectangle(clipBox.x, clipBox.y, clipBox.width, clipBox.height), clip(), endPath())
   target.drawPage(embedded, draw)
   target.pushOperators(popGraphicsState())
+}
+
+const MARK_COLOR = rgb(0, 0, 0)
+const MARK_THICKNESS_PT = 0.25
+const FOLD_DASH_ON_PT = 2 / MM_PER_PT
+const FOLD_DASH_OFF_PT = 1 / MM_PER_PT
+
+function drawImposedMark(paper: PDFPage, mark: MarkSegment, paperHeight: number): void {
+  paper.drawLine({
+    start: { x: mark.x1 / MM_PER_PT, y: (paperHeight - mark.y1) / MM_PER_PT },
+    end: { x: mark.x2 / MM_PER_PT, y: (paperHeight - mark.y2) / MM_PER_PT },
+    thickness: MARK_THICKNESS_PT,
+    color: MARK_COLOR,
+    ...(mark.dashed ? { dashArray: [FOLD_DASH_ON_PT, FOLD_DASH_OFF_PT] } : {}),
+  })
 }
 
 export interface ImposedPdfPiece {
@@ -44,14 +59,7 @@ function drawImposedSide(
       drawClippedPage(paper, image, draw, clipBox)
     }
   }
-  for (const mark of marks?.marks ?? []) {
-    paper.drawLine({
-      start: { x: mark.x1 / MM_PER_PT, y: (imposed.paper.height - mark.y1) / MM_PER_PT },
-      end: { x: mark.x2 / MM_PER_PT, y: (imposed.paper.height - mark.y2) / MM_PER_PT },
-      thickness: 0.25,
-      color: rgb(0, 0, 0),
-    })
-  }
+  for (const mark of marks?.marks ?? []) drawImposedMark(paper, mark, imposed.paper.height)
 }
 
 export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], marks: ImpositionSideMarks[] = []): Promise<Uint8Array> {
