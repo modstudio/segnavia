@@ -333,7 +333,7 @@ function rewriteContent(
 function declareTransparencyGroupColorSpace(state: EffectsState, owner: PDFDict): void {
   const group = owner.lookupMaybe(key('Group'), PDFDict)
   if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return
-  // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their colour.
+  // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their color.
   group.set(key('CS'), key('DeviceRGB'))
   state.changed = true
 }
