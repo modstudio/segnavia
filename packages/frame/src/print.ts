@@ -18,7 +18,7 @@ import {
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
-import { printDocumentSettled } from './print-settlement.ts'
+import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 import {
   collectSlotPrintCopies,
   EMPTY_SLOTS,
@@ -79,6 +79,10 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
     const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
     const measured = new Map<string, number>()
+    const refuseKeys = new Set(options.slots.declarations.filter((declaration) => declaration.overflow === 'refuse').map((declaration) => declaration.key))
+    // Fit is a separate bridge message from ready. Print waits for every marked
+    // refuse report, bounded by the same deadline, so a slow frame cannot print
+    // an overflowed refuse slot before its measurement arrives.
     const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
@@ -88,6 +92,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
         for (const key of Object.keys(fit)) measured.set(key, (measured.get(key) ?? 0) + 1)
         options.slots.mergeFit(fit)
       },
+      () => slotFitStillPending(options.slots.marked, measured, refuseKeys),
     )
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
     const overflowRefusal = requiredSlotRefusal(options.slots.declarations, options.slots.report)

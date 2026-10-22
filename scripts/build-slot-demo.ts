@@ -65,6 +65,11 @@ export async function buildSlotDemo(site: string): Promise<void> {
         slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }],
         html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>',
       })
+      const inlineRefusePage = {
+        size: { width: 336, height: 192 },
+        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+        html: '<p><strong data-slot-value="name">Design Name</strong></p>',
+      }
       const shrink = document.getElementById('shrink-card')
       shrink.slots = { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } }, report: report => reports.push(report) }
       shrink.page = overflowPage('shrink')
@@ -108,6 +113,13 @@ export async function buildSlotDemo(site: string): Promise<void> {
         },
         print: () => {},
       })
+      const inlineRefuseStarted = performance.now()
+      await printPages([inlineRefusePage], ${JSON.stringify(slotCardImposition)}, {
+        slots: { fill: { id: 'inline', values: { name: 'Mina Patel' } } },
+        deadlineMs: 2000,
+        print: () => {},
+      })
+      const inlineRefuseElapsed = performance.now() - inlineRefuseStarted
       let refuseError
       try {
         await printPages([overflowPage('refuse')], ${JSON.stringify(slotCardImposition)}, {
@@ -123,7 +135,7 @@ export async function buildSlotDemo(site: string): Promise<void> {
         const check = () => settled() ? resolve() : setTimeout(check, 10)
         check()
       })
-      window.slotFacts = { reports, refuseError, get failedAsset() { return failedAsset } }
+      window.slotFacts = { reports, refuseError, inlineRefuseElapsed, get failedAsset() { return failedAsset } }
       window.slotCard = { declarations, fills: { mina: ${JSON.stringify(firstCardFill)}, noah: ${JSON.stringify(secondCardFill)} }, resolveAsset }
       window.dispatchEvent(new Event('slot-card-ready'))
     </script><script type="module" src="slot-settings-demo.js"></script></body></html>`,
