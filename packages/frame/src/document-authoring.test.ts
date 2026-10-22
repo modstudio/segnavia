@@ -204,12 +204,10 @@ function slottedDocument(slots: SlotsOptions) {
     pages,
     print: null,
     css: '',
+    slots,
     setAuthoringRail() {},
     scrollToPage() {},
-  }) as EventTarget & {
-    pages: Page[]
-    slots: SlotsOptions | undefined
-  }
+  })
   Object.defineProperty(documentElement, 'slots', {
     configurable: true,
     get: () => currentSlots,
