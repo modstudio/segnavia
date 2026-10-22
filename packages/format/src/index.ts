@@ -7,7 +7,7 @@ import { Board } from './board.ts'
 import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
-import { FOLD_KINDS, foldColumns, refineFold, resolveImposition } from './fold.ts'
+import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
@@ -107,7 +107,7 @@ export {
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
-export { FOLD_KINDS, FOLD_TUCK_IN_MM, FOLD_WIDTH_TOLERANCE_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
+export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   fitPage,
   type Imposed,
@@ -248,16 +248,7 @@ export const Imposition = z
       ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
     }
     if (imposition.fold) {
-      const columns = foldColumns(imposition.fold, imposition.panels?.length)
-      if (columns > MAX_IMPOSITION_CELLS) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['panels'],
-          message: `the fold has ${columns} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
-        })
-        return
-      }
-      refineFold(imposition, ctx)
+      if ((imposition.panels?.length ?? 0) <= MAX_IMPOSITION_CELLS) refineFold(imposition, ctx)
       return
     }
     if (imposition.columns === undefined) {

@@ -426,7 +426,8 @@ letter and gate narrow each tuck-in panel by `FOLD_TUCK_IN_MM` (1.5 mm, a round
 value in the usual 1/32–1/16 in finishing allowance). A gate fold's flaps are
 each a quarter of the usable width minus `FOLD_TUCK_IN_MM`; the center is the
 width left after the two flaps (`availableMm − 2×flap`). The host may override
-`panels`; a custom fold requires them.
+`panels`; a custom fold requires them. A preset given `panels` keeps them only
+with exactly as many widths as its columns, refused by name otherwise.
 Columns, rows, sides, fill, skip and column gap are derived or must already
 match: one row, two sides, sequence, no skip, panels touching. `cell.height`
 is required; `cell.width` is unused. Widths plus horizontal margins must equal

@@ -1,4 +1,4 @@
-import { type IssueCtx, refuseOverflow, refuseSafe } from './imposition-fit.ts'
+import { type IssueCtx, PAPER_FIT_TOLERANCE_MM, refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import type { Orientation, Paper, PaperUnit } from './paper.ts'
 import { fromMillimeters, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 
@@ -10,7 +10,7 @@ export type FoldKind = (typeof FOLD_KINDS)[number]
 // 1.5 mm is a round value in that range.
 export const FOLD_TUCK_IN_MM = 1.5
 
-export const FOLD_WIDTH_TOLERANCE_MM = 0.01
+const FOLD_HEIGHT_REMEDY = 'reduce the vertical margins or cell height'
 
 type Edges = { top: number; right: number; bottom: number; left: number }
 
@@ -154,7 +154,7 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
   const marginLeft = toMillimeters(draft.margin.left, draft.unit)
   const marginRight = toMillimeters(draft.margin.right, draft.unit)
   const sum = roundMillimeters(marginLeft + widths.reduce((total, width) => total + width, 0) + marginRight)
-  if (Math.abs(sum - paper.width) > FOLD_WIDTH_TOLERANCE_MM) {
+  if (Math.abs(sum - paper.width) > PAPER_FIT_TOLERANCE_MM) {
     issue(
       ctx,
       ['panels'],
@@ -162,7 +162,8 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
     )
   }
   const height = toMillimeters(draft.margin.top, draft.unit) + toMillimeters(draft.cell.height, draft.unit) + toMillimeters(draft.margin.bottom, draft.unit)
-  refuseOverflow(ctx, paper, { width: sum, height })
+  // Leftover already owns fold width; pass paper.width so overflow only checks height.
+  refuseOverflow(ctx, paper, { width: paper.width, height }, { height: FOLD_HEIGHT_REMEDY })
   refuseSafe(ctx, toMillimeters(draft.safe, draft.unit), { width: Math.min(...widths), height: toMillimeters(draft.cell.height, draft.unit) })
 }
 

@@ -105,9 +105,31 @@ describe('folded imposition', () => {
   test('refuses a fold over the panel ceiling', () => {
     const result = Imposition.safeParse(foldInput({ fold: 'custom', panels: Array.from({ length: MAX_IMPOSITION_CELLS + 1 }, () => 0.01) }))
     expect(result.success).toBe(false)
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]?.message).toContain(`${MAX_IMPOSITION_CELLS + 1} panels`)
+    expect(result.error?.issues[0]?.message).toContain(`ceiling is ${MAX_IMPOSITION_CELLS}`)
+  })
+
+  test('parse refuses a fold whose safe margin is too large for the tuck-in panel', () => {
+    const result = Imposition.safeParse(foldInput({ fold: 'letter', safe: 50 }))
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.path)).toContainEqual(['safe'])
+  })
+
+  test('parse refuses a fold taller than the paper with the fold height remedy', () => {
+    const result = Imposition.safeParse(foldInput({ fold: 'letter', cell: { height: 120 } }))
+    expect(result.success).toBe(false)
     const messages = result.error?.issues.map((issue) => issue.message).join(' ') ?? ''
-    expect(messages).toContain(`${MAX_IMPOSITION_CELLS + 1} panels`)
-    expect(messages).toContain(`ceiling is ${MAX_IMPOSITION_CELLS}`)
+    expect(messages).toContain('reduce the vertical margins or cell height')
+    expect(messages).not.toContain('row gap')
+  })
+
+  test('parse refuses an over-wide fold with one width issue', () => {
+    const result = Imposition.safeParse(foldInput({ fold: 'letter', panels: [120, 120, 120] }))
+    expect(result.success).toBe(false)
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]).toMatchObject({ path: ['panels'] })
+    expect(result.error?.issues[0]?.message).toContain('sum to 360mm')
   })
 
   test('impose refuses a folded piece with the wrong page count', () => {
