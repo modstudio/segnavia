@@ -62,9 +62,7 @@ export async function renderPagesPdf(pages: Page[], opts: PagesPdfOptions, servi
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
     const rendered = await Promise.all(
-      pages.map((page, inputIndex) =>
-        services.pagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined, overflow: undefined }, inputIndex),
-      ),
+      pages.map((page, inputIndex) => services.pagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, inputIndex)),
     )
     const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })

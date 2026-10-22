@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { decodePDFRawStream, PDFArray, type PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from '../press/adapter.ts'
 import { rewriteEffectsPdf } from './adapter.ts'
@@ -348,4 +348,43 @@ test('press converts a generated one-axis effect image without reporting it as a
     .find((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.has(PDFName.of('SegnaviaGeneratedEffect')))
   expect(generated?.dict.get(PDFName.of('ColorSpace'))?.toString()).toBe('/DeviceCMYK')
   expect(generated ? decodePDFRawStream(generated).decode().length : 0).toBe(84)
+})
+
+test('declares missing transparency group color spaces without replacing an existing space', async () => {
+  const document = await PDFDocument.create()
+  const form = document.context.register(
+    document.context.stream('', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+      Resources: {},
+      Group: { S: 'Transparency', CS: 'DeviceGray' },
+    }),
+  )
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Form Do')))
+  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Form: form } }))
+  page.node.set(PDFName.of('Group'), document.context.obj({ S: 'Transparency' }))
+
+  const rewritten = await rewriteEffectsPdf(await document.save())
+  const output = await PDFDocument.load(rewritten.bytes)
+  expect(output.getPage(0).node.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceRGB')
+  const outputForms = output.getPage(0).node.Resources()?.lookup(PDFName.of('XObject'), PDFDict)
+  const outputFormObject = outputForms?.get(PDFName.of('Form'))
+  const outputForm = outputFormObject ? output.context.lookup(outputFormObject) : undefined
+  expect(outputForm).toBeInstanceOf(PDFRawStream)
+  if (!(outputForm instanceof PDFRawStream)) throw new Error('Expected the Form XObject')
+  expect(outputForm.dict.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceGray')
+})
+
+test('press converts an effects-declared RGB transparency group', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('0 0 0 rg 0 0 1 1 re f')))
+  page.node.set(PDFName.of('Group'), document.context.obj({ S: 'Transparency' }))
+
+  const effects = await rewriteEffectsPdf(await document.save())
+  const converted = await rewritePressPdf(effects.bytes, buildPressProfile('mft1'))
+  const output = await PDFDocument.load(converted.bytes)
+  expect(output.getPage(0).node.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('CS'))?.toString()).toBe('/DeviceCMYK')
 })

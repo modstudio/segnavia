@@ -27,6 +27,7 @@ export interface SizeMeasurement {
   pdfBytes: number
   effectlessPdfBytes: number
   multiple: number
+  rasterEffects?: number
 }
 
 export interface AlignmentResult {
@@ -133,6 +134,7 @@ export interface DocumentResult {
   grayPressReason?: string
   blendedMask: string
   blendedFraction: number
+  rasterEffects?: number
   bars: Record<BarId, BarResult<BarMeasurement>>
 }
 

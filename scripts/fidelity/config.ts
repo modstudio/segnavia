@@ -40,6 +40,7 @@ export interface BarFacts {
   grayPressResidueErrors?: string[]
   grayPressReason?: string
   size: SizeMeasurement
+  rasterEffects?: number
 }
 
 export interface AcceptanceBar {
@@ -139,16 +140,21 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
     measure: ({ size }) => size,
     pass: (measured) => {
       const value = measured as SizeMeasurement
-      return value.multiple <= PDF_SIZE_THRESHOLD.multiple && value.pdfBytes <= PDF_SIZE_THRESHOLD.absoluteBytes
+      return (Boolean(value.rasterEffects) || value.multiple <= PDF_SIZE_THRESHOLD.multiple) && value.pdfBytes <= PDF_SIZE_THRESHOLD.absoluteBytes
     },
-    reason: () => undefined,
+    reason: (measured) =>
+      (measured as SizeMeasurement).rasterEffects
+        ? `The 3× bar is exempt because ${String((measured as SizeMeasurement).rasterEffects)} backdrop-filter region(s) use captured rasters; the 500,000-byte cap still applies.`
+        : undefined,
     format: (measured, threshold, total) => {
       const value = measured as SizeMeasurement | undefined
       if (!('multiple' in threshold)) throw new Error('A size bar requires a multiple/bytes threshold.')
       const amount = total
         ? `largest ${value?.pdfBytes.toLocaleString() ?? '—'} bytes, worst ${decimal(value?.multiple)}×`
         : `${value?.pdfBytes.toLocaleString() ?? '—'} / ${value?.effectlessPdfBytes.toLocaleString() ?? '—'} = ${decimal(value?.multiple)}×`
-      return `${amount} / ≤ ${threshold.multiple}× and ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
+      return (value?.rasterEffects ?? 0) > 0
+        ? `${amount} / 3× exempt; ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
+        : `${amount} / ≤ ${threshold.multiple}× and ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
     },
   },
 ]

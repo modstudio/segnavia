@@ -71,7 +71,7 @@ export function barCell(result: BarResult<BarMeasurement>, id: BarId, total = fa
   const bar = ACCEPTANCE_BARS.find((candidate) => candidate.id === id)
   if (!bar) throw new Error(`Unknown acceptance bar: ${id}`)
   if (result.applicable === false) return `N/A — ${result.reason ?? 'Not applicable.'}`
-  const reason = !result.passed && result.reason ? ` — ${result.reason}` : ''
+  const reason = result.reason ? ` — ${result.reason}` : ''
   const formatted = bar.format(result.measured, result.threshold ?? bar.threshold, total)
   return `${result.passed ? 'PASS' : 'FAIL'} — ${formatted}${reason}`
 }
