@@ -1,42 +1,10 @@
 import type { Renderer } from '@segnavia/render'
 import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
+import { pngPixels as pixels } from './browser-pixels.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 type Pixel = [number, number, number]
-
-async function pixels(renderer: Renderer, image: Uint8Array): Promise<{ width: number; height: number; rgba: number[] }> {
-  const source = Buffer.from(image).toString('base64')
-  let decoded = { width: 0, height: 0, rgba: [] as number[] }
-  const captured = new Error('proof verification pixels captured')
-  try {
-    await renderer.pageImage(
-      {
-        size: { width: 1, height: 1 },
-        scripts: 'sandboxed',
-        html: `<canvas id="canvas"></canvas><img id="source" src="data:image/png;base64,${source}"><script>
-source.onload=()=>{canvas.width=source.naturalWidth;canvas.height=source.naturalHeight;canvas.getContext('2d').drawImage(source,0,0);pageReady()}
-</script>`,
-      },
-      {
-        beforeOutput: async (tab) => {
-          decoded = await tab.evaluate(() => {
-            const canvas = document.querySelector('canvas') as HTMLCanvasElement
-            return {
-              width: canvas.width,
-              height: canvas.height,
-              rgba: Array.from(canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data ?? []),
-            }
-          })
-          throw captured
-        },
-      },
-    )
-  } catch (error) {
-    if (error !== captured) throw error
-  }
-  return decoded
-}
 
 function at(image: { width: number; height: number; rgba: number[] }, x: number, y: number): Pixel {
   const offset = (Math.min(image.height - 1, y) * image.width + Math.min(image.width - 1, x)) * 4

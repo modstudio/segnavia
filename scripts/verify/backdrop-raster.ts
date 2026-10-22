@@ -4,6 +4,8 @@ import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { PDFDict, PDFName, PDFRawStream } from 'pdf-lib'
 import { loadPdf } from '../../packages/render/src/pdf-load.ts'
+import { pngPixels } from './browser-pixels.ts'
+import { readPpm } from './pdf-raster.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -18,14 +20,14 @@ const html = `<style>
 .mix{position:absolute;left:4px;top:4px;width:12px;height:12px;background:#00ff00;mix-blend-mode:screen}
 </style><div class="mix"></div><section class="glass">FROSTED <a href="https://example.invalid/">selectable</a></section>`
 
-function rgb(file: string, width: number, height: number): Uint8Array {
-  return execFileSync(
-    'ffmpeg',
-    ['-loglevel', 'error', '-i', file, '-vf', `scale=${width}:${height}:flags=lanczos`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
-    {
-      maxBuffer: width * height * 4,
-    },
-  )
+function rgbOf(rgba: number[]): Uint8Array {
+  const rgb = new Uint8Array((rgba.length / 4) * 3)
+  for (let source = 0, target = 0; source < rgba.length; source += 4, target += 3) {
+    rgb[target] = rgba[source] ?? 0
+    rgb[target + 1] = rgba[source + 1] ?? 0
+    rgb[target + 2] = rgba[source + 2] ?? 0
+  }
+  return rgb
 }
 
 function difference(reference: Uint8Array, rendered: Uint8Array): { mean: number; p99: number } {
@@ -53,20 +55,20 @@ function difference(reference: Uint8Array, rendered: Uint8Array): { mean: number
 
 export async function verifyBackdropRaster(renderer: Renderer, work: string, check: Check): Promise<void> {
   const page = { html, size: { width: WIDTH, height: HEIGHT } } as const
-  const screen = path.join(work, 'backdrop-screen.png')
   const pdfFile = path.join(work, 'backdrop.pdf')
   const rasterPrefix = path.join(work, 'backdrop-pdf')
-  writeFileSync(screen, await renderer.pageImage(page, { format: 'png', scale: SCALE }))
+  const screen = await pngPixels(renderer, await renderer.pageImage(page, { format: 'png', scale: SCALE }))
   const pdf = await renderer.pagePdf(page)
   writeFileSync(pdfFile, pdf)
-  execFileSync('pdftoppm', ['-r', '150', '-png', '-singlefile', pdfFile, rasterPrefix])
-  const width = Math.round(WIDTH * SCALE)
-  const height = Math.round(HEIGHT * SCALE)
-  const score = difference(rgb(screen, width, height), rgb(`${rasterPrefix}.png`, width, height))
+  // At 150 dpi the 480 CSS px page rasterizes to the screen capture's 750 px.
+  execFileSync('pdftoppm', ['-r', '150', '-singlefile', pdfFile, rasterPrefix])
+  const raster = readPpm(`${rasterPrefix}.ppm`)
+  const sameSize = raster.width === screen.width && raster.height === screen.height
+  const score = difference(rgbOf(screen.rgba), raster.pixels)
   check(
     'a frosted panel PDF matches its screen region within the effects bar',
-    score.mean <= 2 && score.p99 <= 24,
-    `mean=${score.mean.toFixed(2)}, p99=${score.p99}`,
+    sameSize && score.mean <= 2 && score.p99 <= 24,
+    `screen=${screen.width}x${screen.height}, pdf=${raster.width}x${raster.height}, mean=${score.mean.toFixed(2)}, p99=${score.p99}`,
   )
   const text = execFileSync('pdftotext', [pdfFile, '-'], { encoding: 'utf8' })
   check('frosted panel text remains extractable', text.replace(/\s+/g, ' ').includes('FROSTED selectable'))
