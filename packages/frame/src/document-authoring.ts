@@ -1,12 +1,18 @@
 import type { SegnaviaDocument } from './document.ts'
 import { type MovePageHandler, movePageOptimistically, pageIdentityError } from './document-authoring-move.ts'
 import { SegnaviaDocumentRail } from './document-rail.ts'
+import { itemSettingsOpenEvent } from './item-settings-open.ts'
+import { ENGLISH_LABELS } from './labels.ts'
 
 const RAIL_TAG = 'segnavia-document-rail'
 if (!customElements.get(RAIL_TAG)) customElements.define(RAIL_TAG, SegnaviaDocumentRail)
 
 export interface DocumentAuthoringHandlers {
   movePage: MovePageHandler
+}
+
+export interface DocumentAuthoringOptions {
+  itemSettings?: boolean
 }
 
 export interface DocumentAuthoringErrorDetail {
@@ -22,10 +28,12 @@ export class DocumentAuthoringController extends EventTarget {
   private pending = false
   private stopped = false
   private identityError: string | null = null
+  private currentPage = 0
 
   constructor(
     private document: SegnaviaDocument,
     private handlers: DocumentAuthoringHandlers,
+    private options: DocumentAuthoringOptions,
   ) {
     super()
     this.rail.className = 'segnavia-document__rail'
@@ -33,6 +41,7 @@ export class DocumentAuthoringController extends EventTarget {
     this.document.addEventListener('segnavia-document-page', this.pageChanged)
     this.document.addEventListener('segnavia-document-change', this.documentChanged)
     this.document.setAuthoringRail(this.rail)
+    this.syncItemSettings()
     this.refresh()
   }
 
@@ -40,8 +49,10 @@ export class DocumentAuthoringController extends EventTarget {
     return this.pending
   }
 
-  update(handlers: DocumentAuthoringHandlers): void {
+  update(handlers: DocumentAuthoringHandlers, options: DocumentAuthoringOptions = {}): void {
     this.handlers = handlers
+    this.options = options
+    this.syncItemSettings()
     this.refresh()
   }
 
@@ -66,7 +77,19 @@ export class DocumentAuthoringController extends EventTarget {
       })
   }
 
-  private pageChanged = (event: Event) => this.rail.setSelected((event as CustomEvent<{ index: number }>).detail.index)
+  private pageChanged = (event: Event) => {
+    this.currentPage = (event as CustomEvent<{ index: number }>).detail.index
+    this.rail.setSelected(this.currentPage)
+  }
+
+  private syncItemSettings() {
+    this.rail.setItemSettings(this.options.itemSettings ? ENGLISH_LABELS.itemSettings : null, this.options.itemSettings ? this.openItemSettings : null)
+  }
+
+  private openItemSettings = () => {
+    const pageId = this.document.pages[this.currentPage]?.id
+    if (pageId) this.document.dispatchEvent(itemSettingsOpenEvent({ pageId }))
+  }
 
   private documentChanged = () => this.refresh()
 
@@ -117,8 +140,12 @@ export class DocumentAuthoringController extends EventTarget {
   }
 }
 
-export function attachDocumentAuthoring(document: SegnaviaDocument, handlers: DocumentAuthoringHandlers): DocumentAuthoringController {
-  return new DocumentAuthoringController(document, handlers)
+export function attachDocumentAuthoring(
+  document: SegnaviaDocument,
+  handlers: DocumentAuthoringHandlers,
+  options: DocumentAuthoringOptions = {},
+): DocumentAuthoringController {
+  return new DocumentAuthoringController(document, handlers, options)
 }
 
 export type { MovePageHandler, MovePageInput } from './document-authoring-move.ts'

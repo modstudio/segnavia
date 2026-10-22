@@ -16,6 +16,7 @@ ol{--_fade-dir:to bottom;--_fade-before:0px;--_fade-after:0px;mask-image:linear-
 ol[data-more-before]{--_fade-before:32px}ol[data-more-after]{--_fade-after:32px}
 li{flex:none;position:relative}
 button{font:inherit}
+.item-settings{box-sizing:border-box;inline-size:var(--_size);min-block-size:36px;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:7px;background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);cursor:pointer;unicode-bidi:isolate}
 button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:16/9;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
@@ -70,6 +71,7 @@ export class SegnaviaRail extends SegnaviaControl {
   })
   private slideSettings = new Map<string, RailSlideSettingsItem>()
   private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
+  private itemSettings: { label: string; open: () => void } | null = null
 
   protected styles() {
     return RAIL_CSS
@@ -135,6 +137,11 @@ export class SegnaviaRail extends SegnaviaControl {
     this.root.querySelector('ol')?.replaceChildren()
   }
 
+  setItemSettings(label: string | null, open: (() => void) | null) {
+    this.itemSettings = label && open ? { label, open } : null
+    this.decorateItemSettings()
+  }
+
   setSlideSettings(items: readonly RailSlideSettingsItem[], open: ((slideId: string, anchor: HTMLButtonElement) => void) | null) {
     this.slideSettings = new Map(items.map((item) => [item.slideId, item]))
     this.openSlideSettings = open
@@ -159,6 +166,11 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   protected clicked(event: Event) {
+    const itemSettings = (event.target as Element).closest<HTMLButtonElement>('.item-settings')
+    if (itemSettings) {
+      this.itemSettings?.open()
+      return
+    }
     const menu = (event.target as Element).closest<HTMLButtonElement>('.slide-menu')
     if (menu) {
       const slideId = menu.closest<HTMLLIElement>('li')?.dataset.slideId
@@ -174,7 +186,7 @@ export class SegnaviaRail extends SegnaviaControl {
 
   private reconcile(state: DeckState) {
     const list = this.root.querySelector('ol') as HTMLOListElement
-    const existing = new Map([...list.children].map((item) => [(item as HTMLElement).dataset.slideId, item as HTMLLIElement]))
+    const existing = new Map([...list.querySelectorAll<HTMLLIElement>('li[data-slide-id]')].map((item) => [item.dataset.slideId, item]))
     const wanted = new Set(state.deck?.slides.map((slide) => slide.id))
     for (const [id, item] of existing) if (!id || !wanted.has(id)) item.remove()
     state.deck?.slides.forEach((slide, index) => {
@@ -191,7 +203,24 @@ export class SegnaviaRail extends SegnaviaControl {
       list.append(item)
       this.decorateSlideSettings(item, slide.id)
     })
+    this.decorateItemSettings()
     this.reorder.sync()
+  }
+
+  private decorateItemSettings() {
+    const list = this.root.querySelector('ol')
+    if (!list) return
+    let item = list.querySelector<HTMLLIElement>('li[data-item-settings]')
+    if (!this.itemSettings) return item?.remove()
+    if (!item) {
+      item = document.createElement('li')
+      item.dataset.itemSettings = ''
+      item.innerHTML = '<button type="button" class="item-settings"></button>'
+    }
+    const button = item.querySelector('button') as HTMLButtonElement
+    button.textContent = this.itemSettings.label
+    button.setAttribute('aria-label', this.itemSettings.label)
+    list.prepend(item)
   }
 
   private decorateSlideSettings(item: HTMLLIElement, slideId: string) {
@@ -301,7 +330,7 @@ export class SegnaviaRail extends SegnaviaControl {
 
   private onKey = (event: KeyboardEvent) => {
     if (!this.controller?.state.deck) return
-    if ((event.target as Element).closest('.slide-menu,.slide-settings-list,.slide-settings-panel')) return
+    if ((event.target as Element).closest('.item-settings,.slide-menu,.slide-settings-list,.slide-settings-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return

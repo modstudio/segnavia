@@ -1,20 +1,14 @@
 import type { Deck } from '@segnavia/format'
+import { AuthoringItemSettings } from './authoring-item-settings.ts'
 import { type MoveSlideHandler, moveSlideOptimistically } from './authoring-move.ts'
 import { AuthoringPrintMoment, type SavePrintMoment, type SavePrintMomentInput } from './authoring-print-moment.ts'
+import { NOTES_CSS } from './authoring-style.ts'
 import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
+import type { ItemSettingsSection } from './item-settings-section.ts'
 import { activeNavigationGuard, type NavigationGuardReason, setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { SegnaviaRail } from './rail.ts'
-
-const NOTES_CSS = `<style data-segnavia-authoring>
-[data-authoring-notes]{display:grid;gap:6px;padding:12px;border-block-start:1px solid var(--_line);background:var(--_surface)}
-[data-authoring-notes] label{font:600 13px/1.4 system-ui;color:var(--_ink)}
-[data-authoring-notes] textarea{box-sizing:border-box;inline-size:100%;min-block-size:96px;resize:block;padding:9px 10px;border:1px solid var(--_line);border-radius:8px;background:var(--_bg);color:var(--_ink);font:inherit}
-[data-authoring-notes] textarea:focus{outline:2px solid var(--_accent);outline-offset:1px}
-[data-authoring-status]{min-block-size:1.4em;color:var(--_muted);font:12px/1.4 system-ui}
-[data-authoring-status] button{all:unset;color:var(--_accent);cursor:pointer;text-decoration:underline}
-</style>`
 
 export interface SaveNotesInput {
   slideId: string
@@ -29,6 +23,7 @@ export interface AuthoringHandlers {
 
 export interface AuthoringOptions {
   notesMaxLength?: number
+  itemSettings?: boolean
 }
 
 export interface AuthoringErrorDetail {
@@ -62,16 +57,18 @@ export class AuthoringController extends EventTarget {
   private detachPromise: Promise<void> | null = null
   private renderedDeck: Deck | null = null
   private removeNavigationGuard: (() => void) | null = null
+  private itemSettings: AuthoringItemSettings
 
   constructor(
     private player: SegnaviaPlayer,
     private handlers: AuthoringHandlers,
-    readonly options: Required<AuthoringOptions>,
+    readonly options: AuthoringOptions & { notesMaxLength: number },
   ) {
     super()
     if (handlers.moveSlide) this.attachReorder()
     if (handlers.saveNotes) this.attachNotes(handlers.saveNotes)
     if (handlers.savePrintMoment) this.attachPrintMoment(handlers.savePrintMoment)
+    this.itemSettings = new AuthoringItemSettings(player, () => this.printMoment, options.itemSettings ?? false)
     this.syncNavigationGuard()
   }
 
@@ -136,6 +133,8 @@ export class AuthoringController extends EventTarget {
     if (!hadPrintMoment && handlers.savePrintMoment) this.attachPrintMoment(handlers.savePrintMoment)
     this.syncNavigationGuard()
     this.options.notesMaxLength = options.notesMaxLength ?? 20_000
+    this.options.itemSettings = options.itemSettings ?? false
+    this.itemSettings.update(this.options.itemSettings)
     const field = this.notesRoot?.querySelector('textarea') as HTMLTextAreaElement | null
     if (field) field.maxLength = this.options.notesMaxLength
   }
@@ -165,6 +164,7 @@ export class AuthoringController extends EventTarget {
   detach(): Promise<void> {
     if (this.detachPromise) return this.detachPromise
     this.stopped = true
+    this.itemSettings.dispose()
     this.detachReorder()
     const notes = this.detachNotes()
     const printMoment = this.detachPrintMoment()
@@ -271,6 +271,10 @@ export class AuthoringController extends EventTarget {
 
   private attachPrintMoment(save: SavePrintMoment) {
     this.printMoment = new AuthoringPrintMoment(this.player, save, () => this.emitDirty(), this.printMomentFailed)
+  }
+
+  slideSettingsSection(): ItemSettingsSection {
+    return this.itemSettings.section()
   }
 
   private detachPrintMoment(): AuthoringPrintMoment | null {
@@ -383,7 +387,9 @@ export class AuthoringController extends EventTarget {
 }
 
 export function attachAuthoring(player: SegnaviaPlayer, handlers: AuthoringHandlers, options: AuthoringOptions = {}): AuthoringController {
-  return new AuthoringController(player, handlers, { notesMaxLength: options.notesMaxLength ?? 20_000 })
+  return new AuthoringController(player, handlers, { notesMaxLength: options.notesMaxLength ?? 20_000, itemSettings: options.itemSettings ?? false })
 }
+
+export { slideSettingsSection } from './slide-settings-section.ts'
 
 export type { SavePrintMomentInput }

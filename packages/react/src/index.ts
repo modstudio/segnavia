@@ -1,6 +1,11 @@
 import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
-import { attachDocumentAuthoring, type DocumentAuthoringController, type DocumentAuthoringHandlers } from '@segnavia/frame/document-authoring'
+import {
+  attachDocumentAuthoring,
+  type DocumentAuthoringController,
+  type DocumentAuthoringHandlers,
+  type DocumentAuthoringOptions,
+} from '@segnavia/frame/document-authoring'
 import { attachItemSettings, type ItemSettingsController, type ItemSettingsHandlers, type SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import '@segnavia/frame/player'
 import type { SegnaviaDocument } from '@segnavia/frame'
@@ -108,20 +113,26 @@ export function useAuthoring(player: SegnaviaPlayer | null, handlers: AuthoringH
   return controller
 }
 
-export function useDocumentAuthoring(document: SegnaviaDocument | null, handlers: DocumentAuthoringHandlers): DocumentAuthoringController | null {
+export function useDocumentAuthoring(
+  document: SegnaviaDocument | null,
+  handlers: DocumentAuthoringHandlers,
+  options?: DocumentAuthoringOptions,
+): DocumentAuthoringController | null {
   const [controller, setController] = useState<DocumentAuthoringController | null>(null)
   const latestHandlers = useRef(handlers)
+  const latestOptions = useRef(options)
   latestHandlers.current = handlers
+  latestOptions.current = options
   useEffect(() => {
     if (!document) return
-    const attached = attachDocumentAuthoring(document, latestHandlers.current)
+    const attached = attachDocumentAuthoring(document, latestHandlers.current, latestOptions.current)
     setController(attached)
     return () => {
       attached.detach()
       setController(null)
     }
   }, [document])
-  useEffect(() => controller?.update(handlers), [controller, handlers])
+  useEffect(() => controller?.update(handlers, options), [controller, handlers, options])
   return controller
 }
 
@@ -155,6 +166,7 @@ export type {
   DocumentAuthoringController,
   DocumentAuthoringErrorDetail,
   DocumentAuthoringHandlers,
+  DocumentAuthoringOptions,
   MovePageHandler,
   MovePageInput,
 } from '@segnavia/frame/document-authoring'
