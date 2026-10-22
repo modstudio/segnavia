@@ -4,12 +4,15 @@ import qrcode from 'qrcode-generator'
 import {
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
+  mergeSlotFitResults,
   prepareSlotCollection,
   prepareSlots,
   RequiredSlotsRefusedError,
   requiredSlotRefusal,
   SlotFillRefusedError,
   slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
 } from './slots.ts'
 
 const declarations: SlotDeclaration[] = [
@@ -206,8 +209,52 @@ test('required-slot policy lists every unfilled key and state', () => {
   })
   expect(refusal).toBeInstanceOf(RequiredSlotsRefusedError)
   expect(refusal?.message).toContain('"name" (placeholder), "role" (unavailable), "email" (invalid)')
-  expect(refusal?.message).toContain('Fill those slots, or mark them optional')
+  expect(refusal?.message).toContain('Fill required slots')
   expect(requiredSlotRefusal(required, { fill: 'x', slots: { name: 'filled', role: 'filled', email: 'filled' } })).toBeUndefined()
+})
+
+test('fit results merge only declared keys and overflowed refuse slots block output', () => {
+  const declared = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }] as const
+  const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: 'filled' } }, { name: 'overflowed', injected: 'fit' })
+  expect(report).toEqual({ fill: 'x', slots: { name: 'overflowed' } })
+  expect(requiredSlotRefusal(declared, report)).toBeInstanceOf(RequiredSlotsRefusedError)
+  expect(requiredSlotRefusal(declared, report)?.message).toContain("shorten its value or change the slot's overflow")
+})
+
+test('filled refuse slots must be measured before output', () => {
+  const declared = [
+    { key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'wrap' },
+  ] as const
+  const report = { fill: 'x', slots: { name: 'filled' as const, role: 'filled' as const } }
+  const marked = new Map([['name', 1]])
+  const refusal = unmeasuredSlotRefusal(declared, report, marked, new Map())
+  expect(refusal).toBeInstanceOf(UnmeasuredSlotsRefusedError)
+  expect(refusal?.message).toContain('overflow could not be measured for slots: "name"')
+  expect(refusal?.message).toContain("change the slot's overflow from 'refuse'")
+  expect(unmeasuredSlotRefusal(declared, report, marked, new Map([['name', 1]]))).toBeUndefined()
+})
+
+test('a filled refuse slot that no page binds has nothing to measure and does not block output', async () => {
+  const declared: SlotDeclaration[] = [
+    { key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'refuse' },
+  ]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Mina', role: 'Teacher' } } })
+  prepared.apply('<p data-slot-value="name">Name</p>')
+  expect([...prepared.marked]).toEqual([['name', 1]])
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Map())?.message).toContain('slots: "name".')
+  expect(unmeasuredSlotRefusal(declared, prepared.report, prepared.marked, new Map([['name', 1]]))).toBeUndefined()
+})
+
+test('one frame reporting a refuse slot does not stand in for another frame with the same slot', async () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Mina' } } })
+  prepared.apply('<p data-slot-value="name">Front</p>')
+  prepared.apply('<p data-slot-value="name">Back</p>')
+  const report = prepared.mergeFit({ name: 'fit' })
+  expect(unmeasuredSlotRefusal(declared, report, prepared.marked, new Map([['name', 1]]))?.message).toContain('slots: "name".')
+  expect(unmeasuredSlotRefusal(declared, report, prepared.marked, new Map([['name', 2]]))).toBeUndefined()
 })
 
 test('present removes an optional slot element a fill leaves empty, so its layout item collapses', async () => {
@@ -223,4 +270,34 @@ test('preparation keeps required items viewable when their slots are unfilled', 
   const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: true }])
   expect(prepared.report.slots.name).toBe('unavailable')
   expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toContain('Design name')
+})
+
+test('a fit result never turns an unfilled required slot into a printable one', () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: true, overflow: 'shrink', minSize: 6 }]
+  for (const state of ['placeholder', 'unavailable', 'invalid'] as const) {
+    const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: state } }, { name: 'fit' })
+    expect(report.slots.name).toBe(state)
+    expect(requiredSlotRefusal(declared, report)?.message).toContain(`"name" (${state})`)
+  }
+})
+
+test('only a slot the fill supplied is marked for measurement', async () => {
+  const declared: SlotDeclaration[] = [
+    { key: 'name', label: 'Name', type: 'text', required: true, overflow: 'shrink', minSize: 6 },
+    { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'refuse' },
+  ]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { role: 'Teacher' } } })
+  const html = prepared.apply('<p data-slot-value="name">Design name</p><p data-slot-value="role">Role</p>')
+  expect(html).toContain('<p>Design name</p>')
+  expect(html).toContain('data-slot-overflow="role:refuse"')
+})
+
+test('slot application removes authored overflow markers before writing its own', async () => {
+  const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
+  const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Ada' } } })
+  const html = prepared.apply(
+    '<p data-slot-overflow="forged:shrink:-1e308">Authored</p><p data-slot-value="name" data-slot-overflow="forged:truncate">Name</p>',
+  )
+  expect(html).not.toContain('forged')
+  expect(html).toContain('data-slot-overflow="name:refuse"')
 })

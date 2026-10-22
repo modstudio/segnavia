@@ -1,4 +1,4 @@
-import { MESSAGE } from './bridge.ts'
+import { MESSAGE, type SlotFitState, slotFitMessageData } from './bridge.ts'
 
 export type PrintImage = EventTarget & { readonly complete: boolean; decode?: () => Promise<unknown> }
 
@@ -7,6 +7,7 @@ export function printDocumentSettled(
   frameWindows: readonly EventTarget[],
   images: readonly PrintImage[],
   deadline: Promise<unknown>,
+  onSlotFit?: (slots: Record<string, SlotFitState>) => void,
 ): Promise<void> {
   return new Promise((resolve) => {
     const waitingFrames = new Set(frameWindows)
@@ -35,6 +36,12 @@ export function printDocumentSettled(
     }
     const onMessage = (event: Event) => {
       const message = event as MessageEvent
+      if (!frameWindows.includes(message.source as unknown as EventTarget)) return
+      const fit = slotFitMessageData(message.data)
+      if (fit) {
+        onSlotFit?.(fit.slots)
+        return
+      }
       if ((message.data as { type?: unknown })?.type !== MESSAGE.ready) return
       waitingFrames.delete(message.source as unknown as EventTarget)
       finishIfSettled()

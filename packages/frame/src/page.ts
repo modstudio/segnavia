@@ -26,6 +26,8 @@ export class SegnaviaPage extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
+  private resolvedSlots: PreparedSlots | undefined
+  private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -44,6 +46,8 @@ export class SegnaviaPage extends HTMLElement {
     if (value == null) {
       this.cancelSlotPreparation()
       this.loadGeneration++
+      this.resolvedSlots = undefined
+      this.slotFrame = undefined
       this.pageValue = null
       this.contentHeight = 0
       this.replaceChildren()
@@ -78,13 +82,18 @@ export class SegnaviaPage extends HTMLElement {
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
     this.cancelSlotPreparation()
+    this.resolvedSlots = undefined
+    this.slotFrame = undefined
     const controller = new AbortController()
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
     const show = (resolved: PreparedSlots) => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
-      iframe.srcdoc = frameDocument(slotHtml(page.html, resolved), {
+      const filledFrame = this.mount(page)
+      this.resolvedSlots = resolved
+      this.slotFrame = { frame: filledFrame, generation }
+      filledFrame.srcdoc = frameDocument(slotHtml(page.html, resolved), {
         scripts: page.scripts,
         nonce: newNonce(),
         dir: page.dir,
@@ -120,6 +129,8 @@ export class SegnaviaPage extends HTMLElement {
   showUrl(url: string, size: Page['size'] = 'fluid') {
     this.cancelSlotPreparation()
     this.loadGeneration++
+    this.resolvedSlots = undefined
+    this.slotFrame = undefined
     const iframe = this.mount(Page.parse({ html: '', size }))
     iframe.src = new URL(url, location.href).href
     this.fit()
@@ -162,8 +173,11 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   private onMessage = (event: MessageEvent) => {
-    const message = messageFrom(event, this.querySelector('iframe'))
+    const frame = this.querySelector('iframe')
+    const message = messageFrom(event, frame)
     const page = this.page
+    if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
+      this.resolvedSlots?.mergeFit(message.slots)
     if (!page || message?.type !== MESSAGE.height || message.height === undefined) return
     // A fixed sheet keeps its own height whatever its content reports.
     if (typeof page.size === 'object' && page.size.height !== 'auto') return

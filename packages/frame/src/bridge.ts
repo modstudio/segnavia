@@ -15,6 +15,7 @@ export const MESSAGE = {
   height: 'segnavia:height',
   ready: 'segnavia:ready',
   animation: 'segnavia:animation',
+  slotFit: 'segnavia:slot-fit',
   freeze: 'segnavia:freeze',
   release: 'segnavia:release',
   inspect: 'segnavia:inspect',
@@ -127,6 +128,14 @@ document.addEventListener('animationstart',function(){animationReport();freezeLi
 if(window.MutationObserver){new MutationObserver(function(){animationReport();freezeLive();}).observe(document.documentElement,{childList:true,subtree:true});}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
+var slotFit=function(){var marked=document.querySelectorAll('[data-slot-overflow]');if(!marked.length)return;var slots={};var rank={fit:0,shrunk:1,overflowed:2};
+var fits=function(element){return element.scrollWidth<=element.clientWidth&&element.scrollHeight<=element.clientHeight;};
+var record=function(key,state){if(slots[key]===undefined||rank[state]>rank[slots[key]])slots[key]=state;};
+for(var s=0;s<marked.length;s++){var element=marked[s];var parts=element.getAttribute('data-slot-overflow').split(':');var key;try{key=decodeURIComponent(parts[0]);}catch(error){continue;}var mode=parts[1];var state='fit';
+if(mode==='truncate'){element.style.whiteSpace='nowrap';element.style.overflow='hidden';element.style.textOverflow='ellipsis';state=fits(element)?'fit':'overflowed';}
+else if(mode==='shrink'){var size=parseFloat(element.style.fontSize);if(!isFinite(size))size=parseFloat(window.getComputedStyle(element).fontSize);var minimum=parseFloat(parts[2]);if(!isFinite(size)||!isFinite(minimum)||minimum<1||minimum>size)continue;var measurements=1;if(fits(element)){state='fit';}else{element.style.fontSize=minimum+'px';measurements++;if(!fits(element)){state='overflowed';}else{var low=minimum,high=size,best=minimum;while(measurements<64&&high-low>.01){var middle=(low+high)/2;element.style.fontSize=middle+'px';measurements++;if(fits(element)){best=middle;low=middle;}else{high=middle;}}element.style.fontSize=best+'px';state='shrunk';}}}
+else if(mode==='refuse'){state=fits(element)?'fit':'overflowed';}else{continue;}record(key,state);}
+post({type:'${MESSAGE.slotFit}',slots:slots});};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
 window.addEventListener('click',function(e){
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
@@ -151,7 +160,7 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){slotFit();${options.printAtMs === undefined ? `post({type:'${MESSAGE.ready}'});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -214,14 +223,16 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 export function messageFrom(
   event: MessageEvent,
   frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
-): { type: string; key?: string; height?: number; animated?: boolean; lengthMs?: number | null } | null {
+): { type: string; key?: string; height?: number; animated?: boolean; lengthMs?: number | null; slots?: Record<string, SlotFitState> } | null {
   const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
-  const data = event.data as { type?: unknown; key?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown }
+  const data = event.data as { type?: unknown; key?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown; slots?: unknown }
   if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
     return { type: MESSAGE.key, key: data.key }
   if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
   if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
+  const fit = slotFitMessageData(data)
+  if (fit) return fit
   if (
     data?.type === MESSAGE.animation &&
     typeof data.animated === 'boolean' &&
@@ -229,6 +240,20 @@ export function messageFrom(
   )
     return { type: MESSAGE.animation, animated: data.animated, lengthMs: data.lengthMs }
   return null
+}
+
+export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
+
+/** Validates the narrow slot-fit payload before a host accepts page measurements. */
+export function slotFitMessageData(data: unknown): { type: typeof MESSAGE.slotFit; slots: Record<string, SlotFitState> } | null {
+  if (!data || typeof data !== 'object' || (data as { type?: unknown }).type !== MESSAGE.slotFit) return null
+  const slots = (data as { slots?: unknown }).slots
+  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return null
+  const entries = Object.entries(slots)
+  if (entries.length > 200) return null
+  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed'])
+  if (entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
+  return { type: MESSAGE.slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
 }
 
 export function animationMessage(event: MessageEvent, frames: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): AnimationMessage | null {

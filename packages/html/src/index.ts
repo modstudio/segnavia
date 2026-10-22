@@ -12,6 +12,7 @@ export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } f
 export {
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
+  mergeSlotFitResults,
   type PreparedSlots,
   prepareSlotCollection,
   prepareSlots,
@@ -19,6 +20,8 @@ export {
   requiredSlotRefusal,
   SlotFillRefusedError,
   slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
 } from './slots.ts'
 
 // How a page runs, decided only by what it holds: plain, filled from data,

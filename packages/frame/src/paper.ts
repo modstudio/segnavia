@@ -5,6 +5,7 @@ import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Pa
 import { ensureBaseStyle } from './base-style.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
+import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
 export class SegnaviaPaper extends HTMLElement {
@@ -20,6 +21,7 @@ export class SegnaviaPaper extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotGeneration = 0
+  private resolvedGeneration = 0
   private slotPreparation: AbortController | undefined
 
   get slots(): SlotsOptions | undefined {
@@ -59,6 +61,7 @@ export class SegnaviaPaper extends HTMLElement {
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     this.reflectState()
+    window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
     if (this.imposed) this.paint()
     else this.fit()
@@ -66,6 +69,7 @@ export class SegnaviaPaper extends HTMLElement {
 
   disconnectedCallback() {
     this.cancelSlotPreparation()
+    window.removeEventListener('message', this.onMessage)
     this.resize.disconnect()
   }
 
@@ -132,6 +136,7 @@ export class SegnaviaPaper extends HTMLElement {
     const declarations = this.pages.map((page) => page.slots)
     const generation = ++this.slotGeneration
     this.resolvedSlots = undefined
+    this.resolvedGeneration = 0
     const refusal = this.pages.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
     if (refusal) {
       this.paintResolved(imposition, imposed)
@@ -158,6 +163,7 @@ export class SegnaviaPaper extends HTMLElement {
         )
           return
         this.resolvedSlots = resolved
+        this.resolvedGeneration = generation
         this.paintResolved(imposition, imposed)
       })
       .catch((error) => {
@@ -171,6 +177,7 @@ export class SegnaviaPaper extends HTMLElement {
         )
           return
         this.resolvedSlots = undefined
+        this.resolvedGeneration = 0
         this.paintResolved(imposition, imposed)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
       })
@@ -215,5 +222,10 @@ export class SegnaviaPaper extends HTMLElement {
     if (!box || !imposed) return
     const scale = paperScale(this.clientWidth, paperBoxSize(imposed.paper).width)
     box.style.transform = scale === 1 ? '' : `scale(${scale})`
+  }
+
+  private onMessage = (event: MessageEvent) => {
+    if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
+    mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
 }

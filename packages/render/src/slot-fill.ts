@@ -1,6 +1,12 @@
 import type { Deck, Page, SlotsOptions } from '@segnavia/format'
 import { hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal } from '@segnavia/html'
 
+const preparations = new WeakMap<object, Awaited<ReturnType<typeof prepareSlots>>>()
+
+export function preparedSlotsFor(value: object): Awaited<ReturnType<typeof prepareSlots>> | undefined {
+  return preparations.get(value)
+}
+
 function refuseRequired(prepared: Awaited<ReturnType<typeof prepareSlots>>): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
@@ -12,7 +18,9 @@ export async function filledPage(page: Page, slots: SlotsOptions | undefined, si
   if (!hasSlotWork(page.slots, slots)) return page
   const prepared = await prepareSlots(page.slots, slots, signal)
   refuseRequired(prepared)
-  return { ...page, html: prepared.apply(page.html) }
+  const filled = { ...page, html: prepared.apply(page.html) }
+  preparations.set(filled, prepared)
+  return filled
 }
 
 export async function filledPages(pages: Page[], slots: SlotsOptions | undefined, signal?: AbortSignal): Promise<Page[]> {
@@ -27,7 +35,11 @@ export async function filledPages(pages: Page[], slots: SlotsOptions | undefined
     signal,
   )
   refuseRequired(prepared)
-  return pages.map((page) => ({ ...page, html: prepared.apply(page.html) }))
+  return pages.map((page) => {
+    const filled = { ...page, html: prepared.apply(page.html) }
+    preparations.set(filled, prepared)
+    return filled
+  })
 }
 
 export async function filledDeck(deck: Deck, slots: SlotsOptions | undefined, signal?: AbortSignal): Promise<Deck> {
@@ -36,10 +48,12 @@ export async function filledDeck(deck: Deck, slots: SlotsOptions | undefined, si
   if (!hasSlotWork(deck.slots, slots)) return deck
   const prepared = await prepareSlots(deck.slots, slots, signal)
   refuseRequired(prepared)
-  return {
+  const filled = {
     ...deck,
     slides: deck.slides.map((slide) =>
       slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } } : slide,
     ),
   }
+  preparations.set(filled, prepared)
+  return filled
 }

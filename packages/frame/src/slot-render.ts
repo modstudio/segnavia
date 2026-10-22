@@ -8,12 +8,28 @@ import {
   requiredSlotRefusal,
   SlotFillRefusedError,
   slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
 } from '@segnavia/html'
 
 export type { PreparedSlots }
-export { hasSlotWork, RequiredSlotsRefusedError, requiredSlotRefusal, SlotFillRefusedError, slotFillRefusal }
+export {
+  hasSlotWork,
+  RequiredSlotsRefusedError,
+  requiredSlotRefusal,
+  SlotFillRefusedError,
+  slotFillRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
+}
 
-export const EMPTY_SLOTS: PreparedSlots = { declarations: [], report: { fill: null, slots: {} }, apply: (html) => html }
+export const EMPTY_SLOTS: PreparedSlots = {
+  declarations: [],
+  report: { fill: null, slots: {} },
+  marked: new Map(),
+  apply: (html) => html,
+  mergeFit: () => EMPTY_SLOTS.report,
+}
 
 export function prepareSlots(item: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined, signal?: AbortSignal): Promise<PreparedSlots> {
   return prepareHtmlSlots(item, options, signal)

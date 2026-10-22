@@ -6,7 +6,8 @@ import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from 
 import { ensureBaseStyle } from './base-style.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
-import { hasSlotWork, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -23,6 +24,8 @@ export class SegnaviaDocument extends HTMLElement {
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
+  private resolvedSlots: PreparedSlots | undefined
+  private resolvedGeneration = 0
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -74,11 +77,13 @@ export class SegnaviaDocument extends HTMLElement {
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
+    window.addEventListener('message', this.onMessage)
     this.paint()
   }
 
   disconnectedCallback() {
     this.cancelSlotPreparation()
+    window.removeEventListener('message', this.onMessage)
     this.observer?.disconnect()
     this.pageObserver?.disconnect()
     this.observer = null
@@ -109,6 +114,8 @@ export class SegnaviaDocument extends HTMLElement {
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
     this.filledHtml = undefined
+    this.resolvedSlots = undefined
+    this.resolvedGeneration = 0
     this.observer?.disconnect()
     this.observer = null
     this.pageObserver?.disconnect()
@@ -129,12 +136,16 @@ export class SegnaviaDocument extends HTMLElement {
     void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
       .then((resolved) => {
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
+        this.resolvedSlots = resolved
+        this.resolvedGeneration = generation
         this.filledHtml = this.pageValues.map((page) => resolved.apply(page.html))
         this.paintResolved(print)
       })
       .catch((error) => {
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.filledHtml = undefined
+        this.resolvedSlots = undefined
+        this.resolvedGeneration = 0
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
       })
   }
@@ -205,7 +216,12 @@ export class SegnaviaDocument extends HTMLElement {
     page.cspExtra = this.extraCsp
     page.part.add('page')
     sheet.append(page)
-    page.load({ ...projection.page, html: this.filledHtml?.[index] ?? projection.page.html })
+    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? projection.page.html })
+  }
+
+  private onMessage = (event: MessageEvent) => {
+    if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
+    mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
 
   private cancelSlotPreparation() {

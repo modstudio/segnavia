@@ -10,13 +10,34 @@ export async function verifySlots(h: Harness) {
       document.querySelectorAll('#mina iframe').length === 2 &&
       document.querySelector('#filled-deck-thumbnail')?.shadowRoot?.querySelector('iframe'),
   )
+  await page.evaluate(() => {
+    const probe = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
+    probe.id = 'authored-overflow-marker'
+    probe.page = {
+      size: { width: 100, height: 100 },
+      scripts: 'refuse',
+      html: '<div data-slot-overflow="x:shrink:-1e308" style="width:1px;height:1px;overflow:hidden"><span style="display:block;width:100px;height:100px"></span></div>',
+    }
+    window.addEventListener('message', (event) => {
+      const frame = probe.querySelector('iframe')
+      if (frame?.contentWindow === event.source && event.data?.type === 'segnavia:ready')
+        (window as typeof window & { authoredOverflowMarkerReady?: boolean }).authoredOverflowMarkerReady = true
+    })
+    document.body.append(probe)
+  })
+  await page.waitForFunction(() => (window as typeof window & { authoredOverflowMarkerReady?: boolean }).authoredOverflowMarkerReady === true)
   const facts = await page.evaluate(() => {
     const logo = document.querySelector<HTMLIFrameElement>('#mina iframe')?.getAttribute('srcdoc')
     const exposed = window as unknown as {
-      slotFacts: { reports: Array<{ fill: string | null; slots: Record<string, string> }>; failedAsset?: { slots: Record<string, string> } }
+      slotFacts: {
+        reports: Array<{ fill: string | null; slots: Record<string, string> }>
+        refuseError?: string
+        failedAsset?: { slots: Record<string, string> }
+      }
       slotPrintFacts: string
     }
-    return { logo, ...exposed.slotFacts, printed: exposed.slotPrintFacts }
+    const shrink = document.querySelector<HTMLIFrameElement>('#shrink-card iframe')?.getAttribute('srcdoc')
+    return { logo, shrink, ...exposed.slotFacts, printed: exposed.slotPrintFacts }
   })
   const frameText = async (selector: string) => {
     const frames = page.locator(selector)
@@ -41,4 +62,11 @@ export async function verifySlots(h: Harness) {
   )
   check('a deck thumbnail renders its filled slot value', deckThumbnail.join(' ').includes('<em>Mina Patel</em>'))
   check('printPages prints filled values', facts.printed.includes('Noah Kim') && facts.printed.includes('noah@example.com'))
+  check(
+    'a long shrinking business-card name reports shrunk',
+    facts.reports.some((report) => report.fill === 'long-print' && report.slots.name === 'shrunk'),
+    JSON.stringify({ reports: facts.reports.filter((report) => report.fill === 'long-print'), marked: facts.shrink?.includes('data-slot-overflow') }),
+  )
+  check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
+  check('an invalid authored shrink marker cannot prevent page readiness', true)
 }

@@ -8,9 +8,9 @@ import {
   type SlotsOptions,
   type SlotValue,
 } from '@segnavia/format'
-import { type ChildNode, Element, isTag, Text } from 'domhandler'
-import qrcode from 'qrcode-generator'
+import { type ChildNode, type Element, isTag, Text } from 'domhandler'
 import { bindingNames, hasBindings } from './bindings.ts'
+import { qrPayload, qrSvg } from './qr.ts'
 import { elements, parse, serialize } from './sanitize.ts'
 
 export const MAX_SLOT_DECLARATIONS = 200
@@ -19,7 +19,10 @@ const ASSET_RESOLUTION_CONCURRENCY = 4
 export interface PreparedSlots {
   declarations: SlotDeclaration[]
   report: SlotReport
+  /** For each slot key, how many applications (one per rendered frame) marked it for measurement. */
+  marked: ReadonlyMap<string, number>
   apply(html: string): string
+  mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>): SlotReport
 }
 
 export class SlotFillRefusedError extends Error {
@@ -31,23 +34,15 @@ export class SlotFillRefusedError extends Error {
   }
 }
 
-export class RequiredSlotsRefusedError extends Error {
-  constructor(slots: ReadonlyArray<{ key: string; state: SlotState }>) {
-    super(
-      `Output was refused because required slots are unfilled: ${slots.map(({ key, state }) => `"${key}" (${state})`).join(', ')}. Fill those slots, or mark them optional, to clear this refusal.`,
-    )
-    this.name = 'RequiredSlotsRefusedError'
-  }
-}
+export {
+  mergeSlotFitResults,
+  RequiredSlotsRefusedError,
+  requiredSlotRefusal,
+  UnmeasuredSlotsRefusedError,
+  unmeasuredSlotRefusal,
+} from './slot-policy.ts'
 
-/** Returns the print/render refusal for required declarations that remain unfilled. */
-export function requiredSlotRefusal(declarations: readonly SlotDeclaration[], report: SlotReport): RequiredSlotsRefusedError | undefined {
-  const unfilled = declarations.flatMap((slot) => {
-    const state = report.slots[slot.key]
-    return slot.required && state !== 'filled' && state !== undefined ? [{ key: slot.key, state }] : []
-  })
-  return unfilled.length === 0 ? undefined : new RequiredSlotsRefusedError(unfilled)
-}
+import { mergeSlotFitResults } from './slot-policy.ts'
 
 /** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
 export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
@@ -70,32 +65,18 @@ interface ResolvedSlots {
   report: SlotReport
   linkOrigins: Set<string>
   reportState?: (report: SlotReport) => void
+  declarations: Map<string, SlotDeclaration>
+  marked: Map<string, number>
+  markedHere: Set<string>
 }
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
 
 // Void elements have no content to fill: a value bound to one would serialize after it.
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
-// The largest QR payload considered before encoding; level M at version 40 holds 2331 bytes.
-const QR_PAYLOAD_LIMIT = 4096
 
 function refusesValueBinding(tag: string): boolean {
   return UNENCODED_TEXT_ELEMENTS.has(tag) || VOID_ELEMENTS.has(tag)
-}
-
-// The QR payload is the link's ASCII form (percent-encoded path, punycode host),
-// which opens the same address; the encoder writes each character as one byte.
-function qrPayload(value: string): string | undefined {
-  try {
-    const url = new URL(value)
-    if (url.protocol !== 'https:' || url.href.length > QR_PAYLOAD_LIMIT) return undefined
-    const code = qrcode(0, 'M')
-    code.addData(url.href)
-    code.make()
-    return url.href
-  } catch {
-    return undefined
-  }
 }
 
 function assertDeclarationLimit(declarations: readonly SlotDeclaration[], subject: string): void {
@@ -115,30 +96,6 @@ function mergedDeclarations(groups: ReadonlyArray<readonly SlotDeclaration[]>, o
     assertDeclarationLimit(group, groups.length === 1 ? 'The item' : `Item ${index + 1}`)
   })
   return mergeSlotDeclarations(parsedHostDeclarations(options), ...groups)
-}
-
-function qrSvg(value: string): Element {
-  const code = qrcode(0, 'M')
-  code.addData(qrPayload(value) ?? value)
-  code.make()
-  const modules = code.getModuleCount()
-  const children: Element[] = []
-  for (let row = 0; row < modules; row++) {
-    for (let column = 0; column < modules; column++) {
-      if (code.isDark(row, column))
-        children.push(new Element('rect', { x: String(column + 4), y: String(row + 4), width: '1', height: '1', fill: 'currentColor' }))
-    }
-  }
-  return new Element(
-    'svg',
-    {
-      viewBox: `0 0 ${modules + 8} ${modules + 8}`,
-      'shape-rendering': 'crispEdges',
-      role: 'img',
-      'aria-label': value,
-    },
-    children,
-  )
 }
 
 function applyValue(element: Element, name: string, resolved: ResolvedSlots): void {
@@ -203,9 +160,27 @@ function applyPresent(element: Element, name: string, report: SlotReport): boole
   return report.fill === null || report.slots[path] === 'filled'
 }
 
+function markOverflow(element: Element, names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): void {
+  if (resolved.report.fill === null) return
+  for (const binding of Object.values(names)) {
+    const key = element.attribs[binding]
+    if (key === undefined) continue
+    const declaration = resolved.declarations.get(key)
+    const overflow = declaration?.overflow ?? 'wrap'
+    // Only a value the fill supplied is measured: the design's placeholder text says nothing about the fill.
+    if (!declaration || overflow === 'wrap' || resolved.report.slots[key] !== 'filled') continue
+    element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
+    resolved.markedHere.add(key)
+    return
+  }
+}
+
 function applyElements(elements: Element[], names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): Element[] {
   return elements.flatMap((element) => {
     if (!applyPresent(element, names.present, resolved.report)) return []
+    // Overflow markers are bridge instructions owned by this library, so authored values cannot survive slot application.
+    delete element.attribs['data-slot-overflow']
+    markOverflow(element, names, resolved)
     applyValue(element, names.value, resolved)
     applyUrl(element, 'href', names.href, resolved)
     applyUrl(element, 'src', names.src, resolved)
@@ -318,21 +293,35 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   signal.throwIfAborted()
   const report = { fill: options.fill?.id ?? null, slots: states }
   options.report?.(report)
-  return { data, types, report, linkOrigins, reportState: options.report }
+  return {
+    data,
+    types,
+    report,
+    linkOrigins,
+    reportState: options.report,
+    declarations: new Map(declarations.map((slot) => [slot.key, slot])),
+    marked: new Map(),
+    markedHere: new Set(),
+  }
 }
 
 function applySlots(html: string, resolved: ResolvedSlots): string {
-  if (Object.keys(resolved.report.slots).length === 0 || !hasBindings(html, 'slot')) return html
+  if (!hasBindings(html, 'slot') && !html.includes('data-slot-overflow')) return html
   const names = bindingNames('slot')
   const document = parse(html)
-  const bound = elements(document.children).filter((element) => Object.values(names).some((name) => element.attribs[name] !== undefined))
+  const bound = elements(document.children).filter(
+    (element) => element.attribs['data-slot-overflow'] !== undefined || Object.values(names).some((name) => element.attribs[name] !== undefined),
+  )
   const roots = bound.filter((element) => {
     for (let parent = element.parent; parent; parent = parent.parent) if (isTag(parent) && bound.includes(parent)) return false
     return true
   })
   const refusal = bindingRefusal(roots, names, resolved)
   if (refusal) throw refusal
+  resolved.markedHere.clear()
   const kept = applyElements(roots, names, resolved)
+  // Each application becomes one frame, and each frame reports a key at most once.
+  for (const key of resolved.markedHere) resolved.marked.set(key, (resolved.marked.get(key) ?? 0) + 1)
   const replacements = roots
     .map((root) => ({ start: root.startIndex, end: root.endIndex, html: kept.includes(root) ? serialize(root) : '' }))
     .filter((part): part is { start: number; end: number; html: string } => part.start !== null && part.end !== null)
@@ -342,7 +331,20 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
 
 async function prepared(declarations: SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<PreparedSlots> {
   const resolved = await resolveSlots(declarations, options, signal)
-  return { declarations, report: resolved.report, apply: (html) => applySlots(html, resolved) }
+  const result: PreparedSlots = {
+    declarations,
+    report: resolved.report,
+    marked: resolved.marked,
+    apply: (html) => applySlots(html, resolved),
+    mergeFit: (slots) => {
+      const report = mergeSlotFitResults(declarations, result.report, slots)
+      result.report = report
+      resolved.report = report
+      options.report?.(report)
+      return report
+    },
+  }
+  return result
 }
 
 /** Prepares and applies the slots declared by one item. */

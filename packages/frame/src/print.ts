@@ -18,7 +18,7 @@ import {
 } from './print-document.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled } from './print-settlement.ts'
-import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal } from './slot-render.ts'
+import { EMPTY_SLOTS, hasSlotWork, prepareSlotCollection, prepareSlots, requiredSlotRefusal, slotFillRefusal, unmeasuredSlotRefusal } from './slot-render.ts'
 
 export { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 
@@ -35,6 +35,7 @@ interface PrintFrameOptions extends PrintDialogOptions {
   width: number
   height: number
   html: string
+  slots: typeof EMPTY_SLOTS
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -63,13 +64,22 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     }
     const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
     const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
+    const measured = new Map<string, number>()
     const settled = printDocumentSettled(
       win,
       frames.map((frame) => frame.contentWindow as Window),
       images,
       deadline,
+      (fit) => {
+        for (const key of Object.keys(fit)) measured.set(key, (measured.get(key) ?? 0) + 1)
+        options.slots.mergeFit(fit)
+      },
     )
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
+    const overflowRefusal = requiredSlotRefusal(options.slots.declarations, options.slots.report)
+    if (overflowRefusal) throw overflowRefusal
+    const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measured)
+    if (measurementRefusal) throw measurementRefusal
     placePrintImages(win.document)
     paginateNotes(win.document)
     await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
@@ -101,9 +111,9 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
   }
   if (options.imposition) {
     const printable = printableDeckDocument(preparedDeck, { ...options, imposition: options.imposition })
-    return printFrame({ ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options })
+    return printFrame({ ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots })
   }
-  return printFrame({ ...deck.size, html: printableDeck(preparedDeck, options), ...options })
+  return printFrame({ ...deck.size, html: printableDeck(preparedDeck, options), ...options, slots: resolvedSlots })
 }
 
 export interface BrowserPagesPrintOptions extends PrintablePagesOptions, PrintDialogOptions {}
@@ -127,5 +137,5 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
   const printable = printablePagesDocument(filled, imposition, options)
   const paper = paperBoxSize(printable.imposed.paper)
-  return printFrame({ ...paper, html: printable.html, ...options })
+  return printFrame({ ...paper, html: printable.html, ...options, slots: resolvedSlots })
 }

@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck, type SlotsOptions } from '@segnavia/format'
+import { prepareSlots } from '@segnavia/html'
+import { MESSAGE } from './bridge.ts'
 
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
@@ -9,6 +11,7 @@ Object.assign(globalThis, {
     disconnect() {}
   },
   matchMedia: () => ({ matches: false }),
+  window: { addEventListener() {}, removeEventListener() {} },
 })
 
 const { SegnaviaStage } = await import('./stage.ts')
@@ -58,6 +61,46 @@ test('page keeps its pending fill when replacement input is refused', async () =
   await asset.promise
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(iframe.srcdoc).toContain('data:image/png;base64,AAAA')
+})
+
+test('page ignores slot fit from a filled frame after loading an unfilled sandboxed page', async () => {
+  const reports: Array<{ slots: Record<string, string> }> = []
+  let iframe = { srcdoc: '', contentWindow: {} }
+  const page = new SegnaviaPage() as unknown as {
+    load(input: unknown): void
+    slots: SlotsOptions | undefined
+  } & Record<string, unknown>
+  Object.assign(page, {
+    isConnected: true,
+    slotOptions: {
+      fill: { id: 'x', values: { name: 'A very long name' } },
+      report: (report: { slots: Record<string, string> }) => reports.push(structuredClone(report)),
+    } as SlotsOptions | undefined,
+    cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    mount() {
+      iframe = { srcdoc: '', contentWindow: {} }
+      return iframe
+    },
+    querySelector: () => iframe,
+    fit() {},
+    dispatchEvent() {
+      return true
+    },
+  })
+  page.load({
+    html: '<p data-slot-value="name">Name</p>',
+    scripts: 'refuse',
+    slots: [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }],
+  })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  page.slots = undefined
+  page.load({ html: '<p>Unfilled</p>', scripts: 'sandboxed' })
+  ;(page as unknown as { onMessage(event: MessageEvent): void }).onMessage({
+    source: iframe.contentWindow,
+    data: { type: MESSAGE.slotFit, slots: { name: 'overflowed' } },
+  } as MessageEvent)
+  expect(reports.at(-1)?.slots.name).toBe('filled')
+  expect((page as unknown as { resolvedSlots?: unknown }).resolvedSlots).toBeUndefined()
 })
 
 test('thumbnail shows authored content while a fill is pending, then replaces it', async () => {
@@ -318,4 +361,25 @@ test('document reports invalid bindings prepared before a page is mounted', asyn
   expect(paints).toBe(1)
   expect(errors).toHaveLength(1)
   expect(errors[0]?.message).toContain('src bindings are allowed only on <img>')
+})
+
+test("document's report receives fit from a frame it owns", async () => {
+  const reports: Array<{ slots: Record<string, string> }> = []
+  const resolved = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink', minSize: 6 }], {
+    fill: { id: 'x', values: { name: 'A very long name' } },
+    report: (report) => reports.push(structuredClone(report)),
+  })
+  const source = {}
+  const documentViewer = new SegnaviaDocument() as unknown as Record<string, unknown>
+  Object.assign(documentViewer, {
+    resolvedSlots: resolved,
+    resolvedGeneration: 3,
+    slotGeneration: 3,
+    querySelectorAll: () => [{ contentWindow: source }],
+  })
+  ;(documentViewer as unknown as { onMessage(event: MessageEvent): void }).onMessage({
+    source,
+    data: { type: MESSAGE.slotFit, slots: { name: 'shrunk' } },
+  } as MessageEvent)
+  expect(reports.at(-1)?.slots.name).toBe('shrunk')
 })
