@@ -5,7 +5,7 @@ import { toGray } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildGrayProfile } from '../color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from './adapter.ts'
-import { buildGrayImageLookup, convertSuppliedImage, createImageState, MAX_TOTAL_IMAGE_PIXELS } from './image.ts'
+import { buildGrayImageLookup, convertSuppliedImage, createImageState, MAX_TOTAL_IMAGE_BYTES, MAX_TOTAL_IMAGE_PIXELS } from './image.ts'
 
 const profileBytes = buildGrayProfile('trc-gamma')
 const profile = readProfile(profileBytes)
@@ -60,6 +60,20 @@ async function outputImages(bytes: Uint8Array): Promise<PDFRawStream[]> {
     .filter((object): object is PDFRawStream => object instanceof PDFRawStream && object.dict.get(key('Subtype'))?.toString() === '/Image')
 }
 
+function decodedImageSamples(image: PDFRawStream): Uint8Array {
+  const decoded = decodePDFRawStream(image).decode()
+  const parms = image.dict.lookupMaybe(key('DecodeParms'), PDFDict)
+  if (!parms || Number(parms.get(key('Predictor'))?.toString()) < 10) return decoded
+  const width = Number(image.dict.get(key('Width'))?.toString())
+  const height = Number(image.dict.get(key('Height'))?.toString())
+  const colors = Number(parms.get(key('Colors'))?.toString())
+  const bits = Number(parms.get(key('BitsPerComponent'))?.toString())
+  const rowBytes = Math.ceil((width * colors * bits) / 8)
+  const output = new Uint8Array(rowBytes * height)
+  for (let row = 0; row < height; row++) output.set(decoded.subarray(row * (rowBytes + 1) + 1, (row + 1) * (rowBytes + 1)), row * rowBytes)
+  return output
+}
+
 const exactByte = (red: number, green: number, blue: number) => Math.round(toGray(profile, [red / 255, green / 255, blue / 255])[0] * 255)
 
 test('converts Flate RGB images with and without a PNG predictor', async () => {
@@ -73,7 +87,7 @@ test('converts Flate RGB images with and without a PNG predictor', async () => {
   const converted = await rewritePressPdf(await document.save(), profileBytes)
   expect(converted.report.convertedImages).toBe(2)
   const images = await outputImages(converted.bytes)
-  expect(images.map((image) => [...decodePDFRawStream(image).decode()])).toEqual([[exactByte(51, 102, 153)], [exactByte(51, 102, 153)]])
+  expect(images.map((image) => [...decodedImageSamples(image)])).toEqual([[exactByte(51, 102, 153)], [exactByte(51, 102, 153)]])
   expect(images.every((image) => image.dict.get(key('ColorSpace'))?.toString() === '/DeviceGray')).toBe(true)
 })
 
@@ -92,7 +106,7 @@ test('keeps four-bit indices and converts an Indexed RGB palette', async () => {
   const converted = await rewritePressPdf(await document.save(), profileBytes)
   const [found] = await outputImages(converted.bytes)
   expect(found?.dict.get(key('BitsPerComponent'))?.toString()).toBe('4')
-  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(0x01))
+  expect(decodedImageSamples(found as PDFRawStream)).toEqual(Uint8Array.of(0x01))
   const space = found?.dict.lookup(key('ColorSpace'), PDFArray)
   expect(space?.get(1).toString()).toBe('/DeviceGray')
   expect((space?.get(3) as PDFHexString | undefined)?.asBytes()).toEqual(Uint8Array.of(exactByte(255, 0, 0), exactByte(0, 255, 0)))
@@ -107,7 +121,7 @@ test('converts DeviceGray through the profile and preserves an SMask', async () 
   const images = await outputImages(converted.bytes)
   const found = images.find((image) => image.dict.has(key('SMask')))
   expect(found?.dict.get(key('SMask'))?.toString()).toBe(mask.toString())
-  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(exactByte(102, 102, 102)))
+  expect(decodedImageSamples(found as PDFRawStream)).toEqual(Uint8Array.of(exactByte(102, 102, 102)))
   const output = await PDFDocument.load(converted.bytes)
   expect((output.context.lookup(mask) as PDFRawStream).contents).toEqual(Uint8Array.of(77))
 })
@@ -137,8 +151,8 @@ test('an image in an alpha-mask form uses PDF luminosity and keeps opacity data'
   const outputMask = maskState.lookup(key('SMask'), PDFDict)
   const outputForm = outputMask.lookup(key('G')) as PDFRawStream
   const found = outputForm.dict.lookup(key('Resources'), PDFDict).lookup(key('XObject'), PDFDict).lookup(key('I')) as PDFRawStream
-  expect(decodePDFRawStream(found).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
-  expect(decodePDFRawStream(found).decode()[0]).not.toBe(exactByte(51, 102, 153))
+  expect(decodedImageSamples(found)).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+  expect(decodedImageSamples(found)[0]).not.toBe(exactByte(51, 102, 153))
   expect((output.context.lookup(transfer) as PDFRawStream).contents).toEqual(Uint8Array.of(9, 8, 7))
 })
 
@@ -163,7 +177,7 @@ test('an image used only in a luminosity mask leaves no RGB image object', async
   const images = await outputImages(converted.bytes)
   expect(images).toHaveLength(1)
   expect(images[0]?.dict.get(key('ColorSpace'))?.toString()).toBe('/DeviceGray')
-  expect(decodePDFRawStream(images[0] as PDFRawStream).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+  expect(decodedImageSamples(images[0] as PDFRawStream)).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
 })
 
 test('converts an image object referenced twice only once', async () => {
@@ -202,8 +216,8 @@ test('uses profile and luminosity variants when one image is reused normally and
   const mask = maskState.lookup(key('SMask'), PDFDict)
   const maskForm = mask.lookup(key('G')) as PDFRawStream
   const maskImage = maskForm.dict.lookup(key('Resources'), PDFDict).lookup(key('XObject'), PDFDict).lookup(key('I')) as PDFRawStream
-  expect(decodePDFRawStream(profileImage).decode()).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
-  expect(decodePDFRawStream(maskImage).decode()).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
+  expect(decodedImageSamples(profileImage)).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
+  expect(decodedImageSamples(maskImage)).toEqual(Uint8Array.of(Math.round(0.3 * 51 + 0.59 * 102 + 0.11 * 153)))
   expect(profileImage).not.toBe(maskImage)
 })
 
@@ -213,10 +227,23 @@ test('uses an injected decoder for DCT images and validates its dimensions', asy
   paint(document, { I: image })
   const converted = await rewritePressPdf(await document.save(), profileBytes, 3, async () => ({ width: 1, height: 1, rgb: Uint8Array.of(51, 102, 153) }))
   const [found] = await outputImages(converted.bytes)
-  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
+  expect(decodedImageSamples(found as PDFRawStream)).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
   await expect(
     rewritePressPdf(await document.save(), profileBytes, 3, async () => ({ width: 2, height: 1, rgb: Uint8Array.of(0, 0, 0, 0, 0, 0) })),
   ).rejects.toThrow(/decoded JPEG dimensions 2x1/)
+})
+
+test('keeps gray samples in the decoded stream layout after browser RGB normalization', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(51, 102, 153))
+  paint(document, { I: image })
+  const converted = await rewritePressPdf(await document.save(), profileBytes, 3, async (_bytes, mime) => {
+    expect(mime).toBe('image/png')
+    return { width: 1, height: 1, rgb: Uint8Array.of(51, 102, 153) }
+  })
+  const [found] = await outputImages(converted.bytes)
+  expect(found?.dict.has(key('DecodeParms'))).toBe(false)
+  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
 })
 
 test('reports an injected JPEG decoder failure', async () => {
@@ -262,6 +289,21 @@ test('refuses per-image and total pixel limits before decoding samples', async (
   const state = createImageState(direct, profile)
   state.pixels = MAX_TOTAL_IMAGE_PIXELS
   await expect(convertSuppliedImage(state, stream, 'none')).rejects.toThrow(/total image pixel count 400000001.*400000000/)
+})
+
+test('refuses the total encoded image byte ceiling before decoding samples', async () => {
+  const document = await PDFDocument.create()
+  const stream = document.context.stream(Uint8Array.of(0, 0, 0), {
+    Type: 'XObject',
+    Subtype: 'Image',
+    Width: 1,
+    Height: 1,
+    ColorSpace: 'DeviceRGB',
+    BitsPerComponent: 8,
+  })
+  const state = createImageState(document, profile)
+  state.bytes = MAX_TOTAL_IMAGE_BYTES - 2
+  await expect(convertSuppliedImage(state, stream, 'none')).rejects.toThrow(/total image encoded byte count 800000001.*800000000/)
 })
 
 test('the RGB lookup stays within the image conversion error thresholds', () => {

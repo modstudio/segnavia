@@ -13,12 +13,11 @@ import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../.
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 import { verifyGrayPress } from './gray-press.ts'
 import { type Raster, readPpm } from './pdf-raster.ts'
+import { verifyConvertedPressImages } from './press-images.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-// The checks read the converted PDF through Poppler, which draws DeviceCMYK
-// with a fixed model of press inks, so the proof they compare against needs a
-// profile of a real press condition.
+// Poppler draws DeviceCMYK with fixed inks, so raster proof checks use a real press-condition profile.
 const pressProfiles = [
   { name: 'FOGRA39L coated (colord)', path: '/usr/share/color/icc/colord/FOGRA39L_coated.icc' },
   { name: 'macOS Generic CMYK', path: '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc' },
@@ -38,8 +37,8 @@ svg{width:100%;height:78px}img{width:96px;height:64px;object-fit:cover;margin-ri
 <div class="tile solid">Solid fill and blue border</div><div class="tile two">Two-stop linear gradient</div><div class="tile three">Three-stop linear gradient</div>
 <div class="tile radial">Radial gradient</div><div class="tile shadow">Blurred box shadow</div><div class="tile textshadow">Blurred text shadow</div>
 <div class="tile under"><div class="opacity">50% opacity over blue</div></div><div class="tile"><svg viewBox="0 0 240 80"><rect x="8" y="8" width="88" height="62" fill="#20c080"/><circle cx="165" cy="40" r="30" fill="#f05020" stroke="#7020c0" stroke-width="9"/></svg></div>
-<div class="tile"><img id="png"><img id="jpeg"><div>embedded PNG + JPEG</div></div><div class="tile" style="color:#00ff00;font-weight:bold">Saturated green</div><div class="tile">Black text #000</div></div>
-<script>function image(type){const c=document.createElement('canvas');c.width=96;c.height=64;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,96,64);g.addColorStop(0,'#ff3040');g.addColorStop(1,'#10d0ff');x.fillStyle=g;x.fillRect(0,0,96,64);x.fillStyle='#00ff00';x.fillRect(34,18,28,28);return c.toDataURL(type,.86)}png.src=image('image/png');jpeg.src=image('image/jpeg');pageReady()</script>`
+<div class="tile"><img id="png"><img id="jpeg"><div>embedded PNG + JPEG</div></div><div class="tile" style="color:#00ff00;font-weight:bold">Saturated green</div><div class="tile">Black text #000 😀</div></div>
+<script>function image(type){const c=document.createElement('canvas');c.width=96;c.height=64;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,96,64);g.addColorStop(0,'#ff3040');g.addColorStop(1,'#10d0ff');x.fillStyle=g;x.fillRect(0,0,96,64);x.fillStyle='#00ff00';x.fillRect(34,18,28,28);if(type==='image/png')x.clearRect(0,0,12,12);return c.toDataURL(type,.86)}png.src=image('image/png');jpeg.src=image('image/jpeg');pageReady()</script>`
 
 function reportOption(profile: Uint8Array, receive: (report: PressReport) => void) {
   return { press: { profile, report: receive } }
@@ -309,8 +308,8 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   const elapsed = performance.now() - started
   const report = pageReport
   check(
-    'press page reports exactly two RGB images and converted vector color',
-    report !== undefined && report.images.length === 2 && report.fills > 0 && report.strokes > 0 && report.gradientStops > 0 && report.groups > 0,
+    'press page reports RGB images and converted vector color',
+    report !== undefined && report.images.length >= 2 && report.fills > 0 && report.strokes > 0 && report.gradientStops > 0 && report.groups > 0,
     report ? `${JSON.stringify(report)}, rewrite=${elapsed.toFixed(1)}ms` : 'report not called',
   )
   check('press page writes black text as black ink alone', await pageHasBlackInk(converted))
@@ -325,6 +324,15 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     originalRaster.width === convertedRaster.width && originalRaster.height === convertedRaster.height && difference < 20,
     `${originalRaster.width}x${originalRaster.height}, mean channel difference=${difference.toFixed(2)} (bound 20 from the prototype's measured 4.08 with profile/runtime allowance)`,
   )
+  await verifyConvertedPressImages(
+    renderer,
+    page,
+    profile,
+    originalRaster,
+    (name, bytes) => raster(work, name, bytes),
+    (original, image, press) => regionProofStats(original, image, { name: 'PNG and JPEG', x0: 35, x1: 190, y0: 260, y1: 315 }, press),
+    check,
+  )
 
   const imposition = {
     paper: { width: 320, height: 240, unit: 'mm' as const },
@@ -335,7 +343,11 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   }
   let pagesReport: PressReport | undefined
   await renderer.pagesPdf([page], { imposition, waitForPageReady: true, ...reportOption(profile, (report) => (pagesReport = report)) })
-  check('press conversion runs after pagesPdf imposition', pagesReport?.images.length === 2, pagesReport ? JSON.stringify(pagesReport) : 'report not called')
+  check(
+    'press conversion runs after pagesPdf imposition',
+    (pagesReport?.images.length ?? 0) >= 2,
+    pagesReport ? JSON.stringify(pagesReport) : 'report not called',
+  )
 
   const deck: Deck = {
     title: 'Press',
@@ -351,16 +363,16 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     deck,
     reportOption(profile, (report) => (deckReport = report)),
   )
-  check('press conversion runs on deckPdf', deckReport?.images.length === 2, deckReport ? JSON.stringify(deckReport) : 'report not called')
+  check('press conversion runs on deckPdf', (deckReport?.images.length ?? 0) >= 2, deckReport ? JSON.stringify(deckReport) : 'report not called')
 
   let emojiReport: PressReport | undefined
   await renderer.pagePdf(
     { html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>', size: { width: 600, height: 200 } },
-    reportOption(profile, (report) => (emojiReport = report)),
+    { press: { profile, images: 'convert', report: (report) => (emojiReport = report) } },
   )
   check(
-    'press conversion reports the RGB image drawn by a Type 3 color emoji glyph',
-    (emojiReport?.images.length ?? 0) > 0,
+    'press conversion converts the RGB image drawn by a Type 3 color emoji glyph',
+    emojiReport?.images.length === 0 && (emojiReport?.convertedImages ?? 0) > 0,
     emojiReport ? JSON.stringify(emojiReport) : 'report not called',
   )
 

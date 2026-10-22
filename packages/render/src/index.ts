@@ -180,7 +180,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
     deadline?: RenderDeadline,
   ): Promise<Uint8Array> {
-    if (!options.press || new TextDecoder().decode(options.press.profile.subarray(16, 20)) !== 'GRAY') return finishPdf(pdf, options)
+    if (!options.press || (new TextDecoder().decode(options.press.profile.subarray(16, 20)) !== 'GRAY' && options.press.images !== 'convert'))
+      return finishPdf(pdf, options)
     return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )

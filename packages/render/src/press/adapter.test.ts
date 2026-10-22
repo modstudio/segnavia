@@ -47,7 +47,7 @@ test('the read-back inspection refuses an RGB operator', async () => {
 
 test.each([
   ['/DeviceRGB cs', /cs operator/],
-  ['BI /CS /RGB ID x EI', /BI operator/],
+  ['BI /W 1 /H 1 /BPC 8 /CS /RGB ID xyz EI', /BI operator/],
 ] as const)('preserves the named content refusal for %s', async (content, message) => {
   const document = await PDFDocument.create()
   const page = document.addPage([10, 10])

@@ -6,6 +6,7 @@ import {
   contentFilter,
   contentOperatorAction,
   groupAction,
+  imageAction,
   inlineImageAction,
   shadingAction,
   shadingFunctionAction,
@@ -30,6 +31,10 @@ test('accepts only no filter or one compression filter for content', () => {
 
 test('keeps every press color decision in one policy', () => {
   expect(groupAction('rgb', 'DeviceRGB', false).action).toBe('convert')
+  expect(imageAction('rgb', 'cmyk').action).toBe('convert')
+  expect(imageAction('gray', 'cmyk').action).toBe('keep')
+  expect(imageAction('cmyk', 'cmyk').action).toBe('keep')
+  expect(imageAction('cmyk', 'gray').action).toBe('refuse')
   expect(groupAction('rgb', 'DeviceRGB', true).action).toBe('keep')
   expect(groupAction('rgb', 'CalRGB', false).action).toBe('refuse')
   expect(shadingAction('rgb', 2).action).toBe('convert')

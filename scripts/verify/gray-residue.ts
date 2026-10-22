@@ -6,16 +6,12 @@ import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
 const { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } = renderRequire('pdf-lib')
 
-const forbiddenSpaces = new Set(['/DeviceRGB', '/DeviceCMYK', '/CalRGB'])
-const forbiddenOperators = new Set(['rg', 'RG', 'k', 'K'])
-
 export interface ColorResidues {
   errors: string[]
   found: string[]
 }
 
-/** Independently scans gray press output instead of relying on the press read-back. */
-export async function processColorResidues(bytes: Uint8Array): Promise<ColorResidues> {
+async function colorResidues(bytes: Uint8Array, forbiddenSpaces: Set<string>, forbiddenOperators: Set<string>): Promise<ColorResidues> {
   const document = await PDFDocument.load(bytes, { updateMetadata: false })
   const errors: string[] = []
   const found = new Set<string>()
@@ -60,3 +56,10 @@ export async function processColorResidues(bytes: Uint8Array): Promise<ColorResi
   })
   return { errors, found: [...found] }
 }
+
+/** Independently scans gray press output instead of relying on the press read-back. */
+export const processColorResidues = (bytes: Uint8Array): Promise<ColorResidues> =>
+  colorResidues(bytes, new Set(['/DeviceRGB', '/DeviceCMYK', '/CalRGB']), new Set(['rg', 'RG', 'k', 'K']))
+
+/** Independently scans CMYK press output for RGB names and operators. */
+export const processRgbResidues = (bytes: Uint8Array): Promise<ColorResidues> => colorResidues(bytes, new Set(['/DeviceRGB', '/CalRGB']), new Set(['rg', 'RG']))
