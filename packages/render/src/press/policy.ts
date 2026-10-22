@@ -132,11 +132,18 @@ export function isContentColorOperator(operator: string): operator is ContentCol
   return colorOperators.includes(operator as ContentColorOperator)
 }
 
+const deviceColorOperators = ['rg', 'RG', 'g', 'G', 'k', 'K'] as const
+export type DeviceColorOperator = (typeof deviceColorOperators)[number]
+
+export function isDeviceColorOperator(operator: string): operator is DeviceColorOperator {
+  return (deviceColorOperators as readonly string[]).includes(operator)
+}
+
 function deviceColorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
+  if (!isDeviceColorOperator(operator)) return undefined
   const rgb = operator === 'rg' || operator === 'RG'
   const gray = operator === 'g' || operator === 'G'
   const cmyk = operator === 'k' || operator === 'K'
-  if (!rgb && !gray && !cmyk) return undefined
   if (!inspect && (rgb || gray)) return decision('convert', 'RGB or DeviceGray color operands')
   if (destination === 'gray') return decision(gray ? 'keep' : 'refuse', 'RGB or gray input for a greyscale press')
   return decision(cmyk ? 'keep' : 'refuse', 'CMYK operators')

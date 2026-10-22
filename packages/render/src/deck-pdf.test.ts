@@ -2,10 +2,11 @@ import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
+import { pageContent } from './pdf-content.test-helper.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
@@ -178,14 +179,7 @@ test('an imposed deck with registration marks strokes Separation All', async () 
       finish: async (pdf) => pdf,
     },
   )
-  const document = await PDFDocument.load(output)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  const text = streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
+  const text = await pageContent(output)
   expect(text).toMatch(/\/All\s+CS/)
   expect(text).toMatch(/1\s+SCN/)
 })

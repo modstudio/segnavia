@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
+import { pageContent } from './pdf-content.test-helper.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 
 test('pagesPdf refuses an empty collection with the action that clears it', async () => {
@@ -98,14 +99,7 @@ test('an imposed pagesPdf with registration marks strokes Separation All', async
       finish: async (pdf) => pdf,
     },
   )
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  const text = streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
+  const text = await pageContent(bytes)
   expect(text).toMatch(/\/All\s+CS/)
   expect(text).toMatch(/1\s+SCN/)
 })

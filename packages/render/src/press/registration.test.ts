@@ -1,23 +1,13 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
-import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { buildGrayProfile, buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { pageContent } from '../pdf-content.test-helper.ts'
 import { drawCropMarks } from '../pdf-marks.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 
 const cmykProfile = buildPressProfile('mft1')
 const grayProfile = buildGrayProfile('trc-gamma')
-
-async function pageContent(bytes: Uint8Array, pageIndex = 0): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(pageIndex).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
 
 async function registrationPdf(): Promise<Uint8Array> {
   const input = await PDFDocument.create()
@@ -139,4 +129,41 @@ test('a gray press converts every stream that shares one registration Resources 
   expect(formText).not.toMatch(/\/All\s+CS/)
   expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
   expect(output.getPage(1).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
+})
+
+test.each(['registration-first', 'device-rgb-first'] as const)(
+  'refuses a shared content stream when page resources disagree on /All (%s)',
+  async (order) => {
+    const document = await PDFDocument.create()
+    const stream = document.context.register(document.context.stream('/All CS 1 SCN'))
+    const registration = document.context.obj({ ColorSpace: { All: registrationSpace(document) } })
+    const rgb = document.context.obj({ ColorSpace: { All: 'DeviceRGB' } })
+    const pages = order === 'registration-first' ? [registration, rgb] : [rgb, registration]
+    for (const resources of pages) {
+      const page = document.addPage([10, 10])
+      page.node.set(PDFName.of('Resources'), resources)
+      page.node.set(PDFName.of('Contents'), stream)
+    }
+    await expect(rewritePressPdf(await document.save(), grayProfile)).rejects.toThrow(
+      'The PDF has unsupported a content stream shared by pages whose resources disagree on /All; supported: give each page its own stream or the same resources.',
+    )
+  },
+)
+
+test('a gray press converts a content stream shared by pages with the same registration resources', async () => {
+  const document = await PDFDocument.create()
+  const stream = document.context.register(document.context.stream('/All CS 1 SCN'))
+  const resources = document.context.obj({ ColorSpace: { All: registrationSpace(document) } })
+  for (let index = 0; index < 2; index++) {
+    const page = document.addPage([10, 10])
+    page.node.set(PDFName.of('Resources'), resources)
+    page.node.set(PDFName.of('Contents'), stream)
+  }
+  const converted = await rewritePressPdf(await document.save(), grayProfile)
+  for (const index of [0, 1]) {
+    const text = await pageContent(converted.bytes, index)
+    expect(text).toMatch(/\b0 G\b/)
+    expect(text).not.toMatch(/\/All\s+CS/)
+    expect(text).not.toMatch(/\bSCN\b/)
+  }
 })

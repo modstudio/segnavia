@@ -20,6 +20,7 @@ import {
   MAX_DOCUMENT_CONTENT_BYTES,
   nameOf,
   numberOf,
+  registrationNameConflict,
   registrationResourceNames,
   replaceArray,
   resolvedColorSpace,
@@ -40,8 +41,9 @@ interface RewriteState {
   destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
-  pendingGrayResources: PDFDict[]
+  pendingGrayResources: Set<PDFDict>
   profile: Profile
+  sharedRegistration: WeakMap<PDFRawStream, Set<string>>
   sampleConvert: (rgb: Color3) => Color
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
@@ -281,8 +283,9 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number, co
     destination: pressDestination(profile),
     document,
     painted: new WeakMap(),
-    pendingGrayResources: [],
+    pendingGrayResources: new Set(),
     profile,
+    sharedRegistration: new WeakMap(),
     sampleConvert: (rgb) => {
       if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
       return destinationColor(profile, rgb, tolerance)
@@ -313,6 +316,10 @@ export function rewritePressDocument(
     content: (_object, stream, _replace, resources) => {
       recordContentBounds(state, stream, resources, boundsBudget)
     },
+    contentContext: (stream, resources) => {
+      const name = registrationNameConflict(state.document, state.sharedRegistration, stream, resources)
+      if (name) refuse(`a content stream shared by pages whose resources disagree on /${name}`, 'give each page its own stream or the same resources')
+    },
     endContentsSequence: () => {
       state.sequence = undefined
     },
@@ -328,7 +335,7 @@ export function rewritePressDocument(
     },
     content: (object, stream, replace, resources, mask) => {
       convertContent(state, object, stream, replace, mask, resources)
-      if (state.destination === 'gray' && resources) state.pendingGrayResources.push(resources)
+      if (state.destination === 'gray' && resources) state.pendingGrayResources.add(resources)
     },
     endContentsSequence: () => {
       state.colorSpaces = undefined

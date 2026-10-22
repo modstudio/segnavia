@@ -1,8 +1,8 @@
-import { type Imposed, type ImpositionSideMarks, type MarkColor, MM_PER_PT } from '@segnavia/format'
+import { type Imposed, type ImpositionSideMarks, type MarkColor } from '@segnavia/format'
 import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
-import type { PdfRectangle } from './pdf-geometry.ts'
+import { type PdfRectangle, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 
@@ -36,7 +36,7 @@ function drawImposedSide(
   marks: ImpositionSideMarks | undefined,
   markColor: MarkColor,
 ): void {
-  const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
+  const paper = output.addPage([pt(imposed.paper.width), pt(imposed.paper.height)])
   for (const piece of pieces) {
     const image = embedded.get(piece.key)
     if (!image) throw new Error(`${piece.name} was not embedded.`)
@@ -49,8 +49,8 @@ function drawImposedSide(
   drawCropMarks(
     paper,
     (marks?.marks ?? []).map((mark) => ({
-      start: { x: mark.x1 / MM_PER_PT, y: (imposed.paper.height - mark.y1) / MM_PER_PT },
-      end: { x: mark.x2 / MM_PER_PT, y: (imposed.paper.height - mark.y2) / MM_PER_PT },
+      start: pdfPoint(mark.x1, mark.y1, imposed.paper.height),
+      end: pdfPoint(mark.x2, mark.y2, imposed.paper.height),
     })),
     markColor,
   )
@@ -59,7 +59,7 @@ function drawImposedSide(
 export async function composeImposedPdf(
   imposed: Imposed,
   pieces: ImposedPdfPiece[],
-  marks: ImpositionSideMarks[] = [],
+  marks: ImpositionSideMarks[],
   markColor: MarkColor,
 ): Promise<Uint8Array> {
   const output = await PDFDocument.create()

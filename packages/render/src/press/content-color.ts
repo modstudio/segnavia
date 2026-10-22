@@ -1,4 +1,5 @@
 import { RenderRefusedError } from '../errors.ts'
+import { isDeviceColorOperator } from './policy.ts'
 
 export interface ContentColorSpaces {
   fill?: string
@@ -39,7 +40,7 @@ function nextNamedSpace(operator: string, operands: Array<{ kind: string; raw: s
     const name = spaceName(operands)
     return selectsFillSpace(operator) ? { fill: name, stroke } : { fill, stroke: name }
   }
-  if (operator === 'rg' || operator === 'RG' || operator === 'g' || operator === 'G' || operator === 'k' || operator === 'K') {
+  if (isDeviceColorOperator(operator)) {
     return selectsFillSpace(operator) ? { fill: undefined, stroke } : { fill, stroke: undefined }
   }
   return { fill, stroke }

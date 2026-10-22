@@ -91,6 +91,24 @@ export function registrationResourceNames(document: PDFDocument, resources: PDFD
   return names
 }
 
+// A shared stream is rewritten once; every owner must classify the same names as Separation All.
+export function registrationNameConflict(
+  document: PDFDocument,
+  recorded: WeakMap<PDFRawStream, Set<string>>,
+  stream: PDFRawStream,
+  resources: PDFDict | undefined,
+): string | undefined {
+  const names = registrationResourceNames(document, resources)
+  const previous = recorded.get(stream)
+  if (!previous) {
+    recorded.set(stream, names)
+    return undefined
+  }
+  for (const name of previous) if (!names.has(name)) return name
+  for (const name of names) if (!previous.has(name)) return name
+  return undefined
+}
+
 // A greyscale destination has one plate, so Separation All is dropped after its stroke becomes DeviceGray black.
 export function dropRegistrationColorSpaces(document: PDFDocument, resources: PDFDict | undefined): void {
   const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)

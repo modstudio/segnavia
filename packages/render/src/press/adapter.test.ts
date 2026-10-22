@@ -1,23 +1,13 @@
 import { expect, test } from 'bun:test'
 import { deflateSync } from 'node:zlib'
-import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, rgb } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, rgb } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { pageContent } from '../pdf-content.test-helper.ts'
 import { inspectPressPdf, rewritePressDocument, rewritePressPdf } from './adapter.ts'
 import { decodeContent, MAX_CONTENT_BYTES, MAX_DOCUMENT_CONTENT_BYTES } from './pdf-objects.ts'
 
 const profile = buildPressProfile('mft1')
-
-async function contentText(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
 
 test('rewrites page fills and strokes and installs the press output intent', async () => {
   const input = await PDFDocument.create()
@@ -27,7 +17,7 @@ test('rewrites page fills and strokes and installs the press output intent', asy
   expect(converted.report.fills).toBeGreaterThan(0)
   expect(converted.report.strokes).toBeGreaterThan(0)
   expect(converted.report.images).toEqual([])
-  const text = await contentText(converted.bytes)
+  const text = await pageContent(converted.bytes)
   expect(text).toContain(' k')
   expect(text).toContain(' K')
   expect(text).not.toMatch(/\brg\b|\bRG\b/)

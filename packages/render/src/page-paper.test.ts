@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
+import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 
 describe('printed page setup', () => {
@@ -39,17 +40,6 @@ describe('printed page setup', () => {
   })
 })
 
-async function pageContent(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
-
 async function bleedSource(print: Print): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const { bleedBox } = printBoxes(print)
@@ -67,12 +57,6 @@ test('a single page with registration marks stores Separation All and strokes wi
   const output = await PDFDocument.load(bytes)
   expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation')
 })
-
-function firstStroke(text: string): { end: { x: number; y: number }; start: { x: number; y: number } } {
-  const match = /([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+m\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+l/.exec(text)
-  if (!match) throw new Error(`no stroke path in: ${text}`)
-  return { start: { x: Number(match[1]), y: Number(match[2]) }, end: { x: Number(match[3]), y: Number(match[4]) } }
-}
 
 test('a single page with marks draws a crop mark at the mapped endpoints', async () => {
   const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true })

@@ -1,18 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
-import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib'
+import { pageContent } from './pdf-content.test-helper.ts'
 import { drawCropMarks } from './pdf-marks.ts'
-
-async function pageContent(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
 
 test('default crop marks stay RGB black', async () => {
   const document = await PDFDocument.create()

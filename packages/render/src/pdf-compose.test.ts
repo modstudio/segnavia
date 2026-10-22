@@ -2,10 +2,11 @@ import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
 import { Imposition, impose, impositionMarks, MM_PER_PT, Page } from '@segnavia/format'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { groupPieces } from './pages-imposition.ts'
 import { composeImposedPdf, embedOnePage } from './pdf-compose.ts'
+import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 function objectStream(contents: Uint8Array): Uint8Array {
@@ -25,17 +26,6 @@ test('refuses an oversized object stream before embedding a page', async () => {
     ),
   )
 })
-
-async function pageContent(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
 
 async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8Array> {
   const imposition = Imposition.parse({
@@ -64,12 +54,6 @@ async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8A
     impositionMarks(imposition),
     markColor,
   )
-}
-
-function firstStroke(text: string): { end: { x: number; y: number }; start: { x: number; y: number } } {
-  const match = /([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+m\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+([+-]?(?:\d+\.?\d*|\.\d+))\s+l/.exec(text)
-  if (!match) throw new Error(`no stroke path in: ${text}`)
-  return { start: { x: Number(match[1]), y: Number(match[2]) }, end: { x: Number(match[3]), y: Number(match[4]) } }
 }
 
 test('an imposed paper with registration marks stores Separation All and strokes with it', async () => {
