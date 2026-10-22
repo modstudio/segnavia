@@ -136,4 +136,26 @@ describe('item settings host refreshes', () => {
     await controller.flush()
     expect(element.fills.map((fill) => fill.id)).toEqual(['mina', 'created'])
   })
+
+  test('a detached controller writes nothing back when a save it started settles', async () => {
+    let finishSave: () => void = () => {}
+    const { element, controller } = setup(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve
+        }),
+    )
+    typeName(element, 'Mina Patel')
+    const flushing = controller.flush()
+    // flush starts the save a tick later; wait until it is in flight.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    element.fills = [{ ...original, values: { name: 'Host H' } }, other]
+
+    controller.detach()
+    element.fills = [{ ...original, values: { name: 'After detach' } }, other]
+    finishSave()
+    await flushing
+
+    expect(element.fills[0]?.values.name).toBe('After detach')
+  })
 })
