@@ -152,16 +152,16 @@ async function preparedPagesPrint(pagesInput: PageInput[], impositionInput: Impo
   return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
 }
 
-async function printCopies(copies: PrintFrameOptions[], options: PrintDialogOptions): Promise<void> {
+/**
+ * The one print the copies become. Each copy was prepared from the caller's options with its own slots and was
+ * measured and checked on its own, so the caller's options are not applied again: their raw `fills` would replace
+ * the copy's prepared slots. Several copies print as one joined document whose slots were already settled per copy.
+ */
+export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOptions {
   const first = copies[0]
   if (!first) throw new RangeError('There is nothing to print. Pass at least one fill, or omit fills, to clear this refusal.')
-  if (copies.length === 1) return printFrame({ ...first, ...options })
-  return printFrame({
-    ...first,
-    html: joinPrintDocuments(copies.map((copy) => copy.html)),
-    slots: EMPTY_SLOTS,
-    ...options,
-  })
+  if (copies.length === 1) return first
+  return { ...first, html: joinPrintDocuments(copies.map((copy) => copy.html)), slots: EMPTY_SLOTS }
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
@@ -171,7 +171,7 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })
-  return printCopies(copies, options)
+  return printFrame(copiesPrint(copies))
 }
 
 export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions {
@@ -185,5 +185,5 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })
-  return printCopies(copies, options)
+  return printFrame(copiesPrint(copies))
 }

@@ -10,5 +10,7 @@ export function joinPrintDocuments(documents: readonly string[]): string {
     if (!match?.[1]) throw new RangeError('A print document has no body.')
     return match[1]
   })
-  return first.replace(/<body>[\s\S]*<\/body>/i, `<body>${bodies.join('')}</body>`)
+  // A replacer function keeps the bodies literal: as a replacement string, `$&`, `$$` and the like in author or fill
+  // content would be rewritten.
+  return first.replace(/<body>[\s\S]*<\/body>/i, () => `<body>${bodies.join('')}</body>`)
 }

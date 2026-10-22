@@ -1,4 +1,4 @@
-import { Imposition, type ImpositionInput, impose, Page, type PageInput, printPadding, printProperties } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type Page, printPadding, printProperties } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import type { PrintResult } from './overflow.ts'
@@ -53,9 +53,10 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
   )
 }
 
-export async function renderPagesPdf(inputs: PageInput[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
-  if (inputs.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
-  const pages = inputs.map((input) => Page.parse(input))
+// Pages arrive parsed and filled. Each filled page object keys its slot preparation, so parsing again here would
+// hand the renderer new objects and lose the preparation, and with it overflow measurement and its refusals.
+export async function renderPagesPdf(pages: Page[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+  if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
     const rendered = await Promise.all(
       pages.map((page, inputIndex) =>

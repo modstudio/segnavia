@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
-import { printDeck, printPages } from './print.ts'
+import { copiesPrint, printDeck, printPages } from './print.ts'
+import { EMPTY_SLOTS } from './slot-render.ts'
 
 test('browser print refuses a fill for a scripted deck before reporting', async () => {
   let reports = 0
@@ -67,4 +68,21 @@ test('browser print lists every refused fill before creating output', async () =
     await expect(printing).rejects.toBeInstanceOf(SlotFillsRefusedError)
     await expect(printing).rejects.toThrow('"missing" "name" (placeholder); 1 "name" (placeholder)')
   }
+})
+
+test('copies print with their own prepared slots, never the caller options', () => {
+  const prepared = {
+    declarations: [],
+    report: { fill: 'a', slots: {}, origins: {} },
+    marked: new Map(),
+    apply: (html: string) => html,
+    mergeFit: () => prepared.report,
+  }
+  const one = { html: '<!doctype html><html><head></head><body><p>A</p></body></html>', slots: prepared, deadlineMs: 5 }
+  const two = { ...one, html: '<!doctype html><html><head></head><body><p>B</p></body></html>' }
+  expect(copiesPrint([one] as never)).toBe(one as never)
+  const joined = copiesPrint([one, two] as never)
+  expect(joined.html).toContain('<p>A</p><p>B</p>')
+  expect(joined.slots).toBe(EMPTY_SLOTS)
+  expect(joined.deadlineMs).toBe(5)
 })
