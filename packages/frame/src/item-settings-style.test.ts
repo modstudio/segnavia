@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { ITEM_SETTINGS_CSS } from './item-settings-style.ts'
 
-test('item settings geometry selectors sit inside :where() and colour only through custom properties', () => {
+test('item settings geometry selectors sit inside :where() and color only through custom properties', () => {
   const selectors = [...ITEM_SETTINGS_CSS.matchAll(/(?:^|[}\n])\s*([^{}@]+)\{/g)].map((match) => (match[1] ?? '').trim()).filter(Boolean)
   expect(selectors.length).toBeGreaterThan(5)
   for (const selector of selectors) {

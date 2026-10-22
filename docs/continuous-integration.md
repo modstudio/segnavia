@@ -12,7 +12,7 @@ success only when every job below succeeds:
 - `verify-render` runs the rendering verification on Ubuntu under both Bun and
   Node, with Ubuntu's poppler and the FOGRA39L press profile from colord-data.
   Poppler draws DeviceCMYK with a fixed model of press inks rather than the
-  PDF's output intent, so the press-colour checks proof against a profile of a
+  PDF's output intent, so the press-color checks proof against a profile of a
   real press condition: FOGRA39L, or macOS's Generic CMYK where that is present.
 
 CI installs Chrome for Testing and passes its executable path to the demo and
