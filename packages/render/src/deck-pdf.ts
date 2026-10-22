@@ -1,4 +1,13 @@
-import { type Deck, fitPage, type ImageFit, Imposition, impose, type Imposition as ParsedImposition, pagePlacementLayout } from '@segnavia/format'
+import {
+  type Deck,
+  fitPage,
+  type ImageFit,
+  Imposition,
+  impose,
+  impositionMarks,
+  type Imposition as ParsedImposition,
+  pagePlacementLayout,
+} from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
@@ -165,6 +174,8 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
 async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const css = containFixedPageOverflow(`${services.fontFaces(opts)}${opts.css ?? ''}`)
   const imposed = impose(imposition, deck.slides.length)
+  const marks = impositionMarks(imposition)
+  opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
       const single: Deck = { ...deck, slides: [slide] }
@@ -208,7 +219,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
     bytes: item.bytes,
     placements: placements.get(item.index) ?? [],
   }))
-  return services.finish(await composeImposedPdf(imposed, pieces), opts)
+  return services.finish(await composeImposedPdf(imposed, pieces, marks), opts)
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {

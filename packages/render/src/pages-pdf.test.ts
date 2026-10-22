@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
+import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 
@@ -35,4 +36,40 @@ test('pagesPdf renders the page objects it is given, so their slot preparation i
   )
   await expect(render).rejects.toThrow('stop after the first page')
   expect(seen[0]).toBe(page)
+})
+
+test('pagesPdf reports marks omitted from a narrow imposition margin without refusing', async () => {
+  const page = Page.parse({ html: '<p>Card</p>', size: { width: 100, height: 100 } })
+  const reports: unknown[] = []
+  const piece = await PDFDocument.create()
+  piece.addPage([100, 100]).drawText('Card')
+  const bytes = await renderPagesPdf(
+    [page],
+    {
+      imposition: {
+        paper: { width: 30, height: 30, unit: 'mm' },
+        columns: 1,
+        rows: 1,
+        cell: { width: 20, height: 20 },
+        margin: { top: 2, right: 5, bottom: 5, left: 5 },
+        marks: true,
+      },
+      marks: { report: (report) => reports.push(report) },
+    },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => piece.save(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(bytes.length).toBeGreaterThan(0)
+  expect(reports).toEqual([
+    {
+      omittedMarks: [
+        { side: 'front', edge: 'top', cutPosition: 5 },
+        { side: 'front', edge: 'top', cutPosition: 25 },
+      ],
+    },
+  ])
 })

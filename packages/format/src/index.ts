@@ -117,6 +117,13 @@ export {
   type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
+export {
+  type ImpositionMarkEdge,
+  type ImpositionSideMarks,
+  impositionMarks,
+  MIN_MARK_LENGTH_MM,
+  type OmittedImpositionMark,
+} from './imposition-marks.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export * from './numbering.ts'
 export {
@@ -125,6 +132,7 @@ export {
   fromMillimeters,
   MARK_GAP_MM,
   MARK_LENGTH_MM,
+  type MarkSegment,
   MM_PER_PT,
   NAMED_PAPERS,
   type NamedPaper,
@@ -217,9 +225,14 @@ export const Imposition = z
     flip: z.enum(['long', 'short']).default('long'),
     skip: z.number().int().nonnegative().default(0),
     dir: z.enum(['ltr', 'rtl']).default('ltr'),
+    marks: z.boolean().default(false),
+    cornerMarks: z.boolean().default(false),
   })
   .superRefine((imposition, ctx) => {
     const cellCount = BigInt(imposition.columns) * BigInt(imposition.rows)
+    if (imposition.cornerMarks && !imposition.marks) {
+      ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
+    }
     if (imposition.columns > MAX_IMPOSITION_CELLS || imposition.rows > MAX_IMPOSITION_CELLS || cellCount > BigInt(MAX_IMPOSITION_CELLS)) {
       ctx.addIssue({
         code: 'custom',
