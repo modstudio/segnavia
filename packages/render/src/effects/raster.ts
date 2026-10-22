@@ -3,6 +3,7 @@ import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from '../errors.ts'
 import type { RenderOptions } from '../options.ts'
 import { loadPdf } from '../pdf-load.ts'
+import { type BackgroundPaint, withBackdropRasterLayer } from './backdrop-layers.ts'
 import { BACKDROP_RASTER_IMAGE_KEY, GENERATED_EFFECT_IMAGE_KEY } from './types.ts'
 
 export const DEFAULT_RASTER_DPI = 150
@@ -236,40 +237,56 @@ async function captureRegion(tab: Tab, candidate: RasterCandidate, quality: numb
 }
 
 async function installCaptureStyle(tab: Tab): Promise<void> {
+  // A transparent background keeps the element's own fill out of the JPEG so
+  // the capture is only the filtered backdrop.
   await tab.addStyleTag({
     content:
-      '[data-segnavia-raster-capture]{border-color:transparent!important;color:transparent!important;text-shadow:none!important}[data-segnavia-raster-capture] *{visibility:hidden!important}',
+      '[data-segnavia-raster-capture]{border-color:transparent!important;color:transparent!important;text-shadow:none!important;background:transparent!important}[data-segnavia-raster-capture] *{visibility:hidden!important}',
   })
 }
 
 async function replaceBackground(tab: Tab, candidate: RasterCandidate, capture: RasterCapture): Promise<void> {
-  const url = `url("data:image/jpeg;base64,${Buffer.from(capture.bytes).toString('base64')}")`
+  const dataUrl = `data:image/jpeg;base64,${Buffer.from(capture.bytes).toString('base64')}`
+  const image = `url("${dataUrl}")`
   const element = tab.locator(`[data-segnavia-raster-region="${candidate.id}"]`)
-  await element.evaluate((element, image) => {
-    const style = (element as HTMLElement).style
+  const paint: BackgroundPaint = await element.evaluate((found) => {
+    const style = getComputedStyle(found)
+    return {
+      clip: style.backgroundClip,
+      color: style.backgroundColor,
+      image: style.backgroundImage,
+      origin: style.backgroundOrigin,
+      position: style.backgroundPosition,
+      repeat: style.backgroundRepeat,
+      size: style.backgroundSize,
+    }
+  })
+  const layered = withBackdropRasterLayer(paint, image)
+  await element.evaluate((found, layers) => {
+    const style = (found as HTMLElement).style
     style.setProperty('backdrop-filter', 'none', 'important')
     style.setProperty('-webkit-backdrop-filter', 'none', 'important')
     // Isolation replaces the grouping backdrop-filter provided, so Chromium does
     // not wrap the page and Adobe does not mute unrelated content.
     style.setProperty('isolation', 'isolate', 'important')
-    style.setProperty('background', 'none', 'important')
-    style.setProperty('background-image', image, 'important')
-    style.setProperty('background-size', '100% 100%', 'important')
-    style.setProperty('background-position', '0 0', 'important')
-    style.setProperty('background-repeat', 'no-repeat', 'important')
-    style.setProperty('background-origin', 'border-box', 'important')
-    style.setProperty('background-clip', 'border-box', 'important')
-  }, url)
-  await element.evaluate((element) => {
-    const image = getComputedStyle(element).backgroundImage.match(/url\(["']?(.*?)["']?\)/)?.[1]
-    if (!image) throw new Error('The backdrop raster background was not installed.')
+    // Authored layers stay above the JPEG so a later hoist leaves the group's fill.
+    style.setProperty('background-color', layers.color, 'important')
+    style.setProperty('background-image', layers.image, 'important')
+    style.setProperty('background-size', layers.size, 'important')
+    style.setProperty('background-position', layers.position, 'important')
+    style.setProperty('background-repeat', layers.repeat, 'important')
+    style.setProperty('background-origin', layers.origin, 'important')
+    style.setProperty('background-clip', layers.clip, 'important')
+  }, layered)
+  await element.evaluate((found, src) => {
+    if (!getComputedStyle(found).backgroundImage.includes('data:image/jpeg')) throw new Error('The backdrop raster background was not installed.')
     return new Promise<void>((resolve, reject) => {
       const loaded = new Image()
       loaded.onload = () => resolve()
       loaded.onerror = () => reject(new Error('Chromium could not decode the backdrop raster JPEG.'))
-      loaded.src = image
+      loaded.src = src
     })
-  })
+  }, dataUrl)
 }
 
 export async function prepareBackdropRasters(tab: Tab, effects: RenderOptions['effects']): Promise<RasterCapture[]> {

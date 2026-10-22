@@ -7,6 +7,8 @@ import { type ContentOperation, visitContentOperations } from '../press/content.
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
 import { replaceRanges, streamDictionary } from './content-replacement.ts'
+import { hoistBackdropRasters } from './hoist.ts'
+import { rewriteTransparencyGroupColorSpace } from './isolation.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { type PaintColor, type Rule1Plan, rule1EffectImage } from './rule-1.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
@@ -330,14 +332,6 @@ function rewriteContent(
   else setDirect(replacement)
 }
 
-function declareTransparencyGroupColorSpace(state: EffectsState, owner: PDFDict): void {
-  const group = owner.lookupMaybe(key('Group'), PDFDict)
-  if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return
-  // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their color.
-  group.set(key('CS'), key('DeviceRGB'))
-  state.changed = true
-}
-
 function rewriteEffects(document: PDFDocument): { changed: boolean; report: EffectsReport } {
   const state: EffectsState = {
     applied: new WeakSet(),
@@ -352,11 +346,14 @@ function rewriteEffects(document: PDFDocument): { changed: boolean; report: Effe
   walkPressGraph(document, {
     content: () => undefined,
     function: () => undefined,
-    group: (owner) => declareTransparencyGroupColorSpace(state, owner),
+    group: (owner) => {
+      if (rewriteTransparencyGroupColorSpace(owner)) state.changed = true
+    },
     image: () => undefined,
     shading: () => false,
     softMask: (graphicsState, mask, source, resources) => classifyMask(state, graphicsState, mask, source, resources),
   })
+  if (hoistBackdropRasters(state.document, state.budget)) state.changed = true
   state.budget = { decodedBytes: 0 }
   walkPressGraph(document, {
     content: (object, stream, replace, resources) => rewriteContent(state, object, stream, replace, resources),
