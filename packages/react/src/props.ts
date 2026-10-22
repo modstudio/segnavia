@@ -28,6 +28,7 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
+import type { ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -97,6 +98,16 @@ export type PaperPickerProps = Omit<ElementProps<SegnaviaPaperPicker>, 'onChange
   value?: SegnaviaPaperPicker['value']
   labels?: PaperPickerLabelOverrides
   onChange?: CustomEventProp<SegnaviaPaperPicker['value']>
+}
+
+export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
+  declarations?: SegnaviaItemSettings['declarations']
+  fills?: SegnaviaItemSettings['fills']
+  fill?: SegnaviaItemSettings['fill']
+  source?: SegnaviaItemSettings['source']
+  report?: SegnaviaItemSettings['report']
+  labels?: Partial<ItemSettingsLabels>
+  onSegnaviaFillSelect?: CustomEventProp<string>
 }
 
 export interface PageProps extends ElementProps<SegnaviaPage> {

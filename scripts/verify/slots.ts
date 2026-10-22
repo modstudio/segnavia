@@ -69,4 +69,40 @@ export async function verifySlots(h: Harness) {
   )
   check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
   check('an invalid authored shrink marker cannot prevent page readiness', true)
+
+  await page.waitForFunction(() => document.querySelector('#card-settings')?.shadowRoot?.querySelector('[part~="fill-select"]'))
+  const settings = page.locator('#card-settings')
+  const nameInput = settings.locator('[data-key="name"] input')
+  check(
+    'a source value is read-only with an override control',
+    (await nameInput.evaluate((input: HTMLInputElement) => input.readOnly)) === true && (await settings.locator('[data-action="override"]').count()) === 1,
+  )
+  await settings.locator('[data-action="override"]').click()
+  check('overriding a source value makes the field editable', (await nameInput.evaluate((input: HTMLInputElement) => input.readOnly)) === false)
+  await nameInput.fill('Hand Name')
+  await page.evaluate(() => (window as unknown as { itemSettingsAuthoring: { flush(): Promise<void> } }).itemSettingsAuthoring.flush())
+  const saved = await page.evaluate(
+    () => (window as unknown as { itemSettingsFacts: { saves: Array<{ values: Record<string, string> }> } }).itemSettingsFacts.saves.at(-1)?.values.name,
+  )
+  check('editing a value saves through the host handler', saved === 'Hand Name', String(saved))
+
+  await settings.locator('[part~="fill-select"]').selectOption('noah')
+  await page.locator('#mina iframe').first().contentFrame().locator('body').getByText('Noah Kim').waitFor()
+  const minaAfterSwitch = await frameText('#mina iframe')
+  check('switching fills changes the card', minaAfterSwitch.join(' ').includes('Noah Kim'), minaAfterSwitch.join(' '))
+
+  const rtl = await page.locator('#card-settings-rtl').evaluate((element) => {
+    const root = element.shadowRoot
+    const sections = root?.querySelector('[part~="sections"]')
+    return {
+      dir: sections?.getAttribute('dir'),
+      textAlign: sections ? getComputedStyle(sections).textAlign : null,
+      inputDir: root?.querySelector<HTMLInputElement>('[data-key="name"] input')?.dir,
+    }
+  })
+  check(
+    'item settings lays out in rtl and value inputs use dir auto',
+    rtl.dir === 'rtl' && rtl.textAlign === 'start' && rtl.inputDir === 'auto',
+    JSON.stringify(rtl),
+  )
 }

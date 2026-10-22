@@ -33,7 +33,6 @@ const SITE = path.join(OUT, 'site')
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const build = Bun.spawn(['bun', 'run', 'build'], { cwd: ROOT, stdout: 'inherit', stderr: 'inherit' })
 if ((await build.exited) !== 0) throw new Error('bun run build failed.')
-
 rmSync(SITE, { recursive: true, force: true })
 mkdirSync(path.join(SITE, 'shots'), { recursive: true })
 
@@ -314,13 +313,14 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
-for (const buildDemo of [buildBookDemo, buildPaperDemo, buildSlotDemo]) buildDemo(SITE)
+buildBookDemo(SITE)
+buildPaperDemo(SITE)
+await buildSlotDemo(SITE)
 await buildDocumentDemo(ROOT, SITE)
 await buildBoardDemo(SITE, `shots/${listShot.file}`, `shots/${formShot.file}`)
 const schemas = path.join(OUT, 'schema')
 mkdirSync(schemas, { recursive: true })
 for (const [name, schema] of Object.entries(jsonSchemas())) writeFileSync(path.join(schemas, `${name}.schema.json`), JSON.stringify(schema, null, 2))
-
 const printable = {
   ...deck,
   slides: deck.slides.map((slide) =>

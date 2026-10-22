@@ -1,6 +1,7 @@
 import type { DeckController } from '@segnavia/frame'
 import { type AuthoringController, type AuthoringHandlers, type AuthoringOptions, attachAuthoring } from '@segnavia/frame/authoring'
 import { attachDocumentAuthoring, type DocumentAuthoringController, type DocumentAuthoringHandlers } from '@segnavia/frame/document-authoring'
+import { attachItemSettings, type ItemSettingsController, type ItemSettingsHandlers, type SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import '@segnavia/frame/player'
 import type { SegnaviaDocument } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
@@ -56,6 +57,7 @@ export const Player = createComponent(ELEMENTS.player)
 export const Stage = createComponent(ELEMENTS.stage)
 export const Thumbnail = createComponent(ELEMENTS.thumbnail)
 export const PaperPicker = createComponent(ELEMENTS.paperPicker)
+export const ItemSettings = createComponent(ELEMENTS.itemSettings)
 export const Page = createComponent(ELEMENTS.page)
 export const Paper = createComponent(ELEMENTS.paper)
 export const Document = createComponent(ELEMENTS.document)
@@ -123,6 +125,23 @@ export function useDocumentAuthoring(document: SegnaviaDocument | null, handlers
   return controller
 }
 
+export function useItemSettings(element: SegnaviaItemSettings | null, handlers: ItemSettingsHandlers): ItemSettingsController | null {
+  const [controller, setController] = useState<ItemSettingsController | null>(null)
+  const latestHandlers = useRef(handlers)
+  latestHandlers.current = handlers
+  useEffect(() => {
+    if (!element) return
+    const attached = attachItemSettings(element, latestHandlers.current)
+    setController(attached)
+    return () => {
+      attached.detach()
+      setController(null)
+    }
+  }, [element])
+  useEffect(() => controller?.update(handlers), [controller, handlers])
+  return controller
+}
+
 export type {
   AuthoringController,
   AuthoringErrorDetail,
@@ -139,5 +158,13 @@ export type {
   MovePageHandler,
   MovePageInput,
 } from '@segnavia/frame/document-authoring'
+export type {
+  ItemSettingsController,
+  ItemSettingsErrorDetail,
+  ItemSettingsHandlers,
+  ItemSettingsLabels,
+  ItemSettingsSection,
+  ItemSettingsSectionContext,
+} from '@segnavia/frame/item-settings'
 export type { SegnaviaIntrinsicElements } from './jsx.ts'
 export type * from './props.ts'

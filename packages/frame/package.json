@@ -92,6 +92,11 @@
       "types": "./dist/board-editing.d.ts",
       "default": "./dist/board-editing.js"
     },
+    "./item-settings": {
+      "@segnavia/source": "./src/item-settings.ts",
+      "types": "./dist/item-settings.d.ts",
+      "default": "./dist/item-settings.js"
+    },
     "./icons": {
       "@segnavia/source": "./src/icons.ts",
       "types": "./dist/icons.d.ts",
