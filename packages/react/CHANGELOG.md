@@ -1,5 +1,19 @@
 # @segnavia/react
 
+## 0.24.0
+
+### Minor Changes
+
+- 7fb9876: Open host-placed item settings from authoring rails and expose current slide settings as an item-settings section.
+
+### Patch Changes
+
+- Updated dependencies [5303c90]
+- Updated dependencies [7fb9876]
+- Updated dependencies [5303c90]
+- Updated dependencies [dfbfc4e]
+  - @segnavia/frame@0.24.0
+
 ## 0.23.0
 
 ### Minor Changes
