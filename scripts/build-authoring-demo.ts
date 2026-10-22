@@ -18,7 +18,7 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
         id: 'probe',
         content: {
           kind: 'html',
-          html: '<style>@keyframes authoring-fade{from{opacity:0}to{opacity:1}}#print-target{animation:authoring-fade 1s linear both}</style><div id="print-target">Animated</div><input id="thief"><output id="keys">0</output><script>let keys=0;setInterval(()=>document.getElementById("thief").focus(),20);addEventListener("keydown",()=>document.getElementById("keys").textContent=String(++keys))</script>',
+          html: '<style>@keyframes authoring-fade{from{opacity:0}to{opacity:1}}#print-target{animation:authoring-fade 1s linear both}</style><div id="print-target">Animated</div><input id="thief"><output id="keys">0</output><script>let keys=0;const id=setInterval(()=>document.getElementById("thief").focus(),20);window.stopThief=()=>clearInterval(id);addEventListener("keydown",()=>document.getElementById("keys").textContent=String(++keys))</script>',
         },
         holdMs: 1000,
       },
