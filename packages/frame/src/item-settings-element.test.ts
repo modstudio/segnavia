@@ -57,22 +57,6 @@ describe('item settings host refreshes', () => {
     ])
   })
 
-  test('keeps a typed draft while its save is in flight, then adopts a later host value', async () => {
-    let release = () => {}
-    const { element, controller } = setup(() => new Promise<void>((resolve) => (release = resolve)))
-    typeName(element, 'Mina Patel')
-    const saving = controller.flush()
-    await Promise.resolve()
-
-    element.fills = [original, other]
-    expect(element.fills[0]).toEqual({ id: 'mina', values: { name: 'Mina Patel' } })
-
-    release()
-    await saving
-    element.fills = [{ id: 'mina', values: { name: 'Mina Host' } }, other]
-    expect(element.fills[0]).toEqual({ id: 'mina', values: { name: 'Mina Host' } })
-  })
-
   test('adopts a host value received while its save is debouncing once the save settles', async () => {
     const { element, controller } = setup(async () => {})
     typeName(element, 'Mina Patel')
@@ -98,5 +82,19 @@ describe('item settings host refreshes', () => {
     release()
     await saving
     expect(element.fills[0]).toEqual({ id: 'mina', values: { name: 'Mina Host' } })
+  })
+
+  test('never saves a fill the host stops listing', async () => {
+    const saved: string[] = []
+    const { element, controller } = setup(async (fill) => {
+      saved.push(fill.id)
+    })
+    typeName(element, 'Mina Patel')
+
+    element.fills = [other]
+    await controller.flush()
+
+    expect(element.fills).toEqual([other])
+    expect(saved).toEqual([])
   })
 })

@@ -52,8 +52,15 @@ export class ItemSettingsController extends EventTarget {
     this.seedFills(host.fills)
   }
 
+  /**
+   * Seeds the host's fill list and returns the list the panel should show,
+   * with any dirty or saving draft kept in place of its host value. The host
+   * owns which fills exist, so a fill it omits is forgotten, pending save and all.
+   */
   seedFills(fills: readonly Fill[]): Fill[] {
-    return fills.map((fill) => (isProvisionalFillId(fill.id) ? fill : this.queue.seed(fill)))
+    const shown = fills.map((fill) => (isProvisionalFillId(fill.id) ? fill : this.queue.seed(fill)))
+    this.queue.retain(new Set(fills.filter((fill) => !isProvisionalFillId(fill.id)).map((fill) => fill.id)))
+    return shown
   }
 
   get pickAsset(): ItemSettingsHandlers['pickAsset'] {

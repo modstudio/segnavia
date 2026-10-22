@@ -24,6 +24,7 @@ interface Entry {
 export class FillSaveQueue {
   private entries = new Map<string, Entry>()
   private timers = new Map<string, number>()
+  private disposed = false
 
   constructor(
     private save: (fill: Fill) => Promise<void>,
@@ -36,6 +37,11 @@ export class FillSaveQueue {
     this.save = save
   }
 
+  /**
+   * Seeds a host value and returns the fill the panel should show for it: the
+   * local draft while that fill is dirty or saving (the host value is kept and
+   * adopted once the save settles cleanly), otherwise the host value itself.
+   */
   seed(fill: Fill): Fill {
     const existing = this.entries.get(fill.id)
     if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) {
@@ -88,8 +94,24 @@ export class FillSaveQueue {
     this.entries.delete(id)
   }
 
+  /** Forgets every fill the host no longer lists; their pending saves never fire. */
+  retain(ids: ReadonlySet<string>) {
+    for (const id of [...this.entries.keys()]) if (!ids.has(id)) this.drop(id)
+  }
+
+  /**
+   * Stops timers and every visible write. A save already in flight still
+   * finishes, but neither its rollback nor an adopted host value reaches a
+   * panel this queue no longer belongs to.
+   */
   dispose() {
+    this.disposed = true
     for (const id of [...this.timers.keys()]) this.clearTimer(id)
+  }
+
+  /** The one door to the visible list, shared by rollback and adoption. */
+  private show(fill: Fill) {
+    if (!this.disposed) this.replaceVisible(fill)
   }
 
   private start(entry: Entry): Promise<boolean> {
@@ -119,7 +141,7 @@ export class FillSaveQueue {
         } catch (error: unknown) {
           if (entry.version !== version) continue
           entry.draft = cloneFill(entry.saved)
-          this.replaceVisible(cloneFill(entry.saved))
+          this.show(cloneFill(entry.saved))
           this.failed(entry.saved.id, error)
           return false
         }
@@ -143,6 +165,6 @@ export class FillSaveQueue {
     if (!snapshot || sameFill(snapshot, entry.saved)) return
     entry.draft = cloneFill(snapshot)
     entry.saved = cloneFill(snapshot)
-    this.replaceVisible(cloneFill(snapshot))
+    this.show(cloneFill(snapshot))
   }
 }
