@@ -34,6 +34,7 @@ export class SegnaviaDocument extends HTMLElement {
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
     this.paint()
+    this.dispatchEvent(new CustomEvent('segnavia-document-slots'))
   }
 
   get css(): string {
