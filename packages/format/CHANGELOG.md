@@ -1,5 +1,13 @@
 # @segnavia/format
 
+## 0.23.0
+
+### Minor Changes
+
+- b8d700b: Add measured per-slot overflow policies and refuse printing when configured text does not fit.
+- 2826705: Add host data sources as a second slot fill layer with per-value hand overrides.
+- 20456e8: Add QR slots, refuse print and server output with unfilled required slots, and collapse unfilled optional slot elements.
+
 ## 0.22.0
 
 ### Minor Changes

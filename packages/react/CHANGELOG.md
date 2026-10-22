@@ -1,5 +1,24 @@
 # @segnavia/react
 
+## 0.23.0
+
+### Minor Changes
+
+- b8d700b: Add measured per-slot overflow policies and refuse printing when configured text does not fit.
+- 2826705: Add host data sources as a second slot fill layer with per-value hand overrides.
+- c47e666: Add a standalone item settings element with a Fields section, fill switcher, and host-owned fill authoring.
+- 20456e8: Add QR slots, refuse print and server output with unfilled required slots, and collapse unfilled optional slot elements.
+
+### Patch Changes
+
+- Updated dependencies [b8d700b]
+- Updated dependencies [2826705]
+- Updated dependencies [c47e666]
+- Updated dependencies [8a6826c]
+- Updated dependencies [20456e8]
+- Updated dependencies [68757a0]
+  - @segnavia/frame@0.23.0
+
 ## 0.22.0
 
 ### Minor Changes
