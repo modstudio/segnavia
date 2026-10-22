@@ -42,6 +42,31 @@ describe('item settings authoring', () => {
     expect(isProvisionalFillId(temp.id)).toBe(true)
   })
 
+  test('a provisional fill removed before its create settles is deleted on the host exactly once', async () => {
+    const view = host()
+    const created: Fill = { id: 'host-1', label: 'New fill', values: {} }
+    let release: (fill: Fill) => void = () => {}
+    const deletes: string[] = []
+    const controller = new ItemSettingsController(view, {
+      createFill: () => new Promise<Fill>((resolve) => (release = resolve)),
+      saveFill: async () => {},
+      deleteFill: async (id) => {
+        deletes.push(id)
+      },
+    })
+    const temp = { id: provisionalFillId(), label: 'New fill', values: {} }
+    view.fills = [temp]
+    view.fill = temp.id
+    controller.create(temp)
+    view.fills = []
+    controller.delete(temp.id, [temp], temp.id)
+    release(created)
+    await controller.flush()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(deletes).toEqual(['host-1'])
+    expect(view.fills).toEqual([])
+  })
+
   test('rolls back a rejected create and emits authoring-error', async () => {
     const view = host()
     const errors: ItemSettingsErrorDetail[] = []

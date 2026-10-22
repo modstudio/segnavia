@@ -28,6 +28,7 @@ interface FocusSnapshot {
   tag: string
   type: string
   start: number | null
+  end: number | null
 }
 
 export class SegnaviaItemSettings extends HTMLElement {
@@ -265,6 +266,7 @@ export class SegnaviaItemSettings extends HTMLElement {
       tag: active.tagName,
       type: active instanceof HTMLInputElement || active instanceof HTMLSelectElement ? active.type : '',
       start: active instanceof HTMLInputElement ? active.selectionStart : null,
+      end: active instanceof HTMLInputElement ? active.selectionEnd : null,
     }
   }
 
@@ -277,6 +279,6 @@ export class SegnaviaItemSettings extends HTMLElement {
       return slot === snapshot.slot && node.dataset.action === snapshot.action && [...node.part].join(' ') === snapshot.part && type === snapshot.type
     })
     match?.focus()
-    if (match instanceof HTMLInputElement && snapshot.start !== null) match.setSelectionRange(snapshot.start, snapshot.start)
+    if (match instanceof HTMLInputElement && snapshot.start !== null) match.setSelectionRange(snapshot.start, snapshot.end ?? snapshot.start)
   }
 }

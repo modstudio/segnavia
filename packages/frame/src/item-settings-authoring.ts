@@ -125,7 +125,8 @@ export class ItemSettingsController extends EventTarget {
           this.error('deleteFill', created.id, error)
         }
       }
-      return created
+      // This branch owns the host delete; returning null keeps the chained delete in delete() from repeating it.
+      return null
     }
     const draft = pending.draft
     const merged = cloneFill(created)
