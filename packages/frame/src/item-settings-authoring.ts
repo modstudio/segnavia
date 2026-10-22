@@ -52,8 +52,8 @@ export class ItemSettingsController extends EventTarget {
     this.seedFills(host.fills)
   }
 
-  seedFills(fills: readonly Fill[]) {
-    for (const fill of fills) if (!isProvisionalFillId(fill.id)) this.queue.seed(fill)
+  seedFills(fills: readonly Fill[]): Fill[] {
+    return fills.map((fill) => (isProvisionalFillId(fill.id) ? fill : this.queue.seed(fill)))
   }
 
   get pickAsset(): ItemSettingsHandlers['pickAsset'] {

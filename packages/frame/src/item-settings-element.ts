@@ -70,7 +70,8 @@ export class SegnaviaItemSettings extends HTMLElement {
 
   set fills(value: readonly Fill[] | undefined) {
     this.fillList = cloneFills(value ?? [])
-    this.authoring?.seedFills(this.fillList)
+    const authoring = this.authoring
+    if (authoring) this.fillList = authoring.seedFills(this.fillList)
     this.render()
   }
 

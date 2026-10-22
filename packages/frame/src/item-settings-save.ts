@@ -16,6 +16,7 @@ const browserTimers: Timers = {
 interface Entry {
   draft: Fill
   saved: Fill
+  hostSnapshot?: Fill
   version: number
   inflight: Promise<boolean> | null
 }
@@ -26,7 +27,7 @@ export class FillSaveQueue {
 
   constructor(
     private save: (fill: Fill) => Promise<void>,
-    private rolledBack: (fill: Fill) => void,
+    private replaceVisible: (fill: Fill) => void,
     private failed: (id: string, error: unknown) => void,
     private time: Timers = browserTimers,
   ) {}
@@ -35,10 +36,14 @@ export class FillSaveQueue {
     this.save = save
   }
 
-  seed(fill: Fill) {
+  seed(fill: Fill): Fill {
     const existing = this.entries.get(fill.id)
-    if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) return
+    if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) {
+      existing.hostSnapshot = cloneFill(fill)
+      return cloneFill(existing.draft)
+    }
     this.entries.set(fill.id, { draft: cloneFill(fill), saved: cloneFill(fill), version: 0, inflight: null })
+    return cloneFill(fill)
   }
 
   edit(fill: Fill) {
@@ -92,7 +97,10 @@ export class FillSaveQueue {
       })
     }
     if (sameFill(entry.draft, entry.saved)) return Promise.resolve(true)
-    const running = this.pump(entry)
+    const running = this.pump(entry).then((ok) => {
+      if (ok) this.adoptHostSnapshot(entry)
+      return ok
+    })
     entry.inflight = running
     return running
   }
@@ -108,7 +116,7 @@ export class FillSaveQueue {
         } catch (error: unknown) {
           if (entry.version !== version) continue
           entry.draft = cloneFill(entry.saved)
-          this.rolledBack(cloneFill(entry.saved))
+          this.replaceVisible(cloneFill(entry.saved))
           this.failed(entry.saved.id, error)
           return false
         }
@@ -124,5 +132,14 @@ export class FillSaveQueue {
     if (timer === undefined) return
     this.time.clear(timer)
     this.timers.delete(id)
+  }
+
+  private adoptHostSnapshot(entry: Entry) {
+    const snapshot = entry.hostSnapshot
+    entry.hostSnapshot = undefined
+    if (!snapshot || sameFill(snapshot, entry.saved)) return
+    entry.draft = cloneFill(snapshot)
+    entry.saved = cloneFill(snapshot)
+    this.replaceVisible(cloneFill(snapshot))
   }
 }
