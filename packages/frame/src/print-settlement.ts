@@ -2,12 +2,22 @@ import { MESSAGE, type SlotFitState, slotFitMessageData } from './bridge.ts'
 
 export type PrintImage = EventTarget & { readonly complete: boolean; decode?: () => Promise<unknown> }
 
+/** True while some filled frame that marked a refuse slot has not yet posted its fit report. */
+export function slotFitStillPending(marked: ReadonlyMap<string, number>, measured: ReadonlyMap<string, number>, refuseKeys: ReadonlySet<string>): boolean {
+  for (const [key, count] of marked) {
+    if (!refuseKeys.has(key)) continue
+    if ((measured.get(key) ?? 0) < count) return true
+  }
+  return false
+}
+
 export function printDocumentSettled(
   messages: EventTarget,
   frameWindows: readonly EventTarget[],
   images: readonly PrintImage[],
   deadline: Promise<unknown>,
   onSlotFit?: (slots: Record<string, SlotFitState>) => void,
+  slotFitPending?: () => boolean,
 ): Promise<void> {
   return new Promise((resolve) => {
     const waitingFrames = new Set(frameWindows)
@@ -25,7 +35,8 @@ export function printDocumentSettled(
       resolve()
     }
     const finishIfSettled = () => {
-      if (waitingFrames.size === 0 && waitingImages.size === 0) finish()
+      // Ready is not enough while a filled frame still owes its fit report; the deadline still releases.
+      if (waitingFrames.size === 0 && waitingImages.size === 0 && !slotFitPending?.()) finish()
     }
     const onImage = (event: Event) => {
       const image = event.currentTarget as PrintImage
@@ -40,6 +51,7 @@ export function printDocumentSettled(
       const fit = slotFitMessageData(message.data)
       if (fit) {
         onSlotFit?.(fit.slots)
+        finishIfSettled()
         return
       }
       if ((message.data as { type?: unknown })?.type !== MESSAGE.ready) return

@@ -32,6 +32,7 @@ export async function verifySlots(h: Harness) {
       slotFacts: {
         reports: Array<{ fill: string | null; slots: Record<string, string> }>
         refuseError?: string
+        inlineRefuseElapsed: number
         failedAsset?: { slots: Record<string, string> }
       }
       slotPrintFacts: string
@@ -68,6 +69,7 @@ export async function verifySlots(h: Harness) {
     JSON.stringify({ reports: facts.reports.filter((report) => report.fill === 'long-print'), marked: facts.shrink?.includes('data-slot-overflow') }),
   )
   check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
+  check('an inline refuse slot reports and prints without waiting for the deadline', facts.inlineRefuseElapsed < 1800, `${facts.inlineRefuseElapsed}ms`)
   check('an invalid authored shrink marker cannot prevent page readiness', true)
 
   await page.waitForFunction(() => document.querySelector('#card-settings')?.shadowRoot?.querySelector('[part~="fill-select"]'))
