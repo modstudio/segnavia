@@ -33,8 +33,12 @@ function rgbOf(rgba: number[]): Uint8Array {
 function difference(reference: Uint8Array, rendered: Uint8Array): { mean: number; p99: number } {
   const values: number[] = []
   const inset = 12
+  // The comparison starts below the panel's one line of text: the check is
+  // about the frosted backdrop, and glyph edges anti-alias differently in
+  // Chromium and pdftoppm across platforms. Text is checked by extraction.
+  const textBottom = 120
   const x0 = Math.floor((PANEL.x + inset) * SCALE)
-  const y0 = Math.floor((PANEL.y + inset) * SCALE)
+  const y0 = Math.floor((PANEL.y + textBottom) * SCALE)
   const x1 = Math.ceil((PANEL.x + PANEL.width - inset) * SCALE)
   const y1 = Math.ceil((PANEL.y + PANEL.height - inset) * SCALE)
   const width = Math.round(WIDTH * SCALE)
