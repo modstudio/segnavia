@@ -101,6 +101,18 @@ const { DocumentAuthoringController } = await import('./document-authoring.ts')
 const { SegnaviaDocument } = await import('./document.ts')
 type DocumentAuthoringControllerInstance = InstanceType<typeof DocumentAuthoringController>
 
+function installCreateElement() {
+  Object.assign(globalThis, {
+    document: {
+      createElement(tag: string) {
+        const element = new TestElement()
+        element.tagName = tag
+        return element
+      },
+    },
+  })
+}
+
 test('attachment reads the visible page before opening item settings', () => {
   const opened: Array<{ pageId: string }> = []
   const documentElement = Object.assign(new EventTarget(), {
@@ -184,10 +196,29 @@ function slottedPages() {
 }
 
 function slottedDocument(slots: SlotsOptions) {
-  const documentElement = new SegnaviaDocument()
-  documentElement.pages = slottedPages()
-  documentElement.slots = slots
-  const controller = new DocumentAuthoringController(documentElement, { movePage: async () => {} }, {})
+  installCreateElement()
+  const pages = slottedPages()
+  let currentSlots: SlotsOptions | undefined = slots
+  const documentElement = Object.assign(new EventTarget(), {
+    currentPageIndex: 0,
+    pages,
+    print: null,
+    css: '',
+    setAuthoringRail() {},
+    scrollToPage() {},
+  }) as EventTarget & {
+    pages: Page[]
+    slots: SlotsOptions | undefined
+  }
+  Object.defineProperty(documentElement, 'slots', {
+    configurable: true,
+    get: () => currentSlots,
+    set(value: SlotsOptions | undefined) {
+      currentSlots = value
+      documentElement.dispatchEvent(new CustomEvent('segnavia-document-slots'))
+    },
+  })
+  const controller = new DocumentAuthoringController(documentElement as never, { movePage: async () => {} }, {})
   return { documentElement, controller, rail: authoringRail(controller) }
 }
 
@@ -197,6 +228,22 @@ function authoringRail(controller: DocumentAuthoringControllerInstance) {
 
 describe('document authoring rail slots', () => {
   const ada: SlotsOptions = { fill: { id: 'ada', values: { name: 'Ada' } } }
+
+  test('setting slots on the document notifies without a document-change rebuild', () => {
+    const events: string[] = []
+    const host = {
+      slotOptions: undefined as SlotsOptions | undefined,
+      paint() {},
+      dispatchEvent(event: Event) {
+        events.push(event.type)
+        return true
+      },
+    }
+    const slots = Object.getOwnPropertyDescriptor(SegnaviaDocument.prototype, 'slots')
+    slots?.set?.call(host, ada)
+    expect(host.slotOptions).toBe(ada)
+    expect(events).toEqual(['segnavia-document-slots'])
+  })
 
   test('every rail thumbnail receives the document slots object', () => {
     const { documentElement, rail } = slottedDocument(ada)
