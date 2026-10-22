@@ -54,8 +54,8 @@ export interface PagePlacementLayout {
 const zeroCrop = () => ({ top: 0, right: 0, bottom: 0, left: 0 })
 
 function columnWidthsMm(imposition: Imposition): number[] {
-  if (imposition.fold && imposition.panels) return imposition.panels.map((width) => toMillimeters(width, imposition.unit))
-  return Array.from({ length: imposition.columns }, () => toMillimeters(imposition.cell.width, imposition.unit))
+  if (imposition.fold) return (imposition.panels ?? []).map((width) => toMillimeters(width, imposition.unit))
+  return Array.from({ length: imposition.columns }, () => toMillimeters(imposition.cell.width ?? 0, imposition.unit))
 }
 
 function columnXMm(imposition: Imposition, column: number, widths: number[], paperWidth: number): number {
@@ -78,7 +78,7 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
   const row = Math.floor(cell / imposition.columns)
   const physicalColumn = imposition.dir === 'rtl' ? imposition.columns - column - 1 : column
   const widths = columnWidthsMm(imposition)
-  const cellWidth = widths[column] ?? mm(imposition.cell.width)
+  const cellWidth = widths[column] ?? mm(imposition.cell.width ?? 0)
   const cellHeight = mm(imposition.cell.height)
   const columnGap = mm(imposition.gap.column)
   const rowGap = mm(imposition.gap.row)

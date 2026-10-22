@@ -1,4 +1,4 @@
-import { type Imposed, type ImpositionSideMarks, type MarkSegment, MM_PER_PT } from '@segnavia/format'
+import { FOLD_DASH_OFF_MM, FOLD_DASH_ON_MM, type Imposed, type ImpositionSideMarks, type MarkSegment, MM_PER_PT } from '@segnavia/format'
 import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle, rgb } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
@@ -20,8 +20,6 @@ export function drawClippedPage(target: PDFPage, embedded: PDFEmbeddedPage, draw
 
 const MARK_COLOR = rgb(0, 0, 0)
 const MARK_THICKNESS_PT = 0.25
-const FOLD_DASH_ON_PT = 2 / MM_PER_PT
-const FOLD_DASH_OFF_PT = 1 / MM_PER_PT
 
 function drawImposedMark(paper: PDFPage, mark: MarkSegment, paperHeight: number): void {
   paper.drawLine({
@@ -29,7 +27,7 @@ function drawImposedMark(paper: PDFPage, mark: MarkSegment, paperHeight: number)
     end: { x: mark.x2 / MM_PER_PT, y: (paperHeight - mark.y2) / MM_PER_PT },
     thickness: MARK_THICKNESS_PT,
     color: MARK_COLOR,
-    ...(mark.dashed ? { dashArray: [FOLD_DASH_ON_PT, FOLD_DASH_OFF_PT] } : {}),
+    ...(mark.dashed ? { dashArray: [FOLD_DASH_ON_MM / MM_PER_PT, FOLD_DASH_OFF_MM / MM_PER_PT] } : {}),
   })
 }
 

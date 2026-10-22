@@ -1,7 +1,6 @@
+import { type IssueCtx, refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import type { Orientation, Paper, PaperUnit } from './paper.ts'
 import { fromMillimeters, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
-
-type IssueCtx = { addIssue: (issue: { code: 'custom'; path: (string | number)[]; message: string }) => void }
 
 export const FOLD_KINDS = ['half', 'letter', 'z', 'gate', 'custom'] as const
 export type FoldKind = (typeof FOLD_KINDS)[number]
@@ -77,7 +76,7 @@ export function presetPanelWidthsMm(fold: Exclude<FoldKind, 'custom'>, available
     const flap = roundMillimeters(availableMm / 4 - FOLD_TUCK_IN_MM)
     return [flap, roundMillimeters(availableMm - flap * 2), flap]
   }
-  return splitSum(availableMm, fold === 'half' ? 2 : 3)
+  return splitSum(availableMm, foldColumns(fold))
 }
 
 function availableWidthMm(draft: FoldDraft): number {
@@ -163,35 +162,11 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
     )
   }
   const height = toMillimeters(draft.margin.top, draft.unit) + toMillimeters(draft.cell.height, draft.unit) + toMillimeters(draft.margin.bottom, draft.unit)
-  if (height - paper.height > FOLD_WIDTH_TOLERANCE_MM) {
-    issue(
-      ctx,
-      ['rows'],
-      `the grid is ${roundMillimeters(height)}mm high and the paper is ${paper.height}mm high, an overflow of ${roundMillimeters(height - paper.height)}mm; reduce the vertical margins or cell height`,
-    )
-  }
-  const safe = toMillimeters(draft.safe, draft.unit)
-  const narrowest = Math.min(...widths)
-  if (safe * 2 >= narrowest) {
-    issue(
-      ctx,
-      ['safe'],
-      `safe is ${roundMillimeters(safe)}mm on the left and right, but the cell is ${roundMillimeters(narrowest)}mm wide; safe must leave area inside the cell`,
-    )
-  }
-  const cellHeight = toMillimeters(draft.cell.height, draft.unit)
-  if (safe * 2 >= cellHeight) {
-    issue(
-      ctx,
-      ['safe'],
-      `safe is ${roundMillimeters(safe)}mm on the top and bottom, but the cell is ${roundMillimeters(cellHeight)}mm high; safe must leave area inside the cell`,
-    )
-  }
+  refuseOverflow(ctx, paper, { width: sum, height })
+  refuseSafe(ctx, toMillimeters(draft.safe, draft.unit), { width: Math.min(...widths), height: toMillimeters(draft.cell.height, draft.unit) })
 }
 
-export function resolveImposition<T extends FoldDraft>(
-  value: T,
-): T & { columns: number; rows: number; sides: 'one' | 'two'; cell: { width: number; height: number } } {
+export function resolveImposition<T extends FoldDraft>(value: T): T & { columns: number; rows: number; sides: 'one' | 'two' } {
   if (!value.fold) {
     return {
       ...value,
@@ -212,6 +187,5 @@ export function resolveImposition<T extends FoldDraft>(
     skip: 0,
     gap: { column: 0, row: value.gap.row },
     panels,
-    cell: { width: panels[0] ?? value.cell.width ?? 1, height: value.cell.height },
   }
 }

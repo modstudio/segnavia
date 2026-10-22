@@ -420,11 +420,13 @@ two-sided imposition uses two per physical paper.
 **Folds.** A folded piece is an imposition whose cells are panels: one row,
 columns that may differ in width, two sides, and a fold between adjacent
 columns. `fold` is `half` (2 panels), `letter` (roll/C-fold, 3), `z` (3, equal
-panels), `gate` (3, centre twice the flaps), or `custom` (the host's `panels`
-widths, at least two). Presets compute panel widths that fill the paper with
-the horizontal margins; letter and gate narrow each tuck-in panel by
-`FOLD_TUCK_IN_MM` (1.5 mm, a round value in the usual 1/32–1/16 in finishing
-allowance). The host may override `panels`; a custom fold requires them.
+panels), `gate` (3), or `custom` (the host's `panels` widths, at least two).
+Presets compute panel widths that fill the paper with the horizontal margins;
+letter and gate narrow each tuck-in panel by `FOLD_TUCK_IN_MM` (1.5 mm, a round
+value in the usual 1/32–1/16 in finishing allowance). A gate fold's flaps are
+each a quarter of the usable width minus `FOLD_TUCK_IN_MM`; the center is the
+width left after the two flaps (`availableMm − 2×flap`). The host may override
+`panels`; a custom fold requires them.
 Columns, rows, sides, fill, skip and column gap are derived or must already
 match: one row, two sides, sequence, no skip, panels touching. `cell.height`
 is required; `cell.width` is unused. Widths plus horizontal margins must equal
@@ -447,7 +449,7 @@ the long-edge flip; the map is the same for LTR and RTL. Side A is the outside
 
 Letter's tuck-in is A column 0 / B last (pages 5 and 4). Gate's tuck-ins are
 the two outer columns (pages 2/5 and 1/3); page 1 is the cover half that sits
-at inline-start when closed. Custom widths use the letter/roll map generalised
+at inline-start when closed. Custom widths use the letter/roll map generalized
 to n panels: A `[n+2 … 2n, 1]`, B `[2 … n+1]`.
 
 When `marks` is on, each fold gets short dashed marks in the margin beyond the

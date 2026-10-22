@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { FOLD_TUCK_IN_MM, foldPanelMap, Imposition, impose, type Placement } from './index.ts'
+import { FOLD_TUCK_IN_MM, foldPanelMap, Imposition, impose, MAX_IMPOSITION_CELLS, type Placement } from './index.ts'
 
 const foldInput = (overrides: Record<string, unknown> = {}) => ({
   paper: { width: 300, height: 100, unit: 'mm' as const },
@@ -26,15 +26,23 @@ describe('foldPanelMap', () => {
 })
 
 describe('folded imposition', () => {
-  test.each(['ltr', 'rtl'] as const)('letter, z, gate and half pair a0 with b-last in %s', (dir) => {
-    for (const fold of ['half', 'letter', 'z', 'gate'] as const) {
-      const value = parseFold({ fold, dir })
+  test.each(['ltr', 'rtl'] as const)('letter, z, gate, half and custom pair a0 with b-last in %s', (dir) => {
+    const folds = [
+      ['half', undefined],
+      ['letter', undefined],
+      ['z', undefined],
+      ['gate', undefined],
+      ['custom', [40, 80, 80, 100]],
+    ] as const
+    for (const [fold, panels] of folds) {
+      const value = parseFold({ fold, dir, ...(panels ? { panels } : {}) })
       const map = foldPanelMap(fold, value.columns)
       const imposed = impose(value, value.columns * 2)
       const fronts = byColumn(imposed.placements, 'front')
       const backs = byColumn(imposed.placements, 'back')
       expect(fronts.map((placement) => placement.page + 1)).toEqual(map.front)
       expect(backs[0]?.page).toBe((map.back.at(-1) ?? 0) - 1)
+      expect(backs.map((placement) => placement.page + 1)).toEqual([...map.back].reverse())
       expect(fronts[0]?.column).toBe(0)
       expect(backs[0]?.column).toBe(0)
       expect(fronts[0]?.trim.x).toBe(backs[0]?.trim.x)
@@ -55,6 +63,8 @@ describe('folded imposition', () => {
     expect(tuck).toBeLessThan(middle ?? 0)
     const trims = byColumn(impose(value, 6).placements, 'front').map((placement) => placement.trim.width)
     expect(trims[0]).toBeCloseTo(tuck ?? 0)
+    expect(trims[1]).toBeCloseTo(middle ?? 0)
+    expect(trims[2]).toBeCloseTo(end ?? 0)
   })
 
   test('a gate fold narrows both outer flaps', () => {
@@ -64,6 +74,10 @@ describe('folded imposition', () => {
     expect(left).toBeCloseTo(300 / 4 - FOLD_TUCK_IN_MM)
     expect((left ?? 0) + (center ?? 0) + (right ?? 0)).toBeCloseTo(300)
     expect(center).toBeGreaterThan((left ?? 0) * 2)
+    const trims = byColumn(impose(value, 6).placements, 'front').map((placement) => placement.trim.width)
+    expect(trims[0]).toBeCloseTo(left ?? 0)
+    expect(trims[1]).toBeCloseTo(center ?? 0)
+    expect(trims[2]).toBeCloseTo(right ?? 0)
   })
 
   test('a letter fold in inches still fills the sheet', () => {
@@ -85,13 +99,15 @@ describe('folded imposition', () => {
   test('a host panel override is kept when it fills the paper', () => {
     const value = parseFold({ fold: 'letter', panels: [90, 110, 100] })
     expect(value.panels).toEqual([90, 110, 100])
+    expect(byColumn(impose(value, 6).placements, 'front').map((placement) => placement.trim.width)).toEqual([90, 110, 100])
   })
 
-  test('custom folds use the host widths and the roll map', () => {
-    const value = parseFold({ fold: 'custom', panels: [40, 80, 80, 100] })
-    expect(value.columns).toBe(4)
-    expect(foldPanelMap('custom', 4)).toEqual({ front: [6, 7, 8, 1], back: [2, 3, 4, 5] })
-    expect(impose(value, 8).placements).toHaveLength(8)
+  test('refuses a fold over the panel ceiling', () => {
+    const result = Imposition.safeParse(foldInput({ fold: 'custom', panels: Array.from({ length: MAX_IMPOSITION_CELLS + 1 }, () => 0.01) }))
+    expect(result.success).toBe(false)
+    const messages = result.error?.issues.map((issue) => issue.message).join(' ') ?? ''
+    expect(messages).toContain(`${MAX_IMPOSITION_CELLS + 1} panels`)
+    expect(messages).toContain(`ceiling is ${MAX_IMPOSITION_CELLS}`)
   })
 
   test('impose refuses a folded piece with the wrong page count', () => {

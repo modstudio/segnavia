@@ -7,9 +7,10 @@ import { Board } from './board.ts'
 import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
-import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
+import { FOLD_KINDS, foldColumns, refineFold, resolveImposition } from './fold.ts'
+import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
-import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
 
@@ -119,6 +120,7 @@ export {
   type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
+export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
 export {
   type ImpositionMarkEdge,
   type ImpositionSideMarks,
@@ -131,6 +133,8 @@ export * from './numbering.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
+  FOLD_DASH_OFF_MM,
+  FOLD_DASH_ON_MM,
   fromMillimeters,
   MARK_GAP_MM,
   MARK_LENGTH_MM,
@@ -231,13 +235,28 @@ export const Imposition = z
     marks: z.boolean().default(false),
     cornerMarks: z.boolean().default(false),
     fold: z.enum(FOLD_KINDS).optional(),
-    panels: z.array(z.number().positive()).optional(),
+    panels: z
+      .array(z.number().positive())
+      .max(MAX_IMPOSITION_CELLS, {
+        error: (issue) =>
+          `the fold has ${Array.isArray(issue.input) ? issue.input.length : MAX_IMPOSITION_CELLS + 1} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
+      })
+      .optional(),
   })
   .superRefine((imposition, ctx) => {
     if (imposition.cornerMarks && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
     }
     if (imposition.fold) {
+      const columns = foldColumns(imposition.fold, imposition.panels?.length)
+      if (columns > MAX_IMPOSITION_CELLS) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['panels'],
+          message: `the fold has ${columns} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
+        })
+        return
+      }
       refineFold(imposition, ctx)
       return
     }
@@ -268,37 +287,8 @@ export const Imposition = z
     const gridHeight = mm(
       imposition.margin.top + imposition.rows * imposition.cell.height + (imposition.rows - 1) * imposition.gap.row + imposition.margin.bottom,
     )
-    if (gridWidth - paper.width > 0.01) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['columns'],
-        message: `the grid is ${roundMillimeters(gridWidth)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${roundMillimeters(gridWidth - paper.width)}mm; reduce the horizontal margins, columns, cell width or column gap`,
-      })
-    }
-    if (gridHeight - paper.height > 0.01) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['rows'],
-        message: `the grid is ${roundMillimeters(gridHeight)}mm high and the paper is ${paper.height}mm high, an overflow of ${roundMillimeters(gridHeight - paper.height)}mm; reduce the vertical margins, rows, cell height or row gap`,
-      })
-    }
-    const safe = mm(imposition.safe)
-    const cellWidth = mm(imposition.cell.width)
-    const cellHeight = mm(imposition.cell.height)
-    if (safe * 2 >= cellWidth) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['safe'],
-        message: `safe is ${roundMillimeters(safe)}mm on the left and right, but the cell is ${roundMillimeters(cellWidth)}mm wide; safe must leave area inside the cell`,
-      })
-    }
-    if (safe * 2 >= cellHeight) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['safe'],
-        message: `safe is ${roundMillimeters(safe)}mm on the top and bottom, but the cell is ${roundMillimeters(cellHeight)}mm high; safe must leave area inside the cell`,
-      })
-    }
+    refuseOverflow(ctx, paper, { width: gridWidth, height: gridHeight })
+    refuseSafe(ctx, mm(imposition.safe), { width: mm(imposition.cell.width), height: mm(imposition.cell.height) })
     const cells = imposition.columns * imposition.rows
     if (imposition.skip >= cells) {
       ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })
