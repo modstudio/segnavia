@@ -82,13 +82,6 @@ Object.assign(globalThis, {
     define() {},
     get: () => undefined,
   },
-  document: {
-    createElement(tag: string) {
-      const element = new TestElement()
-      element.tagName = tag
-      return element
-    },
-  },
   getComputedStyle: () => ({ direction: 'ltr' }),
   ResizeObserver: class {
     observe() {}
@@ -97,13 +90,19 @@ Object.assign(globalThis, {
   window: { addEventListener() {}, removeEventListener() {} },
 })
 
+installCreateElement()
+
 const { DocumentAuthoringController } = await import('./document-authoring.ts')
 const { SegnaviaDocument } = await import('./document.ts')
 type DocumentAuthoringControllerInstance = InstanceType<typeof DocumentAuthoringController>
 
+// Defined rather than assigned: another file in the same run may leave
+// `document` non-writable, and assigning it then throws.
 function installCreateElement() {
-  Object.assign(globalThis, {
-    document: {
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    writable: true,
+    value: {
       createElement(tag: string) {
         const element = new TestElement()
         element.tagName = tag
