@@ -142,23 +142,41 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
   counts[token.raw === 'g' ? 'fills' : 'strokes']++
   return replacement(token, operands, convert([gray, gray, gray]))
 }
+function spaceName(operands: Token[]): string | undefined {
+  return operands.length === 1 && operands[0]?.kind === 'name' ? operands[0].raw.slice(1) : undefined
+}
 function validateSpace(token: Token, operands: Token[], destination: PressDestination): void {
-  if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
-  const name = operands[0].raw.slice(1)
+  if (!spaceName(operands)) refusal(`${token.raw} operator operands`, 'one color space name')
+  const name = spaceName(operands)
   const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name, false, destination)
   if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
 }
-function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision, destination: PressDestination): void {
+function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
   if (policy.action !== 'refuse') return
   const operator = token.raw
   if (operator === 'cs' || operator === 'CS') {
-    validateSpace(token, operands, destination)
-    return
+    const name = spaceName(operands)
+    if (!name) refusal(`${operator} operator operands`, 'one color space name')
+    refusal(`${operator} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
   }
   if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN')
     refusal(`${operator} operator with numeric operands`, policy.supported)
   const color = operator === 'g' || operator === 'G' ? 'gray' : operator === 'k' || operator === 'K' ? 'CMYK' : 'RGB'
   refusal(`${color} color operator ${operator} after conversion`, policy.supported)
+}
+function registrationReplacement(token: Token, operands: Token[], policy: PolicyDecision, counts: ContentCounts): Replacement | undefined {
+  if (policy.action !== 'convert') return undefined
+  const operator = token.raw
+  if (operator === 'cs' || operator === 'CS') return { start: operands[0]?.start ?? token.start, end: token.end, text: '' }
+  if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN') {
+    numeric(operands, 1, operator)
+    counts[operator === operator.toLowerCase() ? 'fills' : 'strokes']++
+    return replacement(token, operands, [0])
+  }
+  return undefined
+}
+function selectedSpace(operator: string, operands: Token[], namedSpace?: string): string | undefined {
+  return operator === 'cs' || operator === 'CS' ? spaceName(operands) : namedSpace
 }
 function colorOperator(
   token: Token,
@@ -167,12 +185,15 @@ function colorOperator(
   counts: ContentCounts,
   inspect: boolean,
   destination: PressDestination,
+  namedSpace?: string,
 ): Replacement | undefined {
   const operator = token.raw
   if (!isContentColorOperator(operator)) return undefined
   const patternName = operands.length === 1 && operands[0]?.kind === 'name'
-  const policy = contentOperatorAction(operator, inspect, undefined, patternName, destination)
-  enforceOperatorPolicy(token, operands, policy, destination)
+  const policy = contentOperatorAction(operator, inspect, selectedSpace(operator, operands, namedSpace), patternName, destination)
+  enforceOperatorPolicy(token, operands, policy)
+  const converted = registrationReplacement(token, operands, policy, counts)
+  if (converted) return converted
   if (operator === 'rg' || operator === 'RG') {
     return replaceRgb(token, operands, convert, counts)
   }
@@ -192,6 +213,19 @@ function colorOperator(
   return undefined
 }
 
+function currentNamedSpace(operator: string, fill?: string, stroke?: string): string | undefined {
+  if (operator === operator.toLowerCase()) return fill
+  return stroke
+}
+
+function nextNamedSpace(operator: string, operands: Token[], fill?: string, stroke?: string): { fill?: string; stroke?: string } {
+  if (operator === 'cs') return { fill: spaceName(operands), stroke }
+  if (operator === 'CS') return { fill, stroke: spaceName(operands) }
+  if (operator === 'rg' || operator === 'g' || operator === 'k') return { fill: undefined, stroke }
+  if (operator === 'RG' || operator === 'G' || operator === 'K') return { fill, stroke: undefined }
+  return { fill, stroke }
+}
+
 function scan(
   source: string,
   convert: (rgb: Color3) => Color,
@@ -204,6 +238,8 @@ function scan(
   const counts = { fills: 0, strokes: 0 }
   let operands: Token[] = []
   let cursor = 0
+  let fillSpace: string | undefined
+  let strokeSpace: string | undefined
   while (cursor < source.length) {
     const skipped = skippedConstruct(source, cursor)
     if (skipped !== undefined) {
@@ -221,8 +257,11 @@ function scan(
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
-      const found = colorOperator(token, operands, convert, counts, inspect, destination)
+      const found = colorOperator(token, operands, convert, counts, inspect, destination, currentNamedSpace(token.raw, fillSpace, strokeSpace))
       if (found) visit?.(found)
+      const next = nextNamedSpace(token.raw, operands, fillSpace, strokeSpace)
+      fillSpace = next.fill
+      strokeSpace = next.stroke
       operands = []
     } else {
       if (operands.length >= MAX_OPERANDS) refusal(`more than ${MAX_OPERANDS} operands before an operator`, `at most ${MAX_OPERANDS} operands`)

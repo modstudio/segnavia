@@ -4,6 +4,7 @@ import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStre
 import { toGray } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildGrayProfile } from '../color/profile-fixture.test-helper.ts'
+import { drawCropMarks } from '../pdf-marks.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 
 const profile = buildGrayProfile('trc-gamma')
@@ -46,6 +47,20 @@ test('writes gray operators and a one-channel output intent through a gray profi
   const embedded = output.context.lookup(intent.get(PDFName.of('DestOutputProfile'))) as PDFRawStream
   expect(embedded.dict.get(PDFName.of('N'))?.toString()).toBe('1')
   expect((await inspectPressPdf(converted.bytes)).destination).toBe('gray')
+})
+
+test('a gray press converts Separation All registration marks to DeviceGray black', async () => {
+  const input = await PDFDocument.create()
+  drawCropMarks(input.addPage([100, 100]), [{ start: { x: 10, y: 10 }, end: { x: 20, y: 10 } }], 'registration')
+  const converted = await rewritePressPdf(await input.save(), profile)
+  const text = await contentText(converted.bytes)
+  expect(text).toMatch(/\b0 G\b/)
+  expect(text).not.toMatch(/\/All\s+CS/)
+  expect(text).not.toMatch(/\bSCN\b/)
+  const output = await PDFDocument.load(converted.bytes)
+  expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
+  expect(Buffer.from(converted.bytes).toString('latin1')).not.toContain('/DeviceCMYK')
+  await expect(inspectPressPdf(converted.bytes)).resolves.toMatchObject({ destination: 'gray' })
 })
 
 test('a gray press refuses CMYK content and read-back refuses planted RGB content', async () => {

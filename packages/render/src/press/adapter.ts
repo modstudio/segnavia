@@ -16,6 +16,7 @@ import {
   type ContentBudget,
   decodeContent,
   dictionaryOf,
+  dropRegistrationColorSpaces,
   MAX_DOCUMENT_CONTENT_BYTES,
   nameOf,
   numberOf,
@@ -304,7 +305,10 @@ export function rewritePressDocument(
     shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
   })
   walkPressGraph(document, {
-    content: (object, stream, replace, _resources, mask) => convertContent(state, object, stream, replace, mask),
+    content: (object, stream, replace, resources, mask) => {
+      convertContent(state, object, stream, replace, mask)
+      if (state.destination === 'gray') dropRegistrationColorSpaces(state.document, resources)
+    },
     function: (fn, decision, mask) => convertFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => convertGroup(state, owner, mask),
     image: (image, mask) => convertEffectImage(state, image, mask),

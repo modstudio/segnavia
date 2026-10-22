@@ -1,9 +1,11 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
-import { PDFDocument } from 'pdf-lib'
+import { Imposition, impose, impositionMarks, Page } from '@segnavia/format'
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { embedOnePage } from './pdf-compose.ts'
+import { composeImposedPdf, embedOnePage } from './pdf-compose.ts'
+import { groupPieces } from './pages-imposition.ts'
 import { MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 function objectStream(contents: Uint8Array): Uint8Array {
@@ -22,4 +24,60 @@ test('refuses an oversized object stream before embedding a page', async () => {
       `PDF stream object 1 inflated past the ceiling after ${MAX_PDF_STREAM_BYTES} bytes; the ceiling is ${MAX_PDF_STREAM_BYTES} bytes. Reduce the page content that Chromium packs into one object or cross-reference stream to clear this refusal.`,
     ),
   )
+})
+
+async function pageContent(bytes: Uint8Array): Promise<string> {
+  const document = await PDFDocument.load(bytes)
+  const contents = document.getPage(0).node.Contents()
+  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+  return streams
+    .map((object) => document.context.lookup(object))
+    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
+    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
+    .join('\n')
+}
+
+async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8Array> {
+  const imposition = Imposition.parse({
+    paper: { width: 40, height: 40, unit: 'mm' },
+    columns: 1,
+    rows: 1,
+    cell: { width: 20, height: 20 },
+    margin: { top: 10, right: 10, bottom: 10, left: 10 },
+    marks: true,
+    markColor,
+  })
+  const page = Page.parse({ html: '<p>Card</p>', size: { width: 80, height: 80 } })
+  const imposed = impose(imposition, 1)
+  const groups = groupPieces([page], imposed, 'contain')
+  const piece = await PDFDocument.create()
+  piece.addPage([80, 80]).drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+  const pieceBytes = await piece.save()
+  return composeImposedPdf(
+    imposed,
+    groups.map((group) => ({
+      key: group.key,
+      name: 'piece',
+      bytes: pieceBytes,
+      placements: group.placements,
+    })),
+    impositionMarks(imposition),
+    markColor,
+  )
+}
+
+test('an imposed paper with registration marks stores Separation All and strokes with it', async () => {
+  const bytes = await imposedBytes('registration')
+  const text = await pageContent(bytes)
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
+  const output = await PDFDocument.load(bytes)
+  expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation')
+})
+
+test('an imposed paper with default marks stays RGB black', async () => {
+  const bytes = await imposedBytes('black')
+  const text = await pageContent(bytes)
+  expect(text).toContain('0 0 0 RG')
+  expect(text).not.toMatch(/\/All\s+CS/)
 })

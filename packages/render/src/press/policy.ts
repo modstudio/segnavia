@@ -113,10 +113,13 @@ export function inlineImageAction(name: string | undefined, imageMask: boolean):
   return { ...decision(imageMask || kind === 'gray' || kind === 'cmyk' ? 'keep' : 'refuse', supported), kind, label: colorSpaceLabel(value) }
 }
 
+export const REGISTRATION_COLORANT = 'All'
+
 // Content streams may select only patterns or CMYK explicitly after conversion.
 export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk'): PolicyDecision {
   const device = destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'
   const supported = `Pattern or ${device}`
+  if (name === REGISTRATION_COLORANT) return decision(destination === 'cmyk' ? 'keep' : 'refuse', supported)
   return decision(name === 'Pattern' || name === device ? 'keep' : 'refuse', supported)
 }
 
@@ -137,7 +140,15 @@ function deviceColorAction(operator: ContentColorOperator, inspect: boolean, des
   return decision(cmyk ? 'keep' : 'refuse', 'CMYK operators')
 }
 
-// RGB and gray operators convert on rewrite and refuse on read-back; CMYK and a named pattern are the only color forms retained.
+function registrationOperatorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
+  if (destination === 'cmyk') return decision('keep', 'Pattern or DeviceCMYK')
+  if (operator === 'cs' || operator === 'CS' || operator === 'scn' || operator === 'SCN' || operator === 'sc' || operator === 'SC') {
+    return decision(inspect ? 'refuse' : 'convert', 'DeviceGray operators')
+  }
+  return undefined
+}
+
+// RGB and gray operators convert on rewrite and refuse on read-back; CMYK, registration All, and a named pattern are the only color forms retained.
 export function contentOperatorAction(
   operator: ContentColorOperator,
   inspect: boolean,
@@ -147,6 +158,10 @@ export function contentOperatorAction(
 ): PolicyDecision {
   const device = deviceColorAction(operator, inspect, destination)
   if (device) return device
+  if (selectedSpace === REGISTRATION_COLORANT) {
+    const registration = registrationOperatorAction(operator, inspect, destination)
+    if (registration) return registration
+  }
   if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination)
   return decision((operator === 'scn' || operator === 'SCN') && patternName ? 'keep' : 'refuse', 'a pattern name with scn or SCN')
 }

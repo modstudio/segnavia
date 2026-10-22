@@ -65,6 +65,27 @@ test('the read-back operator policy refuses gray as well as RGB', () => {
   expect(() => inspectContent(bytes('0.5 g'))).toThrow(/gray color operator g/)
 })
 
+test('keeps a Separation All stroke under a CMYK destination', () => {
+  const source = '/All CS 1 SCN 10 10 m 20 10 l S'
+  expect(text(rewriteContent(bytes(source), convert).bytes)).toBe(source)
+  expect(inspectContent(bytes(source)).strokes).toBe(0)
+})
+
+test('converts a Separation All stroke to DeviceGray black under a gray destination', () => {
+  const result = rewriteContent(bytes('/All CS 1 SCN 10 10 m 20 10 l S'), convert, 'gray')
+  expect(text(result.bytes).replace(/\s+/g, ' ').trim()).toBe('0 G 10 10 m 20 10 l S')
+  expect(result.counts.strokes).toBe(1)
+})
+
+test('refuses any other Separation stroke', () => {
+  expect(() => rewriteContent(bytes('/Spot CS 1 SCN'), convert)).toThrow('CS')
+})
+
+test('read-back keeps All under CMYK and refuses it under gray', () => {
+  expect(() => inspectContent(bytes('/All CS 1 SCN'))).not.toThrow()
+  expect(() => inspectContent(bytes('/All CS 1 SCN'), 'gray')).toThrow(/CS operator/)
+})
+
 test('refuses an operator whose live operand list passes the ceiling', () => {
   expect(() => rewriteContent(bytes(`${'1 '.repeat(MAX_OPERANDS + 1)}Tj`), convert)).toThrow(`more than ${MAX_OPERANDS} operands`)
 })

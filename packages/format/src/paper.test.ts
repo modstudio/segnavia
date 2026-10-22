@@ -181,4 +181,13 @@ describe('paper', () => {
     expect(result.error?.issues[0]?.message).toContain('52.5mm on the left and right')
     expect(result.error?.issues[0]?.message).toContain('105mm wide')
   })
+
+  test('markColor defaults to black and is refused by name unless marks are enabled', () => {
+    expect(Print.parse({ paper: 'a4' }).markColor).toBe('black')
+    expect(Print.parse({ paper: 'a4', marks: true, markColor: 'registration' }).markColor).toBe('registration')
+    const refused = Print.safeParse({ paper: 'a4', markColor: 'registration' })
+    expect(refused.error?.issues[0]).toMatchObject({ path: ['markColor'] })
+    expect(refused.error?.issues[0]?.message).toContain('marks')
+    expect(Print.safeParse({ paper: 'a4', markColor: 'spot' }).success).toBe(false)
+  })
 })

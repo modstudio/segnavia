@@ -73,6 +73,20 @@ export function resolvedColorSpace(document: PDFDocument, object: PDFObject | un
   return { kind: colorSpaceKind(value), label: object ? colorSpaceLabel(value) : 'missing' }
 }
 
+export function isSeparationAll(document: PDFDocument, object: PDFObject | undefined): boolean {
+  const value = resolved(document, object)
+  if (!(value instanceof PDFArray) || value.size() < 2) return false
+  return nameOf(resolved(document, value.get(0))) === 'Separation' && nameOf(resolved(document, value.get(1))) === 'All'
+}
+
+export function dropRegistrationColorSpaces(document: PDFDocument, resources: PDFDict | undefined): void {
+  const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
+  if (!spaces) return
+  for (const [name, object] of [...spaces.entries()]) {
+    if (isSeparationAll(document, object)) spaces.delete(name)
+  }
+}
+
 function filterNames(filter: PDFObject | undefined): string[] | undefined {
   if (!filter) return undefined
   const direct = nameOf(filter)

@@ -53,6 +53,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       placements: group.placements,
     })),
     marks,
+    imposition.markColor,
   )
 }
 

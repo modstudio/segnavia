@@ -1,10 +1,11 @@
 import { type Print, paperPixels, printBoxes, printProperties, sheetMm } from '@segnavia/format'
-import { PDFName, rgb } from 'pdf-lib'
+import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
+import { drawCropMarks } from './pdf-marks.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 
@@ -42,7 +43,7 @@ export function assertPrintOptions(print: Print, preferCssPageSize: boolean | un
   }
 }
 
-async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
+export async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
   const boxes = printBoxes(print)
   const document = await loadPdf(pdf)
   const source = document.getPage(0)
@@ -55,14 +56,14 @@ async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array>
   page.node.delete(PDFName.of('CropBox'))
   page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
   page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
-  for (const mark of boxes.marks) {
-    page.drawLine({
+  drawCropMarks(
+    page,
+    boxes.marks.map((mark) => ({
       start: pdfPoint(mark.x1, mark.y1, boxes.media.height),
       end: pdfPoint(mark.x2, mark.y2, boxes.media.height),
-      thickness: 0.25,
-      color: rgb(0, 0, 0),
-    })
-  }
+    })),
+    print.markColor,
+  )
   return document.save()
 }
 

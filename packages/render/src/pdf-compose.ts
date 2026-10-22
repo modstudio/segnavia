@@ -1,9 +1,10 @@
-import { type Imposed, type ImpositionSideMarks, MM_PER_PT } from '@segnavia/format'
-import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle, rgb } from 'pdf-lib'
+import { type Imposed, type ImpositionSideMarks, type MarkColor, MM_PER_PT } from '@segnavia/format'
+import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
 import type { PdfRectangle } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
+import { drawCropMarks } from './pdf-marks.ts'
 
 export async function embedOnePage(output: PDFDocument, bytes: Uint8Array, name: string): Promise<PDFEmbeddedPage> {
   const source = await loadPdf(bytes)
@@ -32,7 +33,8 @@ function drawImposedSide(
   pieces: ImposedPdfPiece[],
   paperIndex: number,
   side: 'front' | 'back',
-  marks?: ImpositionSideMarks,
+  marks: ImpositionSideMarks | undefined,
+  markColor: MarkColor,
 ): void {
   const paper = output.addPage([imposed.paper.width / MM_PER_PT, imposed.paper.height / MM_PER_PT])
   for (const piece of pieces) {
@@ -44,17 +46,22 @@ function drawImposedSide(
       drawClippedPage(paper, image, draw, clipBox)
     }
   }
-  for (const mark of marks?.marks ?? []) {
-    paper.drawLine({
+  drawCropMarks(
+    paper,
+    (marks?.marks ?? []).map((mark) => ({
       start: { x: mark.x1 / MM_PER_PT, y: (imposed.paper.height - mark.y1) / MM_PER_PT },
       end: { x: mark.x2 / MM_PER_PT, y: (imposed.paper.height - mark.y2) / MM_PER_PT },
-      thickness: 0.25,
-      color: rgb(0, 0, 0),
-    })
-  }
+    })),
+    markColor,
+  )
 }
 
-export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], marks: ImpositionSideMarks[] = []): Promise<Uint8Array> {
+export async function composeImposedPdf(
+  imposed: Imposed,
+  pieces: ImposedPdfPiece[],
+  marks: ImpositionSideMarks[] = [],
+  markColor: MarkColor = 'black',
+): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
@@ -68,6 +75,7 @@ export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiec
         paperIndex,
         side,
         marks.find((entry) => entry.side === side),
+        markColor,
       )
     }
   }

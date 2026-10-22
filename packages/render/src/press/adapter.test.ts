@@ -3,6 +3,7 @@ import { deflateSync } from 'node:zlib'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, rgb } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { drawCropMarks } from '../pdf-marks.ts'
 import { inspectPressPdf, rewritePressDocument, rewritePressPdf } from './adapter.ts'
 import { decodeContent, MAX_CONTENT_BYTES, MAX_DOCUMENT_CONTENT_BYTES } from './pdf-objects.ts'
 
@@ -53,6 +54,25 @@ test.each([
   const page = document.addPage([10, 10])
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
   await expect(rewritePressPdf(await document.save(), profile)).rejects.toThrow(message)
+})
+
+test('a CMYK press keeps Separation All registration marks', async () => {
+  const input = await PDFDocument.create()
+  drawCropMarks(input.addPage([100, 100]), [{ start: { x: 10, y: 10 }, end: { x: 20, y: 10 } }], 'registration')
+  const converted = await rewritePressPdf(await input.save(), profile)
+  const text = await contentText(converted.bytes)
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
+  const output = await PDFDocument.load(converted.bytes)
+  expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation /All')
+  await expect(inspectPressPdf(converted.bytes)).resolves.toMatchObject({ destination: 'cmyk' })
+})
+
+test('a CMYK press still refuses any other Separation', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Spot CS 1 SCN')))
+  await expect(rewritePressPdf(await document.save(), profile)).rejects.toThrow(/CS operator/)
 })
 
 function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
