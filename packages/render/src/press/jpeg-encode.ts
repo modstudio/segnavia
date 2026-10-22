@@ -2,17 +2,35 @@ import { forwardDct, quantizeZigzag } from './jpeg-dct.ts'
 import { AC_LUM_BITS, AC_LUM_VALUES, DC_LUM_BITS, DC_LUM_VALUES, type HuffmanCode, huffmanCodes, scaleLuminanceQuant, ZIGZAG } from './jpeg-tables.ts'
 
 interface Scan {
-  bytes: number[]
+  bytes: Uint8Array
   current: number
   filled: number
+  length: number
 }
 
-function writeRaw(bytes: number[], data: ArrayLike<number>): void {
-  for (let index = 0; index < data.length; index++) bytes.push(data[index] ?? 0)
+function grow(output: Scan, extra: number): void {
+  const needed = output.length + extra
+  if (needed <= output.bytes.length) return
+  let capacity = output.bytes.length
+  while (capacity < needed) capacity *= 2
+  const grown = new Uint8Array(capacity)
+  grown.set(output.bytes.subarray(0, output.length))
+  output.bytes = grown
 }
 
-function writeU16(bytes: number[], value: number): void {
-  bytes.push((value >> 8) & 255, value & 255)
+function writeByte(output: Scan, value: number): void {
+  grow(output, 1)
+  output.bytes[output.length++] = value
+}
+
+function writeRaw(output: Scan, data: ArrayLike<number>): void {
+  grow(output, data.length)
+  for (let index = 0; index < data.length; index++) output.bytes[output.length++] = data[index] ?? 0
+}
+
+function writeU16(output: Scan, value: number): void {
+  writeByte(output, (value >> 8) & 255)
+  writeByte(output, value & 255)
 }
 
 function writeBits(scan: Scan, value: number, count: number): void {
@@ -20,8 +38,8 @@ function writeBits(scan: Scan, value: number, count: number): void {
     scan.current = (scan.current << 1) | ((value >> bit) & 1)
     scan.filled++
     if (scan.filled < 8) continue
-    scan.bytes.push(scan.current)
-    if (scan.current === 0xff) scan.bytes.push(0)
+    writeByte(scan, scan.current)
+    if (scan.current === 0xff) writeByte(scan, 0)
     scan.current = 0
     scan.filled = 0
   }
@@ -99,45 +117,60 @@ function encodeBlock(
   return quantizeZigzag(forwardDct(spatial, frequency), table)
 }
 
-function writeQuantTable(bytes: number[], table: Uint8Array): void {
-  bytes.push(0xff, 0xdb)
+function writeQuantTable(bytes: Scan, table: Uint8Array): void {
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xdb)
   writeU16(bytes, 67)
-  bytes.push(0)
-  for (let index = 0; index < 64; index++) bytes.push(table[ZIGZAG[index] ?? 0] ?? 1)
+  writeByte(bytes, 0)
+  for (let index = 0; index < 64; index++) writeByte(bytes, table[ZIGZAG[index] ?? 0] ?? 1)
 }
 
-function writeHuffmanTable(bytes: number[], tableClass: number, ident: number, bits: readonly number[], values: readonly number[]): void {
-  bytes.push(0xff, 0xc4)
+function writeHuffmanTable(bytes: Scan, tableClass: number, ident: number, bits: readonly number[], values: readonly number[]): void {
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xc4)
   writeU16(bytes, 19 + values.length)
-  bytes.push((tableClass << 4) | ident)
+  writeByte(bytes, (tableClass << 4) | ident)
   writeRaw(bytes, bits)
   writeRaw(bytes, values)
 }
 
-function writeHeaders(bytes: number[], width: number, height: number, table: Uint8Array): void {
-  bytes.push(0xff, 0xd8)
+function writeHeaders(bytes: Scan, width: number, height: number, table: Uint8Array): void {
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xd8)
   // APP14 transform 0 marks four components as CMYK, not YCCK. Samples are PDF DeviceCMYK
   // (0 = no ink). No Decode array: Poppler, pdf.js and Acrobat apply DCTDecode then the
   // default [0 1 0 1 0 1 0 1], so they read the same ink values. Photoshop-inverted CMYK
   // JPEGs would need Decode [1 0 ...]; this encoder does not invert.
-  bytes.push(0xff, 0xee)
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xee)
   writeU16(bytes, 14)
   writeRaw(bytes, [0x41, 0x64, 0x6f, 0x62, 0x65, 0, 100, 0, 0, 0, 0, 0])
   writeQuantTable(bytes, table)
-  bytes.push(0xff, 0xc0)
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xc0)
   writeU16(bytes, 20)
-  bytes.push(8)
+  writeByte(bytes, 8)
   writeU16(bytes, height)
   writeU16(bytes, width)
-  bytes.push(4)
-  for (let component = 1; component <= 4; component++) bytes.push(component, 0x11, 0)
+  writeByte(bytes, 4)
+  for (let component = 1; component <= 4; component++) {
+    writeByte(bytes, component)
+    writeByte(bytes, 0x11)
+    writeByte(bytes, 0)
+  }
   writeHuffmanTable(bytes, 0, 0, DC_LUM_BITS, DC_LUM_VALUES)
   writeHuffmanTable(bytes, 1, 0, AC_LUM_BITS, AC_LUM_VALUES)
-  bytes.push(0xff, 0xda)
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xda)
   writeU16(bytes, 14)
-  bytes.push(4)
-  for (let component = 1; component <= 4; component++) bytes.push(component, 0)
-  bytes.push(0, 63, 0)
+  writeByte(bytes, 4)
+  for (let component = 1; component <= 4; component++) {
+    writeByte(bytes, component)
+    writeByte(bytes, 0)
+  }
+  writeByte(bytes, 0)
+  writeByte(bytes, 63)
+  writeByte(bytes, 0)
 }
 
 function encodeScan(scan: Scan, width: number, height: number, samples: Uint8Array, table: Uint8Array, dcTable: HuffmanCode[], acTable: HuffmanCode[]): void {
@@ -158,11 +191,12 @@ function encodeScan(scan: Scan, width: number, height: number, samples: Uint8Arr
 
 export function encodeCmykJpeg(width: number, height: number, samples: Uint8Array, quality: number): Uint8Array {
   const table = scaleLuminanceQuant(quality)
-  const bytes: number[] = []
+  // Header plus about one byte per pixel; the buffer doubles if a write would overflow.
+  const bytes: Scan = { bytes: new Uint8Array(Math.max(256, 384 + width * height)), current: 0, filled: 0, length: 0 }
   writeHeaders(bytes, width, height, table)
-  const scan: Scan = { bytes, current: 0, filled: 0 }
-  encodeScan(scan, width, height, samples, table, huffmanCodes(DC_LUM_BITS, DC_LUM_VALUES), huffmanCodes(AC_LUM_BITS, AC_LUM_VALUES))
-  padScan(scan)
-  bytes.push(0xff, 0xd9)
-  return Uint8Array.from(bytes)
+  encodeScan(bytes, width, height, samples, table, huffmanCodes(DC_LUM_BITS, DC_LUM_VALUES), huffmanCodes(AC_LUM_BITS, AC_LUM_VALUES))
+  padScan(bytes)
+  writeByte(bytes, 0xff)
+  writeByte(bytes, 0xd9)
+  return bytes.bytes.subarray(0, bytes.length)
 }

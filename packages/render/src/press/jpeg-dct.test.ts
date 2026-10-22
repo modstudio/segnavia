@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { forwardDct, quantize } from './jpeg-dct.ts'
+import { forwardDct } from './jpeg-dct.ts'
+import { quantize } from './jpeg-decode.test-helper.ts'
 import { LUMINANCE_QUANT, scaleLuminanceQuant } from './jpeg-tables.ts'
 
 // ITU-T T.81 / Wikipedia JPEG 8x8 example, already in 0..255, then level-shifted for the DCT.

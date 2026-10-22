@@ -14,9 +14,43 @@ test('finds raw and Flate inline image ends from the declared samples', () => {
   expect(parseInlineImage(flate, 0).dataEnd).toBe(flatePrefix.length + compressed.length)
 })
 
-test('finds a DCTDecode inline image end at JPEG EOI', () => {
-  const jpeg = Uint8Array.of(0xff, 0xd8, 0xff, 0xda, 0x00, 0x08, 0x01, 0x00, 0x00, 0x3f, 0x00, 0xff, 0xd9)
+function dctInline(jpeg: Uint8Array): { dataEnd: number; source: string } {
   const prefix = Buffer.from(' /W 8 /H 8 /BPC 8 /CS /CMYK /F /DCT ID\n')
-  const source = binaryString(Buffer.concat([prefix, Buffer.from(jpeg), Buffer.from('\nEI')]))
-  expect(parseInlineImage(source, 0).dataEnd).toBe(prefix.length + jpeg.length)
+  return { dataEnd: prefix.length + jpeg.length, source: binaryString(Buffer.concat([prefix, Buffer.from(jpeg), Buffer.from('\nEI')])) }
+}
+
+test('finds a DCTDecode inline image end at JPEG EOI', () => {
+  const jpeg = Uint8Array.of(0xff, 0xd8, 0xff, 0xda, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x3f, 0x00, 0xff, 0xd9)
+  const found = dctInline(jpeg)
+  expect(parseInlineImage(found.source, 0).dataEnd).toBe(found.dataEnd)
+})
+
+test('bounds a DCTDecode inline image at its real EOI when an APP segment contains FF D9 before whitespace and EI', () => {
+  const jpeg = Uint8Array.of(
+    0xff,
+    0xd8,
+    0xff,
+    0xe0,
+    0x00,
+    0x07,
+    0xff,
+    0xd9,
+    0x0a,
+    0x45,
+    0x49,
+    0xff,
+    0xda,
+    0x00,
+    0x08,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x3f,
+    0x00,
+    0xff,
+    0xd9,
+  )
+  const found = dctInline(jpeg)
+  expect(parseInlineImage(found.source, 0).dataEnd).toBe(found.dataEnd)
 })
