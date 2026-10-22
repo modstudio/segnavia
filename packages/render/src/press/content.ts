@@ -7,10 +7,14 @@ import {
   currentNamedSpace,
   emptyContentColorSpaces,
   restoreColorSpaces,
+  selectedSpaceFor,
+  selectsFillSpace,
   snapshotColorSpaces,
+  spaceName,
 } from './content-color.ts'
 import { binaryString, inlineImageHeader, parseInlineImage } from './inline-image.ts'
-import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
+import type { PolicyDecision } from './policy.ts'
+import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, isRegistrationConvertedOperator } from './policy.ts'
 import type { PressDestination } from './types.ts'
 
 export { type ContentColorSpaces, emptyContentColorSpaces } from './content-color.ts'
@@ -152,35 +156,27 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
   counts[token.raw === 'g' ? 'fills' : 'strokes']++
   return replacement(token, operands, convert([gray, gray, gray]))
 }
-function spaceName(operands: Token[]): string | undefined {
-  return operands.length === 1 && operands[0]?.kind === 'name' ? operands[0].raw.slice(1) : undefined
-}
 function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
   if (policy.action !== 'refuse') return
   const operator = token.raw
-  if (operator === 'cs' || operator === 'CS') {
-    const name = spaceName(operands)
-    if (!name) refusal(`${operator} operator operands`, 'one color space name')
-    refusal(`${operator} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
-  }
-  if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN')
+  if (isRegistrationConvertedOperator(operator)) {
+    if (operator === 'cs' || operator === 'CS') {
+      const name = spaceName(operands)
+      if (!name) refusal(`${operator} operator operands`, 'one color space name')
+      refusal(`${operator} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
+    }
     refusal(`${operator} operator with numeric operands`, policy.supported)
+  }
   const color = operator === 'g' || operator === 'G' ? 'gray' : operator === 'k' || operator === 'K' ? 'CMYK' : 'RGB'
   refusal(`${color} color operator ${operator} after conversion`, policy.supported)
 }
 function registrationReplacement(token: Token, operands: Token[], policy: PolicyDecision, counts: ContentCounts): Replacement | undefined {
-  if (policy.action !== 'convert') return undefined
+  if (policy.action !== 'convert' || !isRegistrationConvertedOperator(token.raw)) return undefined
   const operator = token.raw
   if (operator === 'cs' || operator === 'CS') return { start: operands[0]?.start ?? token.start, end: token.end, text: '' }
-  if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN') {
-    numeric(operands, 1, operator)
-    counts[operator === operator.toLowerCase() ? 'fills' : 'strokes']++
-    return replacement(token, operands, [0])
-  }
-  return undefined
-}
-function selectedSpace(operator: string, operands: Token[], namedSpace?: string): string | undefined {
-  return operator === 'cs' || operator === 'CS' ? spaceName(operands) : namedSpace
+  numeric(operands, 1, operator)
+  counts[selectsFillSpace(operator) ? 'fills' : 'strokes']++
+  return replacement(token, operands, [0])
 }
 function colorOperator(
   token: Token,
@@ -195,7 +191,7 @@ function colorOperator(
   const operator = token.raw
   if (!isContentColorOperator(operator)) return undefined
   const patternName = operands.length === 1 && operands[0]?.kind === 'name'
-  const selected = selectedSpace(operator, operands, namedSpace)
+  const selected = selectedSpaceFor(operator, operands, namedSpace)
   const registration = selected !== undefined && Boolean(registrationNames?.has(selected))
   const policy = contentOperatorAction(operator, inspect, selected, patternName, destination, registration)
   enforceOperatorPolicy(token, operands, policy)

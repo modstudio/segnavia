@@ -17,7 +17,7 @@ async function pageContent(bytes: Uint8Array): Promise<string> {
 test('default crop marks stay RGB black', async () => {
   const document = await PDFDocument.create()
   const page = document.addPage([100, 100])
-  drawCropMarks(page, [{ start: { x: 10, y: 10 }, end: { x: 20, y: 10 } }])
+  drawCropMarks(page, [{ start: { x: 10, y: 10 }, end: { x: 20, y: 10 } }], 'black')
   const bytes = await document.save()
   const text = await pageContent(bytes)
   expect(text).toContain('0 0 0 RG')

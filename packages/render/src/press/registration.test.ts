@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { buildGrayProfile, buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { drawCropMarks } from '../pdf-marks.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
@@ -8,9 +8,9 @@ import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 const cmykProfile = buildPressProfile('mft1')
 const grayProfile = buildGrayProfile('trc-gamma')
 
-async function pageContent(bytes: Uint8Array): Promise<string> {
+async function pageContent(bytes: Uint8Array, pageIndex = 0): Promise<string> {
   const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
+  const contents = document.getPage(pageIndex).node.Contents()
   const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
   return streams
     .map((object) => document.context.lookup(object))
@@ -107,4 +107,36 @@ test('a gray press converts All selected in one content stream and used in the n
   expect(text).toMatch(/\b0 G\b/)
   expect(text).not.toMatch(/\/All\s+CS/)
   expect(text).not.toMatch(/\bSCN\b/)
+})
+
+test('a gray press converts every stream that shares one registration Resources dictionary', async () => {
+  const document = await PDFDocument.create()
+  const form = document.context.register(document.context.stream('/All CS 1 SCN', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, 10, 10] }))
+  const resources = document.context.register(
+    document.context.obj({
+      ColorSpace: { All: registrationSpace(document) },
+      XObject: { Fm1: form },
+    }),
+  )
+  for (const content of ['/All CS 1 SCN /Fm1 Do', '/All CS 1 SCN']) {
+    const page = document.addPage([10, 10])
+    page.node.set(PDFName.of('Resources'), resources)
+    page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
+  }
+  const converted = await rewritePressPdf(await document.save(), grayProfile)
+  const output = await PDFDocument.load(converted.bytes)
+  for (const index of [0, 1]) {
+    const text = await pageContent(converted.bytes, index)
+    expect(text).toMatch(/\b0 G\b/)
+    expect(text).not.toMatch(/\/All\s+CS/)
+    expect(text).not.toMatch(/\bSCN\b/)
+  }
+  const xObjects = output.getPage(0).node.Resources()?.lookup(PDFName.of('XObject'))
+  const formObject = xObjects instanceof PDFDict ? xObjects.get(PDFName.of('Fm1')) : undefined
+  const formStream = formObject ? output.context.lookup(formObject) : undefined
+  const formText = formStream instanceof PDFRawStream ? new TextDecoder().decode(decodePDFRawStream(formStream).decode()) : ''
+  expect(formText).toMatch(/\b0 G\b/)
+  expect(formText).not.toMatch(/\/All\s+CS/)
+  expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
+  expect(output.getPage(1).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString() ?? '').not.toContain('/All')
 })

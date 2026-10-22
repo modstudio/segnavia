@@ -18,20 +18,30 @@ export function restoreColorSpaces(target: ContentColorSpaces, source: ContentCo
   target.stroke = source.stroke
 }
 
-export function currentNamedSpace(operator: string, fill?: string, stroke?: string): string | undefined {
-  if (operator === operator.toLowerCase()) return fill
-  return stroke
+export function selectsFillSpace(operator: string): boolean {
+  return operator === 'cs' || operator === 'sc' || operator === 'scn' || operator === 'rg' || operator === 'g' || operator === 'k'
 }
 
-function spaceName(operands: Array<{ kind: string; raw: string }>): string | undefined {
+export function spaceName(operands: Array<{ kind: string; raw: string }>): string | undefined {
   return operands.length === 1 && operands[0]?.kind === 'name' ? operands[0].raw.slice(1) : undefined
 }
 
+export function currentNamedSpace(operator: string, fill?: string, stroke?: string): string | undefined {
+  return selectsFillSpace(operator) ? fill : stroke
+}
+
+export function selectedSpaceFor(operator: string, operands: Array<{ kind: string; raw: string }>, namedSpace?: string): string | undefined {
+  return operator === 'cs' || operator === 'CS' ? spaceName(operands) : namedSpace
+}
+
 function nextNamedSpace(operator: string, operands: Array<{ kind: string; raw: string }>, fill?: string, stroke?: string): { fill?: string; stroke?: string } {
-  if (operator === 'cs') return { fill: spaceName(operands), stroke }
-  if (operator === 'CS') return { fill, stroke: spaceName(operands) }
-  if (operator === 'rg' || operator === 'g' || operator === 'k') return { fill: undefined, stroke }
-  if (operator === 'RG' || operator === 'G' || operator === 'K') return { fill, stroke: undefined }
+  if (operator === 'cs' || operator === 'CS') {
+    const name = spaceName(operands)
+    return selectsFillSpace(operator) ? { fill: name, stroke } : { fill, stroke: name }
+  }
+  if (operator === 'rg' || operator === 'RG' || operator === 'g' || operator === 'G' || operator === 'k' || operator === 'K') {
+    return selectsFillSpace(operator) ? { fill: undefined, stroke } : { fill, stroke: undefined }
+  }
   return { fill, stroke }
 }
 

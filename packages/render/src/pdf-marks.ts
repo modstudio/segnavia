@@ -77,7 +77,7 @@ function drawRegistrationMarks(page: PDFPage, marks: PdfMarkLine[]): void {
   page.pushOperators(...operators)
 }
 
-export function drawCropMarks(page: PDFPage, marks: PdfMarkLine[], color: MarkColor = 'black'): void {
+export function drawCropMarks(page: PDFPage, marks: PdfMarkLine[], color: MarkColor): void {
   if (marks.length === 0) return
   if (color === 'registration') drawRegistrationMarks(page, marks)
   else drawBlackMarks(page, marks)

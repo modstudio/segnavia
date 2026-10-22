@@ -60,7 +60,7 @@ export async function composeImposedPdf(
   imposed: Imposed,
   pieces: ImposedPdfPiece[],
   marks: ImpositionSideMarks[] = [],
-  markColor: MarkColor = 'black',
+  markColor: MarkColor,
 ): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   const embedded = new Map<string, PDFEmbeddedPage>()

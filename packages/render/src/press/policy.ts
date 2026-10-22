@@ -142,11 +142,16 @@ function deviceColorAction(operator: ContentColorOperator, inspect: boolean, des
   return decision(cmyk ? 'keep' : 'refuse', 'CMYK operators')
 }
 
+export const REGISTRATION_CONVERTED_OPERATORS = ['cs', 'CS', 'sc', 'SC', 'scn', 'SCN'] as const
+export type RegistrationConvertedOperator = (typeof REGISTRATION_CONVERTED_OPERATORS)[number]
+
+export function isRegistrationConvertedOperator(operator: string): operator is RegistrationConvertedOperator {
+  return (REGISTRATION_CONVERTED_OPERATORS as readonly string[]).includes(operator)
+}
+
 function registrationOperatorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
   if (destination === 'cmyk') return decision('keep', 'Pattern or DeviceCMYK')
-  if (operator === 'cs' || operator === 'CS' || operator === 'scn' || operator === 'SCN' || operator === 'sc' || operator === 'SC') {
-    return decision(inspect ? 'refuse' : 'convert', 'DeviceGray operators')
-  }
+  if (isRegistrationConvertedOperator(operator)) return decision(inspect ? 'refuse' : 'convert', 'DeviceGray operators')
   return undefined
 }
 

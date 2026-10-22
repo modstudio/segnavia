@@ -40,7 +40,7 @@ interface RewriteState {
   destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
-  pendingGrayResources?: Array<PDFDict | undefined>
+  pendingGrayResources: PDFDict[]
   profile: Profile
   sampleConvert: (rgb: Color3) => Color
   seenGroups: WeakSet<PDFDict>
@@ -281,6 +281,7 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number, co
     destination: pressDestination(profile),
     document,
     painted: new WeakMap(),
+    pendingGrayResources: [],
     profile,
     sampleConvert: (rgb) => {
       if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
@@ -324,24 +325,23 @@ export function rewritePressDocument(
   walkPressGraph(document, {
     beginContentsSequence: () => {
       state.colorSpaces = emptyContentColorSpaces()
-      state.pendingGrayResources = []
     },
     content: (object, stream, replace, resources, mask) => {
       convertContent(state, object, stream, replace, mask, resources)
-      if (state.destination !== 'gray') return
-      if (state.pendingGrayResources) state.pendingGrayResources.push(resources)
-      else dropRegistrationColorSpaces(state.document, resources)
+      if (state.destination === 'gray' && resources) state.pendingGrayResources.push(resources)
     },
     endContentsSequence: () => {
-      for (const resources of state.pendingGrayResources ?? []) dropRegistrationColorSpaces(state.document, resources)
       state.colorSpaces = undefined
-      state.pendingGrayResources = undefined
     },
     function: (fn, decision, mask) => convertFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => convertGroup(state, owner, mask),
     image: (image, mask) => convertEffectImage(state, image, mask),
     shading: (shading, pattern, mask) => convertShading(state, shading, pattern, mask),
   })
+  // Gray conversion rewrites every stream first; shared resource dictionaries stay intact until the walk ends.
+  if (state.destination === 'gray') {
+    for (const resources of state.pendingGrayResources) dropRegistrationColorSpaces(state.document, resources)
+  }
   return state.totals
 }
 
