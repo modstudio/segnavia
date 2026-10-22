@@ -150,6 +150,7 @@ export {
   PrintSetting,
   PrintSettingInput,
   PX_PER_MM,
+  paperPixels,
   printBoxes,
   printPadding,
   printProperties,

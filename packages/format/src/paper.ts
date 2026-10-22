@@ -175,6 +175,10 @@ export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: n
 // CSS pixels per millimeter at the 96 dpi every browser lays out at.
 export const PX_PER_MM = 96 / 25.4
 
+// A physical page covers every CSS pixel it intersects. The tolerance keeps
+// exact inch and point conversions from growing because of floating-point noise.
+export const paperPixels = (millimeters: number): number => Math.ceil(millimeters * PX_PER_MM - 1e-9)
+
 export function printProperties(print: Pick<Print, 'bleed' | 'safe'>, unit: 'mm' | 'in' | 'pt' = 'mm'): string {
   return `:root{--segnavia-bleed:${roundMillimeters(toMillimeters(print.bleed, unit))}mm;--segnavia-safe:${roundMillimeters(toMillimeters(print.safe, unit))}mm}`
 }

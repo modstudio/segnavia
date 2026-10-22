@@ -1,5 +1,5 @@
 // Renders pages, slides and decks in a host-named, offline headless Chromium.
-import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput, printProperties } from '@segnavia/format'
+import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
@@ -180,7 +180,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     }
   }
   function pageDocument(page: Page, options: RenderOptions, printing = false): string {
-    const hostCss = `${page.print ? (printing ? printCss(page.print) : printProperties(page.print)) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
+    const hostCss = `${page.print ? printCss(page.print) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
     const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
     const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
     return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
@@ -197,9 +197,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
-  function pageViewport(page: Page, width?: number, printing = false) {
+  function pageViewport(page: Page, width?: number) {
     if (page.print) {
-      return printViewport(page.print, printing)
+      return printViewport(page.print)
     }
     if (page.size === 'fluid') return { width: width ?? FLUID_WIDTH, height: 800 }
     return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
@@ -207,7 +207,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-    const viewport = pageViewport(page, undefined, true)
+    const viewport = pageViewport(page)
     return withTab(
       {
         viewport,
