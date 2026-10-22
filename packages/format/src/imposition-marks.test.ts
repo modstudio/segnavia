@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Imposition, impose, impositionMarks, type MarkSegment, type Placement } from './index.ts'
+import { Imposition, impose, impositionMarks, type MarkSegment, mirrorPlacement, type OmittedImpositionMark, type Placement } from './index.ts'
 
 const markInput = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({
@@ -14,6 +14,58 @@ const markInput = (overrides: Record<string, unknown> = {}) =>
 
 const segmentIntersects = (mark: MarkSegment, box: Placement['bleedBox']) =>
   Math.max(mark.x1, box.x) <= Math.min(mark.x2, box.x + box.width) && Math.max(mark.y1, box.y) <= Math.min(mark.y2, box.y + box.height)
+
+const zeroEdges = { top: 0, right: 0, bottom: 0, left: 0 }
+
+const boxPlacement = (trim: Placement['trim']): Placement => ({
+  page: 0,
+  paper: 0,
+  side: 'front',
+  column: 0,
+  row: 0,
+  trim,
+  bleed: zeroEdges,
+  bleedBox: trim,
+  safeBox: trim,
+  clipped: [],
+})
+
+// Canonical form so a segment matches its reverse.
+const segmentKey = ({ x1, y1, x2, y2 }: MarkSegment) => {
+  const start = `${x1},${y1}`
+  const end = `${x2},${y2}`
+  return start < end ? `${start}|${end}` : `${end}|${start}`
+}
+
+// Mirror a mark through mirrorPlacement so the flip axis is that function's rule, not a copy of it.
+function mirrorMark(mark: MarkSegment, paper: { width: number; height: number }, flip: Imposition['flip']): MarkSegment {
+  const trim = {
+    x: Math.min(mark.x1, mark.x2),
+    y: Math.min(mark.y1, mark.y2),
+    width: Math.abs(mark.x2 - mark.x1),
+    height: Math.abs(mark.y2 - mark.y1),
+  }
+  const mirrored = mirrorPlacement(boxPlacement(trim), paper, flip).trim
+  return { x1: mirrored.x, y1: mirrored.y, x2: mirrored.x + mirrored.width, y2: mirrored.y + mirrored.height }
+}
+
+function mirrorOmitted(
+  mark: OmittedImpositionMark,
+  paper: { width: number; height: number },
+  flip: Imposition['flip'],
+): Pick<OmittedImpositionMark, 'edge' | 'cutPosition'> {
+  const verticalCut = mark.edge === 'top' || mark.edge === 'bottom'
+  const trim = verticalCut ? { x: mark.cutPosition, y: 0, width: 0, height: 0 } : { x: 0, y: mark.cutPosition, width: 0, height: 0 }
+  const mirrored = mirrorPlacement({ ...boxPlacement(trim), clipped: [mark.edge] }, paper, flip)
+  return { edge: mirrored.clipped[0] ?? mark.edge, cutPosition: verticalCut ? mirrored.trim.x : mirrored.trim.y }
+}
+
+const omittedKey = ({ edge, cutPosition }: Pick<OmittedImpositionMark, 'edge' | 'cutPosition'>) => `${edge}:${cutPosition}`
+
+const cutOnTrim = (mark: MarkSegment, trims: Placement['trim'][]) => {
+  const vertical = mark.x1 === mark.x2
+  return trims.some((trim) => (vertical ? mark.x1 === trim.x || mark.x1 === trim.x + trim.width : mark.y1 === trim.y || mark.y1 === trim.y + trim.height))
+}
 
 describe('impositionMarks', () => {
   test('a butted two by three grid has one pair per shared cut line', () => {
@@ -66,6 +118,41 @@ describe('impositionMarks', () => {
       axis === 'x' ? { ...mark, x1: 80 - mark.x1, x2: 80 - mark.x2 } : { ...mark, y1: 100 - mark.y1, y2: 100 - mark.y2 },
     )
     expect(back?.marks).toEqual(mirrored)
+  })
+
+  test.each([
+    ['portrait', 'long', 0],
+    ['portrait', 'long', 4],
+    ['portrait', 'short', 0],
+    ['portrait', 'short', 4],
+    ['landscape', 'long', 0],
+    ['landscape', 'long', 4],
+    ['landscape', 'short', 0],
+    ['landscape', 'short', 4],
+  ] as const)('rtl two-sided %s %s-flip gap %i back marks lie behind the front', (orientation, flip, gap) => {
+    const imposition = markInput({
+      paper: { width: 100, height: 140, unit: 'mm' },
+      orientation,
+      sides: 'two',
+      flip,
+      dir: 'rtl',
+      gap: { column: gap, row: gap },
+      margin: { top: 2.5, right: 14, bottom: 11, left: 2.5 },
+    })
+    const [front, back] = impositionMarks(imposition)
+    const cellCount = imposition.columns * imposition.rows
+    const imposed = impose(imposition, cellCount * 2)
+    const paper = imposed.paper
+    const backTrims = imposed.placements.filter(({ side }) => side === 'back').map(({ trim }) => trim)
+    expect(front?.side).toBe('front')
+    expect(back?.side).toBe('back')
+    expect(back?.marks.length).toBeGreaterThan(0)
+    expect(back?.omittedMarks.length).toBeGreaterThan(0)
+    expect((back?.marks ?? []).map((mark) => segmentKey(mirrorMark(mark, paper, flip))).sort()).toEqual((front?.marks ?? []).map(segmentKey).sort())
+    expect((back?.omittedMarks ?? []).map((mark) => omittedKey(mirrorOmitted(mark, paper, flip))).sort()).toEqual(
+      (front?.omittedMarks ?? []).map(omittedKey).sort(),
+    )
+    for (const mark of back?.marks ?? []) expect(cutOnTrim(mark, backTrims)).toBe(true)
   })
 
   test('corner marks are opt-in and never cross bleed', () => {
