@@ -11,3 +11,7 @@ test('item settings geometry selectors sit inside :where() and colour only throu
     expect(ITEM_SETTINGS_CSS).toMatch(new RegExp(`var\\(--segnavia-[a-z-]+,${color.replace('(', '\\(')}`))
   }
 })
+
+test('item settings controls take their corner radius from --segnavia-radius', () => {
+  expect(ITEM_SETTINGS_CSS).toMatch(/:where\(input\),:where\(select\),:where\(button\)\{[^}]*border-radius:var\(--segnavia-radius,0\)/)
+})

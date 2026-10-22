@@ -25,7 +25,7 @@ export const ITEM_SETTINGS_CSS = `
 :where(.print-frame-panel input){inline-size:100%}
 :where(.print-frame-actions){display:flex;justify-content:space-between;gap:.5rem}
 :where(label span){color:var(--segnavia-muted,currentColor);font-size:.85rem}
-:where(input),:where(select),:where(button){box-sizing:border-box;font:inherit;color:var(--segnavia-ink,currentColor);background:var(--segnavia-bg,transparent);border:1px solid var(--segnavia-line,currentColor)}
+:where(input),:where(select),:where(button){box-sizing:border-box;font:inherit;color:var(--segnavia-ink,currentColor);background:var(--segnavia-bg,transparent);border:1px solid var(--segnavia-line,currentColor);border-radius:var(--segnavia-radius,0)}
 :where(input),:where(select){inline-size:100%;min-block-size:2.25rem;padding-block:.4rem;padding-inline:.6rem}
 :where(button){min-block-size:2.25rem;padding-block:.4rem;padding-inline:.75rem}
 :where(input[readonly]){opacity:.85}
