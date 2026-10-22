@@ -73,7 +73,13 @@ export interface RenderOptions {
 
 export interface ImageOptions extends RenderOptions {
   format?: 'png' | 'jpeg' | 'webp'
+  proof?: { profile: Uint8Array }
   quality?: number[]
   scale?: number
   width?: number
+}
+
+export interface ProofImageOptions {
+  profile: Uint8Array
+  format?: 'png' | 'jpeg' | 'webp'
 }
