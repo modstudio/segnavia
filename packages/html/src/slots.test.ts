@@ -32,6 +32,7 @@ test('slot fill policy refuses only fills with declarations for an item that run
   expect(slotFillRefusal('sandboxed', declarations, undefined)).toBeUndefined()
   expect(slotFillRefusal('sandboxed', undefined, options)).toBeUndefined()
   expect(slotFillRefusal('sandboxed', undefined, { ...options, declarations })).toBeInstanceOf(SlotFillRefusedError)
+  expect(slotFillRefusal('sandboxed', declarations, { source: { id: 'source', values: {} } })).toBeInstanceOf(SlotFillRefusedError)
 })
 
 test('slot work includes every reason preparation must run', () => {
@@ -39,6 +40,7 @@ test('slot work includes every reason preparation must run', () => {
   expect(hasSlotWork(declarations, undefined)).toBe(true)
   expect(hasSlotWork(undefined, { declarations })).toBe(true)
   expect(hasSlotWork(undefined, { fill: { id: 'x', values: {} } })).toBe(true)
+  expect(hasSlotWork(undefined, { source: { id: 'source', values: {} } })).toBe(true)
   expect(hasSlotWork(undefined, { resolveAsset: async () => 'data:image/png;base64,AAAA' })).toBe(true)
   expect(hasSlotWork(undefined, { report() {} })).toBe(true)
 })
@@ -61,7 +63,42 @@ test('slot filling resolves assets, preserves designs, escapes markup and report
   expect(html).toContain('href="https://example.com/ada"')
   expect(html).toContain('src="data:image/png;base64,AAAA"')
   expect(html).toContain('Design text')
-  expect(report).toEqual({ fill: 'ada', slots: { name: 'filled', role: 'placeholder', email: 'invalid', site: 'filled', logo: 'filled' } })
+  expect(report).toEqual({
+    fill: 'ada',
+    slots: { name: 'filled', role: 'placeholder', email: 'invalid', site: 'filled', logo: 'filled' },
+    origins: { name: 'hand', email: 'hand', site: 'hand', logo: 'hand' },
+  })
+})
+
+test('hand values override source values and empty strings fall through each layer to the placeholder', async () => {
+  const prepared = await prepareSlots(declarations.slice(0, 4), {
+    source: { id: 'staff', values: { name: 'Source name', role: '', email: 'invalid', site: 'https://example.com/source' } },
+    fill: { id: 'overrides', values: { name: 'Hand name', role: '', email: '', site: '' } },
+  })
+  const html = prepared.apply(
+    '<p data-slot-value="name">Design name</p><p data-slot-value="role">Design role</p><p data-slot-value="email">Design email</p><a data-slot-href="site">Site</a>',
+  )
+  expect(html).toContain('Hand name')
+  expect(html).toContain('Role preview')
+  expect(html).toContain('Design email')
+  expect(html).toContain('href="https://example.com/source"')
+  expect(prepared.report).toEqual({
+    fill: 'overrides',
+    slots: { name: 'filled', role: 'placeholder', email: 'invalid', site: 'filled' },
+    origins: { name: 'hand', email: 'source', site: 'source' },
+  })
+})
+
+test('a source alone fills slots and identifies itself in the report', async () => {
+  const prepared = await prepareSlots(declarations.slice(0, 2), {
+    source: { id: 'staff', values: { name: 'Source name' } },
+  })
+  expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toContain('Source name')
+  expect(prepared.report).toEqual({
+    fill: 'staff',
+    slots: { name: 'filled', role: 'placeholder' },
+    origins: { name: 'source' },
+  })
 })
 
 test('slot application changes only bound elements and keeps authored active and remote content', async () => {
@@ -206,17 +243,18 @@ test('required-slot policy lists every unfilled key and state', () => {
   const refusal = requiredSlotRefusal(required, {
     fill: 'x',
     slots: { name: 'placeholder', role: 'unavailable', email: 'invalid' },
+    origins: {},
   })
   expect(refusal).toBeInstanceOf(RequiredSlotsRefusedError)
   expect(refusal?.message).toContain('"name" (placeholder), "role" (unavailable), "email" (invalid)')
   expect(refusal?.message).toContain('Fill required slots')
-  expect(requiredSlotRefusal(required, { fill: 'x', slots: { name: 'filled', role: 'filled', email: 'filled' } })).toBeUndefined()
+  expect(requiredSlotRefusal(required, { fill: 'x', slots: { name: 'filled', role: 'filled', email: 'filled' }, origins: {} })).toBeUndefined()
 })
 
 test('fit results merge only declared keys and overflowed refuse slots block output', () => {
   const declared = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }] as const
-  const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: 'filled' } }, { name: 'overflowed', injected: 'fit' })
-  expect(report).toEqual({ fill: 'x', slots: { name: 'overflowed' } })
+  const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: 'filled' }, origins: { name: 'hand' } }, { name: 'overflowed', injected: 'fit' })
+  expect(report).toEqual({ fill: 'x', slots: { name: 'overflowed' }, origins: { name: 'hand' } })
   expect(requiredSlotRefusal(declared, report)).toBeInstanceOf(RequiredSlotsRefusedError)
   expect(requiredSlotRefusal(declared, report)?.message).toContain("shorten its value or change the slot's overflow")
 })
@@ -226,7 +264,7 @@ test('filled refuse slots must be measured before output', () => {
     { key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' },
     { key: 'role', label: 'Role', type: 'text', required: false, overflow: 'wrap' },
   ] as const
-  const report = { fill: 'x', slots: { name: 'filled' as const, role: 'filled' as const } }
+  const report = { fill: 'x', slots: { name: 'filled' as const, role: 'filled' as const }, origins: {} }
   const marked = new Map([['name', 1]])
   const refusal = unmeasuredSlotRefusal(declared, report, marked, new Map())
   expect(refusal).toBeInstanceOf(UnmeasuredSlotsRefusedError)
@@ -275,7 +313,7 @@ test('preparation keeps required items viewable when their slots are unfilled', 
 test('a fit result never turns an unfilled required slot into a printable one', () => {
   const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: true, overflow: 'shrink', minSize: 6 }]
   for (const state of ['placeholder', 'unavailable', 'invalid'] as const) {
-    const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: state } }, { name: 'fit' })
+    const report = mergeSlotFitResults(declared, { fill: 'x', slots: { name: state }, origins: {} }, { name: 'fit' })
     expect(report.slots.name).toBe(state)
     expect(requiredSlotRefusal(declared, report)?.message).toContain(`"name" (${state})`)
   }

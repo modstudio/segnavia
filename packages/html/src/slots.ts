@@ -46,7 +46,7 @@ import { mergeSlotFitResults } from './slot-policy.ts'
 
 /** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
 export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
-  return Boolean(declarations?.length || options?.declarations?.length || options?.fill || options?.resolveAsset || options?.report)
+  return Boolean(declarations?.length || options?.declarations?.length || options?.fill || options?.source || options?.resolveAsset || options?.report)
 }
 
 /** Refuses exposing filled values to an item's own scripts. */
@@ -55,7 +55,7 @@ export function slotFillRefusal(
   declarations: readonly SlotDeclaration[] | undefined,
   options: SlotsOptions | undefined,
 ): SlotFillRefusedError | undefined {
-  const fillsValues = options?.fill && (declarations?.length || options.declarations?.length)
+  const fillsValues = (options?.fill || options?.source) && (declarations?.length || options.declarations?.length)
   return scripts !== 'refuse' && fillsValues ? new SlotFillRefusedError(scripts) : undefined
 }
 
@@ -273,17 +273,28 @@ async function valueFor(
   return /^data:image\//i.test(resolved) ? { value: resolved, state: 'filled' } : { state: 'invalid' }
 }
 
+function layeredValue(key: string, options: SlotsOptions): { value?: SlotValue; origin?: 'hand' | 'source' } {
+  const hand = options.fill?.values[key]
+  if (hand !== undefined && hand !== '') return { value: hand, origin: 'hand' }
+  const source = options.source?.values[key]
+  if (source !== undefined && source !== '') return { value: source, origin: 'source' }
+  return {}
+}
+
 async function resolveSlots(declarations: readonly SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<ResolvedSlots> {
   const data: Record<string, string> = {}
   const types: Record<string, SlotDeclaration['type']> = {}
   const states: Record<string, SlotState> = {}
+  const origins: SlotReport['origins'] = {}
   const linkOrigins = new Set<string>()
   const resolveAsset = assetResolver(options, signal)
   await Promise.all(
     declarations.map(async (slot) => {
       types[slot.key] = slot.type
-      const resolved = await valueFor(slot, options.fill?.values[slot.key], resolveAsset)
+      const selected = layeredValue(slot.key, options)
+      const resolved = await valueFor(slot, selected.value, resolveAsset)
       states[slot.key] = resolved.state
+      if (selected.origin) origins[slot.key] = selected.origin
       if (resolved.value !== undefined) {
         data[slot.key] = resolved.value
         if (slot.type === 'link' && resolved.state === 'filled') linkOrigins.add(new URL(resolved.value).origin)
@@ -291,7 +302,7 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
     }),
   )
   signal.throwIfAborted()
-  const report = { fill: options.fill?.id ?? null, slots: states }
+  const report = { fill: options.fill?.id ?? options.source?.id ?? null, slots: states, origins }
   options.report?.(report)
   return {
     data,
