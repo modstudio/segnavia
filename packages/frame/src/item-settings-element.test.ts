@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import type { Fill } from '@segnavia/format'
 
 class TestElement extends EventTarget {
@@ -13,6 +13,20 @@ class TestElement extends EventTarget {
     this.children.push(...nodes)
   }
 }
+
+// Both globals are process-wide under bun test, and a later file's helper may
+// already have installed its own document; put the previous ones back.
+const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+afterAll(() => {
+  for (const [name, previous] of [
+    ['HTMLElement', previousHTMLElement],
+    ['document', previousDocument],
+  ] as const) {
+    if (previous) Object.defineProperty(globalThis, name, previous)
+    else Reflect.deleteProperty(globalThis, name)
+  }
+})
 
 Object.assign(globalThis, { HTMLElement: TestElement })
 Object.defineProperty(globalThis, 'document', {
