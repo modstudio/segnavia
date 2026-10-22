@@ -33,7 +33,7 @@ export function renderFields(container: HTMLElement, context: ItemSettingsSectio
 function fillSelect(context: ItemSettingsSectionContext, actions: FieldsActions): HTMLLabelElement {
   const label = document.createElement('label')
   const caption = document.createElement('span')
-  caption.textContent = context.labels.fills
+  caption.append(isolated(context.labels.fills))
   const select = document.createElement('select')
   select.part.add('fill-select')
   for (const fill of context.fills) {
@@ -51,7 +51,7 @@ function fillSelect(context: ItemSettingsSectionContext, actions: FieldsActions)
 function fillName(context: ItemSettingsSectionContext, fill: Fill | undefined, actions: FieldsActions): HTMLLabelElement {
   const label = document.createElement('label')
   const caption = document.createElement('span')
-  caption.textContent = context.labels.fillName
+  caption.append(isolated(context.labels.fillName))
   const input = document.createElement('input')
   input.part.add('fill-label')
   input.dir = 'auto'
@@ -67,6 +67,7 @@ function addButton(labels: ItemSettingsLabels, actions: FieldsActions): HTMLButt
   button.type = 'button'
   button.dataset.action = 'add'
   button.textContent = labels.addFill
+  button.dir = 'auto'
   button.addEventListener('click', () => actions.onAddFill())
   return button
 }
@@ -76,6 +77,7 @@ function removeButton(context: ItemSettingsSectionContext, actions: FieldsAction
   button.type = 'button'
   button.dataset.action = 'remove'
   button.textContent = context.labels.removeFill
+  button.dir = 'auto'
   button.disabled = context.fill === null
   button.addEventListener('click', () => actions.onRemoveFill())
   return button
@@ -96,7 +98,7 @@ function slotField(slot: SlotDeclaration, view: SlotFieldView, context: ItemSett
 
 function slotCaption(view: SlotFieldView, labels: ItemSettingsLabels): HTMLSpanElement {
   const caption = document.createElement('span')
-  caption.textContent = view.label
+  caption.append(isolated(view.label))
   if (!view.required) return caption
   const marker = document.createElement('span')
   marker.part.add('required')
@@ -134,7 +136,7 @@ function imageControl(slot: SlotDeclaration, view: SlotFieldView, labels: ItemSe
   if (typeof view.value === 'object') {
     const chosen = document.createElement('span')
     chosen.dataset.asset = view.value.asset
-    chosen.textContent = view.value.asset
+    chosen.append(isolated(view.value.asset))
     group.append(chosen)
   }
   if (!actions.pickAsset || view.readOnly) return group
@@ -142,6 +144,7 @@ function imageControl(slot: SlotDeclaration, view: SlotFieldView, labels: ItemSe
   pick.type = 'button'
   pick.dataset.action = 'pick-asset'
   pick.textContent = labels.chooseAsset
+  pick.dir = 'auto'
   pick.addEventListener('click', () => void pickAsset(slot, actions))
   group.append(pick)
   return group
@@ -155,6 +158,7 @@ function slotActions(view: SlotFieldView, labels: ItemSettingsLabels, actions: F
     button.type = 'button'
     button.dataset.action = 'override'
     button.textContent = labels.override
+    button.dir = 'auto'
     button.addEventListener('click', () => actions.onOverride(view.key))
     row.append(button)
   }
@@ -163,6 +167,7 @@ function slotActions(view: SlotFieldView, labels: ItemSettingsLabels, actions: F
     button.type = 'button'
     button.dataset.action = 'use-source'
     button.textContent = labels.useSource
+    button.dir = 'auto'
     button.addEventListener('click', () => actions.onUseSource(view.key))
     row.append(button)
   }
@@ -174,7 +179,7 @@ function slotWarnings(view: SlotFieldView, labels: ItemSettingsLabels): HTMLPara
     const note = document.createElement('p')
     note.part.add('warning')
     note.dataset.warning = warning
-    note.textContent = labels[warning]
+    note.append(isolated(labels[warning]))
     return note
   })
 }
@@ -192,4 +197,11 @@ function readImageFile(input: HTMLInputElement, key: string, actions: FieldsActi
 async function pickAsset(slot: SlotDeclaration, actions: FieldsActions) {
   const value = await actions.pickAsset?.(slot)
   if (value !== undefined) actions.onChangeValue(slot.key, value)
+}
+
+// Library and label text sits in a <bdi>, so it takes its own direction while its block keeps the panel's alignment.
+function isolated(text: string): HTMLElement {
+  const bdi = document.createElement('bdi')
+  bdi.textContent = text
+  return bdi
 }

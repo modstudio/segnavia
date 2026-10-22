@@ -9,7 +9,10 @@ interface SlotCard {
   resolveAsset: NonNullable<SlotsOptions['resolveAsset']>
 }
 
-const card = (window as unknown as { slotCard: SlotCard }).slotCard
+// The page's inline module sets the card after its elements are defined; wait for it if it has not yet.
+const holder = window as unknown as { slotCard?: SlotCard }
+if (!holder.slotCard) await new Promise((resolve) => window.addEventListener('slot-card-ready', resolve, { once: true }))
+const card = holder.slotCard
 const mina = document.querySelector<SegnaviaDocument & { slots: SlotsOptions }>('#mina')
 const settings = document.querySelector<SegnaviaItemSettings>('#card-settings')
 const rtl = document.querySelector<SegnaviaItemSettings>('#card-settings-rtl')
@@ -36,6 +39,7 @@ function applyCard(fillId: string) {
     resolveAsset: cardData.resolveAsset,
     report: (report) => {
       panel.report = report
+      rtlPanel.report = report
     },
   }
 }
@@ -57,7 +61,7 @@ panel.addEventListener('segnavia-fill-select', (event) => {
   applyCard(id)
 })
 
-const authoring = attachItemSettings(panel, {
+const handlers: Parameters<typeof attachItemSettings>[1] = {
   createFill: async ({ label }) => {
     const fill: Fill = { id: `host-${crypto.randomUUID()}`, label, values: {} }
     fills = [...fills, fill]
@@ -72,7 +76,12 @@ const authoring = attachItemSettings(panel, {
     fills = fills.filter((item) => item.id !== id)
   },
   pickAsset: async () => ({ asset: 'mark' }),
-})
+}
+const authoring = attachItemSettings(panel, handlers)
+// The right-to-left copy edits the same fills, so it shows the same controls.
+attachItemSettings(rtlPanel, handlers)
+// The card shows the hand fill over the directory source from the start, so both panels see its report.
+applyCard(minaHand.id)
 
 ;(window as unknown as { itemSettings: SegnaviaItemSettings; itemSettingsAuthoring: typeof authoring; itemSettingsFacts: { saves: Fill[] } }).itemSettings =
   panel

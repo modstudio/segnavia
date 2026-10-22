@@ -37,4 +37,9 @@ describe('slot field view', () => {
     expect(slotWarnings(name, 'filled')).toEqual([])
     expect(slotWarnings(name, 'fit')).toEqual([])
   })
+
+  test('before any report, a required slot a layer supplies is not reported missing', () => {
+    expect(slotFieldView(name, fill, source, undefined).warnings).toEqual([])
+    expect(slotFieldView(name, fill, undefined, undefined).warnings).toEqual(['missing'])
+  })
 })

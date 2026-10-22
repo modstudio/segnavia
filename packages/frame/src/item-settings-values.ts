@@ -31,9 +31,11 @@ function isFilledState(state: SlotState | undefined): boolean {
   return state === 'filled' || state === 'fit' || state === 'shrunk'
 }
 
-export function slotWarnings(slot: SlotDeclaration, state: SlotState | undefined): SlotWarning[] {
+// Before the first report arrives, a slot counts as filled when a layer supplies a value.
+export function slotWarnings(slot: SlotDeclaration, state: SlotState | undefined, hasValue = false): SlotWarning[] {
   const warnings: SlotWarning[] = []
-  if (slot.required && !isFilledState(state)) warnings.push('missing')
+  const filled = state === undefined ? hasValue : isFilledState(state)
+  if (slot.required && !filled) warnings.push('missing')
   if (state === 'overflowed') warnings.push('overflowed')
   if (state === 'shrunk') warnings.push('shrunk')
   return warnings
@@ -56,7 +58,7 @@ export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, sou
     readOnly,
     canOverride: readOnly && fill !== undefined,
     canUseSource: origin === 'hand' && sourceHasValue && fill !== undefined,
-    warnings: slotWarnings(slot, report?.slots[slot.key]),
+    warnings: slotWarnings(slot, report?.slots[slot.key], layered.value !== undefined),
   }
 }
 

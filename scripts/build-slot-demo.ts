@@ -125,6 +125,7 @@ export async function buildSlotDemo(site: string): Promise<void> {
       })
       window.slotFacts = { reports, refuseError, get failedAsset() { return failedAsset } }
       window.slotCard = { declarations, fills: { mina: ${JSON.stringify(firstCardFill)}, noah: ${JSON.stringify(secondCardFill)} }, resolveAsset }
+      window.dispatchEvent(new Event('slot-card-ready'))
     </script><script type="module" src="slot-settings-demo.js"></script></body></html>`,
   )
   const root = path.resolve(import.meta.dirname, '..')

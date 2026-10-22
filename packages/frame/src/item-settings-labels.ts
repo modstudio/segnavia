@@ -17,7 +17,7 @@ export interface ItemSettingsLabels {
 export const ENGLISH_ITEM_SETTINGS_LABELS: ItemSettingsLabels = {
   fields: 'Fields',
   fills: 'Fill',
-  fillName: 'Name',
+  fillName: 'Fill name',
   addFill: 'Add fill',
   removeFill: 'Remove fill',
   newFill: 'New fill',
