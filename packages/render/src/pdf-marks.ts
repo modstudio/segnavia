@@ -2,11 +2,11 @@ import type { MarkColor } from '@segnavia/format'
 import {
   lineTo,
   moveTo,
+  PDFOperatorNames as Ops,
   PDFDict,
   PDFName,
   PDFNumber,
   PDFOperator,
-  PDFOperatorNames as Ops,
   type PDFPage,
   popGraphicsState,
   pushGraphicsState,

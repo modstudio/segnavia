@@ -79,6 +79,7 @@ export function isSeparationAll(document: PDFDocument, object: PDFObject | undef
   return nameOf(resolved(document, value.get(0))) === 'Separation' && nameOf(resolved(document, value.get(1))) === 'All'
 }
 
+// A greyscale destination has one plate, so Separation All is dropped after its stroke becomes DeviceGray black.
 export function dropRegistrationColorSpaces(document: PDFDocument, resources: PDFDict | undefined): void {
   const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
   if (!spaces) return

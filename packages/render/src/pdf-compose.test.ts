@@ -4,8 +4,8 @@ import { deflateSync } from 'node:zlib'
 import { Imposition, impose, impositionMarks, Page } from '@segnavia/format'
 import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { composeImposedPdf, embedOnePage } from './pdf-compose.ts'
 import { groupPieces } from './pages-imposition.ts'
+import { composeImposedPdf, embedOnePage } from './pdf-compose.ts'
 import { MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 function objectStream(contents: Uint8Array): Uint8Array {

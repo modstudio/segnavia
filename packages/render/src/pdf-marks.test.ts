@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Buffer } from 'node:buffer'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { drawCropMarks } from './pdf-marks.ts'
 
