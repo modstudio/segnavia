@@ -7,24 +7,32 @@ export const PAPER_FIT_TOLERANCE_MM = 0.01
 const GRID_WIDTH_REMEDY = 'reduce the horizontal margins, columns, cell width or column gap'
 const GRID_HEIGHT_REMEDY = 'reduce the vertical margins, rows, cell height or row gap'
 
+export type OverflowAxis = {
+  path?: (string | number)[]
+  subject?: string
+  remedy?: string
+}
+
 export function refuseOverflow(
   ctx: IssueCtx,
   paper: { width: number; height: number },
-  used: { width: number; height: number },
-  remedy: { width?: string; height?: string } = {},
+  used: { width?: number; height?: number },
+  axis: { width?: OverflowAxis; height?: OverflowAxis } = {},
 ): void {
-  if (used.width - paper.width > PAPER_FIT_TOLERANCE_MM) {
+  const width = used.width
+  if (width !== undefined && width - paper.width > PAPER_FIT_TOLERANCE_MM) {
     ctx.addIssue({
       code: 'custom',
-      path: ['columns'],
-      message: `the grid is ${roundMillimeters(used.width)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${roundMillimeters(used.width - paper.width)}mm; ${remedy.width ?? GRID_WIDTH_REMEDY}`,
+      path: axis.width?.path ?? ['columns'],
+      message: `${axis.width?.subject ?? 'the grid'} is ${roundMillimeters(width)}mm wide and the paper is ${paper.width}mm wide, an overflow of ${roundMillimeters(width - paper.width)}mm; ${axis.width?.remedy ?? GRID_WIDTH_REMEDY}`,
     })
   }
-  if (used.height - paper.height > PAPER_FIT_TOLERANCE_MM) {
+  const height = used.height
+  if (height !== undefined && height - paper.height > PAPER_FIT_TOLERANCE_MM) {
     ctx.addIssue({
       code: 'custom',
-      path: ['rows'],
-      message: `the grid is ${roundMillimeters(used.height)}mm high and the paper is ${paper.height}mm high, an overflow of ${roundMillimeters(used.height - paper.height)}mm; ${remedy.height ?? GRID_HEIGHT_REMEDY}`,
+      path: axis.height?.path ?? ['rows'],
+      message: `${axis.height?.subject ?? 'the grid'} is ${roundMillimeters(height)}mm high and the paper is ${paper.height}mm high, an overflow of ${roundMillimeters(height - paper.height)}mm; ${axis.height?.remedy ?? GRID_HEIGHT_REMEDY}`,
     })
   }
 }

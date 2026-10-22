@@ -141,6 +141,12 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
     return
   }
   refuseShape(draft, ctx, columns)
+  const paper = sheetMm({ paper: draft.paper, orientation: draft.orientation })
+  const available = availableWidthMm(draft)
+  if (available <= 0) {
+    issue(ctx, ['margin'], `the horizontal margins leave ${available}mm of the ${paper.width}mm paper; reduce them`)
+    return
+  }
   const widths = panelWidthsMm(draft)
   if (widths.some((width) => width <= 0)) {
     issue(
@@ -150,7 +156,6 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
     )
     return
   }
-  const paper = sheetMm({ paper: draft.paper, orientation: draft.orientation })
   const marginLeft = toMillimeters(draft.margin.left, draft.unit)
   const marginRight = toMillimeters(draft.margin.right, draft.unit)
   const sum = roundMillimeters(marginLeft + widths.reduce((total, width) => total + width, 0) + marginRight)
@@ -162,8 +167,7 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
     )
   }
   const height = toMillimeters(draft.margin.top, draft.unit) + toMillimeters(draft.cell.height, draft.unit) + toMillimeters(draft.margin.bottom, draft.unit)
-  // Leftover already owns fold width; pass paper.width so overflow only checks height.
-  refuseOverflow(ctx, paper, { width: paper.width, height }, { height: FOLD_HEIGHT_REMEDY })
+  refuseOverflow(ctx, paper, { height }, { height: { path: ['cell', 'height'], subject: 'the folded piece', remedy: FOLD_HEIGHT_REMEDY } })
   refuseSafe(ctx, toMillimeters(draft.safe, draft.unit), { width: Math.min(...widths), height: toMillimeters(draft.cell.height, draft.unit) })
 }
 

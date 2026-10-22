@@ -235,20 +235,26 @@ export const Imposition = z
     marks: z.boolean().default(false),
     cornerMarks: z.boolean().default(false),
     fold: z.enum(FOLD_KINDS).optional(),
-    panels: z
-      .array(z.number().positive())
-      .max(MAX_IMPOSITION_CELLS, {
-        error: (issue) =>
-          `the fold has ${Array.isArray(issue.input) ? issue.input.length : MAX_IMPOSITION_CELLS + 1} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
-      })
-      .optional(),
+    panels: z.array(z.number().positive()).max(MAX_IMPOSITION_CELLS).optional(),
   })
   .superRefine((imposition, ctx) => {
     if (imposition.cornerMarks && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
     }
+    if (imposition.panels !== undefined && !imposition.fold) {
+      ctx.addIssue({ code: 'custom', path: ['panels'], message: 'panels needs fold; set fold or remove panels' })
+    }
     if (imposition.fold) {
-      if ((imposition.panels?.length ?? 0) <= MAX_IMPOSITION_CELLS) refineFold(imposition, ctx)
+      const panelCount = imposition.panels?.length ?? 0
+      if (panelCount > MAX_IMPOSITION_CELLS) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['panels'],
+          message: `the fold has ${panelCount} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
+        })
+        return
+      }
+      refineFold(imposition, ctx)
       return
     }
     if (imposition.columns === undefined) {

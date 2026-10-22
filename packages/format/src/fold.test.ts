@@ -106,22 +106,74 @@ describe('folded imposition', () => {
     const result = Imposition.safeParse(foldInput({ fold: 'custom', panels: Array.from({ length: MAX_IMPOSITION_CELLS + 1 }, () => 0.01) }))
     expect(result.success).toBe(false)
     expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]?.message).toContain('the fold has')
     expect(result.error?.issues[0]?.message).toContain(`${MAX_IMPOSITION_CELLS + 1} panels`)
     expect(result.error?.issues[0]?.message).toContain(`ceiling is ${MAX_IMPOSITION_CELLS}`)
   })
 
-  test('parse refuses a fold whose safe margin is too large for the tuck-in panel', () => {
-    const result = Imposition.safeParse(foldInput({ fold: 'letter', safe: 50 }))
+  test('parse refuses panels without fold', () => {
+    const result = Imposition.safeParse({
+      paper: { width: 300, height: 100, unit: 'mm' },
+      orientation: 'landscape',
+      columns: 2,
+      rows: 1,
+      cell: { width: 100, height: 100 },
+      panels: [100, 100],
+    })
     expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.path)).toContainEqual(['safe'])
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({ path: ['panels'], message: 'panels needs fold; set fold or remove panels' }),
+    ])
+  })
+
+  test('a grid over the panel ceiling does not name a fold', () => {
+    const result = Imposition.safeParse({
+      paper: { width: 10, height: 10, unit: 'mm' },
+      columns: 1,
+      rows: 1,
+      cell: { width: 10, height: 10 },
+      panels: Array.from({ length: MAX_IMPOSITION_CELLS + 1 }, () => 0.01),
+    })
+    expect(result.success).toBe(false)
+    const messages = result.error?.issues.map((issue) => issue.message).join(' ') ?? ''
+    expect(messages).toContain('panels needs fold; set fold or remove panels')
+    expect(messages).not.toContain('the fold has')
+  })
+
+  test('parse refuses a fold whose safe margin is too large for the tuck-in panel', () => {
+    const result = Imposition.safeParse(foldInput({ fold: 'letter', safe: 49.3 }))
+    expect(result.success).toBe(false)
+    const safeIssues = result.error?.issues.filter((issue) => issue.path[0] === 'safe') ?? []
+    expect(safeIssues).toHaveLength(1)
+    expect(safeIssues[0]?.message).toContain('98.5mm')
+  })
+
+  test('parse accepts a fold whose safe margin fits the tuck-in panel', () => {
+    expect(parseFold({ fold: 'letter', safe: 49.2 }).safe).toBe(49.2)
   })
 
   test('parse refuses a fold taller than the paper with the fold height remedy', () => {
     const result = Imposition.safeParse(foldInput({ fold: 'letter', cell: { height: 120 } }))
     expect(result.success).toBe(false)
-    const messages = result.error?.issues.map((issue) => issue.message).join(' ') ?? ''
-    expect(messages).toContain('reduce the vertical margins or cell height')
-    expect(messages).not.toContain('row gap')
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]).toMatchObject({ path: ['cell', 'height'] })
+    expect(result.error?.issues[0]?.message).toContain('the folded piece')
+    expect(result.error?.issues[0]?.message).toContain('reduce the vertical margins or cell height')
+    expect(result.error?.issues[0]?.message).not.toContain('grid')
+    expect(result.error?.issues[0]?.message).not.toContain('row gap')
+  })
+
+  test('parse refuses a fold whose horizontal margins leave no width', () => {
+    const result = Imposition.safeParse(
+      foldInput({ fold: 'letter', margin: { top: 0, right: 200, bottom: 0, left: 200 } }),
+    )
+    expect(result.success).toBe(false)
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['margin'],
+      message: 'the horizontal margins leave -100mm of the 300mm paper; reduce them',
+    })
+    expect(result.error?.issues[0]?.message).not.toContain('override panels')
   })
 
   test('parse refuses an over-wide fold with one width issue', () => {
