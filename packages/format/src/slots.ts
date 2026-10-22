@@ -80,7 +80,7 @@ export interface SlotsOptions {
   source?: Fill
   fill?: Fill
   declarations?: SlotDeclarationInput[]
-  /** Resolve an asset without network access. Hosts should honour the signal so timed-out renders stop this work promptly. */
+  /** Resolve an asset without network access. Hosts should honor the signal so timed-out renders stop this work promptly. */
   resolveAsset?: (ref: string, options: { signal: AbortSignal }) => Promise<string>
   report?: (report: SlotReport) => void
 }

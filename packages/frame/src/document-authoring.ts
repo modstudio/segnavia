@@ -41,6 +41,7 @@ export class DocumentAuthoringController extends EventTarget {
     this.unsubscribe = this.rail.subscribeReorder(({ fromIndex, toIndex }) => void this.move(fromIndex, toIndex))
     this.document.addEventListener('segnavia-document-page', this.pageChanged)
     this.document.addEventListener('segnavia-document-change', this.documentChanged)
+    this.document.addEventListener('segnavia-document-slots', this.slotsChanged)
     this.document.setAuthoringRail(this.rail)
     this.syncItemSettings()
     this.refresh()
@@ -64,12 +65,14 @@ export class DocumentAuthoringController extends EventTarget {
     this.unsubscribe = null
     this.document.removeEventListener('segnavia-document-page', this.pageChanged)
     this.document.removeEventListener('segnavia-document-change', this.documentChanged)
+    this.document.removeEventListener('segnavia-document-slots', this.slotsChanged)
     this.document.setAuthoringRail(null)
   }
 
   private refresh() {
     const pages = this.document.pages
     this.identityError = pageIdentityError(pages)
+    this.rail.slots = this.document.slots
     this.rail.configure(pages, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))
     this.rail.setSelected(this.currentPage)
     this.rail.setReorderEnabled(!this.pending && !this.identityError)
@@ -94,6 +97,10 @@ export class DocumentAuthoringController extends EventTarget {
   }
 
   private documentChanged = () => this.refresh()
+
+  private slotsChanged = () => {
+    this.rail.slots = this.document.slots
+  }
 
   private async move(fromIndex: number, toIndex: number) {
     const pages = [...this.document.pages]

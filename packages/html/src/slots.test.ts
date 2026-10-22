@@ -184,7 +184,7 @@ test('items without slot declarations pass through byte for byte', async () => {
   expect((await prepareSlots([], {})).apply(html)).toBe(html)
 })
 
-test('QR values render the level M module matrix with a four-module quiet zone and CSS colour', async () => {
+test('QR values render the level M module matrix with a four-module quiet zone and CSS color', async () => {
   const link = 'https://example.com/path?a=1&b="two"'
   const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {
     fill: { id: 'x', values: { code: link } },

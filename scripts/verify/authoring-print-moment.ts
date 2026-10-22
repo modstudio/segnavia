@@ -9,9 +9,9 @@ async function visiblePopoverControls(h: Harness, context: string, selector: str
       const rect = element.getBoundingClientRect()
       const x = rect.left + rect.width / 2
       const y = rect.top + rect.height / 2
-      let centre = document.elementFromPoint(x, y)
-      while (centre?.shadowRoot) centre = centre.shadowRoot.elementFromPoint(x, y)
-      return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && (centre === element || element.contains(centre))
+      let center = document.elementFromPoint(x, y)
+      while (center?.shadowRoot) center = center.shadowRoot.elementFromPoint(x, y)
+      return rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && (center === element || element.contains(center))
     }
     return {
       panel: viewport(panel),

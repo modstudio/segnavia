@@ -1,4 +1,4 @@
-import type { Page, Print } from '@segnavia/format'
+import type { Page, Print, SlotsOptions } from '@segnavia/format'
 import { railSelection } from './rail-navigation.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import type { SegnaviaThumbnail } from './thumbnail.ts'
@@ -31,6 +31,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
   })
   private selectPage: (index: number) => void = () => {}
   private itemSettings: { label: string; open: () => void } | null = null
+  private slotOptions: SlotsOptions | undefined
 
   constructor() {
     super()
@@ -43,6 +44,16 @@ export class SegnaviaDocumentRail extends HTMLElement {
     this.root.addEventListener('click', this.clicked)
     this.root.addEventListener('keydown', this.keydown as EventListener)
     this.reorder.attach()
+  }
+
+  get slots(): SlotsOptions | undefined {
+    return this.slotOptions
+  }
+
+  set slots(value: SlotsOptions | undefined) {
+    if (this.slotOptions === value) return
+    this.slotOptions = value
+    for (const thumbnail of this.thumbnails()) thumbnail.slots = value
   }
 
   configure(pages: readonly Page[], print: Print | null, css: string, select: (index: number) => void) {
@@ -75,6 +86,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
       thumbnail.page = page
       thumbnail.print = print
       thumbnail.css = css
+      thumbnail.slots = this.slotOptions
       preview.append(thumbnail)
       const number = document.createElement('span')
       number.className = 'number'
@@ -113,6 +125,10 @@ export class SegnaviaDocumentRail extends HTMLElement {
 
   private buttons() {
     return [...this.root.querySelectorAll<HTMLButtonElement>('button[data-index]')]
+  }
+
+  private thumbnails() {
+    return [...this.root.querySelectorAll<SegnaviaThumbnail>('segnavia-thumbnail')]
   }
 
   private clicked = (event: Event) => {
