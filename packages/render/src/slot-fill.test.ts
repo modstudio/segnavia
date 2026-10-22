@@ -86,7 +86,7 @@ test('server preparation reports placeholders for scripted items without a fill'
   })
   const result = await filledPage(page, { report: (report) => reports.push(report) })
   expect(result.html).toContain('Placeholder')
-  expect(reports).toEqual([{ fill: null, slots: { name: 'placeholder' } }])
+  expect(reports).toEqual([{ fill: null, slots: { name: 'placeholder' }, origins: {} }])
 })
 
 test('server preparation rejects unsafe bindings for scripted items without a fill', async () => {

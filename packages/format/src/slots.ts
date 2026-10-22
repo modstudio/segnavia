@@ -60,14 +60,24 @@ export interface Fill {
   values: Record<string, SlotValue>
 }
 
+export interface SlotSource {
+  id: string
+  label: string
+  fields: string[]
+  list(options: { signal: AbortSignal }): Promise<Fill[]>
+}
+
 export type SlotState = 'filled' | 'placeholder' | 'unavailable' | 'invalid' | 'fit' | 'shrunk' | 'overflowed'
 
 export interface SlotReport {
   fill: string | null
   slots: Record<string, SlotState>
+  origins: Record<string, 'hand' | 'source'>
 }
 
 export interface SlotsOptions {
+  /** The fill selected from a host data source; hand values override it per declared key. */
+  source?: Fill
   fill?: Fill
   declarations?: SlotDeclarationInput[]
   /** Resolve an asset without network access. Hosts should honour the signal so timed-out renders stop this work promptly. */
