@@ -6,7 +6,9 @@ import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
+import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
@@ -22,6 +24,7 @@ import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
+export { captureImage } from './capture-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
@@ -64,37 +67,6 @@ export interface Renderer {
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
-}
-
-// One image of what a tab shows. Shared with capture, so a shot and a
-// rendered slide are encoded the same way under the same size ceiling.
-export async function captureImage(tab: Tab, options: Pick<ImageOptions, 'format' | 'quality' | 'limits'>, fullPage: boolean): Promise<Uint8Array> {
-  const format = options.format ?? 'png'
-  if (format !== 'webp') {
-    return tab.screenshot({ type: format, fullPage, ...(format === 'jpeg' ? { quality: options.quality?.[0] ?? 90 } : {}) })
-  }
-  // Playwright offers no WebP; Chromium's own capture does, at a quality.
-  const session = await tab.context().newCDPSession(tab)
-  try {
-    const clip = await tab.evaluate((wholePage) => {
-      const scale = devicePixelRatio
-      if (wholePage) return { x: 0, y: 0, width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, scale }
-      return { x: scrollX, y: scrollY, width: innerWidth, height: innerHeight, scale }
-    }, fullPage)
-    for (const quality of options.quality ?? [90, 80, 70]) {
-      const { data } = await session.send('Page.captureScreenshot', {
-        format: 'webp',
-        quality,
-        captureBeyondViewport: fullPage,
-        clip,
-      })
-      const bytes = Buffer.from(data, 'base64')
-      if (options.limits?.maxBytes === undefined || bytes.byteLength <= options.limits.maxBytes) return bytes
-    }
-  } finally {
-    await session.detach()
-  }
-  throw new RenderRefusedError(`The image is larger than ${options.limits?.maxBytes} bytes at every quality tried.`)
 }
 
 // A page that grows takes the height of its content. The viewport is
@@ -191,8 +163,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
     deadline?: RenderDeadline,
   ): Promise<Uint8Array> {
-    if (!options.press || (new TextDecoder().decode(options.press.profile.subarray(16, 20)) !== 'GRAY' && options.press.images !== 'convert'))
-      return finishPdf(pdf, options)
+    if (!options.press) return finishPdf(pdf, options)
     return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
@@ -220,20 +191,28 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         beforeOutput: opts.beforeOutput,
       },
       async (tab) => {
-        if (page.print) return printPage(tab, page.print, opts.preferCssPageSize, inputIndex)
+        const captures = await prepareBackdropRasters(tab, opts.effects)
+        if (page.print) {
+          const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex)
+          return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+        }
         const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
         const height = fixedHeight ?? (await contentHeight(tab))
         if (fixedHeight !== null) {
           const overflow = await measureOverflow(tab, viewport.width, 'page', inputIndex)
-          return { bytes: await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), overflow }
+          return {
+            bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), captures),
+            overflow,
+          }
         }
-        return printWithOverflow(
+        const printed = await printWithOverflow(
           tab,
           viewport.width,
           'page',
           { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
           inputIndex,
         )
+        return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
       },
     )
   }
@@ -260,14 +239,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         beforeOutput: opts.beforeOutput,
       },
       (tab) =>
-        tab.pdf({
-          width: geometry.pdf.width,
-          height: geometry.pdf.height,
-          printBackground: true,
-          preferCSSPageSize: false,
-          pageRanges: '1',
-          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-        }),
+        pdfWithBackdropRasters(
+          tab,
+          {
+            width: geometry.pdf.width,
+            height: geometry.pdf.height,
+            printBackground: true,
+            preferCSSPageSize: false,
+            pageRanges: '1',
+            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+          },
+          opts.effects,
+        ),
     )
   }
 
@@ -275,7 +258,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     bookPdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, (deadline) => {
         return renderBrowserBookPdf(input, opts, {
-          render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printWithOverflow(tab, pageWidth, part, pdf)),
+          render: (setup, pdf, pageWidth, part) =>
+            withTab({ ...setup, deadline }, async (tab) => {
+              const captures = await prepareBackdropRasters(tab, opts.effects)
+              const printed = await printWithOverflow(tab, pageWidth, part, pdf)
+              return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+            }),
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
         })
@@ -287,7 +275,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const overflows: OverflowEntry[] = []
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const page = await filledPage(Page.parse(input), copySlots, deadline.signal)
-          const printed = await renderPagePdf(page, { ...opts, effects: false, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
+          const printed = await renderPagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
@@ -329,7 +317,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const pages = await filledPages(parsed, copySlots, deadline.signal)
           return renderPagesPdf(
             pages,
-            { ...opts, effects: false, limits: undefined, press: undefined },
+            { ...opts, limits: undefined, press: undefined },
             {
               pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex, deadline),
               piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, deadline),
@@ -348,9 +336,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const prepared = await filledDeck(deck, copySlots, deadline.signal)
           return renderDeckPdf(
             prepared,
-            { ...opts, effects: false, press: undefined },
+            { ...opts, press: undefined },
             {
-              renderPdf: (setup, pdf) => withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) => tab.pdf(pdf)),
+              renderPdf: (setup, pdf) =>
+                withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) =>
+                  pdfWithBackdropRasters(tab, pdf, opts.effects),
+                ),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
             },

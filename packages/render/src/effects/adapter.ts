@@ -20,7 +20,7 @@ import {
   effectGraphicsStateStructure,
   effectOpacity,
 } from './structure.ts'
-import type { EffectsReport } from './types.ts'
+import { BACKDROP_RASTER_IMAGE_KEY, type EffectsReport } from './types.ts'
 
 interface Rule1Candidate {
   backdrop: SoftMaskFacts['backdrop']
@@ -34,6 +34,7 @@ interface EffectsState {
   applied: WeakSet<PDFDict>
   appliedRuleC: number
   budget: ContentBudget
+  changed: boolean
   document: PDFDocument
   masks: Set<PDFDict>
   rule1Candidates: WeakMap<PDFDict, Rule1Candidate>
@@ -329,11 +330,20 @@ function rewriteContent(
   else setDirect(replacement)
 }
 
-export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
+function declareTransparencyGroupColorSpace(state: EffectsState, owner: PDFDict): void {
+  const group = owner.lookupMaybe(key('Group'), PDFDict)
+  if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return
+  // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their colour.
+  group.set(key('CS'), key('DeviceRGB'))
+  state.changed = true
+}
+
+function rewriteEffects(document: PDFDocument): { changed: boolean; report: EffectsReport } {
   const state: EffectsState = {
     applied: new WeakSet(),
     appliedRuleC: 0,
     budget: { decodedBytes: 0 },
+    changed: false,
     document,
     masks: new Set(),
     rule1Candidates: new WeakMap(),
@@ -342,7 +352,7 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
   walkPressGraph(document, {
     content: () => undefined,
     function: () => undefined,
-    group: () => undefined,
+    group: (owner) => declareTransparencyGroupColorSpace(state, owner),
     image: () => undefined,
     shading: () => false,
     softMask: (graphicsState, mask, source, resources) => classifyMask(state, graphicsState, mask, source, resources),
@@ -359,14 +369,22 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
   for (const mask of state.masks) if (state.applied.has(mask)) rule1++
   let kept = 0
   for (const mask of state.masks) if (!state.applied.has(mask) && !state.ruleCMasks.has(mask)) kept++
-  return { rule1, ruleC: state.appliedRuleC, kept }
+  let raster = 0
+  for (const [, object] of document.context.enumerateIndirectObjects()) {
+    if (object instanceof PDFRawStream && object.dict.has(key(BACKDROP_RASTER_IMAGE_KEY))) raster++
+  }
+  return { changed: state.changed, report: { rule1, ruleC: state.appliedRuleC, kept, ...(raster > 0 ? { raster } : {}) } }
+}
+
+export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
+  return rewriteEffects(document).report
 }
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
   try {
     const document = await loadPdf(bytes, { updateMetadata: false })
-    const report = rewriteEffectsDocument(document)
-    return { bytes: report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
+    const { changed, report } = rewriteEffects(document)
+    return { bytes: !changed && report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
   } catch (error) {
     if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')

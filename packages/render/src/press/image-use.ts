@@ -14,16 +14,16 @@ function replaceSourceImage(document: PDFDocument, image: PDFRawStream, uses: Su
   else for (const use of uses) use.replace(replacement)
 }
 
-export async function convertImageUses(state: ImageState, image: PDFRawStream, uses: SuppliedImageUse[]): Promise<void> {
+export async function convertImageUses(state: ImageState, image: PDFRawStream, uses: SuppliedImageUse[], generatedEffect = false): Promise<void> {
   const normal = uses.filter((use) => use.mask === 'none')
   const masks = uses.filter((use) => use.mask !== 'none')
   if (normal.length > 0) {
-    const replacement = await convertSuppliedImage(state, image, 'none')
+    const replacement = await convertSuppliedImage(state, image, 'none', generatedEffect)
     if (!replacement) return
     replaceSourceImage(state.document, image, normal, replacement)
   }
   if (masks.length === 0) return
-  const replacement = await convertSuppliedImage(state, image, masks[0]?.mask ?? 'luminosity')
+  const replacement = await convertSuppliedImage(state, image, masks[0]?.mask ?? 'luminosity', generatedEffect)
   if (!replacement) return
   if (normal.length === 0) replaceSourceImage(state.document, image, masks, replacement)
   else {

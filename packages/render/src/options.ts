@@ -65,7 +65,12 @@ export interface RenderOptions {
   preferCssPageSize?: boolean
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: SlotPrintOptions
-  effects?: false | { report?: (report: EffectsReport) => void }
+  effects?:
+    | false
+    | {
+        raster?: { dpi?: number; quality?: number }
+        report?: (report: EffectsReport) => void
+      }
   overflow?: { report?: (report: OverflowReport) => void }
   marks?: { report?: (report: MarksReport) => void }
   press?: {

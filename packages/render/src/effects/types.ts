@@ -10,6 +10,9 @@ export interface EffectsReport {
   ruleC: number
   /** Soft masks left in the form Chromium wrote. */
   kept: number
+  /** Backdrop-filter regions replaced by Chromium-painted JPEGs. */
+  raster?: number
 }
 
 export const GENERATED_EFFECT_IMAGE_KEY = 'SegnaviaGeneratedEffect'
+export const BACKDROP_RASTER_IMAGE_KEY = 'SegnaviaBackdropRaster'

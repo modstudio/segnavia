@@ -7,10 +7,9 @@ import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { convertedImageCount, createImageState, type JpegDecoder } from './image.ts'
-import { convertInlineImages } from './image-inline.ts'
+import { convertGeneratedRasterImages, convertSuppliedImages, streamDictionary } from './document-images.ts'
+import type { JpegDecoder } from './image.ts'
 import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
-import { convertImageUses, type SuppliedImageUse } from './image-use.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import {
   arrayNumbers,
@@ -194,6 +193,7 @@ function convertEffectImage(state: RewriteState, image: PDFRawStream, mask: Mask
   const dictionary = streamDictionary(image)
   const convert = converterFor(state, mask)
   if (!image.dict.has(key('SegnaviaEffectColor'))) {
+    if (nameOf(image.dict.get(key('Filter'))) === 'DCTDecode') return
     convertRuleCImage(state, image, width, height, dictionary, convert)
     return
   }
@@ -210,15 +210,6 @@ function convertEffectImage(state: RewriteState, image: PDFRawStream, mask: Mask
   const replacement = state.document.context.stream(image.contents, dictionary)
   const reference = state.document.context.getObjectRef(image)
   if (reference) state.document.context.assign(reference, replacement)
-}
-
-function streamDictionary(stream: PDFRawStream): Record<string, PDFObject> {
-  const dictionary: Record<string, PDFObject> = { Filter: key('Fl' + 'ateDecode') }
-  for (const [name, value] of stream.dict.entries()) {
-    const label = name.toString().slice(1)
-    if (!['Filter', 'DecodeP' + 'arms', 'Length'].includes(label)) dictionary[label] = value
-  }
-  return dictionary
 }
 
 function resolveShadingPattern(state: RewriteState, resources: PDFDict | undefined, name: string): PDFDict | undefined {
@@ -330,41 +321,6 @@ function addOutputIntent(document: PDFDocument, profile: Uint8Array, channels: 1
   document.catalog.set(key('OutputIntents'), document.context.obj([intentRef]))
 }
 
-async function convertSuppliedImages(
-  document: PDFDocument,
-  profile: Profile,
-  tolerance: number,
-  decodeJpeg?: JpegDecoder,
-  imageEncoding: PressImageEncoding = DEFAULT_IMAGE_ENCODING,
-  imageQuality = DEFAULT_IMAGE_QUALITY,
-): Promise<number> {
-  const state = createImageState(document, profile, decodeJpeg, tolerance, imageEncoding, imageQuality)
-  const images: SuppliedImageUse[] = []
-  const contents: Array<{ image: PDFRawStream; mask: MaskContext; replace: (object: PDFRawStream) => void }> = []
-  walkPressGraph(document, {
-    content: (_object, stream, replace, _resources, mask) => contents.push({ image: stream, mask, replace }),
-    function: () => undefined,
-    group: () => undefined,
-    image: (image, mask, replace) => images.push({ image, mask, replace }),
-    shading: () => false,
-  })
-  const uses = new Map<PDFRawStream, SuppliedImageUse[]>()
-  for (const found of images) uses.set(found.image, [...(uses.get(found.image) ?? []), found])
-  for (const [image, found] of uses) await convertImageUses(state, image, found)
-  const contentUses = new Map<PDFRawStream, (typeof contents)[number]>()
-  for (const found of contents) if (!contentUses.has(found.image) || found.mask === 'none') contentUses.set(found.image, found)
-  const budget: ContentBudget = { decodedBytes: 0 }
-  for (const [stream, use] of contentUses) {
-    const converted = await convertInlineImages(state, decodeContent(stream, budget), use.mask)
-    if (!converted) continue
-    const replacement = document.context.stream(deflateSync(converted), streamDictionary(stream))
-    const reference = document.context.getObjectRef(stream)
-    if (reference) document.context.assign(reference, replacement)
-    else use.replace(replacement)
-  }
-  return convertedImageCount(state)
-}
-
 export async function rewritePressPdf(
   bytes: Uint8Array,
   profileBytes: Uint8Array,
@@ -383,6 +339,7 @@ export async function rewritePressPdf(
     let convertedImages = 0
     if (destination === 'gray' || images === 'convert')
       convertedImages = await convertSuppliedImages(document, profile, tolerance, decodeJpeg, imageEncoding, imageQuality)
+    await convertGeneratedRasterImages(document, profile, tolerance, decodeJpeg)
     addOutputIntent(document, profileBytes, destination === 'gray' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
     const report = await inspectPressPdf(output, destination)

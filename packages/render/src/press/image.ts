@@ -352,7 +352,12 @@ function convertedImageSamples(state: ImageState, prepared: PreparedImage, mask:
   return profileRgb(state, source, filter === 'jpeg' ? { channels: 3, kind: 'rgb', label: 'decoded JPEG' } : space, mask, pixels)
 }
 
-export async function convertSuppliedImage(state: ImageState, image: PDFRawStream, mask: MaskContext): Promise<PDFRawStream | undefined> {
+export async function convertSuppliedImage(
+  state: ImageState,
+  image: PDFRawStream,
+  mask: MaskContext,
+  generatedEffect = false,
+): Promise<PDFRawStream | undefined> {
   const context: ImageConversionContext = mask === 'none' ? 'profile' : 'luminosity'
   const variants = state.converted.get(image)
   const existing = variants?.[context]
@@ -360,7 +365,7 @@ export async function convertSuppliedImage(state: ImageState, image: PDFRawStrea
     countSuppliedImage(state, image, mask)
     return existing
   }
-  if (image.dict.has(key('SegnaviaGeneratedEffect')) || image.dict.get(key('ImageMask'))?.toString() === 'true') return undefined
+  if ((!generatedEffect && image.dict.has(key('SegnaviaGeneratedEffect'))) || image.dict.get(key('ImageMask'))?.toString() === 'true') return undefined
   const prepared = await prepareImage(state, image)
   if (!prepared) return undefined
   const { width, height } = prepared

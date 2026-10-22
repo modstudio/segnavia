@@ -147,7 +147,11 @@ try {
         blendedFacts = await computedStyleFacts(tab)
       },
     })
-    const pdfBytes = await renderer.pagePdf(fixture.page, { css: MEASUREMENT_CSS })
+    let rasterEffects = 0
+    const pdfBytes = await renderer.pagePdf(fixture.page, {
+      css: MEASUREMENT_CSS,
+      effects: { report: (report) => (rasterEffects = report.raster ?? 0) },
+    })
     const effectlessPdfBytes = await renderer.pagePdf(fixture.page, {
       css: MEASUREMENT_CSS,
       beforeOutput: prepareEffectless,
@@ -291,6 +295,7 @@ try {
       pdfBytes: pdfBytes.byteLength,
       effectlessPdfBytes: effectlessPdfBytes.byteLength,
       multiple: pdfBytes.byteLength / effectlessPdfBytes.byteLength,
+      rasterEffects,
     }
     documents.push({
       id: fixture.id,
@@ -323,6 +328,7 @@ try {
       grayPressReason,
       blendedMask,
       blendedFraction,
+      rasterEffects,
       bars: measureBars({
         kind: fixture.kind,
         blendedFraction,

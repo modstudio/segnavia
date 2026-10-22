@@ -568,17 +568,45 @@ color or luminosity layer, keeps the mask as written.
 
 `effects: false` preserves Chromium's masks; an absent `effects` option enables
 the rewrite, and `effects.report` receives separate Rule 1 and Rule C counts
-and a count of masks kept as written. The effects rewrite
+and a count of masks kept as written. On every render, the effects rewrite also
+declares `/DeviceRGB` on each page or Form transparency group that has no color
+space because Chromium painted the group in RGB and an unspecified space can
+make PDF readers mute its colors. A group that already declares a color space,
+including a DeviceGray luminosity-mask group, keeps it. Under a press destination,
+the following press rewrite converts these declarations to the destination space
+with the other RGB groups. Before Chromium writes a PDF, the renderer
+finds visible elements whose computed `backdrop-filter` is not `none`. It hides
+their descendants and border, captures each border box from Chromium at
+`effects.raster.dpi` (150 by default) as an sRGB JPEG at
+`effects.raster.quality` (85 by default), removes the JPEG's embedded profile,
+then restores the border and replaces
+only the element's own background with that JPEG while disabling its backdrop
+filter, and sets `isolation: isolate` so Chromium keeps that element's group
+instead of wrapping the page. The background uses the border box at true size
+without repeating, so Chromium supplies the existing rounded clip, paints the
+authored border once, keeps descendants and links above it, and leaves text
+vector and selectable.
+`--segnavia-raster-dpi` on the element overrides the render dpi.
+
+The renderer accepts dpi 72 through 600 and quality 1 through 100. It charges
+the planned pixels before capture and the encoded bytes afterward against the
+same per-image and per-render ceilings as press images. After printing, it
+matches each captured byte sequence and pixel size to an unchanged DCTDecode
+image and declares that profile-free image as DeviceRGB; a missing exact match
+is refused rather than accepting a Chromium re-encoding. The matched image is
+tagged as a generated backdrop raster before pages are joined or imposed.
+`effects.report.raster` counts those images. The effects rewrite
 runs before the press rewrite, which converts generated Rule 1 images and Rule
 C's RGB samples to the destination space without reporting them as authored RGB images.
+Generated backdrop JPEGs are decoded by the renderer's browser and converted
+through the same press engine, even when authored images are kept.
 
 Rule 2, for vector mask groups, is unbuilt because the corrected reader
 measurements do not show a defect that needs it. Rule 3 is left out because
 measurements showed that combining nested masks did not fix the reader defect.
 Rule 4 is the unbuilt fallback for a nested composite whose layers do not share
-one axis: rasterize only the effect region from Chromium while retaining later
-content as vector. When built it is an opt-in export option that is off by
-default; the suite currently has no document that needs it.
+one axis. It is distinct from backdrop-filter capture because Chromium does
+paint backdrop-filter on screen while omitting it from PDF output.
 
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The

@@ -10,6 +10,7 @@ import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { verifyBackdropRaster } from './verify/backdrop-raster.ts'
 import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
 import { verifyClippedBleed } from './verify/clipped-bleed.ts'
@@ -67,6 +68,7 @@ try {
   await verifyClippedBleed(renderer, work, CHROMIUM, check)
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
   await verifyNamedPaperRender(renderer, work, check)
+  await verifyBackdropRaster(renderer, work, check)
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
   await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
