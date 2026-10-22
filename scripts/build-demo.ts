@@ -26,6 +26,7 @@ import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
+import { sineWav } from './sine-wav.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
@@ -180,8 +181,7 @@ writeFileSync(path.join(SITE, 'deck-he.json'), JSON.stringify(hebrew, null, 2))
 // Narration with recorded audio, narration spoken live by the browser, and
 // the other two kinds of slide content: a host URL and a plain image.
 mkdirSync(path.join(SITE, 'audio'), { recursive: true })
-const toneSeconds = 2.4
-Bun.spawnSync(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${toneSeconds}`, path.join(SITE, 'audio/tone.wav')])
+writeFileSync(path.join(SITE, 'audio/tone.wav'), sineWav(2.4))
 const recorded = await narration('Recorded narration drives this slide, then it moves on.', (n) => [{ word: wordIndex(n, 'drives'), annotation: 0 }])
 writeFileSync(
   path.join(SITE, 'deck-media.json'),
@@ -192,7 +192,7 @@ writeFileSync(
         {
           id: 'audio',
           content: { kind: 'shot', src: `shots/${listShot.file}`, shot: listShot },
-          narration: { ...recorded, audio: 'audio/tone.wav', durationMs: toneSeconds * 1000 },
+          narration: { ...recorded, audio: 'audio/tone.wav', durationMs: 2400 },
         },
         {
           id: 'live',

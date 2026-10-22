@@ -11,6 +11,7 @@ export const MAX_DOCUMENT_CONTENT_BYTES = 128 * 1024 * 1024
 
 export interface ContentBudget {
   calculatorOperations?: number
+  decodedByteCeiling?: number
   decodedBytes: number
   shadingSamples?: number
 }
@@ -105,10 +106,9 @@ export function decodeContent(stream: PDFRawStream, budget?: ContentBudget): Uin
     throw new RenderRefusedError(`The PDF has unsupported decoded content stream length ${decoded.byteLength}; supported: at most ${MAX_CONTENT_BYTES} bytes.`)
   if (budget) {
     budget.decodedBytes += decoded.byteLength
-    if (budget.decodedBytes > MAX_DOCUMENT_CONTENT_BYTES)
-      throw new RenderRefusedError(
-        `The PDF has unsupported total decoded content length ${budget.decodedBytes}; supported: at most ${MAX_DOCUMENT_CONTENT_BYTES} bytes.`,
-      )
+    const ceiling = budget.decodedByteCeiling ?? MAX_DOCUMENT_CONTENT_BYTES
+    if (budget.decodedBytes > ceiling)
+      throw new RenderRefusedError(`The PDF has unsupported total decoded content length ${budget.decodedBytes}; supported: at most ${ceiling} bytes.`)
   }
   return decoded
 }

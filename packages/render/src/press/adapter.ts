@@ -12,7 +12,17 @@ import { convertInlineImages } from './image-inline.ts'
 import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
 import { convertImageUses, type SuppliedImageUse } from './image-use.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
-import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
+import {
+  arrayNumbers,
+  type ContentBudget,
+  decodeContent,
+  dictionaryOf,
+  MAX_DOCUMENT_CONTENT_BYTES,
+  nameOf,
+  numberOf,
+  replaceArray,
+  resolvedColorSpace,
+} from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import { inspectPressPdf } from './report.ts'
 import { replaceType1Function, sampleDomainForUses, shadingDeviceMatrix, shadingDomainOf, shadingSampleGridForUses } from './sample-shading.ts'
@@ -280,10 +290,11 @@ export function rewritePressDocument(
   profile: Profile,
   tolerance = DEFAULT_NEUTRAL_TOLERANCE,
   convertImages = false,
+  boundsContentCeiling = MAX_DOCUMENT_CONTENT_BYTES,
 ): PressRewriteCounts {
   const state = newState(document, profile, tolerance, convertImages)
-  // Each pass has its own 128 MiB decoded-content ceiling so a stream is not charged twice in one budget.
-  const boundsBudget: ContentBudget = { decodedBytes: 0 }
+  // Each pass has its own decoded-content budget so a stream is not charged twice in one budget.
+  const boundsBudget: ContentBudget = { decodedBytes: 0, decodedByteCeiling: boundsContentCeiling }
   // Painted bounds are gathered for the whole document before any Type 1 function is replaced.
   walkPressGraph(document, {
     beginContentsSequence: () => {
