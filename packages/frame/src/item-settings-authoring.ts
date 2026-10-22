@@ -56,10 +56,15 @@ export class ItemSettingsController extends EventTarget {
    * Seeds the host's fill list and returns the list the panel should show,
    * with any dirty or saving draft kept in place of its host value. The host
    * owns which fills exist, so a fill it omits is forgotten, pending save and all.
+   * A fill still being created is not the host's yet, so it stays.
    */
   seedFills(fills: readonly Fill[]): Fill[] {
     const shown = fills.map((fill) => (isProvisionalFillId(fill.id) ? fill : this.queue.seed(fill)))
     this.queue.retain(new Set(fills.filter((fill) => !isProvisionalFillId(fill.id)).map((fill) => fill.id)))
+    const listed = new Set(fills.map((fill) => fill.id))
+    for (const [tempId, pending] of this.pending) {
+      if (!pending.deleted && !listed.has(tempId)) shown.push(cloneFill(pending.draft))
+    }
     return shown
   }
 
@@ -140,7 +145,9 @@ export class ItemSettingsController extends EventTarget {
     if (draft.label !== undefined) merged.label = draft.label
     merged.values = { ...draft.values }
     const selected = this.host.fill === tempId
-    this.host.fills = this.host.fills.map((fill) => (fill.id === tempId ? merged : fill))
+    // The host may already list the created fill; then the provisional copy goes.
+    const alreadyListed = this.host.fills.some((fill) => fill.id === merged.id)
+    this.host.fills = alreadyListed ? this.host.fills.filter((fill) => fill.id !== tempId) : this.host.fills.map((fill) => (fill.id === tempId ? merged : fill))
     this.queue.seed(created)
     if (selected) {
       this.host.fill = merged.id

@@ -17,6 +17,8 @@ interface Entry {
   draft: Fill
   saved: Fill
   hostSnapshot?: Fill
+  /** Set when the host stops listing the fill; a save still running for it then stops and shows nothing. */
+  dropped?: boolean
   version: number
   inflight: Promise<boolean> | null
 }
@@ -45,7 +47,9 @@ export class FillSaveQueue {
   seed(fill: Fill): Fill {
     const existing = this.entries.get(fill.id)
     if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) {
-      existing.hostSnapshot = cloneFill(fill)
+      // A host re-sending the value it already had (a re-render, a poll) says
+      // nothing new; only a different value is worth adopting after the save.
+      if (!sameFill(fill, existing.saved)) existing.hostSnapshot = cloneFill(fill)
       return cloneFill(existing.draft)
     }
     this.entries.set(fill.id, { draft: cloneFill(fill), saved: cloneFill(fill), version: 0, inflight: null })
@@ -91,6 +95,8 @@ export class FillSaveQueue {
 
   drop(id: string) {
     this.clearTimer(id)
+    const entry = this.entries.get(id)
+    if (entry) entry.dropped = true
     this.entries.delete(id)
   }
 
@@ -110,14 +116,14 @@ export class FillSaveQueue {
   }
 
   /** The one door to the visible list, shared by rollback and adoption. */
-  private show(fill: Fill) {
-    if (!this.disposed) this.replaceVisible(fill)
+  private show(entry: Entry, fill: Fill) {
+    if (!this.disposed && !entry.dropped) this.replaceVisible(fill)
   }
 
   private start(entry: Entry): Promise<boolean> {
     if (entry.inflight) {
       return entry.inflight.then((ok) => {
-        if (!ok || sameFill(entry.draft, entry.saved)) return ok
+        if (!ok || entry.dropped || sameFill(entry.draft, entry.saved)) return ok
         return this.start(entry)
       })
     }
@@ -132,7 +138,7 @@ export class FillSaveQueue {
 
   private async pump(entry: Entry): Promise<boolean> {
     try {
-      while (!sameFill(entry.draft, entry.saved)) {
+      while (!entry.dropped && !sameFill(entry.draft, entry.saved)) {
         const version = entry.version
         const value = cloneFill(entry.draft)
         try {
@@ -141,7 +147,7 @@ export class FillSaveQueue {
         } catch (error: unknown) {
           if (entry.version !== version) continue
           entry.draft = cloneFill(entry.saved)
-          this.show(cloneFill(entry.saved))
+          this.show(entry, cloneFill(entry.saved))
           this.failed(entry.saved.id, error)
           return false
         }
@@ -165,6 +171,6 @@ export class FillSaveQueue {
     if (!snapshot || sameFill(snapshot, entry.saved)) return
     entry.draft = cloneFill(snapshot)
     entry.saved = cloneFill(snapshot)
-    this.show(cloneFill(snapshot))
+    this.show(entry, cloneFill(snapshot))
   }
 }

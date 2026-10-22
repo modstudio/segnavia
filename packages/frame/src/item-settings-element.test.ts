@@ -111,4 +111,29 @@ describe('item settings host refreshes', () => {
     expect(element.fills).toEqual([other])
     expect(saved).toEqual([])
   })
+
+  test('keeps a fill that is still being created across a host refresh, and shows it once created', async () => {
+    let finishCreate: (fill: Fill) => void = () => {}
+    const element = new SegnaviaItemSettings()
+    element.fills = [original]
+    element.fill = original.id
+    const controller = new ItemSettingsController(element, {
+      createFill: () =>
+        new Promise<Fill>((resolve) => {
+          finishCreate = resolve
+        }),
+      saveFill: async () => {},
+      deleteFill: async () => {},
+    })
+    element.connectAuthoring(controller)
+    ;(element as unknown as { addNewFill(): void }).addNewFill()
+    expect(element.fills).toHaveLength(2)
+
+    element.fills = [original]
+    expect(element.fills).toHaveLength(2)
+
+    finishCreate({ id: 'created', label: 'New', values: {} })
+    await controller.flush()
+    expect(element.fills.map((fill) => fill.id)).toEqual(['mina', 'created'])
+  })
 })
