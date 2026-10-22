@@ -233,6 +233,19 @@ test('uses an injected decoder for DCT images and validates its dimensions', asy
   ).rejects.toThrow(/decoded JPEG dimensions 2x1/)
 })
 
+test('keeps gray samples in the decoded stream layout after browser RGB normalization', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(51, 102, 153))
+  paint(document, { I: image })
+  const converted = await rewritePressPdf(await document.save(), profileBytes, 3, async (_bytes, mime) => {
+    expect(mime).toBe('image/png')
+    return { width: 1, height: 1, rgb: Uint8Array.of(51, 102, 153) }
+  })
+  const [found] = await outputImages(converted.bytes)
+  expect(found?.dict.has(key('DecodeParms'))).toBe(false)
+  expect(decodePDFRawStream(found as PDFRawStream).decode()).toEqual(Uint8Array.of(exactByte(51, 102, 153)))
+})
+
 test('reports an injected JPEG decoder failure', async () => {
   const document = await PDFDocument.create()
   const image = addImage(document, Uint8Array.of(1, 2, 3), { filter: 'DCTDecode' })

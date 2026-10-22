@@ -355,13 +355,15 @@ export async function convertSuppliedImage(state: ImageState, image: PDFRawStrea
   const dictionary = streamDictionary(image)
   const outputChannels = mask === 'none' && state.destination === 'cmyk' ? 4 : 1
   const outputBits = prepared.space.kind === 'indexed' && state.destination === 'gray' ? prepared.bits : 8
-  const outputBytes = (Math.ceil((width * outputChannels * outputBits) / 8) + 1) * height
+  const rowBytes = Math.ceil((width * outputChannels * outputBits) / 8)
+  const outputBytes = (rowBytes + (state.destination === 'cmyk' ? 1 : 0)) * height
   chargeOutputImageBytes(state, outputBytes)
   const output = convertedImageSamples(state, prepared, mask, dictionary)
-  const predicted = pngPredictor(output, width, height, outputChannels, outputBits)
-  dictionary.DecodeParms = state.document.context.obj({ Predictor: 15, Colors: outputChannels, Columns: width, BitsPerComponent: outputBits })
-  const compressed = deflateSync(predicted)
-  chargeOutputImageBytes(state, compressed.length, predicted.length + compressed.length)
+  const encoded = state.destination === 'cmyk' ? pngPredictor(output, width, height, outputChannels, outputBits) : output
+  if (state.destination === 'cmyk')
+    dictionary.DecodeParms = state.document.context.obj({ Predictor: 15, Colors: outputChannels, Columns: width, BitsPerComponent: outputBits })
+  const compressed = deflateSync(encoded)
+  chargeOutputImageBytes(state, compressed.length, encoded.length + compressed.length)
   const replacement = state.document.context.stream(compressed, dictionary)
   state.converted.set(image, { ...variants, [context]: replacement })
   countSuppliedImage(state, image, mask)
