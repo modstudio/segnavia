@@ -28,6 +28,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format', '@segnavia/html'],
+    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings.
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',

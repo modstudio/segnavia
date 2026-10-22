@@ -50,10 +50,10 @@ export const slotCardImposition: ImpositionInput = {
 export const slotLogo =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%23d27550"/%3E%3C/svg%3E'
 
-export function buildSlotDemo(site: string): void {
+export async function buildSlotDemo(site: string): Promise<void> {
   writeFileSync(
     path.join(site, 'slots.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-page id="shrink-card"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail></div><script type="module" src="segnavia.js"></script><script type="module">
+    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.settings{display:flex;gap:24px;align-items:start;margin-block-start:24px}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}segnavia-item-settings{display:block;inline-size:22rem;padding:1rem;background:#fff;color:#17324d}segnavia-item-settings input,segnavia-item-settings select,segnavia-item-settings button{font:14px system-ui}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-page id="shrink-card"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail></div><div class="settings"><segnavia-item-settings id="card-settings"></segnavia-item-settings><segnavia-item-settings id="card-settings-rtl" dir="rtl" lang="he"></segnavia-item-settings></div><script type="module" src="segnavia.js"></script><script type="module">
       import { printPages } from './segnavia.js'
       await customElements.whenDefined('segnavia-document')
       const pages = ${JSON.stringify(slotCardPages)}
@@ -124,8 +124,19 @@ export function buildSlotDemo(site: string): void {
         check()
       })
       window.slotFacts = { reports, refuseError, get failedAsset() { return failedAsset } }
-    </script></body></html>`,
+      window.slotCard = { declarations, fills: { mina: ${JSON.stringify(firstCardFill)}, noah: ${JSON.stringify(secondCardFill)} }, resolveAsset }
+      window.dispatchEvent(new Event('slot-card-ready'))
+    </script><script type="module" src="slot-settings-demo.js"></script></body></html>`,
   )
+  const root = path.resolve(import.meta.dirname, '..')
+  const built = await Bun.build({
+    entrypoints: [path.join(root, 'fixtures', 'slot-settings-demo.ts')],
+    target: 'browser',
+    format: 'esm',
+    minify: true,
+  })
+  if (!built.success || !built.outputs[0]) throw new Error(`Could not build slot settings demo: ${built.logs.join('\n')}`)
+  await Bun.write(path.join(site, 'slot-settings-demo.js'), built.outputs[0])
 }
 
 export async function buildSlotPdf(renderer: Renderer, output: string): Promise<void> {

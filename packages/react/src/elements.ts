@@ -14,6 +14,7 @@ import type {
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
 import { HEADLESS_ELEMENTS } from '@segnavia/frame/headless-elements'
+import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
@@ -22,6 +23,7 @@ import type {
   CounterProps,
   DocumentProps,
   FullscreenProps,
+  ItemSettingsProps,
   MuteProps,
   NotesProps,
   PageProps,
@@ -88,6 +90,13 @@ export const ELEMENTS = {
   paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof STYLED_ELEMENTS.paperPicker>(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], {
     onChange: 'change',
   }),
+  itemSettings: element<SegnaviaItemSettings, ItemSettingsProps, 'segnavia-item-settings'>(
+    'segnavia-item-settings',
+    ['declarations', 'fills', 'fill', 'source', 'report', 'labels'],
+    {
+      onSegnaviaFillSelect: 'segnavia-fill-select',
+    },
+  ),
   page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'slots'], {}),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(HEADLESS_ELEMENTS.paper, ['paper', 'side', 'css', 'cspExtra', 'slots'], {}),
   document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
