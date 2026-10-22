@@ -63,6 +63,8 @@ export interface RenderOptions {
   effects?: false | { report?: (report: EffectsReport) => void }
   overflow?: { report?: (report: OverflowReport) => void }
   press?: {
+    /** Whether authored raster images are left for the printer or converted through the press profile. */
+    images?: 'keep' | 'convert'
     profile: Uint8Array
     neutralTolerance?: number
     report?: (report: PressReport) => void

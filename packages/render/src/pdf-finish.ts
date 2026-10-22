@@ -33,7 +33,7 @@ export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'e
   if (options.press) {
     const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
     assertNeutralTolerance(neutralTolerance)
-    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance, decodeJpeg)
+    const converted = await rewritePressPdf(output, options.press.profile, neutralTolerance, decodeJpeg, options.press.images ?? 'keep')
     output = converted.bytes
     options.press.report?.(converted.report)
   }

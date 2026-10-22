@@ -139,7 +139,7 @@ function inlineHeader(source: string, at: number): { colorSpace?: string; id: nu
   }
   return refusal('truncated BI operator', 'an ID and EI pair')
 }
-function inlineImageEnd(source: string, at: number, destination: PressDestination): number {
+function inlineImageEnd(source: string, at: number, destination: PressDestination, convertImages: boolean): number {
   const { colorSpace, id, imageMask } = inlineHeader(source, at)
   const match = /[\0\t\n\f\r ]EI(?=[\0\t\n\f\r ()<>[\]{}/%]|$)/g
   match.lastIndex = id
@@ -147,7 +147,7 @@ function inlineImageEnd(source: string, at: number, destination: PressDestinatio
   if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
   const name = colorSpace?.startsWith('/') ? colorSpace.slice(1) : undefined
   const policy = inlineImageAction(name, imageMask)
-  if (policy.action === 'refuse') refusal(`BI operator with color space ${policy.label}`, policy.supported)
+  if (policy.action === 'refuse' && !(convertImages && policy.kind === 'rgb')) refusal(`BI operator with color space ${policy.label}`, policy.supported)
   if (destination === 'gray' && policy.kind === 'cmyk') refusal(`BI operator with color space ${policy.label}`, 'RGB or gray input for a greyscale press')
   return end.index + end[0].length
 }
@@ -235,6 +235,7 @@ function scan(
   destination: PressDestination,
   visit?: (found: Replacement) => void,
   operatorVisit?: (operator: Token, operands: Token[]) => void,
+  convertImages = false,
 ): ContentCounts {
   const counts = { fills: 0, strokes: 0 }
   let operands: Token[] = []
@@ -252,7 +253,7 @@ function scan(
     }
     cursor = token.end
     if (token.raw === 'BI') {
-      cursor = inlineImageEnd(source, cursor, destination)
+      cursor = inlineImageEnd(source, cursor, destination, convertImages)
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
@@ -288,6 +289,7 @@ export function visitContentOperations(bytes: Uint8Array, visit: (operation: Con
         start: operator.start,
       })
     },
+    true,
   )
 }
 
@@ -308,27 +310,48 @@ export function inspectContent(bytes: Uint8Array, destination: PressDestination 
     destination,
   )
 }
-export function rewriteContent(bytes: Uint8Array, convert: (rgb: Color3) => Color, destination: PressDestination = 'cmyk'): ContentRewrite {
+export function rewriteContent(
+  bytes: Uint8Array,
+  convert: (rgb: Color3) => Color,
+  destination: PressDestination = 'cmyk',
+  convertImages = false,
+): ContentRewrite {
   const source = decoder.decode(bytes)
   let outputLength = bytes.length
   let changed = false
-  const counts = scan(source, convert, false, destination, (found) => {
-    changed = true
-    outputLength += encoder.encode(found.text).length - (found.end - found.start)
-  })
+  const counts = scan(
+    source,
+    convert,
+    false,
+    destination,
+    (found) => {
+      changed = true
+      outputLength += encoder.encode(found.text).length - (found.end - found.start)
+    },
+    undefined,
+    convertImages,
+  )
   if (!changed) return { bytes, counts }
   const output = new Uint8Array(outputLength)
   let inputAt = 0
   let outputAt = 0
-  scan(source, convert, false, destination, (found) => {
-    const untouched = bytes.subarray(inputAt, found.start)
-    output.set(untouched, outputAt)
-    outputAt += untouched.length
-    const inserted = encoder.encode(found.text)
-    output.set(inserted, outputAt)
-    outputAt += inserted.length
-    inputAt = found.end
-  })
+  scan(
+    source,
+    convert,
+    false,
+    destination,
+    (found) => {
+      const untouched = bytes.subarray(inputAt, found.start)
+      output.set(untouched, outputAt)
+      outputAt += untouched.length
+      const inserted = encoder.encode(found.text)
+      output.set(inserted, outputAt)
+      outputAt += inserted.length
+      inputAt = found.end
+    },
+    undefined,
+    convertImages,
+  )
   output.set(bytes.subarray(inputAt), outputAt)
   return { bytes: output, counts }
 }

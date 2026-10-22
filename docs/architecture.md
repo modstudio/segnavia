@@ -571,13 +571,17 @@ through the profile. With a CMYK profile, a black or near-neutral gray becomes b
 prints sharp. `press.neutralTolerance` sets the largest channel difference treated
 as neutral in 8-bit units from 0 to 255 and defaults to 3; 0 keeps the exact-neutral
 rule, and every tolerance also snaps what that rule snaps. It is validated but has no effect with a greyscale profile: every color goes through that profile so its dot gain applies. The CMYK black ink amount is one minus the mean of the RGB channels. Non-mask transparency groups use the destination space. Under a greyscale destination every group is DeviceGray; colors in alpha and luminosity mask sources instead use the PDF luminosity formula, with no profile dot gain, because they represent opacity. Under a CMYK
-destination, raster images, including images drawn by Type 3 glyphs such as
-color emoji, stay byte-for-byte as the author supplied them and are the only
-RGB the result may retain. Under a greyscale destination, supported supplied
+destination, `press.images` defaults to `keep`, so raster images, including
+images drawn by Type 3 glyphs such as color emoji, stay byte-for-byte as the
+author supplied them and are the only RGB the result may retain. With
+`press.images: 'convert'`, RGB XObject, Type 3 glyph and inline images are
+rewritten as DeviceCMYK through the same profile and neutral policy as vector
+colour. Gray and CMYK images and image masks stay as supplied, and a soft mask
+remains attached to its converted image. Under a greyscale destination, supported supplied
 images are rewritten as DeviceGray through the profile; images inside mask
 sources instead use PDF luminosity so opacity does not receive dot gain.
 `press.report.destination` says whether the output is `cmyk` or `gray`, and
-`press.report.convertedImages` counts supplied raster objects converted to DeviceGray. The report also receives residual images' pixel dimensions and color-space kinds, plus
+`press.report.convertedImages` counts supplied raster objects converted to the destination. The report also receives only residual unconverted RGB images' pixel dimensions and color-space kinds, plus
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF, and the number of conversions snapped to black by the configured
 tolerance beyond the exact-neutral rule. An unfamiliar color operator, function, group or stream
@@ -609,7 +613,7 @@ interpreter bounds each evaluation at `MAX_CALCULATOR_PROGRAM_BYTES`
 data counts against `MAX_DOCUMENT_CONTENT_BYTES` and is charged before evaluation. Axial and radial shadings are
 converted by their stops. The catalog's output intent
 embeds the same profile with `/GTS_PDFX` and `/N 4` for CMYK or `/N 1` for greyscale, so a press interprets the device numbers
-through the profile that made them. For greyscale output, the renderer supplies the press library with
+through the profile that made them. When images are converted, the renderer supplies the press library with
 a JPEG decoder backed by one offline Chromium tab per render; the browser only
 decodes JPEG bytes, while the library owns profile conversion and PDF rewriting.
 The input byte ceiling is checked before
@@ -634,7 +638,10 @@ array. Anything else is refused by name. A Flate image inflates to at most its
 exact decoded size. A JPEG that the renderer's browser cannot decode is refused
 with the browser's message. `MAX_IMAGE_PIXELS` (50 000 000) bounds one image,
 and `MAX_TOTAL_IMAGE_PIXELS` (400 000 000) bounds all images converted in one
-render. An image painted both normally and inside a mask source gets a profile
+render. `MAX_IMAGE_BYTES` (200 000 000) bounds one encoded image and
+`MAX_TOTAL_IMAGE_BYTES` (800 000 000) bounds all encoded images decoded in one
+render. Converted samples use lossless Flate compression with a PNG predictor.
+An image painted both normally and inside a mask source gets a profile
 variant for the page and a luminosity variant for the mask. One used only in
 mask sources is replaced by its luminosity variant. No RGB copy is left in the
 file either way.

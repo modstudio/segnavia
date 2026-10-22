@@ -31,6 +31,13 @@ export function colorSpaceLabel(value: ColorSpaceValue | undefined): ColorSpaceL
   return ['DeviceRGB', 'DeviceGray', 'DeviceCMYK', 'CalRGB', 'ICCBased', 'Indexed', 'Pattern'].includes(label) ? (label as ColorSpaceLabel) : 'other'
 }
 
+// Supplied gray and CMYK samples already match a CMYK PDF; a greyscale destination profiles gray and RGB samples.
+export function imageAction(kind: ColorSpaceKind, destination: PressDestination): PolicyDecision {
+  const supported = destination === 'cmyk' ? 'DeviceGray, RGB, or DeviceCMYK' : 'DeviceGray or RGB'
+  if (destination === 'cmyk') return decision(kind === 'rgb' ? 'convert' : kind === 'gray' || kind === 'cmyk' ? 'keep' : 'refuse', supported)
+  return decision(kind === 'gray' || kind === 'rgb' ? 'convert' : 'refuse', supported)
+}
+
 const decision = (action: PolicyDecision['action'], supported: string): PolicyDecision => ({ action, supported })
 
 export interface ContentFilterDecision extends PolicyDecision {

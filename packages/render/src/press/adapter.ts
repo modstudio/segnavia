@@ -7,7 +7,9 @@ import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { rewriteContent } from './content.ts'
-import { convertedImageCount, convertSuppliedImage, createImageState, type ImageState, type JpegDecoder } from './image.ts'
+import { convertedImageCount, createImageState, type JpegDecoder } from './image.ts'
+import { convertInlineImages } from './image-inline.ts'
+import { convertImageUses, type SuppliedImageUse } from './image-use.ts'
 import { createPaintedBoundsTracker, type PaintedBounds, type PaintedBoundsTracker, type PatternPaint, recordPatternPaintedBounds } from './pattern-bounds.ts'
 import { arrayNumbers, type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, replaceArray, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
@@ -21,6 +23,7 @@ export { inspectPressPdf } from './report.ts'
 interface RewriteState {
   budget: ContentBudget
   convert: ReturnType<typeof cachedPressColor>
+  convertImages: boolean
   destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
@@ -236,7 +239,7 @@ function recordContentBounds(state: RewriteState, stream: PDFRawStream, resource
 function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void, mask: MaskContext): void {
   const bytes = decodeContent(stream, state.budget)
   const destination = state.destination
-  const rewritten = rewriteContent(bytes, converterFor(state, mask), destination)
+  const rewritten = rewriteContent(bytes, converterFor(state, mask), destination, state.convertImages)
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
   const replacement = state.document.context.stream(deflateSync(rewritten.bytes), streamDictionary(stream))
@@ -245,7 +248,7 @@ function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawSt
   else setDirect(replacement)
 }
 
-function newState(document: PDFDocument, profile: Profile, tolerance: number): RewriteState {
+function newState(document: PDFDocument, profile: Profile, tolerance: number, convertImages: boolean): RewriteState {
   const cached = cachedPressColor(profile, tolerance)
   const totals: PressRewriteCounts = { fills: 0, strokes: 0, gradientStops: 0, groups: 0, neutralColors: 0 }
   return {
@@ -254,6 +257,7 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number): R
       if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
       return cached(rgb)
     },
+    convertImages,
     destination: pressDestination(profile),
     document,
     painted: new WeakMap(),
@@ -270,8 +274,13 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number): R
   }
 }
 
-export function rewritePressDocument(document: PDFDocument, profile: Profile, tolerance = DEFAULT_NEUTRAL_TOLERANCE): PressRewriteCounts {
-  const state = newState(document, profile, tolerance)
+export function rewritePressDocument(
+  document: PDFDocument,
+  profile: Profile,
+  tolerance = DEFAULT_NEUTRAL_TOLERANCE,
+  convertImages = false,
+): PressRewriteCounts {
+  const state = newState(document, profile, tolerance, convertImages)
   // Each pass has its own 128 MiB decoded-content ceiling so a stream is not charged twice in one budget.
   const boundsBudget: ContentBudget = { decodedBytes: 0 }
   // Painted bounds are gathered for the whole document before any Type 1 function is replaced.
@@ -309,41 +318,12 @@ function addOutputIntent(document: PDFDocument, profile: Uint8Array, channels: 1
   document.catalog.set(key('OutputIntents'), document.context.obj([intentRef]))
 }
 
-interface SuppliedImageUse {
-  image: PDFRawStream
-  mask: MaskContext
-  replace: (object: PDFObject) => void
-}
-
-function replaceSourceImage(document: PDFDocument, image: PDFRawStream, uses: SuppliedImageUse[], replacement: PDFRawStream): void {
-  const reference = document.context.getObjectRef(image)
-  if (reference) document.context.assign(reference, replacement)
-  else for (const use of uses) use.replace(replacement)
-}
-
-async function convertImageUses(state: ImageState, image: PDFRawStream, uses: SuppliedImageUse[]): Promise<void> {
-  const normal = uses.filter((use) => use.mask === 'none')
-  const masks = uses.filter((use) => use.mask !== 'none')
-  if (normal.length > 0) {
-    const replacement = await convertSuppliedImage(state, image, 'none')
-    if (!replacement) return
-    replaceSourceImage(state.document, image, normal, replacement)
-  }
-  if (masks.length === 0) return
-  const replacement = await convertSuppliedImage(state, image, masks[0]?.mask ?? 'luminosity')
-  if (!replacement) return
-  if (normal.length === 0) replaceSourceImage(state.document, image, masks, replacement)
-  else {
-    const reference = state.document.context.getObjectRef(replacement) ?? state.document.context.register(replacement)
-    for (const use of masks) use.replace(reference)
-  }
-}
-
-async function convertGrayImages(document: PDFDocument, profile: Profile, decodeJpeg?: JpegDecoder): Promise<number> {
-  const state = createImageState(document, profile, decodeJpeg)
+async function convertSuppliedImages(document: PDFDocument, profile: Profile, tolerance: number, decodeJpeg?: JpegDecoder): Promise<number> {
+  const state = createImageState(document, profile, decodeJpeg, tolerance)
   const images: SuppliedImageUse[] = []
+  const contents: Array<{ image: PDFRawStream; mask: MaskContext; replace: (object: PDFRawStream) => void }> = []
   walkPressGraph(document, {
-    content: () => undefined,
+    content: (_object, stream, replace, _resources, mask) => contents.push({ image: stream, mask, replace }),
     function: () => undefined,
     group: () => undefined,
     image: (image, mask, replace) => images.push({ image, mask, replace }),
@@ -352,6 +332,17 @@ async function convertGrayImages(document: PDFDocument, profile: Profile, decode
   const uses = new Map<PDFRawStream, SuppliedImageUse[]>()
   for (const found of images) uses.set(found.image, [...(uses.get(found.image) ?? []), found])
   for (const [image, found] of uses) await convertImageUses(state, image, found)
+  const contentUses = new Map<PDFRawStream, (typeof contents)[number]>()
+  for (const found of contents) if (!contentUses.has(found.image) || found.mask === 'none') contentUses.set(found.image, found)
+  const budget: ContentBudget = { decodedBytes: 0 }
+  for (const [stream, use] of contentUses) {
+    const converted = await convertInlineImages(state, decodeContent(stream, budget), use.mask)
+    if (!converted) continue
+    const replacement = document.context.stream(deflateSync(converted), streamDictionary(stream))
+    const reference = document.context.getObjectRef(stream)
+    if (reference) document.context.assign(reference, replacement)
+    else use.replace(replacement)
+  }
   return convertedImageCount(state)
 }
 
@@ -360,15 +351,16 @@ export async function rewritePressPdf(
   profileBytes: Uint8Array,
   tolerance = DEFAULT_NEUTRAL_TOLERANCE,
   decodeJpeg?: JpegDecoder,
+  images: 'keep' | 'convert' = 'keep',
 ): Promise<{ bytes: Uint8Array; report: PressReport }> {
   try {
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY') refuse(`press profile color space ${profile.colorSpace}`, 'CMYK or GRAY')
     const document = await loadPdf(bytes, { updateMetadata: false })
-    const counts = rewritePressDocument(document, profile, tolerance)
-    let convertedImages = 0
     const destination = pressDestination(profile)
-    if (destination === 'gray') convertedImages = await convertGrayImages(document, profile, decodeJpeg)
+    const counts = rewritePressDocument(document, profile, tolerance, destination === 'gray' || images === 'convert')
+    let convertedImages = 0
+    if (destination === 'gray' || images === 'convert') convertedImages = await convertSuppliedImages(document, profile, tolerance, decodeJpeg)
     addOutputIntent(document, profileBytes, destination === 'gray' ? 1 : 4)
     const output = await document.save({ useObjectStreams: false })
     const report = await inspectPressPdf(output, destination)

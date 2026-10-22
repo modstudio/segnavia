@@ -11,7 +11,7 @@ export interface PressReport {
   destination: PressDestination
   /** Authored raster images left in RGB, read back from the finished PDF. */
   images: PressImage[]
-  /** Supplied raster image objects converted to DeviceGray. */
+  /** Supplied raster image objects converted to the press destination. */
   convertedImages: number
   /** Destination-space painting and group counts read back from the finished PDF. */
   fills: number
