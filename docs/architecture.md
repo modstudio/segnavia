@@ -91,7 +91,6 @@ with `detail.message` when loading or validating an input fails.
 | `<segnavia-paper-picker>` | `frame/controls` and React | A grouped named-paper select, bounded custom width, height and unit fields, and a portrait/landscape toggle. The host supplies and persists its `{ paper, orientation }` value; `change.detail` carries the next value. |
 | press profile | render options | A CMYK or greyscale ICC profile, as bytes, and a report callback for the destination, residual authored RGB images and conversion counts read back from the output. |
 | `proof`, `proofImage` | render options and renderer | A page, slide or supplied image shown as it will print through a CMYK press profile. The proof is the decision tool: no gamut report or per-image warning is produced. |
-| `convert` (designed, not built) | render options | A future hook may supply a full converter for the finished PDF. |
 | `VoiceProvider`, `alignedProvider` | `voice` | A speech engine and, where it gives no timings, an aligner. |
 | `Lexicon`, `lexiconProvider`, `publishElevenLabsLexicon`, `pronunciationDictionaries` | `format`, `voice` | The host's pronunciation list. It is published as an ElevenLabs dictionary and passed to its provider; any other provider respells the script through `lexiconProvider`. |
 | `prefix`, `linkOrigins` | `html` | The bindings attribute prefix, and the https origins a link may point at. |
@@ -676,8 +675,9 @@ variant for the page and a luminosity variant for the mask. One used only in
 mask sources is replaced by its luminosity variant. No RGB copy is left in the
 file either way.
 
-A `convert` hook for a host-owned full converter remains designed, not built.
 The proof replaces a gamut report: a user judges the proofed page or image.
+A host that wants its own converter runs it on the PDF the renderer returns;
+the library has no converter hook.
 
 The built rewrite is done when its read-back report finds no RGB outside the
 authored images and reports that the page's text, solid fill and gradient were
