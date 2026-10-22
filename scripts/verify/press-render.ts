@@ -14,17 +14,16 @@ import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 import { verifyGrayPress } from './gray-press.ts'
 import { type Raster, readPpm } from './pdf-raster.ts'
 import { verifyConvertedPressImages } from './press-images.ts'
+import { verifyPressProof } from './press-proof.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-// Poppler draws DeviceCMYK with fixed inks, so raster proof checks use a real press-condition profile.
 const pressProfiles = [
   { name: 'FOGRA39L coated (colord)', path: '/usr/share/color/icc/colord/FOGRA39L_coated.icc' },
   { name: 'macOS Generic CMYK', path: '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc' },
 ]
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
 const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
-
 const html = `<!doctype html><style>
 @page{size:1200px 800px;margin:0}*{box-sizing:border-box}html,body{margin:0;width:1200px;height:800px}
 body{padding:34px;font:18px Arial,sans-serif;color:#000;background:#fff}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
@@ -394,6 +393,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   )
 
   await verifyPressGradients(renderer, work, check, profile)
+  await verifyPressProof(renderer, profile, check)
   await verifyNeutralTolerance(renderer, check, profile)
   await verifyGrayPress(renderer, check)
 }

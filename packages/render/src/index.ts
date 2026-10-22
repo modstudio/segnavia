@@ -10,13 +10,14 @@ import { browserJpegDecoder } from './browser-jpeg.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import type { ImageOptions, OverflowEntry, RenderOptions } from './options.ts'
+import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
+import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
@@ -25,14 +26,23 @@ import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
-export type { Font, ImageOptions, OverflowContribution, OverflowEntry, OverflowPart, OverflowReport, RenderLimits, RenderOptions } from './options.ts'
+export type {
+  Font,
+  ImageOptions,
+  OverflowContribution,
+  OverflowEntry,
+  OverflowPart,
+  OverflowReport,
+  ProofImageOptions,
+  RenderLimits,
+  RenderOptions,
+} from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
 const FLUID_WIDTH = 1024
-
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -52,6 +62,7 @@ export interface Renderer {
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
+  proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
 }
 
@@ -194,8 +205,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
   }
 
-  const image = captureImage
-
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page, undefined, true)
@@ -307,7 +316,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           async (tab) => {
             if (grows) await contentHeight(tab)
-            return image(tab, opts, false)
+            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
           },
         )
       })
@@ -371,9 +380,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             deadline,
             beforeOutput: opts.beforeOutput,
           },
-          (tab) => image(tab, opts, false),
+          async (tab) => proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts),
         )
       })
+    },
+
+    proofImage(input, opts) {
+      return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
+        withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
+          proofRasterImage(tab, input, opts),
+        ),
+      )
     },
 
     close: () => browser.close(),

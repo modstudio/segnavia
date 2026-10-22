@@ -568,8 +568,7 @@ default; the suite currently has no document that needs it.
 **Color for a press.** A browser draws in RGB, so a PDF render is RGB unless
 the host passes `press.profile`: the ICC profile of the press, as bytes. The
 library ships none. `pagePdf`, `pagesPdf` and `deckPdf`, including imposed
-forms, rewrite the finished PDF once; `pageImage` and `slideImage` ignore the
-option. Solid fills and strokes, including text and shadow colors and colors
+forms, rewrite the finished PDF once. Solid fills and strokes, including text and shadow colors and colors
 inside Type 3 glyphs, and every axial or radial gradient stop are converted
 through the profile. With a CMYK profile, a black or near-neutral gray becomes black ink alone, so text
 prints sharp. `press.neutralTolerance` sets the largest channel difference treated
@@ -588,7 +587,20 @@ sources instead use PDF luminosity so opacity does not receive dot gain.
 `press.report.convertedImages` counts supplied raster objects converted to the destination. The report also receives only residual unconverted RGB images' pixel dimensions and color-space kinds, plus
 counts of converted fills, strokes, gradient stops, sampled shadings and groups read back from
 the finished PDF, and the number of conversions snapped to black by the configured
-tolerance beyond the exact-neutral rule. An unfamiliar color operator, function, group or stream
+tolerance beyond the exact-neutral rule.
+
+An image render accepts `proof: { profile }` on `pageImage` and `slideImage`.
+After Chromium draws the page or slide exactly as usual, every raster pixel,
+including pixels from authored images, is taken from sRGB to CMYK and back
+through that output profile. `proofImage(image, { profile, format })` applies
+the same proof to a supplied PNG, JPEG or WebP and returns PNG by default. It
+uses Chromium's offline image decoder and supports PNG, JPEG and WebP output.
+Proof input and output are each capped at `MAX_PROOF_IMAGE_BYTES` (200,000,000
+bytes), and decoded work at `MAX_PROOF_IMAGE_PIXELS` (50,000,000 pixels).
+The proof is a visual guide for deciding what to print, not a contract proof;
+the library reports no gamut measure or per-image warning.
+
+An unfamiliar color operator, function, group or stream
 filter is refused by name rather than left in RGB. Function-based shadings are
 converted by sampling their calculator program onto a type 0 function in the destination space,
 8 bits per sample, capped at `MAX_SHADING_SAMPLES` (1 048 576). Painted bounds are
