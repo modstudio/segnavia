@@ -50,6 +50,15 @@ async function convertOne(state: ImageState, header: string, bytes: Uint8Array, 
   return convertSuppliedImage(state, state.document.context.stream(bytes, dictionary as never), mask)
 }
 
+function inlineImageHeader(replacement: PDFRawStream): string {
+  const width = replacement.dict.get(PDFName.of('Width'))?.toString()
+  const height = replacement.dict.get(PDFName.of('Height'))?.toString()
+  const cmyk = replacement.dict.get(PDFName.of('ColorSpace'))?.toString() === '/DeviceCMYK'
+  if (replacement.dict.get(PDFName.of('Filter'))?.toString() === '/DCTDecode') return `BI /W ${width} /H ${height} /CS /CMYK /BPC 8 /F /DCT ID\n`
+  const channels = cmyk ? 4 : 1
+  return `BI /W ${width} /H ${height} /CS /${cmyk ? 'CMYK' : 'G'} /BPC 8 /F /FlateDecode /DP << /Predictor 15 /Colors ${channels} /Columns ${width} /BitsPerComponent 8 >> ID\n`
+}
+
 export async function convertInlineImages(state: ImageState, bytes: Uint8Array, mask: MaskContext): Promise<Uint8Array | undefined> {
   const source = binaryString(bytes)
   const pattern = /(?:^|[\0\t\n\f\r ])BI(?=[\0\t\n\f\r ])/g
@@ -63,14 +72,7 @@ export async function convertInlineImages(state: ImageState, bytes: Uint8Array, 
     pattern.lastIndex = found.end
     if (!replacement) continue
     parts.push(bytes.subarray(inputAt, start))
-    const width = replacement.dict.get(PDFName.of('Width'))?.toString()
-    const height = replacement.dict.get(PDFName.of('Height'))?.toString()
-    const channels = replacement.dict.get(PDFName.of('ColorSpace'))?.toString() === '/DeviceCMYK' ? 4 : 1
-    parts.push(
-      encoder.encode(
-        `BI /W ${width} /H ${height} /CS /${channels === 4 ? 'CMYK' : 'G'} /BPC 8 /F /FlateDecode /DP << /Predictor 15 /Colors ${channels} /Columns ${width} /BitsPerComponent 8 >> ID\n`,
-      ),
-    )
+    parts.push(encoder.encode(inlineImageHeader(replacement)))
     parts.push(replacement.contents, encoder.encode('\nEI'))
     inputAt = found.end
     changed = true

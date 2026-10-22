@@ -65,6 +65,10 @@ export interface RenderOptions {
   press?: {
     /** Whether authored raster images are left for the printer or converted through the press profile. */
     images?: 'keep' | 'convert'
+    /** How converted rasters are stored. Default lossless is Flate; jpeg writes four-channel CMYK as baseline DCTDecode. */
+    imageEncoding?: 'lossless' | 'jpeg'
+    /** JPEG quality 1 to 100, default 85; only with imageEncoding: 'jpeg'. */
+    imageQuality?: number
     profile: Uint8Array
     neutralTolerance?: number
     report?: (report: PressReport) => void

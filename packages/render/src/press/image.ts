@@ -1,4 +1,4 @@
-import { deflateSync, inflateSync } from 'node:zlib'
+import { inflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import type { Profile } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
@@ -14,8 +14,9 @@ import {
   profileRgb,
 } from './image-color.ts'
 import { chargeDecodedImageBytes, chargeImageLimits, chargeOutputImageBytes } from './image-limits.ts'
+import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
+import { emitConvertedRaster } from './image-output.ts'
 import { rgbPng } from './image-png.ts'
-import { pngPredictor } from './image-samples.ts'
 import { nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
 import { imageAction } from './policy.ts'
 import type { MaskContext } from './visitor.ts'
@@ -48,6 +49,8 @@ export interface ImageState {
   convert: ReturnType<typeof cachedPressColor>
   destination: 'cmyk' | 'gray'
   decodedBytes: number
+  imageEncoding: PressImageEncoding
+  imageQuality: number
   profile: Profile
   rgbLookup: GrayLookup
   grayLookup: Uint8Array
@@ -239,7 +242,14 @@ async function decodeImage(decoder: ImageDecoder, bytes: Uint8Array, mime: 'imag
   }
 }
 
-export function createImageState(document: PDFDocument, profile: Profile, decodeImage?: ImageDecoder, tolerance?: number): ImageState {
+export function createImageState(
+  document: PDFDocument,
+  profile: Profile,
+  decodeImage?: ImageDecoder,
+  tolerance?: number,
+  imageEncoding: PressImageEncoding = DEFAULT_IMAGE_ENCODING,
+  imageQuality = DEFAULT_IMAGE_QUALITY,
+): ImageState {
   return {
     bytes: 0,
     counted: new WeakSet(),
@@ -249,6 +259,8 @@ export function createImageState(document: PDFDocument, profile: Profile, decode
     decodedBytes: 0,
     destination: pressDestination(profile),
     document,
+    imageEncoding,
+    imageQuality,
     profile,
     rgbLookup: buildGrayImageLookup(profile),
     grayLookup: grayTable(profile),
@@ -355,16 +367,12 @@ export async function convertSuppliedImage(state: ImageState, image: PDFRawStrea
   const dictionary = streamDictionary(image)
   const outputChannels = mask === 'none' && state.destination === 'cmyk' ? 4 : 1
   const outputBits = prepared.space.kind === 'indexed' && state.destination === 'gray' ? prepared.bits : 8
+  const jpeg = state.imageEncoding === 'jpeg' && outputChannels === 4
   const rowBytes = Math.ceil((width * outputChannels * outputBits) / 8)
-  const outputBytes = (rowBytes + (state.destination === 'cmyk' ? 1 : 0)) * height
+  const outputBytes = (rowBytes + (state.destination === 'cmyk' && !jpeg ? 1 : 0)) * height
   chargeOutputImageBytes(state, outputBytes)
   const output = convertedImageSamples(state, prepared, mask, dictionary)
-  const encoded = state.destination === 'cmyk' ? pngPredictor(output, width, height, outputChannels, outputBits) : output
-  if (state.destination === 'cmyk')
-    dictionary.DecodeParms = state.document.context.obj({ Predictor: 15, Colors: outputChannels, Columns: width, BitsPerComponent: outputBits })
-  const compressed = deflateSync(encoded)
-  chargeOutputImageBytes(state, compressed.length, encoded.length + compressed.length)
-  const replacement = state.document.context.stream(compressed, dictionary)
+  const replacement = emitConvertedRaster(state, dictionary, output, width, height, outputChannels, outputBits)
   state.converted.set(image, { ...variants, [context]: replacement })
   countSuppliedImage(state, image, mask)
   return replacement
