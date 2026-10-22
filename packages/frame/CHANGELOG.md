@@ -1,5 +1,21 @@
 # @segnavia/frame
 
+## 0.24.0
+
+### Minor Changes
+
+- 7fb9876: Open host-placed item settings from authoring rails and expose current slide settings as an item-settings section.
+
+### Patch Changes
+
+- 5303c90: Item settings controls use the --segnavia-radius token for their corners.
+- 5303c90: Document rail thumbnails show the same slot fill as the pages they preview.
+- dfbfc4e: printPages waits for every filled slot's fit report before deciding, so a slow frame can no longer print an overflowed refuse slot.
+- Updated dependencies [7ae70b2]
+- Updated dependencies [7f23541]
+  - @segnavia/format@0.24.0
+  - @segnavia/html@0.24.0
+
 ## 0.23.0
 
 ### Minor Changes

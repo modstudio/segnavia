@@ -1,5 +1,15 @@
 # @segnavia/format
 
+## 0.24.0
+
+### Minor Changes
+
+- 7ae70b2: Add bleed-safe crop marks, optional gap corner marks, and omitted-mark reporting to imposed PDF papers.
+
+### Patch Changes
+
+- 7f23541: Anchor press layouts to an exact physical root on screen and in print, independent of Chromium's rounded viewport.
+
 ## 0.23.0
 
 ### Minor Changes

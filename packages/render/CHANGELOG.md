@@ -1,5 +1,27 @@
 # @segnavia/render
 
+## 0.24.0
+
+### Minor Changes
+
+- 04a0f71: Add opt-in conversion of raster images through a CMYK press profile.
+- 92f0a53: Add opt-in JPEG encoding of converted four-channel CMYK press images.
+- 7ae70b2: Add bleed-safe crop marks, optional gap corner marks, and omitted-mark reporting to imposed PDF papers.
+- 3be09fa: Add press-profile proofs for page, slide, and supplied raster images.
+
+### Patch Changes
+
+- 7f23541: Anchor press layouts to an exact physical root on screen and in print, independent of Chromium's rounded viewport.
+- Updated dependencies [7ae70b2]
+- Updated dependencies [7f23541]
+- Updated dependencies [5303c90]
+- Updated dependencies [7fb9876]
+- Updated dependencies [5303c90]
+- Updated dependencies [dfbfc4e]
+  - @segnavia/format@0.24.0
+  - @segnavia/frame@0.24.0
+  - @segnavia/html@0.24.0
+
 ## 0.23.0
 
 ### Minor Changes
