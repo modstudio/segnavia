@@ -14,9 +14,10 @@ import {
   setLineWidth,
   stroke,
 } from 'pdf-lib'
+import { isSeparationAll } from './press/pdf-objects.ts'
+import { REGISTRATION_COLORANT } from './press/policy.ts'
 
 const MARK_THICKNESS_PT = 0.25
-const ALL = 'All'
 
 export interface PdfMarkLine {
   end: { x: number; y: number }
@@ -31,17 +32,28 @@ function registrationSpace(page: PDFPage) {
     C1: [1, 1, 1, 1],
     N: 1,
   })
-  return page.doc.context.obj(['Separation', ALL, 'DeviceCMYK', tint])
+  return page.doc.context.obj(['Separation', REGISTRATION_COLORANT, 'DeviceCMYK', tint])
 }
 
-function ensureRegistrationSpace(page: PDFPage): void {
+function unusedColorSpaceName(spaces: PDFDict): string {
+  if (!spaces.has(PDFName.of(REGISTRATION_COLORANT))) return REGISTRATION_COLORANT
+  let index = 1
+  while (spaces.has(PDFName.of(`${REGISTRATION_COLORANT}${index}`))) index++
+  return `${REGISTRATION_COLORANT}${index}`
+}
+
+function ensureRegistrationSpace(page: PDFPage): string {
   const resources = page.node.normalizedEntries().Resources
   let spaces = resources.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
   if (!spaces) {
     spaces = page.doc.context.obj({})
     resources.set(PDFName.of('ColorSpace'), spaces)
   }
-  if (!spaces.has(PDFName.of(ALL))) spaces.set(PDFName.of(ALL), registrationSpace(page))
+  const existing = spaces.get(PDFName.of(REGISTRATION_COLORANT))
+  if (existing && isSeparationAll(page.doc, existing)) return REGISTRATION_COLORANT
+  const name = unusedColorSpaceName(spaces)
+  spaces.set(PDFName.of(name), registrationSpace(page))
+  return name
 }
 
 function drawBlackMarks(page: PDFPage, marks: PdfMarkLine[]): void {
@@ -51,10 +63,10 @@ function drawBlackMarks(page: PDFPage, marks: PdfMarkLine[]): void {
 }
 
 function drawRegistrationMarks(page: PDFPage, marks: PdfMarkLine[]): void {
-  ensureRegistrationSpace(page)
+  const space = ensureRegistrationSpace(page)
   const operators = [
     pushGraphicsState(),
-    PDFOperator.of(Ops.StrokingColorspace, [PDFName.of(ALL)]),
+    PDFOperator.of(Ops.StrokingColorspace, [PDFName.of(space)]),
     PDFOperator.of(Ops.StrokingColorN, [PDFNumber.of(1)]),
     setLineWidth(MARK_THICKNESS_PT),
   ]

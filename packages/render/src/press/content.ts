@@ -34,6 +34,23 @@ export interface ContentRewrite {
   bytes: Uint8Array
   counts: ContentCounts
 }
+export interface ContentColorSpaces {
+  fill?: string
+  stack: Array<{ fill?: string; stroke?: string }>
+  stroke?: string
+}
+
+export const emptyContentColorSpaces = (): ContentColorSpaces => ({ stack: [] })
+
+function snapshotColorSpaces(spaces: ContentColorSpaces): ContentColorSpaces {
+  return { fill: spaces.fill, stack: spaces.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke })), stroke: spaces.stroke }
+}
+
+function restoreColorSpaces(target: ContentColorSpaces, source: ContentColorSpaces): void {
+  target.fill = source.fill
+  target.stack = source.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke }))
+  target.stroke = source.stroke
+}
 
 const encoder = new TextEncoder()
 const numberPattern = /^[+-]?(?:\d+\.?\d*|\.\d+)$/
@@ -145,12 +162,6 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
 function spaceName(operands: Token[]): string | undefined {
   return operands.length === 1 && operands[0]?.kind === 'name' ? operands[0].raw.slice(1) : undefined
 }
-function validateSpace(token: Token, operands: Token[], destination: PressDestination): void {
-  if (!spaceName(operands)) refusal(`${token.raw} operator operands`, 'one color space name')
-  const name = spaceName(operands)
-  const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name, false, destination)
-  if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
-}
 function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
   if (policy.action !== 'refuse') return
   const operator = token.raw
@@ -185,12 +196,15 @@ function colorOperator(
   counts: ContentCounts,
   inspect: boolean,
   destination: PressDestination,
-  namedSpace?: string,
+  namedSpace: string | undefined,
+  registrationNames: ReadonlySet<string> | undefined,
 ): Replacement | undefined {
   const operator = token.raw
   if (!isContentColorOperator(operator)) return undefined
   const patternName = operands.length === 1 && operands[0]?.kind === 'name'
-  const policy = contentOperatorAction(operator, inspect, selectedSpace(operator, operands, namedSpace), patternName, destination)
+  const selected = selectedSpace(operator, operands, namedSpace)
+  const registration = selected !== undefined && Boolean(registrationNames?.has(selected))
+  const policy = contentOperatorAction(operator, inspect, selected, patternName, destination, registration)
   enforceOperatorPolicy(token, operands, policy)
   const converted = registrationReplacement(token, operands, policy, counts)
   if (converted) return converted
@@ -205,8 +219,7 @@ function colorOperator(
     }
     return replaceGray(token, operands, convert, counts)
   }
-  if (operator === 'cs' || operator === 'CS') validateSpace(token, operands, destination)
-  else if (operator === 'k' || operator === 'K') {
+  if (operator === 'k' || operator === 'K') {
     numeric(operands, 4, operator)
     counts[operator === 'k' ? 'fills' : 'strokes']++
   }
@@ -226,20 +239,40 @@ function nextNamedSpace(operator: string, operands: Token[], fill?: string, stro
   return { fill, stroke }
 }
 
+function nextColorSpaces(
+  operator: string,
+  operands: Token[],
+  fill: string | undefined,
+  stroke: string | undefined,
+  stack: Array<{ fill?: string; stroke?: string }>,
+): { fill?: string; stroke?: string } {
+  if (operator === 'q') {
+    if (stack.length >= MAX_CONTENT_NESTING)
+      refusal(`q operator nesting over ${MAX_CONTENT_NESTING}`, `at most ${MAX_CONTENT_NESTING} levels`)
+    stack.push({ fill, stroke })
+    return { fill, stroke }
+  }
+  if (operator === 'Q') return stack.pop() ?? { fill, stroke }
+  return nextNamedSpace(operator, operands, fill, stroke)
+}
+
 function scan(
   source: string,
   convert: (rgb: Color3) => Color,
   inspect: boolean,
   destination: PressDestination,
-  visit?: (found: Replacement) => void,
-  operatorVisit?: (operator: Token, operands: Token[]) => void,
-  convertImages = false,
+  visit: ((found: Replacement) => void) | undefined,
+  operatorVisit: ((operator: Token, operands: Token[]) => void) | undefined,
+  convertImages: boolean,
+  registrationNames: ReadonlySet<string> | undefined,
+  spaces: ContentColorSpaces,
 ): ContentCounts {
   const counts = { fills: 0, strokes: 0 }
   let operands: Token[] = []
   let cursor = 0
-  let fillSpace: string | undefined
-  let strokeSpace: string | undefined
+  let fillSpace = spaces.fill
+  let strokeSpace = spaces.stroke
+  const stack = spaces.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke }))
   while (cursor < source.length) {
     const skipped = skippedConstruct(source, cursor)
     if (skipped !== undefined) {
@@ -257,9 +290,18 @@ function scan(
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
-      const found = colorOperator(token, operands, convert, counts, inspect, destination, currentNamedSpace(token.raw, fillSpace, strokeSpace))
+      const found = colorOperator(
+        token,
+        operands,
+        convert,
+        counts,
+        inspect,
+        destination,
+        currentNamedSpace(token.raw, fillSpace, strokeSpace),
+        registrationNames,
+      )
       if (found) visit?.(found)
-      const next = nextNamedSpace(token.raw, operands, fillSpace, strokeSpace)
+      const next = nextColorSpaces(token.raw, operands, fillSpace, strokeSpace, stack)
       fillSpace = next.fill
       strokeSpace = next.stroke
       operands = []
@@ -268,14 +310,25 @@ function scan(
       operands.push(token)
     }
   }
+  spaces.fill = fillSpace
+  spaces.stack = stack
+  spaces.stroke = strokeSpace
   return counts
 }
 
-export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void): void {
-  visitContentOperations(bytes, ({ operator, operands }) => visit(operator, operands))
+export function visitContentTokens(
+  bytes: Uint8Array,
+  visit: (operator: string, operands: { kind: 'name' | 'number'; raw: string }[]) => void,
+  registrationNames?: ReadonlySet<string>,
+): void {
+  visitContentOperations(bytes, ({ operator, operands }) => visit(operator, operands), registrationNames)
 }
 
-export function visitContentOperations(bytes: Uint8Array, visit: (operation: ContentOperation) => void): void {
+export function visitContentOperations(
+  bytes: Uint8Array,
+  visit: (operation: ContentOperation) => void,
+  registrationNames?: ReadonlySet<string>,
+): void {
   scan(
     binaryString(bytes),
     () => [0, 0, 0, 0],
@@ -293,6 +346,8 @@ export function visitContentOperations(bytes: Uint8Array, visit: (operation: Con
       })
     },
     true,
+    registrationNames,
+    emptyContentColorSpaces(),
   )
 }
 
@@ -305,12 +360,22 @@ export function visitContentOperators(bytes: Uint8Array, visit: (operator: strin
   })
 }
 
-export function inspectContent(bytes: Uint8Array, destination: PressDestination = 'cmyk'): ContentCounts {
+export function inspectContent(
+  bytes: Uint8Array,
+  destination: PressDestination = 'cmyk',
+  registrationNames?: ReadonlySet<string>,
+  spaces?: ContentColorSpaces,
+): ContentCounts {
   return scan(
     binaryString(bytes),
     () => refusal('RGB color operator after conversion', `${destination === 'gray' ? 'gray' : 'CMYK'} operators`),
     true,
     destination,
+    undefined,
+    undefined,
+    false,
+    registrationNames,
+    spaces ?? emptyContentColorSpaces(),
   )
 }
 export function rewriteContent(
@@ -318,8 +383,12 @@ export function rewriteContent(
   convert: (rgb: Color3) => Color,
   destination: PressDestination = 'cmyk',
   convertImages = false,
+  registrationNames?: ReadonlySet<string>,
+  spaces?: ContentColorSpaces,
 ): ContentRewrite {
   const source = binaryString(bytes)
+  const tracked = spaces ?? emptyContentColorSpaces()
+  const initial = snapshotColorSpaces(tracked)
   let outputLength = bytes.length
   let changed = false
   const counts = scan(
@@ -333,8 +402,11 @@ export function rewriteContent(
     },
     undefined,
     convertImages,
+    registrationNames,
+    tracked,
   )
   if (!changed) return { bytes, counts }
+  restoreColorSpaces(tracked, initial)
   const output = new Uint8Array(outputLength)
   let inputAt = 0
   let outputAt = 0
@@ -354,6 +426,8 @@ export function rewriteContent(
     },
     undefined,
     convertImages,
+    registrationNames,
+    tracked,
   )
   output.set(bytes.subarray(inputAt), outputAt)
   return { bytes: output, counts }

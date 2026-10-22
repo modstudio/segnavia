@@ -115,11 +115,13 @@ export function inlineImageAction(name: string | undefined, imageMask: boolean):
 
 export const REGISTRATION_COLORANT = 'All'
 
+export const isRegistrationColorant = (name: string | undefined): boolean => name === REGISTRATION_COLORANT
+
 // Content streams may select only patterns or CMYK explicitly after conversion.
-export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk'): PolicyDecision {
+export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk', registration = false): PolicyDecision {
   const device = destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'
   const supported = `Pattern or ${device}`
-  if (name === REGISTRATION_COLORANT) return decision(destination === 'cmyk' ? 'keep' : 'refuse', supported)
+  if (registration) return decision(destination === 'cmyk' ? 'keep' : 'refuse', supported)
   return decision(name === 'Pattern' || name === device ? 'keep' : 'refuse', supported)
 }
 
@@ -155,13 +157,14 @@ export function contentOperatorAction(
   selectedSpace?: string,
   patternName = false,
   destination: PressDestination = 'cmyk',
+  registration = false,
 ): PolicyDecision {
   const device = deviceColorAction(operator, inspect, destination)
   if (device) return device
-  if (selectedSpace === REGISTRATION_COLORANT) {
-    const registration = registrationOperatorAction(operator, inspect, destination)
-    if (registration) return registration
+  if (registration) {
+    const action = registrationOperatorAction(operator, inspect, destination)
+    if (action) return action
   }
-  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination)
+  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination, registration)
   return decision((operator === 'scn' || operator === 'SCN') && patternName ? 'keep' : 'refuse', 'a pattern name with scn or SCN')
 }

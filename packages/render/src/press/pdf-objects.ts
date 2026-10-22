@@ -1,7 +1,7 @@
 import { inflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef, PDFStream } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
-import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, colorSpaceLabel, contentFilter } from './policy.ts'
+import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, colorSpaceLabel, contentFilter, isRegistrationColorant } from './policy.ts'
 
 // This bounds each inflated author-influenced content stream before tokenization.
 export const MAX_CONTENT_BYTES = 32 * 1024 * 1024
@@ -76,7 +76,19 @@ export function resolvedColorSpace(document: PDFDocument, object: PDFObject | un
 export function isSeparationAll(document: PDFDocument, object: PDFObject | undefined): boolean {
   const value = resolved(document, object)
   if (!(value instanceof PDFArray) || value.size() < 2) return false
-  return nameOf(resolved(document, value.get(0))) === 'Separation' && nameOf(resolved(document, value.get(1))) === 'All'
+  return nameOf(resolved(document, value.get(0))) === 'Separation' && isRegistrationColorant(nameOf(resolved(document, value.get(1))))
+}
+
+export function registrationResourceNames(document: PDFDocument, resources: PDFDict | undefined): Set<string> {
+  const names = new Set<string>()
+  const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
+  if (!spaces) return names
+  for (const [key, object] of spaces.entries()) {
+    if (!isSeparationAll(document, object)) continue
+    const name = nameOf(key)
+    if (name) names.add(name)
+  }
+  return names
 }
 
 // A greyscale destination has one plate, so Separation All is dropped after its stroke becomes DeviceGray black.
