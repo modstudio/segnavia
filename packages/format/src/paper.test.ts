@@ -16,6 +16,7 @@ import {
   PaperUnit,
   PrintSetting,
   PrintSettingInput,
+  paperPixels,
   printBoxes,
   printProperties,
   sheetMm,
@@ -99,6 +100,12 @@ describe('paper', () => {
     expect(toMillimeters(12, 'mm')).toBe(12)
     expect(toMillimeters(1, 'in')).toBe(25.4)
     expect(toMillimeters(72, 'pt')).toBe(25.4)
+  })
+
+  test('physical page pixels cover fractional sizes without growing exact sizes', () => {
+    expect([paperPixels(154), paperPixels(216)]).toEqual([583, 817])
+    expect([paperPixels(127), paperPixels(254)]).toEqual([480, 960])
+    expect(paperPixels(toMillimeters(3, 'in'))).toBe(288)
   })
 
   test.each([...PAPER_UNITS])('round trips both custom-paper bounds without loss in %s', (unit) => {

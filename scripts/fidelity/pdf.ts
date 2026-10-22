@@ -94,3 +94,14 @@ export async function trimPdf(source: string, destination: string): Promise<void
   }
   await Bun.write(destination, await document.save())
 }
+
+export async function normalizeCropBox(source: string, destination: string): Promise<void> {
+  const document = await PDFDocument.load(await Bun.file(source).arrayBuffer())
+  for (const page of document.getPages()) {
+    const box = page.getCropBox()
+    page.translateContent(-box.x, -box.y)
+    page.setMediaBox(0, 0, box.width, box.height)
+    page.setCropBox(0, 0, box.width, box.height)
+  }
+  await Bun.write(destination, await document.save())
+}

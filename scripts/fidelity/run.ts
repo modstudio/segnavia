@@ -2,10 +2,11 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { type PageInput, Print, PX_PER_MM, printBoxes, printPadding, printProperties } from '@segnavia/format'
+import { type PageInput, Print, printBoxes } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'
+import { printCss } from '../../packages/render/src/page-paper.ts'
 import { processColorResidues } from '../verify/gray-residue.ts'
 import { measureBars } from './bars.ts'
 import {
@@ -20,6 +21,7 @@ import {
   ROOT,
   SCALE,
 } from './config.ts'
+import { bleedViewport, trimRasterBox } from './geometry.ts'
 import { alignmentOffset, cropImage, difference, imageSize, modelPressRaster, proofImage, proofTable, sideBySide, writeMask } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
@@ -68,24 +70,11 @@ function screenReference(page: PageInput): ScreenReference {
   if (!page.print) return { page, css: MEASUREMENT_CSS, description: 'viewport matching the PDF TrimBox' }
   const print = Print.parse(page.print)
   const boxes = printBoxes(print)
-  const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
-  const padding = printPadding({
-    top: margin.top + print.bleed,
-    right: margin.right + print.bleed,
-    bottom: margin.bottom + print.bleed,
-    left: margin.left + print.bleed,
-  })
-  const width = Math.round(boxes.bleedBox.width * PX_PER_MM)
-  const height = Math.round(boxes.bleedBox.height * PX_PER_MM)
-  const crop = {
-    x: (boxes.trim.x - boxes.bleedBox.x) * PX_PER_MM * SCALE,
-    y: (boxes.trim.y - boxes.bleedBox.y) * PX_PER_MM * SCALE,
-    width: Math.round(boxes.trim.width * PX_PER_MM) * SCALE,
-    height: Math.round(boxes.trim.height * PX_PER_MM) * SCALE,
-  }
+  const { width, height } = bleedViewport(boxes.bleedBox)
+  const crop = trimRasterBox(boxes.bleedBox, boxes.trim, SCALE)
   return {
     page: { ...page, print: undefined, size: { width, height } },
-    css: `${printProperties(print)}${padding}${MEASUREMENT_CSS}`,
+    css: `${printCss(print)}${MEASUREMENT_CSS}`,
     crop,
     description: `TrimBox crop of a ${boxes.bleedBox.width}×${boxes.bleedBox.height} mm BleedBox layout`,
   }

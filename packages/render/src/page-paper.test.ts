@@ -7,7 +7,7 @@ describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
     const print = Print.parse({ paper: 'a4', safe: 5 })
     expect(printCss(print)).toBe(':root{--segnavia-bleed:0mm;--segnavia-safe:5mm}')
-    expect(printViewport(print, true)).toEqual({ width: 794, height: 1123 })
+    expect(printViewport(print)).toEqual({ width: 794, height: 1123 })
   })
 
   test('bleed grows the viewport and becomes physical root padding with the margins', () => {
@@ -17,9 +17,10 @@ describe('printed page setup', () => {
       margin: { top: 1, right: 2, bottom: 3, left: 4 },
       bleed: 3,
     })
-    expect(printCss(print)).toBe(':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){padding:4mm 5mm 6mm 7mm}')
-    expect(printViewport(print, true)).toEqual({ width: 582, height: 420 })
-    expect(printViewport(print, false)).toEqual({ width: 559, height: 397 })
+    expect(printCss(print)).toBe(
+      ':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){box-sizing:border-box!important;position:relative!important;width:154mm!important;height:111mm!important;overflow:clip!important;padding:4mm 5mm 6mm 7mm}:where(body){position:absolute!important;inset:4mm 5mm 6mm 7mm!important;width:auto!important;height:auto!important}',
+    )
+    expect(printViewport(print)).toEqual({ width: 583, height: 420 })
   })
 
   test('a CSS page size is refused for bleed or marks', () => {

@@ -1,4 +1,4 @@
-import { type Print, PX_PER_MM, printBoxes, printPadding, printProperties, sheetMm } from '@segnavia/format'
+import { type Print, paperPixels, printBoxes, printProperties, sheetMm } from '@segnavia/format'
 import { PDFName, rgb } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -11,18 +11,27 @@ const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 export function printCss(print: Print): string {
   const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
+  const { bleedBox } = printBoxes(print)
   const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
-  return `${properties}${printPadding({
+  const edges = {
     top: margin.top + print.bleed,
     right: margin.right + print.bleed,
     bottom: margin.bottom + print.bleed,
     left: margin.left + print.bleed,
-  })}`
+  }
+  const padding = [edges.top, edges.right, edges.bottom, edges.left].map((value) => `${value}mm`).join(' ')
+  const root = `:where(html){box-sizing:border-box!important;position:relative!important;width:${bleedBox.width}mm!important;height:${bleedBox.height}mm!important;overflow:clip!important;padding:${padding}}`
+  // The body follows the root's exact content box even when author print CSS
+  // would otherwise position it against Chromium's rounded viewport.
+  const body = `:where(body){position:absolute!important;inset:${[edges.top, edges.right, edges.bottom, edges.left]
+    .map((value) => `${value}mm`)
+    .join(' ')}!important;width:auto!important;height:auto!important}`
+  return `${properties}${root}${body}`
 }
 
-export function printViewport(print: Print, pressLayout: boolean): { width: number; height: number } {
-  const size = pressLayout && usesPressLayout(print) ? printBoxes(print).bleedBox : sheetMm(print)
-  return { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) }
+export function printViewport(print: Print): { width: number; height: number } {
+  const size = usesPressLayout(print) ? printBoxes(print).bleedBox : sheetMm(print)
+  return { width: paperPixels(size.width), height: paperPixels(size.height) }
 }
 
 export function assertPrintOptions(print: Print, preferCssPageSize: boolean | undefined): void {
@@ -70,7 +79,7 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin
-    const pageWidth = Math.round(mm.width * PX_PER_MM)
+    const pageWidth = paperPixels(mm.width)
     return printWithOverflow(
       tab,
       pageWidth,
@@ -89,7 +98,7 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
   const boxes = printBoxes(print)
   const printed = await printWithOverflow(
     tab,
-    Math.round(boxes.bleedBox.width * PX_PER_MM),
+    paperPixels(boxes.bleedBox.width),
     'page',
     {
       width: `${boxes.bleedBox.width}mm`,
