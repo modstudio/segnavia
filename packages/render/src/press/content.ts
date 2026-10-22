@@ -1,6 +1,7 @@
 import type { Color, Color3 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { formatPdfNumber } from './color-policy.ts'
+import { binaryString, inlineImageHeader, parseInlineImage } from './inline-image.ts'
 import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
 import type { PressDestination } from './types.ts'
 
@@ -34,7 +35,6 @@ export interface ContentRewrite {
   counts: ContentCounts
 }
 
-const decoder = new TextDecoder('latin1')
 const encoder = new TextEncoder()
 const numberPattern = /^[+-]?(?:\d+\.?\d*|\.\d+)$/
 const whitespace = (character: string | undefined): boolean => character !== undefined && /[\0\t\n\f\r ]/.test(character)
@@ -107,49 +107,13 @@ function readToken(source: string, cursor: number): Token | undefined {
   return { start, end: cursor, raw, kind: numberPattern.test(raw) ? 'number' : 'operator' }
 }
 
-function inlineHeaderToken(source: string, at: number): { end: number; raw: string } {
-  let cursor = at
-  while (whitespace(source[cursor])) cursor++
-  if (source[cursor] === '[') {
-    const end = skipComposite(source, cursor, false)
-    return { end, raw: source.slice(cursor, end) }
-  }
-  const token = readToken(source, cursor)
-  return token ? { end: token.end, raw: token.raw } : { end: cursor + 1, raw: '' }
-}
-function inlineHeader(source: string, at: number): { colorSpace?: string; id: number; imageMask: boolean } {
-  let cursor = at
-  let name = ''
-  const values = new Map<string, string>()
-  while (cursor < source.length) {
-    const token = inlineHeaderToken(source, cursor)
-    cursor = token.end
-    if (token.raw === 'ID')
-      return {
-        colorSpace: values.get('/CS') ?? values.get('/ColorSpace'),
-        id: cursor,
-        imageMask: values.get('/IM') === 'true' || values.get('/ImageMask') === 'true',
-      }
-    if (!token.raw) continue
-    if (!name) name = token.raw
-    else {
-      values.set(name, token.raw)
-      name = ''
-    }
-  }
-  return refusal('truncated BI operator', 'an ID and EI pair')
-}
 function inlineImageEnd(source: string, at: number, destination: PressDestination, convertImages: boolean): number {
-  const { colorSpace, id, imageMask } = inlineHeader(source, at)
-  const match = /[\0\t\n\f\r ]EI(?=[\0\t\n\f\r ()<>[\]{}/%]|$)/g
-  match.lastIndex = id
-  const end = match.exec(source)
-  if (!end) return refusal('truncated BI operator', 'an ID and EI pair')
-  const name = colorSpace?.startsWith('/') ? colorSpace.slice(1) : undefined
-  const policy = inlineImageAction(name, imageMask)
+  const header = inlineImageHeader(source, at)
+  const name = header.colorSpace?.startsWith('/') ? header.colorSpace.slice(1) : undefined
+  const policy = inlineImageAction(name, header.imageMask)
   if (policy.action === 'refuse' && !(convertImages && policy.kind === 'rgb')) refusal(`BI operator with color space ${policy.label}`, policy.supported)
   if (destination === 'gray' && policy.kind === 'cmyk') refusal(`BI operator with color space ${policy.label}`, 'RGB or gray input for a greyscale press')
-  return end.index + end[0].length
+  return parseInlineImage(source, at).end
 }
 function skippedConstruct(source: string, cursor: number): number | undefined {
   const character = source[cursor]
@@ -274,7 +238,7 @@ export function visitContentTokens(bytes: Uint8Array, visit: (operator: string, 
 
 export function visitContentOperations(bytes: Uint8Array, visit: (operation: ContentOperation) => void): void {
   scan(
-    decoder.decode(bytes),
+    binaryString(bytes),
     () => [0, 0, 0, 0],
     false,
     'cmyk',
@@ -304,7 +268,7 @@ export function visitContentOperators(bytes: Uint8Array, visit: (operator: strin
 
 export function inspectContent(bytes: Uint8Array, destination: PressDestination = 'cmyk'): ContentCounts {
   return scan(
-    decoder.decode(bytes),
+    binaryString(bytes),
     () => refusal('RGB color operator after conversion', `${destination === 'gray' ? 'gray' : 'CMYK'} operators`),
     true,
     destination,
@@ -316,7 +280,7 @@ export function rewriteContent(
   destination: PressDestination = 'cmyk',
   convertImages = false,
 ): ContentRewrite {
-  const source = decoder.decode(bytes)
+  const source = binaryString(bytes)
   let outputLength = bytes.length
   let changed = false
   const counts = scan(

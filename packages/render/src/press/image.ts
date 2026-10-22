@@ -13,13 +13,23 @@ import {
   paletteToGray,
   profileRgb,
 } from './image-color.ts'
-import { chargeImageLimits } from './image-limits.ts'
+import { chargeDecodedImageBytes, chargeImageLimits, chargeOutputImageBytes } from './image-limits.ts'
+import { rgbPng } from './image-png.ts'
 import { pngPredictor } from './image-samples.ts'
 import { nameOf, numberOf, rawStreamOf } from './pdf-objects.ts'
 import { imageAction } from './policy.ts'
 import type { MaskContext } from './visitor.ts'
 
-export { MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, MAX_TOTAL_IMAGE_PIXELS } from './image-limits.ts'
+export {
+  MAX_IMAGE_BYTES,
+  MAX_IMAGE_DECODED_BYTES,
+  MAX_IMAGE_OUTPUT_BYTES,
+  MAX_IMAGE_PIXELS,
+  MAX_TOTAL_IMAGE_BYTES,
+  MAX_TOTAL_IMAGE_DECODED_BYTES,
+  MAX_TOTAL_IMAGE_OUTPUT_BYTES,
+  MAX_TOTAL_IMAGE_PIXELS,
+} from './image-limits.ts'
 
 export interface JpegPixels {
   width: number
@@ -27,19 +37,22 @@ export interface JpegPixels {
   rgb: Uint8Array
 }
 
-export type JpegDecoder = (bytes: Uint8Array) => Promise<JpegPixels>
+export type ImageDecoder = (bytes: Uint8Array, mime: 'image/jpeg' | 'image/png') => Promise<JpegPixels>
+export type JpegDecoder = ImageDecoder
 
 export interface ImageState {
   counted: WeakSet<PDFRawStream>
   converted: WeakMap<PDFRawStream, Partial<Record<ImageConversionContext, PDFRawStream>>>
-  decodeJpeg?: JpegDecoder
+  decodeImage?: ImageDecoder
   document: PDFDocument
   convert: ReturnType<typeof cachedPressColor>
   destination: 'cmyk' | 'gray'
+  decodedBytes: number
   profile: Profile
   rgbLookup: GrayLookup
   grayLookup: Uint8Array
   pixels: number
+  outputBytes: number
   bytes: number
   total: number
 }
@@ -75,7 +88,7 @@ function baseSpace(document: PDFDocument, object: PDFObject | undefined): BaseSp
   const profile = rawStreamOf(resolved(document, value.get(1)))
   const channels = profile ? numberOf(profile.dict, 'N') : undefined
   if (channels === 1) return { channels, kind: 'gray', label: 'ICCBased N 1' }
-  if (channels === 3) return { channels, kind: 'rgb', label: 'ICCBased N 3' }
+  if (channels === 3) return { channels, kind: 'rgb', label: 'ICCBased N 3', profile: bytesOf(document, value.get(1)) }
   if (channels === 4) return { channels, kind: 'cmyk', label: 'ICCBased N 4' }
   return undefined
 }
@@ -207,37 +220,40 @@ async function sourceBytes(
 ) {
   if (filter === 'none') return image.contents
   if (filter === 'flate') return decodeFlate(state, image, width, height, channels, bits)
-  if (!state.decodeJpeg) refuse('DCTDecode image without a JPEG decoder', "a JPEG needs the renderer's decoder")
-  const decoder = state.decodeJpeg as JpegDecoder
-  const decoded = await decodeJpeg(decoder, image.contents)
+  if (!state.decodeImage) refuse('DCTDecode image without a JPEG decoder', "a JPEG needs the renderer's decoder")
+  const decoder = state.decodeImage as ImageDecoder
+  const decoded = await decodeImage(decoder, image.contents, 'image/jpeg')
   if (decoded.width !== width || decoded.height !== height)
     refuse(`decoded JPEG dimensions ${decoded.width}x${decoded.height}`, `the image Width and Height ${width}x${height}`)
   if (decoded.rgb.length !== width * height * 3) refuse(`decoded JPEG sample length ${decoded.rgb.length}`, `${width * height * 3} RGB bytes`)
   return decoded.rgb
 }
 
-async function decodeJpeg(decoder: JpegDecoder, bytes: Uint8Array): Promise<JpegPixels> {
+async function decodeImage(decoder: ImageDecoder, bytes: Uint8Array, mime: 'image/jpeg' | 'image/png'): Promise<JpegPixels> {
   try {
-    return await decoder(bytes)
+    return await decoder(bytes, mime)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    return refuse(`JPEG decoding failure: ${message}`, "a JPEG the renderer's browser can decode")
+    const kind = mime === 'image/jpeg' ? 'JPEG' : 'PNG'
+    return refuse(`${kind} decoding failure: ${message}`, `a ${kind} the renderer's browser can decode`)
   }
 }
 
-export function createImageState(document: PDFDocument, profile: Profile, decodeJpeg?: JpegDecoder, tolerance?: number): ImageState {
+export function createImageState(document: PDFDocument, profile: Profile, decodeImage?: ImageDecoder, tolerance?: number): ImageState {
   return {
     bytes: 0,
     counted: new WeakSet(),
     convert: cachedPressColor(profile, tolerance),
     converted: new WeakMap(),
-    decodeJpeg,
+    decodeImage,
+    decodedBytes: 0,
     destination: pressDestination(profile),
     document,
     profile,
     rgbLookup: buildGrayImageLookup(profile),
     grayLookup: grayTable(profile),
     pixels: 0,
+    outputBytes: 0,
     total: 0,
   }
 }
@@ -258,8 +274,22 @@ interface PreparedImage {
   width: number
 }
 
+async function chromiumRgb(state: ImageState, rgb: Uint8Array, width: number, height: number, profile?: Uint8Array): Promise<Uint8Array> {
+  if (!state.decodeImage) {
+    if (profile) refuse('ICCBased RGB image without an image decoder', "the renderer's browser decoder")
+    return rgb
+  }
+  const decoded = await decodeImage(state.decodeImage, rgbPng(rgb, width, height, profile), 'image/png')
+  if (decoded.width !== width || decoded.height !== height || decoded.rgb.length !== width * height * 3)
+    refuse(
+      `decoded PNG geometry ${decoded.width}x${decoded.height} with ${decoded.rgb.length} bytes`,
+      `${width}x${height} with ${width * height * 3} RGB bytes`,
+    )
+  return decoded.rgb
+}
+
 async function prepareImage(state: ImageState, image: PDFRawStream): Promise<PreparedImage | undefined> {
-  const space = imageSpace(state.document, image.dict.get(key('ColorSpace')))
+  let space = imageSpace(state.document, image.dict.get(key('ColorSpace')))
   const base = space.kind === 'indexed' ? space.base : space
   const action = imageAction(base.kind, state.destination)
   if (action.action === 'keep') return undefined
@@ -273,7 +303,16 @@ async function prepareImage(state: ImageState, image: PDFRawStream): Promise<Pre
   if (!isDefaultDecode(image, channels, componentBits, space.kind === 'indexed')) refuse('image Decode array', 'the default Decode array')
   const filter = filterName(state.document, image)
   if (space.kind === 'indexed' && filter === 'jpeg') refuse('Indexed image filter DCTDecode', 'no filter or FlateDecode')
-  const source = await sourceBytes(state, image, filter, width, height, filter === 'jpeg' ? 3 : channels, componentBits)
+  let source = await sourceBytes(state, image, filter, width, height, filter === 'jpeg' ? 3 : channels, componentBits)
+  chargeDecodedImageBytes(state, source.length)
+  if (filter !== 'jpeg' && space.kind !== 'indexed' && space.kind === 'rgb') source = await chromiumRgb(state, source, width, height, space.profile)
+  if (space.kind === 'indexed' && space.base.kind === 'rgb') {
+    const entries = space.high + 1
+    const expected = entries * 3
+    if (space.lookup.length < expected) refuse(`Indexed image lookup length ${space.lookup.length}`, `${expected} RGB bytes`)
+    const lookup = await chromiumRgb(state, space.lookup.subarray(0, expected), entries, 1, space.base.profile)
+    space = { ...space, base: { channels: 3, kind: 'rgb', label: 'Chromium-decoded RGB' }, lookup }
+  }
   return { bits: componentBits, filter, height, pixels, source, space, width }
 }
 
@@ -314,11 +353,16 @@ export async function convertSuppliedImage(state: ImageState, image: PDFRawStrea
   if (!prepared) return undefined
   const { width, height } = prepared
   const dictionary = streamDictionary(image)
-  const output = convertedImageSamples(state, prepared, mask, dictionary)
   const outputChannels = mask === 'none' && state.destination === 'cmyk' ? 4 : 1
   const outputBits = prepared.space.kind === 'indexed' && state.destination === 'gray' ? prepared.bits : 8
+  const outputBytes = (Math.ceil((width * outputChannels * outputBits) / 8) + 1) * height
+  chargeOutputImageBytes(state, outputBytes)
+  const output = convertedImageSamples(state, prepared, mask, dictionary)
+  const predicted = pngPredictor(output, width, height, outputChannels, outputBits)
   dictionary.DecodeParms = state.document.context.obj({ Predictor: 15, Colors: outputChannels, Columns: width, BitsPerComponent: outputBits })
-  const replacement = state.document.context.stream(deflateSync(pngPredictor(output, width, height, outputChannels, outputBits)), dictionary)
+  const compressed = deflateSync(predicted)
+  chargeOutputImageBytes(state, compressed.length, predicted.length + compressed.length)
+  const replacement = state.document.context.stream(compressed, dictionary)
   state.converted.set(image, { ...variants, [context]: replacement })
   countSuppliedImage(state, image, mask)
   return replacement

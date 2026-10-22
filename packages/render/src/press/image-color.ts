@@ -8,6 +8,7 @@ export interface BaseSpace {
   channels: 1 | 3 | 4
   kind: 'cmyk' | 'gray' | 'rgb'
   label: string
+  profile?: Uint8Array
 }
 
 export interface IndexedSpace {

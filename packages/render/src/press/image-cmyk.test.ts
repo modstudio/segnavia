@@ -1,9 +1,11 @@
 import { expect, test } from 'bun:test'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { deflateSync, inflateSync } from 'node:zlib'
+import { decodePDFRawStream, PDFArray, PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib'
 import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
 import { rewritePressPdf } from './adapter.ts'
+import { cachedPressColor } from './color-policy.ts'
 import { decodeContent } from './pdf-objects.ts'
 
 const profile = buildPressProfile('mft1')
@@ -54,6 +56,48 @@ test('converts RGB images to lossless DeviceCMYK only when requested', async () 
   expect([...decodePDFRawStream(found).decode()].slice(1)).toEqual(expected)
 })
 
+test('carries an embedded RGB profile through browser decoding before press conversion', async () => {
+  const document = await PDFDocument.create()
+  const embedded = Uint8Array.of(11, 22, 33, 44)
+  const icc = document.context.register(document.context.stream(embedded, { N: 3 }))
+  const image = document.context.register(
+    document.context.stream(Uint8Array.of(51, 102, 153), {
+      Type: 'XObject',
+      Subtype: 'Image',
+      Width: 1,
+      Height: 1,
+      ColorSpace: ['ICCBased', icc],
+      BitsPerComponent: 8,
+    }),
+  )
+  setResources(document, document.addPage([10, 10]), { XObject: { I: image } }, '/I Do')
+  const decodedRgb = Uint8Array.of(190, 80, 30)
+  const converted = await rewritePressPdf(
+    await document.save(),
+    profile,
+    3,
+    async (png, mime) => {
+      expect(mime).toBe('image/png')
+      const marker = Buffer.from('PDF profile\0\0')
+      const at = Buffer.from(png).indexOf(marker)
+      expect(at).toBeGreaterThan(0)
+      expect([...inflateSync(png.subarray(at + marker.length, png.length - 16))]).toEqual([...embedded])
+      return { width: 1, height: 1, rgb: decodedRgb }
+    },
+    'convert',
+  )
+  const output = await PDFDocument.load(converted.bytes)
+  const found = output.context.lookup(image) as PDFRawStream
+  const actual = [...decodePDFRawStream(found).decode()].slice(1)
+  const expected = cachedPressColor(
+    readProfile(profile),
+    3,
+  )(Array.from(decodedRgb, (value) => value / 255) as [number, number, number]).map((value) => Math.round(value * 255))
+  const raw = toPress(readProfile(profile), [0.2, 0.4, 0.6]).map((value) => Math.round(value * 255))
+  expect(actual).toEqual(expected)
+  expect(actual).not.toEqual(raw)
+})
+
 test('converts an inline RGB image to DeviceCMYK when requested', async () => {
   const document = await PDFDocument.create()
   const page = document.addPage([10, 10])
@@ -68,4 +112,25 @@ test('converts an inline RGB image to DeviceCMYK when requested', async () => {
   expect(converted.report.images).toEqual([])
   expect(converted.report.convertedImages).toBe(1)
   expect(await contentText(converted.bytes)).toContain('/CS /CMYK')
+})
+
+test('refuses a tall compact image before allocating its CMYK output', async () => {
+  const document = await PDFDocument.create()
+  const height = 40_000_001
+  const palette = document.context.obj(['Indexed', 'DeviceRGB', 0, PDFHexString.of('000000')])
+  const image = document.context.register(
+    document.context.stream(deflateSync(new Uint8Array(height)), {
+      Type: 'XObject',
+      Subtype: 'Image',
+      Width: 1,
+      Height: height,
+      ColorSpace: palette,
+      BitsPerComponent: 1,
+      Filter: 'FlateDecode',
+    }),
+  )
+  setResources(document, document.addPage([10, 10]), { XObject: { I: image } }, '/I Do')
+  await expect(rewritePressPdf(await document.save(), profile, 3, undefined, 'convert')).rejects.toThrow(
+    /image output byte count 200000005.*200000000 output bytes in one image/,
+  )
 })
