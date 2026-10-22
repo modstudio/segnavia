@@ -48,11 +48,14 @@ async function decode(tab: Tab, bytes: Uint8Array): Promise<{ width: number; hei
   boundedBytes(bytes, 'input')
   const encoded = Buffer.from(bytes).toString('base64')
   const decoded = await tab.evaluate(
-    async ({ encoded, mime }) => {
+    async ({ encoded, maxPixels, mime }) => {
       const binary = atob(encoded)
       const source = Uint8Array.from(binary, (value) => value.charCodeAt(0))
       const bitmap = await createImageBitmap(new Blob([source], { type: mime }), { colorSpaceConversion: 'default', premultiplyAlpha: 'none' })
       try {
+        const pixels = bitmap.width * bitmap.height
+        // Refuse before drawing so a small encoded file with huge dimensions never copies its pixels.
+        if (!Number.isSafeInteger(pixels) || pixels > maxPixels) return { width: bitmap.width, height: bitmap.height }
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
         const context = canvas.getContext('2d')
         if (!context) throw new Error('Chromium could not create a 2D canvas for proof decoding')
@@ -66,14 +69,18 @@ async function decode(tab: Tab, bytes: Uint8Array): Promise<{ width: number; hei
         bitmap.close()
       }
     },
-    { encoded, mime: mimeOf(bytes) },
+    { encoded, maxPixels: MAX_PROOF_IMAGE_PIXELS, mime: mimeOf(bytes) },
   )
   const pixels = decoded.width * decoded.height
   if (!Number.isSafeInteger(pixels) || pixels > MAX_PROOF_IMAGE_PIXELS)
     throw new RenderRefusedError(
       `The proof image has ${pixels} pixels; the ceiling is ${MAX_PROOF_IMAGE_PIXELS} pixels. Reduce its pixel dimensions to clear this refusal.`,
     )
-  return { width: decoded.width, height: decoded.height, rgba: new Uint8Array(Buffer.from(decoded.rgba, 'base64')) }
+  return { width: decoded.width, height: decoded.height, rgba: new Uint8Array(Buffer.from(decoded.rgba ?? '', 'base64')) }
+}
+
+function canvasQuality(quality?: number[]): number {
+  return (quality?.[0] ?? 90) / 100
 }
 
 async function encode(
@@ -82,37 +89,44 @@ async function encode(
   height: number,
   rgba: Uint8Array | Uint8ClampedArray,
   format: NonNullable<ProofImageOptions['format']>,
+  quality?: number[],
 ): Promise<Uint8Array> {
   const encoded = Buffer.from(rgba).toString('base64')
   const base64 = await tab.evaluate(
-    async ({ encoded, format, height, width }) => {
+    async ({ encoded, format, height, quality, width }) => {
       const binary = atob(encoded)
       const pixels = Uint8ClampedArray.from(binary, (value) => value.charCodeAt(0))
       const canvas = new OffscreenCanvas(width, height)
       const context = canvas.getContext('2d')
       if (!context) throw new Error('Chromium could not create a 2D canvas for proof encoding')
       context.putImageData(new ImageData(pixels, width, height), 0, 0)
-      const blob = await canvas.convertToBlob({ type: `image/${format}`, quality: 0.9 })
+      const blob = await canvas.convertToBlob({ type: `image/${format}`, quality })
       const output = new Uint8Array(await blob.arrayBuffer())
       let value = ''
       for (let offset = 0; offset < output.length; offset += 32_768)
         value += String.fromCharCode(...output.subarray(offset, Math.min(output.length, offset + 32_768)))
       return btoa(value)
     },
-    { encoded, format, height, width },
+    { encoded, format, height, quality: canvasQuality(quality), width },
   )
   const output = new Uint8Array(Buffer.from(base64, 'base64'))
   boundedBytes(output, 'output')
   return output
 }
 
-export async function proofRasterImage(tab: Tab, image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array> {
+export async function proofRasterImage(tab: Tab, image: Uint8Array, options: ProofImageOptions & Pick<ImageOptions, 'quality'>): Promise<Uint8Array> {
   const table = proofTable(options.profile)
   const decoded = await decode(tab, image)
-  return encode(tab, decoded.width, decoded.height, proofRgba(table, decoded.rgba), options.format ?? 'png')
+  return encode(tab, decoded.width, decoded.height, proofRgba(table, decoded.rgba), options.format ?? 'png', options.quality)
+}
+
+// Proofing captures PNG so Chromium's pixels are not quantized before the table, then encodes once at the requested quality.
+export function proofCaptureOptions(options: ImageOptions): Pick<ImageOptions, 'format' | 'quality' | 'limits'> {
+  const capture = { format: options.format, quality: options.quality, limits: options.limits }
+  return options.proof ? { ...capture, format: 'png' } : capture
 }
 
 export async function proofCapturedImage(tab: Tab, image: Uint8Array, options: ImageOptions): Promise<Uint8Array> {
   if (!options.proof) return image
-  return proofRasterImage(tab, image, { profile: options.proof.profile, format: options.format })
+  return proofRasterImage(tab, image, { profile: options.proof.profile, format: options.format, quality: options.quality })
 }

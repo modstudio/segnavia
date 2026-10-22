@@ -17,7 +17,7 @@ import { assertPrintOptions, printCss, printPage, printViewport } from './page-p
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
-import { proofCapturedImage, proofRasterImage } from './proof-image.ts'
+import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
@@ -43,7 +43,6 @@ export { RenderTimeoutError } from './render-deadline.ts'
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
 const FLUID_WIDTH = 1024
-
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -67,11 +66,14 @@ export interface Renderer {
   close(): Promise<void>
 }
 
+// One image of what a tab shows. Shared with capture, so a shot and a
+// rendered slide are encoded the same way under the same size ceiling.
 export async function captureImage(tab: Tab, options: Pick<ImageOptions, 'format' | 'quality' | 'limits'>, fullPage: boolean): Promise<Uint8Array> {
   const format = options.format ?? 'png'
   if (format !== 'webp') {
     return tab.screenshot({ type: format, fullPage, ...(format === 'jpeg' ? { quality: options.quality?.[0] ?? 90 } : {}) })
   }
+  // Playwright offers no WebP; Chromium's own capture does, at a quality.
   const session = await tab.context().newCDPSession(tab)
   try {
     const clip = await tab.evaluate((wholePage) => {
@@ -203,8 +205,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
   }
 
-  const image = captureImage
-
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page, undefined, true)
@@ -316,7 +316,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           async (tab) => {
             if (grows) await contentHeight(tab)
-            return proofCapturedImage(tab, await image(tab, opts, false), opts)
+            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
           },
         )
       })
@@ -380,7 +380,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             deadline,
             beforeOutput: opts.beforeOutput,
           },
-          async (tab) => proofCapturedImage(tab, await image(tab, opts, false), opts),
+          async (tab) => proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts),
         )
       })
     },
