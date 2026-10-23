@@ -1,5 +1,12 @@
 # @segnavia/format
 
+## 0.26.0
+
+### Minor Changes
+
+- 31831c0: Add folded impositions with half, letter, Z, gate and custom presets, panel page maps, and dashed fold marks on imposed PDFs.
+- 84522f0: Add a markColor option so crop marks can draw in registration color on single pages and imposed papers.
+
 ## 0.25.0
 
 ### Patch Changes

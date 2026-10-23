@@ -1,5 +1,21 @@
 # @segnavia/render
 
+## 0.26.0
+
+### Minor Changes
+
+- 31831c0: Add folded impositions with half, letter, Z, gate and custom presets, panel page maps, and dashed fold marks on imposed PDFs.
+- 84522f0: Add a markColor option so crop marks can draw in registration color on single pages and imposed papers.
+
+### Patch Changes
+
+- fba1865: Capture a backdrop-filter JPEG of only the filtered backdrop and install it beneath the element's own background layers, promoting a non-transparent background-color to a solid layer above that JPEG, then hoist the JPEG out of a transparency group that uses a non-Normal blend, so screen-blended text composites against the group's fill as it does on screen.
+- Updated dependencies [31831c0]
+- Updated dependencies [84522f0]
+  - @segnavia/format@0.26.0
+  - @segnavia/frame@0.26.0
+  - @segnavia/html@0.26.0
+
 ## 0.25.0
 
 ### Minor Changes
