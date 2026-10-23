@@ -206,6 +206,19 @@ test.each([
   expect(frostForm.dict.has(PDFName.of('Group'))).toBe(true)
 })
 
+test('hoists Chromium frost frame with color operators beside the tagged image', async () => {
+  const { document, glass } = await capturedBlendDocument('q 1093.75 0 0 -875 .25 875.625 cm 0 0 0 RG 0 0 0 rg /G4 gs /Raster Do Q q /Blend gs /Text Do Q')
+  glass.dict
+    .lookup(PDFName.of('Resources'), PDFDict)
+    .lookup(PDFName.of('ExtGState'), PDFDict)
+    .set(PDFName.of('G4'), document.context.obj({ ca: 1, BM: 'Normal' }))
+  const rewritten = await rewriteEffectsPdf(await document.save())
+  const output = await PDFDocument.load(rewritten.bytes)
+  expect(decode(output, output.getPage(0).node.Contents())).toMatch(/\/SegnaviaBackdrop\d+ Do \/Glass Do/)
+  expect(decode(output, formNamed(output, 'Glass'))).not.toContain('/Raster Do')
+  expectOrder(decode(output, hoistedFrost(output)), ['1093.75 0 0 -875 .25 875.625 cm', 'Do'])
+})
+
 test('does not hoist when clip or cm sits outside a q frame', async () => {
   const rewritten = await rewriteEffectsPdf(
     await (await capturedBlendDocument('0 0 10 10 re W n 3 0 0 3 0 0 cm /Raster Do q /Blend gs /Text Do Q')).document.save(),

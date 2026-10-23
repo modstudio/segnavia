@@ -7,7 +7,9 @@ const key = (name: string): PDFName => PDFName.of(name)
 const decoder = new TextDecoder()
 const encoder = new TextEncoder()
 const PATH = new Set(['c', 'h', 'l', 'm', 're', 'v', 'y'])
-const ALLOWED = new Set([...PATH, 'W', 'W*', 'n', 'cm', 'q', 'Q', 'w', 'J', 'j', 'M', 'd', 'ri', 'i', 'gs'])
+// Color operators set stroke or fill color and do not paint; Chromium writes RG/rg beside the frost Do.
+const COLOR = new Set(['CS', 'cs', 'SC', 'SCN', 'sc', 'scn', 'G', 'g', 'RG', 'rg', 'K', 'k'])
+const ALLOWED = new Set([...PATH, ...COLOR, 'W', 'W*', 'n', 'cm', 'q', 'Q', 'w', 'J', 'j', 'M', 'd', 'ri', 'i', 'gs'])
 
 export interface FrameSlice {
   end: number
