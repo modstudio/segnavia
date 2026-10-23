@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.25.0
+
+### Patch Changes
+
+- 8aa5beb: Export schemas for slot keys, slot values, and fill value records.
+
 ## 0.24.0
 
 ### Minor Changes
