@@ -191,4 +191,12 @@ describe('impositionMarks', () => {
     expect(dashed.every((mark) => mark.x1 === mark.x2 && mark.x1 > left && mark.x1 < right)).toBe(true)
     expect(back?.marks.filter((mark) => mark.dashed)).toHaveLength(4)
   })
+
+  test('markColor defaults to black and is refused by name unless marks are enabled', () => {
+    expect(markInput().markColor).toBe('black')
+    expect(markInput({ markColor: 'registration' }).markColor).toBe('registration')
+    const refused = Imposition.safeParse({ paper: 'a4', columns: 1, rows: 1, cell: { width: 20, height: 20 }, markColor: 'registration' })
+    expect(refused.error?.issues[0]).toMatchObject({ path: ['markColor'] })
+    expect(refused.error?.issues[0]?.message).toContain('marks')
+  })
 })

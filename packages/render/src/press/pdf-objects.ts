@@ -1,7 +1,7 @@
 import { inflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef, PDFStream } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
-import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, colorSpaceLabel, contentFilter } from './policy.ts'
+import { type ColorSpaceKind, type ColorSpaceValue, colorSpaceKind, colorSpaceLabel, contentFilter, isRegistrationColorant } from './policy.ts'
 
 // This bounds each inflated author-influenced content stream before tokenization.
 export const MAX_CONTENT_BYTES = 32 * 1024 * 1024
@@ -71,6 +71,51 @@ function colorSpaceValue(document: PDFDocument, object: PDFObject | undefined): 
 export function resolvedColorSpace(document: PDFDocument, object: PDFObject | undefined): { kind: ColorSpaceKind; label: string } {
   const value = colorSpaceValue(document, object)
   return { kind: colorSpaceKind(value), label: object ? colorSpaceLabel(value) : 'missing' }
+}
+
+export function isSeparationAll(document: PDFDocument, object: PDFObject | undefined): boolean {
+  const value = resolved(document, object)
+  if (!(value instanceof PDFArray) || value.size() < 2) return false
+  return nameOf(resolved(document, value.get(0))) === 'Separation' && isRegistrationColorant(nameOf(resolved(document, value.get(1))))
+}
+
+export function registrationResourceNames(document: PDFDocument, resources: PDFDict | undefined): Set<string> {
+  const names = new Set<string>()
+  const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
+  if (!spaces) return names
+  for (const [key, object] of spaces.entries()) {
+    if (!isSeparationAll(document, object)) continue
+    const name = nameOf(key)
+    if (name) names.add(name)
+  }
+  return names
+}
+
+// A shared stream is rewritten once; every owner must classify the same names as Separation All.
+export function registrationNameConflict(
+  document: PDFDocument,
+  recorded: WeakMap<PDFRawStream, Set<string>>,
+  stream: PDFRawStream,
+  resources: PDFDict | undefined,
+): string | undefined {
+  const names = registrationResourceNames(document, resources)
+  const previous = recorded.get(stream)
+  if (!previous) {
+    recorded.set(stream, names)
+    return undefined
+  }
+  for (const name of previous) if (!names.has(name)) return name
+  for (const name of names) if (!previous.has(name)) return name
+  return undefined
+}
+
+// A greyscale destination has one plate, so Separation All is dropped after its stroke becomes DeviceGray black.
+export function dropRegistrationColorSpaces(document: PDFDocument, resources: PDFDict | undefined): void {
+  const spaces = resources?.lookupMaybe(PDFName.of('ColorSpace'), PDFDict)
+  if (!spaces) return
+  for (const [name, object] of [...spaces.entries()]) {
+    if (isSeparationAll(document, object)) spaces.delete(name)
+  }
 }
 
 function filterNames(filter: PDFObject | undefined): string[] | undefined {

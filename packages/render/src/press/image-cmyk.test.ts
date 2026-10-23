@@ -1,29 +1,18 @@
 import { expect, test } from 'bun:test'
 import { deflateSync, inflateSync } from 'node:zlib'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib'
 import { toPress } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildPressProfile } from '../color/profile-fixture.test-helper.ts'
+import { pageContent } from '../pdf-content.test-helper.ts'
 import { rewritePressPdf } from './adapter.ts'
 import { cachedPressColor } from './color-policy.ts'
-import { decodeContent } from './pdf-objects.ts'
 
 const profile = buildPressProfile('mft1')
 
 function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
   page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
-}
-
-async function contentText(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodeContent(stream)))
-    .join('\n')
 }
 
 test('converts RGB images to lossless DeviceCMYK only when requested', async () => {
@@ -111,7 +100,7 @@ test('converts an inline RGB image to DeviceCMYK when requested', async () => {
   const converted = await rewritePressPdf(await document.save(), profile, 3, undefined, 'convert')
   expect(converted.report.images).toEqual([])
   expect(converted.report.convertedImages).toBe(1)
-  expect(await contentText(converted.bytes)).toContain('/CS /CMYK')
+  expect(await pageContent(converted.bytes)).toContain('/CS /CMYK')
 })
 
 test('refuses a tall compact image before allocating its CMYK output', async () => {
@@ -269,7 +258,7 @@ test('jpeg encoding writes an inline RGB image as DCTDecode DeviceCMYK', async (
   content.set(suffix, prefix.length + tile.length)
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
   const converted = await rewritePressPdf(await document.save(), profile, 3, undefined, 'convert', 'jpeg', 85)
-  const text = await contentText(converted.bytes)
+  const text = await pageContent(converted.bytes)
   expect(text).toContain('/CS /CMYK')
   expect(text).toContain('/F /DCT')
   expect(text).not.toContain('/Predictor')

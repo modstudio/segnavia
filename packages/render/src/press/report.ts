@@ -1,14 +1,15 @@
 import { PDFArray, PDFDict, type PDFDocument, PDFName, type PDFObject, type PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
-import { inspectContent } from './content.ts'
-import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, rawStreamOf, resolvedColorSpace } from './pdf-objects.ts'
+import { type ContentColorSpaces, emptyContentColorSpaces, inspectContent } from './content.ts'
+import { type ContentBudget, decodeContent, dictionaryOf, nameOf, numberOf, rawStreamOf, registrationResourceNames, resolvedColorSpace } from './pdf-objects.ts'
 import { type FunctionDecision, groupAction, shadingAction } from './policy.ts'
 import type { PressDestination, PressImage, PressReport } from './types.ts'
 import { type MaskContext, walkPressGraph } from './visitor.ts'
 
 interface ReportState {
   budget: ContentBudget
+  colorSpaces?: ContentColorSpaces
   document: PDFDocument
   groups: WeakSet<PDFDict>
   images: WeakSet<PDFRawStream>
@@ -91,10 +92,21 @@ export async function inspectPressPdf(bytes: Uint8Array, requested?: PressDestin
     shadings: new WeakSet(),
   }
   walkPressGraph(document, {
-    content: (_object, stream) => {
-      const counts = inspectContent(decodeContent(stream, state.budget), destination)
+    beginContentsSequence: () => {
+      state.colorSpaces = emptyContentColorSpaces()
+    },
+    content: (_object, stream, _replace, resources) => {
+      const counts = inspectContent(
+        decodeContent(stream, state.budget),
+        destination,
+        registrationResourceNames(state.document, resources),
+        state.colorSpaces ?? emptyContentColorSpaces(),
+      )
       state.report.fills += counts.fills
       state.report.strokes += counts.strokes
+    },
+    endContentsSequence: () => {
+      state.colorSpaces = undefined
     },
     function: (fn, decision, mask) => inspectFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => inspectGroup(state, owner, mask),

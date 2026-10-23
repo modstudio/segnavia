@@ -3,6 +3,7 @@ import { Page } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
+import { pageContent } from './pdf-content.test-helper.ts'
 
 test('pagesPdf refuses an empty collection with the action that clears it', async () => {
   const render = renderPagesPdf(
@@ -72,4 +73,33 @@ test('pagesPdf reports marks omitted from a narrow imposition margin without ref
       ],
     },
   ])
+})
+
+test('an imposed pagesPdf with registration marks strokes Separation All', async () => {
+  const page = Page.parse({ html: '<p>Card</p>', size: { width: 80, height: 80 } })
+  const piece = await PDFDocument.create()
+  piece.addPage([80, 80]).drawText('Card')
+  const bytes = await renderPagesPdf(
+    [page],
+    {
+      imposition: {
+        paper: { width: 40, height: 40, unit: 'mm' },
+        columns: 1,
+        rows: 1,
+        cell: { width: 20, height: 20 },
+        margin: { top: 10, right: 10, bottom: 10, left: 10 },
+        marks: true,
+        markColor: 'registration',
+      },
+    },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => piece.save(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const text = await pageContent(bytes)
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
 })

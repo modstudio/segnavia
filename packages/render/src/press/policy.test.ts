@@ -8,6 +8,7 @@ import {
   groupAction,
   imageAction,
   inlineImageAction,
+  isRegistrationColorant,
   shadingAction,
   shadingFunctionAction,
 } from './policy.ts'
@@ -50,10 +51,22 @@ test('keeps every press color decision in one policy', () => {
   expect(inlineImageAction('I', false).action).toBe('refuse')
   expect(contentColorSpaceAction('Pattern').action).toBe('keep')
   expect(contentColorSpaceAction('DeviceRGB').action).toBe('refuse')
+  expect(contentColorSpaceAction('All').action).toBe('refuse')
+  expect(contentColorSpaceAction('CS1', 'cmyk', true).action).toBe('keep')
+  expect(contentColorSpaceAction('CS1', 'gray', true).action).toBe('refuse')
+  expect(isRegistrationColorant('All')).toBe(true)
+  expect(isRegistrationColorant('Spot')).toBe(false)
   expect(contentOperatorAction('rg', false).action).toBe('convert')
   expect(contentOperatorAction('rg', true).action).toBe('refuse')
   expect(contentOperatorAction('k', true).action).toBe('keep')
   expect(contentOperatorAction('scn', false, undefined, true).action).toBe('keep')
   expect(contentOperatorAction('sc', false, undefined, true).action).toBe('refuse')
+  expect(contentOperatorAction('CS', false, 'All').action).toBe('refuse')
+  expect(contentOperatorAction('CS', false, 'CS1', false, 'cmyk', true).action).toBe('keep')
+  expect(contentOperatorAction('SCN', false, 'CS1', false, 'cmyk', true).action).toBe('keep')
+  expect(contentOperatorAction('CS', false, 'CS1', false, 'gray', true).action).toBe('convert')
+  expect(contentOperatorAction('SCN', false, 'CS1', false, 'gray', true).action).toBe('convert')
+  expect(contentOperatorAction('CS', true, 'CS1', false, 'gray', true).action).toBe('refuse')
+  expect(contentOperatorAction('CS', false, 'Spot').action).toBe('refuse')
   expect(colorSpaceLabel({ name: 'author-controlled' })).toBe('other')
 })

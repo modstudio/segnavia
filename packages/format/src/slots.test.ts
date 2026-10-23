@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Deck, mergeSlotDeclarations, Page, SlotDeclaration, SlotDeclarationInput, Slots } from './index.ts'
+import { Deck, FillValues, mergeSlotDeclarations, Page, SlotDeclaration, SlotDeclarationInput, SlotKey, Slots, SlotValue } from './index.ts'
 
 const name = { key: 'person.name', label: 'Name', type: 'text' as const }
 
@@ -17,6 +17,26 @@ describe('slot declarations', () => {
 
   test('duplicate keys are refused', () => {
     expect(Slots.safeParse([name, name]).success).toBe(false)
+  })
+
+  test('slot keys apply the same dotted-path rule on their own and in declarations', () => {
+    for (const key of ['name', 'person.name', 'person-name.contact_email']) {
+      expect(SlotKey.safeParse(key).success).toBe(true)
+      expect(SlotDeclaration.safeParse({ ...name, key }).success).toBe(true)
+    }
+    for (const key of ['', '.name', 'name.', 'person..name', 'person name']) {
+      expect(SlotKey.safeParse(key).success).toBe(false)
+      expect(SlotDeclaration.safeParse({ ...name, key }).success).toBe(false)
+    }
+  })
+
+  test('fill values refuse keys that are not dotted paths', () => {
+    expect(SlotValue.parse({ asset: 'asset-1' })).toEqual({ asset: 'asset-1' })
+    expect(FillValues.parse({ name: 'Mina', 'person.photo': { asset: 'asset-1' } })).toEqual({
+      name: 'Mina',
+      'person.photo': { asset: 'asset-1' },
+    })
+    expect(FillValues.safeParse({ 'person..name': 'Mina' }).success).toBe(false)
   })
 
   test('QR is a declared slot type', () => {
