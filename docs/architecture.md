@@ -615,19 +615,46 @@ and a count of masks kept as written. On every render, the effects rewrite also
 declares `/DeviceRGB` on each page or Form transparency group that has no color
 space because Chromium painted the group in RGB and an unspecified space can
 make PDF readers mute its colors. A group that already declares a color space,
-including a DeviceGray luminosity-mask group, keeps it. Under a press destination,
+including a DeviceGray luminosity-mask group, keeps it. When a transparency
+group paints a captured backdrop-filter JPEG and then a non-Normal blend, the
+rewrite hoists only that tagged JPEG paint into the parent immediately
+before the group, carrying the clip chain and CTM that applied to the image so
+rounded corners stay. A form that merely contains the JPEG keeps its other paints.
+The removal is only the clip path, the `cm` operators, and the image `Do`; if that
+image's enclosing graphics frame also holds another paint operator, the hoist is
+left as written. Color operators that only set fill or stroke color are not paint,
+so Chromium's `RG`/`rg` beside the image `Do` still hoists. A clip or `cm` that
+applies to the image outside any `q`…`Q` frame also leaves the form as written,
+because the frost could not reproduce it. A nested form `/Matrix`
+on the path to the image is emitted as `cm` in the frost. Clip and `cm` stay in
+source order so a transform that precedes its clip still clips in the transformed
+space.
+If that form then has no non-Normal blend, the rewrite drops its transparency
+Group: isolation there is only an artifact, and a nested isolated group whose
+remaining paint is a soft-masked fill composites against white in CoreGraphics
+instead of over the hoisted frost. A form that still has a non-Normal blend
+keeps its Group, so Screen still blends against the group's fill.
+The captured frost then sits beneath the element's group,
+matching the screen, which composites backdrop-filter output beneath the
+element's isolated group so `mix-blend-mode` Screens only against the group's
+own fill, not the frost. The JPEG is only the filtered backdrop; the element's
+authored background stays in the group above it. A non-transparent
+background-color is promoted to a solid image layer above the JPEG so that fill
+paints where CSS paints background-color. The group keeps the isolation Chromium wrote. Under a press destination,
 the following press rewrite converts these declarations to the destination space
 with the other RGB groups. Before Chromium writes a PDF, the renderer
 finds visible elements whose computed `backdrop-filter` is not `none`. It hides
-their descendants and border, captures each border box from Chromium at
+their descendants, border and own background, captures each border box from Chromium at
 `effects.raster.dpi` (150 by default) as an sRGB JPEG at
 `effects.raster.quality` (85 by default), removes the JPEG's embedded profile,
-then restores the border and replaces
-only the element's own background with that JPEG while disabling its backdrop
+then restores the border and background and installs that JPEG as the bottom
+background-image layer beneath the element's original background layers and any
+promoted background-color layer, with
+matching size, position, repeat, origin and clip per layer, while disabling its backdrop
 filter, and sets `isolation: isolate` so Chromium keeps that element's group
-instead of wrapping the page. The background uses the border box at true size
+instead of wrapping the page. The JPEG layer uses the border box at true size
 without repeating, so Chromium supplies the existing rounded clip, paints the
-authored border once, keeps descendants and links above it, and leaves text
+authored border and background once, keeps descendants and links above it, and leaves text
 vector and selectable.
 `--segnavia-raster-dpi` on the element overrides the render dpi.
 

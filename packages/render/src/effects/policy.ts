@@ -17,3 +17,26 @@ export function softMaskAction(facts: SoftMaskFacts): SoftMaskDecision {
   if (facts.contents === 'single-image' && facts.backdrop === 'black' && facts.colorSpace === 'gray') return 'rule1'
   return 'keep'
 }
+
+export interface BackdropHoistFacts {
+  paintsCapturedRaster: boolean
+  thenNonNormalBlend: boolean
+  maskSource: boolean
+}
+
+export type BackdropHoistDecision = 'keep' | 'hoist'
+
+export function backdropHoistAction(facts: BackdropHoistFacts): BackdropHoistDecision {
+  if (facts.maskSource || !facts.paintsCapturedRaster || !facts.thenNonNormalBlend) return 'keep'
+  return 'hoist'
+}
+
+export interface SourceGroupAfterHoistFacts {
+  remainingNonNormalBlend: boolean
+}
+
+export type SourceGroupAfterHoistDecision = 'drop-group' | 'keep-group'
+
+export function sourceGroupAfterHoistAction(facts: SourceGroupAfterHoistFacts): SourceGroupAfterHoistDecision {
+  return facts.remainingNonNormalBlend ? 'keep-group' : 'drop-group'
+}

@@ -1,4 +1,3 @@
-import { deflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
@@ -6,7 +5,8 @@ import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
-import { replaceRanges, streamDictionary } from './content-replacement.ts'
+import { assignStream, replaceRanges } from './content-replacement.ts'
+import { hoistBackdropRasters } from './hoist.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { type PaintColor, type Rule1Plan, rule1EffectImage } from './rule-1.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
@@ -324,18 +324,19 @@ function rewriteContent(
     index += replacement.consumed
   }
   if (replacements.length === 0) return
-  const replacement = state.document.context.stream(deflateSync(replaceRanges(bytes, replacements)), streamDictionary(stream))
+  // Resolve the graph object's ref before replacing the stream; getObjectRef(stream)
+  // after assignStream cannot see the old object, and setDirect would nest Contents.
   const reference = object instanceof PDFRef ? object : state.document.context.getObjectRef(object)
-  if (reference) state.document.context.assign(reference, replacement)
-  else setDirect(replacement)
+  const replacement = assignStream(state.document, stream, replaceRanges(bytes, replacements))
+  if (!reference) setDirect(replacement)
 }
 
-function declareTransparencyGroupColorSpace(state: EffectsState, owner: PDFDict): void {
+function rewriteTransparencyGroupColorSpace(owner: PDFDict): boolean {
   const group = owner.lookupMaybe(key('Group'), PDFDict)
-  if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return
+  if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return false
   // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their color.
   group.set(key('CS'), key('DeviceRGB'))
-  state.changed = true
+  return true
 }
 
 function rewriteEffects(document: PDFDocument): { changed: boolean; report: EffectsReport } {
@@ -352,11 +353,14 @@ function rewriteEffects(document: PDFDocument): { changed: boolean; report: Effe
   walkPressGraph(document, {
     content: () => undefined,
     function: () => undefined,
-    group: (owner) => declareTransparencyGroupColorSpace(state, owner),
+    group: (owner) => {
+      if (rewriteTransparencyGroupColorSpace(owner)) state.changed = true
+    },
     image: () => undefined,
     shading: () => false,
     softMask: (graphicsState, mask, source, resources) => classifyMask(state, graphicsState, mask, source, resources),
   })
+  if (hoistBackdropRasters(state.document, state.budget)) state.changed = true
   state.budget = { decodedBytes: 0 }
   walkPressGraph(document, {
     content: (object, stream, replace, resources) => rewriteContent(state, object, stream, replace, resources),

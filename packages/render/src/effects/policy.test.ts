@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { type SoftMaskFacts, softMaskAction } from './policy.ts'
+import { type BackdropHoistFacts, backdropHoistAction, type SoftMaskFacts, softMaskAction, sourceGroupAfterHoistAction } from './policy.ts'
 
 const imageMask: SoftMaskFacts = {
   backdrop: 'black',
@@ -29,4 +29,30 @@ test.each([
 
 test('selects rule C for a nested composite on one shared axis', () => {
   expect(softMaskAction({ ...imageMask, nested: true, oneAxis: 'shared' })).toBe('ruleC')
+})
+
+const capturedBlend: BackdropHoistFacts = {
+  paintsCapturedRaster: true,
+  thenNonNormalBlend: true,
+  maskSource: false,
+}
+
+test('hoists a captured raster painted before a non-Normal blend', () => {
+  expect(backdropHoistAction(capturedBlend)).toBe('hoist')
+})
+
+test.each([
+  ['mask source', { maskSource: true }],
+  ['group with no captured raster', { paintsCapturedRaster: false }],
+  ['group with only Normal blending', { thenNonNormalBlend: false }],
+] as const)('does not hoist a %s', (_label, patch) => {
+  expect(backdropHoistAction({ ...capturedBlend, ...patch })).toBe('keep')
+})
+
+test('drops the source group Group when no non-Normal blend remains after the hoist', () => {
+  expect(sourceGroupAfterHoistAction({ remainingNonNormalBlend: false })).toBe('drop-group')
+})
+
+test('keeps the source group Group when a non-Normal blend remains after the hoist', () => {
+  expect(sourceGroupAfterHoistAction({ remainingNonNormalBlend: true })).toBe('keep-group')
 })
