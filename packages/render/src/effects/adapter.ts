@@ -324,8 +324,10 @@ function rewriteContent(
     index += replacement.consumed
   }
   if (replacements.length === 0) return
-  const replacement = assignStream(state.document, stream, replaceRanges(bytes, replacements))
+  // Resolve the graph object's ref before replacing the stream; getObjectRef(stream)
+  // after assignStream cannot see the old object, and setDirect would nest Contents.
   const reference = object instanceof PDFRef ? object : state.document.context.getObjectRef(object)
+  const replacement = assignStream(state.document, stream, replaceRanges(bytes, replacements))
   if (!reference) setDirect(replacement)
 }
 

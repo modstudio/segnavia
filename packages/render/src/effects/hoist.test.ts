@@ -340,6 +340,41 @@ test('leaves a non-indirect group unchanged', async () => {
   expect(decode(document, glass)).toContain('/Raster Do')
 })
 
+test('rewritten glass-shaped pages stay Page dictionaries', async () => {
+  const { document } = await capturedBlendDocument()
+  const page = document.getPage(0)
+  const coverage = document.context.register(
+    document.context.stream(Uint8Array.of(0, 255), {
+      Type: 'XObject',
+      Subtype: 'Image',
+      Width: 1,
+      Height: 1,
+      ColorSpace: 'DeviceGray',
+      BitsPerComponent: 8,
+    }),
+  )
+  const maskForm = document.context.register(
+    document.context.stream('q 1 0 0 -1 0 1 cm /Coverage Do Q', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+      Group: { Type: 'Group', S: 'Transparency', CS: 'DeviceGray', I: true },
+      Resources: { XObject: { Coverage: coverage } },
+    }),
+  )
+  const mask = document.context.register(document.context.obj({ Type: 'Mask', S: 'Luminosity', G: maskForm }))
+  page.node.Resources()?.set(PDFName.of('ExtGState'), document.context.obj({ Mask: { SMask: mask }, None: { SMask: 'None' } }))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('1 0 0 rg /Mask gs 0 0 1 1 re f /None gs /Glass Do')))
+  const rewritten = await rewriteEffectsPdf(await document.save())
+  const output = await PDFDocument.load(rewritten.bytes)
+  const pages = output.getPages()
+  expect(pages.length).toBe(1)
+  for (const loaded of pages) {
+    expect(loaded.node.get(PDFName.of('Type'))?.toString()).toBe('/Page')
+    expect(loaded.node.get(PDFName.of('Contents'))).toBeInstanceOf(PDFRef)
+  }
+})
+
 test('charges each content stream once against a small document budget', async () => {
   const { contents, document, glass, text } = await capturedBlendDocument()
   const unique = decodeContent(glass).byteLength + decodeContent(text).byteLength + decodeContent(contents).byteLength
