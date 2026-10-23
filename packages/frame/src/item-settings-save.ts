@@ -16,6 +16,9 @@ const browserTimers: Timers = {
 interface Entry {
   draft: Fill
   saved: Fill
+  hostSnapshot?: Fill
+  /** Set when the host stops listing the fill; a save still running for it then stops and shows nothing. */
+  dropped?: boolean
   version: number
   inflight: Promise<boolean> | null
 }
@@ -23,10 +26,11 @@ interface Entry {
 export class FillSaveQueue {
   private entries = new Map<string, Entry>()
   private timers = new Map<string, number>()
+  private disposed = false
 
   constructor(
     private save: (fill: Fill) => Promise<void>,
-    private rolledBack: (fill: Fill) => void,
+    private replaceVisible: (fill: Fill) => void,
     private failed: (id: string, error: unknown) => void,
     private time: Timers = browserTimers,
   ) {}
@@ -35,10 +39,21 @@ export class FillSaveQueue {
     this.save = save
   }
 
-  seed(fill: Fill) {
+  /**
+   * Seeds a host value and returns the fill the panel should show for it: the
+   * local draft while that fill is dirty or saving (the host value is kept and
+   * adopted once the save settles cleanly), otherwise the host value itself.
+   */
+  seed(fill: Fill): Fill {
     const existing = this.entries.get(fill.id)
-    if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) return
+    if (existing?.inflight || (existing && !sameFill(existing.draft, existing.saved))) {
+      // A host re-sending the value it already had (a re-render, a poll) says
+      // nothing new; only a different value is worth adopting after the save.
+      if (!sameFill(fill, existing.saved)) existing.hostSnapshot = cloneFill(fill)
+      return cloneFill(existing.draft)
+    }
     this.entries.set(fill.id, { draft: cloneFill(fill), saved: cloneFill(fill), version: 0, inflight: null })
+    return cloneFill(fill)
   }
 
   edit(fill: Fill) {
@@ -51,6 +66,9 @@ export class FillSaveQueue {
     this.entries.set(fill.id, entry)
     if (sameFill(entry.draft, fill) && sameFill(entry.saved, fill)) return
     entry.draft = cloneFill(fill)
+    // An edit made after a host value was skipped is newer than it, so that
+    // value must not replace the edit once the save settles.
+    entry.hostSnapshot = undefined
     entry.version++
     this.clearTimer(fill.id)
     this.timers.set(
@@ -77,29 +95,50 @@ export class FillSaveQueue {
 
   drop(id: string) {
     this.clearTimer(id)
+    const entry = this.entries.get(id)
+    if (entry) entry.dropped = true
     this.entries.delete(id)
   }
 
+  /** Forgets every fill the host no longer lists; their pending saves never fire. */
+  retain(ids: ReadonlySet<string>) {
+    for (const id of [...this.entries.keys()]) if (!ids.has(id)) this.drop(id)
+  }
+
+  /**
+   * Stops timers and every visible write. A save already in flight still
+   * finishes, but neither its rollback nor an adopted host value reaches a
+   * panel this queue no longer belongs to.
+   */
   dispose() {
+    this.disposed = true
     for (const id of [...this.timers.keys()]) this.clearTimer(id)
+  }
+
+  /** The one door to the visible list, shared by rollback and adoption. */
+  private show(entry: Entry, fill: Fill) {
+    if (!this.disposed && !entry.dropped) this.replaceVisible(fill)
   }
 
   private start(entry: Entry): Promise<boolean> {
     if (entry.inflight) {
       return entry.inflight.then((ok) => {
-        if (!ok || sameFill(entry.draft, entry.saved)) return ok
+        if (!ok || entry.dropped || sameFill(entry.draft, entry.saved)) return ok
         return this.start(entry)
       })
     }
     if (sameFill(entry.draft, entry.saved)) return Promise.resolve(true)
-    const running = this.pump(entry)
+    const running = this.pump(entry).then((ok) => {
+      if (ok) this.adoptHostSnapshot(entry)
+      return ok
+    })
     entry.inflight = running
     return running
   }
 
   private async pump(entry: Entry): Promise<boolean> {
     try {
-      while (!sameFill(entry.draft, entry.saved)) {
+      while (!entry.dropped && !sameFill(entry.draft, entry.saved)) {
         const version = entry.version
         const value = cloneFill(entry.draft)
         try {
@@ -108,7 +147,7 @@ export class FillSaveQueue {
         } catch (error: unknown) {
           if (entry.version !== version) continue
           entry.draft = cloneFill(entry.saved)
-          this.rolledBack(cloneFill(entry.saved))
+          this.show(entry, cloneFill(entry.saved))
           this.failed(entry.saved.id, error)
           return false
         }
@@ -124,5 +163,14 @@ export class FillSaveQueue {
     if (timer === undefined) return
     this.time.clear(timer)
     this.timers.delete(id)
+  }
+
+  private adoptHostSnapshot(entry: Entry) {
+    const snapshot = entry.hostSnapshot
+    entry.hostSnapshot = undefined
+    if (!snapshot || sameFill(snapshot, entry.saved)) return
+    entry.draft = cloneFill(snapshot)
+    entry.saved = cloneFill(snapshot)
+    this.show(entry, cloneFill(snapshot))
   }
 }

@@ -4,8 +4,11 @@ export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'qr', 'image'] as c
 export const SlotType = z.enum(SLOT_TYPES)
 export type SlotType = z.infer<typeof SlotType>
 
+export const SlotKey = z.string().regex(/^[^.\s]+(?:\.[^.\s]+)*$/, 'a slot key must be a dotted path')
+export type SlotKey = z.infer<typeof SlotKey>
+
 const SlotDeclarationShape = {
-  key: z.string().regex(/^[^.\s]+(?:\.[^.\s]+)*$/, 'a slot key must be a dotted path'),
+  key: SlotKey,
   label: z.string().min(1),
   type: SlotType,
   required: z.boolean().default(false),
@@ -52,12 +55,16 @@ export const SlotsInput = z.array(SlotDeclarationInput).superRefine((slots, ctx)
 })
 export type SlotsInput = z.input<typeof SlotsInput>
 
-export type SlotValue = string | { asset: string }
+export const SlotValue = z.union([z.string(), z.object({ asset: z.string() })])
+export type SlotValue = z.infer<typeof SlotValue>
+
+export const FillValues = z.record(SlotKey, SlotValue)
+export type FillValues = z.infer<typeof FillValues>
 
 export interface Fill {
   id: string
   label?: string
-  values: Record<string, SlotValue>
+  values: FillValues
 }
 
 export interface SlotSource {
