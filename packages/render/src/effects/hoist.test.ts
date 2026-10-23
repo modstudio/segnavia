@@ -1,72 +1,10 @@
 import { expect, test } from 'bun:test'
 import { inflateSync } from 'node:zlib'
-import { PDFDict, PDFDocument, PDFName, PDFRawStream, PDFRef } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFRef } from 'pdf-lib'
 import { decodeContent } from '../press/pdf-objects.ts'
-import { rewriteEffectsPdf } from './adapter.ts'
+import { rewriteEffectsDocument, rewriteEffectsPdf } from './adapter.ts'
+import { blendText, capturedBlendDocument, capturedBlendPdf, glassGroup, nestedFrostDocument, taggedRaster } from './hoist.test-helper.ts'
 import { hoistBackdropRasters } from './hoist.ts'
-import { BACKDROP_RASTER_IMAGE_KEY } from './types.ts'
-
-const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0, 11, 8, 0, 1, 0, 1, 3, 1, 2, 3, 0xff, 0xd9])
-
-function taggedRaster(document: PDFDocument) {
-  const imageStream = document.context.stream(jpeg, {
-    Type: 'XObject',
-    Subtype: 'Image',
-    Width: 1,
-    Height: 1,
-    ColorSpace: 'DeviceRGB',
-    BitsPerComponent: 8,
-    Filter: 'DCTDecode',
-  })
-  imageStream.dict.set(PDFName.of(BACKDROP_RASTER_IMAGE_KEY), document.context.obj(true))
-  return document.context.register(imageStream)
-}
-
-function blendText(document: PDFDocument) {
-  return document.context.register(
-    document.context.stream('1 .91 .36 rg BT /F 12 Tf 0 0 Td (A) Tj ET', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: { Type: 'Group', S: 'Transparency', CS: 'DeviceRGB', I: true },
-      Resources: {},
-    }),
-  )
-}
-
-const glassGroup = { Type: 'Group', S: 'Transparency', CS: 'DeviceRGB', I: true } as const
-
-async function capturedBlendDocument(
-  glassContent = 'q 0 0 10 10 re W n 3 0 0 3 0 0 cm /Raster Do Q q /Blend gs /Text Do Q',
-): Promise<{ contents: PDFRawStream; document: PDFDocument; glass: PDFRawStream; text: PDFRawStream }> {
-  const document = await PDFDocument.create()
-  const image = taggedRaster(document)
-  const text = blendText(document)
-  const glass = document.context.register(
-    document.context.stream(glassContent, {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { ExtGState: { Blend: { BM: 'Screen' } }, XObject: { Raster: image, Text: text } },
-    }),
-  )
-  const contentsRef = document.context.register(document.context.stream('1 0 0 rg 0 0 10 10 re f /Glass Do'))
-  const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Glass: glass } }))
-  page.node.set(PDFName.of('Contents'), contentsRef)
-  const glassStream = document.context.lookup(glass)
-  const textStream = document.context.lookup(text)
-  const contents = document.context.lookup(contentsRef)
-  if (!(glassStream instanceof PDFRawStream) || !(textStream instanceof PDFRawStream) || !(contents instanceof PDFRawStream)) {
-    throw new Error('Expected form streams')
-  }
-  return { contents, document, glass: glassStream, text: textStream }
-}
-
-async function capturedBlendPdf(): Promise<Uint8Array> {
-  return (await capturedBlendDocument()).document.save()
-}
 
 function decode(document: PDFDocument, object: unknown): string {
   const stream = object instanceof PDFRef ? document.context.lookup(object) : object
@@ -91,34 +29,6 @@ function formNamed(document: PDFDocument, name: string): PDFRawStream {
   const stream = object ? document.context.lookup(object) : undefined
   if (!(stream instanceof PDFRawStream)) throw new Error(`Expected the ${name} form`)
   return stream
-}
-
-async function nestedFrostDocument(frostContent: string): Promise<PDFDocument> {
-  const document = await PDFDocument.create()
-  const image = taggedRaster(document)
-  const frost = document.context.register(
-    document.context.stream(frostContent, {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { XObject: { Raster: image } },
-    }),
-  )
-  const text = blendText(document)
-  const glass = document.context.register(
-    document.context.stream('q 0 0 m 10 0 l 10 10 l 0 10 l h W n /Frost Do Q q /Blend gs /Text Do Q', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { ExtGState: { Blend: { BM: 'Screen' } }, XObject: { Frost: frost, Text: text } },
-    }),
-  )
-  const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Glass: glass } }))
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Glass Do')))
-  return document
 }
 
 function frostFormOf(output: PDFDocument): PDFRawStream {
@@ -340,7 +250,9 @@ test('leaves a non-indirect group unchanged', async () => {
   expect(decode(document, glass)).toContain('/Raster Do')
 })
 
-test('rewritten glass-shaped pages stay Page dictionaries', async () => {
+const MASKED_PAGE = '1 0 0 rg /Mask gs 0 0 1 1 re f /None gs /Glass Do'
+
+async function maskedBlendDocument(attach: (document: PDFDocument, stream: PDFRawStream) => void): Promise<PDFDocument> {
   const { document } = await capturedBlendDocument()
   const page = document.getPage(0)
   const coverage = document.context.register(
@@ -364,7 +276,28 @@ test('rewritten glass-shaped pages stay Page dictionaries', async () => {
   )
   const mask = document.context.register(document.context.obj({ Type: 'Mask', S: 'Luminosity', G: maskForm }))
   page.node.Resources()?.set(PDFName.of('ExtGState'), document.context.obj({ Mask: { SMask: mask }, None: { SMask: 'None' } }))
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('1 0 0 rg /Mask gs 0 0 1 1 re f /None gs /Glass Do')))
+  attach(document, document.context.stream(MASKED_PAGE))
+  return document
+}
+
+function pageContentsText(document: PDFDocument): string {
+  const contents = document.getPage(0).node.Contents()
+  const objects = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+  return objects.map((object) => decode(document, object)).join('\n')
+}
+
+function pageContentStreams(document: PDFDocument): PDFRawStream[] {
+  const contents = document.getPage(0).node.Contents()
+  const objects = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
+  return objects
+    .map((object) => (object instanceof PDFRawStream ? object : document.context.lookup(object)))
+    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
+}
+
+test('rewritten glass-shaped pages stay Page dictionaries', async () => {
+  const document = await maskedBlendDocument((document, stream) => {
+    document.getPage(0).node.set(PDFName.of('Contents'), document.context.register(stream))
+  })
   const rewritten = await rewriteEffectsPdf(await document.save())
   const output = await PDFDocument.load(rewritten.bytes)
   const pages = output.getPages()
@@ -373,6 +306,25 @@ test('rewritten glass-shaped pages stay Page dictionaries', async () => {
     expect(loaded.node.get(PDFName.of('Type'))?.toString()).toBe('/Page')
     expect(loaded.node.get(PDFName.of('Contents'))).toBeInstanceOf(PDFRef)
   }
+})
+
+test.each([
+  ['a direct Contents stream', (document: PDFDocument, stream: PDFRawStream) => document.getPage(0).node.set(PDFName.of('Contents'), stream)],
+  [
+    'a Contents array with a direct stream',
+    (document: PDFDocument, stream: PDFRawStream) => document.getPage(0).node.set(PDFName.of('Contents'), document.context.obj([stream])),
+  ],
+])('rewritten glass-shaped pages keep %s', async (_label, attach) => {
+  const document = await maskedBlendDocument(attach)
+  rewriteEffectsDocument(document)
+  const streams = pageContentStreams(document)
+  expect(streams.length).toBeGreaterThan(0)
+  for (const stream of streams) expect(stream.contents.length).toBeGreaterThan(0)
+  expect(pageContentsText(document)).toContain('/SegnaviaEffect')
+  const output = await PDFDocument.load(await document.save())
+  expect(output.getPages().length).toBe(1)
+  expect(output.getPage(0).node.get(PDFName.of('Type'))?.toString()).toBe('/Page')
+  expect(pageContentsText(output)).toContain('/SegnaviaEffect')
 })
 
 test('charges each content stream once against a small document budget', async () => {
