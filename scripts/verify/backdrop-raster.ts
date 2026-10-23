@@ -20,6 +20,17 @@ const html = `<style>
 .mix{position:absolute;left:4px;top:4px;width:12px;height:12px;background:#00ff00;mix-blend-mode:screen}
 </style><div class="mix"></div><section class="glass">FROSTED <a href="https://example.invalid/">selectable</a></section>`
 
+// Chromium stamps each PDF with the second it was written, so two renders of
+// one page differ in their dates and nowhere else.
+function withoutDates(pdf: Uint8Array): Buffer {
+  return Buffer.from(
+    Buffer.from(pdf)
+      .toString('latin1')
+      .replace(/\/(CreationDate|ModDate)\s*\([^)]*\)/g, ''),
+    'latin1',
+  )
+}
+
 function rgbOf(rgba: number[]): Uint8Array {
   const rgb = new Uint8Array((rgba.length / 4) * 3)
   for (let source = 0, target = 0; source < rgba.length; source += 4, target += 3) {
@@ -108,5 +119,8 @@ export async function verifyBackdropRaster(renderer: Renderer, work: string, che
   )
   const plain = { html: '<p>no effects</p>', size: { width: 200, height: 100 } } as const
   const [enabled, disabled] = await Promise.all([renderer.pagePdf(plain), renderer.pagePdf(plain, { effects: false })])
-  check('a page without backdrop-filter is byte-identical with effects enabled or disabled', Buffer.compare(enabled, disabled) === 0)
+  check(
+    'a page without backdrop-filter is byte-identical with effects enabled or disabled, apart from its dates',
+    Buffer.compare(withoutDates(enabled), withoutDates(disabled)) === 0,
+  )
 }
