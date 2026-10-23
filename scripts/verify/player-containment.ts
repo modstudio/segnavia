@@ -124,7 +124,7 @@ async function waitForThumbnails(h: Harness): Promise<ContainmentFacts> {
 }
 
 async function scratchShot(h: Harness, name: string) {
-  const scratch = process.env.ORCH_SCRATCH
+  const scratch = process.env.BOTTEGA_SCRATCH
   if (!scratch) return
   mkdirSync(scratch, { recursive: true })
   await h.page.screenshot({ path: path.join(scratch, name) })
