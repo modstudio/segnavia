@@ -2,6 +2,15 @@ import type { Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
 
+// Keyboard opens of rail settings lose the key if the probe slide keeps stealing focus.
+async function stopProbeThief(page: Harness['page']) {
+  const handle = await page.locator(`${PLAYER} segnavia-stage iframe`).elementHandle()
+  const frame = await handle?.contentFrame()
+  if (!frame) throw new Error('The probe slide has no stage frame.')
+  await frame.waitForFunction(() => typeof (window as unknown as { stopThief?: () => void }).stopThief === 'function')
+  await frame.evaluate(() => (window as unknown as { stopThief: () => void }).stopThief())
+}
+
 async function visiblePopoverControls(h: Harness, context: string, selector: string, controlSelectors: string[]) {
   const facts = await h.page.locator(`${PLAYER} segnavia-rail ${selector}`).evaluate((panel, selectors) => {
     const controls = selectors.map((selector) => panel.querySelector(selector))
@@ -273,6 +282,7 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   await page.waitForFunction(
     () => document.querySelector('segnavia-player')?.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll('.slide-menu').length === 1,
   )
+  await stopProbeThief(page)
   const rtlMenu = page.locator(`${PLAYER} segnavia-rail li[data-slide-id="probe"] .slide-menu`)
   await rtlMenu.focus()
   await rtlMenu.press('Enter')
