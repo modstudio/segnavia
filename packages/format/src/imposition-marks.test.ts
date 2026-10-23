@@ -171,6 +171,27 @@ describe('impositionMarks', () => {
     expect(result.error?.issues[0]?.message).toContain('marks')
   })
 
+  test('a fold draws dashed marks at folds and solid crop marks only at the outer edges', () => {
+    const imposition = Imposition.parse({
+      paper: { width: 300, height: 120, unit: 'mm' },
+      orientation: 'landscape',
+      fold: 'letter',
+      cell: { height: 100 },
+      margin: { top: 10, right: 0, bottom: 10, left: 0 },
+      marks: true,
+    })
+    const [front, back] = impositionMarks(imposition)
+    const dashed = (front?.marks ?? []).filter((mark) => mark.dashed)
+    const solid = (front?.marks ?? []).filter((mark) => !mark.dashed)
+    const placements = impose(imposition, 6).placements.filter((placement) => placement.side === 'front')
+    const left = Math.min(...placements.map(({ trim }) => trim.x))
+    const right = Math.max(...placements.map(({ trim }) => trim.x + trim.width))
+    expect(dashed).toHaveLength(4)
+    expect(solid.every((mark) => mark.x1 !== mark.x2 || mark.x1 === left || mark.x1 === right)).toBe(true)
+    expect(dashed.every((mark) => mark.x1 === mark.x2 && mark.x1 > left && mark.x1 < right)).toBe(true)
+    expect(back?.marks.filter((mark) => mark.dashed)).toHaveLength(4)
+  })
+
   test('markColor defaults to black and is refused by name unless marks are enabled', () => {
     expect(markInput().markColor).toBe('black')
     expect(markInput({ markColor: 'registration' }).markColor).toBe('registration')

@@ -86,7 +86,7 @@ with `detail.message` when loading or validating an input fails.
 | `title`, `labels.noSpeakerNotes` | print options | An escaped document `<title>` (the deck title by default; omitted when empty), and the placeholder printed on a notes sheet that has none when some other slide has notes. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
-| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. Folds remain to come (SEGNA-12). |
+| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. A `fold` makes the cells panels of a single two-sided piece. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. |
 | `PAPER_METADATA`, `PAPER_GROUPS`, `PrintSetting`, `PrintSettingInput` | `format`, paper picker and hosts | Display names, sold-unit sizes and stable picker groups for every named paper; a tolerant stored-setting reader and a strict writer. Custom paper sides are normalized to millimeters and limited to 10–2000 mm by `Paper` itself. Picker labels can replace every displayed string. |
 | `<segnavia-paper-picker>` | `frame/controls` and React | A grouped named-paper select, bounded custom width, height and unit fields, and a portrait/landscape toggle. The host supplies and persists its `{ paper, orientation }` value; `change.detail` carries the next value. |
 | press profile | render options | A CMYK or greyscale ICC profile, as bytes, and a report callback for the destination, residual authored RGB images and conversion counts read back from the output. |
@@ -258,7 +258,7 @@ document for a browser, and `pagesPdf` renders and composes pages onto its
 papers. `printPages` prints the imposed papers from the browser. Its print-only
 frame bridge carries a propagated root or body background onto a full-page
 element, so root colors reach paper without changing the on-screen page.
-Two-sided imposition and crop marks are built; folds remain designed.
+Two-sided imposition, crop marks and folds are built.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
@@ -286,12 +286,14 @@ mark is omitted and reported through the render `marks.report` callback rather
 than refusing the render. `cornerMarks` optionally adds marks in usable cell
 gaps and is refused unless `marks` is enabled. Back-side geometry follows the
 duplex flip exactly, and right-to-left fill order does not change physical cut
-positions. The server PDF compositor draws these marks with the same 0.25-point
-lines as single-page crop marks, in black or in registration color when
-`markColor` is `'registration'`. `markColor` is refused unless `marks` is
-enabled. Under a CMYK press, Separation All is kept; under a greyscale press
-the marks become DeviceGray black. Single-page marks are render-only,
-so imposed marks are also render-only; browser `printPages` draws neither.
+positions. On a folded piece, internal column edges get dashed fold marks
+instead of crop marks; the outer trim edges still get solid crop marks. The
+server PDF compositor draws these marks with the same 0.25-point lines as
+single-page crop marks, in black or in registration color when `markColor` is
+`'registration'`. `markColor` is refused unless `marks` is enabled. Under a
+CMYK press, Separation All is kept; under a greyscale press the marks become
+DeviceGray black. Single-page marks are render-only, so imposed marks are also
+render-only; browser `printPages` draws neither.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
@@ -422,11 +424,47 @@ its `side` property and attribute. `maxSheets` counts those PDF pages, so a
 two-sided imposition uses two per physical paper.
 
 **Folds.** A folded piece is an imposition whose cells are panels: one row,
-columns that may differ in width, two sides, and a fold line between columns.
-This part is provisional. Its shape is settled once the first three are in
-use, and it is done when a letter-fold brochure prints with every panel in
-its place on both sides. A stapled booklet, whose pages are reordered across
-several papers, is not covered.
+columns that may differ in width, two sides, and a fold between adjacent
+columns. `fold` is `half` (2 panels), `letter` (roll/C-fold, 3), `z` (3, equal
+panels), `gate` (3), or `custom` (the host's `panels` widths, at least two).
+Presets compute panel widths that fill the paper with the horizontal margins;
+letter and gate narrow each tuck-in panel by `FOLD_TUCK_IN_MM` (1.5 mm, a round
+value in the usual 1/32–1/16 in finishing allowance). A gate fold's flaps are
+each a quarter of the usable width minus `FOLD_TUCK_IN_MM`; the center is the
+width left after the two flaps (`availableMm − 2×flap`). The host may override
+`panels`; a custom fold requires them. A preset given `panels` keeps them only
+with exactly as many widths as its columns, refused by name otherwise.
+Columns, rows, sides, fill, skip and column gap are derived or must already
+match: one row, two sides, sequence, no skip, panels touching. `cell.height`
+is required; `cell.width` is unused. Widths plus horizontal margins must equal
+the paper width within 0.01 mm; leftover sheet is refused for folds only.
+`impose` refuses a page count other than 2 × the panel count, so extra pages
+never start another paper.
+
+The author designs each panel as a page. The preset maps those pages onto both
+sides. Author pages are 1-based, listed per printed side in logical column
+order (column 0 at inline-start). `dir` and `mirrorPlacement` handle RTL and
+the long-edge flip; the map is the same for LTR and RTL. Side A is the outside
+(the front cover); side B is the inside. Column a0 is backed by b(last).
+
+| Fold | Side A (outside) | Side B (inside) |
+| --- | --- | --- |
+| half | 4, 1 | 2, 3 |
+| letter (roll) | 5, 6, 1 | 2, 3, 4 |
+| Z | 5, 6, 1 | 2, 3, 4 |
+| gate | 2, 6, 1 | 3, 4, 5 |
+
+Letter's tuck-in is A column 0 / B last (pages 5 and 4). Gate's tuck-ins are
+the two outer columns (pages 2/5 and 1/3); page 1 is the cover half that sits
+at inline-start when closed. Custom widths use the letter/roll map generalized
+to n panels: A `[n+2 … 2n, 1]`, B `[2 … n+1]`.
+
+When `marks` is on, each fold gets short dashed marks in the margin beyond the
+bleed at both ends of the fold line (2 mm on, 1 mm off, 0.25 pt), and solid
+crop marks stay on the outer trim edges. The same gap, 5 mm max and 2 mm
+minimum as crop marks apply; a shorter mark is omitted and reported. Browser
+`printPages` draws neither. A stapled booklet, whose pages are reordered
+across several papers, is not covered.
 
 `printableDeck` and `printablePages`, in `frame`'s server-safe print entry, are
 the frame-based documents a browser shows and prints. Chromium paints no

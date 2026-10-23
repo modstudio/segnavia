@@ -106,6 +106,8 @@ export type PrintSettingInput = z.input<typeof PrintSettingInput>
 export const MM_PER_PT = 25.4 / 72
 export const MARK_LENGTH_MM = 5
 export const MARK_GAP_MM = 1
+export const FOLD_DASH_ON_MM = 2
+export const FOLD_DASH_OFF_MM = 1
 
 export const roundMillimeters = (mm: number) => Math.round(mm * 100) / 100
 
@@ -201,6 +203,7 @@ export interface MarkSegment {
   y1: number
   x2: number
   y2: number
+  dashed?: boolean
 }
 
 export interface PrintBoxes {

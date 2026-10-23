@@ -51,6 +51,7 @@ function drawImposedSide(
     (marks?.marks ?? []).map((mark) => ({
       start: pdfPoint(mark.x1, mark.y1, imposed.paper.height),
       end: pdfPoint(mark.x2, mark.y2, imposed.paper.height),
+      dashed: mark.dashed,
     })),
     markColor,
   )

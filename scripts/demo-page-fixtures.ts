@@ -147,6 +147,19 @@ export const growingFixedPages: PageInput[] = [70, 170].map((shade) => ({
   size: { width: 200, height: 'auto' },
 }))
 
+export const letterFoldPages: PageInput[] = Array.from({ length: 6 }, (_, index) => ({
+  html: `<!doctype html><html style="margin:0;background:#f4f4f5"><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;font:48px sans-serif">${index + 1}</body></html>`,
+  size: 'fluid',
+}))
+
+export const letterFoldImposition: ImpositionInput = {
+  paper: 'letter',
+  orientation: 'landscape',
+  fold: 'letter',
+  cell: { height: 215.9 },
+  marks: true,
+}
+
 export const growingFixedImposition: ImpositionInput = {
   paper: { width: 44, height: 24, unit: 'mm' },
   orientation: 'landscape',
