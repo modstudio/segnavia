@@ -170,4 +170,12 @@ describe('impositionMarks', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['cornerMarks'] })
     expect(result.error?.issues[0]?.message).toContain('marks')
   })
+
+  test('markColor defaults to black and is refused by name unless marks are enabled', () => {
+    expect(markInput().markColor).toBe('black')
+    expect(markInput({ markColor: 'registration' }).markColor).toBe('registration')
+    const refused = Imposition.safeParse({ paper: 'a4', columns: 1, rows: 1, cell: { width: 20, height: 20 }, markColor: 'registration' })
+    expect(refused.error?.issues[0]).toMatchObject({ path: ['markColor'] })
+    expect(refused.error?.issues[0]?.message).toContain('marks')
+  })
 })

@@ -6,7 +6,7 @@ import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
-import { rewriteContent } from './content.ts'
+import { type ContentColorSpaces, emptyContentColorSpaces, rewriteContent } from './content.ts'
 import { convertGeneratedRasterImages, convertSuppliedImages, streamDictionary } from './document-images.ts'
 import type { JpegDecoder } from './image.ts'
 import { DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY, type PressImageEncoding } from './image-options.ts'
@@ -16,9 +16,12 @@ import {
   type ContentBudget,
   decodeContent,
   dictionaryOf,
+  dropRegistrationColorSpaces,
   MAX_DOCUMENT_CONTENT_BYTES,
   nameOf,
   numberOf,
+  registrationNameConflict,
+  registrationResourceNames,
   replaceArray,
   resolvedColorSpace,
 } from './pdf-objects.ts'
@@ -32,12 +35,15 @@ export { inspectPressPdf } from './report.ts'
 
 interface RewriteState {
   budget: ContentBudget
+  colorSpaces?: ContentColorSpaces
   convert: ReturnType<typeof cachedPressColor>
   convertImages: boolean
   destination: PressDestination
   document: PDFDocument
   painted: PaintedBounds
+  pendingGrayResources: Set<PDFDict>
   profile: Profile
+  sharedRegistration: WeakMap<PDFRawStream, Set<string>>
   sampleConvert: (rgb: Color3) => Color
   seenGroups: WeakSet<PDFDict>
   seenShadings: WeakSet<PDFDict>
@@ -238,10 +244,24 @@ function recordContentBounds(state: RewriteState, stream: PDFRawStream, resource
   else recordPatternPaintedBounds(bytes, resolve, state.painted, resolveGs, resolveShading, state.shadingPainted)
 }
 
-function convertContent(state: RewriteState, object: PDFObject, stream: PDFRawStream, setDirect: (stream: PDFRawStream) => void, mask: MaskContext): void {
+function convertContent(
+  state: RewriteState,
+  object: PDFObject,
+  stream: PDFRawStream,
+  setDirect: (stream: PDFRawStream) => void,
+  mask: MaskContext,
+  resources: PDFDict | undefined,
+): void {
   const bytes = decodeContent(stream, state.budget)
   const destination = state.destination
-  const rewritten = rewriteContent(bytes, converterFor(state, mask), destination, state.convertImages)
+  const rewritten = rewriteContent(
+    bytes,
+    converterFor(state, mask),
+    destination,
+    state.convertImages,
+    registrationResourceNames(state.document, resources),
+    state.colorSpaces ?? emptyContentColorSpaces(),
+  )
   state.totals.fills += rewritten.counts.fills
   state.totals.strokes += rewritten.counts.strokes
   const replacement = state.document.context.stream(deflateSync(rewritten.bytes), streamDictionary(stream))
@@ -263,7 +283,9 @@ function newState(document: PDFDocument, profile: Profile, tolerance: number, co
     destination: pressDestination(profile),
     document,
     painted: new WeakMap(),
+    pendingGrayResources: new Set(),
     profile,
+    sharedRegistration: new WeakMap(),
     sampleConvert: (rgb) => {
       if (profile.colorSpace === 'CMYK' && newlySnapsToNeutral(rgb, tolerance)) totals.neutralColors++
       return destinationColor(profile, rgb, tolerance)
@@ -294,6 +316,10 @@ export function rewritePressDocument(
     content: (_object, stream, _replace, resources) => {
       recordContentBounds(state, stream, resources, boundsBudget)
     },
+    contentContext: (stream, resources) => {
+      const name = registrationNameConflict(state.document, state.sharedRegistration, stream, resources)
+      if (name) refuse(`a content stream shared by pages whose resources disagree on /${name}`, 'give each page its own stream or the same resources')
+    },
     endContentsSequence: () => {
       state.sequence = undefined
     },
@@ -304,12 +330,25 @@ export function rewritePressDocument(
     shading: (shading, pattern) => indexShadingPattern(state, shading, pattern),
   })
   walkPressGraph(document, {
-    content: (object, stream, replace, _resources, mask) => convertContent(state, object, stream, replace, mask),
+    beginContentsSequence: () => {
+      state.colorSpaces = emptyContentColorSpaces()
+    },
+    content: (object, stream, replace, resources, mask) => {
+      convertContent(state, object, stream, replace, mask, resources)
+      if (state.destination === 'gray' && resources) state.pendingGrayResources.add(resources)
+    },
+    endContentsSequence: () => {
+      state.colorSpaces = undefined
+    },
     function: (fn, decision, mask) => convertFunction(state, fn, decision, mask),
     group: (owner, _stream, mask) => convertGroup(state, owner, mask),
     image: (image, mask) => convertEffectImage(state, image, mask),
     shading: (shading, pattern, mask) => convertShading(state, shading, pattern, mask),
   })
+  // Gray conversion rewrites every stream first; shared resource dictionaries stay intact until the walk ends.
+  if (state.destination === 'gray') {
+    for (const resources of state.pendingGrayResources) dropRegistrationColorSpaces(state.document, resources)
+  }
   return state.totals
 }
 

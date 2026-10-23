@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { Print } from '@segnavia/format'
+import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
+import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
+import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
+import { pt } from './pdf-geometry.ts'
 
 describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
@@ -35,4 +38,35 @@ describe('printed page setup', () => {
     expect(placement).toEqual({ x: 17, y: 16, width: 612, height: 859.9 })
     expect(placement.y + placement.height).toBe(bleedBox.y + bleedBox.height)
   })
+})
+
+async function bleedSource(print: Print): Promise<Uint8Array> {
+  const document = await PDFDocument.create()
+  const { bleedBox } = printBoxes(print)
+  const page = document.addPage([pt(bleedBox.width), pt(bleedBox.height)])
+  page.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+  return document.save()
+}
+
+test('a single page with registration marks stores Separation All and strokes with it', async () => {
+  const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true, markColor: 'registration' })
+  const bytes = await addPressBoxes(await bleedSource(print), print)
+  const text = await pageContent(bytes)
+  expect(text).toMatch(/\/All\s+CS/)
+  expect(text).toMatch(/1\s+SCN/)
+  const output = await PDFDocument.load(bytes)
+  expect(output.getPage(0).node.Resources()?.lookup(PDFName.of('ColorSpace'))?.toString()).toContain('/Separation')
+})
+
+test('a single page with marks draws a crop mark at the mapped endpoints', async () => {
+  const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true })
+  const bytes = await addPressBoxes(await bleedSource(print), print)
+  const boxes = printBoxes(print)
+  const mark = boxes.marks[0]
+  if (!mark) throw new Error('the print fixture has no crop mark')
+  const stroke = firstStroke(await pageContent(bytes))
+  expect(stroke.start.x).toBeCloseTo(mark.x1 / MM_PER_PT, 5)
+  expect(stroke.start.y).toBeCloseTo((boxes.media.height - mark.y1) / MM_PER_PT, 5)
+  expect(stroke.end.x).toBeCloseTo(mark.x2 / MM_PER_PT, 5)
+  expect(stroke.end.y).toBeCloseTo((boxes.media.height - mark.y2) / MM_PER_PT, 5)
 })

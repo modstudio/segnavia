@@ -170,6 +170,9 @@ export const Margin = z.object({
   left: z.number().nonnegative().default(0),
 })
 
+export const MarkColor = z.enum(['black', 'registration'])
+export type MarkColor = z.infer<typeof MarkColor>
+
 // Paper exists only to export a page at a standard printed size. A page
 // without it exports at its own size. Margins are in millimeters.
 export const Print = z
@@ -180,8 +183,12 @@ export const Print = z
     bleed: z.number().nonnegative().default(0),
     safe: z.number().nonnegative().default(0),
     marks: z.boolean().default(false),
+    markColor: MarkColor.default('black'),
   })
   .superRefine((print, ctx) => {
+    if (print.markColor === 'registration' && !print.marks) {
+      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
+    }
     const trim = sheetMm(print)
     if (print.safe * 2 >= trim.width) {
       ctx.addIssue({
@@ -227,10 +234,14 @@ export const Imposition = z
     skip: z.number().int().nonnegative().default(0),
     dir: z.enum(['ltr', 'rtl']).default('ltr'),
     marks: z.boolean().default(false),
+    markColor: MarkColor.default('black'),
     cornerMarks: z.boolean().default(false),
   })
   .superRefine((imposition, ctx) => {
     const cellCount = BigInt(imposition.columns) * BigInt(imposition.rows)
+    if (imposition.markColor === 'registration' && !imposition.marks) {
+      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
+    }
     if (imposition.cornerMarks && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
     }

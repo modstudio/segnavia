@@ -4,6 +4,7 @@ import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStre
 import { toGray } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildGrayProfile } from '../color/profile-fixture.test-helper.ts'
+import { pageContent } from '../pdf-content.test-helper.ts'
 import { inspectPressPdf, rewritePressPdf } from './adapter.ts'
 
 const profile = buildGrayProfile('trc-gamma')
@@ -11,17 +12,6 @@ const profile = buildGrayProfile('trc-gamma')
 function setResources(document: PDFDocument, page: ReturnType<PDFDocument['addPage']>, resources: Record<string, unknown>, content: string): void {
   page.node.set(PDFName.of('Resources'), document.context.obj(resources as never))
   page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(content)))
-}
-
-async function contentText(bytes: Uint8Array): Promise<string> {
-  const document = await PDFDocument.load(bytes)
-  const contents = document.getPage(0).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((object) => document.context.lookup(object))
-    .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
 }
 
 function type2(document: PDFDocument, from: number[], to: number[]) {
@@ -36,7 +26,7 @@ test('writes gray operators and a one-channel output intent through a gray profi
   expect(converted.report.destination).toBe('gray')
   expect(converted.report.neutralColors).toBe(0)
   const output = await PDFDocument.load(converted.bytes)
-  const text = await contentText(converted.bytes)
+  const text = await pageContent(converted.bytes)
   const expected = toGray(readProfile(profile), [0.2, 0.4, 0.6])[0]
   expect(text).toContain(`${Math.round(expected * 1_000_000) / 1_000_000} g`)
   expect(text).toMatch(/\bG\b/)

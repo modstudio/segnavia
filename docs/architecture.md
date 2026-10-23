@@ -86,7 +86,7 @@ with `detail.message` when loading or validating an input fails.
 | `title`, `labels.noSpeakerNotes` | print options | An escaped document `<title>` (the deck title by default; omitted when empty), and the placeholder printed on a notes sheet that has none when some other slide has notes. |
 | `fonts` | render options | Faces to embed, as bytes. |
 | `limits` | render options, `exceedsLimits` | The host's ceilings: PDF pages, bytes, slides, slide size, notes size. |
-| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. Folds remain to come (SEGNA-12). |
+| `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. Folds remain to come (SEGNA-12). |
 | `PAPER_METADATA`, `PAPER_GROUPS`, `PrintSetting`, `PrintSettingInput` | `format`, paper picker and hosts | Display names, sold-unit sizes and stable picker groups for every named paper; a tolerant stored-setting reader and a strict writer. Custom paper sides are normalized to millimeters and limited to 10–2000 mm by `Paper` itself. Picker labels can replace every displayed string. |
 | `<segnavia-paper-picker>` | `frame/controls` and React | A grouped named-paper select, bounded custom width, height and unit fields, and a portrait/landscape toggle. The host supplies and persists its `{ paper, orientation }` value; `change.detail` carries the next value. |
 | press profile | render options | A CMYK or greyscale ICC profile, as bytes, and a report callback for the destination, residual authored RGB images and conversion counts read back from the output. |
@@ -265,7 +265,9 @@ Two-sided imposition and crop marks are built; folds remain designed.
 the trim. Its root background continues through the bleed, and
 `--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
 a picture can run off the edge and text can stay clear of the cut. `marks`
-draws crop marks outside the bleed. The PDF page grows by the bleed and the
+draws crop marks outside the bleed. `markColor` is `'black'` by default or
+`'registration'` for a Separation All stroke that prints on every plate, and is
+refused unless `marks` is enabled. The PDF page grows by the bleed and the
 marks and carries the trim and bleed boxes, so a print shop's software finds
 the cut. The two properties are set wherever the page is shown; the bleed is
 painted only in a PDF. Viewport units measure the bleed box. With bleed or
@@ -284,8 +286,11 @@ mark is omitted and reported through the render `marks.report` callback rather
 than refusing the render. `cornerMarks` optionally adds marks in usable cell
 gaps and is refused unless `marks` is enabled. Back-side geometry follows the
 duplex flip exactly, and right-to-left fill order does not change physical cut
-positions. The server PDF compositor draws these marks with the same black,
-0.25-point lines as single-page crop marks. Single-page marks are render-only,
+positions. The server PDF compositor draws these marks with the same 0.25-point
+lines as single-page crop marks, in black or in registration color when
+`markColor` is `'registration'`. `markColor` is refused unless `marks` is
+enabled. Under a CMYK press, Separation All is kept; under a greyscale press
+the marks become DeviceGray black. Single-page marks are render-only,
 so imposed marks are also render-only; browser `printPages` draws neither.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a

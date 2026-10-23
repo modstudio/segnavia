@@ -1,10 +1,12 @@
 import { expect, test } from 'bun:test'
 import { deflateSync } from 'node:zlib'
-import { inspectContent, MAX_OPERANDS, rewriteContent } from './content.ts'
+import { emptyContentColorSpaces, inspectContent, MAX_CONTENT_NESTING, MAX_OPERANDS, rewriteContent } from './content.ts'
 
 const bytes = (value: string) => new TextEncoder().encode(value)
 const text = (value: Uint8Array) => new TextDecoder().decode(value)
 const convert = ([red, green, blue]: [number, number, number]): [number, number, number, number] => [red / 2, green / 2, blue / 2, 0.25]
+const all = new Set(['All'])
+const compact = (value: Uint8Array) => text(value).replace(/\s+/g, ' ').trim()
 
 test('rewrites RGB and gray fills and strokes in every PDF numeric form', () => {
   const source = '.5 -0 1. rg +1 .5 0 RG 0.2 g 1. G'
@@ -63,6 +65,54 @@ test.each([
 
 test('the read-back operator policy refuses gray as well as RGB', () => {
   expect(() => inspectContent(bytes('0.5 g'))).toThrow(/gray color operator g/)
+})
+
+test('keeps a Separation All stroke under a CMYK destination', () => {
+  const source = '/All CS 1 SCN 10 10 m 20 10 l S'
+  expect(text(rewriteContent(bytes(source), convert, 'cmyk', false, all).bytes)).toBe(source)
+  expect(inspectContent(bytes(source), 'cmyk', all).strokes).toBe(0)
+})
+
+test('converts a Separation All stroke to DeviceGray black under a gray destination', () => {
+  const result = rewriteContent(bytes('/All CS 1 SCN 10 10 m 20 10 l S'), convert, 'gray', false, all)
+  expect(compact(result.bytes)).toBe('0 G 10 10 m 20 10 l S')
+  expect(result.counts.strokes).toBe(1)
+})
+
+test('refuses any other Separation stroke', () => {
+  expect(() => rewriteContent(bytes('/Spot CS 1 SCN'), convert)).toThrow('CS')
+})
+
+test('refuses a resource named All that is not Separation All', () => {
+  expect(() => rewriteContent(bytes('/All CS 1 SCN'), convert)).toThrow('CS')
+  expect(() => inspectContent(bytes('/All CS 1 SCN'))).toThrow('CS')
+})
+
+test('read-back keeps All under CMYK and refuses it under gray', () => {
+  expect(() => inspectContent(bytes('/All CS 1 SCN'), 'cmyk', all)).not.toThrow()
+  expect(() => inspectContent(bytes('/All CS 1 SCN'), 'gray', all)).toThrow(/CS operator/)
+})
+
+test('gray conversion restores All after nested q and Q', () => {
+  const result = rewriteContent(bytes('/All CS 1 SCN q /Pattern CS /P SCN Q 0.5 SCN'), convert, 'gray', false, all)
+  expect(compact(result.bytes)).toBe('0 G q /Pattern CS /P SCN Q 0 G')
+})
+
+test('gray conversion restores a non-All space after q All Q', () => {
+  const result = rewriteContent(bytes('/Pattern CS q /All CS 1 SCN Q /P SCN'), convert, 'gray', false, all)
+  expect(compact(result.bytes)).toBe('/Pattern CS q 0 G Q /P SCN')
+})
+
+test('gray conversion carries All selection across adjacent streams', () => {
+  const spaces = emptyContentColorSpaces()
+  expect(compact(rewriteContent(bytes('/All CS'), convert, 'gray', false, all, spaces).bytes)).toBe('')
+  const used = rewriteContent(bytes('1 SCN'), convert, 'gray', false, all, spaces)
+  expect(compact(used.bytes)).toBe('0 G')
+  expect(used.counts.strokes).toBe(1)
+})
+
+test('refuses q nesting past the content nesting ceiling', () => {
+  expect(() => rewriteContent(bytes(`${'q '.repeat(MAX_CONTENT_NESTING + 1)}0 g`), convert)).toThrow(`q operator nesting over ${MAX_CONTENT_NESTING}`)
 })
 
 test('refuses an operator whose live operand list passes the ceiling', () => {

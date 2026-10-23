@@ -219,7 +219,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
     bytes: item.bytes,
     placements: placements.get(item.index) ?? [],
   }))
-  return services.finish(await composeImposedPdf(imposed, pieces, marks), opts)
+  return services.finish(await composeImposedPdf(imposed, pieces, marks, imposition.markColor), opts)
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {

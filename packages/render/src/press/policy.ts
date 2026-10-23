@@ -113,10 +113,15 @@ export function inlineImageAction(name: string | undefined, imageMask: boolean):
   return { ...decision(imageMask || kind === 'gray' || kind === 'cmyk' ? 'keep' : 'refuse', supported), kind, label: colorSpaceLabel(value) }
 }
 
+export const REGISTRATION_COLORANT = 'All'
+
+export const isRegistrationColorant = (name: string | undefined): boolean => name === REGISTRATION_COLORANT
+
 // Content streams may select only patterns or CMYK explicitly after conversion.
-export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk'): PolicyDecision {
+export function contentColorSpaceAction(name: string | undefined, destination: PressDestination = 'cmyk', registration = false): PolicyDecision {
   const device = destination === 'gray' ? 'DeviceGray' : 'DeviceCMYK'
   const supported = `Pattern or ${device}`
+  if (registration) return decision(destination === 'cmyk' ? 'keep' : 'refuse', supported)
   return decision(name === 'Pattern' || name === device ? 'keep' : 'refuse', supported)
 }
 
@@ -127,26 +132,51 @@ export function isContentColorOperator(operator: string): operator is ContentCol
   return colorOperators.includes(operator as ContentColorOperator)
 }
 
+const deviceColorOperators = ['rg', 'RG', 'g', 'G', 'k', 'K'] as const
+export type DeviceColorOperator = (typeof deviceColorOperators)[number]
+
+export function isDeviceColorOperator(operator: string): operator is DeviceColorOperator {
+  return (deviceColorOperators as readonly string[]).includes(operator)
+}
+
 function deviceColorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
+  if (!isDeviceColorOperator(operator)) return undefined
   const rgb = operator === 'rg' || operator === 'RG'
   const gray = operator === 'g' || operator === 'G'
   const cmyk = operator === 'k' || operator === 'K'
-  if (!rgb && !gray && !cmyk) return undefined
   if (!inspect && (rgb || gray)) return decision('convert', 'RGB or DeviceGray color operands')
   if (destination === 'gray') return decision(gray ? 'keep' : 'refuse', 'RGB or gray input for a greyscale press')
   return decision(cmyk ? 'keep' : 'refuse', 'CMYK operators')
 }
 
-// RGB and gray operators convert on rewrite and refuse on read-back; CMYK and a named pattern are the only color forms retained.
+export const REGISTRATION_CONVERTED_OPERATORS = ['cs', 'CS', 'sc', 'SC', 'scn', 'SCN'] as const
+export type RegistrationConvertedOperator = (typeof REGISTRATION_CONVERTED_OPERATORS)[number]
+
+export function isRegistrationConvertedOperator(operator: string): operator is RegistrationConvertedOperator {
+  return (REGISTRATION_CONVERTED_OPERATORS as readonly string[]).includes(operator)
+}
+
+function registrationOperatorAction(operator: ContentColorOperator, inspect: boolean, destination: PressDestination): PolicyDecision | undefined {
+  if (destination === 'cmyk') return decision('keep', 'Pattern or DeviceCMYK')
+  if (isRegistrationConvertedOperator(operator)) return decision(inspect ? 'refuse' : 'convert', 'DeviceGray operators')
+  return undefined
+}
+
+// RGB and gray operators convert on rewrite and refuse on read-back; CMYK, registration All, and a named pattern are the only color forms retained.
 export function contentOperatorAction(
   operator: ContentColorOperator,
   inspect: boolean,
   selectedSpace?: string,
   patternName = false,
   destination: PressDestination = 'cmyk',
+  registration = false,
 ): PolicyDecision {
   const device = deviceColorAction(operator, inspect, destination)
   if (device) return device
-  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination)
+  if (registration) {
+    const action = registrationOperatorAction(operator, inspect, destination)
+    if (action) return action
+  }
+  if (operator === 'cs' || operator === 'CS') return contentColorSpaceAction(selectedSpace, destination, registration)
   return decision((operator === 'scn' || operator === 'SCN') && patternName ? 'keep' : 'refuse', 'a pattern name with scn or SCN')
 }

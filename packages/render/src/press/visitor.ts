@@ -5,6 +5,8 @@ import { type FunctionDecision, shadingFunctionAction } from './policy.ts'
 export interface PressGraphActions {
   beginContentsSequence?: () => void
   content: (object: PDFObject, stream: PDFRawStream, replace: (stream: PDFRawStream) => void, resources: PDFDict | undefined, mask: MaskContext) => void
+  // Every use, including a stream already seen, so each owner's resources can be checked before a rewrite.
+  contentContext?: (stream: PDFRawStream, resources: PDFDict | undefined) => void
   endContentsSequence?: () => void
   function: (fn: PDFDict | undefined, decision: FunctionDecision, mask: MaskContext) => void
   group: (owner: PDFDict, stream: PDFRawStream | undefined, mask: MaskContext) => void
@@ -57,11 +59,13 @@ function visitContent(
   const seenStream = state.streams.has(found)
   if (!seenStream) state.streams.add(found)
   const seen = seenRef || seenStream
-  if (seen && !replay) return
   const own = found.dict.lookupMaybe(key('Resources'), PDFDict)
+  const resources = own ?? enclosing
+  state.actions?.contentContext?.(found, resources)
+  if (seen && !replay) return
   const mask = state.maskSources.get(found) ?? context
   if (!seen) state.actions?.group(found.dict, found, mask)
-  state.actions?.content(object, found, replace, own ?? enclosing, mask)
+  state.actions?.content(object, found, replace, resources, mask)
   if (nestResources && !seen) visitResources(state, own, mask)
 }
 

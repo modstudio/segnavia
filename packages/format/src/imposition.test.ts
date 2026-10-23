@@ -277,14 +277,18 @@ describe('fitPage', () => {
   test('differs compares a page print trim with the cell', () => {
     expect(
       fitPage(
-        { size: 'fluid', print: { paper: { width: 100, height: 50, unit: 'mm' }, orientation: 'landscape', bleed: 0, safe: 0, marks: false } },
+        {
+          size: 'fluid',
+          print: { paper: { width: 100, height: 50, unit: 'mm' }, orientation: 'landscape', bleed: 0, safe: 0, marks: false, markColor: 'black' },
+        },
         placement(),
         'contain',
       ).differs,
     ).toBe(false)
-    expect(fitPage({ size: 'fluid', print: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false } }, placement(), 'contain').differs).toBe(
-      true,
-    )
+    expect(
+      fitPage({ size: 'fluid', print: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false, markColor: 'black' } }, placement(), 'contain')
+        .differs,
+    ).toBe(true)
   })
 
   test('asymmetric cover stays centered on trim and covers every side of the bleed box', () => {

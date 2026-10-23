@@ -1,9 +1,23 @@
 import type { Color, Color3 } from '../color/types.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { formatPdfNumber } from './color-policy.ts'
+import {
+  advanceColorSpaces,
+  type ContentColorSpaces,
+  currentNamedSpace,
+  emptyContentColorSpaces,
+  restoreColorSpaces,
+  selectedSpaceFor,
+  selectsFillSpace,
+  snapshotColorSpaces,
+  spaceName,
+} from './content-color.ts'
 import { binaryString, inlineImageHeader, parseInlineImage } from './inline-image.ts'
-import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, type PolicyDecision } from './policy.ts'
+import type { PolicyDecision } from './policy.ts'
+import { colorSpaceLabel, contentOperatorAction, inlineImageAction, isContentColorOperator, isRegistrationConvertedOperator } from './policy.ts'
 import type { PressDestination } from './types.ts'
+
+export { type ContentColorSpaces, emptyContentColorSpaces } from './content-color.ts'
 
 export const MAX_CONTENT_NESTING = 64
 // Color operators need at most four operands and Chromium's largest observed operator, cm, uses six; 32 leaves room without unbounded retention.
@@ -142,23 +156,27 @@ function replaceGray(token: Token, operands: Token[], convert: (rgb: Color3) => 
   counts[token.raw === 'g' ? 'fills' : 'strokes']++
   return replacement(token, operands, convert([gray, gray, gray]))
 }
-function validateSpace(token: Token, operands: Token[], destination: PressDestination): void {
-  if (operands.length !== 1 || operands[0]?.kind !== 'name') refusal(`${token.raw} operator operands`, 'one color space name')
-  const name = operands[0].raw.slice(1)
-  const policy = contentOperatorAction(token.raw as 'cs' | 'CS', false, name, false, destination)
-  if (policy.action === 'refuse') refusal(`${token.raw} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
-}
-function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision, destination: PressDestination): void {
+function enforceOperatorPolicy(token: Token, operands: Token[], policy: PolicyDecision): void {
   if (policy.action !== 'refuse') return
   const operator = token.raw
-  if (operator === 'cs' || operator === 'CS') {
-    validateSpace(token, operands, destination)
-    return
-  }
-  if (operator === 'sc' || operator === 'SC' || operator === 'scn' || operator === 'SCN')
+  if (isRegistrationConvertedOperator(operator)) {
+    if (operator === 'cs' || operator === 'CS') {
+      const name = spaceName(operands)
+      if (!name) refusal(`${operator} operator operands`, 'one color space name')
+      refusal(`${operator} operator selecting ${colorSpaceLabel({ name })}`, policy.supported)
+    }
     refusal(`${operator} operator with numeric operands`, policy.supported)
+  }
   const color = operator === 'g' || operator === 'G' ? 'gray' : operator === 'k' || operator === 'K' ? 'CMYK' : 'RGB'
   refusal(`${color} color operator ${operator} after conversion`, policy.supported)
+}
+function registrationReplacement(token: Token, operands: Token[], policy: PolicyDecision, counts: ContentCounts): Replacement | undefined {
+  if (policy.action !== 'convert' || !isRegistrationConvertedOperator(token.raw)) return undefined
+  const operator = token.raw
+  if (operator === 'cs' || operator === 'CS') return { start: operands[0]?.start ?? token.start, end: token.end, text: '' }
+  numeric(operands, 1, operator)
+  counts[selectsFillSpace(operator) ? 'fills' : 'strokes']++
+  return replacement(token, operands, [0])
 }
 function colorOperator(
   token: Token,
@@ -167,12 +185,18 @@ function colorOperator(
   counts: ContentCounts,
   inspect: boolean,
   destination: PressDestination,
+  namedSpace: string | undefined,
+  registrationNames: ReadonlySet<string> | undefined,
 ): Replacement | undefined {
   const operator = token.raw
   if (!isContentColorOperator(operator)) return undefined
   const patternName = operands.length === 1 && operands[0]?.kind === 'name'
-  const policy = contentOperatorAction(operator, inspect, undefined, patternName, destination)
-  enforceOperatorPolicy(token, operands, policy, destination)
+  const selected = selectedSpaceFor(operator, operands, namedSpace)
+  const registration = selected !== undefined && Boolean(registrationNames?.has(selected))
+  const policy = contentOperatorAction(operator, inspect, selected, patternName, destination, registration)
+  enforceOperatorPolicy(token, operands, policy)
+  const converted = registrationReplacement(token, operands, policy, counts)
+  if (converted) return converted
   if (operator === 'rg' || operator === 'RG') {
     return replaceRgb(token, operands, convert, counts)
   }
@@ -184,12 +208,29 @@ function colorOperator(
     }
     return replaceGray(token, operands, convert, counts)
   }
-  if (operator === 'cs' || operator === 'CS') validateSpace(token, operands, destination)
-  else if (operator === 'k' || operator === 'K') {
+  if (operator === 'k' || operator === 'K') {
     numeric(operands, 4, operator)
     counts[operator === 'k' ? 'fills' : 'strokes']++
   }
   return undefined
+}
+
+function applyColorOperator(
+  token: Token,
+  operands: Token[],
+  convert: (rgb: Color3) => Color,
+  counts: ContentCounts,
+  inspect: boolean,
+  destination: PressDestination,
+  fillSpace: string | undefined,
+  strokeSpace: string | undefined,
+  stack: Array<{ fill?: string; stroke?: string }>,
+  registrationNames: ReadonlySet<string> | undefined,
+  visit: ((found: Replacement) => void) | undefined,
+): { fill?: string; stroke?: string } {
+  const found = colorOperator(token, operands, convert, counts, inspect, destination, currentNamedSpace(token.raw, fillSpace, strokeSpace), registrationNames)
+  if (found) visit?.(found)
+  return advanceColorSpaces(token.raw, operands, fillSpace, strokeSpace, stack, MAX_CONTENT_NESTING)
 }
 
 function scan(
@@ -197,13 +238,18 @@ function scan(
   convert: (rgb: Color3) => Color,
   inspect: boolean,
   destination: PressDestination,
-  visit?: (found: Replacement) => void,
-  operatorVisit?: (operator: Token, operands: Token[]) => void,
-  convertImages = false,
+  visit: ((found: Replacement) => void) | undefined,
+  operatorVisit: ((operator: Token, operands: Token[]) => void) | undefined,
+  convertImages: boolean,
+  registrationNames: ReadonlySet<string> | undefined,
+  spaces: ContentColorSpaces,
 ): ContentCounts {
   const counts = { fills: 0, strokes: 0 }
   let operands: Token[] = []
   let cursor = 0
+  let fillSpace = spaces.fill
+  let strokeSpace = spaces.stroke
+  const stack = spaces.stack.map((entry) => ({ fill: entry.fill, stroke: entry.stroke }))
   while (cursor < source.length) {
     const skipped = skippedConstruct(source, cursor)
     if (skipped !== undefined) {
@@ -221,14 +267,20 @@ function scan(
       operands = []
     } else if (token.kind === 'operator') {
       operatorVisit?.(token, operands)
-      const found = colorOperator(token, operands, convert, counts, inspect, destination)
-      if (found) visit?.(found)
+      if (visit !== undefined || operatorVisit === undefined) {
+        const next = applyColorOperator(token, operands, convert, counts, inspect, destination, fillSpace, strokeSpace, stack, registrationNames, visit)
+        fillSpace = next.fill
+        strokeSpace = next.stroke
+      }
       operands = []
     } else {
       if (operands.length >= MAX_OPERANDS) refusal(`more than ${MAX_OPERANDS} operands before an operator`, `at most ${MAX_OPERANDS} operands`)
       operands.push(token)
     }
   }
+  spaces.fill = fillSpace
+  spaces.stack = stack
+  spaces.stroke = strokeSpace
   return counts
 }
 
@@ -254,6 +306,8 @@ export function visitContentOperations(bytes: Uint8Array, visit: (operation: Con
       })
     },
     true,
+    undefined,
+    emptyContentColorSpaces(),
   )
 }
 
@@ -266,12 +320,22 @@ export function visitContentOperators(bytes: Uint8Array, visit: (operator: strin
   })
 }
 
-export function inspectContent(bytes: Uint8Array, destination: PressDestination = 'cmyk'): ContentCounts {
+export function inspectContent(
+  bytes: Uint8Array,
+  destination: PressDestination = 'cmyk',
+  registrationNames?: ReadonlySet<string>,
+  spaces?: ContentColorSpaces,
+): ContentCounts {
   return scan(
     binaryString(bytes),
     () => refusal('RGB color operator after conversion', `${destination === 'gray' ? 'gray' : 'CMYK'} operators`),
     true,
     destination,
+    undefined,
+    undefined,
+    false,
+    registrationNames,
+    spaces ?? emptyContentColorSpaces(),
   )
 }
 export function rewriteContent(
@@ -279,8 +343,12 @@ export function rewriteContent(
   convert: (rgb: Color3) => Color,
   destination: PressDestination = 'cmyk',
   convertImages = false,
+  registrationNames?: ReadonlySet<string>,
+  spaces?: ContentColorSpaces,
 ): ContentRewrite {
   const source = binaryString(bytes)
+  const tracked = spaces ?? emptyContentColorSpaces()
+  const initial = snapshotColorSpaces(tracked)
   let outputLength = bytes.length
   let changed = false
   const counts = scan(
@@ -294,8 +362,11 @@ export function rewriteContent(
     },
     undefined,
     convertImages,
+    registrationNames,
+    tracked,
   )
   if (!changed) return { bytes, counts }
+  restoreColorSpaces(tracked, initial)
   const output = new Uint8Array(outputLength)
   let inputAt = 0
   let outputAt = 0
@@ -315,6 +386,8 @@ export function rewriteContent(
     },
     undefined,
     convertImages,
+    registrationNames,
+    tracked,
   )
   output.set(bytes.subarray(inputAt), outputAt)
   return { bytes: output, counts }
