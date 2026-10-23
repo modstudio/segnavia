@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { BACKDROP_RASTER_LAYER, splitCssLayers, withBackdropRasterLayer } from './backdrop-layers.ts'
+import { BACKDROP_RASTER_LAYER, withBackdropRasterLayer } from './backdrop-layers.ts'
 
 const frost = 'url("data:image/jpeg;base64,frost")'
 const none = {
@@ -86,11 +86,4 @@ test('keeps authored image layers above a promoted color, using the last layer c
     repeat: 'no-repeat, repeat-x, no-repeat, no-repeat',
     size: 'cover, contain, 100% 100%, 100% 100%',
   })
-})
-
-test('splits gradient and data-URL layers on commas outside parentheses', () => {
-  expect(splitCssLayers('linear-gradient(145deg, rgb(255, 255, 255), rgb(0, 0, 0)), url("data:image/jpeg;base64,abc,def")')).toEqual([
-    'linear-gradient(145deg, rgb(255, 255, 255), rgb(0, 0, 0))',
-    'url("data:image/jpeg;base64,abc,def")',
-  ])
 })

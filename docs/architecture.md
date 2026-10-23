@@ -620,6 +620,11 @@ group paints a captured backdrop-filter JPEG and then a non-Normal blend, the
 rewrite hoists only that tagged JPEG paint into the parent immediately
 before the group, carrying the clip chain and CTM that applied to the image so
 rounded corners stay. A form that merely contains the JPEG keeps its other paints.
+The removal is only the clip path, the `cm` operators, and the image `Do`; if that
+image's enclosing graphics frame also holds another paint operator, the hoist is
+left as written. A nested form `/Matrix` on the path to the image is emitted as
+`cm` in the frost. Clip and `cm` stay in source order so a transform that precedes
+its clip still clips in the transformed space.
 If that form then has no non-Normal blend, the rewrite drops its transparency
 Group: isolation there is only an artifact, and a nested isolated group whose
 remaining paint is a soft-masked fill composites against white in CoreGraphics

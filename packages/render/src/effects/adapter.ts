@@ -8,7 +8,6 @@ import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorS
 import { walkPressGraph } from '../press/visitor.ts'
 import { replaceRanges, streamDictionary } from './content-replacement.ts'
 import { hoistBackdropRasters } from './hoist.ts'
-import { rewriteTransparencyGroupColorSpace } from './isolation.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { type PaintColor, type Rule1Plan, rule1EffectImage } from './rule-1.ts'
 import { buildRuleCImage, type RuleCPlan, ruleCPlan } from './rule-c.ts'
@@ -330,6 +329,14 @@ function rewriteContent(
   const reference = object instanceof PDFRef ? object : state.document.context.getObjectRef(object)
   if (reference) state.document.context.assign(reference, replacement)
   else setDirect(replacement)
+}
+
+function rewriteTransparencyGroupColorSpace(owner: PDFDict): boolean {
+  const group = owner.lookupMaybe(key('Group'), PDFDict)
+  if (!group || nameOf(group.get(key('S'))) !== 'Transparency' || group.has(key('CS'))) return false
+  // Chromium paints these groups in RGB; declaring that space prevents readers from choosing a device-dependent fallback that changes their color.
+  group.set(key('CS'), key('DeviceRGB'))
+  return true
 }
 
 function rewriteEffects(document: PDFDocument): { changed: boolean; report: EffectsReport } {

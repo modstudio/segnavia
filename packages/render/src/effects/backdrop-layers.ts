@@ -30,7 +30,7 @@ const CSS_LAYER_FALLBACK = {
   size: 'auto',
 } as const
 
-export function splitCssLayers(value: string): string[] {
+function splitCssLayers(value: string): string[] {
   const layers: string[] = []
   let start = 0
   let depth = 0
