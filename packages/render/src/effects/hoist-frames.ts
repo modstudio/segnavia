@@ -7,23 +7,7 @@ const key = (name: string): PDFName => PDFName.of(name)
 const decoder = new TextDecoder()
 const encoder = new TextEncoder()
 const PATH = new Set(['c', 'h', 'l', 'm', 're', 'v', 'y'])
-const ALLOWED = new Set([
-  ...PATH,
-  'W',
-  'W*',
-  'n',
-  'cm',
-  'q',
-  'Q',
-  'w',
-  'J',
-  'j',
-  'M',
-  'd',
-  'ri',
-  'i',
-  'gs',
-])
+const ALLOWED = new Set([...PATH, 'W', 'W*', 'n', 'cm', 'q', 'Q', 'w', 'J', 'j', 'M', 'd', 'ri', 'i', 'gs'])
 
 export interface FrameSlice {
   end: number
@@ -137,12 +121,7 @@ export function unframedClipOrCm(operations: ContentOperation[], imageDo: Conten
   return false
 }
 
-export function frameHasOtherPaint(
-  stack: OpenFrame[],
-  operations: ContentOperation[],
-  imageDo: ContentOperation,
-  bytes: Uint8Array,
-): boolean {
+export function frameHasOtherPaint(stack: OpenFrame[], operations: ContentOperation[], imageDo: ContentOperation, bytes: Uint8Array): boolean {
   const outer = stack[0]
   if (!outer) return false
   const from = operations.indexOf(outer.q)

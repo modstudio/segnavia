@@ -336,6 +336,6 @@ test('charges each content stream once against a small document budget', async (
   expect(hoistBackdropRasters(document, budget)).toBe(true)
   const rewritten = document.context.lookup(glassRef)
   if (!(rewritten instanceof PDFRawStream)) throw new Error('Expected the rewritten glass form')
-  expect(budget.decodedBytes).toBe(unique + decodeContent(rewritten).byteLength)
+  expect(budget.decodedBytes).toBe(unique + decodeContent(rewritten).byteLength + decodeContent(hoistedFrost(document)).byteLength)
   expect(decode(document, document.getPage(0).node.Contents())).toMatch(/SegnaviaBackdrop/)
 })
