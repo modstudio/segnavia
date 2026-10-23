@@ -623,7 +623,9 @@ rounded corners stay. A form that merely contains the JPEG keeps its other paint
 The removal is only the clip path, the `cm` operators, and the image `Do`; if that
 image's enclosing graphics frame also holds another paint operator, the hoist is
 left as written. Color operators that only set fill or stroke color are not paint,
-so Chromium's `RG`/`rg` beside the image `Do` still hoists. A nested form `/Matrix`
+so Chromium's `RG`/`rg` beside the image `Do` still hoists. A clip or `cm` that
+applies to the image outside any `q`…`Q` frame also leaves the form as written,
+because the frost could not reproduce it. A nested form `/Matrix`
 on the path to the image is emitted as `cm` in the frost. Clip and `cm` stay in
 source order so a transform that precedes its clip still clips in the transformed
 space.
