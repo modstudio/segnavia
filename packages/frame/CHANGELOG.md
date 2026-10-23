@@ -1,5 +1,14 @@
 # @segnavia/frame
 
+## 0.25.0
+
+### Patch Changes
+
+- 8aa5beb: Keep unsaved item settings values visible when the host refreshes fills during a pending save.
+- Updated dependencies [8aa5beb]
+  - @segnavia/format@0.25.0
+  - @segnavia/html@0.25.0
+
 ## 0.24.0
 
 ### Minor Changes

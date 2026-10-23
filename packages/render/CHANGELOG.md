@@ -1,5 +1,19 @@
 # @segnavia/render
 
+## 0.25.0
+
+### Minor Changes
+
+- f2f9d2e: Print visible backdrop-filter regions from Chromium's screen pixels while preserving vector text, links, rounded clipping, press conversion, and configurable raster resolution and JPEG quality.
+
+### Patch Changes
+
+- Updated dependencies [8aa5beb]
+- Updated dependencies [8aa5beb]
+  - @segnavia/format@0.25.0
+  - @segnavia/frame@0.25.0
+  - @segnavia/html@0.25.0
+
 ## 0.24.0
 
 ### Minor Changes

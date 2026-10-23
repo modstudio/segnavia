@@ -104,4 +104,149 @@ describe('fill save queue', () => {
     expect(await flushing).toBe(true)
     expect(settled).toBe(true)
   })
+
+  test('keeps an edit made after a skipped host value instead of adopting that value', async () => {
+    const time = scheduler()
+    const releases: Array<() => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'mina', values: { name: 'Mina' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina A' } })
+    time.run()
+    queue.seed({ id: 'mina', values: { name: 'Host H' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina B' } })
+    time.run()
+    // The first save settles; the queue then saves the newer edit, and only
+    // after that does it decide whether to adopt the skipped host value.
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    time.run()
+    expect(releases).toHaveLength(1)
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(visible).toEqual([])
+  })
+
+  test('forgets a fill the host stops listing, so its pending save never fires', () => {
+    const time = scheduler()
+    const saves: string[] = []
+    const queue = new FillSaveQueue(
+      async (fill) => {
+        saves.push(fill.id)
+      },
+      () => {},
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'a', values: { name: 'A' } })
+    queue.seed({ id: 'b', values: { name: 'B' } })
+    queue.edit({ id: 'a', values: { name: 'A edited' } })
+
+    queue.retain(new Set(['b']))
+    time.run()
+
+    expect(saves).toEqual([])
+  })
+
+  test('writes nothing visible after dispose, even when an in-flight save settles', async () => {
+    const time = scheduler()
+    const releases: Array<() => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'mina', values: { name: 'Mina' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina A' } })
+    time.run()
+    queue.seed({ id: 'mina', values: { name: 'Host H' } })
+
+    queue.dispose()
+    expect(releases).toHaveLength(1)
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(visible).toEqual([])
+  })
+
+  test('ignores a host re-sending its unchanged value during a save', async () => {
+    const time = scheduler()
+    const releases: Array<() => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'mina', values: { name: 'Mina' } })
+    queue.edit({ id: 'mina', values: { name: 'Mina Patel' } })
+    queue.seed({ id: 'mina', values: { name: 'Mina' } })
+    time.run()
+    expect(releases).toHaveLength(1)
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(visible).toEqual([])
+  })
+
+  test('stops a dropped fill: no follow-up save, and no write over a fill re-added under its id', async () => {
+    const time = scheduler()
+    const saves: string[] = []
+    const releases: Array<(ok: boolean) => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      (fill) => {
+        saves.push(String(fill.values.name))
+        return new Promise<void>((resolve, reject) => releases.push((ok) => (ok ? resolve() : reject(new Error('refused')))))
+      },
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'a', values: { name: 'A' } })
+    queue.edit({ id: 'a', values: { name: 'A1' } })
+    time.run()
+    queue.edit({ id: 'a', values: { name: 'A2' } })
+
+    queue.retain(new Set())
+    queue.seed({ id: 'a', values: { name: 'Fresh' } })
+    releases.shift()?.(false)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    time.run()
+
+    expect(saves).toEqual(['A1'])
+    expect(visible).toEqual([])
+  })
+
+  test('a dropped fill whose save succeeds does not adopt its old host value over a re-added fill', async () => {
+    const time = scheduler()
+    const releases: Array<() => void> = []
+    const visible: string[] = []
+    const queue = new FillSaveQueue(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+      (fill) => visible.push(String(fill.values.name)),
+      () => {},
+      time,
+    )
+    queue.seed({ id: 'a', values: { name: 'A' } })
+    queue.edit({ id: 'a', values: { name: 'A1' } })
+    time.run()
+    queue.seed({ id: 'a', values: { name: 'Host H' } })
+
+    queue.retain(new Set())
+    queue.seed({ id: 'a', values: { name: 'Fresh' } })
+    releases.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(visible).toEqual([])
+  })
 })
