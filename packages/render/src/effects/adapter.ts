@@ -1,4 +1,3 @@
-import { deflateSync } from 'node:zlib'
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
@@ -6,7 +5,7 @@ import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
 import { walkPressGraph } from '../press/visitor.ts'
-import { replaceRanges, streamDictionary } from './content-replacement.ts'
+import { assignStream, replaceRanges } from './content-replacement.ts'
 import { hoistBackdropRasters } from './hoist.ts'
 import { type SoftMaskFacts, softMaskAction } from './policy.ts'
 import { type PaintColor, type Rule1Plan, rule1EffectImage } from './rule-1.ts'
@@ -325,10 +324,9 @@ function rewriteContent(
     index += replacement.consumed
   }
   if (replacements.length === 0) return
-  const replacement = state.document.context.stream(deflateSync(replaceRanges(bytes, replacements)), streamDictionary(stream))
+  const replacement = assignStream(state.document, stream, replaceRanges(bytes, replacements))
   const reference = object instanceof PDFRef ? object : state.document.context.getObjectRef(object)
-  if (reference) state.document.context.assign(reference, replacement)
-  else setDirect(replacement)
+  if (!reference) setDirect(replacement)
 }
 
 function rewriteTransparencyGroupColorSpace(owner: PDFDict): boolean {

@@ -36,12 +36,14 @@ function blendText(document: PDFDocument) {
 
 const glassGroup = { Type: 'Group', S: 'Transparency', CS: 'DeviceRGB', I: true } as const
 
-async function capturedBlendDocument(): Promise<{ contents: PDFRawStream; document: PDFDocument; glass: PDFRawStream; text: PDFRawStream }> {
+async function capturedBlendDocument(
+  glassContent = 'q 0 0 10 10 re W n 3 0 0 3 0 0 cm /Raster Do Q q /Blend gs /Text Do Q',
+): Promise<{ contents: PDFRawStream; document: PDFDocument; glass: PDFRawStream; text: PDFRawStream }> {
   const document = await PDFDocument.create()
   const image = taggedRaster(document)
   const text = blendText(document)
   const glass = document.context.register(
-    document.context.stream('q 0 0 10 10 re W n 3 0 0 3 0 0 cm /Raster Do Q q /Blend gs /Text Do Q', {
+    document.context.stream(glassContent, {
       Type: 'XObject',
       Subtype: 'Form',
       BBox: [0, 0, 10, 10],
@@ -91,6 +93,41 @@ function formNamed(document: PDFDocument, name: string): PDFRawStream {
   return stream
 }
 
+async function nestedFrostDocument(frostContent: string): Promise<PDFDocument> {
+  const document = await PDFDocument.create()
+  const image = taggedRaster(document)
+  const frost = document.context.register(
+    document.context.stream(frostContent, {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 10, 10],
+      Group: glassGroup,
+      Resources: { XObject: { Raster: image } },
+    }),
+  )
+  const text = blendText(document)
+  const glass = document.context.register(
+    document.context.stream('q 0 0 m 10 0 l 10 10 l 0 10 l h W n /Frost Do Q q /Blend gs /Text Do Q', {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 10, 10],
+      Group: glassGroup,
+      Resources: { ExtGState: { Blend: { BM: 'Screen' } }, XObject: { Frost: frost, Text: text } },
+    }),
+  )
+  const page = document.addPage([10, 10])
+  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Glass: glass } }))
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Glass Do')))
+  return document
+}
+
+function frostFormOf(output: PDFDocument): PDFRawStream {
+  const frostObject = formNamed(output, 'Glass').dict.lookup(PDFName.of('Resources'), PDFDict).lookup(PDFName.of('XObject'), PDFDict).get(PDFName.of('Frost'))
+  const frostForm = frostObject ? output.context.lookup(frostObject) : undefined
+  if (!(frostForm instanceof PDFRawStream)) throw new Error('Expected the nested form')
+  return frostForm
+}
+
 function hoistedFrost(document: PDFDocument): PDFRawStream {
   const resources = document.getPage(0).node.Resources()?.lookup(PDFName.of('XObject'), PDFDict)
   const backdropName = [...(resources?.entries() ?? [])].find(([name]) => name.toString().startsWith('/SegnaviaBackdrop'))?.[1]
@@ -114,31 +151,9 @@ test('hoists a captured raster painted before Screen out of the glass group', as
 })
 
 test('hoists only the tagged image from a nested form, leaving the fill and reproducing the clip', async () => {
-  const document = await PDFDocument.create()
-  const image = taggedRaster(document)
-  const frost = document.context.register(
-    document.context.stream('q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do Q q 1 1 0 rg 0 0 10 10 re f Q', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { XObject: { Raster: image } },
-    }),
+  const rewritten = await rewriteEffectsPdf(
+    await (await nestedFrostDocument('q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do Q q 1 1 0 rg 0 0 10 10 re f Q')).save(),
   )
-  const text = blendText(document)
-  const glass = document.context.register(
-    document.context.stream('q 0 0 m 10 0 l 10 10 l 0 10 l h W n /Frost Do Q q /Blend gs /Text Do Q', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { ExtGState: { Blend: { BM: 'Screen' } }, XObject: { Frost: frost, Text: text } },
-    }),
-  )
-  const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Glass: glass } }))
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Glass Do')))
-  const rewritten = await rewriteEffectsPdf(await document.save())
   const output = await PDFDocument.load(rewritten.bytes)
   const pageContent = decode(output, output.getPage(0).node.Contents())
   expect(pageContent).toMatch(/\/SegnaviaBackdrop\d+ Do \/Glass Do/)
@@ -147,10 +162,7 @@ test('hoists only the tagged image from a nested form, leaving the fill and repr
   expect(glassContent).toContain('/Frost Do')
   expect(glassContent).toContain('/Text Do')
   expect(glassForm.dict.lookup(PDFName.of('Group'), PDFDict).get(PDFName.of('I'))?.toString()).toBe('true')
-  const frostObject = glassForm.dict.lookup(PDFName.of('Resources'), PDFDict).lookup(PDFName.of('XObject'), PDFDict).get(PDFName.of('Frost'))
-  const frostForm = frostObject ? output.context.lookup(frostObject) : undefined
-  expect(frostForm).toBeInstanceOf(PDFRawStream)
-  if (!(frostForm instanceof PDFRawStream)) throw new Error('Expected the nested form')
+  const frostForm = frostFormOf(output)
   const frostContent = decode(output, frostForm)
   expect(frostContent).not.toContain('/Raster Do')
   expect(frostContent).toContain('re f')
@@ -180,41 +192,27 @@ test('does not hoist a captured raster when the group has no non-Normal blend', 
   expect(decode(output, contents)).not.toContain('SegnaviaBackdrop')
 })
 
-test('does not hoist when the image frame holds other paint', async () => {
-  const document = await PDFDocument.create()
-  const image = taggedRaster(document)
-  const frost = document.context.register(
-    document.context.stream('q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do 1 1 0 rg 0 0 10 10 re f Q', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { XObject: { Raster: image } },
-    }),
-  )
-  const text = blendText(document)
-  const glass = document.context.register(
-    document.context.stream('q 0 0 m 10 0 l 10 10 l 0 10 l h W n /Frost Do Q q /Blend gs /Text Do Q', {
-      Type: 'XObject',
-      Subtype: 'Form',
-      BBox: [0, 0, 10, 10],
-      Group: glassGroup,
-      Resources: { ExtGState: { Blend: { BM: 'Screen' } }, XObject: { Frost: frost, Text: text } },
-    }),
-  )
-  const page = document.addPage([10, 10])
-  page.node.set(PDFName.of('Resources'), document.context.obj({ XObject: { Glass: glass } }))
-  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream('/Glass Do')))
-  const rewritten = await rewriteEffectsPdf(await document.save())
+test.each([
+  ['f', 'q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do 1 1 0 rg 0 0 10 10 re f Q'],
+  ['F', 'q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do 1 1 0 rg 0 0 10 10 re F Q'],
+  ["'", "q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do (A) ' Q"],
+  ['inline image', 'q 0 0 10 10 re W n 2 0 0 2 1 0 cm /Raster Do BI /W 1 /H 1 /CS /RGB /BPC 8 ID\nxxx EI Q'],
+])('does not hoist when the image frame holds other paint (%s)', async (_label, frostContent) => {
+  const rewritten = await rewriteEffectsPdf(await (await nestedFrostDocument(frostContent)).save())
   const output = await PDFDocument.load(rewritten.bytes)
   expect(decode(output, output.getPage(0).node.Contents())).not.toContain('SegnaviaBackdrop')
-  const frostObject = formNamed(output, 'Glass').dict.lookup(PDFName.of('Resources'), PDFDict).lookup(PDFName.of('XObject'), PDFDict).get(PDFName.of('Frost'))
-  const frostForm = frostObject ? output.context.lookup(frostObject) : undefined
-  expect(frostForm).toBeInstanceOf(PDFRawStream)
-  if (!(frostForm instanceof PDFRawStream)) throw new Error('Expected the nested form')
+  const frostForm = frostFormOf(output)
   expect(decode(output, frostForm)).toContain('/Raster Do')
-  expect(decode(output, frostForm)).toContain('re f')
   expect(frostForm.dict.has(PDFName.of('Group'))).toBe(true)
+})
+
+test('does not hoist when clip or cm sits outside a q frame', async () => {
+  const rewritten = await rewriteEffectsPdf(
+    await (await capturedBlendDocument('0 0 10 10 re W n 3 0 0 3 0 0 cm /Raster Do q /Blend gs /Text Do Q')).document.save(),
+  )
+  const output = await PDFDocument.load(rewritten.bytes)
+  expect(decode(output, output.getPage(0).node.Contents())).not.toContain('SegnaviaBackdrop')
+  expect(decode(output, formNamed(output, 'Glass'))).toContain('/Raster Do')
 })
 
 test('bakes a nested form Matrix as cm in the frost', async () => {
@@ -330,12 +328,14 @@ test('leaves a non-indirect group unchanged', async () => {
 })
 
 test('charges each content stream once against a small document budget', async () => {
-  const baseline = await capturedBlendDocument()
-  const unique = decodeContent(baseline.glass).byteLength + decodeContent(baseline.text).byteLength + decodeContent(baseline.contents).byteLength
-  expect(hoistBackdropRasters(baseline.document, { decodedBytes: 0 })).toBe(true)
-  const expected = decode(baseline.document, baseline.document.getPage(0).node.Contents())
-  const limited = await capturedBlendDocument()
-  expect(hoistBackdropRasters(limited.document, { decodedBytes: 0, decodedByteCeiling: unique * 2 })).toBe(true)
-  expect(decode(limited.document, limited.document.getPage(0).node.Contents())).toBe(expected)
-  expect(expected).toMatch(/SegnaviaBackdrop/)
+  const { contents, document, glass, text } = await capturedBlendDocument()
+  const unique = decodeContent(glass).byteLength + decodeContent(text).byteLength + decodeContent(contents).byteLength
+  const glassRef = document.context.getObjectRef(glass)
+  if (!glassRef) throw new Error('Expected an indirect glass form')
+  const budget = { decodedBytes: 0 }
+  expect(hoistBackdropRasters(document, budget)).toBe(true)
+  const rewritten = document.context.lookup(glassRef)
+  if (!(rewritten instanceof PDFRawStream)) throw new Error('Expected the rewritten glass form')
+  expect(budget.decodedBytes).toBe(unique + decodeContent(rewritten).byteLength)
+  expect(decode(document, document.getPage(0).node.Contents())).toMatch(/SegnaviaBackdrop/)
 })

@@ -1,4 +1,5 @@
-import { PDFName, type PDFObject, type PDFRawStream } from 'pdf-lib'
+import { deflateSync } from 'node:zlib'
+import { type PDFDocument, PDFName, type PDFObject, type PDFRawStream } from 'pdf-lib'
 
 const key = (name: string): PDFName => PDFName.of(name)
 
@@ -28,4 +29,11 @@ export function replaceRanges(bytes: Uint8Array, replacements: Array<{ end: numb
   }
   output.set(bytes.subarray(inputAt), outputAt)
   return output
+}
+
+export function assignStream(document: PDFDocument, stream: PDFRawStream, bytes: Uint8Array): PDFRawStream {
+  const replacement = document.context.stream(deflateSync(bytes), streamDictionary(stream))
+  const reference = document.context.getObjectRef(stream)
+  if (reference) document.context.assign(reference, replacement)
+  return replacement
 }

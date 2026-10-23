@@ -1,9 +1,8 @@
-import { deflateSync } from 'node:zlib'
 import { PDFDict, type PDFDocument, PDFName, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf } from '../press/pdf-objects.ts'
 import { type MaskContext, walkPressGraph } from '../press/visitor.ts'
-import { replaceRanges, streamDictionary } from './content-replacement.ts'
+import { assignStream, replaceRanges } from './content-replacement.ts'
 import {
   advanceFrame,
   emitFrost,
@@ -13,6 +12,7 @@ import {
   type OpenFrame,
   prefixOf,
   removalOf,
+  unframedClipOrCm,
   withNestedMatrix,
   xObjectName,
 } from './hoist-frames.ts'
@@ -56,11 +56,6 @@ function cachedOperations(stream: PDFRawStream, budget: ContentBudget, cache: St
   return operations
 }
 
-function referenceOf(document: PDFDocument, stream: PDFRawStream): PDFRef | undefined {
-  for (const [ref, object] of document.context.enumerateIndirectObjects()) if (object === stream) return ref
-  return undefined
-}
-
 function xobjectsOf(stream: PDFRawStream): PDFDict | undefined {
   return stream.dict.lookupMaybe(key('Resources'), PDFDict)?.lookupMaybe(key('XObject'), PDFDict)
 }
@@ -68,7 +63,7 @@ function xobjectsOf(stream: PDFRawStream): PDFDict | undefined {
 function taggedImageRef(document: PDFDocument, object: PDFObject | undefined): PDFRef | undefined {
   const stream = resolved(document, object)
   if (!(stream instanceof PDFRawStream) || !stream.dict.has(key(BACKDROP_RASTER_IMAGE_KEY))) return undefined
-  return object instanceof PDFRef ? object : referenceOf(document, stream)
+  return object instanceof PDFRef ? object : document.context.getObjectRef(stream)
 }
 
 function formContent(document: PDFDocument, object: PDFObject | undefined): PDFRawStream | undefined {
@@ -92,11 +87,12 @@ function paintAtDo(
   operation: ContentOperation,
   child: PDFObject | undefined,
   depth: number,
+  bytes: Uint8Array,
 ): ImagePaint | undefined {
   const frames = [...inherited, ...stack.map((open) => prefixOf(open))]
   const image = taggedImageRef(document, child)
   if (image) {
-    if (frameHasOtherPaint(stack, operations, operation)) return undefined
+    if (unframedClipOrCm(operations, operation) || frameHasOtherPaint(stack, operations, operation, bytes)) return undefined
     return { frames, image, remove: removalOf(stack[stack.length - 1], operation), stream }
   }
   const nested = formContent(document, child)
@@ -140,6 +136,7 @@ function findTaggedImagePaint(
       operation,
       xobjects.get(key(operation.operands[0].raw.slice(1))),
       depth,
+      bytes,
     )
     if (found) return found
   }
@@ -206,13 +203,6 @@ function shouldDropSourceGroup(document: PDFDocument, stream: PDFRawStream, budg
   return remainingNonNormalBlend !== undefined && sourceGroupAfterHoistAction({ remainingNonNormalBlend }) === 'drop-group'
 }
 
-function assignStream(document: PDFDocument, stream: PDFRawStream, bytes: Uint8Array): PDFRawStream {
-  const replacement = document.context.stream(deflateSync(bytes), streamDictionary(stream))
-  const reference = referenceOf(document, stream)
-  if (reference) document.context.assign(reference, replacement)
-  return replacement
-}
-
 function erasePaint(document: PDFDocument, paint: ImagePaint, budget: ContentBudget, cache: StreamCache): void {
   const remaining = assignStream(
     document,
@@ -229,7 +219,7 @@ function erasePaint(document: PDFDocument, paint: ImagePaint, budget: ContentBud
 
 function planLabel(document: PDFDocument, stored: PDFObject | undefined): string | undefined {
   if (stored instanceof PDFRef) return stored.toString()
-  return stored instanceof PDFRawStream ? referenceOf(document, stored)?.toString() : undefined
+  return stored instanceof PDFRawStream ? document.context.getObjectRef(stored)?.toString() : undefined
 }
 
 function insertFrostDos(
@@ -278,10 +268,10 @@ export function hoistBackdropRasters(document: PDFDocument, budget: ContentBudge
     function: () => undefined,
     group: (_owner, stream, mask) => {
       if (!stream || !shouldHoistBackdrop(document, stream, mask, budget, cache)) return
-      const reference = referenceOf(document, stream)
+      const reference = document.context.getObjectRef(stream)
       if (!reference) return
       const paint = findTaggedImagePaint(document, stream, budget, cache, [], 0)
-      if (!paint || !referenceOf(document, paint.stream)) return
+      if (!paint || !document.context.getObjectRef(paint.stream)) return
       plans.set(reference.toString(), { paint, source: stream })
     },
     image: () => undefined,

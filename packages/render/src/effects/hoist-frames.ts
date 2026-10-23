@@ -7,7 +7,23 @@ const key = (name: string): PDFName => PDFName.of(name)
 const decoder = new TextDecoder()
 const encoder = new TextEncoder()
 const PATH = new Set(['c', 'h', 'l', 'm', 're', 'v', 'y'])
-const PAINT = new Set(['B', 'B*', 'Do', 'S', 'Tj', 'TJ', 'b', 'b*', 'f', 'f*', 's', 'sh'])
+const ALLOWED = new Set([
+  ...PATH,
+  'W',
+  'W*',
+  'n',
+  'cm',
+  'q',
+  'Q',
+  'w',
+  'J',
+  'j',
+  'M',
+  'd',
+  'ri',
+  'i',
+  'gs',
+])
 
 export interface FrameSlice {
   end: number
@@ -88,18 +104,56 @@ export function advanceFrame(stack: OpenFrame[], operations: ContentOperation[],
   if (operation.operator === 'Q') stack.pop()
 }
 
-export function frameHasOtherPaint(stack: OpenFrame[], operations: ContentOperation[], imageDo: ContentOperation): boolean {
-  const inner = stack[stack.length - 1]
-  if (!inner) return false
-  const from = operations.indexOf(inner.q)
+function gapHasInlineImage(bytes: Uint8Array, start: number, end: number): boolean {
+  if (end <= start) return false
+  const gap = decoder.decode(bytes.subarray(start, end))
+  return /(?:^|[\0\t\n\f\r ])BI(?=[\0\t\n\f\r /])/.test(` ${gap}`)
+}
+
+function hasInlineImage(bytes: Uint8Array, operations: ContentOperation[], from: number, end: number): boolean {
+  for (let index = from; index < end; index++) {
+    const current = operations[index]
+    const next = operations[index + 1]
+    if (!current || !next) continue
+    if (gapHasInlineImage(bytes, current.end, next.operands[0]?.start ?? next.start)) return true
+  }
+  return false
+}
+
+export function unframedClipOrCm(operations: ContentOperation[], imageDo: ContentOperation): boolean {
+  let depth = 0
+  for (const current of operations) {
+    if (current === imageDo) return false
+    if (current.operator === 'q') {
+      depth++
+      continue
+    }
+    if (current.operator === 'Q') {
+      if (depth > 0) depth--
+      continue
+    }
+    if (depth === 0 && (current.operator === 'cm' || current.operator === 'W' || current.operator === 'W*')) return true
+  }
+  return false
+}
+
+export function frameHasOtherPaint(
+  stack: OpenFrame[],
+  operations: ContentOperation[],
+  imageDo: ContentOperation,
+  bytes: Uint8Array,
+): boolean {
+  const outer = stack[0]
+  if (!outer) return false
+  const from = operations.indexOf(outer.q)
   const close = matchingClose(operations, from)
   if (!close) return true
   const end = operations.indexOf(close)
   for (let index = from + 1; index < end; index++) {
     const current = operations[index]
-    if (current && PAINT.has(current.operator) && current !== imageDo) return true
+    if (current && current !== imageDo && !ALLOWED.has(current.operator)) return true
   }
-  return false
+  return hasInlineImage(bytes, operations, from, end)
 }
 
 export function removalOf(frame: OpenFrame | undefined, imageDo: ContentOperation): Array<{ end: number; start: number }> {
