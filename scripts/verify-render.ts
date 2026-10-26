@@ -16,6 +16,7 @@ import { verifyBookRender } from './verify/book-render.ts'
 import { verifyClippedBleed } from './verify/clipped-bleed.ts'
 import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
+import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyNamedPaperRender } from './verify/named-paper-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
@@ -127,6 +128,7 @@ try {
     const fonts = execFileSync('pdffonts', [file], { encoding: 'utf8' })
     check('a face passed as bytes is embedded in the PDF', fonts.includes('DejaVuSerif-Bold'), fonts.split('\n').slice(2).join(' ').trim())
   }
+  await verifyHebrewNotice(renderer, work, check)
   let background = ''
   await renderer.pageImage(
     { html: '<h1>House</h1>', size: { width: 200, height: 100 } },
