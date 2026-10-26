@@ -48,7 +48,7 @@ test('fontFaces refuses a malformed unicodeRange naming the face, the range, and
     ])
   expect(work).toThrow(RenderRefusedError)
   expect(work).toThrow(
-    'The unicode-range "U+ZZ" on face "Segnavia Scripts" (700, italic) is malformed: U+ZZ is not a CSS unicode-range descriptor (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
+    'The unicode-range "U+ZZ" on face "Segnavia Scripts" (700, italic) is malformed: U+ZZ is not a CSS unicode-range descriptor (U+hex, U+hex-hex, or U+hex with ? wildcards). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
   )
 })
 

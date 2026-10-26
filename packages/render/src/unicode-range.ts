@@ -14,7 +14,7 @@ function aboveMax(hex: string, token: string): UnicodeRangeParse | undefined {
 }
 
 function malformed(token: string): UnicodeRangeParse {
-  return { ok: false, reason: `${token} is not a CSS unicode-range descriptor (${UNICODE_RANGE_CLEARANCE})` }
+  return { ok: false, reason: `${token} is not a CSS unicode-range descriptor (${DESCRIPTOR_FORM})` }
 }
 
 function parseRange(token: string): UnicodeRangeParse | undefined {
