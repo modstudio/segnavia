@@ -15,8 +15,6 @@ import {
 import { decodeDeviceTiff } from './tiff.ts'
 import type { GlyphBox } from './types.ts'
 
-export { differencePixels } from '../verify/pixel-difference.ts'
-
 function command(args: string[]): Uint8Array {
   const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' })
   if (result.exitCode !== 0) throw new Error(`${args[0]} failed: ${result.stderr.toString().trim()}`)

@@ -11,7 +11,7 @@ export interface Difference {
 }
 
 export const SCALE = 4
-export const READER_RASTER_DPI = 384
+export const READER_RASTER_DPI = 96 * SCALE
 // Shmuel agreed these acceptance limits on 2026-10-14.
 export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 
