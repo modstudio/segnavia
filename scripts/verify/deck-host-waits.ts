@@ -24,3 +24,43 @@ export async function neighborTurnFacts(h: Harness) {
     srcdoc,
   )
 }
+
+export async function waitForSettledWindow(h: Harness, activeId: string, windowIds: string[]) {
+  const { page } = h
+  const observe = ([expectedActive, expectedWindow]: [string, string[]]) => {
+    const canvases = [...document.querySelectorAll<HTMLElement>('#deck [data-slide-id]')]
+    const active = document.querySelector<HTMLElement>('#deck [data-active]')?.dataset.slideId ?? null
+    const mounted = canvases.map((canvas) => canvas.dataset.slideId ?? '')
+    return {
+      active,
+      mounted,
+      settled:
+        active === expectedActive &&
+        mounted.length === expectedWindow.length &&
+        expectedWindow.every((id) => mounted.includes(id)) &&
+        canvases.every((canvas) => canvas.querySelector('iframe')),
+    }
+  }
+  // Selection changes before the frame swap finishes, so wait for both the active canvas and its retained window.
+  let timedOut = false
+  await page
+    .waitForFunction(
+      ([expectedActive, expectedWindow]: [string, string[]]) => {
+        const canvases = [...document.querySelectorAll<HTMLElement>('#deck [data-slide-id]')]
+        const active = document.querySelector<HTMLElement>('#deck [data-active]')?.dataset.slideId
+        const mounted = canvases.map((canvas) => canvas.dataset.slideId)
+        return (
+          active === expectedActive &&
+          mounted.length === expectedWindow.length &&
+          expectedWindow.every((id) => mounted.includes(id)) &&
+          canvases.every((canvas) => canvas.querySelector('iframe'))
+        )
+      },
+      [activeId, windowIds] as [string, string[]],
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {
+      timedOut = true
+    })
+  return { ...(await page.evaluate(observe, [activeId, windowIds] as [string, string[]])), timedOut }
+}
