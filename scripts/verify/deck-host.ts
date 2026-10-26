@@ -1,5 +1,5 @@
 import { inflateSync } from 'node:zlib'
-import { neighborTurnFacts } from './deck-host-waits.ts'
+import { neighborTurnFacts, waitForSettledWindow } from './deck-host-waits.ts'
 import { verifyDeckTransitions } from './deck-transitions.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -46,19 +46,20 @@ export async function verifyDeckHost(h: Harness) {
   check('deck host: clamped and live slide hashes navigate', (await h.state(STAGE)).slide === '4')
 
   await page.keyboard.press('ArrowRight')
-  await h.waitFor(STAGE, (data) => data.slide === '5')
+  const settled = await waitForSettledWindow(h, 'slide-5', ['slide-4', 'slide-5', 'slide-6'])
   const hidden = await page.evaluate(() => {
-    const canvas = document.querySelector<HTMLElement>('#deck [aria-hidden="true"]')
+    const canvas = document.querySelector<HTMLElement>('#deck [aria-hidden="true"][data-slide-id="slide-4"]')
     return { inert: canvas?.inert === true, slide: document.querySelector<HTMLElement>('#deck')?.dataset.slide }
   })
-  await page
-    .locator(`${STAGE} [aria-hidden="true"] iframe`)
-    .first()
-    .contentFrame()
-    .locator('body')
-    .evaluate(() => {
-      parent.postMessage({ type: 'segnavia:key', key: 'ArrowRight' }, '*')
-    })
+  const hiddenNeighbor = page.locator(`${STAGE} [aria-hidden="true"][data-slide-id="slide-4"] iframe`)
+  if ((await hiddenNeighbor.count()) === 1) {
+    await hiddenNeighbor
+      .contentFrame()
+      .locator('body')
+      .evaluate(() => {
+        parent.postMessage({ type: 'segnavia:key', key: 'ArrowRight' }, '*')
+      })
+  }
   await page.waitForTimeout(100)
   const afterHiddenRelay = (await h.state(STAGE)).slide
   await page.locator('#notes').focus()
@@ -72,7 +73,7 @@ export async function verifyDeckHost(h: Harness) {
   await page.waitForTimeout(100)
   check(
     'deck host: page arrows, inert neighbors, relay filtering, form exclusion and ignored Space hold',
-    hidden.inert && hidden.slide === '5' && afterHiddenRelay === '5' && afterInput === '5' && (await h.state(STAGE)).slide === '6',
+    settled && hidden.inert && hidden.slide === '5' && afterHiddenRelay === '5' && afterInput === '5' && (await h.state(STAGE)).slide === '6',
   )
 
   await page.locator('#present').click()
