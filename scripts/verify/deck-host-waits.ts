@@ -27,13 +27,40 @@ export async function neighborTurnFacts(h: Harness) {
 
 export async function waitForSettledWindow(h: Harness, activeId: string, windowIds: string[]) {
   const { page } = h
-  const settled = ([expectedActive, expectedWindow]: [string, string[]]) => {
+  const observe = ([expectedActive, expectedWindow]: [string, string[]]) => {
     const canvases = [...document.querySelectorAll<HTMLElement>('#deck [data-slide-id]')]
-    const active = document.querySelector<HTMLElement>('#deck [data-active]')?.dataset.slideId
-    const ids = canvases.map((canvas) => canvas.dataset.slideId)
-    return active === expectedActive && ids.length === expectedWindow.length && expectedWindow.every((id) => ids.includes(id))
+    const active = document.querySelector<HTMLElement>('#deck [data-active]')?.dataset.slideId ?? null
+    const mounted = canvases.map((canvas) => canvas.dataset.slideId ?? '')
+    return {
+      active,
+      mounted,
+      settled:
+        active === expectedActive &&
+        mounted.length === expectedWindow.length &&
+        expectedWindow.every((id) => mounted.includes(id)) &&
+        canvases.every((canvas) => canvas.querySelector('iframe')),
+    }
   }
   // Selection changes before the frame swap finishes, so wait for both the active canvas and its retained window.
-  await page.waitForFunction(settled, [activeId, windowIds] as [string, string[]], { timeout: BOUNDED_WAIT_MS }).catch(() => {})
-  return page.evaluate(settled, [activeId, windowIds] as [string, string[]])
+  let timedOut = false
+  await page
+    .waitForFunction(
+      ([expectedActive, expectedWindow]: [string, string[]]) => {
+        const canvases = [...document.querySelectorAll<HTMLElement>('#deck [data-slide-id]')]
+        const active = document.querySelector<HTMLElement>('#deck [data-active]')?.dataset.slideId
+        const mounted = canvases.map((canvas) => canvas.dataset.slideId)
+        return (
+          active === expectedActive &&
+          mounted.length === expectedWindow.length &&
+          expectedWindow.every((id) => mounted.includes(id)) &&
+          canvases.every((canvas) => canvas.querySelector('iframe'))
+        )
+      },
+      [activeId, windowIds] as [string, string[]],
+      { timeout: BOUNDED_WAIT_MS },
+    )
+    .catch(() => {
+      timedOut = true
+    })
+  return { ...(await page.evaluate(observe, [activeId, windowIds] as [string, string[]])), timedOut }
 }
