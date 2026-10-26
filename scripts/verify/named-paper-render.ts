@@ -9,10 +9,10 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const close = (actual: number, expected: number) => Math.abs(actual - expected) <= 0.01
 
-function markerDistanceFromTop(file: string): number | undefined {
+function markerDistanceFromTop(file: string): { distance: number | undefined; output: string } {
   const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
-  const marker = xml.match(/<word\s+[^>]*yMin="([\d.]+)"[^>]*>TOPMARK<\/word>/)
-  return marker ? Number(marker[1]) : undefined
+  const marker = xml.match(/<word\s+[^>]*yMin="(-?[\d.]+)"[^>]*>TOPMARK<\/word>/)
+  return { distance: marker ? Number(marker[1]) : undefined, output: xml }
 }
 
 export async function verifyNamedPaperRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -53,7 +53,7 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   const corrected = await renderer.pagePdf(
     { html: markerHtml, print: { paper: { width: 100, height: 150, unit: 'mm' }, orientation: 'portrait', margin } },
     {
-      css: 'html,body{margin:0}body{font:12px/12px sans-serif}',
+      css: 'html,body{margin:0}body{padding-top:24px;font:12px/12px sans-serif}',
       beforeOutput: async (tab) => {
         raw = await tab.pdf({
           width: `${100 / 25.4}in`,
@@ -69,11 +69,19 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   const rawFile = path.join(work, 'custom-top-marker-raw.pdf')
   writeFileSync(correctedFile, corrected)
   writeFileSync(rawFile, raw)
-  const correctedTop = markerDistanceFromTop(correctedFile)
-  const rawTop = markerDistanceFromTop(rawFile)
+  const correctedMarker = markerDistanceFromTop(correctedFile)
+  const rawMarker = markerDistanceFromTop(rawFile)
+  const correctedTop = correctedMarker.distance
+  const rawTop = rawMarker.distance
+  const missingOutput = [
+    correctedTop === undefined ? `corrected output=${correctedMarker.output.slice(0, 300)}` : undefined,
+    rawTop === undefined ? `raw output=${rawMarker.output.slice(0, 300)}` : undefined,
+  ]
+    .filter((detail) => detail !== undefined)
+    .join(' ')
   check(
     'exact custom sizing preserves a top-edge marker position',
     correctedTop !== undefined && rawTop !== undefined && Math.abs(correctedTop - rawTop) <= 0.05,
-    `corrected=${correctedTop ?? 'missing'}pt raw=${rawTop ?? 'missing'}pt`,
+    `corrected=${correctedTop ?? 'missing'}pt raw=${rawTop ?? 'missing'}pt${missingOutput ? ` ${missingOutput}` : ''}`,
   )
 }
