@@ -48,12 +48,44 @@ test('fontFaces refuses a malformed unicodeRange naming the face, the range, and
     ])
   expect(work).toThrow(RenderRefusedError)
   expect(work).toThrow(
-    'The unicode-range "U+ZZ" on face "Segnavia Scripts" (700, italic) is malformed: U+ZZ is not a CSS unicode-range descriptor (U+hex, U+hex-hex, or U+hex with ? wildcards). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
+    'The unicode-range "U+ZZ" on face "Segnavia Scripts" (700, italic) is malformed: U+ZZ is not a CSS unicode-range descriptor (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
   )
 })
 
 test('fontFaces names omitted weight and style as normal in a unicodeRange refusal', () => {
   expect(() => fontFaces([face({ family: 'Face', unicodeRange: '' })])).toThrow(
     'The unicode-range "" on face "Face" (normal, normal) is malformed: the list is empty. Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
+  )
+})
+
+test('fontFaces refuses a null unicodeRange naming the face', () => {
+  const work = () =>
+    fontFaces([
+      face({
+        family: 'Segnavia Scripts',
+        weight: 700,
+        style: 'italic',
+        unicodeRange: null as unknown as string,
+      }),
+    ])
+  expect(work).toThrow(RenderRefusedError)
+  expect(work).toThrow(
+    'The unicode-range null on face "Segnavia Scripts" (700, italic) is malformed: it is not a string (object). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
+  )
+})
+
+test('fontFaces refuses a numeric unicodeRange naming the face', () => {
+  const work = () =>
+    fontFaces([
+      face({
+        family: 'Segnavia Scripts',
+        weight: 400,
+        style: 'italic',
+        unicodeRange: 12 as unknown as string,
+      }),
+    ])
+  expect(work).toThrow(RenderRefusedError)
+  expect(work).toThrow(
+    'The unicode-range 12 on face "Segnavia Scripts" (400, italic) is malformed: it is not a string (number). Supply a CSS unicode-range list (U+hex, U+hex-hex, or U+hex with ? wildcards; code points at most 10FFFF) to clear this refusal.',
   )
 })

@@ -17,8 +17,11 @@ function fontRows(output: string): string[] {
 }
 
 export async function verifyScriptFaces(renderer: Renderer, work: string, check: Check): Promise<void> {
-  // DejaVu Sans is the Latin pair for the same-family unicode-range demo; without it both embeds cannot be observed.
-  if (!existsSync(SANS)) return
+  // DejaVu Sans is the Latin pair for the same-family unicode-range demo; without it both embeds cannot be observed. CI ships the font, so absence there is a failed check; locally the font is optional.
+  if (!existsSync(SANS)) {
+    if (process.env.CI) check('DejaVu Sans is installed for the script-face demo', false, SANS)
+    return
+  }
   const pdf = await renderer.pagePdf(
     { html: '<p style="font-family:\'Segnavia Scripts\'">שלום Hello</p>', size: { width: 400, height: 200 } },
     {

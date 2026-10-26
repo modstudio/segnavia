@@ -1,18 +1,20 @@
 export type UnicodeRangeParse = { ok: true; value: string } | { ok: false; reason: string }
 
 const MAX_CODE_POINT = 0x10ffff
+const MAX_CODE_POINT_HEX = MAX_CODE_POINT.toString(16).toUpperCase()
 const DESCRIPTOR_FORM = 'U+hex, U+hex-hex, or U+hex with ? wildcards'
+export const UNICODE_RANGE_CLEARANCE = `${DESCRIPTOR_FORM}; code points at most ${MAX_CODE_POINT_HEX}`
 
 function codePoint(hex: string): number {
   return Number.parseInt(hex, 16)
 }
 
 function aboveMax(hex: string, token: string): UnicodeRangeParse | undefined {
-  if (codePoint(hex) > MAX_CODE_POINT) return { ok: false, reason: `${token} has a code point above 10FFFF` }
+  if (codePoint(hex) > MAX_CODE_POINT) return { ok: false, reason: `${token} has a code point above ${MAX_CODE_POINT_HEX}` }
 }
 
 function malformed(token: string): UnicodeRangeParse {
-  return { ok: false, reason: `${token} is not a CSS unicode-range descriptor (${DESCRIPTOR_FORM})` }
+  return { ok: false, reason: `${token} is not a CSS unicode-range descriptor (${UNICODE_RANGE_CLEARANCE})` }
 }
 
 function parseRange(token: string): UnicodeRangeParse | undefined {
