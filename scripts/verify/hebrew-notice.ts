@@ -41,7 +41,7 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
   const html = readFileSync(path.join(fixture, 'index.html'), 'utf8')
   const page = { html, size: PAGE, lang: 'he', dir: 'rtl' as const }
   const options = {
-    fonts: [{ family: 'Notice Hebrew', data: readFileSync(path.join(fixture, 'NotoSerifHebrew-Variable.ttf')), format: 'truetype' as const }],
+    fonts: [{ family: 'Notice Hebrew', data: readFileSync(path.join(fixture, 'Alef-Regular.ttf')), format: 'truetype' as const }],
   }
   const [pdf, image] = await Promise.all([renderer.pagePdf(page, options), renderer.pageImage(page, { ...options, format: 'png', scale: SCALE })])
   const pdfFile = path.join(work, 'hebrew-notice.pdf')
@@ -49,7 +49,7 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
 
   const fonts = execFileSync('pdffonts', [pdfFile], { encoding: 'utf8' })
   const rows = fontRows(fonts)
-  const expectedFace = rows.length > 0 && rows.every((row) => /^\S*\+NotoSerifHebrew-Regular\s/.test(row) && /\syes\s+yes\s+yes\s+\d+\s+\d+$/.test(row))
+  const expectedFace = rows.length > 0 && rows.every((row) => /^\S*\+Alef-Regular\s/.test(row) && /\syes\s+yes\s+yes\s+\d+\s+\d+$/.test(row))
   check('the pointed Hebrew notice embeds only its supplied Hebrew face', expectedFace, rows.join('; '))
 
   const extracted = text(execFileSync('pdftotext', ['-layout', pdfFile, '-'], { encoding: 'utf8' }))
