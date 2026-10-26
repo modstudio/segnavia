@@ -72,9 +72,10 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
   const expectedFace = rows.length > 0 && rows.every((row) => /^\S*\+Alef-Regular\s/.test(row) && /\syes\s+yes\s+yes\s+\d+\s+\d+$/.test(row))
   check('the pointed Hebrew notice embeds only its supplied Hebrew face', expectedFace, rows.join('; '))
 
-  // Poppler reorders combining marks in RTL runs and inserts whitespace where it pulled them out.
-  // Logical order therefore ignores points and whitespace. The whole-page raster holds the overall appearance and word
-  // spacing; single-point placement is held by the parity record's eye check because CI pixel checks cannot distinguish it.
+  // Poppler reorders combining marks in RTL runs and inserts whitespace where it pulled them out,
+  // so logical order is compared without points or whitespace. The whole-page raster holds appearance
+  // and word spacing. No check here holds a single point's placement: between Poppler and Chromium,
+  // edge antialiasing differs more than a point moved to its neighbouring letter, or even lost mark shaping.
   const extracted = unpointed(execFileSync('pdftotext', [pdfFile, '-'], { encoding: 'utf8' }))
   let cursor = 0
   const missing = pointedLines(html).filter((line) => {

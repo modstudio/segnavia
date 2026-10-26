@@ -120,8 +120,8 @@ jobs:
           node-version: 22.14.0
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
-      - name: Install poppler and a press CMYK profile
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends poppler-utils colord-data
+      - name: Install poppler, ffmpeg and a press CMYK profile
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends poppler-utils ffmpeg colord-data
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Download browser demo
