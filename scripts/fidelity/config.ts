@@ -1,16 +1,14 @@
 import { existsSync } from 'node:fs'
-import path, { dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
+import { EFFECT_REGION_THRESHOLD, SCALE } from '../verify/pixel-difference.ts'
 import type { BarId, Difference, FixtureKind, ReaderResult, SizeMeasurement, Threshold } from './types.ts'
 
-export const ROOT = path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+export { EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from '../verify/pixel-difference.ts'
+
+export const ROOT = path.resolve(import.meta.dir, '../..')
 export const OUTPUT_ROOT = path.resolve(process.env.SEGNAVIA_FIDELITY_OUT ?? path.join(ROOT, 'out/fidelity'))
-export const SCALE = 4
 export const CSS_PX_PER_INCH = 96
-export const READER_RASTER_DPI = CSS_PX_PER_INCH * SCALE
-// Shmuel agreed these acceptance limits on 2026-10-14.
-export const EFFECT_REGION_THRESHOLD = { mean: 2, p99: 24 }
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 // This regression ceiling sits just above the worst measured effects document.
 export const PRESS_BLEND_THRESHOLD = { mean: 10, p99: 90 }
