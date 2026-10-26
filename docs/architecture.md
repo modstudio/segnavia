@@ -9,7 +9,7 @@ format  ◄── html          (universal: browser and server)
   │     ▲
   │     └── react         (browser adapter; React is a peer dependency here only)
   │     ▲
-  │     ├── render        (server: Chromium via playwright-core, pdf-lib)
+  │     ├── render        (server: host-supplied playwright-core and Chromium, pdf-lib)
   │     │     ▲
   │     └─────┴── capture (server: flows, shots, annotations)
   └── voice               (server: providers, cache)
@@ -33,6 +33,8 @@ the custom elements, but its server-safe entry points are the single source
 of the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
+The render host supplies both the `playwright-core` client and the Chromium
+binary it launches.
 Frame imports the universal HTML package for the one binding transform shared
 by live, thumbnail and print documents.
 

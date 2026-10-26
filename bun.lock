@@ -86,7 +86,12 @@
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
         "pdf-lib": "^1.17.1",
+      },
+      "devDependencies": {
         "playwright-core": "1.55.1",
+      },
+      "peerDependencies": {
+        "playwright-core": "^1.55.1",
       },
     },
     "packages/voice": {
