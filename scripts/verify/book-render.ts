@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { type BookInput, formatNumber, MM_PER_PT } from '@segnavia/format'
+import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
 
@@ -331,6 +331,16 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   }
   const baselineFacts = facts(baselineFile)
   const overflowFacts = facts(overflowFile)
+  const bookPages = (await PDFDocument.load(baseline)).getPages()
+  const a5 = PAPER_MM.a5
+  check(
+    'every continuous book page has an origin-zero A5 media box within 0.01 point',
+    bookPages.every((page) => {
+      const box = page.getMediaBox()
+      return box.x === 0 && box.y === 0 && Math.abs(box.width - a5.width / MM_PER_PT) <= 0.01 && Math.abs(box.height - a5.height / MM_PER_PT) <= 0.01
+    }),
+    JSON.stringify(bookPages[0]?.getMediaBox()),
+  )
   const body = report?.entries.find((entry) => entry.part === 'body')
   check(
     'a book chapter with a too-wide table keeps text and page count at true size and reports only kept prints in output order',

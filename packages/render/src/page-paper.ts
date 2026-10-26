@@ -6,6 +6,7 @@ import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
+import { millimeterPageSize, pagePdfSize, setPdfPageSize } from './pdf-page-size.ts'
 
 const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 
@@ -79,21 +80,22 @@ export function pressContentPlacement(source: { width: number; height: number },
 export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
+    const size = millimeterPageSize(mm)
     const margin = print.margin
     const pageWidth = paperPixels(mm.width)
-    return printWithOverflow(
+    const printed = await printWithOverflow(
       tab,
       pageWidth,
       'page',
       {
-        width: `${mm.width}mm`,
-        height: `${mm.height}mm`,
+        ...pagePdfSize(size),
         printBackground: true,
         preferCSSPageSize: preferCssPageSize ?? false,
         margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
       },
       inputIndex,
     )
+    return preferCssPageSize ? printed : { ...printed, bytes: await setPdfPageSize(printed.bytes, size) }
   }
 
   const boxes = printBoxes(print)

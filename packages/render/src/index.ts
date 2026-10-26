@@ -18,6 +18,7 @@ import { assertPrintOptions, printCss, printPage, printViewport } from './page-p
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
+import { pagePdfSize, pixelPageSize, setPdfPageSize } from './pdf-page-size.ts'
 import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
@@ -200,19 +201,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const height = fixedHeight ?? (await contentHeight(tab))
         if (fixedHeight !== null) {
           const overflow = await measureOverflow(tab, viewport.width, 'page', inputIndex)
+          const size = pixelPageSize({ width: viewport.width, height })
           return {
-            bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), captures),
+            bytes: await setPdfPageSize(await tagBackdropRasters(await tab.pdf({ ...pagePdfSize(size), printBackground: true }), captures), size),
             overflow,
           }
         }
-        const printed = await printWithOverflow(
-          tab,
-          viewport.width,
-          'page',
-          { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
-          inputIndex,
-        )
-        return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+        const size = pixelPageSize({ width: viewport.width, height })
+        const printed = await printWithOverflow(tab, viewport.width, 'page', { ...pagePdfSize(size), printBackground: true, pageRanges: '1' }, inputIndex)
+        return { ...printed, bytes: await setPdfPageSize(await tagBackdropRasters(printed.bytes, captures), size) }
       },
     )
   }

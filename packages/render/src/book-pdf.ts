@@ -7,6 +7,7 @@ import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
+import { millimeterPageSize, setPdfPageSize } from './pdf-page-size.ts'
 
 export interface BookPdfAdapter {
   print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart): Promise<PrintResult<true>>
@@ -235,7 +236,7 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
     ),
   ]
   const margin = await adapter.print(marginDocument(book, marginPages), book, options, 'margin')
-  const output = await adapter.finish(await join(front, printedBody.part, margin.bytes), options)
+  const output = await adapter.finish(await setPdfPageSize(await join(front, printedBody.part, margin.bytes), millimeterPageSize(sheetMm(book.page))), options)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })
