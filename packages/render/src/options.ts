@@ -49,6 +49,7 @@ export interface Font {
   format: 'woff2' | 'woff' | 'truetype' | 'opentype'
   weight?: number | string
   style?: 'normal' | 'italic'
+  unicodeRange?: string
 }
 
 export interface RenderLimits {
