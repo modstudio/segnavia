@@ -56,7 +56,7 @@ function readHeader(data: Uint8Array): Header {
   const interlace = data[12]
   if (width === 0 || height === 0) throw new Error(`Unsupported PNG dimensions: found ${width}x${height}.`)
   if (bitDepth !== 8) throw new Error(`Unsupported PNG bit depth: found ${bitDepth}, expected 8.`)
-  if (colorType !== 2 && colorType !== 6) throw new Error(`Unsupported PNG colour type: found ${colorType}, expected 2 (RGB) or 6 (RGBA).`)
+  if (colorType !== 2 && colorType !== 6) throw new Error(`Unsupported PNG color type: found ${colorType}, expected 2 (RGB) or 6 (RGBA).`)
   if (compression !== 0) throw new Error(`Unsupported PNG compression method: found ${compression}.`)
   if (filter !== 0) throw new Error(`Unsupported PNG filter method: found ${filter}.`)
   if (interlace !== 0) throw new Error(`Unsupported PNG interlace method: found ${interlace}, expected 0.`)
