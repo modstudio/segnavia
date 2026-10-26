@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs'
-import path from 'node:path'
+import path, { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { PageInput } from '@segnavia/format'
 import type { BarId, Difference, FixtureKind, ReaderResult, SizeMeasurement, Threshold } from './types.ts'
 
-export const ROOT = path.resolve(import.meta.dir, '../..')
+export const ROOT = path.resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 export const OUTPUT_ROOT = path.resolve(process.env.SEGNAVIA_FIDELITY_OUT ?? path.join(ROOT, 'out/fidelity'))
 export const SCALE = 4
 export const CSS_PX_PER_INCH = 96
