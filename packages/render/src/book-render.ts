@@ -6,6 +6,7 @@ import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import { pagePdfSize } from './pdf-page-size.ts'
 
 interface TabSetup {
   viewport: { width: number; height: number }
@@ -47,8 +48,7 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
           beforeOutput: renderOptions.beforeOutput,
         },
         {
-          width: `${size.width}mm`,
-          height: `${size.height}mm`,
+          ...pagePdfSize(size),
           printBackground: true,
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
