@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <title>הודעת קהילה</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; inline-size: 100%; block-size: 100%; }
+      body {
+        display: flex;
+        flex-direction: column;
+        padding-block: 52px 42px;
+        padding-inline: 66px;
+        color: #192a36;
+        background: #fffdf8;
+        font-family: "Notice Hebrew", serif;
+      }
+      .letterhead {
+        padding-block-end: 18px;
+        border-block-end: 2px solid #9a7444;
+        color: #704c24;
+        font-size: 20px;
+        letter-spacing: .04em;
+        text-align: center;
+      }
+      main {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        max-inline-size: 660px;
+        margin-inline: auto;
+        text-align: center;
+      }
+      h1 {
+        margin-block: 0 14px;
+        color: #173f51;
+        font-size: 58px;
+        font-weight: 400;
+        line-height: 1.35;
+      }
+      .byline { margin-block: 0 42px; font-size: 25px; }
+      .times { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .time-block {
+        padding-block: 24px 28px;
+        padding-inline: 18px;
+        border: 1px solid #d4c1a7;
+        border-radius: 12px;
+        background: #f7f0e5;
+      }
+      .label { margin-block-end: 12px; font-size: 23px; }
+      .clock {
+        direction: ltr;
+        unicode-bidi: isolate;
+        color: #8b3e2f;
+        font-size: 38px;
+        line-height: 1;
+      }
+      .clock small { font-size: 16px; letter-spacing: .08em; }
+      footer {
+        padding-block-start: 16px;
+        border-block-start: 1px solid #9a7444;
+        color: #704c24;
+        font-size: 18px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="letterhead" data-pointed>בֵּית תְּפִלָּה • לוּחַ הַקָּהָל</header>
+    <main>
+      <h1 data-pointed>מַה־טֹּבוּ אֹהָלֶיךָ</h1>
+      <p class="byline" data-pointed>הוֹדָעָה לִבְנֵי הַקָּהָל</p>
+      <section class="times" aria-label="זמני תפילה">
+        <article class="time-block">
+          <div class="label" data-pointed>קַבָּלַת שַׁבָּת</div>
+          <div class="clock">6:15 <small>PM</small></div>
+        </article>
+        <article class="time-block">
+          <div class="label" data-pointed>תְּפִלַּת שַׁחֲרִית</div>
+          <div class="clock">9:00 <small>AM</small></div>
+        </article>
+      </section>
+    </main>
+    <footer data-pointed>נָא לְהַגִּיעַ בַּזְּמַן • שַׁבָּת שָׁלוֹם</footer>
+  </body>
+</html>

@@ -1,14 +1,6 @@
-export interface Box {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import type { Box, Difference } from '../verify/pixel-difference.ts'
 
-export interface Difference {
-  mean: number
-  p99: number
-}
+export type { Box, Difference } from '../verify/pixel-difference.ts'
 
 export interface Threshold {
   mean: number
