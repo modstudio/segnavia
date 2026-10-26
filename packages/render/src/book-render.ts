@@ -6,7 +6,7 @@ import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
-import { millimeterPageSize, pagePdfSize } from './pdf-page-size.ts'
+import { pagePdfSize } from './pdf-page-size.ts'
 
 interface TabSetup {
   viewport: { width: number; height: number }
@@ -28,7 +28,6 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
     print: (html: string, book: Book, renderOptions: RenderOptions, part: BookOverflowPart) => {
       if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
       const size = sheetMm(book.page)
-      const pdfSize = millimeterPageSize(size)
       const marginLayer = part === 'margin'
       const css = `${bookPageCss(book, marginLayer)}${marginLayer ? marginCss(book) : ''}${dependencies.fontFaces(renderOptions)}${renderOptions.css ?? ''}`
       return dependencies.render(
@@ -49,7 +48,7 @@ export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, d
           beforeOutput: renderOptions.beforeOutput,
         },
         {
-          ...pagePdfSize(pdfSize),
+          ...pagePdfSize(size),
           printBackground: true,
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },

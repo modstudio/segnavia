@@ -16,7 +16,7 @@ function markerDistanceFromTop(file: string): number | undefined {
 }
 
 export async function verifyNamedPaperRender(renderer: Renderer, work: string, check: Check): Promise<void> {
-  const papers = ['postcard-4x6', 'business-card-eu', 'a4'] as const
+  const papers = ['postcard-4x6', 'business-card-eu', 'a4', 'letter'] as const
   for (const paper of papers) {
     const { width, height } = PAPER_MM[paper]
     const file = path.join(work, `${paper}.pdf`)
