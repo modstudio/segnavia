@@ -88,10 +88,9 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
       pageWidth,
       'page',
       {
-        ...pagePdfSize(size),
+        ...pagePdfSize(size, margin),
         printBackground: true,
         preferCSSPageSize: preferCssPageSize ?? false,
-        margin: margin ? { top: `${margin.top}mm`, right: `${margin.right}mm`, bottom: `${margin.bottom}mm`, left: `${margin.left}mm` } : undefined,
       },
       inputIndex,
     )
