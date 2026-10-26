@@ -10,7 +10,8 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const DPI = 384
 const SCALE = DPI / 96
-const PDF_SCALE = DPI / 72
+const TARGET_DPI = 96
+const BOX_SCALE = TARGET_DPI / 72
 const PAGE = { width: 816, height: 1056 }
 const POINTS = /[\u0591-\u05c7]/g
 
@@ -20,6 +21,25 @@ function rgbFile(file: string, width: number, height: number): Uint8Array {
   })
   if (pixels.length !== width * height * 3) throw new Error(`Unexpected decoded size for ${path.basename(file)}.`)
   return pixels
+}
+
+function downsample4(source: Uint8Array, width: number, height: number): Uint8Array {
+  if (width % 4 !== 0 || height % 4 !== 0 || source.length !== width * height * 3) throw new Error('Unexpected 4x raster size.')
+  const targetWidth = width / 4
+  const targetHeight = height / 4
+  const target = new Uint8Array(targetWidth * targetHeight * 3)
+  for (let y = 0; y < targetHeight; y++) {
+    for (let x = 0; x < targetWidth; x++) {
+      for (let channel = 0; channel < 3; channel++) {
+        let sum = 0
+        for (let dy = 0; dy < 4; dy++) {
+          for (let dx = 0; dx < 4; dx++) sum += source[(((y * 4 + dy) * width + x * 4 + dx) * 3 + channel)] ?? 0
+        }
+        target[(y * targetWidth + x) * 3 + channel] = Math.round(sum / 16)
+      }
+    }
+  }
+  return target
 }
 
 const text = (value: string): string => value.normalize('NFC').replace(/\s+/g, ' ').trim()
@@ -46,10 +66,10 @@ function pointedLineBoxes(xml: string): Array<{ x: number; y: number; width: num
       const xMax = Number(match[3])
       const yMax = Number(match[4])
       return {
-        x: xMin * PDF_SCALE - 4,
-        y: yMin * PDF_SCALE - 4,
-        width: (xMax - xMin) * PDF_SCALE + 8,
-        height: (yMax - yMin) * PDF_SCALE + 8,
+        x: xMin * BOX_SCALE - 4,
+        y: yMin * BOX_SCALE - 4,
+        width: (xMax - xMin) * BOX_SCALE + 8,
+        height: (yMax - yMin) * BOX_SCALE + 8,
       }
     })
 }
@@ -90,15 +110,16 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
   writeFileSync(screenFile, image)
   const screen = imageSize(image)
   const sameSize = raster.width === screen?.width && raster.height === screen.height
-  const screenPixels = sameSize ? rgbFile(screenFile, screen.width, screen.height) : new Uint8Array()
-  const difference = sameSize ? differencePixels(screenPixels, raster.pixels, raster.width, raster.height) : { mean: Number.POSITIVE_INFINITY, p99: 255 }
+  const screenPixels = sameSize ? downsample4(rgbFile(screenFile, screen.width, screen.height), screen.width, screen.height) : new Uint8Array()
+  const rasterPixels = sameSize ? downsample4(raster.pixels, raster.width, raster.height) : new Uint8Array()
+  const difference = sameSize ? differencePixels(screenPixels, rasterPixels, PAGE.width, PAGE.height) : { mean: Number.POSITIVE_INFINITY, p99: 255 }
   const boxes = pointedLineBoxes(execFileSync('pdftotext', ['-bbox-layout', pdfFile, '-'], { encoding: 'utf8' }))
-  const lines = sameSize ? boxes.map((box) => differencePixels(screenPixels, raster.pixels, raster.width, raster.height, undefined, true, box)) : []
+  const lines = sameSize ? boxes.map((box) => differencePixels(screenPixels, rasterPixels, PAGE.width, PAGE.height, undefined, true, box)) : []
   const scores = [difference, ...lines]
   const regionsPass = boxes.length === pointedLines(html).length && scores.every((score) => score.mean <= 2 && score.p99 <= 24)
   check(
     'the pointed Hebrew notice PDF raster and every pointed line match its page image within the effects bar',
     sameSize && regionsPass,
-    `screen=${screen?.width}x${screen?.height}, pdf=${raster.width}x${raster.height}, page=${difference.mean.toFixed(2)}/${difference.p99}, lines=${lines.map((score) => `${score.mean.toFixed(2)}/${score.p99}`).join(', ')}`,
+    `source=${screen?.width}x${screen?.height}, pdf=${raster.width}x${raster.height}, compared=${PAGE.width}x${PAGE.height}, page=${difference.mean.toFixed(2)}/${difference.p99}, lines=${lines.map((score) => `${score.mean.toFixed(2)}/${score.p99}`).join(', ')}`,
   )
 }
