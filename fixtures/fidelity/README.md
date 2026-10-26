@@ -56,7 +56,9 @@ Offsets are reported, never applied.
 
 ## Acceptance bars
 
-The bars live in `scripts/fidelity/config.ts`. Control documents are judged on
+The bars live in `scripts/fidelity/config.ts`, except `EFFECT_REGION_THRESHOLD`,
+which the rendering verification shares and `scripts/verify/pixel-difference.ts`
+owns. Control documents are judged on
 the whole page against `PRESS_COLOR_THRESHOLD` (mean ≤ 3, p99 ≤ 30), for both
 CMYK and grey; a blended mask over 1% also fails a control. Effects documents
 are judged on the whole page against the `PRESS_BLEND_THRESHOLD` regression
