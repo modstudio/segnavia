@@ -2,22 +2,14 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
-import { imageSize } from './image-size.ts'
 import { readPpm } from './pdf-raster.ts'
 import { differencePixels, EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from './pixel-difference.ts'
+import { decodePng } from './png-pixels.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const PAGE = { width: 816, height: 1056 }
 const POINTS = /[\u0591-\u05c7]/g
-
-function rgbFile(file: string, width: number, height: number): Uint8Array {
-  const pixels = execFileSync('ffmpeg', ['-loglevel', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], {
-    maxBuffer: width * height * 3 + 1024,
-  })
-  if (pixels.length !== width * height * 3) throw new Error(`Unexpected decoded size for ${path.basename(file)}.`)
-  return pixels
-}
 
 function downsample(source: Uint8Array, width: number, height: number): Uint8Array {
   if (width % SCALE !== 0 || height % SCALE !== 0 || source.length !== width * height * 3) throw new Error(`Unexpected ${SCALE}x raster size.`)
@@ -100,18 +92,16 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
   const prefix = path.join(work, 'hebrew-notice-pdf')
   execFileSync('pdftoppm', ['-r', String(READER_RASTER_DPI), '-singlefile', pdfFile, prefix])
   const raster = readPpm(`${prefix}.ppm`)
-  const screenFile = path.join(work, 'hebrew-notice-screen.png')
-  writeFileSync(screenFile, image)
-  const screen = imageSize(image)
+  const screen = decodePng(image)
   const sameSize =
-    raster.width === screen?.width && raster.height === screen.height && raster.width === PAGE.width * SCALE && raster.height === PAGE.height * SCALE
-  const screenPixels = sameSize ? downsample(rgbFile(screenFile, screen.width, screen.height), screen.width, screen.height) : new Uint8Array()
+    raster.width === screen.width && raster.height === screen.height && raster.width === PAGE.width * SCALE && raster.height === PAGE.height * SCALE
+  const screenPixels = sameSize ? downsample(screen.pixels, screen.width, screen.height) : new Uint8Array()
   const rasterPixels = sameSize ? downsample(raster.pixels, raster.width, raster.height) : new Uint8Array()
   const difference = sameSize ? differencePixels(screenPixels, rasterPixels, PAGE.width, PAGE.height) : { mean: Number.POSITIVE_INFINITY, p99: 255 }
   const pagePass = difference.mean <= EFFECT_REGION_THRESHOLD.mean && difference.p99 <= EFFECT_REGION_THRESHOLD.p99
   check(
     'the pointed Hebrew notice PDF raster matches its page image within the effects bar',
     sameSize && pagePass,
-    `source=${screen?.width}x${screen?.height}, pdf=${raster.width}x${raster.height}, compared=${PAGE.width}x${PAGE.height}, mean=${difference.mean.toFixed(2)}, p99=${difference.p99}`,
+    `source=${screen.width}x${screen.height}, pdf=${raster.width}x${raster.height}, compared=${PAGE.width}x${PAGE.height}, mean=${difference.mean.toFixed(2)}, p99=${difference.p99}`,
   )
 }

@@ -10,8 +10,7 @@ success only when every job below succeeds:
 - `verify-demo` downloads that build and runs three Ubuntu jobs, each with one
   shard of the browser verification and poppler's PDF tools.
 - `verify-render` runs the rendering verification on Ubuntu under both Bun and
-  Node, with Ubuntu's poppler, ffmpeg and the FOGRA39L press profile from
-  colord-data.
+  Node, with Ubuntu's poppler and the FOGRA39L press profile from colord-data.
   Poppler draws DeviceCMYK with a fixed model of press inks rather than the
   PDF's output intent, so the press-color checks proof against a profile of a
   real press condition: FOGRA39L, or macOS's Generic CMYK where that is present.
@@ -39,9 +38,6 @@ include that fixture.
 `bun run check` is the full gate CI runs. It checks repository structure,
 formatting and lint with Biome, types, every unit test, package shape, and a
 release dry run.
-
-The local `bun run demo` rendering verification needs poppler, ffmpeg and the
-FOGRA39L press profile as well.
 
 The pre-commit hook runs `bun run check --changed --staged`. The structural,
 Biome and type checks still cover the repository. Unit tests run for:
