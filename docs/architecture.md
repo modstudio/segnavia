@@ -9,7 +9,7 @@ format  ◄── html          (universal: browser and server)
   │     ▲
   │     └── react         (browser adapter; React is a peer dependency here only)
   │     ▲
-  │     ├── render        (server: Chromium via playwright-core, pdf-lib)
+  │     ├── render        (server: host-supplied playwright-core and Chromium, pdf-lib)
   │     │     ▲
   │     └─────┴── capture (server: flows, shots, annotations)
   └── voice               (server: providers, cache)
@@ -35,6 +35,10 @@ timeline and the print document. The browser uses that frame-based print layout;
 server uses its geometry while composing top-level renders.
 Frame imports the universal HTML package for the one binding transform shared
 by live, thumbnail and print documents.
+
+A render host supplies both the `playwright-core` client, any version in the
+render package's peer range, and the Chromium binary it launches through
+`executablePath`.
 
 `Board` is the portable value for an unbounded collection of referenced
 assets, labels and sections. It stores each item's width but not its height;

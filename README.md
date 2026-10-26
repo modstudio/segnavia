@@ -93,6 +93,9 @@ viewer.page = page
 
 Render it on a server:
 
+The host installs `playwright-core` (any version in `^1.55.1`) and supplies
+the Chromium binary through `executablePath`.
+
 ```ts
 import { openRenderer } from '@segnavia/render'
 
