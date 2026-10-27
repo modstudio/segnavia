@@ -119,6 +119,13 @@ one host's rule (no author scripts) and another host's behavior (keys pressed
 inside a slide still page the deck) at once. The first host's key relay never
 worked under refused scripts; this design closes that gap.
 
+**Live data or script, never both, holds across the whole page.** A page
+whose `scripts` is not `refuse` places only motif versions without live data;
+a live-data motif there is refused at save and at expansion. A nested frame
+cannot keep filled data from the page's script: its `srcdoc` and any message
+relayed to it live in the page's own document and realm, and the script can
+replace the child frame with its own.
+
 **Messages are trusted by `event.source` only.** A sandboxed frame's
 `origin` is `"null"` and proves nothing. Only a paging key's name, a height
 and a ready signal cross.
