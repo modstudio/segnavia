@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
-import { compareDesignedPages, DESIGNED_PAGE_MEAN, DESIGNED_PAGE_P99 } from './paginated-designed.ts'
+import { compareDesignedPages, compareTemplatedPages, DESIGNED_PAGE_MEAN, DESIGNED_PAGE_P99 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
@@ -83,6 +83,7 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBooks(h)
+  await verifyWorkbooks(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {
@@ -211,4 +212,76 @@ async function verifyPaginatedBooks(h: Harness) {
   }
   const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))
   check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
+}
+
+async function verifyWorkbooks(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('book-workbook.html'))
+  for (const id of ['book-workbook-en', 'book-workbook-he'] as const) {
+    const frame = await paginatedFrame(h, id)
+    const report = await frame.evaluate(() => {
+      const pages = Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-flow^="segnavia-templated-"]'))
+      const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
+      const overflow = Array.from(document.querySelectorAll('[data-segnavia-region-overflow]')).map((node) =>
+        node.getAttribute('data-segnavia-region-overflow'),
+      )
+      const school = document.body.textContent ?? ''
+      const tableDir = Array.from(document.querySelectorAll('[data-region="table"]')).map((node) => getComputedStyle(node).direction)
+      const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).map((node) => {
+        const target = node.getAttribute('data-target') ?? ''
+        const paper = document.getElementById(target)?.closest('[data-segnavia-book-page]')
+        return { id: target, text: node.textContent?.trim() ?? '', folio: paper?.getAttribute('data-segnavia-folio') ?? '' }
+      })
+      return {
+        failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
+        pages: pages.length,
+        templates,
+        overflow,
+        school,
+        tableDir,
+        contents,
+        bodyFolio: pages.every((paper) => Boolean(paper.querySelector('.segnavia-folio')?.textContent?.trim())),
+        dir: document.documentElement.getAttribute('dir'),
+      }
+    })
+    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 3, report.failure ?? `${report.pages} pages`)
+    check(
+      `${id} one lesson page names its own template`,
+      report.templates.includes('lesson') && report.templates.includes('lesson-alt'),
+      report.templates.join(','),
+    )
+    check(
+      `${id} an overfull reading-text region is marked by page and name`,
+      report.overflow.some((mark) => mark?.includes(':reading-text:')),
+      JSON.stringify(report.overflow),
+    )
+    check(`${id} templated pages carry folios`, report.bodyFolio)
+    const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
+    check(
+      `${id} contents lists every lesson with its page number`,
+      lessons.length >= 4 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
+      JSON.stringify(lessons),
+    )
+    const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
+    check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
+    check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
+
+    await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
+    const landed = await frame.evaluate(() => {
+      const target = document.getElementById('lesson-1')
+      if (!target) return false
+      const box = target.getBoundingClientRect()
+      return box.bottom > 0 && box.top < innerHeight
+    })
+    check(`${id} contents links land on the lesson pages`, landed)
+
+    const pixels = await compareTemplatedPages(h, id)
+    check(
+      `${id} each templated page equals its PDF page (mean <= ${DESIGNED_PAGE_MEAN}, p99 <= ${DESIGNED_PAGE_P99})`,
+      pixels.length > 0 && pixels.every((item) => item.ok),
+      pixels.map((item) => item.detail).join('; '),
+    )
+  }
+  const hebrewDir = await (await paginatedFrame(h, 'book-workbook-he')).evaluate(() => document.documentElement.getAttribute('dir'))
+  check('the Hebrew workbook root is right to left', hebrewDir === 'rtl', String(hebrewDir))
 }

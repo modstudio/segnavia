@@ -62,7 +62,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     const lost = { n: 0 }
     const repeated = { n: 0 }
     for (const flow of Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]'))) {
-      if (flow.getAttribute('data-segnavia-kind') === 'fixed') continue
+      if (flow.getAttribute('data-segnavia-kind') === 'fixed' || flow.getAttribute('data-segnavia-kind') === 'templated') continue
       const id = flow.getAttribute('data-segnavia-flow') ?? ''
       const origin = originTop(flow)
       for (const child of Array.from(flow.children)) {
@@ -208,7 +208,7 @@ export function inspectPaginatedBook(): PaginatedReport {
   function blocks() {
     const counts = { extra: 0, missing: 0, shown: 0 }
     for (const flow of Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]'))) {
-      if (flow.getAttribute('data-segnavia-kind') === 'fixed') continue
+      if (flow.getAttribute('data-segnavia-kind') === 'fixed' || flow.getAttribute('data-segnavia-kind') === 'templated') continue
       const id = flow.getAttribute('data-segnavia-flow') ?? ''
       const origin = originTop(flow)
       const windows = Array.from(document.querySelectorAll(`[data-segnavia-window][data-flow="${id}"]`))

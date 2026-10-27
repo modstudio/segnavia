@@ -1,14 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  Book,
-  type BookInput,
-  isBookContents,
-  isDesignedSection,
-  isTemplatedSection,
-  jsonSchemas,
-  noteMarkerIssues,
-  resolveBookPagination,
-} from './index.ts'
+import { Book, type BookInput, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -251,7 +242,7 @@ describe('book', () => {
       template: 'lesson',
       pages: [
         { regions: { heading: '<h1>One</h1>', 'reading-text': '<p>Read</p>' } },
-        { template: 'lesson-alt', regions: { heading: '<h1>Two</h1>' } },
+        { template: 'lesson-alt', regions: { heading: '<h1>Two</h1>', 'reading-text': '<p>More</p>' } },
       ],
     }
     const book = Book.parse(
@@ -305,10 +296,7 @@ describe('book', () => {
         mode: 'paginated',
         page,
         templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
-        chapters: [
-          { kind: 'templated', title: 'Lessons', template: 'lesson', pages: [{ regions: { 'reading text': '<p>Read</p>' } }] },
-          chapter,
-        ],
+        chapters: [{ kind: 'templated', title: 'Lessons', template: 'lesson', pages: [{ regions: { 'reading text': '<p>Read</p>' } }] }, chapter],
       }),
     )
     expect(result.error?.issues[0]?.path).toEqual(['chapters', 0, 'pages', 0, 'regions', 'reading text'])

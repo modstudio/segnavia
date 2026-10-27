@@ -8,6 +8,7 @@ import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { filledBook } from './slot-fill.ts'
 
 export interface BookPdfAdapter {
   print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
@@ -219,7 +220,7 @@ async function renderPaginatedBookPdf(book: Book, options: RenderOptions, adapte
 }
 
 export async function renderBookPdf(input: BookInput, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
-  const book = Book.parse(input)
+  const book = await filledBook(Book.parse(input), options.slots)
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, options, adapter)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
   const printedBody = await printBody(book, options, adapter)

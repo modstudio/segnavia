@@ -4,6 +4,7 @@ import { Book, type BookInput } from '@segnavia/format'
 import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
+import { filledBook } from '../packages/render/src/slot-fill.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_CSS = `<style>
@@ -134,7 +135,82 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
 })
 
-export function buildBookDemo(site: string): void {
+const workbookCss =
+  ':where(.lesson){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:12px;padding-inline:12px;display:flex;flex-direction:column;gap:8px}:where(.lesson-heading){font-weight:700}:where(.lesson-reading){block-size:5em;overflow:visible}:where(.lesson-table table){inline-size:100%;border-collapse:collapse}:where(.lesson-table th,.lesson-table td){border:1px solid;padding:4px}:where(.copyright-page){box-sizing:border-box;inline-size:100%;block-size:100%;padding:24px}:where(.lesson-alt .lesson-table){order:-1}'
+
+function lessonTable(hebrew: boolean): string {
+  const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
+  return `<table><thead><tr>${head}</tr></thead><tbody><tr><td>א</td><td>1</td></tr><tr><td>ב</td><td>2</td></tr></tbody></table>`
+}
+
+function workbookFixture(hebrew: boolean): BookInput {
+  const lesson = hebrew ? 'שיעור' : 'Lesson'
+  const reading = hebrew ? 'הטקסט לקריאה בשיעור.' : 'The reading text for this lesson.'
+  const longReading = hebrew ? `${reading} `.repeat(40) : `${reading} `.repeat(40)
+  return {
+    title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    rectoOpenings: true,
+    slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }],
+    templates: [
+      {
+        name: 'lesson',
+        html: '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
+      },
+      {
+        name: 'lesson-alt',
+        html: '<div class="lesson lesson-alt"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
+      },
+    ],
+    frontMatter: [
+      {
+        kind: 'designed',
+        title: hebrew ? 'זכויות יוצרים' : 'Copyright',
+        pages: [
+          {
+            html: `<div class="copyright-page"><p>© <span data-slot-value="school">${hebrew ? 'בית ספר' : 'School'}</span></p></div>`,
+          },
+        ],
+      },
+      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+    ],
+    chapters: [
+      {
+        kind: 'templated',
+        title: hebrew ? 'שיעורים' : 'Lessons',
+        template: 'lesson',
+        pages: [
+          {
+            regions: {
+              heading: `<h1 id="lesson-1">${lesson} 1</h1>`,
+              'reading-text': `<p>${reading}</p>`,
+              table: lessonTable(hebrew),
+            },
+          },
+          {
+            regions: {
+              heading: `<h1 id="lesson-2">${lesson} 2</h1>`,
+              'reading-text': `<p>${longReading}</p>`,
+              table: lessonTable(hebrew),
+            },
+          },
+          {
+            template: 'lesson-alt',
+            regions: {
+              heading: `<h1 id="lesson-3">${lesson} 3</h1>`,
+              'reading-text': `<p>${reading}</p>`,
+              table: lessonTable(hebrew),
+            },
+          },
+        ],
+      },
+    ],
+  }
+}
+
+export async function buildBookDemo(site: string): Promise<void> {
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
   writeFileSync(
@@ -152,11 +228,27 @@ export function buildBookDemo(site: string): void {
       : `${designedCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(book)))
+
+    const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
+    const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
+    const workbookCssFull = hebrew
+      ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}`
+      : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`
+    writeFileSync(
+      path.join(site, hebrew ? 'book-workbook-he.html' : 'book-workbook-en.html'),
+      paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull }),
+    )
   }
   writeFileSync(
     path.join(site, 'book-paginated.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section></main></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-workbook.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Workbooks</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-workbook-en" sandbox="allow-scripts" src="book-workbook-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-workbook-he" sandbox="allow-scripts" src="book-workbook-he.html"></iframe></section></main></body></html>`,
   )
 }

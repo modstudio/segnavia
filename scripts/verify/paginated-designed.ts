@@ -45,10 +45,9 @@ function rasterPdfPage(pdf: Uint8Array, page: number, work: string): PngPixels {
   return decodePng(new Uint8Array(readFileSync(`${prefix}.png`)))
 }
 
-export async function compareDesignedPages(h: Harness, id: string): Promise<DesignedPageMatch[]> {
-  const work = path.join(EVIDENCE, `${id}-designed`)
+async function compareSelectedPages(h: Harness, id: string, file: string, selector: string, label: string): Promise<DesignedPageMatch[]> {
+  const work = path.join(EVIDENCE, `${id}-${label}`)
   mkdirSync(work, { recursive: true })
-  const file = id === 'book-paginated-he' ? 'book-paginated-he.html' : 'book-paginated-en.html'
   await h.page.setViewportSize({ width: 600, height: 900 })
   await h.page.goto(h.url(file))
   await h.page.waitForFunction(
@@ -56,10 +55,9 @@ export async function compareDesignedPages(h: Harness, id: string): Promise<Desi
     undefined,
     { timeout: 20_000 },
   )
-  const pages = await h.page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-role="fixed"]')).map((node) =>
-      Number(node.getAttribute('data-segnavia-book-page')),
-    ),
+  const pages = await h.page.evaluate(
+    (held) => Array.from(document.querySelectorAll(held)).map((node) => Number(node.getAttribute('data-segnavia-book-page'))),
+    selector,
   )
   const pdf = await h.page.pdf({ printBackground: true, width: '148mm', height: '210mm', margin: { top: 0, right: 0, bottom: 0, left: 0 } })
   const matches: DesignedPageMatch[] = []
@@ -78,6 +76,19 @@ export async function compareDesignedPages(h: Harness, id: string): Promise<Desi
     })
   }
   await h.page.setViewportSize({ width: 1280, height: 816 })
+  return matches
+}
+
+export async function compareDesignedPages(h: Harness, id: string): Promise<DesignedPageMatch[]> {
+  const file = id === 'book-paginated-he' ? 'book-paginated-he.html' : 'book-paginated-en.html'
+  const matches = await compareSelectedPages(h, id, file, '[data-segnavia-book-page][data-segnavia-role="fixed"]', 'designed')
   await h.page.goto(h.url('book-paginated.html'))
+  return matches
+}
+
+export async function compareTemplatedPages(h: Harness, id: string): Promise<DesignedPageMatch[]> {
+  const file = id === 'book-workbook-he' ? 'book-workbook-he.html' : 'book-workbook-en.html'
+  const matches = await compareSelectedPages(h, id, file, '[data-segnavia-book-page][data-segnavia-flow^="segnavia-templated-"]', 'templated')
+  await h.page.goto(h.url('book-workbook.html'))
   return matches
 }

@@ -32,11 +32,7 @@ describe('pageIndexForTarget', () => {
   })
 
   test('maps an id inside a templated body page of flow f to that page', () => {
-    const lesson = [
-      flowPage('lesson', 'blank', false, [], true),
-      flowPage('lesson', 'body', true),
-      flowPage('lesson', 'body', false),
-    ]
+    const lesson = [flowPage('lesson', 'blank', false, [], true), flowPage('lesson', 'body', true), flowPage('lesson', 'body', false)]
     expect(pageIndexForTarget(lesson, { flow: 'lesson', designedPage: 1 })).toBe(1)
     expect(pageIndexForTarget(lesson, { flow: 'lesson', designedPage: 2 })).toBe(2)
     expect(pageIndexForTarget(lesson, { flow: 'lesson' })).toBe(1)

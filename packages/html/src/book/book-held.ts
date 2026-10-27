@@ -1,9 +1,4 @@
-import {
-  type BookSectionParents,
-  type BookTemplate,
-  type DesignedSection,
-  type TemplatedSection,
-} from '@segnavia/format'
+import type { BookSectionParents, BookTemplate, DesignedSection, TemplatedSection } from '@segnavia/format'
 import type { ChildNode } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { element, textContent } from './dom.ts'

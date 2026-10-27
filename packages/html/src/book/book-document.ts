@@ -5,12 +5,12 @@ import {
   type BookTemplate,
   type Chapter,
   type DesignedSection,
-  type TemplatedSection,
   isBookContents,
   isDesignedSection,
   isTemplatedSection,
   noteMarkerIssues,
   resolveDirection,
+  type TemplatedSection,
 } from '@segnavia/format'
 import { type ChildNode, type Document, isTag } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
@@ -206,64 +206,119 @@ function withBlankPages(sections: BuiltSection[], blankBefore: string[] | undefi
   ])
 }
 
-export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
-  const galley = book.mode === 'paginated'
-  const notes = noteState()
-  const sections: BuiltSection[] = []
-  const headings: BookHeading[] = []
-  const issues: string[] = []
-  let frontNumber = 0
-  let chapterNumber = 0
-  let designedNumber = 0
-  let templatedNumber = 0
-  let contents: BuiltSection | undefined
-  const templates = new Map(book.templates.map((template) => [template.name, template]))
+interface DocumentBuild {
+  galley: boolean
+  notes: ReturnType<typeof noteState>
+  sections: BuiltSection[]
+  headings: BookHeading[]
+  issues: string[]
+  templates: Map<string, BookTemplate>
+  designedNumber: number
+  templatedNumber: number
+}
 
+function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefined {
+  let contents: BuiltSection | undefined
+  let frontNumber = 0
   for (const entry of book.frontMatter) {
     if (isBookContents(entry)) {
-      contents = contentsSection(entry, galley)
-      sections.push(contents)
+      contents = contentsSection(entry, build.galley)
+      build.sections.push(contents)
       continue
     }
     if (isDesignedSection(entry)) {
-      designedNumber += 1
-      appendDesigned(entry, `segnavia-designed-${designedNumber}`, 'front', book, galley, notes, sections, headings, issues)
+      build.designedNumber += 1
+      appendDesigned(entry, `segnavia-designed-${build.designedNumber}`, 'front', book, build.galley, build.notes, build.sections, build.headings, build.issues)
       continue
     }
     if (isTemplatedSection(entry)) {
-      templatedNumber += 1
-      appendTemplated(entry, `segnavia-templated-${templatedNumber}`, 'front', book, galley, notes, templates, sections, headings, issues)
+      build.templatedNumber += 1
+      appendTemplated(
+        entry,
+        `segnavia-templated-${build.templatedNumber}`,
+        'front',
+        book,
+        build.galley,
+        build.notes,
+        build.templates,
+        build.sections,
+        build.headings,
+        build.issues,
+      )
       continue
     }
     frontNumber += 1
-    const section = authoredSection(entry, `segnavia-front-${frontNumber}`, galley)
-    sections.push(section)
-    issues.push(...reservedIdIssues(section), ...columnIssues(section))
-    if (entry.contents && entry.title !== undefined) headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
-    transformNotes(section.node, book, 0, notes, galley)
+    const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.galley)
+    build.sections.push(section)
+    build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
+    if (entry.contents && entry.title !== undefined) {
+      build.headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
+    }
+    transformNotes(section.node, book, 0, build.notes, build.galley)
   }
+  return contents
+}
 
+function addChapters(book: Book, build: DocumentBuild): void {
+  let chapterNumber = 0
   for (const entry of book.chapters) {
     if (isDesignedSection(entry)) {
-      designedNumber += 1
-      appendDesigned(entry, `segnavia-designed-${designedNumber}`, 'designed', book, galley, notes, sections, headings, issues)
+      build.designedNumber += 1
+      appendDesigned(
+        entry,
+        `segnavia-designed-${build.designedNumber}`,
+        'designed',
+        book,
+        build.galley,
+        build.notes,
+        build.sections,
+        build.headings,
+        build.issues,
+      )
       continue
     }
     if (isTemplatedSection(entry)) {
-      templatedNumber += 1
-      appendTemplated(entry, `segnavia-templated-${templatedNumber}`, 'templated', book, galley, notes, templates, sections, headings, issues)
+      build.templatedNumber += 1
+      appendTemplated(
+        entry,
+        `segnavia-templated-${build.templatedNumber}`,
+        'templated',
+        book,
+        build.galley,
+        build.notes,
+        build.templates,
+        build.sections,
+        build.headings,
+        build.issues,
+      )
       continue
     }
     chapterNumber += 1
-    const section = chapterSection(entry, chapterNumber, galley)
-    sections.push(section)
-    issues.push(...reservedIdIssues(section), ...columnIssues(section))
-    headings.push(
+    const section = chapterSection(entry, chapterNumber, build.galley)
+    build.sections.push(section)
+    build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
+    build.headings.push(
       { id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id },
       ...chapterHeadings(section, chapterNumber, book.contents.depth),
     )
-    transformNotes(section.node, book, chapterNumber, notes, galley)
+    transformNotes(section.node, book, chapterNumber, build.notes, build.galley)
   }
+}
+
+export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
+  const build: DocumentBuild = {
+    galley: book.mode === 'paginated',
+    notes: noteState(),
+    sections: [],
+    headings: [],
+    issues: [],
+    templates: new Map(book.templates.map((template) => [template.name, template])),
+    designedNumber: 0,
+    templatedNumber: 0,
+  }
+  const contents = addFrontMatter(book, build)
+  addChapters(book, build)
+  const { galley, notes, sections, headings, issues } = build
 
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   if (book.endnotes.placement === 'chapter') {

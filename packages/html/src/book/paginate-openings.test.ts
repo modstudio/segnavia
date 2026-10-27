@@ -74,6 +74,19 @@ describe('paginateBook opening sides', () => {
     expect(pages.filter((page) => page.flow === 'c1').some((page) => page.notes.length > 0)).toBe(true)
   })
 
+  test('a fixed flow with role body emits body pages, including the first', () => {
+    const pages = paginateBook(
+      input({
+        settings: { ...settings, rectoOpenings: false },
+        flows: [{ id: 'lesson', kind: 'fixed', pages: 2, role: 'body', opens: 'any' }],
+      }),
+    ).pages
+    expect(sides(pages)).toEqual([
+      { flow: 'lesson', role: 'body', number: 1, blank: false, opener: true },
+      { flow: 'lesson', role: 'body', number: 2, blank: false, opener: false },
+    ])
+  })
+
   test('the default is recto when rectoOpenings is on and any otherwise', () => {
     const two = [short('c1', 1), short('c2', 2)]
     expect(paginateBook(input({ settings, flows: two })).pages.map((page) => page.blank)).toEqual([false, true, false])

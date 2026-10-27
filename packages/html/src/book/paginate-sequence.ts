@@ -149,7 +149,7 @@ export function paginateSequence(
       notes: [],
       blank: false,
       sectionOpening: opener,
-      ...(opener && !templated || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
+      ...((opener && !templated) || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
       ...flowParents(flow),
     }

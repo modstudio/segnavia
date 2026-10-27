@@ -308,7 +308,7 @@ describe('book document', () => {
             kind: 'templated',
             title: 'Lessons',
             template: 'lesson',
-            pages: [{ regions: { heading: '<h1>One</h1>', extra: '<p>More</p>' } }],
+            pages: [{ regions: { heading: '<h1 id="one">One</h1>', extra: '<p>More</p>' } }],
           },
         ],
       }),
