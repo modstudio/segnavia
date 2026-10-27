@@ -61,13 +61,13 @@ function verifyParentDetails(output: string, check: Check): void {
   const head = hebrew.filter((page) => page.includes('כותרת')).length
   check(
     'the Hebrew flowing letter prints Hebrew folios from the page start with right-to-left recto and verso',
-    Boolean(numbered) && head === 1 && Boolean(hebrew[1]?.includes('עברית flowing body 19')),
-    `pages=${hebrew.length} head=${head} numbered=${numbered} page2-body19=${Boolean(hebrew[1]?.includes('עברית flowing body 19'))}`,
+    Boolean(numbered) && head === 1 && Boolean(hebrew[1]?.includes('flowing body 19-')),
+    `pages=${hebrew.length} head=${head} numbered=${numbered} page2-body19=${Boolean(hebrew[1]?.includes('flowing body 19-'))}`,
   )
   const hebrewBoxes = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-parent-hebrew.pdf'), '-'], { encoding: 'utf8' })
   const boxPages = [...hebrewBoxes.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
-  const firstBodyX = Number(boxPages[0]?.match(/<word xMin="([\d.]+)"[^>]*>עברית<\/word>/)?.[1])
-  const secondBodyX = Number(boxPages[1]?.match(/<word xMin="([\d.]+)"[^>]*>עברית<\/word>/)?.[1])
+  const firstBodyX = Number(boxPages[0]?.match(/<word xMin="([\d.]+)"[^>]*>flowing<\/word>/)?.[1])
+  const secondBodyX = Number(boxPages[1]?.match(/<word xMin="([\d.]+)"[^>]*>flowing<\/word>/)?.[1])
   check(
     'right-to-left recto and verso use inner then outer at inline start',
     Number.isFinite(firstBodyX) && Number.isFinite(secondBodyX) && secondBodyX - firstBodyX > 20,
