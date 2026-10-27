@@ -1,30 +1,17 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
-
-// A few CSS pixels into the window, and a channel may differ by 32/255 for antialiasing.
-const INK_BAND_PX = 8
-const INK_CHANNEL_TOLERANCE = 32
+import { bestShift, diffAtShift, INK_BAND_PX, INK_CHANNEL_TOLERANCE, type InkImage, inkBounds, inkCount, stackImages } from './paginated-ink-pixels.ts'
 
 interface InkWindow {
   flow: string
   column: number
   start: number
   end: number
+  top: number
   windowIndex: number
   localX: number
   width: number
   height: number
-}
-
-interface InkImage {
-  width: number
-  height: number
-  data: number[]
-}
-
-interface PixelDiff {
-  over: number
-  worst: number
 }
 
 interface Mismatch {
@@ -35,6 +22,11 @@ interface Mismatch {
   over: number
   worst: number
   shift: number
+  dx?: number
+  galleyInk?: number
+  pageInk?: number
+  galleyBox?: number[]
+  pageBox?: number[]
 }
 
 async function pngRgba(h: Harness, png: Buffer): Promise<InkImage> {
@@ -54,77 +46,7 @@ async function pngRgba(h: Harness, png: Buffer): Promise<InkImage> {
   }, png.toString('base64'))
 }
 
-function isInk(red: number, green: number, blue: number): boolean {
-  return Math.min(red, green, blue) < 240
-}
-
-function sample(image: InkImage, x: number, y: number): [number, number, number] {
-  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return [255, 255, 255]
-  const index = (y * image.width + x) * 4
-  return [image.data[index] ?? 255, image.data[index + 1] ?? 255, image.data[index + 2] ?? 255]
-}
-
-function channelDelta(left: [number, number, number], right: [number, number, number]): number {
-  return Math.max(Math.abs(left[0] - right[0]), Math.abs(left[1] - right[1]), Math.abs(left[2] - right[2]))
-}
-
-function diffAtShift(galley: InkImage, composed: InkImage, dy: number): PixelDiff {
-  const height = Math.min(galley.height, composed.height)
-  const width = Math.min(galley.width, composed.width)
-  let over = 0
-  let worst = 0
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const fromGalley = sample(galley, x, y)
-      const fromPage = sample(composed, x, y + dy)
-      if (!isInk(fromGalley[0], fromGalley[1], fromGalley[2]) && !isInk(fromPage[0], fromPage[1], fromPage[2])) continue
-      const delta = channelDelta(fromGalley, fromPage)
-      if (delta > worst) worst = delta
-      if (delta > INK_CHANNEL_TOLERANCE) over += 1
-    }
-  }
-  return { over, worst }
-}
-
-function bestShift(galley: InkImage, composed: InkImage): PixelDiff & { shift: number } {
-  let best = { over: Number.POSITIVE_INFINITY, worst: 0, shift: 0 }
-  for (const dy of [-1, 0, 1]) {
-    const diff = diffAtShift(galley, composed, dy)
-    if (diff.over < best.over || (diff.over === best.over && dy === 0)) best = { ...diff, shift: dy }
-  }
-  return best
-}
-
-function inkCount(image: InkImage): number {
-  let count = 0
-  for (let index = 0; index + 2 < image.data.length; index += 4) {
-    if (isInk(image.data[index] ?? 0, image.data[index + 1] ?? 0, image.data[index + 2] ?? 0)) count += 1
-  }
-  return count
-}
-
-function stackImages(top: InkImage, bottom: InkImage): InkImage {
-  const width = Math.min(top.width, bottom.width)
-  const height = top.height + bottom.height
-  const data = new Array(width * height * 4).fill(255)
-  const write = (source: InkImage, y0: number) => {
-    for (let y = 0; y < source.height; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const from = (y * source.width + x) * 4
-        const to = ((y0 + y) * width + x) * 4
-        data[to] = source.data[from] ?? 255
-        data[to + 1] = source.data[from + 1] ?? 255
-        data[to + 2] = source.data[from + 2] ?? 255
-        data[to + 3] = 255
-      }
-    }
-  }
-  write(top, 0)
-  write(bottom, top.height)
-  return { width, height, data }
-}
-
-async function screenshotBand(frame: Frame, selector: string, localX: number, localY: number, width: number, height: number) {
+async function screenshotBand(h: Harness, frame: Frame, selector: string, localX: number, localY: number, width: number, height: number) {
   const handle = await frame.$(selector)
   if (!handle) throw new Error(`The paginated book has no ${selector}.`)
   await handle.evaluate((element, y) => {
@@ -133,18 +55,28 @@ async function screenshotBand(frame: Frame, selector: string, localX: number, lo
     if (!root) return
     root.scrollTop += box.top + y - innerHeight / 2
   }, localY)
-  const size = await handle.evaluate((element) => {
-    const box = element.getBoundingClientRect()
-    return { width: box.width, height: box.height }
-  })
-  const clipX = Math.max(0, localX)
-  const clipY = Math.max(0, localY)
-  return handle.screenshot({
+  const local = await handle.evaluate(
+    (element, arg) => {
+      const box = element.getBoundingClientRect()
+      return { x: box.left + arg.x, y: box.top + arg.y, maxX: box.left + box.width, maxY: box.top + box.height }
+    },
+    { x: localX, y: localY },
+  )
+  const frameEl = await frame.frameElement()
+  const iframeBox = await frameEl.boundingBox()
+  if (!iframeBox) throw new Error(`The paginated book frame has no box for ${selector}.`)
+  const x = iframeBox.x + local.x
+  const y = iframeBox.y + local.y
+  const maxX = Math.min(iframeBox.x + iframeBox.width, iframeBox.x + local.maxX)
+  const maxY = Math.min(iframeBox.y + iframeBox.height, iframeBox.y + local.maxY)
+  const clipX = Math.max(iframeBox.x, x)
+  const clipY = Math.max(iframeBox.y, y)
+  return h.page.screenshot({
     clip: {
-      x: clipX,
-      y: clipY,
-      width: Math.max(1, Math.min(width, size.width - clipX)),
-      height: Math.max(1, Math.min(height, size.height - clipY)),
+      x: Math.round(clipX),
+      y: Math.round(clipY),
+      width: Math.max(1, Math.round(Math.min(width, maxX - clipX))),
+      height: Math.max(1, Math.round(Math.min(height, maxY - clipY))),
     },
     animations: 'disabled',
   })
@@ -171,6 +103,7 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
         localX: child ? Math.max(0, child.getBoundingClientRect().left - flowBox.left) : 0,
         width: viewBox.width,
         height: viewBox.height,
+        top: Number(view.getAttribute('data-top')),
       })
     }
     return windows
@@ -240,8 +173,8 @@ async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]
   const bands: Array<{ start: InkImage; end: InkImage }> = []
   for (const view of windows) {
     const height = bandHeight(view.height)
-    const start = await pngRgba(h, await screenshotBand(frame, flowSelector(view.flow), view.localX, view.start, view.width, height))
-    const end = await pngRgba(h, await screenshotBand(frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height))
+    const start = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, height))
+    const end = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height))
     bands.push({ start, end })
   }
   return bands
@@ -251,30 +184,37 @@ async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]):
   const bands: Array<{ start: InkImage; end: InkImage }> = []
   for (const view of windows) {
     const height = bandHeight(view.height)
-    const start = await pngRgba(h, await screenshotBand(frame, windowSelector(view.windowIndex), 0, 0, view.width, height))
-    const end = await pngRgba(h, await screenshotBand(frame, windowSelector(view.windowIndex), 0, view.height - height, view.width, height))
+    const start = await pngRgba(h, await screenshotBand(h, frame, windowSelector(view.windowIndex), 0, 0, view.width, height))
+    const end = await pngRgba(h, await screenshotBand(h, frame, windowSelector(view.windowIndex), 0, view.height - height, view.width, height))
     bands.push({ start, end })
   }
   return bands
 }
 
-function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
-  if (galley.width !== page.width || galley.height !== page.height) {
-    mismatches.push({ flow: view.flow, column: view.column, side, offset: side === 'start' ? view.start : view.end, over: 1, worst: 255, shift: 0 })
-    return
-  }
-  const aligned = diffAtShift(galley, page, 0)
+function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
+  const aligned = diffAtShift(galley, page, 0, 0)
   if (aligned.over === 0) return
   const shifted = bestShift(galley, page)
+  const galleyBox = inkBounds(galley)
+  const pageBox = inkBounds(page)
   mismatches.push({
     flow: view.flow,
     column: view.column,
     side,
-    offset: side === 'start' ? view.start : view.end,
+    offset,
     over: aligned.over,
     worst: aligned.worst,
-    shift: shifted.over === 0 ? shifted.shift : 0,
+    shift: shifted.shift,
+    dx: shifted.dx,
+    galleyInk: galleyBox.count,
+    pageInk: pageBox.count,
+    galleyBox: [galleyBox.minX, galleyBox.minY, galleyBox.maxX, galleyBox.maxY],
+    pageBox: [pageBox.minX, pageBox.minY, pageBox.maxX, pageBox.maxY],
   })
+}
+
+function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
+  recordMismatch(view, side, side === 'start' ? view.start : view.end, galley, page, mismatches)
 }
 
 function sequentialPairs(windows: InkWindow[]): Array<{ previous: InkWindow; next: InkWindow; previousIndex: number; nextIndex: number }> {
@@ -301,7 +241,7 @@ function sequentialPairs(windows: InkWindow[]): Array<{ previous: InkWindow; nex
 async function gapInk(h: Harness, frame: Frame, previous: InkWindow, next: InkWindow): Promise<number> {
   const gap = next.start - previous.end
   if (gap <= 0.5) return 0
-  const png = await screenshotBand(frame, flowSelector(previous.flow), previous.localX, previous.end, previous.width, gap)
+  const png = await screenshotBand(h, frame, flowSelector(previous.flow), previous.localX, previous.end, previous.width, gap)
   return inkCount(await pngRgba(h, png))
 }
 
@@ -310,24 +250,14 @@ function recordBreak(previous: InkWindow, previousBands: EdgeBands, nextBands: E
     mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: gap, worst: 255, shift: 0 })
     return
   }
-  const galley = stackImages(previousBands.galleyEnd, nextBands.galleyStart)
-  const page = stackImages(previousBands.pageEnd, nextBands.pageStart)
-  if (galley.width !== page.width || galley.height !== page.height) {
-    mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: 1, worst: 255, shift: 0 })
-    return
-  }
-  const aligned = diffAtShift(galley, page, 0)
-  if (aligned.over === 0) return
-  const shifted = bestShift(galley, page)
-  mismatches.push({
-    flow: previous.flow,
-    column: previous.column,
-    side: 'break',
-    offset: previous.end,
-    over: aligned.over,
-    worst: aligned.worst,
-    shift: shifted.over === 0 ? shifted.shift : 0,
-  })
+  recordMismatch(
+    previous,
+    'break',
+    previous.end,
+    stackImages(previousBands.galleyEnd, nextBands.galleyStart),
+    stackImages(previousBands.pageEnd, nextBands.pageStart),
+    mismatches,
+  )
 }
 
 export async function compareHebrewInk(h: Harness, frame: Frame) {
