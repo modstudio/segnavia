@@ -53,7 +53,7 @@ function reportSlotFit(messages: EventTarget, frame: EventTarget, slots: Record<
   report(messages, frame, { type: MESSAGE.slotFit, slots })
 }
 
-async function resolutionOf(wait: Promise<void>) {
+async function resolutionOf(wait: Promise<unknown>) {
   let resolved = false
   void wait.then(() => {
     resolved = true

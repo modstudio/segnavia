@@ -379,7 +379,7 @@ try {
   writeFileSync(path.join(OUT, 'page-postcard.pdf'), await renderer.pagePdf(postcardPage))
   await buildSlotPdf(renderer, OUT)
   await buildDeckPdfs(renderer, OUT, `shots/${listShot.file}`, listShot, inline)
-  await buildPagePdfs(renderer, OUT)
+  await buildPagePdfs(renderer, OUT, SITE)
   writeFileSync(path.join(OUT, 'page-rtl.pdf'), await renderer.pagePdf(hebrewPage))
   let measured = 0
   await renderer.pagePdf(fluidPage, {

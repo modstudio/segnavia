@@ -53,6 +53,8 @@ export interface FrameOptions {
   csp?: string
   relayKeys?: boolean
   reportHeight?: boolean
+  // Holds the existing ready message until a document composer marks its root.
+  readyAfterAttribute?: string
   // Set only for a print document, to freeze its animations and let authored
   // code draw the frame that will be printed.
   printAtMs?: number
@@ -166,7 +168,8 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+var composed=${options.readyAfterAttribute ? `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};if(root.hasAttribute(name)){resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){if(root.hasAttribute(name)){observer.disconnect();resolve();}}).observe(root,{attributes:true,attributeFilter:[name]});})` : 'null'};
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }

@@ -21,6 +21,7 @@ import {
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,
   EMPTY_SLOTS,
@@ -52,6 +53,7 @@ interface PrintFrameOptions extends PrintDialogOptions {
   html: string
   slots: typeof EMPTY_SLOTS
   output?: 'print' | 'measure'
+  strictFrameReadiness?: boolean
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -97,6 +99,11 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
       () => slotFitStillPending(options.slots.marked, measured, refuseKeys),
     )
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
+    if (options.strictFrameReadiness && !(await settled)) {
+      throw new Error(
+        'The printed pages could not establish that every composed page was ready; wait for their resources or shorten the content to clear this refusal.',
+      )
+    }
     const overflowRefusal = requiredSlotRefusal(options.slots.declarations, options.slots.report)
     if (overflowRefusal) throw overflowRefusal
     const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measured)
@@ -155,6 +162,13 @@ async function preparedPagesPrint(pagesInput: PageInput[], impositionInput: Impo
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
+  if (filled.some((page) => page.printedPages)) {
+    const printable = await printedPagesPrintDocument(filled, imposition, {
+      ...options,
+      deadlineMs: options.deadlineMs ?? SLIDES_READY_DEADLINE_MS,
+    })
+    return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, strictFrameReadiness: true }
+  }
   const printable = printablePagesDocument(filled, imposition, options)
   return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
 }

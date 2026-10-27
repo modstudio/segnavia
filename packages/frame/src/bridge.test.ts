@@ -145,6 +145,46 @@ describe('frame document', () => {
     expect(html).toContain('if(unlaid&&slotFitTries<40)')
   })
 
+  test('a composed document reports ready only after its composer marks the root', async () => {
+    const attributes = new Set<string>()
+    let observe = () => {}
+    const messages: unknown[] = []
+    const document = {
+      readyState: 'complete',
+      documentElement: { hasAttribute: (name: string) => attributes.has(name), getBoundingClientRect: () => ({ height: 0 }) },
+      images: [],
+      fonts: { ready: Promise.resolve() },
+      getAnimations: () => [],
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+    }
+    const window = {
+      addEventListener: () => {},
+      MutationObserver: class {
+        constructor(callback: (records: unknown[], observer: { disconnect: () => void }) => void) {
+          observe = () => callback([], this)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    }
+    Function(
+      'document',
+      'parent',
+      'window',
+      'MutationObserver',
+      bridgeForHost({ reportHeight: false, readyAfterAttribute: 'data-done' }),
+    )(document, { postMessage: (message: unknown) => messages.push(message) }, window, window.MutationObserver)
+    await Promise.resolve()
+    expect(messages.some((message) => (message as { type?: string }).type === MESSAGE.ready)).toBe(false)
+    attributes.add('data-done')
+    observe()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(messages.at(-1)).toEqual({ type: MESSAGE.ready })
+  })
+
   test('a laid-out inline refuse slot reports fit with zero client dimensions', async () => {
     const element = {
       clientWidth: 0,

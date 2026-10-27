@@ -50,6 +50,16 @@ describe('printedPageDocument', () => {
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
   })
 
+  test('starts at zero height and can build one numbered paper after measuring the full flow', () => {
+    const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
+    const second = printedPageDocument(page, { nonce: 'held', only: 2 })
+    expect(measuring).toContain(':where([data-segnavia-flow]){position:absolute}')
+    expect(measuring).toContain('ResizeObserver')
+    expect(second).toContain('"only":2')
+    expect(second).not.toContain('ResizeObserver')
+    expect(second).toContain('data-segnavia-composed')
+  })
+
   test.each([
     [
       'width including first',

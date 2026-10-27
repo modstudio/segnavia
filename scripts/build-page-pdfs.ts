@@ -28,7 +28,12 @@ import {
   twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
 
-export async function buildPagePdfs(renderer: Renderer, output: string): Promise<void> {
+function buildParentPageBrowserFixtures(site: string): void {
+  writeFileSync(path.join(site, 'parent-pages-print.json'), JSON.stringify([parentPageEnglish, parentPageHebrew, parentPageMixed]))
+}
+
+export async function buildPagePdfs(renderer: Renderer, output: string, site?: string): Promise<void> {
+  if (site) buildParentPageBrowserFixtures(site)
   const motifs: MotifsOptions = {
     source: printedPageMotifSource,
   }
