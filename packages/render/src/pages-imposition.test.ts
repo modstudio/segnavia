@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, Page, pagePlacementLayout } from '@segnavia/format'
-import { groupPieces, placementPdfGeometry } from './pages-imposition.ts'
+import { fitPage, Imposition, impose, Page, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import { groupPieces, pieceGeometry, placementPdfGeometry } from './pages-imposition.ts'
 
 const repeat = Imposition.parse({
   paper: { width: 34, height: 34, unit: 'mm' },
@@ -48,6 +48,20 @@ describe('imposed PDF pieces', () => {
     expect(geometry.draw.x).toBeCloseTo(fit.x / (25.4 / 72))
     expect(geometry.draw.y).toBeCloseTo((imposed.paper.height - fit.y - (400 * fit.scale) / (96 / 25.4)) / (25.4 / 72))
     expect(geometry.draw.width).toBeCloseTo((600 * fit.scale) / (96 / 25.4) / (25.4 / 72))
+  })
+
+  test('prints a fluid piece at its paper box and a fixed piece at its CSS size', () => {
+    const pages = [Page.parse({ html: '<p>one</p>' })]
+    const fluid = groupPieces(pages, impose(repeat, pages.length), repeat.fit)[0]?.placements[0]
+    if (!fluid) throw new Error('Expected a fluid placement.')
+    expect(pieceGeometry(fluid).paper).toEqual({ width: fluid.layout.paper.width, height: fluid.layout.paper.height })
+    expect(pieceGeometry(fluid).pdf).toEqual({ width: `${fluid.layout.paper.width}mm`, height: `${fluid.layout.paper.height}mm` })
+
+    const fixedPage = Page.parse({ html: '<p>card</p>', size: { width: 400, height: 100 } })
+    const fixed = groupPieces([fixedPage], impose(repeat, 1), repeat.fit)[0]?.placements[0]
+    if (!fixed) throw new Error('Expected a fixed placement.')
+    expect(pieceGeometry(fixed).paper).toEqual({ width: 400 / PX_PER_MM, height: 100 / PX_PER_MM })
+    expect(pieceGeometry(fixed).pdf).toEqual({ width: '400px', height: '100px' })
   })
 
   test('draws a fixed-width growing page at the trim width when its left bleed is zero', () => {

@@ -1,9 +1,23 @@
 import { expect, test } from 'bun:test'
-import { Page } from '@segnavia/format'
+import { Page, PX_PER_MM, sheetMm } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { pt } from './pdf-geometry.ts'
+
+async function cssPiece(pixels: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create()
+  const size = pt(pixels / PX_PER_MM)
+  document.addPage([size, size]).drawText('Card')
+  return document.save()
+}
+
+function drawScale(content: string): { x: number; y: number } {
+  const match = [...content.matchAll(/([+-]?(?:\d+\.?\d*|\.\d+)) 0 0 ([+-]?(?:\d+\.?\d*|\.\d+)) [+-]?(?:\d+\.?\d*|\.\d+) [+-]?(?:\d+\.?\d*|\.\d+) cm/g)].at(-1)
+  if (!match) throw new Error(`no placement transform in: ${content}`)
+  return { x: Number(match[1]), y: Number(match[2]) }
+}
 
 test('pagesPdf refuses an empty collection with the action that clears it', async () => {
   const render = renderPagesPdf(
@@ -42,8 +56,6 @@ test('pagesPdf renders the page objects it is given, so their slot preparation i
 test('pagesPdf reports marks omitted from a narrow imposition margin without refusing', async () => {
   const page = Page.parse({ html: '<p>Card</p>', size: { width: 100, height: 100 } })
   const reports: unknown[] = []
-  const piece = await PDFDocument.create()
-  piece.addPage([100, 100]).drawText('Card')
   const bytes = await renderPagesPdf(
     [page],
     {
@@ -59,7 +71,7 @@ test('pagesPdf reports marks omitted from a narrow imposition margin without ref
     },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => piece.save(),
+      piecePdf: async () => cssPiece(100),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -77,8 +89,6 @@ test('pagesPdf reports marks omitted from a narrow imposition margin without ref
 
 test('an imposed pagesPdf with registration marks strokes Separation All', async () => {
   const page = Page.parse({ html: '<p>Card</p>', size: { width: 80, height: 80 } })
-  const piece = await PDFDocument.create()
-  piece.addPage([80, 80]).drawText('Card')
   const bytes = await renderPagesPdf(
     [page],
     {
@@ -94,7 +104,7 @@ test('an imposed pagesPdf with registration marks strokes Separation All', async
     },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => piece.save(),
+      piecePdf: async () => cssPiece(80),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -102,4 +112,31 @@ test('an imposed pagesPdf with registration marks strokes Separation All', async
   const text = await pageContent(bytes)
   expect(text).toMatch(/\/All\s+CS/)
   expect(text).toMatch(/1\s+SCN/)
+})
+
+test('an imposed fluid letter piece whose printed page was snapped is drawn at scale 1', async () => {
+  const letter = sheetMm({ paper: 'letter', orientation: 'portrait' })
+  const page = Page.parse({ html: '<p>Letter</p>', size: 'fluid' })
+  const snapped = await PDFDocument.create()
+  snapped.addPage([pt(letter.width), pt(letter.height) + 0.7]).drawRectangle({ x: 0, y: 0, width: 10, height: 10 })
+  const bytes = await renderPagesPdf(
+    [page],
+    {
+      imposition: {
+        paper: 'letter',
+        columns: 1,
+        rows: 1,
+        cell: { width: letter.width, height: letter.height },
+      },
+    },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => snapped.save(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const scale = drawScale(await pageContent(bytes))
+  expect(scale.x).toBe(1)
+  expect(scale.y).toBe(1)
 })

@@ -5,6 +5,7 @@ import { RenderRefusedError } from './errors.ts'
 import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
 import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
+import { setPdfPageSize } from './pdf-page-size.ts'
 
 describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
@@ -37,6 +38,17 @@ describe('printed page setup', () => {
     const placement = pressContentPlacement({ width: 612, height: 859.9 }, bleedBox)
     expect(placement).toEqual({ x: 17, y: 16, width: 612, height: 859.9 })
     expect(placement.y + placement.height).toBe(bleedBox.y + bleedBox.height)
+  })
+
+  test('a Chromium-sized press page 0.7 pt taller is corrected to the bleed box', async () => {
+    const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, bleed: 3 })
+    const { bleedBox } = printBoxes(print)
+    const width = Number(pt(bleedBox.width).toFixed(12))
+    const height = Number(pt(bleedBox.height).toFixed(12))
+    const snapped = await PDFDocument.create()
+    snapped.addPage([width, height + 0.7]).drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+    const corrected = await PDFDocument.load(await setPdfPageSize(await snapped.save(), bleedBox))
+    expect(corrected.getPage(0).getMediaBox()).toEqual({ x: 0, y: 0, width, height })
   })
 })
 
