@@ -3,6 +3,7 @@
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -19,6 +20,7 @@ export class SegnaviaPaper extends HTMLElement {
   private shownSide: 'front' | 'back' = 'front'
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
+  private motifOptions: MotifsOptions | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotGeneration = 0
   private resolvedGeneration = 0
@@ -31,6 +33,16 @@ export class SegnaviaPaper extends HTMLElement {
   set slots(value: SlotsOptions | undefined) {
     this.slotGeneration++
     this.slotOptions = value
+    if (this.imposed) this.paint()
+  }
+
+  get motifs(): MotifsOptions | undefined {
+    return this.motifOptions
+  }
+
+  set motifs(value: MotifsOptions | undefined) {
+    this.slotGeneration++
+    this.motifOptions = value
     if (this.imposed) this.paint()
   }
 
@@ -133,54 +145,67 @@ export class SegnaviaPaper extends HTMLElement {
     const imposition = this.imposition
     const imposed = this.imposed
     if (!imposition || !imposed) return
-    const declarations = this.pages.map((page) => page.slots)
     const generation = ++this.slotGeneration
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
-    const refusal = this.pages.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-    if (refusal) {
-      this.paintResolved(imposition, imposed)
-      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
-      return
-    }
-    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
-      this.paintResolved(imposition, imposed)
-      return
-    }
     const pages = this.pages
     const controller = new AbortController()
     this.slotPreparation = controller
-    this.paintResolved(imposition, imposed)
-    void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-      .then((resolved) => {
-        if (
-          !this.isConnected ||
-          controller.signal.aborted ||
-          generation !== this.slotGeneration ||
-          pages !== this.pages ||
-          imposition !== this.imposition ||
-          imposed !== this.imposed
-        )
-          return
-        this.resolvedSlots = resolved
-        this.resolvedGeneration = generation
-        this.paintResolved(imposition, imposed)
-      })
-      .catch((error) => {
-        if (
-          !this.isConnected ||
-          controller.signal.aborted ||
-          generation !== this.slotGeneration ||
-          pages !== this.pages ||
-          imposition !== this.imposition ||
-          imposed !== this.imposed
-        )
-          return
-        this.resolvedSlots = undefined
-        this.resolvedGeneration = 0
-        this.paintResolved(imposition, imposed)
-        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-      })
+    const current = () =>
+      this.isConnected &&
+      !controller.signal.aborted &&
+      generation === this.slotGeneration &&
+      pages === this.pages &&
+      imposition === this.imposition &&
+      imposed === this.imposed
+    const commit = (shown: Page[], resolved?: PreparedSlots) => {
+      if (!current()) return
+      this.resolvedSlots = resolved
+      this.resolvedGeneration = resolved ? generation : 0
+      this.paintResolved(imposition, imposed, shown)
+    }
+    const report = (error: unknown) => {
+      if (!current()) return
+      this.resolvedSlots = undefined
+      this.resolvedGeneration = 0
+      if (!this.motifOptions) this.paintResolved(imposition, imposed)
+      this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    }
+    const continuePaint = (shown: Page[]) => {
+      const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
+      if (refusal) throw refusal
+      const declarations = shown.map((page) => page.slots)
+      if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+        if (this.motifOptions) commit(shown)
+        return
+      }
+      void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
+        .then((resolved) => commit(shown, resolved))
+        .catch(report)
+    }
+    if (!this.motifOptions) {
+      this.paintResolved(imposition, imposed)
+      try {
+        continuePaint(pages)
+      } catch (error) {
+        report(error)
+      }
+      return
+    }
+    this.paintPlaceholder(imposed)
+    void expandFramePages(pages, this.motifOptions, controller.signal).then(continuePaint).catch(report)
+  }
+
+  private paintPlaceholder(imposed: ReturnType<typeof impose>) {
+    const box = document.createElement('div')
+    box.className = 'segnavia-paper__paper'
+    box.dir = 'ltr'
+    const paper = paperBoxSize(imposed.paper)
+    box.style.width = `${paper.width}px`
+    box.style.height = `${paper.height}px`
+    this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
+    this.replaceChildren(box)
+    this.fit()
   }
 
   private cancelSlotPreparation() {
@@ -188,7 +213,7 @@ export class SegnaviaPaper extends HTMLElement {
     this.slotPreparation = undefined
   }
 
-  private paintResolved(imposition: Imposition, imposed: ReturnType<typeof impose>) {
+  private paintResolved(imposition: Imposition, imposed: ReturnType<typeof impose>, pages = this.pages) {
     const box = document.createElement('div')
     box.className = 'segnavia-paper__paper'
     // Positions on paper are physical and therefore left to right. This box
@@ -201,7 +226,7 @@ export class SegnaviaPaper extends HTMLElement {
     // builder, so assigning its trusted placement markup here cannot parse it
     // as part of the host document.
     box.innerHTML = printablePaper(
-      this.pages.map((page) => ({ ...page, html: this.resolvedSlots?.apply(page.html) ?? page.html })),
+      pages.map((page) => ({ ...page, html: this.resolvedSlots?.apply(page.html) ?? page.html })),
       imposition,
       imposed,
       this.paperIndex,

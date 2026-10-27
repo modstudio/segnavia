@@ -4,6 +4,7 @@
 
 import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -21,6 +22,7 @@ export class SegnaviaDocument extends HTMLElement {
   private currentPage = 0
   private authoringRail: HTMLElement | null = null
   private slotOptions: SlotsOptions | undefined
+  private motifOptions: MotifsOptions | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
@@ -35,6 +37,15 @@ export class SegnaviaDocument extends HTMLElement {
     this.slotOptions = value
     this.paint()
     this.dispatchEvent(new CustomEvent('segnavia-document-slots'))
+  }
+
+  get motifs(): MotifsOptions | undefined {
+    return this.motifOptions
+  }
+
+  set motifs(value: MotifsOptions | undefined) {
+    this.motifOptions = value
+    this.paint()
   }
 
   get css(): string {
@@ -130,6 +141,7 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     this.paintResolved(print)
+    if (this.motifOptions) return
     const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
     if (refusal) {
       this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
@@ -217,6 +229,8 @@ export class SegnaviaDocument extends HTMLElement {
     if (!source || !print) return
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
+    page.motifs = this.motifOptions
+    if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
     page.part.add('page')

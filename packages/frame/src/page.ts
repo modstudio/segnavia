@@ -12,7 +12,8 @@
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
+import { type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 
@@ -24,6 +25,7 @@ export class SegnaviaPage extends HTMLElement {
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
+  private motifOptions: MotifsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
@@ -35,6 +37,15 @@ export class SegnaviaPage extends HTMLElement {
 
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
+    if (this.pageValue) this.load(this.pageValue)
+  }
+
+  get motifs(): MotifsOptions | undefined {
+    return this.motifOptions
+  }
+
+  set motifs(value: MotifsOptions | undefined) {
+    this.motifOptions = value
     if (this.pageValue) this.load(this.pageValue)
   }
 
@@ -88,12 +99,22 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (resolved: PreparedSlots) => {
+    const show = (shownPage: Page, resolved?: PreparedSlots) => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
-      const filledFrame = this.mount(page)
       this.resolvedSlots = resolved
-      this.slotFrame = { frame: filledFrame, generation }
-      filledFrame.srcdoc = frameDocument(slotHtml(page.html, resolved), {
+      this.slotFrame = resolved ? { frame: iframe, generation } : undefined
+      iframe.srcdoc = shownPageDocument(shownPage, resolved, {
+        nonce: newNonce(),
+        css: this.css,
+        csp: this.cspExtra || undefined,
+      })
+    }
+    const report = (error: unknown) => {
+      if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
+        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    }
+    if (!this.motifOptions) {
+      iframe.srcdoc = frameDocument(page.html, {
         scripts: page.scripts,
         nonce: newNonce(),
         dir: page.dir,
@@ -102,27 +123,18 @@ export class SegnaviaPage extends HTMLElement {
         csp: this.cspExtra || undefined,
         relayKeys: false,
       })
+      const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
+      if (refusal) report(refusal)
+      else if (hasSlotWork(page.slots, this.slotOptions))
+        void prepareSlots(page.slots, this.slotOptions, controller.signal)
+          .then((resolved) => show(page, resolved))
+          .catch(report)
+      this.fit()
+      return
     }
-    iframe.srcdoc = frameDocument(page.html, {
-      scripts: page.scripts,
-      nonce: newNonce(),
-      dir: page.dir,
-      lang: page.lang,
-      css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
-      csp: this.cspExtra || undefined,
-      relayKeys: false,
-    })
-    const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
-    if (refusal) {
-      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
-    } else if (hasSlotWork(page.slots, this.slotOptions)) {
-      void prepareSlots(page.slots, this.slotOptions, controller.signal)
-        .then(show)
-        .catch((error) => {
-          if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
-            this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-        })
-    }
+    void prepareShownPage(page, this.motifOptions, this.slotOptions, controller.signal)
+      .then(({ page: shownPage, resolved }) => show(shownPage, resolved))
+      .catch(report)
     this.fit()
   }
 

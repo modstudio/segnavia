@@ -75,6 +75,7 @@ with `detail.message` when loading or validating an input fails.
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
 | `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |
+| `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, page `<segnavia-thumbnail>` views, live board page and paper items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Decks, slides and books do not expand motif placements. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized frame title. `defaultFrameTitle` supplies the English default, and the position is recomputed after a reorder. |
 | `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade, transition duration and transition fit scale. `--segnavia-shot-backdrop` supplies the plain canvas behind contained images and shots. `--segnavia-fit-reserve` lets a player host reserve viewport height for the host page's own chrome; the player measures its caption, bar, `.below` slot and stacked rail itself. `--segnavia-overlay-scrim` supplies the overlay caption and control scrim. `--segnavia-stage-gutter` (default `24px`) is the room around the stage in `fit="contain"`, so its shadow stays inside the player's clip; `fit="height"` and presentation keep their own padding. |
@@ -400,6 +401,14 @@ boundary as script or markup.
 An item that runs its own scripts cannot receive a fill, because those scripts
 could read filled values and resolved assets; set `scripts` to `refuse` or show
 the item without a fill.
+
+A motif places reusable HTML and CSS in a page before its slots are prepared.
+The library does not scope motif CSS; motif authors choose selectors that fit
+the page that places it. A motif's bindings use the fixed `slot` prefix and are
+filled per placement from `MotifSource.data`, so the page's own fill does not
+reach inside a motif. The live-data-or-script rule covers the whole page: a page
+whose `scripts` is not `refuse` may place only motif versions without live data.
+Save-time validation and expansion both refuse a live-data motif on such a page.
 
 `<segnavia-item-settings>` edits those fills beside the item. The host sets
 `declarations`, `fills`, the selected fill id, an optional source fill and the

@@ -1,4 +1,5 @@
 import type { OmittedImpositionMark } from '@segnavia/format'
+import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
@@ -88,6 +89,7 @@ export interface RenderOptions {
 }
 
 export interface ImageOptions extends RenderOptions {
+  motifs?: MotifsOptions
   format?: 'png' | 'jpeg' | 'webp'
   proof?: { profile: Uint8Array }
   quality?: number[]

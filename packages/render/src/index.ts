@@ -1,6 +1,7 @@
 // Renders pages, slides and decks in a host-named, offline headless Chromium.
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { expandFramePages, type MotifsOptions } from '@segnavia/frame/motifs'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
@@ -14,7 +15,8 @@ import { fontFaces } from './font-faces.ts'
 import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { assertPrintOptions, printCss, printPage, printViewport } from './page-paper.ts'
+import { preparePagePdfPage, renderPageDocument } from './page-document.ts'
+import { assertPrintOptions, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
@@ -24,6 +26,7 @@ import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
+export type { MotifsOptions } from '@segnavia/frame/motifs'
 export { captureImage } from './capture-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
@@ -58,10 +61,12 @@ export interface RendererOptions {
   jsHeapMb?: number
 }
 
+export type PagePdfOptions = RenderOptions & { motifs?: MotifsOptions }
+
 export interface Renderer {
   bookPdf(book: BookInput, options?: RenderOptions): Promise<Uint8Array>
-  pagePdf(page: PageInput, options?: RenderOptions): Promise<Uint8Array>
-  pagesPdf(pages: PageInput[], options?: RenderOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
+  pagePdf(page: PageInput, options?: PagePdfOptions): Promise<Uint8Array>
+  pagesPdf(pages: PageInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
@@ -151,13 +156,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       await context?.close().catch(() => {})
     }
   }
-  function pageDocument(page: Page, options: RenderOptions, printing = false): string {
-    const hostCss = `${page.print ? printCss(page.print) : ''}${fontFaces(options.fonts)}${options.css ?? ''}`
-    const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
-    const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-    return frameDocument(page.html, { scripts: page.scripts, nonce: newNonce(), dir: page.dir, lang: page.lang, css, relayKeys: false, reportHeight: false })
-  }
-
   async function finishWithBrowser(
     pdf: Uint8Array,
     options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
@@ -184,7 +182,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         viewport,
         scripts: true,
         slots: preparedSlotsFor(page),
-        html: pageDocument(page, opts, true),
+        html: renderPageDocument(page, opts, true),
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
         deadline,
@@ -273,8 +271,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagePdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
+        const expanded = await preparePagePdfPage(Page.parse(input), opts.motifs, deadline.signal)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const page = await filledPage(Page.parse(input), copySlots, deadline.signal)
+          const page = await filledPage(expanded, copySlots, deadline.signal)
           const printed = await renderPagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -287,7 +286,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pageImage(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const page = await filledPage(Page.parse(input), opts.slots, deadline.signal)
+        const expanded = await preparePagePdfPage(Page.parse(input), opts.motifs, deadline.signal)
+        const page = await filledPage(expanded, opts.slots, deadline.signal)
         const viewport = pageViewport(page, opts.width)
         const grows = page.size === 'fluid' || (typeof page.size === 'object' && page.size.height === 'auto')
         return withTab(
@@ -296,7 +296,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             slots: preparedSlotsFor(page),
             scale: opts.scale,
-            html: pageDocument(page, opts),
+            html: renderPageDocument(page, opts),
             waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
             boundMs: opts.boundMs,
             deadline,
@@ -312,7 +312,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pagesPdf(inputs, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const parsed = inputs.map((input) => Page.parse(input))
+        const parsed = await expandFramePages(
+          inputs.map((input) => Page.parse(input)),
+          opts.motifs,
+          deadline.signal,
+        )
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)
           return renderPagesPdf(
