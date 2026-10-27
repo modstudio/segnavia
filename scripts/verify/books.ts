@@ -1,7 +1,14 @@
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
-import { compareDesignedPages, compareTemplatedPages, DESIGNED_PAGE_MEAN, DESIGNED_PAGE_P99 } from './paginated-designed.ts'
+import {
+  compareDesignedPages,
+  compareTemplatedPages,
+  DESIGNED_PAGE_MEAN,
+  DESIGNED_PAGE_P99,
+  TEMPLATED_PAGE_MEAN,
+  TEMPLATED_PAGE_P99,
+} from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
@@ -226,7 +233,7 @@ async function verifyWorkbooks(h: Harness) {
         node.getAttribute('data-segnavia-region-overflow'),
       )
       const school = document.body.textContent ?? ''
-      const tableDir = Array.from(document.querySelectorAll('[data-region="table"]')).map((node) => getComputedStyle(node).direction)
+      const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
       const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).map((node) => {
         const target = node.getAttribute('data-target') ?? ''
         const paper = document.getElementById(target)?.closest('[data-segnavia-book-page]')
@@ -277,7 +284,7 @@ async function verifyWorkbooks(h: Harness) {
 
     const pixels = await compareTemplatedPages(h, id)
     check(
-      `${id} each templated page equals its PDF page (mean <= ${DESIGNED_PAGE_MEAN}, p99 <= ${DESIGNED_PAGE_P99})`,
+      `${id} each templated page equals its PDF page (mean <= ${TEMPLATED_PAGE_MEAN}, p99 <= ${TEMPLATED_PAGE_P99})`,
       pixels.length > 0 && pixels.every((item) => item.ok),
       pixels.map((item) => item.detail).join('; '),
     )

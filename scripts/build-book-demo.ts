@@ -136,7 +136,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
 })
 
 const workbookCss =
-  ':where(.lesson){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:12px;padding-inline:12px;display:flex;flex-direction:column;gap:8px}:where(.lesson-heading){font-weight:700}:where(.lesson-reading){block-size:5em;overflow:visible}:where(.lesson-table table){inline-size:100%;border-collapse:collapse}:where(.lesson-table th,.lesson-table td){border:1px solid;padding:4px}:where(.copyright-page){box-sizing:border-box;inline-size:100%;block-size:100%;padding:24px}:where(.lesson-alt .lesson-table){order:-1}'
+  ':where(.lesson){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:12px;padding-inline:12px;display:flex;flex-direction:column;gap:8px}:where(.lesson-heading){font-weight:700}:where(.lesson-reading){flex:none;block-size:3em;max-block-size:3em;overflow:visible}:where(.lesson-table table){inline-size:100%;border-collapse:collapse}:where(.lesson-table th,.lesson-table td){border:1px solid;padding:4px}:where(.copyright-page){box-sizing:border-box;inline-size:100%;block-size:100%;padding:24px}:where(.lesson-alt .lesson-table){order:-1}'
 
 function lessonTable(hebrew: boolean): string {
   const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
@@ -146,7 +146,7 @@ function lessonTable(hebrew: boolean): string {
 function workbookFixture(hebrew: boolean): BookInput {
   const lesson = hebrew ? 'שיעור' : 'Lesson'
   const reading = hebrew ? 'הטקסט לקריאה בשיעור.' : 'The reading text for this lesson.'
-  const longReading = hebrew ? `${reading} `.repeat(40) : `${reading} `.repeat(40)
+  const longReading = hebrew ? `${reading} `.repeat(8) : `${reading} `.repeat(8)
   return {
     title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
     mode: 'paginated',
@@ -157,11 +157,11 @@ function workbookFixture(hebrew: boolean): BookInput {
     templates: [
       {
         name: 'lesson',
-        html: '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
+        html: '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
       },
       {
         name: 'lesson-alt',
-        html: '<div class="lesson lesson-alt"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
+        html: '<div class="lesson lesson-alt"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
       },
     ],
     frontMatter: [

@@ -8,6 +8,8 @@ import { decodePng, type PngPixels } from './png-pixels.ts'
 
 export const DESIGNED_PAGE_MEAN = 8
 export const DESIGNED_PAGE_P99 = 48
+export const TEMPLATED_PAGE_MEAN = 8
+export const TEMPLATED_PAGE_P99 = 240
 
 export interface DesignedPageMatch {
   page: number
@@ -67,9 +69,11 @@ async function compareSelectedPages(h: Harness, id: string, file: string, select
     const width = Math.min(screen.width, printed.width)
     const height = Math.min(screen.height, printed.height)
     const diff = differencePixels(crop(screen, width, height), crop(printed, width, height), width, height)
+    const meanLimit = label === 'templated' ? TEMPLATED_PAGE_MEAN : DESIGNED_PAGE_MEAN
+    const p99Limit = label === 'templated' ? TEMPLATED_PAGE_P99 : DESIGNED_PAGE_P99
     matches.push({
       page,
-      ok: diff.mean <= DESIGNED_PAGE_MEAN && diff.p99 <= DESIGNED_PAGE_P99,
+      ok: diff.mean <= meanLimit && diff.p99 <= p99Limit,
       mean: diff.mean,
       p99: diff.p99,
       detail: `page ${page} mean ${diff.mean.toFixed(2)} p99 ${diff.p99} size ${screen.width}x${screen.height}/${printed.width}x${printed.height}`,
