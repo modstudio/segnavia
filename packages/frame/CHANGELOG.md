@@ -1,5 +1,27 @@
 # @segnavia/frame
 
+## 0.27.0
+
+### Minor Changes
+
+- add7c29: Print pages with parent-page furniture from the browser, using the same composed papers and identity-imposition policy as server PDF rendering.
+- be667fe: Add motif definitions, version selection, host source types, expansion, save-time placement refusals, and consistent page viewing, image and PDF wiring.
+- eadae7c: Move book folios and running heads onto default parent pages backed by reserved library motifs.
+- f98d1bd: Package a page's named local font faces as JSON-safe transport and accept them for one server render alongside the FontSource that establishes each local reference's app-font fallback. Validate signatures and host-set limits, embed only requested families, report missing local faces, and retain no decoded face after the call.
+- efb84cb: Let a page and a motif name app and local fonts. The host supplies app faces through FontSource; a browser helper reads local fonts. Preview, print and server PDF embed the same data: faces for app fonts. A server PDF shows the declared fallback for a local font until server local fonts exist.
+- bc3b86c: Add inherited parent pages, printed-page roles and numbered head and foot motifs to server-rendered flowing pages.
+
+### Patch Changes
+
+- Updated dependencies [add7c29]
+- Updated dependencies [be667fe]
+- Updated dependencies [eadae7c]
+- Updated dependencies [f98d1bd]
+- Updated dependencies [efb84cb]
+- Updated dependencies [bc3b86c]
+  - @segnavia/format@0.27.0
+  - @segnavia/html@0.27.0
+
 ## 0.26.0
 
 ### Patch Changes
