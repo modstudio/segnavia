@@ -155,4 +155,19 @@ describe('printedPageDocument', () => {
     }
     await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
   })
+
+  test('refuses a reserved library motif placed in a parent page', async () => {
+    const placed = Page.parse({
+      ...page,
+      printedPages: {
+        ...page.printedPages,
+        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer data-motif="segnavia:folio"></footer>' }],
+        rules: { every: 'body' },
+      },
+    })
+    const source = { motif: async () => undefined }
+    await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow(
+      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+  })
 })

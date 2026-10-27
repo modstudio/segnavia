@@ -59,6 +59,26 @@ export type ParentPage = z.infer<typeof ParentPage>
 export type PrintedPageRules = z.infer<typeof PrintedPageRules>
 export type PrintedPages = z.infer<typeof PrintedPages>
 
+export const BOOK_PARENT_NAMES = {
+  recto: 'segnavia:recto',
+  verso: 'segnavia:verso',
+  opener: 'segnavia:opener',
+  blank: 'segnavia:blank',
+} as const
+
+const RUNNING_HEAD_PLACEMENT = '<div class="segnavia-running-head" data-motif="segnavia:running-head"></div>'
+const FOLIO_PLACEMENT = '<div class="segnavia-folio" data-motif="segnavia:folio"></div>'
+
+export function bookParentPages(margin: ParentPageMargin): ParentPage[] {
+  const held = () => ({ ...margin })
+  return [
+    { name: BOOK_PARENT_NAMES.recto, margin: held(), head: RUNNING_HEAD_PLACEMENT, foot: FOLIO_PLACEMENT },
+    { name: BOOK_PARENT_NAMES.verso, margin: held(), head: RUNNING_HEAD_PLACEMENT, foot: FOLIO_PLACEMENT },
+    { name: BOOK_PARENT_NAMES.opener, margin: held(), foot: FOLIO_PLACEMENT },
+    { name: BOOK_PARENT_NAMES.blank, margin: held() },
+  ]
+}
+
 export interface ResolvedParentPage {
   name: string
   margin: ParentPageMargin

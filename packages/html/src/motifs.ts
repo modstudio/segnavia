@@ -1,6 +1,7 @@
 import {
   chooseMotifVersion,
   type FontReference,
+  LIBRARY_MOTIF_PREFIX,
   MOTIF_ATTRIBUTE,
   type Motif,
   type MotifPlacement,
@@ -148,6 +149,10 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
     refuse(state, element, 'a motif key', `set ${MOTIF_ATTRIBUTE} to a known motif key`)
     return undefined
   }
+  if (key.startsWith(LIBRARY_MOTIF_PREFIX)) {
+    refuse(state, element, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
+    return undefined
+  }
   const revision = state.options.pins && Object.hasOwn(state.options.pins, key) ? state.options.pins[key] : undefined
   const cacheKey = JSON.stringify([key, revision])
   let request = state.motifCache.get(cacheKey)
@@ -159,6 +164,10 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
   state.options.signal.throwIfAborted()
   if (!motif) {
     refuse(state, element, `motif "${key}"${revision ? ` at revision "${revision}"` : ''}`, 'make that motif available from the source')
+    return undefined
+  }
+  if (motif.key.startsWith(LIBRARY_MOTIF_PREFIX)) {
+    refuse(state, element, `a host MotifSource result key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
     return undefined
   }
   return motif

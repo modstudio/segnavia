@@ -232,7 +232,7 @@ Page numbering is set separately for front matter and the body, while footnote a
 
 A paginated book without a page is refused. More than one contents entry is refused. Front matter and the body cannot use the same numbering system, chapter endnotes require paginated mode, and page margins must leave a text area. The remaining refusal depends on content: once the HTML reader knows that both footnotes and endnotes are used, it applies `noteMarkerIssues` to require different markers; `Book.parse` cannot apply that rule without scanning HTML. `bookDocument` builds the ordered sections, generated contents, footnote blocks and endnotes as one pure HTML transform.
 
-`bookPdf` prints a continuous book with a page setting. It prints the body first to locate every destination, inserts blank pages when recto openings are enabled, and checks a second body print against that prediction. Each chapter, and body page 1, then opens on a recto: the right-hand page of a left-to-right book and the left-hand page of a right-to-left book; in both directions it is an odd body page. It prints the front matter once with width-appropriate contents placeholders and again with its final front- and body-page numbers, refusing if a front destination moves. An odd front matter then receives a trailing blank. A separate Chromium print supplies folios and running heads in the top and bottom margins; opening and blank pages omit the running head, and blank pages omit the folio. The renderer overlays that margin layer, joins front and body, and rewrites contents and note links to explicit destinations before applying the standard effects, press and limit passes.
+`bookPdf` prints a continuous book with a page setting. It prints the body first to locate every destination, inserts blank pages when recto openings are enabled, and checks a second body print against that prediction. Each chapter, and body page 1, then opens on a recto: the right-hand page of a left-to-right book and the left-hand page of a right-to-left book; in both directions it is an odd body page. It prints the front matter once with width-appropriate contents placeholders and again with its final front- and body-page numbers, refusing if a front destination moves. An odd front matter then receives a trailing blank. The printed-page planner selects the library's default recto, verso, opener or blank parent page for every physical page. Those parent pages carry the book margins and place the built-in `segnavia:running-head` and `segnavia:folio` motifs in their head and foot; opening and blank parents omit the running head, and blank parents omit the folio. A separate Chromium print renders and overlays that furniture layer, then the renderer joins front and body and rewrites contents and note links to explicit destinations before applying the standard effects, press and limit passes.
 
 ## How a shot is made
 
@@ -420,6 +420,8 @@ filled per placement from `MotifSource.data`, so the page's own fill does not
 reach inside a motif. The live-data-or-script rule covers the whole page: a page
 whose `scripts` is not `refuse` may place only motif versions without live data.
 Save-time validation and expansion both refuse a live-data motif on such a page.
+The `segnavia:` motif-key prefix is reserved for library furniture. Host motif
+placements and `MotifSource` results must use keys outside that prefix.
 
 `<segnavia-item-settings>` edits those fills beside the item. The host sets
 `declarations`, `fills`, the selected fill id, an optional source fill and the

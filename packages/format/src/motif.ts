@@ -6,6 +6,9 @@ export const MOTIF_ATTRIBUTE = 'data-motif'
 export const PRINTED_PAGE_CONTEXT = 'printedPage'
 export const PRINTED_PAGE_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.number`
 export const PRINTED_PAGE_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.total`
+export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
+export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
+export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 
 const uniqueChoices = (field: { choices?: string[]; default?: string }, ctx: z.RefinementCtx) => {

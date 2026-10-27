@@ -97,6 +97,27 @@ describe('expandMotifs', () => {
     expect(requests).toEqual([{ key: '__proto__' }])
   })
 
+  test('reserves the segnavia motif prefix for library furniture', async () => {
+    let requested = false
+    const motifSource: MotifSource = {
+      motif: async () => {
+        requested = true
+        return { ...letterhead, key: 'segnavia:returned' }
+      },
+    }
+    await expect(expandMotifs('<div data-motif="segnavia:folio"></div>', { ...options({}), source: motifSource })).rejects.toThrow(
+      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+    expect(requested).toBe(false)
+
+    await expect(expandMotifs('<div data-motif="host"></div>', { ...options({}), source: motifSource })).rejects.toThrow(
+      'host MotifSource result key because "segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+
+    const nested = { ...letterhead, versions: [{ lang: 'he', html: '<span data-motif="segnavia:running-head"></span>' }] }
+    await expect(expandMotifs('<div data-motif="letterhead"></div>', options({ letterhead: nested }))).rejects.toThrow('reserved for library motifs')
+  })
+
   test('matches camelCase field keys through case-insensitive HTML attributes', async () => {
     const named: Motif = {
       key: 'named',
