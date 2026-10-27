@@ -67,3 +67,55 @@ test('pagePdf and pageImage print the same motif-expanded page', async () => {
     expect(html).not.toContain('Authored')
   }
 })
+
+test('pagePdf embeds only named transported local faces and retains no decoded buffer', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const reports: unknown[] = []
+  const decoded: Array<WeakRef<Uint8Array>> = []
+  const NativeUint8Array = Uint8Array
+  const host = globalThis as { Uint8Array: typeof Uint8Array }
+  host.Uint8Array = new Proxy(NativeUint8Array, {
+    construct(target, args) {
+      const value = Reflect.construct(target, args) as Uint8Array
+      if (args[0] === 5) decoded.push(new WeakRef(value))
+      return value
+    },
+  })
+  try {
+    await renderer.pagePdf(
+      {
+        html: '<p style="font-family:Local Family">Local</p>',
+        fonts: [
+          { local: 'Local Family', fallback: 'serif' },
+          { local: 'Missing Family', fallback: 'heading' },
+        ],
+        size: { width: 200, height: 100 },
+      },
+      {
+        effects: false,
+        localFonts: {
+          faces: [
+            { family: 'local family', format: 'truetype', data: 'AAEAAAc=' },
+            { family: 'Unreferenced Family', format: 'truetype', data: 'AAEAAAc=' },
+          ],
+          report: (report) => reports.push(report),
+        },
+      },
+    )
+  } finally {
+    host.Uint8Array = NativeUint8Array
+    await renderer.close()
+  }
+
+  expect(documents[0]).toContain('@font-face{font-family:"Local Family"')
+  expect(documents[0]).not.toContain('Unreferenced Family')
+  expect(reports).toEqual([{ fellBack: [{ family: 'Missing Family', fallback: 'heading' }] }])
+  expect(decoded).toHaveLength(2)
+  for (let attempt = 0; attempt < 20 && decoded.some((reference) => reference.deref()); attempt += 1) {
+    Bun.gc(true)
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+  }
+  expect(decoded.every((reference) => reference.deref() === undefined)).toBe(true)
+})
