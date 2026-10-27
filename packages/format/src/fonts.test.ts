@@ -12,7 +12,7 @@ describe('FontReference', () => {
   test('restricts app names to lowercase letters, digits and hyphens', () => {
     expect(FontReference.safeParse({ app: 'Body' }).success).toBe(false)
     expect(FontReference.safeParse({ local: 'Arial', fallback: 'Serif' }).success).toBe(false)
-    expect(FontReference.parse({ app: 'adanim-serif' })).toEqual({ app: 'adanim-serif' })
+    expect(FontReference.parse({ app: 'body-serif' })).toEqual({ app: 'body-serif' })
   })
 })
 

@@ -21,9 +21,9 @@ describe('bytesToBase64', () => {
 
 describe('fontCss', () => {
   test('writes the exact @font-face rule and :root property for an app font', () => {
-    const app = new Map<string, AppFont>([['serif', { family: 'Adanim Serif', faces: [face({ family: 'Adanim Serif' })], generic: 'serif' }]])
+    const app = new Map<string, AppFont>([['serif', { family: 'Body Serif', faces: [face({ family: 'Body Serif' })], generic: 'serif' }]])
     expect(fontCss({ app })).toBe(
-      '@font-face{font-family:"Adanim Serif";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:normal;font-style:normal;font-display:block}:root{--segnavia-font-serif:"Adanim Serif",serif}',
+      '@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:normal;font-style:normal;font-display:block}:root{--segnavia-font-serif:"Body Serif",serif}',
     )
   })
 

@@ -7,9 +7,9 @@ import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 import { printablePagesDocument } from './print-document.ts'
 
 const data = new Uint8Array([0])
-const serifFace: FontFace = { family: 'Adanim Serif', data, format: 'truetype' }
+const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }
 const headingFace: FontFace = { family: 'Heading Sans', data, format: 'truetype' }
-const serif: AppFont = { family: 'Adanim Serif', faces: [serifFace], generic: 'serif' }
+const serif: AppFont = { family: 'Body Serif', faces: [serifFace], generic: 'serif' }
 const heading: AppFont = { family: 'Heading Sans', faces: [headingFace], generic: 'sans-serif' }
 
 function source(fonts: Record<string, AppFont>): FontSource {
@@ -50,7 +50,7 @@ describe('resolvePageFonts', () => {
         ]),
       }),
     )
-    expect(css).toContain('--segnavia-font-serif:"Adanim Serif",serif')
+    expect(css).toContain('--segnavia-font-serif:"Body Serif",serif')
     expect(css).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
     expect(css).toContain('data:font/ttf;base64,AA==')
   })
@@ -98,9 +98,9 @@ describe('frame and print documents', () => {
       { css, nonce: 'testnonce' },
     ).html.replaceAll('&quot;', '"')
     for (const document of [srcdoc, printed]) {
-      expect(document).toContain('@font-face{font-family:"Adanim Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+      expect(document).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
       expect(document).toContain('@font-face{font-family:"Heading Sans";src:url(data:font/ttf;base64,AA==) format("truetype")')
-      expect(document).toContain('--segnavia-font-serif:"Adanim Serif",serif')
+      expect(document).toContain('--segnavia-font-serif:"Body Serif",serif')
       expect(document).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
     }
   })

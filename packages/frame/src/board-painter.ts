@@ -4,6 +4,7 @@ import type { BoardTier, ResolvedBoardItem } from './board-policy.ts'
 import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
 
 export class BoardPainter {
+  fonts?: FontsOptions
   private readonly tiers = new Map<string, BoardTier>()
   private readonly painted = new Map<string, ResolvedBoardItem | undefined>()
   private readonly motifOptions = new Map<string, MotifsOptions | undefined>()

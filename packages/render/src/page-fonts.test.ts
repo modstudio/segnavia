@@ -6,9 +6,9 @@ import { fontCss } from '@segnavia/html'
 import { renderPageDocument } from './page-document.ts'
 
 const data = new Uint8Array([0])
-const serifFace: FontFace = { family: 'Adanim Serif', data, format: 'truetype' }
+const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }
 const headingFace: FontFace = { family: 'Heading Sans', data, format: 'truetype' }
-const serif: AppFont = { family: 'Adanim Serif', faces: [serifFace], generic: 'serif' }
+const serif: AppFont = { family: 'Body Serif', faces: [serifFace], generic: 'serif' }
 const heading: AppFont = { family: 'Heading Sans', faces: [headingFace], generic: 'sans-serif' }
 const source: FontSource = {
   font: async (name) => ({ serif, heading })[name],
@@ -41,8 +41,8 @@ describe('server render document fonts', () => {
       }),
     )
     const document = renderPageDocument(expanded.page, { css })
-    expect(document).toContain('@font-face{font-family:"Adanim Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
-    expect(document).toContain('--segnavia-font-serif:"Adanim Serif",serif')
+    expect(document).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+    expect(document).toContain('--segnavia-font-serif:"Body Serif",serif')
     expect(document).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
   })
 

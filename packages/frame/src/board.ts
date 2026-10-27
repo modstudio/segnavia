@@ -43,7 +43,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
-  private fontOptions: FontsOptions | undefined
   private viewEvent = 0
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -92,7 +91,13 @@ export class SegnaviaBoard extends BoardSelectionElement {
       this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
     },
     open: (item) => this.dispatchEvent(new CustomEvent('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
-    boardKey: (event) => this.onBoardKey(event),
+    boardKey: (event) =>
+      boardPolicy.applyBoardKey(
+        event,
+        this.currentView,
+        () => this.fitAll(),
+        (view) => this.setView(view),
+      ),
     action: (action, item) => this.dispatchEvent(new CustomEvent('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
     focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
@@ -110,11 +115,8 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.motifOptions = value
     this.render()
   }
-  get fonts(): FontsOptions | undefined {
-    return this.fontOptions
-  }
   set fonts(value: FontsOptions | undefined) {
-    this.fontOptions = value
+    this.painter.fonts = value
     this.render()
   }
   set board(input: Board | null) {
@@ -364,7 +366,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.fontOptions)
+    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.painter.fonts)
   }
 
   private resolve(item: BoardItem) {
@@ -394,13 +396,5 @@ export class SegnaviaBoard extends BoardSelectionElement {
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.painter.dispose(current.id)
     this.dispatchEvent(new CustomEvent('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
     this.render()
-  }
-
-  private onBoardKey(event: KeyboardEvent) {
-    const action = boardPolicy.keyToView(this.currentView, event.key)
-    if (!action) return
-    event.preventDefault()
-    if (action.kind === 'fit') this.fitAll()
-    else this.setView(action.view)
   }
 }

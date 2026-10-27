@@ -13,7 +13,8 @@ function encodeTriplet(value: number, chars: number): string {
   const shifts = [18, 12, 6, 0]
   let out = ''
   for (let i = 0; i < 4; i += 1) {
-    out += i < chars ? (TABLE[(value >> shifts[i]) & 63] ?? '') : '='
+    const shift = shifts[i] ?? 0
+    out += i < chars ? (TABLE[(value >> shift) & 63] ?? '') : '='
   }
   return out
 }
