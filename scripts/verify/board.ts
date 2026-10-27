@@ -2,6 +2,7 @@ import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } 
 import { checkBoardChrome } from './board-chrome.ts'
 import { checkBoardEditing } from './board-editing.ts'
 import { checkFarBoardPan } from './board-far-pan.ts'
+import { checkBoardUpdateKeepsFrames, checkPanKeepsFrames, recordFrameLoads, showTwoLiveItems } from './board-live-frames.ts'
 import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -171,76 +172,8 @@ async function checkPlacement(h: Harness, moment: string) {
   h.check(`board labels match boardToScreen ${moment}`, facts.labels.length > 0 && labelMismatches.length === 0, labelMismatches.join('; '))
 }
 
-async function showTwoLiveItems(h: Harness) {
-  await h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & { view: BoardView }
-    board.view = { zoom: 1.25, pan: { x: 48, y: 100 }, viewport: board.view.viewport }
-  })
-  await h.page.waitForFunction(
-    () => {
-      const root = document.querySelector('segnavia-board')?.shadowRoot
-      return [...(root?.querySelectorAll('segnavia-thumbnail') ?? [])].filter((thumbnail) => thumbnail.shadowRoot?.querySelector('iframe')).length >= 2
-    },
-    undefined,
-    { timeout: BOUNDED_WAIT_MS },
-  )
-}
-async function checkPanKeepsFrames(h: Harness) {
-  await h.page.waitForFunction(
-    () => {
-      const loadedFrames = (window as typeof window & { boardLoadedFrames: WeakSet<HTMLIFrameElement> }).boardLoadedFrames
-      return [...(document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].every((thumbnail) => {
-        const frame = thumbnail.shadowRoot?.querySelector('iframe')
-        return !frame || loadedFrames.has(frame)
-      })
-    },
-    undefined,
-    { timeout: BOUNDED_WAIT_MS },
-  )
-  const result = await h.page.locator('segnavia-board').evaluate(async (element) => {
-    const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: Size } }
-    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    let loads = 0
-    for (const frame of frames) frame.addEventListener('load', () => loads++)
-    for (let step = 0; step < 20; step += 1) board.view = { ...board.view, pan: { ...board.view.pan, x: board.view.pan.x + 2 } }
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    return { loads, same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
-  })
-  h.check('panning keeps every live board frame mounted without reloading it', result.count >= 2 && result.loads === 0 && result.same, JSON.stringify(result))
-}
-async function checkBoardUpdateKeepsFrames(h: Harness) {
-  const result = await h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & {
-      board: { direction: 'ltr' | 'rtl'; items: BoardItem[]; labels: unknown[]; sections: unknown[] }
-    }
-    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    board.board = { ...board.board, items: board.board.items.map((item) => ({ ...item, x: item.x + 12 })) }
-    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    return { same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
-  })
-  h.check('setting a moved board keeps every unchanged live frame', result.count >= 2 && result.same, JSON.stringify(result))
-}
 export async function verifyBoard(h: Harness) {
-  await h.page.addInitScript(() => {
-    if (window.top !== window) return
-    const loadedFrames = new WeakSet<HTMLIFrameElement>()
-    ;(window as typeof window & { boardLoadedFrames: WeakSet<HTMLIFrameElement> }).boardLoadedFrames = loadedFrames
-    const attachShadow = Element.prototype.attachShadow
-    Element.prototype.attachShadow = function (init) {
-      const root = attachShadow.call(this, init)
-      root.addEventListener('load', (event) => event.target instanceof HTMLIFrameElement && loadedFrames.add(event.target), true)
-      return root
-    }
-  })
+  await recordFrameLoads(h)
   await h.page.goto(h.url('board.html'))
   const board = h.page.locator('segnavia-board')
   // Initial auto-section settlement writes through the asynchronous host seam.
@@ -274,10 +207,13 @@ export async function verifyBoard(h: Harness) {
     { timeout: BOUNDED_WAIT_MS },
   )
   await checkPlacement(h, 'after fit')
+
   const farInitially = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
   h.check('a far board item is not mounted after the initial fit', !farInitially, String(farInitially))
+
   const initialNameCalls = await h.page.evaluate(() => (window as typeof window & { initialItemNamesCalls?: number }).initialItemNamesCalls)
   h.check('board item names are requested once for the initial board', initialNameCalls === 1, String(initialNameCalls))
+
   const viewBeforeList = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   const list = h.page.locator('segnavia-board-list')
   const search = list.locator('input[type="search"]')
@@ -324,6 +260,7 @@ export async function verifyBoard(h: Harness) {
   await board.evaluate((element, view) => {
     ;(element as HTMLElement & { view: BoardView }).view = view
   }, viewBeforeList)
+
   const small = board.locator('[data-board-item="deck-small"]')
   const initialTier = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-small"]')
