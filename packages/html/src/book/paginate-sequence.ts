@@ -39,8 +39,7 @@ export function paginateSequence(
     if (flow.kind !== 'fixed') return undefined
     if (Number.isSafeInteger(flow.pages) && flow.pages >= 0) return undefined
     return {
-      tag: flow.id,
-      position: { chapter: 0, block: 0 },
+      flow: flow.id,
       message: `The ${flow.id} flow could not establish a page count; use a safe integer of 0 or more to clear this refusal.`,
     }
   }

@@ -219,8 +219,7 @@ describe('paginateBook model', () => {
     expect(result.pages).toEqual([])
     expect(result.refusals).toEqual([
       {
-        tag: 'art',
-        position: { chapter: 0, block: 0 },
+        flow: 'art',
         message: 'The art flow could not establish a page count; use a safe integer of 0 or more to clear this refusal.',
       },
     ])

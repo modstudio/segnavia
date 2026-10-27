@@ -43,14 +43,14 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   }
 
   function noteRefusal(id: string): PaginateBookRefusal {
+    const clears = 'use a taller text area or a shorter note line to clear this refusal.'
     const found = blockForNote(id)
-    const tag = found?.tag ?? 'note'
-    const position = found?.position ?? { chapter: 0, block: 0 }
-    const where = `chapter ${position.chapter} block ${position.block}`
+    if (!found) return { note: id, message: `Note ${id} could not establish a fit for a note line in the text area; ${clears}` }
+    const where = `chapter ${found.position.chapter} block ${found.position.block}`
     return {
-      tag,
-      position,
-      message: `The ${tag} at ${where} could not establish a fit for a note line in the text area; use a taller text area or a shorter note line to clear this refusal.`,
+      tag: found.tag,
+      position: found.position,
+      message: `The ${found.tag} at ${where} could not establish a fit for a note line in the text area; ${clears}`,
     }
   }
 

@@ -94,11 +94,11 @@ export interface PaginateBookPage {
   marks?: PaginatePageMarks
 }
 
-export interface PaginateBookRefusal {
-  tag: string
-  position: { chapter: number; block: number }
-  message: string
-}
+// A refusal names the block it could not place, or the flow or note when no block is at fault.
+export type PaginateBookRefusal =
+  | { tag: string; position: { chapter: number; block: number }; message: string }
+  | { flow: string; message: string }
+  | { note: string; message: string }
 
 export interface PaginateBookResult {
   pages: PaginateBookPage[]
