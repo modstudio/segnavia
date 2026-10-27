@@ -1,9 +1,11 @@
-import type { OmittedImpositionMark } from '@segnavia/format'
+import type { FontFace, FontSource, OmittedImpositionMark } from '@segnavia/format'
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import type { PressReport } from './press/types.ts'
+
+export type Font = FontFace
 
 export type OverflowPart = 'page' | 'front' | 'body' | 'margin'
 
@@ -44,15 +46,6 @@ export interface MarksReport {
   omittedMarks: OmittedImpositionMark[]
 }
 
-export interface Font {
-  family: string
-  data: Uint8Array
-  format: 'woff2' | 'woff' | 'truetype' | 'opentype'
-  weight?: number | string
-  style?: 'normal' | 'italic'
-  unicodeRange?: string
-}
-
 export interface RenderLimits {
   maxSheets?: number
   maxBytes?: number
@@ -61,6 +54,7 @@ export interface RenderLimits {
 export interface RenderOptions {
   css?: string
   fonts?: Font[]
+  fontSource?: FontSource
   limits?: RenderLimits
   boundMs?: number
   waitForPageReady?: boolean

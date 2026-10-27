@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
+import { FontReference } from './fonts.ts'
 import { NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Scripts } from './scripts.ts'
@@ -55,6 +56,7 @@ export const BookShape = z.object({
   lang: z.string().optional(),
   frontMatter: z.array(BookFrontMatterEntry).default([]),
   chapters: z.array(Chapter).min(1),
+  fonts: z.array(FontReference).optional(),
   numbering: z
     .object({
       frontMatter: NumberSystem.optional(),
@@ -78,7 +80,7 @@ export const BookShape = z.object({
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
-export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true }).extend({
+export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true }).extend({
   title: BookShape.shape.title.optional(),
   html: z.string(),
 })
