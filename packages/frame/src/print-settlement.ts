@@ -18,7 +18,7 @@ export function printDocumentSettled(
   deadline: Promise<unknown>,
   onSlotFit?: (slots: Record<string, SlotFitState>) => void,
   slotFitPending?: () => boolean,
-): Promise<void> {
+): Promise<boolean> {
   return new Promise((resolve) => {
     const waitingFrames = new Set(frameWindows)
     const waitingImages = new Set(images.filter((image) => typeof image.decode === 'function' || !image.complete))
@@ -32,7 +32,7 @@ export function printDocumentSettled(
         image.removeEventListener('load', onImage)
         image.removeEventListener('error', onImage)
       }
-      resolve()
+      resolve(waitingFrames.size === 0)
     }
     const finishIfSettled = () => {
       // Ready is not enough while a filled frame still owes its fit report; the deadline still releases.

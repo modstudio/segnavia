@@ -155,19 +155,20 @@ export interface PrintablePagesDocument {
 
 const mm = (value: number) => `${value}mm`
 
-function imposedPaperDocument(
-  imposed: Imposed,
-  rootAttributes: string,
-  placementBody: (paper: number, side: 'front' | 'back') => string,
-  extraHead = '',
-): string {
-  const papers = Array.from({ length: imposed.papers }, (_, paper) =>
-    (['front', 'back'] as const)
-      .slice(0, imposed.sides)
-      .map((side) => `<section class="paper" data-side="${side}">${placementBody(paper, side)}</section>`)
-      .join(''),
-  ).join('')
-  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8">${extraHead}<style>@page{size:${mm(imposed.paper.width)} ${mm(imposed.paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(imposed.paper.width)};height:${mm(imposed.paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+export interface PrintablePaperBody {
+  body: string
+  side: 'front' | 'back'
+}
+
+export function imposedPaperDocument(paper: Imposed['paper'], rootAttributes: string, bodies: readonly PrintablePaperBody[], extraHead = ''): string {
+  const papers = bodies.map(({ body, side }) => `<section class="paper" data-side="${side}">${body}</section>`).join('')
+  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8">${extraHead}<style>@page{size:${mm(paper.width)} ${mm(paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(paper.width)};height:${mm(paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
+}
+
+function imposedPaperBodies(imposed: Imposed, placementBody: (paper: number, side: 'front' | 'back') => string): PrintablePaperBody[] {
+  return Array.from({ length: imposed.papers }, (_, paper) =>
+    (['front', 'back'] as const).slice(0, imposed.sides).map((side) => ({ body: placementBody(paper, side), side })),
+  ).flat()
 }
 
 function placementBox(
@@ -214,7 +215,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   // Papers and placement boxes use physical coordinates; each slide frame
   // keeps its own direction while the document keeps the deck's direction.
   const rootAttributes = ` dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
-  return { html: imposedPaperDocument(imposed, rootAttributes, placementBody, documentTitle(deck, options)), imposed }
+  return { html: imposedPaperDocument(imposed.paper, rootAttributes, imposedPaperBodies(imposed, placementBody), documentTitle(deck, options)), imposed }
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
@@ -265,7 +266,8 @@ export function printablePagesDocument(pages: Page[], imposition: Imposition, op
   const imposed = impose(imposition, pages.length)
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
-  const html = imposedPaperDocument(imposed, ' dir="ltr"', (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))
+  const bodies = imposedPaperBodies(imposed, (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))
+  const html = imposedPaperDocument(imposed.paper, ' dir="ltr"', bodies)
   return { html, imposed }
 }
 

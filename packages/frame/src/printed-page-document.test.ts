@@ -50,6 +50,40 @@ describe('printedPageDocument', () => {
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
   })
 
+  test('starts at zero height and can build one numbered paper after measuring the full flow', () => {
+    const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
+    const second = printedPageDocument(page, { nonce: 'held', only: 2 })
+    expect(measuring).toContain(':where([data-segnavia-flow]){position:absolute}')
+    expect(measuring).toContain('html:not([data-segnavia-composed])')
+    expect(measuring).toContain('ResizeObserver')
+    expect(second).toContain('"only":2')
+    expect(second).not.toContain('ResizeObserver')
+    expect(second).toContain('attributeFilter:[name]')
+  })
+
+  test('settles furniture resources and fonts before marking composition complete', () => {
+    const html = printedPageDocument(page, { nonce: 'held' })
+    expect(html).toContain('readyImages(pages)')
+    expect(html).toContain('document.fonts?document.fonts.ready:Promise.resolve(),readyImages(pages)')
+    expect(html).not.toContain('setTimeout(resolve,50)')
+  })
+
+  test('counts columns after loaded layout is stable and refuses a changed measured count', () => {
+    const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
+    expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
+    expect(html).toContain('var channel=new MessageChannel()')
+    expect(html).toContain('current===last')
+    expect(html).toContain('"expectedCount":3')
+    expect(html).toContain('the composed page count changed from ')
+  })
+
+  test('carries root backgrounds only for a printable composed paper', () => {
+    const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
+    const printable = printedPageDocument(page, { nonce: 'held', only: 1, printBackground: true })
+    expect(measuring).not.toContain('data-segnavia-print-background')
+    expect(printable).toContain('data-segnavia-print-background')
+  })
+
   test.each([
     [
       'width including first',

@@ -1,5 +1,6 @@
 import type { Harness } from './harness.ts'
 import { verifyLatePrintMoment } from './print-moments-browser.ts'
+import { verifyPrintedParentPages } from './printed-pages-browser.ts'
 
 const PLAYER = 'segnavia-player'
 
@@ -394,4 +395,5 @@ window.cspPrint=printDeck({title:'CSP print',size:{width:1280,height:720},slides
     lateImage.placed && lateImage.width === '400px' && lateImage.height === '800px',
     JSON.stringify(lateImage),
   )
+  await verifyPrintedParentPages(page, h.url(''), check)
 }

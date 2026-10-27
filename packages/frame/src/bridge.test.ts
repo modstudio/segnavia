@@ -145,6 +145,103 @@ describe('frame document', () => {
     expect(html).toContain('if(unlaid&&slotFitTries<40)')
   })
 
+  test('a composed document reports ready only after its composer marks the root', async () => {
+    const attributes = new Set<string>()
+    let observe = () => {}
+    const messages: unknown[] = []
+    const document = {
+      readyState: 'complete',
+      documentElement: { hasAttribute: (name: string) => attributes.has(name), getBoundingClientRect: () => ({ height: 0 }) },
+      images: [],
+      fonts: { ready: Promise.resolve() },
+      getAnimations: () => [],
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+    }
+    const window = {
+      addEventListener: () => {},
+      MutationObserver: class {
+        constructor(callback: (records: unknown[], observer: { disconnect: () => void }) => void) {
+          observe = () => callback([], this)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    }
+    Function(
+      'document',
+      'parent',
+      'window',
+      'MutationObserver',
+      bridgeForHost({ reportHeight: false, readyAfterAttribute: 'data-done' }),
+    )(document, { postMessage: (message: unknown) => messages.push(message) }, window, window.MutationObserver)
+    await Promise.resolve()
+    expect(messages.some((message) => (message as { type?: string }).type === MESSAGE.ready)).toBe(false)
+    attributes.add('data-done')
+    observe()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(messages.at(-1)).toEqual({ type: MESSAGE.ready })
+  })
+
+  test('a measured composed document reports its changed height when the composer marks the root', async () => {
+    const attributes = new Set<string>()
+    const timers: Array<() => void> = []
+    let height = 0
+    let composed = () => {}
+    const messages: unknown[] = []
+    const document = {
+      readyState: 'complete',
+      documentElement: { hasAttribute: (name: string) => attributes.has(name), getBoundingClientRect: () => ({ height }) },
+      images: [],
+      fonts: { ready: Promise.resolve() },
+      getAnimations: () => [],
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+    }
+    class MutationObserver {
+      callback: (records: unknown[], observer: MutationObserver) => void
+      constructor(callback: (records: unknown[], observer: MutationObserver) => void) {
+        this.callback = callback
+      }
+      observe(_target: unknown, options: { attributes?: boolean }) {
+        if (options.attributes) composed = () => this.callback([], this)
+      }
+      disconnect() {}
+    }
+    const window = {
+      addEventListener: () => {},
+      MutationObserver,
+      ResizeObserver: class {
+        observe() {}
+      },
+    }
+    Function(
+      'document',
+      'parent',
+      'window',
+      'MutationObserver',
+      'ResizeObserver',
+      'setTimeout',
+      bridgeForHost({ reportHeight: true, readyAfterAttribute: 'data-done' }),
+    )(document, { postMessage: (message: unknown) => messages.push(message) }, window, MutationObserver, window.ResizeObserver, (callback: () => void) =>
+      timers.push(callback),
+    )
+    height = 2112
+    attributes.add('data-done')
+    composed()
+    timers.shift()?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(messages).toContainEqual({ type: MESSAGE.height, height: 2112 })
+    const heightReports = messages.filter((message) => (message as { type?: string }).type === MESSAGE.height)
+    composed()
+    timers.shift()?.()
+    expect(messages.filter((message) => (message as { type?: string }).type === MESSAGE.height)).toEqual(heightReports)
+  })
+
   test('a laid-out inline refuse slot reports fit with zero client dimensions', async () => {
     const element = {
       clientWidth: 0,

@@ -1,4 +1,13 @@
-import { Imposition, type ImpositionInput, impose, impositionMarks, type Page, printPadding, printProperties } from '@segnavia/format'
+import {
+  Imposition,
+  type ImpositionInput,
+  impose,
+  impositionMarks,
+  isPrintedPageIdentityImposition,
+  type Page,
+  printPadding,
+  printProperties,
+} from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import type { PrintResult } from './overflow.ts'
@@ -82,6 +91,26 @@ export async function renderPagesPdf(pages: Page[], opts: PagesPdfOptions, servi
     throw new RenderRefusedError(
       'Pages in an imposition take their size from its paper. Remove preferCssPageSize, or remove the imposition, to clear this refusal.',
     )
+  }
+  const printed = pages.filter((page) => page.printedPages)
+  if (printed.length > 0) {
+    if (printed.some((page) => !page.print || !isPrintedPageIdentityImposition(page.print, imposition))) {
+      throw new RenderRefusedError(
+        'Printed pages could not establish one unchanged page per paper under this imposition; print without imposition to clear this refusal.',
+      )
+    }
+    const overflow: NonNullable<PrintResult['overflow']>[] = []
+    const parts = await Promise.all(
+      pages.map(async (page, inputIndex) => {
+        if (!page.printedPages) return composedPdf([page], imposition, opts, services)
+        const rendered = await services.pagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, inputIndex)
+        if (rendered.overflow) overflow.push(rendered.overflow)
+        return rendered.bytes
+      }),
+    )
+    const output = await services.finish(await joinPdfs(parts), opts)
+    opts.overflow?.report?.({ entries: overflow })
+    return output
   }
   return services.finish(await composedPdf(pages, imposition, opts, services), opts)
 }

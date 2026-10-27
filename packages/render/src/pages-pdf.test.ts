@@ -140,3 +140,54 @@ test('an imposed fluid letter piece whose printed page was snapped is drawn at s
   expect(scale.x).toBe(1)
   expect(scale.y).toBe(1)
 })
+
+test('pagesPdf refuses a non-identity imposition for printed pages with its remedy', async () => {
+  const page = Page.parse({
+    html: '<p>Flow</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  })
+  const render = renderPagesPdf(
+    [page],
+    { imposition: { paper: 'letter', columns: 2, rows: 1, cell: { width: 100, height: 279.4 } } },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(render).rejects.toThrow('print without imposition to clear this refusal')
+})
+
+test('identity-imposed printed pages use full page rendering while plain neighbors keep their placement path', async () => {
+  const printed = Page.parse({
+    html: '<p>Flow</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  })
+  const plain = Page.parse({ html: '<p>Plain</p>', size: 'fluid' })
+  const calls: string[] = []
+  const onePage = async () => {
+    const pdf = await PDFDocument.create()
+    pdf.addPage([612, 792])
+    return pdf.save()
+  }
+  await renderPagesPdf(
+    [printed, plain],
+    { imposition: { paper: 'letter', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } } },
+    {
+      pagePdf: async () => {
+        calls.push('page')
+        return { bytes: await onePage() }
+      },
+      piecePdf: async () => {
+        calls.push('piece')
+        return onePage()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(calls).toEqual(['page', 'piece'])
+})

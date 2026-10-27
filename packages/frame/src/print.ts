@@ -21,6 +21,7 @@ import {
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,
   EMPTY_SLOTS,
@@ -52,6 +53,8 @@ interface PrintFrameOptions extends PrintDialogOptions {
   html: string
   slots: typeof EMPTY_SLOTS
   output?: 'print' | 'measure'
+  strictFrameReadiness?: boolean
+  deadlineAt?: number
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -78,8 +81,8 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
         image.removeEventListener('load', placeAfterLoad)
       })
     }
-    const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
-    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, deadlineAt - Date.now()))
+    const deadlineAt = options.deadlineAt ?? Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
+    const deadline = new Promise<void>((resolve) => win.setTimeout(resolve, Math.max(0, deadlineAt - Date.now())))
     const measured = new Map<string, number>()
     const refuseKeys = new Set(options.slots.declarations.filter((declaration) => declaration.overflow === 'refuse').map((declaration) => declaration.key))
     // Fit is a separate bridge message from ready. Print waits for every marked
@@ -97,6 +100,11 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
       () => slotFitStillPending(options.slots.marked, measured, refuseKeys),
     )
     await waitForReadiness([settled, win.document.fonts?.ready ?? Promise.resolve()], deadline)
+    if (options.strictFrameReadiness && !(await settled)) {
+      throw new Error(
+        'The printed pages could not establish that every composed page was ready because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.',
+      )
+    }
     const overflowRefusal = requiredSlotRefusal(options.slots.declarations, options.slots.report)
     if (overflowRefusal) throw overflowRefusal
     const measurementRefusal = unmeasuredSlotRefusal(options.slots.declarations, options.slots.report, options.slots.marked, measured)
@@ -138,7 +146,11 @@ async function preparedDeckPrint(deck: Deck, options: BrowserPrintOptions): Prom
   return { ...deck.size, html: printableDeck(preparedDeck, options), ...options, slots: resolvedSlots }
 }
 
-async function preparedPagesPrint(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions): Promise<PrintFrameOptions> {
+async function preparedPagesPrint(
+  pagesInput: PageInput[],
+  impositionInput: ImpositionInput,
+  options: BrowserPagesPrintOptions & { deadlineAt?: number },
+): Promise<PrintFrameOptions> {
   const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
   for (const page of pages) {
@@ -155,6 +167,13 @@ async function preparedPagesPrint(pagesInput: PageInput[], impositionInput: Impo
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
+  if (filled.some((page) => page.printedPages)) {
+    const printable = await printedPagesPrintDocument(filled, imposition, {
+      ...options,
+      deadlineAt: options.deadlineAt ?? Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS),
+    })
+    return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, strictFrameReadiness: true }
+  }
   const printable = printablePagesDocument(filled, imposition, options)
   return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
 }
@@ -188,6 +207,7 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
 }
 
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+  const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
     pagesInput.map((page) => Page.parse(page)),
@@ -196,7 +216,7 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   )
   const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)
-  const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}` }
+  const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}`, deadlineAt }
   if (!options.slots?.fills) return printFrame(await preparedPagesPrint(pages, impositionInput, preparedOptions))
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
     const prepared = await preparedPagesPrint(pages, impositionInput, { ...preparedOptions, slots: copySlots })
