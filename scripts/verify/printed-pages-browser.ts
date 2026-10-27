@@ -23,7 +23,6 @@ function pdfWords(file: string): PdfWord[][] {
 }
 
 const furnitureWord = (word: string) => ['LETTERHEAD', 'Page', 'of', 'כותרת', 'עמוד', 'מתוך', 'א', 'ב', 'ג'].includes(word)
-const bodyWord = (word: string) => /^(?:English|Mixed|עברית)-\d+$/.test(word) || /^WIDOW-\d$/.test(word) || word === 'English'
 const closeWord = (left: PdfWord, right: PdfWord) => left.text === right.text && Math.abs(left.x - right.x) <= 0.5 && Math.abs(left.y - right.y) <= 0.5
 
 export async function verifyPrintedParentPages(page: Page, url: string, check: Harness['check']) {
@@ -33,53 +32,58 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
     const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as unknown[]
     const names = ['english', 'hebrew', 'mixed']
     for (const [index, fixture] of fixtures.entries()) {
-      const html = await page.evaluate(async (printedPage) => {
-        const bundle = '/segnavia.js'
-        const { printPages } = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
-        let output = ''
-        const source = {
-          motif: async (key: string) => {
-            if (key === 'printed-head') {
-              return {
-                key,
-                revision: 'demo',
-                label: 'Printed head',
-                fields: [],
-                fonts: [],
-                versions: [
-                  { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
-                  { lang: 'he', html: '<bdi>כותרת</bdi>' },
-                ],
+      await page.goto(url)
+      const html = await page
+        .evaluate(async (printedPage) => {
+          const bundle = '/segnavia.js'
+          const { printPages } = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
+          let output = ''
+          const source = {
+            motif: async (key: string) => {
+              if (key === 'printed-head') {
+                return {
+                  key,
+                  revision: 'demo',
+                  label: 'Printed head',
+                  fields: [],
+                  fonts: [],
+                  versions: [
+                    { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
+                    { lang: 'he', html: '<bdi>כותרת</bdi>' },
+                  ],
+                }
               }
-            }
-            if (key === 'printed-foot') {
-              return {
-                key,
-                revision: 'demo',
-                label: 'Printed foot',
-                fields: [],
-                fonts: [],
-                versions: [
-                  {
-                    lang: 'en',
-                    html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>',
-                  },
-                  {
-                    lang: 'he',
-                    html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>',
-                  },
-                ],
+              if (key === 'printed-foot') {
+                return {
+                  key,
+                  revision: 'demo',
+                  label: 'Printed foot',
+                  fields: [],
+                  fonts: [],
+                  versions: [
+                    {
+                      lang: 'en',
+                      html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>',
+                    },
+                    {
+                      lang: 'he',
+                      html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>',
+                    },
+                  ],
+                }
               }
-            }
-          },
-        }
-        await printPages(
-          [printedPage],
-          { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
-          { motifs: { source }, print: (win: Window) => (output = `<!doctype html>${win.document.documentElement.outerHTML}`) },
-        )
-        return output
-      }, fixture)
+            },
+          }
+          await printPages(
+            [printedPage],
+            { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
+            { motifs: { source }, print: (win: Window) => (output = `<!doctype html>${win.document.documentElement.outerHTML}`) },
+          )
+          return output
+        }, fixture)
+        .catch((error) => {
+          throw new Error(`Browser printing the ${names[index]} parent-page fixture failed: ${String(error)}`)
+        })
       await page.setContent(html, { waitUntil: 'load' })
       await page.waitForTimeout(50)
       await Promise.all(
@@ -103,8 +107,8 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       const bodyMatches =
         browser.length === server.length &&
         browser.every((words, pageIndex) => {
-          const actual = words.find((word) => bodyWord(word.text))
-          const expected = (server[pageIndex] ?? []).find((word) => bodyWord(word.text))
+          const actual = words.find((word) => !furnitureWord(word.text))
+          const expected = (server[pageIndex] ?? []).find((word) => !furnitureWord(word.text))
           return Boolean(actual && expected && closeWord(actual, expected))
         })
       check(

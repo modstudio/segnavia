@@ -54,6 +54,7 @@ describe('printedPageDocument', () => {
     const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
     const second = printedPageDocument(page, { nonce: 'held', only: 2 })
     expect(measuring).toContain(':where([data-segnavia-flow]){position:absolute}')
+    expect(measuring).toContain('html:not([data-segnavia-composed])')
     expect(measuring).toContain('ResizeObserver')
     expect(second).toContain('"only":2')
     expect(second).not.toContain('ResizeObserver')

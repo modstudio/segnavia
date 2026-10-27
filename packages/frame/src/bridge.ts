@@ -164,6 +164,7 @@ ${
     : `var pending=false;function send(){pending=false;post({type:'${MESSAGE.height}',height:Math.ceil(document.documentElement.getBoundingClientRect().height)});}
 function report(){if(pending)return;pending=true;setTimeout(send,0);}
 if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
+if(window.MutationObserver){new MutationObserver(report).observe(document.documentElement,{childList:true,subtree:true});}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}

@@ -21,9 +21,8 @@ function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadline
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', 'allow-scripts')
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
-  frame.srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
-  document.body.append(frame)
   return new Promise((resolve, reject) => {
+    let timer = 0
     const finish = (result: number | Error) => {
       window.removeEventListener('message', onMessage)
       window.clearTimeout(timer)
@@ -41,7 +40,9 @@ function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadline
       finish(count)
     }
     window.addEventListener('message', onMessage)
-    const timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), deadlineMs)
+    timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), deadlineMs)
+    frame.srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
+    document.body.append(frame)
   })
 }
 

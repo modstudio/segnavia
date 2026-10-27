@@ -107,6 +107,10 @@ describe('frame document', () => {
     expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
   })
 
+  test('height reporting observes composed children as well as root resizing', () => {
+    expect(bridgeForHost()).toContain('new MutationObserver(report).observe(document.documentElement,{childList:true,subtree:true})')
+  })
+
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
     expect(html).toContain("window.addEventListener('click'")
