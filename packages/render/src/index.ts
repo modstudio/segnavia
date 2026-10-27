@@ -1,7 +1,6 @@
 // Renders pages, slides and decks in a host-named, offline headless Chromium.
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { expandedPagesFontCss } from '@segnavia/frame/fonts'
 import { expandFramePages, type MotifsOptions } from '@segnavia/frame/motifs'
 import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
@@ -16,7 +15,7 @@ import { fontFaces } from './font-faces.ts'
 import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { fontCssForRender, prepareRenderedPage, renderFonts, renderOptionsWithBookFonts, renderPageDocument, withFontCss } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts, renderPageDocument } from './page-document.ts'
 import { assertPrintOptions, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
@@ -33,6 +32,7 @@ export { captureImage } from './capture-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
+export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
 export type {
   Font,
   ImageOptions,
@@ -319,7 +319,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           opts.motifs,
           deadline.signal,
         )
-        const withFonts = withFontCss(opts, await fontCssForRender(expandedPagesFontCss(expanded, renderFonts(opts), deadline.signal)))
+        const withFonts = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)

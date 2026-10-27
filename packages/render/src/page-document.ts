@@ -1,17 +1,14 @@
-import { Book, type BookInput, Page, type PageInput } from '@segnavia/format'
+import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { FontRefusedError, type FontsOptions, pageFontCss, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
+import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
+import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { printCss } from './page-paper.ts'
-
-export function renderFonts(options: RenderOptions): FontsOptions | undefined {
-  return options.fontSource ? { source: options.fontSource } : undefined
-}
 
 export function withFontCss(options: RenderOptions, css: string): RenderOptions {
   return { ...options, css: `${css}${options.css ?? ''}` }
@@ -26,35 +23,51 @@ export async function fontCssForRender(work: Promise<string>): Promise<string> {
   }
 }
 
+async function resolveRenderFontReferences(
+  references: FontReference[],
+  source: FontSource | undefined,
+  local: FontFace[],
+  signal: AbortSignal,
+  place: string,
+): Promise<string> {
+  if (!source) {
+    refuseMissingFontSource(references, place)
+    return ''
+  }
+  return resolveFontReferences(references, { source, local }, signal, place)
+}
+
 export async function prepareRenderedPage(input: PageInput, options: RenderOptions, motifs: MotifsOptions | undefined, signal: AbortSignal) {
-  const prepared = await preparePagePdfPage(Page.parse(input), motifs, renderFonts(options), signal)
-  return { page: prepared.page, options: withFontCss(options, prepared.css) }
+  const page = Page.parse(input)
+  const expanded = await expandFramePage(page, motifs, signal)
+  const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
+  const local = localFontsForRender(options.localFonts, references)
+  const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
+  const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
+  options.localFonts?.report?.(local.report)
+  return { page: expanded.page, options: withFontCss(options, css) }
+}
+
+export async function prepareRenderedPages(
+  expanded: ReadonlyArray<{ page: Page; fonts: FontReference[] }>,
+  options: RenderOptions,
+  signal: AbortSignal,
+): Promise<RenderOptions> {
+  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+  const local = localFontsForRender(options.localFonts, references)
+  const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, 'page'))
+  options.localFonts?.report?.(local.report)
+  return withFontCss(options, css)
 }
 
 export async function renderOptionsWithBookFonts(input: BookInput, options: RenderOptions, signal: AbortSignal): Promise<RenderOptions> {
   const book = Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
-  if (!options.fontSource) {
-    await fontCssForRender(
-      Promise.resolve().then(() => {
-        refuseMissingFontSource(book.fonts ?? [], place)
-        return ''
-      }),
-    )
-    return options
-  }
-  const css = await fontCssForRender(resolveFontReferences(book.fonts ?? [], { source: options.fontSource }, signal, place))
+  const references = book.fonts ?? []
+  const local = localFontsForRender(options.localFonts, references)
+  const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
+  options.localFonts?.report?.(local.report)
   return withFontCss(options, css)
-}
-
-export async function preparePagePdfPage(
-  page: Page,
-  motifs: MotifsOptions | undefined,
-  fonts: FontsOptions | undefined,
-  signal: AbortSignal,
-): Promise<{ page: Page; css: string }> {
-  const expanded = await expandFramePage(page, motifs, signal)
-  return { page: expanded.page, css: await fontCssForRender(pageFontCss(expanded.page, expanded.fonts, fonts, signal)) }
 }
 
 export function renderPageDocument(page: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {

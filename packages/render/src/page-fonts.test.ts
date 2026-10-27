@@ -4,7 +4,7 @@ import { Page } from '@segnavia/format'
 import { FontRefusedError } from '@segnavia/frame/fonts'
 import { expandFramePage } from '@segnavia/frame/motifs'
 import { RenderRefusedError } from './errors.ts'
-import { prepareRenderedPage, renderOptionsWithBookFonts } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 
 const data = new Uint8Array([0])
 const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }
@@ -74,10 +74,63 @@ describe('prepareRenderedPage', () => {
     )
   })
 
-  test('does not refuse a page that names only local fonts without a fontSource', async () => {
+  test('refuses a local font fallback when no FontSource is supplied', async () => {
     const page = Page.parse({ html: '<p></p>', fonts: [{ local: 'Some Local Face', fallback: 'serif' }] })
-    const prepared = await prepareRenderedPage(page, {}, undefined, signal)
-    expect(prepared.options.css).toBe('')
+    await expect(prepareRenderedPage(page, {}, undefined, signal)).rejects.toThrow(
+      'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    )
+  })
+
+  test('embeds a transported local face under the CSS family and reports missing faces', async () => {
+    const reports: unknown[] = []
+    const prepared = await prepareRenderedPage(
+      {
+        html: '<p style="font-family: Local Family">Local</p>',
+        fonts: [
+          { local: 'Local Family', fallback: 'serif' },
+          { local: 'Missing Family', fallback: 'heading' },
+        ],
+      },
+      {
+        fontSource: source,
+        localFonts: { faces: [{ family: 'local family', format: 'truetype', data: 'AAEAAA==' }], report: (report) => reports.push(report) },
+      },
+      undefined,
+      signal,
+    )
+    expect(prepared.options.css).toContain('@font-face{font-family:"Local Family"')
+    expect(prepared.options.css).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(prepared.options.css).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
+    expect(reports).toEqual([{ fellBack: [{ family: 'Missing Family', fallback: 'heading' }] }])
+  })
+})
+
+describe('prepareRenderedPages', () => {
+  test('embeds and reports local families named only on a later page', async () => {
+    const reports: unknown[] = []
+    const options = await prepareRenderedPages(
+      [
+        { page: Page.parse({ html: '<p>First</p>' }), fonts: [] },
+        {
+          page: Page.parse({
+            html: '<p style="font-family:\'Later Local\',var(--segnavia-font-serif)">Later</p>',
+            fonts: [
+              { local: 'Later Local', fallback: 'serif' },
+              { local: 'Missing Later', fallback: 'heading' },
+            ],
+          }),
+          fonts: [],
+        },
+      ],
+      {
+        fontSource: source,
+        localFonts: { faces: [{ family: 'later local', format: 'truetype', data: 'AAEAAA==' }], report: (report) => reports.push(report) },
+      },
+      signal,
+    )
+    expect(options.css).toContain('@font-face{font-family:"Later Local"')
+    expect(options.css).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(reports).toEqual([{ fellBack: [{ family: 'Missing Later', fallback: 'heading' }] }])
   })
 })
 
@@ -94,6 +147,27 @@ describe('renderOptionsWithBookFonts', () => {
     await expect(renderOptionsWithBookFonts(book, {}, signal)).rejects.toThrow(
       'book "Book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
     )
+  })
+
+  test('embeds a transported book face and reports a missing family', async () => {
+    const reports: unknown[] = []
+    const options = await renderOptionsWithBookFonts(
+      {
+        ...book,
+        fonts: [
+          { local: 'Book Local', fallback: 'serif' },
+          { local: 'Missing Book', fallback: 'heading' },
+        ],
+      },
+      {
+        fontSource: source,
+        localFonts: { faces: [{ family: 'book local', format: 'truetype', data: 'AAEAAA==' }], report: (report) => reports.push(report) },
+      },
+      signal,
+    )
+    expect(options.css).toContain('@font-face{font-family:"Book Local"')
+    expect(options.css).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(reports).toEqual([{ fellBack: [{ family: 'Missing Book', fallback: 'heading' }] }])
   })
 })
 

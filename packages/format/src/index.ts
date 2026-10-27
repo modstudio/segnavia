@@ -8,7 +8,7 @@ import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
-import { FontReference, FontReferenceInput } from './fonts.ts'
+import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
 import { Motif, MotifInput } from './motif.ts'
@@ -122,6 +122,10 @@ export {
   FontReference,
   FontReferenceInput,
   type FontSource,
+  type LocalFacesInput,
+  LocalFacesTransport,
+  LocalFaceTransport,
+  localFontReferences,
 } from './fonts.ts'
 export {
   fitPage,
@@ -359,6 +363,8 @@ export function jsonSchemas() {
     slotDeclarationInput: z.toJSONSchema(SlotDeclarationInput, { io: 'input' }),
     fontReference: z.toJSONSchema(FontReference, { io: 'input' }),
     fontReferenceInput: z.toJSONSchema(FontReferenceInput, { io: 'input' }),
+    localFaceTransport: z.toJSONSchema(LocalFaceTransport, { io: 'input' }),
+    localFacesTransport: z.toJSONSchema(LocalFacesTransport, { io: 'input' }),
     motif: z.toJSONSchema(Motif, { io: 'input' }),
     motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
   }

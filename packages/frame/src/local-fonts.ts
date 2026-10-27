@@ -1,4 +1,5 @@
-import type { FontFace, FontFormat, FontReference } from '@segnavia/format'
+import { type FontFace, type FontReference, type LocalFacesInput, localFontReferences } from '@segnavia/format'
+import { bytesToBase64, fontFormat } from '@segnavia/html'
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
@@ -43,19 +44,6 @@ const WEIGHT_NAMES: Record<string, number> = {
   heavy: 900,
 }
 
-function localReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
-  const seen = new Set<string>()
-  const locals: Array<{ local: string; fallback: string }> = []
-  for (const ref of references) {
-    if (!('local' in ref)) continue
-    const key = JSON.stringify(ref)
-    if (seen.has(key)) continue
-    seen.add(key)
-    locals.push({ local: ref.local, fallback: ref.fallback })
-  }
-  return locals
-}
-
 function unavailable(locals: Array<{ local: string; fallback: string }>, reason: LocalFontUnavailableReason): LocalFonts {
   return { faces: [], unavailable: locals.map((ref) => ({ family: ref.local, fallback: ref.fallback, reason })) }
 }
@@ -67,16 +55,6 @@ function queryLocalFonts(): QueryLocalFonts | undefined {
 
 function isAbort(error: unknown): boolean {
   return (error instanceof Error && error.name === 'AbortError') || (error instanceof DOMException && error.name === 'AbortError')
-}
-
-function fontFormat(data: Uint8Array): FontFormat | undefined {
-  if (data.length < 4) return
-  const tag = String.fromCharCode(data[0] ?? 0, data[1] ?? 0, data[2] ?? 0, data[3] ?? 0)
-  if (tag === 'wOF2') return 'woff2'
-  if (tag === 'wOFF') return 'woff'
-  if (tag === 'OTTO') return 'opentype'
-  if (tag === 'true' || (data[0] === 0 && data[1] === 1 && data[2] === 0 && data[3] === 0)) return 'truetype'
-  if (tag === 'ttcf') return
 }
 
 function cutKey(font: LocalFontData): string {
@@ -145,7 +123,7 @@ async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontD
 }
 
 export async function readLocalFonts(references: readonly FontReference[], options: { signal: AbortSignal }): Promise<LocalFonts> {
-  const locals = localReferences(references)
+  const locals = localFontReferences(references)
   if (locals.length === 0) return { faces: [], unavailable: [] }
   const installed = await installedFonts(options.signal)
   if (installed.reason) return unavailable(locals, installed.reason)
@@ -169,4 +147,16 @@ export async function readLocalFonts(references: readonly FontReference[], optio
     unavailableFaces.push({ family: ref.local, fallback: ref.fallback, reason: unreadable.has(ref.local) ? 'unreadable' : 'not-installed' })
   }
   return { faces, unavailable: unavailableFaces }
+}
+
+export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[]): LocalFacesInput {
+  const families = new Map<string, string>()
+  for (const reference of references) {
+    if ('local' in reference && !families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
+  }
+  return faces.flatMap((face) => {
+    const family = families.get(face.family.toLowerCase())
+    if (!family) return []
+    return [{ family, format: face.format, weight: face.weight, style: face.style, data: bytesToBase64(face.data) }]
+  })
 }

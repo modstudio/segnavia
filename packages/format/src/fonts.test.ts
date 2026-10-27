@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { FontReference, FontReferenceInput } from './fonts.ts'
-import { Book, Page } from './index.ts'
+import { FontReference, FontReferenceInput, LocalFaceTransport } from './fonts.ts'
+import { Book, jsonSchemas, Page } from './index.ts'
 
 describe('FontReference', () => {
   test('reads stored references tolerantly and writes them strictly', () => {
@@ -23,5 +23,17 @@ describe('Page and Book fonts', () => {
     expect(Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], fonts: [{ app: 'serif' }] }).fonts).toEqual([
       { app: 'serif' },
     ])
+  })
+})
+
+describe('LocalFaceTransport', () => {
+  test('refuses extra keys and unknown formats', () => {
+    expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'ttf', data: '', extra: true }).success).toBe(false)
+    expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'truetype', data: '', extra: true }).success).toBe(false)
+  })
+
+  test('publishes item and array JSON Schemas', () => {
+    expect(jsonSchemas().localFaceTransport).toMatchObject({ type: 'object', required: ['family', 'format', 'data'] })
+    expect(jsonSchemas().localFacesTransport).toMatchObject({ type: 'array', items: { type: 'object' } })
   })
 })
