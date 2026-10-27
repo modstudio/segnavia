@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
+import { printedPageAt } from '@segnavia/html'
 import { expandFramePage } from './motif-expansion.ts'
-import { PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
+import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',
@@ -10,35 +11,92 @@ const page = Page.parse({
   print: { paper: 'a4' },
   printedPages: {
     parents: [
-      { name: 'body', margin: { top: 20, bottom: 20, inner: 15, outer: 10 }, foot: '<b data-slot-value="printedPage.number"></b>' },
-      { name: 'first', basedOn: 'body', margin: { top: 30, bottom: 20, inner: 15, outer: 10 }, head: '<h1>שלום</h1>' },
+      {
+        name: 'body',
+        margin: { top: 20, bottom: 20, inner: 15, outer: 10 },
+        head: '<i>Inherited</i>',
+        foot: '<b data-slot-value="printedPage.number"></b>',
+      },
+      { name: 'first', basedOn: 'body', margin: { top: 30, bottom: 20, inner: 15, outer: 10 } },
     ],
     rules: { every: 'body', first: 'first' },
   },
 })
 
-describe('printedPageDocument', () => {
-  test('places the composer under the bridge nonce with inherited furniture and Hebrew numbering', () => {
-    const html = printedPageDocument(page, { nonce: 'held' })
-    expect(html.match(/nonce="held"/g)?.length).toBe(2)
-    expect(html).toContain('data-segnavia-flow')
-    expect(html).toContain('"numbering":"hebrew"')
-    expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
-    expect(html).toContain("style.breakBefore='column'")
-    expect(html).toContain("config.direction==='rtl'?b-a:a-b")
+const changedPage = (parent: object, rules: object) =>
+  Page.parse({
+    ...page,
+    printedPages: {
+      ...page.printedPages,
+      parents: [...(page.printedPages?.parents ?? []), parent],
+      rules: { ...page.printedPages?.rules, every: 'body', ...rules },
+    },
   })
 
-  test('refuses geometry that cannot share one multicol measurement', () => {
-    const changed = Page.parse({
-      ...page,
-      printedPages: {
-        ...page.printedPages,
-        parents: [...(page.printedPages?.parents ?? []), { name: 'last', basedOn: 'body', margin: { top: 20, bottom: 25, inner: 15, outer: 10 } }],
-        rules: { ...page.printedPages?.rules, every: 'body', last: 'last' },
-      },
-    })
+describe('printedPageDocument', () => {
+  test('carries resolved config under the bridge nonce and injects the shared policy', () => {
+    const html = printedPageDocument(page, { nonce: 'held' })
+    expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
+    expect(html).toContain('"numbering":"hebrew"')
+    expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
+    expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+  })
+
+  test('keeps whole-document head resources beside a flow holding only body children', () => {
+    const full = Page.parse({ ...page, html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' })
+    const html = printedPageDocument(full, { nonce: 'held' })
+    expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p>Whole</p></div>')
+    expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
+  })
+
+  test.each([
+    [
+      'width including first',
+      { name: 'wide', basedOn: 'body', margin: { top: 30, bottom: 20, inner: 20, outer: 10 } },
+      { first: 'wide' },
+      'inner plus outer margins equal',
+    ],
+    [
+      'height when the first parent is reused',
+      { name: 'reused', basedOn: 'body', margin: { top: 30, bottom: 20, inner: 15, outer: 10 } },
+      { first: 'reused', recto: 'reused' },
+      'top plus bottom margins equal',
+    ],
+    [
+      'a taller first page',
+      { name: 'tall', basedOn: 'body', margin: { top: 10, bottom: 20, inner: 15, outer: 10 } },
+      { first: 'tall' },
+      'increase its top plus bottom margins',
+    ],
+    [
+      'a non-positive width',
+      { name: 'narrow', basedOn: 'body', margin: { top: 20, bottom: 20, inner: 110, outer: 100 } },
+      { recto: 'narrow' },
+      'positive text width',
+    ],
+    [
+      'a non-positive height',
+      { name: 'short', basedOn: 'body', margin: { top: 150, bottom: 147, inner: 15, outer: 10 } },
+      { recto: 'short' },
+      'positive text height',
+    ],
+    [
+      'last width',
+      { name: 'last-wide', basedOn: 'body', margin: { top: 20, bottom: 20, inner: 20, outer: 10 } },
+      { last: 'last-wide' },
+      'inner plus outer margins equal',
+    ],
+    [
+      'last independent geometry',
+      { name: 'last-shifted', basedOn: 'body', margin: { top: 25, bottom: 15, inner: 10, outer: 15 } },
+      { last: 'last-shifted' },
+      'geometry independent of which page is last',
+    ],
+  ])('refuses %s with its remedy', (_label, parent, rules, remedy) => {
+    const changed = changedPage(parent, rules)
     expect(() => printedPageDocument(changed, { nonce: 'held' })).toThrow(PrintedPagesRefusedError)
-    expect(() => printedPageDocument(changed, { nonce: 'held' })).toThrow('make their top plus bottom margins equal')
+    expect(() => printedPageDocument(changed, { nonce: 'held' })).toThrow(remedy)
   })
 
   test('refuses host data that collides with the composer page context', async () => {

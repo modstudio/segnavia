@@ -79,7 +79,6 @@ export {
   type BookViewInput,
   Chapter,
   isBookContents,
-  isHebrew,
   noteMarkerIssues,
 } from './book.ts'
 export {

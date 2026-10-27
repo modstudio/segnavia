@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { defaultPageNumbering, planPrintedPages } from './printed-pages.ts'
+import { defaultPageNumbering } from '@segnavia/format'
+import { planPrintedPages, printedPageAt } from './printed-pages.ts'
 
 describe('planPrintedPages', () => {
   const rules = { every: 'body', first: 'opening', last: 'ending', recto: 'odd', verso: 'even' }
@@ -12,6 +13,13 @@ describe('planPrintedPages', () => {
       { role: 'last', parent: 'ending', side: 'left' },
     ])
     expect(planPrintedPages(rules, 1, 'ltr')[0]?.parent).toBe('opening')
+    for (const direction of ['ltr', 'rtl'] as const) {
+      for (let count = 1; count <= 5; count += 1) {
+        expect(planPrintedPages(rules, count, direction).map(({ role, parent, side }) => ({ role, parent, side }))).toEqual(
+          Array.from({ length: count }, (_, index) => printedPageAt(rules, index + 1, count, direction)),
+        )
+      }
+    }
   })
 
   test('puts recto on the left in right-to-left and formats Hebrew numbers', () => {
@@ -22,6 +30,7 @@ describe('planPrintedPages', () => {
       ['left', 'ג', 'ג'],
     ])
     expect(defaultPageNumbering('he-IL')).toBe('hebrew')
+    expect(defaultPageNumbering('iw-IL')).toBe('hebrew')
     expect(defaultPageNumbering('en')).toBe('arabic')
   })
 })

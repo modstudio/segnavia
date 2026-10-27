@@ -6,11 +6,12 @@ import {
   type MotifPlacement,
   type MotifSource,
   motifFieldAttribute,
+  PRINTED_PAGE_CONTEXT,
   resolveDirection,
   type Scripts,
 } from '@segnavia/format'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
-import { bindingNames, fill, hasBindings } from './bindings.ts'
+import { bindingNames, bindingRoot, fill, hasBindings } from './bindings.ts'
 import { elements, parse, sanitize, serialize } from './sanitize.ts'
 
 export const MOTIF_DEPTH_LIMIT = 8
@@ -115,16 +116,19 @@ function replaceChildren(element: Element, html: string): void {
 function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
   const deferred = new Set(options.deferPaths ?? [])
   const names = new Set(Object.values(bindingNames(options.prefix)))
-  return elements(parse(html).children).some((held) =>
-    Object.entries(held.attribs).some(([name, path]) => names.has(name) && !deferred.has(path.replace(/^(?:\.\.\/)+/, '').split('.')[0] ?? '')),
-  )
+  return elements(parse(html).children).some((held) => Object.entries(held.attribs).some(([name, path]) => names.has(name) && !deferred.has(bindingRoot(path))))
 }
 
 async function fillVersion(html: string, placement: MotifPlacement, element: Element, state: ExpansionState): Promise<string | undefined> {
   const data = await state.options.source.data?.(placement, { signal: state.options.signal })
   state.options.signal.throwIfAborted()
-  if (data && new Set(state.options.deferPaths ?? []).has('printedPage') && Object.hasOwn(data, 'printedPage')) {
-    refuse(state, element, 'the reserved printedPage context because host data contains that key', 'remove printedPage from MotifSource.data')
+  if (data && new Set(state.options.deferPaths ?? []).has(PRINTED_PAGE_CONTEXT) && Object.hasOwn(data, PRINTED_PAGE_CONTEXT)) {
+    refuse(
+      state,
+      element,
+      `the reserved ${PRINTED_PAGE_CONTEXT} context because host data contains that key`,
+      `remove ${PRINTED_PAGE_CONTEXT} from MotifSource.data`,
+    )
     return undefined
   }
   const filled = fill(html, {

@@ -3,6 +3,15 @@ import { z } from 'zod'
 export const NumberSystem = z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])
 export type NumberSystem = z.infer<typeof NumberSystem>
 
+export function isHebrew(lang: string | undefined): boolean {
+  const primary = lang?.split('-')[0]?.toLowerCase()
+  return primary === 'he' || primary === 'iw'
+}
+
+export function defaultPageNumbering(lang: string | undefined): NumberSystem {
+  return isHebrew(lang) ? 'hebrew' : 'arabic'
+}
+
 export const NoteMarker = z.union([NumberSystem, z.literal('symbols')])
 export type NoteMarker = z.infer<typeof NoteMarker>
 

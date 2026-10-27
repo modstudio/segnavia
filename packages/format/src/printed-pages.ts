@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { NumberSystem } from './numbering.ts'
 
+export const PRINTED_PAGE_LIMIT = 500
+export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
+export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
+
 export const ParentPageMargin = z.object({
   top: z.number().nonnegative(),
   bottom: z.number().nonnegative(),
@@ -28,7 +32,7 @@ export const PrintedPageRules = z
   })
   .passthrough()
   .superRefine((rules, ctx) => {
-    const unknown = Object.keys(rules).filter((key) => !['every', 'first', 'recto', 'verso', 'last'].includes(key))
+    const unknown = Object.keys(rules).filter((key) => !PRINTED_PAGE_ROLES.includes(key as PrintedPageRole))
     if (unknown.length) {
       ctx.addIssue({
         code: 'custom',
@@ -54,6 +58,35 @@ export type ParentPageMargin = z.infer<typeof ParentPageMargin>
 export type ParentPage = z.infer<typeof ParentPage>
 export type PrintedPageRules = z.infer<typeof PrintedPageRules>
 export type PrintedPages = z.infer<typeof PrintedPages>
+
+export interface ResolvedParentPage {
+  name: string
+  margin: ParentPageMargin
+  head: string
+  foot: string
+}
+
+const ZERO_PARENT_MARGIN: ParentPageMargin = { top: 0, bottom: 0, inner: 0, outer: 0 }
+
+export function resolveParentPages(parents: ParentPage[]): ResolvedParentPage[] {
+  const source = new Map(parents.map((parent) => [parent.name, parent]))
+  const resolved = new Map<string, ResolvedParentPage>()
+  const resolve = (parent: ParentPage): ResolvedParentPage => {
+    const held = resolved.get(parent.name)
+    if (held) return held
+    const baseParent = parent.basedOn ? source.get(parent.basedOn) : undefined
+    const base = baseParent ? resolve(baseParent) : undefined
+    const result = {
+      name: parent.name,
+      margin: parent.margin ?? base?.margin ?? ZERO_PARENT_MARGIN,
+      head: parent.head ?? base?.head ?? '',
+      foot: parent.foot ?? base?.foot ?? '',
+    }
+    resolved.set(parent.name, result)
+    return result
+  }
+  return parents.map(resolve)
+}
 
 export function printedPagesIssues(value: PrintedPages): Array<{ path: (string | number)[]; message: string }> {
   const issues: Array<{ path: (string | number)[]; message: string }> = []

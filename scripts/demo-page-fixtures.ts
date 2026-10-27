@@ -1,5 +1,37 @@
 import './source-guard.ts'
-import type { ImpositionInput, PageInput } from '@segnavia/format'
+import type { ImpositionInput, MotifSource, PageInput } from '@segnavia/format'
+
+export const printedPageMotifSource: MotifSource = {
+  motif: async (key: string) => {
+    if (key === 'printed-head') {
+      return {
+        key,
+        revision: 'demo',
+        label: 'Printed head',
+        fields: [],
+        fonts: [],
+        versions: [
+          { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
+          { lang: 'he', html: '<bdi>כותרת</bdi>' },
+        ],
+      }
+    }
+    if (key === 'printed-foot') {
+      return {
+        key,
+        revision: 'demo',
+        label: 'Printed foot',
+        fields: [],
+        fonts: [],
+        versions: [
+          { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
+          { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
+        ],
+      }
+    }
+    return undefined
+  },
+}
 
 export const fluidPage: PageInput = {
   html:
@@ -215,4 +247,37 @@ export const parentPageMixed: PageInput = {
   dir: 'rtl',
   print: { paper: 'letter' },
   printedPages: parentPages,
+}
+
+const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
+const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
+
+export const parentPageUnsizedImage: PageInput = {
+  html: `${flowingCss}<p>${imageWords.slice(0, 110).join('')}</p><img src="data:image/svg+xml,${unsizedImage}"><p>${imageWords.slice(110).join('')}</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageNarrowBreak: PageInput = {
+  html: `${flowingCss}<p>Wide opening</p><div style="break-before:page;break-after:page;inline-size:40%">${Array.from({ length: 30 }, (_, index) => `<div>Narrow-${index + 1}</div>`).join('')}</div><p>Wide ending</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageFurnitureOverflow: PageInput = {
+  html: `${flowingCss}<p>Furniture overflow body</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: {
+    parents: [
+      {
+        name: 'body',
+        margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+        head: '<div style="block-size:200px">Too-tall furniture</div>',
+      },
+    ],
+    rules: { every: 'body' },
+  },
 }

@@ -5,7 +5,7 @@ import { hasBindings } from './bindings.ts'
 import { elements, parse } from './sanitize.ts'
 
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
-export { BINDINGS, bindingNames, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
+export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
 export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'

@@ -15,10 +15,14 @@ import {
   letterFoldImposition,
   letterFoldPages,
   parentPageEnglish,
+  parentPageFurnitureOverflow,
   parentPageHebrew,
   parentPageMixed,
+  parentPageNarrowBreak,
+  parentPageUnsizedImage,
   postcardBackPage,
   postcardPage,
+  printedPageMotifSource,
   twoSidedCardImposition,
   twoSidedCardPages,
   twoSidedSequenceImposition,
@@ -26,41 +30,24 @@ import {
 
 export async function buildPagePdfs(renderer: Renderer, output: string): Promise<void> {
   const motifs: MotifsOptions = {
-    source: {
-      motif: async (key: string) => {
-        if (key === 'printed-head') {
-          return {
-            key,
-            revision: 'demo',
-            label: 'Printed head',
-            fields: [],
-            fonts: [],
-            versions: [
-              { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
-              { lang: 'he', html: '<bdi>כותרת</bdi>' },
-            ],
-          }
-        }
-        if (key === 'printed-foot') {
-          return {
-            key,
-            revision: 'demo',
-            label: 'Printed foot',
-            fields: [],
-            fonts: [],
-            versions: [
-              { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
-              { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
-            ],
-          }
-        }
-        return undefined
-      },
-    },
+    source: printedPageMotifSource,
   }
-  writeFileSync(path.join(output, 'pages-parent-english.pdf'), await renderer.pagePdf(parentPageEnglish, { motifs }))
+  let englishOverflow = ''
+  writeFileSync(
+    path.join(output, 'pages-parent-english.pdf'),
+    await renderer.pagePdf(parentPageEnglish, { motifs, overflow: { report: (report) => (englishOverflow = JSON.stringify(report)) } }),
+  )
+  writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
   writeFileSync(path.join(output, 'pages-parent-hebrew.pdf'), await renderer.pagePdf(parentPageHebrew, { motifs }))
   writeFileSync(path.join(output, 'pages-parent-mixed.pdf'), await renderer.pagesPdf([parentPageMixed], { motifs }))
+  writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
+  writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
+  let furnitureOverflow = ''
+  writeFileSync(
+    path.join(output, 'pages-parent-furniture-overflow.pdf'),
+    await renderer.pagePdf(parentPageFurnitureOverflow, { overflow: { report: (report) => (furnitureOverflow = JSON.stringify(report)) } }),
+  )
+  writeFileSync(path.join(output, 'pages-parent-furniture-overflow.json'), furnitureOverflow)
   writeFileSync(path.join(output, 'pages-postcard.pdf'), await renderer.pagesPdf([postcardPage, postcardBackPage]))
   writeFileSync(path.join(output, 'pages-labels.pdf'), await renderer.pagesPdf(labelPages.slice(0, 30), { imposition: labelsImposition }))
   writeFileSync(path.join(output, 'pages-labels-31.pdf'), await renderer.pagesPdf(labelPages, { imposition: labelsImposition }))

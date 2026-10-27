@@ -19,6 +19,10 @@ import { elements, parse, type SanitizeOptions, sanitize, serialize } from './sa
 
 export const BINDINGS = ['value', 'href', 'src', 'each', 'when', 'present', 'width'] as const
 
+export function bindingRoot(path: string): string {
+  return path.replace(/^(?:\.\.\/)+/, '').split('.')[0] ?? ''
+}
+
 export function bindingNames(prefix: string) {
   return Object.fromEntries(BINDINGS.map((binding) => [binding, `data-${prefix}-${binding}`])) as Record<(typeof BINDINGS)[number], string>
 }
@@ -127,7 +131,7 @@ export function fill(html: string, options: FillOptions): Filled {
 
   const take = (element: Element, name: string): string | undefined => {
     const value = element.attribs[name]
-    const root = value?.replace(/^(?:\.\.\/)+/, '').split('.')[0]
+    const root = value === undefined ? undefined : bindingRoot(value)
     if (root && deferred.has(root)) return undefined
     delete element.attribs[name]
     return value
