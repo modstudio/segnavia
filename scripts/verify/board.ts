@@ -2,6 +2,7 @@ import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } 
 import { checkBoardChrome } from './board-chrome.ts'
 import { checkBoardEditing } from './board-editing.ts'
 import { checkFarBoardPan } from './board-far-pan.ts'
+import { checkBoardUpdateKeepsFrames, checkPanKeepsFrames, recordFrameLoads, showTwoLiveItems } from './board-live-frames.ts'
 import { checkBoardToolbar } from './board-toolbar.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
@@ -171,57 +172,8 @@ async function checkPlacement(h: Harness, moment: string) {
   h.check(`board labels match boardToScreen ${moment}`, facts.labels.length > 0 && labelMismatches.length === 0, labelMismatches.join('; '))
 }
 
-async function showTwoLiveItems(h: Harness) {
-  await h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & { view: BoardView }
-    board.view = { zoom: 1.25, pan: { x: 48, y: 100 }, viewport: board.view.viewport }
-  })
-  await h.page.waitForFunction(
-    () => {
-      const root = document.querySelector('segnavia-board')?.shadowRoot
-      return [...(root?.querySelectorAll('segnavia-thumbnail') ?? [])].filter((thumbnail) => thumbnail.shadowRoot?.querySelector('iframe')).length >= 2
-    },
-    undefined,
-    { timeout: BOUNDED_WAIT_MS },
-  )
-}
-
-async function checkPanKeepsFrames(h: Harness) {
-  const result = await h.page.locator('segnavia-board').evaluate(async (element) => {
-    const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: Size } }
-    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    let loads = 0
-    for (const frame of frames) frame.addEventListener('load', () => loads++)
-    for (let step = 0; step < 20; step += 1) board.view = { ...board.view, pan: { ...board.view.pan, x: board.view.pan.x + 2 } }
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    return { loads, same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
-  })
-  h.check('panning keeps every live board frame mounted without reloading it', result.count >= 2 && result.loads === 0 && result.same, JSON.stringify(result))
-}
-
-async function checkBoardUpdateKeepsFrames(h: Harness) {
-  const result = await h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & {
-      board: { direction: 'ltr' | 'rtl'; items: BoardItem[]; labels: unknown[]; sections: unknown[] }
-    }
-    const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    board.board = { ...board.board, items: board.board.items.map((item) => ({ ...item, x: item.x + 12 })) }
-    const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
-      thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
-    )
-    return { same: frames.length === current.length && frames.every((frame, index) => frame === current[index]), count: frames.length }
-  })
-  h.check('setting a moved board keeps every unchanged live frame', result.count >= 2 && result.same, JSON.stringify(result))
-}
-
 export async function verifyBoard(h: Harness) {
+  await recordFrameLoads(h)
   await h.page.goto(h.url('board.html'))
   const board = h.page.locator('segnavia-board')
   // Initial auto-section settlement writes through the asynchronous host seam.
