@@ -404,10 +404,11 @@ the item without a fill.
 
 A motif places reusable HTML and CSS in a page before its slots are prepared.
 The library does not scope motif CSS; motif authors choose selectors that fit
-the page that places it. The live-data-or-script rule covers the whole page: a
-page whose `scripts` is not `refuse` may place only motif versions without live
-data. Save-time validation and expansion both refuse a live-data motif on such
-a page.
+the page that places it. A motif's bindings use the fixed `slot` prefix and are
+filled per placement from `MotifSource.data`, so the page's own fill does not
+reach inside a motif. The live-data-or-script rule covers the whole page: a page
+whose `scripts` is not `refuse` may place only motif versions without live data.
+Save-time validation and expansion both refuse a live-data motif on such a page.
 
 `<segnavia-item-settings>` edits those fills beside the item. The host sets
 `declarations`, `fills`, the selected fill id, an optional source fill and the

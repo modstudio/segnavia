@@ -12,8 +12,8 @@
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { expandFramePage, type MotifsOptions } from './motif-expansion.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
+import { type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 
@@ -104,14 +104,10 @@ export class SegnaviaPage extends HTMLElement {
       const filledFrame = this.mount(shownPage)
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: filledFrame, generation } : undefined
-      filledFrame.srcdoc = frameDocument(resolved ? slotHtml(shownPage.html, resolved) : shownPage.html, {
-        scripts: shownPage.scripts,
+      filledFrame.srcdoc = shownPageDocument(shownPage, resolved, {
         nonce: newNonce(),
-        dir: shownPage.dir,
-        lang: shownPage.lang,
-        css: `${shownPage.print ? printProperties(shownPage.print) : ''}${this.css}`,
+        css: this.css,
         csp: this.cspExtra || undefined,
-        relayKeys: false,
       })
     }
     iframe.srcdoc = frameDocument(page.html, {
@@ -137,14 +133,9 @@ export class SegnaviaPage extends HTMLElement {
       this.fit()
       return
     }
-    const prepare = async () => {
-      const expanded = await expandFramePage(page, this.motifOptions, controller.signal)
-      const refusal = slotFillRefusal(expanded.scripts, expanded.slots, this.slotOptions)
-      if (refusal) throw refusal
-      if (hasSlotWork(expanded.slots, this.slotOptions)) show(expanded, await prepareSlots(expanded.slots, this.slotOptions, controller.signal))
-      else if (this.motifOptions) show(expanded)
-    }
-    void prepare().catch(report)
+    void prepareShownPage(page, this.motifOptions, this.slotOptions, controller.signal)
+      .then(({ page: shownPage, resolved }) => show(shownPage, resolved))
+      .catch(report)
     this.fit()
   }
 
