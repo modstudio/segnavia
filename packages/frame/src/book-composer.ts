@@ -1,4 +1,14 @@
-import { furnitureScript, pageIndexForTarget, paginateScript, planBookPages, printedPageAt, selectBookParent } from '@segnavia/html'
+import {
+  designedPageIndex,
+  furnitureScript,
+  openerPageIndex,
+  pageIndexForTarget,
+  paginateScript,
+  planBookPages,
+  printedPageAt,
+  selectBookParent,
+  windowPageIndex,
+} from '@segnavia/html'
 
 export const BOOK_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const BOOK_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
@@ -12,6 +22,9 @@ ${furnitureScript()}
 var printedPageAt=${printedPageAt.toString()};
 var selectBookParent=${selectBookParent.toString()};
 var planBookPages=${planBookPages.toString()};
+var designedPageIndex=${designedPageIndex.toString()};
+var windowPageIndex=${windowPageIndex.toString()};
+var openerPageIndex=${openerPageIndex.toString()};
 var pageIndexForTarget=${pageIndexForTarget.toString()};
 var BOOK_PARENT_NAMES=config.parentNames;
 var BOOK_RULES={every:BOOK_PARENT_NAMES.recto,recto:BOOK_PARENT_NAMES.recto,verso:BOOK_PARENT_NAMES.verso};

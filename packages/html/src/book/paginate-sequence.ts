@@ -216,12 +216,20 @@ export function paginateSequence(
     const pages: PaginateBookPage[] = []
     let continued: PaginatePageNote[] = []
     let carried: PaginatePageMarks = emptyMarks()
+    let previous: PaginateFlow | undefined
     for (const flow of flows) {
+      if (flow.kind === 'fixed' && continued.length > 0 && previous) {
+        const flushed = flushNotes(continued, previous, part, pages, carried)
+        if ('refusal' in flushed && flushed.refusal) return { pages, refusals: [flushed.refusal] }
+        continued = []
+        carried = flushed.carried
+      }
       if (needsOpeningBlank(openingOf(flow), pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
       const result = paginateFlow(flow, part, pages, continued, carried)
       if ('refusal' in result && result.refusal) return { pages, refusals: [result.refusal] }
       continued = result.pending
       carried = result.carried
+      previous = flow
     }
     const last = flows[flows.length - 1]
     if (last) {

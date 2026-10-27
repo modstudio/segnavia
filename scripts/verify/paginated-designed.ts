@@ -48,39 +48,36 @@ function rasterPdfPage(pdf: Uint8Array, page: number, work: string): PngPixels {
 export async function compareDesignedPages(h: Harness, id: string): Promise<DesignedPageMatch[]> {
   const work = path.join(EVIDENCE, `${id}-designed`)
   mkdirSync(work, { recursive: true })
-  const printPage = await h.page.context().newPage()
-  try {
-    const file = id === 'book-paginated-he' ? 'book-paginated-he.html' : 'book-paginated-en.html'
-    await printPage.setViewportSize({ width: 600, height: 900 })
-    await printPage.goto(h.url(file))
-    await printPage.waitForFunction(
-      () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
-      undefined,
-      { timeout: 20_000 },
-    )
-    const pages = await printPage.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-role="fixed"]')).map((node) =>
-        Number(node.getAttribute('data-segnavia-book-page')),
-      ),
-    )
-    const pdf = await printPage.pdf({ printBackground: true, width: '148mm', height: '210mm', margin: { top: 0, right: 0, bottom: 0, left: 0 } })
-    const matches: DesignedPageMatch[] = []
-    for (const page of pages) {
-      const screen = await screenshotPage(printPage, `[data-segnavia-book-page="${page}"]`)
-      const printed = rasterPdfPage(pdf, page, work)
-      const width = Math.min(screen.width, printed.width)
-      const height = Math.min(screen.height, printed.height)
-      const diff = differencePixels(crop(screen, width, height), crop(printed, width, height), width, height)
-      matches.push({
-        page,
-        ok: diff.mean <= DESIGNED_PAGE_MEAN && diff.p99 <= DESIGNED_PAGE_P99,
-        mean: diff.mean,
-        p99: diff.p99,
-        detail: `page ${page} mean ${diff.mean.toFixed(2)} p99 ${diff.p99} size ${screen.width}x${screen.height}/${printed.width}x${printed.height}`,
-      })
-    }
-    return matches
-  } finally {
-    await printPage.close()
+  const file = id === 'book-paginated-he' ? 'book-paginated-he.html' : 'book-paginated-en.html'
+  await h.page.setViewportSize({ width: 600, height: 900 })
+  await h.page.goto(h.url(file))
+  await h.page.waitForFunction(
+    () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
+    undefined,
+    { timeout: 20_000 },
+  )
+  const pages = await h.page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-role="fixed"]')).map((node) =>
+      Number(node.getAttribute('data-segnavia-book-page')),
+    ),
+  )
+  const pdf = await h.page.pdf({ printBackground: true, width: '148mm', height: '210mm', margin: { top: 0, right: 0, bottom: 0, left: 0 } })
+  const matches: DesignedPageMatch[] = []
+  for (const page of pages) {
+    const screen = await screenshotPage(h.page, `[data-segnavia-book-page="${page}"]`)
+    const printed = rasterPdfPage(pdf, page, work)
+    const width = Math.min(screen.width, printed.width)
+    const height = Math.min(screen.height, printed.height)
+    const diff = differencePixels(crop(screen, width, height), crop(printed, width, height), width, height)
+    matches.push({
+      page,
+      ok: diff.mean <= DESIGNED_PAGE_MEAN && diff.p99 <= DESIGNED_PAGE_P99,
+      mean: diff.mean,
+      p99: diff.p99,
+      detail: `page ${page} mean ${diff.mean.toFixed(2)} p99 ${diff.p99} size ${screen.width}x${screen.height}/${printed.width}x${printed.height}`,
+    })
   }
+  await h.page.setViewportSize({ width: 1280, height: 816 })
+  await h.page.goto(h.url('book-paginated.html'))
+  return matches
 }

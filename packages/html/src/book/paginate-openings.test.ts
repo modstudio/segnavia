@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { block, flow, input, settings } from './paginate-book.test-helper.ts'
+import { block, flow, input, note, settings } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
 
 const short = (id: string, chapter: number) => flow(id, 'chapter', [block('text', 'p', chapter, 1, 3, 0)], id)
@@ -55,6 +55,23 @@ describe('paginateBook opening sides', () => {
       { flow: 'c1', role: 'opener', number: 1, blank: false, opener: true },
       { flow: 'c2', role: 'opener', number: 2, blank: false, opener: true },
     ])
+  })
+
+  test('continued notes flush before a fixed flow so the next chapter is unchanged', () => {
+    const pages = paginateBook(
+      input({
+        geometry: { textHeight: 50, notesGap: 10 },
+        flows: [
+          flow('c1', 'chapter', [block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] })]),
+          { id: 'art', kind: 'fixed', pages: 1, opens: 'any' },
+          flow('c2', 'chapter', [block('text', 'p', 2, 1, 3, 0)]),
+        ],
+        notes: [note('n1', 6)],
+      }),
+    ).pages
+    expect(pages.filter((page) => page.flow === 'art').every((page) => page.notes.length === 0)).toBe(true)
+    expect(pages.filter((page) => page.flow === 'c2').every((page) => page.notes.length === 0)).toBe(true)
+    expect(pages.filter((page) => page.flow === 'c1').some((page) => page.notes.length > 0)).toBe(true)
   })
 
   test('the default is recto when rectoOpenings is on and any otherwise', () => {

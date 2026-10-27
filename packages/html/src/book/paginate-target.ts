@@ -12,7 +12,7 @@ export interface PaginateTarget {
   top?: number
 }
 
-function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPage: number): number | undefined {
+export function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPage: number): number | undefined {
   let seen = 0
   for (const [index, page] of pages.entries()) {
     if (page.flow !== flow || page.role !== 'fixed') continue
@@ -21,7 +21,7 @@ function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPa
   }
 }
 
-function windowPageIndex(pages: PaginateTargetPage[], flow: string, top: number): number | undefined {
+export function windowPageIndex(pages: PaginateTargetPage[], flow: string, top: number): number | undefined {
   for (const [index, page] of pages.entries()) {
     if (page.blank) continue
     for (const win of page.windows) {
@@ -30,7 +30,7 @@ function windowPageIndex(pages: PaginateTargetPage[], flow: string, top: number)
   }
 }
 
-function openerPageIndex(pages: PaginateTargetPage[], flow: string): number | undefined {
+export function openerPageIndex(pages: PaginateTargetPage[], flow: string): number | undefined {
   for (const [index, page] of pages.entries()) {
     if (!page.blank && page.flow === flow && page.sectionOpening) return index
   }
