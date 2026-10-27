@@ -5,6 +5,7 @@ import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
 import { joinPdfs } from './pdf-join.ts'
+import { setPdfPageSize } from './pdf-page-size.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -38,7 +39,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       const geometry = pieceGeometry(first)
       const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${hostCss}`
       try {
-        return { group, bytes: await services.piecePdf(page, geometry, css, opts) }
+        return { group, bytes: await setPdfPageSize(await services.piecePdf(page, geometry, css, opts), geometry.paper) }
       } catch (error) {
         namePageError(error, group.page)
       }

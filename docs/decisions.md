@@ -208,9 +208,11 @@ that needs a second paper is refused.
 Chromium snaps paper dimensions to its own grid regardless of the unit it is
 given, so the renderer moves page content and link annotations with the box to
 keep the top edge fixed. The origin stays at zero because PDF embedders such as
-pdf-lib ignore a MediaBox origin. The press path draws its own exact boxes, and
-a browser page more than 2 points from the requested paper is refused rather
-than treated as rounding.
+pdf-lib ignore a MediaBox origin. The press path corrects the printed bleed box
+the same way before it counts papers and draws its own exact boxes, and each
+imposition piece is corrected to the paper it was printed at before it is
+embedded. A browser page more than 2 points from the requested paper is refused
+rather than treated as rounding.
 
 **Rendering is offline by construction.** Everything a document shows
 arrives inside it.

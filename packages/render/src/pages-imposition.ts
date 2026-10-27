@@ -1,4 +1,4 @@
-import { fitPage, type Imposed, type Page, type PagePlacementLayout, type Placement, pagePlacementLayout } from '@segnavia/format'
+import { fitPage, type Imposed, type Page, type PagePlacementLayout, type Placement, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
@@ -15,6 +15,8 @@ export interface PieceGroup {
 export interface PieceGeometry {
   viewport: { width: number; height: number }
   pdf: { width: string; height: string }
+  // Millimeters Chromium was asked to print; fluid pieces use the paper box, others the CSS piece.
+  paper: { width: number; height: number }
   padding?: Placement['bleed']
 }
 
@@ -52,12 +54,14 @@ export function pieceGeometry(item: PiecePlacement): PieceGeometry {
     return {
       viewport: { width: Math.round(layout.piece.width), height: Math.round(layout.piece.height) },
       pdf: { width: `${layout.paper.width}mm`, height: `${layout.paper.height}mm` },
+      paper: { width: layout.paper.width, height: layout.paper.height },
       padding: layout.inset ? placement.bleed : undefined,
     }
   }
   return {
     viewport: { width: layout.piece.width, height: Math.round(layout.piece.height) },
     pdf: { width: `${layout.piece.width}px`, height: `${layout.piece.height}px` },
+    paper: { width: layout.piece.width / PX_PER_MM, height: layout.piece.height / PX_PER_MM },
   }
 }
 
