@@ -31,6 +31,17 @@ describe('pageIndexForTarget', () => {
     expect(pageIndexForTarget(pages, { flow: 'art', designedPage: 3 })).toBeUndefined()
   })
 
+  test('maps an id inside a templated body page of flow f to that page', () => {
+    const lesson = [
+      flowPage('lesson', 'blank', false, [], true),
+      flowPage('lesson', 'body', true),
+      flowPage('lesson', 'body', false),
+    ]
+    expect(pageIndexForTarget(lesson, { flow: 'lesson', designedPage: 1 })).toBe(1)
+    expect(pageIndexForTarget(lesson, { flow: 'lesson', designedPage: 2 })).toBe(2)
+    expect(pageIndexForTarget(lesson, { flow: 'lesson' })).toBe(1)
+  })
+
   test('maps a windowed top to the page that holds it', () => {
     expect(pageIndexForTarget(pages, { flow: 'c1', top: 10 })).toBe(0)
     expect(pageIndexForTarget(pages, { flow: 'c1', top: 50 })).toBe(1)

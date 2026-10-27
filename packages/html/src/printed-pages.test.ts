@@ -91,4 +91,19 @@ describe('planBookPages', () => {
       { role: 'fixed', parent: BOOK_PARENT_NAMES.blank },
     ])
   })
+
+  test('a body role skips the opener parent even on a section opening', () => {
+    const named = { opener: 's-opener', recto: 's-recto', verso: 's-verso' }
+    const pages = planBookPages(
+      [
+        { blank: false, sectionOpening: true, folio: '1', runningHead: 'Lesson', role: 'body', parents: named },
+        { blank: false, sectionOpening: false, folio: '2', runningHead: 'Lesson', role: 'body', parents: named },
+      ],
+      'ltr',
+    )
+    expect(pages.map(({ role, parent, runningHead }) => ({ role, parent, runningHead }))).toEqual([
+      { role: 'recto', parent: 's-recto', runningHead: 'Lesson' },
+      { role: 'verso', parent: 's-verso', runningHead: 'Lesson' },
+    ])
+  })
 })
