@@ -1,5 +1,21 @@
 # @segnavia/react
 
+## 0.27.0
+
+### Minor Changes
+
+- efb84cb: Let a page and a motif name app and local fonts. The host supplies app faces through FontSource; a browser helper reads local fonts. Preview, print and server PDF embed the same data: faces for app fonts. A server PDF shows the declared fallback for a local font until server local fonts exist.
+
+### Patch Changes
+
+- Updated dependencies [add7c29]
+- Updated dependencies [be667fe]
+- Updated dependencies [eadae7c]
+- Updated dependencies [f98d1bd]
+- Updated dependencies [efb84cb]
+- Updated dependencies [bc3b86c]
+  - @segnavia/frame@0.27.0
+
 ## 0.26.0
 
 ### Patch Changes
