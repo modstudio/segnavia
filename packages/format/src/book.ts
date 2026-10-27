@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BookChapterEntry, BookFrontMatterEntry, bookParentIssues, isBookContents } from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
@@ -6,35 +7,23 @@ import { Orientation, Paper, sheetMm } from './paper.ts'
 import { bookParentPages, ParentPage } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 
+export {
+  BookChapterEntry,
+  BookContents,
+  BookFrontMatterEntry,
+  BookOpens,
+  BookSection,
+  BookSectionParents,
+  Chapter,
+  DesignedPage,
+  DesignedSection,
+  isBookContents,
+  isChapter,
+  isDesignedSection,
+} from './book-section.ts'
+
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
-
-export const BookSection = z.object({
-  title: z.string().optional(),
-  html: z.string(),
-  contents: z.boolean().default(true),
-})
-export type BookSection = z.infer<typeof BookSection>
-
-export const BookContents = z.object({
-  kind: z.literal('contents'),
-  title: z.string().optional(),
-})
-export type BookContents = z.infer<typeof BookContents>
-
-export const BookFrontMatterEntry = z.union([BookSection, BookContents])
-export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
-
-export function isBookContents(entry: BookFrontMatterEntry): entry is BookContents {
-  return 'kind' in entry && entry.kind === 'contents'
-}
-
-export const Chapter = z.object({
-  title: z.string(),
-  html: z.string(),
-  runningHead: z.string().optional(),
-})
-export type Chapter = z.infer<typeof Chapter>
 
 export const BookPage = z.object({
   paper: Paper,
@@ -66,7 +55,8 @@ export const BookShape = z.object({
   dir: Direction.optional(),
   lang: z.string().optional(),
   frontMatter: z.array(BookFrontMatterEntry).default([]),
-  chapters: z.array(Chapter).min(1),
+  chapters: z.array(BookChapterEntry).min(1),
+  parentPages: z.array(ParentPage).default([]),
   fonts: z.array(FontReference).optional(),
   numbering: z
     .object({
@@ -157,6 +147,7 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
       message: 'endnotes are placed at the end of each chapter only in paginated mode; use book placement or paginated mode',
     })
   }
+  for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   if (!book.page) return
   const trim = sheetMm(book.page)
   const vertical = book.page.margin.top + book.page.margin.bottom
@@ -190,7 +181,7 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     rectoOpenings: book.rectoOpenings,
     orphans: book.orphans,
     widows: book.widows,
-    parents: bookParentPages(book.page.margin),
+    parents: [...bookParentPages(book.page.margin), ...book.parentPages],
     endnotePlacement: book.endnotes.placement,
     contents: book.contents,
     runningHead: book.runningHead,

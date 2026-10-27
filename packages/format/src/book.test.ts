@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
+import { Book, type BookInput, isBookContents, isDesignedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -44,6 +44,7 @@ describe('book', () => {
       scripts: 'refuse',
       frontMatter: [],
       chapters: [chapter],
+      parentPages: [],
       numbering: { frontMatter: 'roman-lower', body: 'arabic' },
       footnotes: { marker: 'symbols', restart: 'chapter' },
       endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
@@ -85,7 +86,7 @@ describe('book', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   })
 
-  test('page column gap defaults to four millimetres and running heads default to the title', () => {
+  test('page column gap defaults to four millimeters and running heads default to the title', () => {
     const book = Book.parse(input({ mode: 'paginated', page }))
     expect(book.page?.columnGap).toBe(4)
     expect(book.runningHead).toEqual({ recto: 'title', verso: 'title' })
@@ -162,5 +163,74 @@ describe('book', () => {
       widows: 2,
       endnotePlacement: 'book',
     })
+  })
+
+  test('a missing kind keeps a flowing section, and designed pages parse with their fields', () => {
+    const designed = {
+      kind: 'designed' as const,
+      title: 'Spread',
+      opens: 'verso' as const,
+      parents: { fixed: 'ornament' },
+      pages: [{ html: '<h1>One</h1>' }, { html: '<h1>Two</h1>' }],
+    }
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page,
+        parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', foot: '<div>❧</div>' }],
+        chapters: [designed, chapter],
+      }),
+    )
+    const first = book.chapters[0]
+    const second = book.chapters[1]
+    expect(first !== undefined && isDesignedSection(first)).toBe(true)
+    expect(first).toMatchObject({ kind: 'designed', title: 'Spread', opens: 'verso', contents: true, pages: designed.pages })
+    expect(second !== undefined && isDesignedSection(second)).toBe(false)
+  })
+
+  test('a continuous book refuses a designed section', () => {
+    const result = Book.safeParse(input({ chapters: [{ kind: 'designed', pages: [{ html: '<p>Art</p>' }] }, chapter] }))
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['mode'],
+      message: "designed sections print in paginated mode; set mode: 'paginated' to clear this refusal",
+    })
+  })
+
+  test('a designed section without pages is refused', () => {
+    const result = Book.safeParse(input({ mode: 'paginated', page, chapters: [{ kind: 'designed', pages: [] }, chapter] }))
+    expect(JSON.stringify(result.error?.issues)).toContain('a designed section needs at least one page')
+  })
+
+  test('kind designed without pages is refused even when flowing fields are present', () => {
+    const withHtml = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate', html: '<p>Art</p>' }, chapter] })
+    expect(JSON.stringify(withHtml.error?.issues)).toContain('a designed section needs at least one page')
+    const titleOnly = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate' }, chapter] })
+    expect(JSON.stringify(titleOnly.error?.issues)).toContain('a designed section needs at least one page')
+  })
+
+  test('an unknown section parent names the section and the name', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        chapters: [{ title: 'Plate', kind: 'designed', parents: { fixed: 'missing' }, pages: [{ html: '<p>Art</p>' }] }, chapter],
+      }),
+    )
+    expect(result.error?.issues[0]?.message).toContain('section Plate')
+    expect(result.error?.issues[0]?.message).toContain('"missing"')
+    expect(result.error?.issues[0]?.message).toContain('add that parent page')
+  })
+
+  test('named parent pages join the four defaults in resolveBookPagination', () => {
+    const pagination = resolveBookPagination(
+      Book.parse(
+        input({
+          mode: 'paginated',
+          page,
+          parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', foot: '<div>❧</div>' }],
+        }),
+      ),
+    )
+    expect(pagination?.parents.map((parent) => parent.name)).toEqual(['segnavia:recto', 'segnavia:verso', 'segnavia:opener', 'segnavia:blank', 'ornament'])
   })
 })

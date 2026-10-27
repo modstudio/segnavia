@@ -10,6 +10,8 @@ export { bookDocument } from './book/book-document.ts'
 export { bookView } from './book/book-view.ts'
 export { type BookFurnitureValues, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
+export type { PaginateTarget, PaginateTargetPage } from './book/paginate-target.ts'
+export { designedPageIndex, openerPageIndex, pageIndexForTarget, windowPageIndex } from './book/paginate-target.ts'
 export type {
   PaginateBlock,
   PaginateBookInput,
@@ -17,10 +19,12 @@ export type {
   PaginateBookRefusal,
   PaginateBookResult,
   PaginateFlow,
+  PaginateFlowParents,
   PaginateLine,
   PaginateMark,
   PaginateNote,
   PaginateNoteRef,
+  PaginateOpens,
   PaginatePageMarks,
   PaginatePageNote,
   PaginatePageRole,

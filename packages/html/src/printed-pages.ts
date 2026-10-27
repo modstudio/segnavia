@@ -1,4 +1,6 @@
-import { BOOK_PARENT_NAMES, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+
+export type { BookSectionParents }
 
 export type PrintedPageSide = 'left' | 'right'
 
@@ -11,14 +13,16 @@ export interface PrintedPagePlan {
   total: string
 }
 
+export type BookPrintedPageRole = 'recto' | 'verso' | 'opener' | 'blank' | 'fixed'
+
 export interface BookPageFacts {
   blank: boolean
   sectionOpening: boolean
   folio?: string
   runningHead?: string
+  role?: BookPrintedPageRole
+  parents?: BookSectionParents
 }
-
-export type BookPrintedPageRole = 'recto' | 'verso' | 'opener' | 'blank'
 
 export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sectionOpening'> {
   index: number
@@ -66,25 +70,32 @@ export function planPrintedPages(rules: PrintedPageRules, count: number, directi
 
 const BOOK_RULES = { every: BOOK_PARENT_NAMES.recto, recto: BOOK_PARENT_NAMES.recto, verso: BOOK_PARENT_NAMES.verso }
 
+export function selectBookParent(
+  fact: BookPageFacts,
+  index: number,
+  count: number,
+  direction: 'ltr' | 'rtl',
+): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'side'> {
+  const selected = printedPageAt(BOOK_RULES, index, count, direction)
+  const named = fact.parents
+  if (fact.blank) return { role: 'blank', parent: named?.blank ?? BOOK_PARENT_NAMES.blank, side: selected.side }
+  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? BOOK_PARENT_NAMES.blank, side: selected.side }
+  if (fact.sectionOpening) return { role: 'opener', parent: named?.opener ?? BOOK_PARENT_NAMES.opener, side: selected.side }
+  if (selected.role === 'verso') return { role: 'verso', parent: named?.verso ?? selected.parent, side: selected.side }
+  return { role: 'recto', parent: named?.recto ?? selected.parent, side: selected.side }
+}
+
 export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl'): BookPrintedPagePlan[] {
   return facts.map((fact, offset) => {
     const index = offset + 1
-    const selected = printedPageAt(BOOK_RULES, index, facts.length, direction)
-    if (fact.blank) return { index, role: 'blank', parent: BOOK_PARENT_NAMES.blank, side: selected.side }
-    if (fact.sectionOpening) {
-      return {
-        index,
-        role: 'opener',
-        parent: BOOK_PARENT_NAMES.opener,
-        side: selected.side,
-        ...(fact.folio === undefined ? {} : { folio: fact.folio }),
-      }
+    const selected = selectBookParent(fact, index, facts.length, direction)
+    if (selected.role === 'blank') return { index, ...selected }
+    if (selected.role === 'opener') {
+      return { index, ...selected, ...(fact.folio === undefined ? {} : { folio: fact.folio }) }
     }
     return {
       index,
-      role: selected.role === 'verso' ? 'verso' : 'recto',
-      parent: selected.parent,
-      side: selected.side,
+      ...selected,
       ...(fact.folio === undefined ? {} : { folio: fact.folio }),
       ...(fact.runningHead === undefined ? {} : { runningHead: fact.runningHead }),
     }

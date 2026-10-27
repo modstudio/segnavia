@@ -68,4 +68,27 @@ describe('planBookPages', () => {
       { role: 'verso', side: 'right' },
     ])
   })
+
+  test('selects a section parent per role and side, then the book default', () => {
+    const named = { opener: 's-opener', recto: 's-recto', verso: 's-verso', blank: 's-blank', fixed: 's-fixed' }
+    const pages = planBookPages(
+      [
+        { blank: false, sectionOpening: true, folio: '1', parents: named },
+        { blank: false, sectionOpening: false, folio: '2', runningHead: 'Body', parents: named },
+        { blank: false, sectionOpening: false, folio: '3', runningHead: 'Body', parents: named },
+        { blank: true, sectionOpening: false, parents: named },
+        { blank: false, sectionOpening: true, folio: '5', role: 'fixed', parents: named },
+        { blank: false, sectionOpening: false, folio: '6', role: 'fixed' },
+      ],
+      'ltr',
+    )
+    expect(pages.map(({ role, parent }) => ({ role, parent }))).toEqual([
+      { role: 'opener', parent: 's-opener' },
+      { role: 'verso', parent: 's-verso' },
+      { role: 'recto', parent: 's-recto' },
+      { role: 'blank', parent: 's-blank' },
+      { role: 'fixed', parent: 's-fixed' },
+      { role: 'fixed', parent: BOOK_PARENT_NAMES.blank },
+    ])
+  })
 })

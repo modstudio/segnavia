@@ -114,46 +114,58 @@ export function resolveParentPages(parents: ParentPage[]): ResolvedParentPage[] 
   return parents.map(resolve)
 }
 
-export function printedPagesIssues(value: PrintedPages): Array<{ path: (string | number)[]; message: string }> {
+export function parentListIssues(
+  parents: ParentPage[],
+  options: { path?: (string | number)[]; known?: Iterable<string> } = {},
+): Array<{ path: (string | number)[]; message: string }> {
   const issues: Array<{ path: (string | number)[]; message: string }> = []
-  const parents = new Map<string, ParentPage>()
-  value.parents.forEach((parent, index) => {
-    if (parents.has(parent.name))
+  const root = options.path ?? ['parents']
+  const listed = new Map<string, ParentPage>()
+  const known = new Set<string>([...(options.known ?? [])])
+  parents.forEach((parent, index) => {
+    if (listed.has(parent.name))
       issues.push({
-        path: ['parents', index, 'name'],
+        path: [...root, index, 'name'],
         message: `parent page "${parent.name}" is duplicated; give every parent page a unique name to clear this refusal`,
       })
-    parents.set(parent.name, parent)
+    listed.set(parent.name, parent)
+    known.add(parent.name)
   })
+  parents.forEach((parent, index) => {
+    if (parent.basedOn && !known.has(parent.basedOn)) {
+      issues.push({
+        path: [...root, index, 'basedOn'],
+        message: `parent page "${parent.name}" is based on unknown parent page "${parent.basedOn}"; add that parent page or remove basedOn to clear this refusal`,
+      })
+    }
+    const chain: string[] = []
+    let cursor: ParentPage | undefined = parent
+    while (cursor) {
+      if (chain.includes(cursor.name)) {
+        issues.push({
+          path: [...root, index, 'basedOn'],
+          message: `parent page inheritance has a cycle ${[...chain, cursor.name].join(' -> ')}; remove a basedOn link to clear this refusal`,
+        })
+        break
+      }
+      chain.push(cursor.name)
+      cursor = cursor.basedOn ? listed.get(cursor.basedOn) : undefined
+    }
+  })
+  return issues
+}
+
+export function printedPagesIssues(value: PrintedPages): Array<{ path: (string | number)[]; message: string }> {
+  const issues = parentListIssues(value.parents)
+  const names = new Set(value.parents.map((parent) => parent.name))
   for (const [role, name] of Object.entries(value.rules)) {
     if (name === undefined) continue
-    if (!parents.has(name))
+    if (!names.has(name))
       issues.push({
         path: ['rules', role],
         message: `${role} names unknown parent page "${name}"; add that parent page or name an existing one to clear this refusal`,
       })
   }
-  value.parents.forEach((parent, index) => {
-    if (parent.basedOn && !parents.has(parent.basedOn)) {
-      issues.push({
-        path: ['parents', index, 'basedOn'],
-        message: `parent page "${parent.name}" is based on unknown parent page "${parent.basedOn}"; add that parent page or remove basedOn to clear this refusal`,
-      })
-    }
-    const path: string[] = []
-    let cursor: ParentPage | undefined = parent
-    while (cursor) {
-      if (path.includes(cursor.name)) {
-        issues.push({
-          path: ['parents', index, 'basedOn'],
-          message: `parent page inheritance has a cycle ${[...path, cursor.name].join(' -> ')}; remove a basedOn link to clear this refusal`,
-        })
-        break
-      }
-      path.push(cursor.name)
-      cursor = cursor.basedOn ? parents.get(cursor.basedOn) : undefined
-    }
-  })
   return issues
 }
 

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
+import { compareDesignedPages, DESIGNED_PAGE_MEAN, DESIGNED_PAGE_P99 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
@@ -164,6 +165,48 @@ async function verifyPaginatedBooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the chapter's first page`, landed)
+
+    const designed = report.designed
+    check(
+      `${id} designed spread opens verso and faces its recto`,
+      designed.spreadVerso && designed.spreadFaces,
+      JSON.stringify({ spreadVerso: designed.spreadVerso, spreadFaces: designed.spreadFaces }),
+    )
+    check(
+      `${id} designed spread has no parent furniture and the plate shows its section parent`,
+      designed.spreadHasNoFurniture && designed.leafHasFurniture,
+      JSON.stringify({ spreadHasNoFurniture: designed.spreadHasNoFurniture, leafHasFurniture: designed.leafHasFurniture }),
+    )
+    check(`${id} contents page numbers equal the designed section's first page and its headings' pages`, designed.contents.matches, designed.contents.detail)
+    await frame.locator('[data-segnavia-pages] a[href="#spread-open"]').evaluate((element: HTMLAnchorElement) => element.click())
+    const spreadLanded = await frame.evaluate(() => {
+      const target = document.getElementById('spread-open')
+      if (!target) return false
+      const box = target.getBoundingClientRect()
+      return box.bottom > 0 && box.top < innerHeight
+    })
+    await frame.locator('[data-segnavia-pages] a[href="#spread-recto"]').evaluate((element: HTMLAnchorElement) => element.click())
+    const rectoLanded = await frame.evaluate(() => {
+      const target = document.getElementById('spread-recto')
+      if (!target) return false
+      const box = target.getBoundingClientRect()
+      return box.bottom > 0 && box.top < innerHeight
+    })
+    await frame.locator('[data-segnavia-pages] a[href="#plate"]').evaluate((element: HTMLAnchorElement) => element.click())
+    const plateLanded = await frame.evaluate(() => {
+      const target = document.getElementById('plate')
+      if (!target) return false
+      const box = target.getBoundingClientRect()
+      return box.bottom > 0 && box.top < innerHeight
+    })
+    check(`${id} contents links land on the designed pages`, spreadLanded && rectoLanded && plateLanded)
+
+    const pixels = await compareDesignedPages(h, id)
+    check(
+      `${id} each designed page equals its PDF page (mean <= ${DESIGNED_PAGE_MEAN}, p99 <= ${DESIGNED_PAGE_P99})`,
+      pixels.length > 0 && pixels.every((item) => item.ok),
+      pixels.map((item) => item.detail).join('; '),
+    )
     await page.locator(`#${id}`).screenshot({ path: path.join(EVIDENCE, `${id}.png`) })
   }
   const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))

@@ -8,7 +8,7 @@ export interface BookDocumentOptions {
 
 export interface BookSectionInfo {
   id: string
-  kind: 'front' | 'contents' | 'chapter' | 'endnotes'
+  kind: 'front' | 'contents' | 'chapter' | 'endnotes' | 'designed'
   title?: string
   runningHead?: string
 }
