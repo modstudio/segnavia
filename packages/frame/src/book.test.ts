@@ -108,3 +108,71 @@ describe('book element input', () => {
     expect(named.srcdoc).not.toContain("script-src 'nonce-")
   })
 })
+
+describe('book fonts', () => {
+  test('setting fonts mounts a frame whose srcdoc carries the resolved css', async () => {
+    const frames: Array<{ srcdoc: string; title: string; setAttribute: (name: string, value: string) => void }> = []
+    const previous = globalThis.document
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      writable: true,
+      value: {
+        createElement() {
+          const frame = { srcdoc: '', title: '', setAttribute() {} }
+          frames.push(frame)
+          return frame
+        },
+      },
+    })
+    const book = new SegnaviaBook()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    const children: unknown[] = []
+    book.replaceChildren = ((...nodes: unknown[]) => {
+      children.splice(0, children.length, ...nodes)
+    }) as typeof book.replaceChildren
+    book.fonts = {
+      source: {
+        font: async (name) =>
+          name === 'serif'
+            ? { family: 'Body Serif', faces: [{ family: 'Body Serif', data: new Uint8Array([0]), format: 'truetype' }], generic: 'serif' }
+            : undefined,
+      },
+    }
+    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    await Promise.resolve()
+    await Promise.resolve()
+    globalThis.document = previous
+    expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+    expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(children).toHaveLength(1)
+  })
+
+  test('an unknown app font surfaces through the error event', async () => {
+    const book = new SegnaviaBook()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    let detail: unknown
+    ;(book as unknown as { dispatchEvent: (event: Event) => boolean }).dispatchEvent = (event) => {
+      detail = (event as CustomEvent).detail
+      return true
+    }
+    book.fonts = { source: { font: async () => undefined } }
+    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'missing' }] }
+    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
+    expect(detail).toEqual({
+      message: 'book "Named book" could not establish app font "missing"; make that font available from the source to clear this refusal.',
+    })
+  })
+
+  test('named app fonts without a FontSource surface through the error event', () => {
+    const book = new SegnaviaBook()
+    let detail: unknown
+    book.dispatchEvent = ((event: Event) => {
+      detail = (event as CustomEvent).detail
+      return true
+    }) as typeof book.dispatchEvent
+    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    expect(detail).toEqual({
+      message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    })
+  })
+})

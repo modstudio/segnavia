@@ -111,11 +111,7 @@ async function readCut(font: LocalFontData, family: string, signal: AbortSignal)
   }
 }
 
-async function facesForFamily(
-  family: string,
-  installed: readonly LocalFontData[],
-  signal: AbortSignal,
-): Promise<{ faces: FontFace[]; unreadable: boolean }> {
+async function facesForFamily(family: string, installed: readonly LocalFontData[], signal: AbortSignal): Promise<{ faces: FontFace[]; unreadable: boolean }> {
   const faces: FontFace[] = []
   const seen = new Set<string>()
   let matched = false

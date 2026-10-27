@@ -1,5 +1,4 @@
-import type { AppFont, FontFace, FontReference, FontSource, Page } from '@segnavia/format'
-import { APP_FONT_NAME } from '@segnavia/format'
+import { APP_FONT_NAME, type AppFont, type FontFace, type FontReference, type FontSource, type Page } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 
 export interface FontsOptions {

@@ -3,7 +3,7 @@ import type { AppFont, FontFace, FontSource } from '@segnavia/format'
 import { Imposition, Page as PageSchema } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 import { expandFramePage, shownPageDocument } from './motif-expansion.ts'
-import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
+import { expandedPagesFontCss, FontRefusedError, pageFontCss, resolveFontReferences, resolvePageFonts } from './page-fonts.ts'
 import { printablePagesDocument } from './print-document.ts'
 
 const data = new Uint8Array([0])
@@ -103,5 +103,60 @@ describe('frame and print documents', () => {
       expect(document).toContain('--segnavia-font-serif:"Body Serif",serif')
       expect(document).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
     }
+  })
+})
+
+describe('pageFontCss', () => {
+  test('refuses named app fonts when no FontSource is supplied', async () => {
+    const page = PageSchema.parse({ id: 'cover', html: '<p></p>', fonts: [{ app: 'serif' }] })
+    await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(FontRefusedError)
+    await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(
+      'page "cover" could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    )
+  })
+
+  test('refuses motif app fonts when no FontSource is supplied', async () => {
+    const page = PageSchema.parse({ html: '<p></p>' })
+    await expect(pageFontCss(page, [{ app: 'heading' }], undefined, signal)).rejects.toThrow(
+      'page could not establish app font "heading"; supply a FontSource to clear this refusal.',
+    )
+  })
+
+  test('does not refuse a page that names only local fonts without a source', async () => {
+    const page = PageSchema.parse({ html: '<p></p>', fonts: [{ local: 'Some Local Face', fallback: 'serif' }] })
+    expect(await pageFontCss(page, [], undefined, signal)).toBe('')
+  })
+})
+
+describe('expandedPagesFontCss', () => {
+  test('unions a page-level font with a motif font from another page', async () => {
+    const page = PageSchema.parse({ html: '<p></p>', fonts: [{ app: 'serif' }] })
+    const withMotif = await expandFramePage(
+      PageSchema.parse({ html: '<main data-motif="letterhead"></main>', lang: 'en' }),
+      { source: { motif: async () => letterhead } },
+      signal,
+    )
+    const css = await expandedPagesFontCss([{ page, fonts: [] }, withMotif], { source: source({ serif, heading }) }, signal)
+    expect(css).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+    expect(css).toContain('@font-face{font-family:"Heading Sans";src:url(data:font/ttf;base64,AA==) format("truetype")')
+    expect(css).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(css).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
+  })
+
+  test('refuses named app fonts when no FontSource is supplied', async () => {
+    const page = PageSchema.parse({ html: '<p></p>', fonts: [{ app: 'serif' }] })
+    await expect(expandedPagesFontCss([{ page, fonts: [] }], undefined, signal)).rejects.toThrow(FontRefusedError)
+    await expect(expandedPagesFontCss([{ page, fonts: [] }], undefined, signal)).rejects.toThrow(
+      'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    )
+  })
+})
+
+describe('resolveFontReferences', () => {
+  test('refuses an app name that is not an APP_FONT_NAME', async () => {
+    await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
+    await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(
+      'page could not establish an app font name matching /^[a-z0-9-]+$/ ("x}body{"); use a lowercase name of letters, digits and hyphens to clear this refusal.',
+    )
   })
 })

@@ -1,4 +1,4 @@
-import { APP_FONT_NAME, type AppFont, type FontFace, FONT_FORMATS, type FontFormat } from '@segnavia/format'
+import { APP_FONT_NAME, type AppFont, FONT_FORMATS, type FontFace, type FontFormat } from '@segnavia/format'
 import { bytesToBase64 } from './base64.ts'
 import { hasControlChar } from './control-char.ts'
 import { parseUnicodeRange, UNICODE_RANGE_CLEARANCE } from './unicode-range.ts'

@@ -4,8 +4,7 @@ import { hasControlChar } from './control-char.ts'
 import { elements, parse } from './sanitize.ts'
 
 const FONT_PROPERTY = /(?:^|[;{])\s*(font-family|font)\s*:([^;{}]+)/gi
-const FONT_PREFIX_KEYWORD =
-  /^(?:italic|oblique|normal|small-caps|bold|bolder|lighter|(?:ultra-|extra-|semi-)?(?:condensed|expanded)|[1-9]00)\s+/i
+const FONT_PREFIX_KEYWORD = /^(?:italic|oblique|normal|small-caps|bold|bolder|lighter|(?:ultra-|extra-|semi-)?(?:condensed|expanded)|[1-9]00)\s+/i
 const FONT_SIZE =
   /^(?:xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|smaller|larger|\d+(?:\.\d+)?(?:px|em|rem|pt|pc|in|cm|mm|ex|ch|vw|vh|%))(?:\s*\/\s*(?:normal|\d+(?:\.\d+)?(?:px|em|rem|pt|pc|in|cm|mm|ex|ch|vw|vh|%)?))?\s*/i
 const FONT_VAR = /var\(\s*--segnavia-font-([A-Za-z0-9-]+)\s*\)/g

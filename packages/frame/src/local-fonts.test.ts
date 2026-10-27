@@ -74,6 +74,40 @@ describe('readLocalFonts', () => {
     expect(result.unavailable).toEqual([{ family: 'Some Local Face', fallback: 'serif', reason: 'not-installed' }])
   })
 
+  test('matches an installed family case-insensitively and writes the declared family', async () => {
+    host.queryLocalFonts = installed([{ family: 'Alef', fullName: 'Alef Regular', postscriptName: 'Alef-Regular', style: 'Regular' }])
+    const result = await readLocalFonts([{ local: 'alef', fallback: 'serif' }], { signal })
+    expect(result.unavailable).toEqual([])
+    expect(result.faces).toEqual([{ family: 'alef', data: truetype, format: 'truetype', weight: 400, style: 'normal' }])
+  })
+
+  test('reports unreadable when a cut cannot be read', async () => {
+    host.queryLocalFonts = async () => [
+      {
+        family: 'Local Face',
+        fullName: 'Local Face Regular',
+        postscriptName: 'LocalFace-Regular',
+        style: 'Regular',
+        blob: async () => {
+          throw new Error('read failed')
+        },
+      },
+    ]
+    const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    expect(result.faces).toEqual([])
+    expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
+  })
+
+  test('reports unreadable for a TrueType collection', async () => {
+    const ttcf = new Uint8Array([0x74, 0x74, 0x63, 0x66])
+    host.queryLocalFonts = installed([
+      { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular', bytes: ttcf },
+    ])
+    const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    expect(result.faces).toEqual([])
+    expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
+  })
+
   test('groups cuts by postscript name and maps style to weight and italic', async () => {
     host.queryLocalFonts = installed([
       { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular' },
