@@ -47,6 +47,33 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
 
+const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
+
+function chapterOneHtml(hebrew: boolean): string {
+  const title = hebrew ? 'פרק ראשון' : 'Chapter One'
+  const mark = hebrew ? 'סימן א' : 'Mark A'
+  const opening = hebrew ? 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ.' : 'The first morning of the voyage ran long against the wind.'
+  const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
+  const pointed = hebrew ? ' data-pointed' : ''
+  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${longNote(hebrew)}</span></p><p${pointed}>${body}</p>`
+}
+
+function chapterTwoHtml(hebrew: boolean): string {
+  const title = hebrew ? 'פרק שני' : 'Chapter Two'
+  const lead = hebrew ? 'הטקסט המלא נמשך על פני העמוד.' : 'A full-width paragraph opens the chapter on its own line of the page.'
+  const mid = hebrew ? 'שוב רוחב מלא בין העמודות.' : 'Full width returns between the column runs.'
+  const close = hebrew ? 'סוף המעבר בין העמודות.' : 'The chapter closes after the column run is cut by a page break.'
+  return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}</p>`
+}
+
+function chapterThreeHtml(hebrew: boolean): string {
+  const title = hebrew ? 'פרק שלישי' : 'Chapter Three'
+  const lead = hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
+  const note = hebrew ? 'הערה קצרה.' : 'A short note.'
+  const body = hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
+  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
+}
+
 const paginatedFixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'הגדת הדף' : 'The Paged Book',
   mode: 'paginated',
@@ -59,30 +86,9 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
   ],
   chapters: [
-    {
-      title: hebrew ? 'פרק ראשון' : 'Chapter One',
-      html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p><span data-mark="siman">${hebrew ? 'סימן א' : 'Mark A'}</span> ${
-        hebrew ? 'בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ.' : 'The first morning of the voyage ran long against the wind.'
-      }<span data-note="footnote">${longNote(hebrew)}</span></p><p>${
-        hebrew ? 'וְהָאָרֶץ הָיְתָה תֹהוּ וָבֹהוּ וְחֹשֶׁךְ עַל־פְּנֵי תְהוֹם. '.repeat(12) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
-      }</p>`,
-    },
-    {
-      title: hebrew ? 'פרק שני' : 'Chapter Two',
-      html: `<h1>${hebrew ? 'פרק שני' : 'Chapter Two'}</h1><p>${
-        hebrew ? 'הטקסט המלא נמשך על פני העמוד.' : 'A full-width paragraph opens the chapter on its own line of the page.'
-      }</p>${columnRun(hebrew, 8, 'siman')}<p>${
-        hebrew ? 'שוב רוחב מלא בין העמודות.' : 'Full width returns between the column runs.'
-      }</p>${columnRun(hebrew, 22)}<p>${hebrew ? 'סוף המעבר בין העמודות.' : 'The chapter closes after the column run is cut by a page break.'}</p>`,
-    },
-    {
-      title: hebrew ? 'פרק שלישי' : 'Chapter Three',
-      html: `<h1>${hebrew ? 'פרק שלישי' : 'Chapter Three'}</h1><p>${
-        hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
-      }<span data-note="footnote">${hebrew ? 'הערה קצרה.' : 'A short note.'}</span></p><p>${
-        hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
-      }</p>`,
-    },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew) },
+    { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew) },
+    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
   ],
 })
 

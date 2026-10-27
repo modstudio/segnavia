@@ -7,7 +7,9 @@ export interface PaginatedReport {
   columns: { balanced: boolean; lost: number; repeated: number }
   furniture: { blanksHaveNone: boolean; openersHaveNoHead: boolean; bodyHasFolio: boolean }
   contents: { matches: boolean; detail: string }
-  clip: { midpoint: boolean; inkAtEdge: boolean }
+  clip: { midpoint: boolean }
+  blocks: { extra: number; missing: number; shown: number }
+  lines: { shifted: number; checked: number }
   runningHead: { fromMark: boolean; carried: boolean; detail: string }
   direction: string | null
 }
@@ -160,7 +162,6 @@ export function inspectPaginatedBook(): PaginatedReport {
 
   function clip() {
     let midpoint = true
-    let inkAtEdge = true
     for (const view of Array.from(document.querySelectorAll('[data-segnavia-window]'))) {
       const start = Number(view.getAttribute('data-start'))
       const lines = flowLines(view.getAttribute('data-flow') ?? '')
@@ -168,9 +169,16 @@ export function inspectPaginatedBook(): PaginatedReport {
       const onTop = lines.some((line) => Math.abs(line.top - start) < 0.5)
       const between = lines.some((line, index) => line.bottom < start - 0.25 && lines[index + 1] !== undefined && (lines[index + 1]?.top ?? 0) > start + 0.25)
       if (onBottom && !onTop && !between) midpoint = false
-      if (between || onTop) inkAtEdge = inkAtEdge && start >= 0
     }
-    return { midpoint, inkAtEdge }
+    return { midpoint }
+  }
+
+  function blocks() {
+    return countBlocks(originTop, lineBoxes)
+  }
+
+  function lineShift() {
+    return countLineShift(originTop, lineBoxes, flowLines)
   }
 
   function runningHead() {
@@ -196,6 +204,8 @@ export function inspectPaginatedBook(): PaginatedReport {
     furniture: furniture(),
     contents: contents(),
     clip: clip(),
+    blocks: blocks(),
+    lines: lineShift(),
     runningHead: runningHead(),
     direction: document.documentElement.getAttribute('dir'),
   }

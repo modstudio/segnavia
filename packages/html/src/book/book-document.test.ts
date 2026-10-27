@@ -194,6 +194,22 @@ describe('book document', () => {
     expect(result.html).not.toContain('break-before:page')
   })
 
+  test('reports a data-columns value that is not an integer from 2 to 4, naming the block', () => {
+    const issues = (html: string) => bookDocument(Book.parse(input({ chapters: [chapter('One', html)] }))).issues
+    expect(issues('<p data-columns="2">Two</p>')).toEqual([])
+    expect(issues('<p data-columns="4">Four</p>')).toEqual([])
+    expect(issues('<p>None</p>')).toEqual([])
+    expect(issues('<p data-columns="5">Wide</p>')).toEqual([
+      'The p in One (segnavia-chapter-1) could not establish data-columns "5"; set it to an integer from 2 to 4 to clear this',
+    ])
+    expect(issues('<div data-columns="1">Single</div>')).toEqual([
+      'The div in One (segnavia-chapter-1) could not establish data-columns "1"; set it to an integer from 2 to 4 to clear this',
+    ])
+    expect(issues('<p data-columns="two">Words</p>')).toEqual([
+      'The p in One (segnavia-chapter-1) could not establish data-columns "two"; set it to an integer from 2 to 4 to clear this',
+    ])
+  })
+
   test('writes geometry-only contents list layout for levels one through six', () => {
     const html = bookDocument(Book.parse(input({ frontMatter: [{ kind: 'contents' }] }))).html
     expect(html).toContain(':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}')

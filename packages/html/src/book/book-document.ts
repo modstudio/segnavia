@@ -114,6 +114,21 @@ function reservedIdIssues(section: BuiltSection): string[] {
   })
 }
 
+function columnsValueOk(value: string): boolean {
+  if (!/^[0-9]+$/.test(value)) return false
+  const count = Number(value)
+  return count >= 2 && count <= 4
+}
+
+function columnIssues(section: BuiltSection): string[] {
+  const where = `${section.info.title ?? section.info.id} (${section.info.id})`
+  return elements(section.node.children).flatMap((node) => {
+    const value = node.attribs['data-columns']
+    if (value === undefined || columnsValueOk(value)) return []
+    return [`The ${node.name} in ${where} could not establish data-columns ${JSON.stringify(value)}; set it to an integer from 2 to 4 to clear this`]
+  })
+}
+
 function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[], galley = false): BuiltSection {
   const id = 'segnavia-endnotes'
   const titleValue = book.endnotes.title
@@ -156,7 +171,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     frontNumber += 1
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`, galley)
     sections.push(section)
-    issues.push(...reservedIdIssues(section))
+    issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if (entry.contents && entry.title !== undefined) headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
     transformNotes(section.node, book, 0, notes, galley)
   }
@@ -165,7 +180,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     const number = offset + 1
     const section = chapterSection(chapter, number, galley)
     sections.push(section)
-    issues.push(...reservedIdIssues(section))
+    issues.push(...reservedIdIssues(section), ...columnIssues(section))
     headings.push({ id: section.info.id, level: 1, text: chapter.title, sectionId: section.info.id }, ...chapterHeadings(section, number, book.contents.depth))
     transformNotes(section.node, book, number, notes, galley)
   }
