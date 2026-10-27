@@ -8,14 +8,11 @@ export interface PaginateTarget {
   top?: number
 }
 
-function isHeldPage(page: PaginateTargetPage): boolean {
-  return !page.blank && (page.role === 'fixed' || (page.role === 'body' && page.windows.length === 0))
-}
-
 export function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPage: number): number | undefined {
   let seen = 0
   for (const [index, page] of pages.entries()) {
-    if (page.flow !== flow || !isHeldPage(page)) continue
+    if (page.flow !== flow || page.blank) continue
+    if (page.role !== 'fixed' && !(page.role === 'body' && page.windows.length === 0)) continue
     seen += 1
     if (seen === designedPage) return index
   }
