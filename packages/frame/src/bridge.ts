@@ -161,14 +161,14 @@ if(target.focus){target.focus({preventScroll:true});if(document.activeElement!==
 ${
   options.reportHeight === false
     ? ''
-    : `var pending=false;function send(){pending=false;post({type:'${MESSAGE.height}',height:Math.ceil(document.documentElement.getBoundingClientRect().height)});}
+    : `var pending=false,lastHeight=null;function send(){pending=false;var height=Math.ceil(document.documentElement.getBoundingClientRect().height);if(height===lastHeight)return;lastHeight=height;post({type:'${MESSAGE.height}',height:height});}
 function report(){if(pending)return;pending=true;setTimeout(send,0);}
 if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-var composed=${options.readyAfterAttribute ? `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};if(root.hasAttribute(name)){resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){if(root.hasAttribute(name)){observer.disconnect();resolve();}}).observe(root,{attributes:true,attributeFilter:[name]});})` : 'null'};
+var composed=${options.readyAfterAttribute ? `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};if(root.hasAttribute(name)){${options.reportHeight === false ? '' : 'report();'}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){if(root.hasAttribute(name)){observer.disconnect();${options.reportHeight === false ? '' : 'report();'}resolve();}}).observe(root,{attributes:true,attributeFilter:[name]});})` : 'null'};
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
