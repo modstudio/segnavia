@@ -49,10 +49,7 @@ export const BookPage = z.object({
 })
 export type BookPage = z.infer<typeof BookPage>
 
-export const BookRunningHeadSource = z.union([
-  z.literal('title'),
-  z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) }),
-])
+export const BookRunningHeadSource = z.union([z.literal('title'), z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) })])
 export type BookRunningHeadSource = z.infer<typeof BookRunningHeadSource>
 
 export const BookRunningHead = z.object({

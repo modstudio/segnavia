@@ -36,14 +36,18 @@ export function fillBookFurniture(html: string, values: BookFurnitureValues, dir
     return languageDir(lang) ?? firstStrong(sample) ?? 'ltr'
   }
 
-  return html.replace(/<([a-zA-Z][\w:-]*)([^>]*?)\sdata-motif\s*=\s*(["'])([^"']+)\3([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, before, _quote, key, after) => {
-    const field = motifField[key]
-    if (!field) return match
-    const value = values[field]
-    if (value === undefined) return ''
-    const attrs = `${before}${after}`.replace(/\sdata-motif\s*=\s*(["'])([^"']+)\1/i, '')
-    return `<${tag}${attrs}><bdi dir="${resolve(value)}">${escapeHtml(value)}</bdi></${tag}>`
-  })
+  return html.replace(
+    /<([a-zA-Z][\w:-]*)([^>]*?)\sdata-motif\s*=\s*(?:(["'])([^"']+)\3|([^\s>]+))([^>]*)>([\s\S]*?)<\/\1>/gi,
+    (match, tag, before, _quote, quoted, unquoted, after) => {
+      const key = quoted ?? unquoted
+      const field = motifField[key]
+      if (!field) return match
+      const value = values[field]
+      if (value === undefined) return ''
+      const attrs = `${before}${after}`.replace(/\sdata-motif\s*=\s*(?:(["'])([^"']+)\1|[^\s>]+)/i, '')
+      return `<${tag}${attrs}><bdi dir="${resolve(value)}">${escapeHtml(value)}</bdi></${tag}>`
+    },
+  )
 }
 
 export function furnitureScript(): string {

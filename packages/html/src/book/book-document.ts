@@ -186,11 +186,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
           ...(notes.footnoteParagraphs.length > 0 ? [notesGalley(notes.footnoteParagraphs)] : []),
         ]),
       ]
-    : [
-        element('style', {}, [text(PRINT_CSS)]),
-        ...(options.targets ? [targetLinks(visible)] : []),
-        ...withBlankPages(visible, options.blankBefore),
-      ]
+    : [element('style', {}, [text(PRINT_CSS)]), ...(options.targets ? [targetLinks(visible)] : []), ...withBlankPages(visible, options.blankBefore)]
   linkChildren(document)
   return {
     html: serialize(document),

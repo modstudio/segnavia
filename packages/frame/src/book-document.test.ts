@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from '@segnavia/format'
 import { paginateScript, planBookPages, printedPageAt } from '@segnavia/html'
-import { BOOK_COMPOSER_SCRIPT, PaginatedBookRefusedError, bookDocument } from './book-document.ts'
+import { BOOK_COMPOSER_SCRIPT, bookDocument, PaginatedBookRefusedError } from './book-document.ts'
 
 const book = Book.parse({
   title: 'Book',

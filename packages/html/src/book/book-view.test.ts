@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, BOOK_PARENT_NAMES } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, type BookInput } from '@segnavia/format'
 import { bookView } from './book-view.ts'
 
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }

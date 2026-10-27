@@ -65,14 +65,7 @@ function addFootnoteBlock(block: Element, paragraph: Element, blocks: Map<Elemen
   else insertAfter(block, notes)
 }
 
-function transformFootnote(
-  note: Element,
-  book: Book,
-  chapter: number,
-  state: NoteState,
-  blocks: Map<Element, Element>,
-  galley: boolean,
-): void {
+function transformFootnote(note: Element, book: Book, chapter: number, state: NoteState, blocks: Map<Element, Element>, galley: boolean): void {
   const block = nearestBlock(note)
   if (!block) return
   const number = footnoteNumber(book, chapter, state)

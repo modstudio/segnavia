@@ -1,6 +1,6 @@
 import {
-  type Book,
   BOOK_PARENT_NAMES,
+  type Book,
   bookParentPages,
   formatNumber,
   PRINTED_PAGE_LIMIT,
@@ -10,7 +10,7 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import { bookDocument as htmlBookDocument } from '@segnavia/html'
-import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
+import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { frameDocument } from './bridge.ts'
 
 export { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE } from './book-composer.ts'
@@ -30,10 +30,7 @@ function folios(system: Book['numbering']['body']): string[] {
   return Array.from({ length: PRINTED_PAGE_LIMIT }, (_, index) => formatNumber(index + 1, system))
 }
 
-export function bookDocument(
-  book: Book,
-  options: { nonce: string; css?: string; printBackground?: boolean },
-): string {
+export function bookDocument(book: Book, options: { nonce: string; css?: string; printBackground?: boolean }): string {
   if (book.mode !== 'paginated' || !book.page) {
     throw new PaginatedBookRefusedError('A paginated book document needs mode paginated and page; set both to clear this refusal.')
   }
