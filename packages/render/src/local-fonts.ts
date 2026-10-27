@@ -1,4 +1,4 @@
-import { type FontFace, type FontReference, type LocalFacesInput, LocalFaceTransport } from '@segnavia/format'
+import { type FontFace, type FontReference, type LocalFacesInput, LocalFaceTransport, localFontReferences } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 
@@ -29,6 +29,42 @@ function limit(value: number | undefined, fallback: number, label: string): numb
   return resolved
 }
 
+function byteLimitRefusal(family: string, byteLimit: number): RenderRefusedError {
+  return new RenderRefusedError(
+    `The local face ${JSON.stringify(family)} exceeds the byte limit of ${byteLimit}; send at most ${byteLimit} decoded bytes to clear this refusal.`,
+  )
+}
+
+function decodeFace(input: unknown, usedBytes: number, byteLimit: number): FontFace {
+  const parsed = LocalFaceTransport.safeParse(input)
+  const family = familyFrom(input)
+  if (!parsed.success) {
+    throw new RenderRefusedError(
+      `The local face ${JSON.stringify(family)} has an invalid transport shape; send only family, format, weight, style and base64 data to clear this refusal.`,
+    )
+  }
+  const padding = parsed.data.data.endsWith('==') ? 2 : parsed.data.data.endsWith('=') ? 1 : 0
+  const decodedLength = (parsed.data.data.length / 4) * 3 - padding
+  if (usedBytes + decodedLength > byteLimit) throw byteLimitRefusal(family, byteLimit)
+  let data: Uint8Array | undefined
+  try {
+    data = base64ToBytes(parsed.data.data)
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    throw byteLimitRefusal(family, byteLimit)
+  }
+  if (!data || bytesToBase64(data) !== parsed.data.data) {
+    throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
+  }
+  const detected = fontFormat(data)
+  if (detected !== parsed.data.format) {
+    throw new RenderRefusedError(
+      `The local face ${JSON.stringify(family)} declares ${parsed.data.format}, but its signature is ${detected ?? 'not a supported font'}; send a matching supported face to clear this refusal.`,
+    )
+  }
+  return { ...parsed.data, data }
+}
+
 function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
   const supplied: unknown = options?.faces ?? []
   if (!Array.isArray(supplied)) {
@@ -45,45 +81,11 @@ function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
   const faces: FontFace[] = []
   let bytes = 0
   for (const input of inputs) {
-    const parsed = LocalFaceTransport.safeParse(input)
-    const family = familyFrom(input)
-    if (!parsed.success) {
-      throw new RenderRefusedError(
-        `The local face ${JSON.stringify(family)} has an invalid transport shape; send only family, format, weight, style and base64 data to clear this refusal.`,
-      )
-    }
-    const data = base64ToBytes(parsed.data.data)
-    if (!data || bytesToBase64(data) !== parsed.data.data) {
-      throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
-    }
-    bytes += data.byteLength
-    if (bytes > byteLimit) {
-      throw new RenderRefusedError(
-        `The local face ${JSON.stringify(family)} exceeds the byte limit of ${byteLimit}; send at most ${byteLimit} decoded bytes to clear this refusal.`,
-      )
-    }
-    const detected = fontFormat(data)
-    if (detected !== parsed.data.format) {
-      throw new RenderRefusedError(
-        `The local face ${JSON.stringify(family)} declares ${parsed.data.format}, but its signature is ${detected ?? 'not a supported font'}; send a matching supported face to clear this refusal.`,
-      )
-    }
-    faces.push({ ...parsed.data, data })
+    const face = decodeFace(input, bytes, byteLimit)
+    faces.push(face)
+    bytes += face.data.byteLength
   }
   return faces
-}
-
-function localReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
-  const seen = new Set<string>()
-  const locals: Array<{ local: string; fallback: string }> = []
-  for (const reference of references) {
-    if (!('local' in reference)) continue
-    const key = JSON.stringify(reference)
-    if (seen.has(key)) continue
-    seen.add(key)
-    locals.push(reference)
-  }
-  return locals
 }
 
 export function localFontsForRender(
@@ -91,7 +93,7 @@ export function localFontsForRender(
   references: readonly FontReference[],
 ): { faces: FontFace[]; report: LocalFontsReport } {
   const decoded = decodedFaces(options)
-  const locals = localReferences(references)
+  const locals = localFontReferences(references)
   const declared = new Map(locals.map((reference) => [reference.local.toLowerCase(), reference.local]))
   const faces = decoded.flatMap((face) => {
     const family = declared.get(face.family.toLowerCase())

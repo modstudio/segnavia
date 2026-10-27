@@ -43,10 +43,14 @@ export class SegnaviaBook extends HTMLElementBase {
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
+    if (this.currentView && this.fontOptions) this.mount()
   }
 
   disconnectedCallback() {
     window.removeEventListener('message', this.onMessage)
+    ++this.loadGeneration
+    this.loadController?.abort()
+    this.loadController = null
   }
 
   async attributeChangedCallback(_: string, __: string | null, src: string | null) {

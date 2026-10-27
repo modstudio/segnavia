@@ -122,9 +122,11 @@ describe('pageFontCss', () => {
     )
   })
 
-  test('does not refuse a page that names only local fonts without a source', async () => {
+  test('refuses a local font fallback when no FontSource is supplied', async () => {
     const page = PageSchema.parse({ html: '<p></p>', fonts: [{ local: 'Some Local Face', fallback: 'serif' }] })
-    expect(await pageFontCss(page, [], undefined, signal)).toBe('')
+    await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(
+      'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    )
   })
 })
 

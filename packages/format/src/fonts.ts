@@ -14,6 +14,19 @@ export type FontReference = z.infer<typeof FontReference>
 export const FontReferenceInput = z.union([z.strictObject(AppFontShape), z.strictObject(LocalFontShape)])
 export type FontReferenceInput = z.input<typeof FontReferenceInput>
 
+export function localFontReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
+  const seen = new Set<string>()
+  const locals: Array<{ local: string; fallback: string }> = []
+  for (const reference of references) {
+    if (!('local' in reference)) continue
+    const key = JSON.stringify(reference)
+    if (seen.has(key)) continue
+    seen.add(key)
+    locals.push(reference)
+  }
+  return locals
+}
+
 export const FONT_FORMATS = ['woff2', 'woff', 'truetype', 'opentype'] as const
 export type FontFormat = (typeof FONT_FORMATS)[number]
 
@@ -27,6 +40,7 @@ const LocalFaceTransportShape = {
 
 export const LocalFaceTransport = z.strictObject(LocalFaceTransportShape)
 export type LocalFaceTransport = z.infer<typeof LocalFaceTransport>
+export const LocalFacesTransport = z.array(LocalFaceTransport)
 export type LocalFacesInput = LocalFaceTransport[]
 
 export const FONT_GENERICS = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'] as const

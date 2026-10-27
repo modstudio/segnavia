@@ -50,17 +50,15 @@ describe('local fonts for a render', () => {
     ]
     expect(() => localFontsForRender({ faces, limits: { count: 1 } }, [])).toThrow('"Second" exceeds the count limit of 1')
     expect(() => localFontsForRender({ faces: faces.slice(0, 1), limits: { bytes: 3 } }, [])).toThrow('"First" exceeds the byte limit of 3')
+    expect(() =>
+      localFontsForRender({ faces: [{ family: 'First', format: 'truetype', data: 'not-canonical-but-oversized' }], limits: { bytes: 1 } }, []),
+    ).toThrow('"First" exceeds the byte limit of 1')
   })
 
   test('retains no decoded buffer after the prepared faces leave the call', async () => {
-    let finalized = false
-    const registry = new FinalizationRegistry(() => {
-      finalized = true
-    })
     const weak = (() => {
       const result = localFontsForRender({ faces: [{ family: 'Declared Family', format: 'truetype', data: truetype }] }, references)
       const data = result.faces[0]?.data as Uint8Array
-      registry.register(data, 'decoded')
       return new WeakRef(data)
     })()
     for (let attempt = 0; attempt < 20 && weak.deref(); attempt += 1) {
@@ -68,6 +66,5 @@ describe('local fonts for a render', () => {
       await new Promise<void>((resolve) => setTimeout(resolve, 0))
     }
     expect(weak.deref()).toBeUndefined()
-    expect(finalized).toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-import type { FontFace, FontReference, LocalFacesInput } from '@segnavia/format'
+import { type FontFace, type FontReference, type LocalFacesInput, localFontReferences } from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
@@ -42,19 +42,6 @@ const WEIGHT_NAMES: Record<string, number> = {
   ultrabold: 800,
   black: 900,
   heavy: 900,
-}
-
-function localReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
-  const seen = new Set<string>()
-  const locals: Array<{ local: string; fallback: string }> = []
-  for (const ref of references) {
-    if (!('local' in ref)) continue
-    const key = JSON.stringify(ref)
-    if (seen.has(key)) continue
-    seen.add(key)
-    locals.push({ local: ref.local, fallback: ref.fallback })
-  }
-  return locals
 }
 
 function unavailable(locals: Array<{ local: string; fallback: string }>, reason: LocalFontUnavailableReason): LocalFonts {
@@ -136,7 +123,7 @@ async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontD
 }
 
 export async function readLocalFonts(references: readonly FontReference[], options: { signal: AbortSignal }): Promise<LocalFonts> {
-  const locals = localReferences(references)
+  const locals = localFontReferences(references)
   if (locals.length === 0) return { faces: [], unavailable: [] }
   const installed = await installedFonts(options.signal)
   if (installed.reason) return unavailable(locals, installed.reason)

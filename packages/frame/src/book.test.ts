@@ -110,6 +110,48 @@ describe('book element input', () => {
 })
 
 describe('book fonts', () => {
+  test('fonts and view assigned before connection mount the latest frame on connect', async () => {
+    const previousDocument = globalThis.document
+    const previousWindow = globalThis.window
+    const frames: Array<{ srcdoc: string; title: string; setAttribute: (name: string, value: string) => void }> = []
+    Object.defineProperty(globalThis, 'document', {
+      configurable: true,
+      writable: true,
+      value: {
+        createElement() {
+          const frame = { srcdoc: '', title: '', setAttribute() {} }
+          frames.push(frame)
+          return frame
+        },
+      },
+    })
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      writable: true,
+      value: { addEventListener() {}, removeEventListener() {} },
+    })
+    const book = new SegnaviaBook()
+    let connected = false
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => connected })
+    ;(book as unknown as { hasAttribute: () => boolean }).hasAttribute = () => true
+    book.replaceChildren = (() => {}) as typeof book.replaceChildren
+    book.fonts = {
+      source: {
+        font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }),
+      },
+    }
+    book.view = { html: '<main>Book</main>', fonts: [{ app: 'serif' }] }
+    await Promise.resolve()
+    expect(frames).toHaveLength(0)
+    connected = true
+    book.connectedCallback()
+    await Promise.resolve()
+    await Promise.resolve()
+    globalThis.document = previousDocument
+    globalThis.window = previousWindow
+    expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')
+  })
+
   test('setting fonts mounts a frame whose srcdoc carries the resolved css', async () => {
     const frames: Array<{ srcdoc: string; title: string; setAttribute: (name: string, value: string) => void }> = []
     const previous = globalThis.document
@@ -171,6 +213,19 @@ describe('book fonts', () => {
       return true
     }) as typeof book.dispatchEvent
     book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    expect(detail).toEqual({
+      message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
+    })
+  })
+
+  test('a local font fallback without a FontSource surfaces through the error event', () => {
+    const book = new SegnaviaBook()
+    let detail: unknown
+    book.dispatchEvent = ((event: Event) => {
+      detail = (event as CustomEvent).detail
+      return true
+    }) as typeof book.dispatchEvent
+    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ local: 'Local Face', fallback: 'serif' }] }
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
     })

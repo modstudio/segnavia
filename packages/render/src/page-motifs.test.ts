@@ -95,6 +95,13 @@ test('pagePdf embeds only named transported local faces and retains no decoded b
       },
       {
         effects: false,
+        fontSource: {
+          font: async (name) =>
+            ({
+              serif: { family: 'Body Serif', faces: [], generic: 'serif' as const },
+              heading: { family: 'Heading Sans', faces: [], generic: 'sans-serif' as const },
+            })[name],
+        },
         localFonts: {
           faces: [
             { family: 'local family', format: 'truetype', data: 'AAEAAAc=' },

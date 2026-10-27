@@ -15,11 +15,15 @@ export async function verifyLocalFont(renderer: Renderer, work: string, check: C
   const reports: unknown[] = []
   const pdf = await renderer.pagePdf(
     {
-      html: `<p style="font-family:'${family}',serif">Local face</p>`,
+      html: `<p style="font-family:'${family}',var(--segnavia-font-serif)">Local face</p>`,
       fonts: [...references],
       size: { width: 400, height: 200 },
     },
-    { localFonts: { faces, report: (report) => reports.push(report) }, css: 'p{font-size:40px}' },
+    {
+      fontSource: { font: async (name) => (name === 'serif' ? { family: 'Fallback Serif', faces: [], generic: 'serif' } : undefined) },
+      localFonts: { faces, report: (report) => reports.push(report) },
+      css: 'p{font-size:40px}',
+    },
   )
   const file = path.join(work, 'local-font.pdf')
   writeFileSync(file, pdf)

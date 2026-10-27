@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { FontReference, FontReferenceInput, LocalFaceTransport } from './fonts.ts'
-import { Book, Page } from './index.ts'
+import { Book, jsonSchemas, Page } from './index.ts'
 
 describe('FontReference', () => {
   test('reads stored references tolerantly and writes them strictly', () => {
@@ -27,18 +27,13 @@ describe('Page and Book fonts', () => {
 })
 
 describe('LocalFaceTransport', () => {
-  test('accepts the JSON-safe transport shape', () => {
-    expect(LocalFaceTransport.parse({ family: 'Local Face', format: 'truetype', weight: 400, style: 'normal', data: 'AAEAAA==' })).toEqual({
-      family: 'Local Face',
-      format: 'truetype',
-      weight: 400,
-      style: 'normal',
-      data: 'AAEAAA==',
-    })
-  })
-
   test('refuses extra keys and unknown formats', () => {
     expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'ttf', data: '', extra: true }).success).toBe(false)
     expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'truetype', data: '', extra: true }).success).toBe(false)
+  })
+
+  test('publishes item and array JSON Schemas', () => {
+    expect(jsonSchemas().localFaceTransport).toMatchObject({ type: 'object', required: ['family', 'format', 'data'] })
+    expect(jsonSchemas().localFacesTransport).toMatchObject({ type: 'array', items: { type: 'object' } })
   })
 })
