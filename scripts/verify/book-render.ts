@@ -297,9 +297,44 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   )
 }
 
+async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, check: Check): Promise<void> {
+  for (const key of ['english', 'hebrew'] as const) {
+    const hebrew = key === 'hebrew'
+    const one = hebrew ? 'פרק א' : 'Chapter One'
+    const two = hebrew ? 'פרק ב' : 'Chapter Two'
+    const openOne = hebrew ? 'פתח-א' : 'OPEN-ONE'
+    const openTwo = hebrew ? 'פתח-ב' : 'OPEN-TWO'
+    const bytes = await renderer.bookPdf(
+      {
+        title: hebrew ? 'ספר' : 'Book',
+        mode: 'paginated',
+        lang: hebrew ? 'he' : 'en',
+        page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+        frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
+        chapters: [
+          { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
+          { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
+        ],
+      },
+      { effects: false, css: 'body{font:16px serif}' },
+    )
+    const file = path.join(work, `book-paginated-${key}.pdf`)
+    writeFileSync(file, bytes)
+    const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
+    const links = destinations(await PDFDocument.load(bytes)).sort((left, right) => left - right)
+    const expected = [...chapterPages].sort((left, right) => left - right)
+    check(
+      `${key} paginated contents links resolve to each chapter's first page`,
+      chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),
+      `chapters=${chapterPages.join(',')} links=${links.join(',')}`,
+    )
+  }
+}
+
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
+  await verifyPaginatedContentsLinks(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
   const book = {

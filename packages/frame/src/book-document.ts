@@ -1,12 +1,4 @@
-import {
-  BOOK_PARENT_NAMES,
-  type Book,
-  formatNumber,
-  PRINTED_PAGE_LIMIT,
-  PX_PER_MM,
-  resolveBookPagination,
-  resolveParentPages,
-} from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type Book, formatNumber, PRINTED_PAGE_LIMIT, PX_PER_MM, resolveBookPagination, resolveParentPages } from '@segnavia/format'
 import { bookDocument as htmlBookDocument } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { frameDocument } from './bridge.ts'
