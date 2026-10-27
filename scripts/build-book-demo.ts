@@ -15,6 +15,11 @@ const alefCss = () => {
   return `@font-face{font-family:Alef;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
 }
 
+const notoCss = () => {
+  const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')).toString('base64')
+  return `@font-face{font-family:NotoSerifHebrew;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
+}
+
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
@@ -102,10 +107,12 @@ export function buildBookDemo(site: string): void {
     </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-en" src="book-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-he" src="book-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
   )
 
-  const hebrewFace = alefCss()
+  const hebrewFace = `${alefCss()}${notoCss()}`
   for (const hebrew of [false, true]) {
     const book = Book.parse(paginatedFixture(hebrew))
-    const css = hebrew ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'
+    const css = hebrew
+      ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
+      : ':where(html){font:16px/1.5 Georgia,serif}'
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(book)))
   }
