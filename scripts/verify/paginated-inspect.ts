@@ -1,3 +1,11 @@
+export interface PaginatedDesignedReport {
+  spreadVerso: boolean
+  spreadFaces: boolean
+  spreadHasNoFurniture: boolean
+  leafHasFurniture: boolean
+  contents: { matches: boolean; detail: string }
+}
+
 export interface PaginatedReport {
   failure: string | null
   pages: number
@@ -14,6 +22,7 @@ export interface PaginatedReport {
   direction: string | null
   ids: { unique: boolean; count: number; duplicates: string[] }
   spine: { page: number; distance: number; side: string }[]
+  designed: PaginatedDesignedReport
 }
 
 export function inspectPaginatedBook(): PaginatedReport {
@@ -53,6 +62,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     const lost = { n: 0 }
     const repeated = { n: 0 }
     for (const flow of Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]'))) {
+      if (flow.getAttribute('data-segnavia-kind') === 'fixed') continue
       const id = flow.getAttribute('data-segnavia-flow') ?? ''
       const origin = originTop(flow)
       for (const child of Array.from(flow.children)) {
@@ -198,6 +208,7 @@ export function inspectPaginatedBook(): PaginatedReport {
   function blocks() {
     const counts = { extra: 0, missing: 0, shown: 0 }
     for (const flow of Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]'))) {
+      if (flow.getAttribute('data-segnavia-kind') === 'fixed') continue
       const id = flow.getAttribute('data-segnavia-flow') ?? ''
       const origin = originTop(flow)
       const windows = Array.from(document.querySelectorAll(`[data-segnavia-window][data-flow="${id}"]`))
@@ -279,6 +290,46 @@ export function inspectPaginatedBook(): PaginatedReport {
     })
   }
 
+  function designedPages(id: string) {
+    return Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${id}"][data-segnavia-role="fixed"]`))
+  }
+
+  function hasFurniture(page: Element) {
+    return Boolean(page.querySelector('.segnavia-running-head, .segnavia-folio, .designed-foot'))
+  }
+
+  function designedContents() {
+    const designedEntries = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).flatMap((node) => {
+      const id = node.getAttribute('data-target') ?? ''
+      const target = document.getElementById(id)
+      const paper = target?.closest('[data-segnavia-book-page]')
+      if (paper?.getAttribute('data-segnavia-role') !== 'fixed' && !id.startsWith('segnavia-designed-')) return []
+      const folio = (id.startsWith('segnavia-designed-') ? designedPages(id)[0]?.getAttribute('data-segnavia-folio') : paper?.getAttribute('data-segnavia-folio')) ?? ''
+      const text = node.textContent?.trim() ?? ''
+      return [{ id, text, folio }]
+    })
+    return {
+      matches: designedEntries.length > 0 && designedEntries.every((entry) => entry.text === entry.folio && entry.text !== ''),
+      detail: designedEntries.map((entry) => `${entry.id}:${entry.text}:${entry.folio}`).join('|'),
+    }
+  }
+
+  function designed(): PaginatedDesignedReport {
+    const spread = designedPages('segnavia-designed-1')
+    const leaf = designedPages('segnavia-designed-2')
+    const first = spread[0]
+    const second = spread[1]
+    const firstIndex = Number(first?.getAttribute('data-segnavia-book-page'))
+    const secondIndex = Number(second?.getAttribute('data-segnavia-book-page'))
+    return {
+      spreadVerso: firstIndex % 2 === 0,
+      spreadFaces: Boolean(first && second && secondIndex === firstIndex + 1 && secondIndex % 2 === 1),
+      spreadHasNoFurniture: spread.length === 2 && spread.every((page) => !hasFurniture(page)),
+      leafHasFurniture: leaf.length === 1 && leaf.every((page) => Boolean(page.querySelector('.designed-foot .segnavia-folio')?.textContent?.trim())),
+      contents: designedContents(),
+    }
+  }
+
   const counted = coverage()
   return {
     failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
@@ -296,5 +347,6 @@ export function inspectPaginatedBook(): PaginatedReport {
     direction: document.documentElement.getAttribute('dir'),
     ids: uniqueIds(),
     spine: spine(),
+    designed: designed(),
   }
 }

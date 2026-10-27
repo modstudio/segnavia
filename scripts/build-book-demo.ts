@@ -79,6 +79,34 @@ function chapterThreeHtml(hebrew: boolean): string {
   return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
 }
 
+const designedCss =
+  ':where(.designed-spread,.designed-leaf){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:24px;padding-inline:24px}:where(.designed-verso){background:#1a365d;color:#fff}:where(.designed-recto){background:#2c5282;color:#fff}:where(.designed-leaf){background:#edf2f7}:where(.designed-foot){text-align:center}'
+
+function designedSpread(hebrew: boolean) {
+  const title = hebrew ? 'שער' : 'Frontispiece'
+  const verso = hebrew ? 'גב השער' : 'Verso of the spread'
+  const recto = hebrew ? 'פנים השער' : 'Recto of the spread'
+  return {
+    kind: 'designed' as const,
+    title,
+    opens: 'verso' as const,
+    pages: [
+      { html: `<div class="designed-spread designed-verso"><h1 id="spread-open">${title}</h1><p>${verso}</p></div>` },
+      { html: `<div class="designed-spread designed-recto"><h2 id="spread-recto">${recto}</h2></div>` },
+    ],
+  }
+}
+
+function designedLeaf(hebrew: boolean) {
+  const title = hebrew ? 'לוח' : 'Plate'
+  return {
+    kind: 'designed' as const,
+    title,
+    parents: { fixed: 'ornament-foot' },
+    pages: [{ html: `<div class="designed-leaf"><h1 id="plate">${title}</h1></div>` }],
+  }
+}
+
 const paginatedFixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'הגדת הדף' : 'The Paged Book',
   mode: 'paginated',
@@ -86,12 +114,21 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 }, columnGap: 5 },
   rectoOpenings: true,
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
+  parentPages: [
+    {
+      name: 'ornament-foot',
+      basedOn: 'segnavia:blank',
+      foot: '<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span></div>',
+    },
+  ],
   frontMatter: [
     { title: hebrew ? 'פתיחה' : 'Preface', html: `<p>${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>` },
     { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
   ],
   chapters: [
+    designedSpread(hebrew),
     { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew) },
+    designedLeaf(hebrew),
     { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew) },
     { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
   ],
@@ -111,8 +148,8 @@ export function buildBookDemo(site: string): void {
   for (const hebrew of [false, true]) {
     const book = Book.parse(paginatedFixture(hebrew))
     const css = hebrew
-      ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
-      : ':where(html){font:16px/1.5 Georgia,serif}'
+      ? `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
+      : `${designedCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(book)))
   }

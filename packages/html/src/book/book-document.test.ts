@@ -210,6 +210,53 @@ describe('book document', () => {
     ])
   })
 
+  test('emits designed pages as hidden holders and lists their title and headings', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        frontMatter: [{ kind: 'contents' }],
+        chapters: [
+          {
+            kind: 'designed',
+            title: 'Spread',
+            opens: 'verso',
+            pages: [{ html: '<h1 id="open">Open</h1>' }, { html: '<h2>Inside</h2>' }],
+          },
+          chapter('One'),
+        ],
+      }),
+    )
+    const result = bookDocument(book)
+    expect(result.sections.map((section) => ({ id: section.id, kind: section.kind }))).toEqual([
+      { id: 'segnavia-contents', kind: 'contents' },
+      { id: 'segnavia-designed-1', kind: 'designed' },
+      { id: 'segnavia-chapter-1', kind: 'chapter' },
+    ])
+    expect(result.html).toContain('data-segnavia-kind="fixed"')
+    expect(result.html).toContain('data-opens="verso"')
+    expect(result.html).toContain('data-segnavia-designed-page="1"')
+    expect(result.html).toContain('data-segnavia-designed-page="2"')
+    expect(result.html).toContain('hidden')
+    expect(result.headings).toEqual([
+      { id: 'segnavia-designed-1', level: 1, text: 'Spread', sectionId: 'segnavia-designed-1' },
+      { id: 'open', level: 1, text: 'Open', sectionId: 'segnavia-designed-1' },
+      { id: 'segnavia-h-designed-1-2', level: 2, text: 'Inside', sectionId: 'segnavia-designed-1' },
+      { id: 'segnavia-chapter-1', level: 1, text: 'One', sectionId: 'segnavia-chapter-1' },
+    ])
+  })
+
+  test('counts chapters only when a designed section sits among them', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        chapters: [chapter('One'), { kind: 'designed', pages: [{ html: '<p>Art</p>' }] }, chapter('Two')],
+      }),
+    )
+    expect(bookDocument(book).sections.map((section) => section.id)).toEqual(['segnavia-chapter-1', 'segnavia-designed-1', 'segnavia-chapter-2'])
+  })
+
   test('writes geometry-only contents list layout for levels one through six', () => {
     const html = bookDocument(Book.parse(input({ frontMatter: [{ kind: 'contents' }] }))).html
     expect(html).toContain(':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}')

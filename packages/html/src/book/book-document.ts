@@ -1,4 +1,14 @@
-import { type Book, type BookSection, isBookContents, noteMarkerIssues, resolveDirection } from '@segnavia/format'
+import {
+  type Book,
+  type BookSection,
+  type BookSectionParents,
+  type Chapter,
+  type DesignedSection,
+  isBookContents,
+  isDesignedSection,
+  noteMarkerIssues,
+  resolveDirection,
+} from '@segnavia/format'
 import { type ChildNode, type Document, isTag } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
 import { element, linkChildren, text, textContent } from './dom.ts'
@@ -20,8 +30,26 @@ function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
 }
 
-function sectionNode(kind: BookSectionInfo['kind'], id: string, children: ChildNode[] = [], galley = false, runningHead?: string) {
-  const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id }
+function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
+  const attribs = { ...extra }
+  if (opens) attribs['data-opens'] = opens
+  if (!parents) return attribs
+  for (const role of ['opener', 'recto', 'verso', 'blank', 'fixed'] as const) {
+    const name = parents[role]
+    if (name) attribs[`data-parent-${role}`] = name
+  }
+  return attribs
+}
+
+function sectionNode(
+  kind: BookSectionInfo['kind'],
+  id: string,
+  children: ChildNode[] = [],
+  galley = false,
+  runningHead?: string,
+  extra: Record<string, string> = {},
+) {
+  const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (galley) attribs['data-segnavia-flow'] = id
   if (galley && runningHead !== undefined) attribs['data-running-head'] = runningHead
   return element('section', attribs, children)
@@ -30,24 +58,79 @@ function sectionNode(kind: BookSectionInfo['kind'], id: string, children: ChildN
 function authoredSection(section: BookSection, id: string, galley = false): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
-  const node = sectionNode('front', id, document.children, galley, runningHead)
+  const node = sectionNode('front', id, document.children, galley, runningHead, flowAttribs(section.opens, section.parents))
   return { info: { id, kind: 'front', title: section.title, runningHead }, node }
 }
 
-function contentsSection(title: string | undefined, galley = false): BuiltSection {
+function contentsSection(entry: { title?: string; opens?: string; parents?: BookSectionParents }, galley = false): BuiltSection {
   const id = 'segnavia-contents'
+  const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
-  return { info: { id, kind: 'contents', title, runningHead: title }, node: sectionNode('contents', id, children, galley, title) }
+  return {
+    info: { id, kind: 'contents', title, runningHead: title },
+    node: sectionNode('contents', id, children, galley, title, flowAttribs(entry.opens, entry.parents)),
+  }
 }
 
-function chapterSection(chapter: Book['chapters'][number], index: number, galley = false): BuiltSection {
+function chapterSection(chapter: Chapter, index: number, galley = false): BuiltSection {
   const id = `segnavia-chapter-${index}`
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
   return {
     info: { id, kind: 'chapter', title: chapter.title, runningHead },
-    node: sectionNode('chapter', id, document.children, galley, runningHead),
+    node: sectionNode('chapter', id, document.children, galley, runningHead, flowAttribs(chapter.opens, chapter.parents)),
   }
+}
+
+function designedHeadings(children: ChildNode[], sectionId: string, depth: number): BookHeading[] {
+  let generated = 0
+  return elements(children).flatMap((heading): BookHeading[] => {
+    const match = /^h([1-6])$/.exec(heading.name)
+    if (!match || heading.attribs['data-contents'] === 'exclude') return []
+    const level = Number(match[1])
+    if (level > depth) return []
+    generated += 1
+    const id = heading.attribs.id ?? `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${generated}`
+    heading.attribs.id = id
+    return [{ id, level, text: textContent(heading, true).replace(/\s+/g, ' ').trim(), sectionId }]
+  })
+}
+
+function designedSection(entry: DesignedSection, id: string, kind: 'front' | 'designed', galley: boolean, depth: number): { built: BuiltSection; headings: BookHeading[] } {
+  const extra = flowAttribs(entry.opens, entry.parents, {
+    'data-segnavia-kind': 'fixed',
+    ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
+  })
+  const headings: BookHeading[] = []
+  const holders = entry.pages.map((page, offset) => {
+    const document = parse(page.html)
+    headings.push(...designedHeadings(document.children, id, depth))
+    return element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
+  })
+  if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
+  const runningHead = entry.title
+  return {
+    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, galley, runningHead, extra) },
+    headings,
+  }
+}
+
+function appendDesigned(
+  entry: DesignedSection,
+  id: string,
+  kind: 'front' | 'designed',
+  book: Book,
+  galley: boolean,
+  notes: ReturnType<typeof noteState>,
+  sections: BuiltSection[],
+  headings: BookHeading[],
+  issues: string[],
+) {
+  const held = designedSection(entry, id, kind, galley, book.contents.depth)
+  sections.push(held.built)
+  issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built))
+  headings.push(...held.headings)
+  transformNotes(held.built.node, book, 0, notes, galley)
 }
 
 function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
@@ -160,12 +243,19 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   const headings: BookHeading[] = []
   const issues: string[] = []
   let frontNumber = 0
+  let chapterNumber = 0
+  let designedNumber = 0
   let contents: BuiltSection | undefined
 
   for (const entry of book.frontMatter) {
     if (isBookContents(entry)) {
-      contents = contentsSection(entry.title, galley)
+      contents = contentsSection(entry, galley)
       sections.push(contents)
+      continue
+    }
+    if (isDesignedSection(entry)) {
+      designedNumber += 1
+      appendDesigned(entry, `segnavia-designed-${designedNumber}`, 'front', book, galley, notes, sections, headings, issues)
       continue
     }
     frontNumber += 1
@@ -176,13 +266,21 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     transformNotes(section.node, book, 0, notes, galley)
   }
 
-  for (const [offset, chapter] of book.chapters.entries()) {
-    const number = offset + 1
-    const section = chapterSection(chapter, number, galley)
+  for (const entry of book.chapters) {
+    if (isDesignedSection(entry)) {
+      designedNumber += 1
+      appendDesigned(entry, `segnavia-designed-${designedNumber}`, 'designed', book, galley, notes, sections, headings, issues)
+      continue
+    }
+    chapterNumber += 1
+    const section = chapterSection(entry, chapterNumber, galley)
     sections.push(section)
     issues.push(...reservedIdIssues(section), ...columnIssues(section))
-    headings.push({ id: section.info.id, level: 1, text: chapter.title, sectionId: section.info.id }, ...chapterHeadings(section, number, book.contents.depth))
-    transformNotes(section.node, book, number, notes, galley)
+    headings.push(
+      { id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id },
+      ...chapterHeadings(section, chapterNumber, book.contents.depth),
+    )
+    transformNotes(section.node, book, chapterNumber, notes, galley)
   }
 
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))

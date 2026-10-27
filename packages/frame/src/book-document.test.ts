@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, resolveDirection } from '@segnavia/format'
-import { paginateScript, planBookPages, printedPageAt } from '@segnavia/html'
+import { pageIndexForTarget, paginateScript, planBookPages, printedPageAt, selectBookParent } from '@segnavia/html'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, PaginatedBookRefusedError } from './book-document.ts'
 
 const book = Book.parse({
@@ -21,7 +21,9 @@ describe('bookDocument', () => {
     expect(html).toContain('"direction":"rtl"')
     expect(BOOK_COMPOSER_SCRIPT).toContain(paginateScript())
     expect(BOOK_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(selectBookParent.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(planBookPages.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())

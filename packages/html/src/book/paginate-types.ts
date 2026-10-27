@@ -33,10 +33,21 @@ export interface PaginateBlock {
   marks?: PaginateMark[]
 }
 
+export interface PaginateFlowParents {
+  opener?: string
+  recto?: string
+  verso?: string
+  blank?: string
+  fixed?: string
+}
+
+export type PaginateOpens = 'recto' | 'verso' | 'any'
+
 interface PaginateFlowBase {
   id: string
   runningHead?: string
-  parents?: { opener?: string; body?: string }
+  opens?: PaginateOpens
+  parents?: PaginateFlowParents
 }
 
 export type PaginateFlow =
@@ -92,6 +103,7 @@ export interface PaginateBookPage {
   sectionOpening: boolean
   runningHead?: string
   marks?: PaginatePageMarks
+  parents?: PaginateFlowParents
 }
 
 // A refusal names the block it could not place, or the flow or note when no block is at fault.

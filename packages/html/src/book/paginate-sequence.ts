@@ -79,8 +79,35 @@ export function paginateSequence(
     return units
   }
 
-  function makeBlank(number: number, sequence: PaginateSequence, flowId: string): PaginateBookPage {
-    return { kind: 'blank', number, sequence, flow: flowId, role: 'blank', windows: [], notes: [], blank: true, sectionOpening: false }
+  function flowParents(flow: PaginateFlow): Pick<PaginateBookPage, 'parents'> {
+    return flow.parents === undefined ? {} : { parents: flow.parents }
+  }
+
+  function openingOf(flow: PaginateFlow): 'recto' | 'verso' | 'any' {
+    if (flow.opens === 'recto' || flow.opens === 'verso' || flow.opens === 'any') return flow.opens
+    return input.settings.rectoOpenings ? 'recto' : 'any'
+  }
+
+  function needsOpeningBlank(opens: 'recto' | 'verso' | 'any', count: number): boolean {
+    const nextIsRecto = count % 2 === 0
+    if (opens === 'recto') return !nextIsRecto
+    if (opens === 'verso') return nextIsRecto
+    return false
+  }
+
+  function makeBlank(number: number, sequence: PaginateSequence, flow: PaginateFlow): PaginateBookPage {
+    return {
+      kind: 'blank',
+      number,
+      sequence,
+      flow: flow.id,
+      role: 'blank',
+      windows: [],
+      notes: [],
+      blank: true,
+      sectionOpening: false,
+      ...flowParents(flow),
+    }
   }
 
   function makeContent(
@@ -106,6 +133,7 @@ export function paginateSequence(
       sectionOpening: opener,
       ...(opener || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
+      ...flowParents(flow),
     }
   }
 
@@ -122,6 +150,7 @@ export function paginateSequence(
       sectionOpening: opener,
       ...(opener || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
+      ...flowParents(flow),
     }
   }
 
@@ -188,7 +217,7 @@ export function paginateSequence(
     let continued: PaginatePageNote[] = []
     let carried: PaginatePageMarks = emptyMarks()
     for (const flow of flows) {
-      if (part === 'body' && input.settings.rectoOpenings && pages.length % 2 === 1) pages.push(makeBlank(pages.length + 1, part, flow.id))
+      if (needsOpeningBlank(openingOf(flow), pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
       const result = paginateFlow(flow, part, pages, continued, carried)
       if ('refusal' in result && result.refusal) return { pages, refusals: [result.refusal] }
       continued = result.pending
@@ -199,8 +228,8 @@ export function paginateSequence(
       const flushed = flushNotes(continued, last, part, pages, carried)
       if ('refusal' in flushed && flushed.refusal) return { pages, refusals: [flushed.refusal] }
     }
-    if (part === 'front' && input.settings.rectoOpenings && pages.length % 2 === 1) {
-      pages.push(makeBlank(pages.length + 1, part, last?.id ?? ''))
+    if (part === 'front' && last && input.settings.rectoOpenings && pages.length % 2 === 1) {
+      pages.push(makeBlank(pages.length + 1, part, last))
     }
     return { pages, refusals: [] }
   }
