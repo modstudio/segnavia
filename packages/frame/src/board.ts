@@ -21,7 +21,7 @@ import { BoardInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
 import { type BoardItemNames, BoardNames } from './board-names.ts'
 import { BoardPainter } from './board-painter.ts'
-import { placeBoardNode } from './board-placement.ts'
+import { placeBoardItem } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
@@ -344,20 +344,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
         continue
       }
       const node = this.mounts.nodes.get(item.id) ?? this.mounts.mount(item)
-      this.placeItem(node, item)
+      placeBoardItem(node, this.currentView, item, this.shapes.items[item.id], this.titles)
       this.paintItem(node, item)
       this.resolve(item)
     }
-  }
-
-  private placeItem(node: HTMLElement, item: BoardItem) {
-    placeBoardNode(node, this.currentView, {
-      x: item.x,
-      y: item.y,
-      width: item.width,
-      height: itemHeight(item, this.shapes.items[item.id] as { width: number; height: number }),
-    })
-    this.titles.place(item.id, this.currentView, item)
   }
 
   private paintItem(node: HTMLElement, item: BoardItem) {
