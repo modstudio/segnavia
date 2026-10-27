@@ -8,8 +8,10 @@ import { BookShape, BookView } from './book.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
+import { FontReference, FontReferenceInput } from './fonts.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
+import { Motif, MotifInput } from './motif.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
@@ -108,6 +110,7 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
+export { FontReference, FontReferenceInput } from './fonts.ts'
 export {
   fitPage,
   type Imposed,
@@ -129,6 +132,7 @@ export {
   type OmittedImpositionMark,
 } from './imposition-marks.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
+export * from './motif.ts'
 export * from './numbering.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
@@ -340,6 +344,10 @@ export function jsonSchemas() {
     printSettingInput: z.toJSONSchema(PrintSettingInput, { io: 'input' }),
     slotDeclaration: z.toJSONSchema(SlotDeclaration, { io: 'input' }),
     slotDeclarationInput: z.toJSONSchema(SlotDeclarationInput, { io: 'input' }),
+    fontReference: z.toJSONSchema(FontReference, { io: 'input' }),
+    fontReferenceInput: z.toJSONSchema(FontReferenceInput, { io: 'input' }),
+    motif: z.toJSONSchema(Motif, { io: 'input' }),
+    motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
   }
 }
 
