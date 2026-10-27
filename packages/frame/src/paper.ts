@@ -3,7 +3,7 @@
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
+import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
@@ -178,11 +178,11 @@ export class SegnaviaPaper extends HTMLElement {
       this.resolvedGeneration = resolved ? generation : 0
       this.paintResolved(imposition, imposed, shown)
     }
-    const report = (error: unknown) => {
+    const report = (error: unknown, showOriginal = true) => {
       if (!current()) return
       this.resolvedSlots = undefined
       this.resolvedGeneration = 0
-      if (!this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
+      if (showOriginal && !this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
       this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
     const continuePaint = (shown: Page[]) => {
@@ -198,6 +198,12 @@ export class SegnaviaPaper extends HTMLElement {
         .catch(report)
     }
     if (!this.motifOptions && !this.fontOptions && !pages.some((page) => (page.fonts ?? []).some((ref) => 'app' in ref))) {
+      const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
+      if (motifRefusal) {
+        this.paintPlaceholder(imposed)
+        report(motifRefusal, false)
+        return
+      }
       this.paintResolved(imposition, imposed)
       try {
         continuePaint(pages)

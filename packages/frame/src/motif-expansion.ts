@@ -1,14 +1,5 @@
-import {
-  type FontReference,
-  LIBRARY_MOTIF_PREFIX,
-  MOTIF_ATTRIBUTE,
-  type MotifSource,
-  type Page,
-  PRINTED_PAGE_CONTEXT,
-  printProperties,
-  type SlotsOptions,
-} from '@segnavia/format'
-import { type ExpandedMotifs, expandMotifs, MotifRefusedError } from '@segnavia/html'
+import { type FontReference, type MotifSource, type Page, PRINTED_PAGE_CONTEXT, printProperties, type SlotsOptions } from '@segnavia/format'
+import { type ExpandedMotifs, expandMotifs, hasMotifPlacement, libraryMotifPlacementRefusal, MotifRefusedError } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
@@ -25,22 +16,31 @@ export interface ExpandedFramePage {
   fonts: FontReference[]
 }
 
-export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {
-  const parentRegions =
+function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot'; html: string }> {
+  return (
     page.printedPages?.parents.flatMap((parent) =>
       (['head', 'foot'] as const).flatMap((region) => (parent[region] === undefined ? [] : [{ name: parent.name, region, html: parent[region] }])),
     ) ?? []
+  )
+}
+
+export function framePageMotifRefusal(page: Page): MotifRefusedError | undefined {
+  const regions = parentRegions(page)
+  for (const html of [page.html, ...regions.map(({ html }) => html)]) {
+    const refusal = libraryMotifPlacementRefusal(html)
+    if (refusal) return new MotifRefusedError(refusal)
+  }
+  if (regions.some(({ html }) => hasMotifPlacement(html))) {
+    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+  }
+  return undefined
+}
+
+export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {
+  const regions = parentRegions(page)
   if (!motifs) {
-    const reservedPattern = new RegExp(`\\b${MOTIF_ATTRIBUTE}\\s*=\\s*["']${LIBRARY_MOTIF_PREFIX}`)
-    if ([page.html, ...parentRegions.map(({ html }) => html)].some((html) => reservedPattern.test(html))) {
-      throw new MotifRefusedError(
-        `A motif placement could not establish a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs; rename the motif key to clear this refusal.`,
-      )
-    }
-    const motifPattern = new RegExp(`\\b${MOTIF_ATTRIBUTE}\\s*=`)
-    if (parentRegions.some(({ html }) => motifPattern.test(html))) {
-      throw new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
-    }
+    const refusal = framePageMotifRefusal(page)
+    if (refusal) throw refusal
     return { page, fonts: [] }
   }
   const result = await expandMotifs(page.html, {
@@ -54,7 +54,7 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
   })
   const parentResults = new Map(
     await Promise.all(
-      parentRegions.map(
+      regions.map(
         async ({ name, region, html }) =>
           [
             `${name}:${region}`,

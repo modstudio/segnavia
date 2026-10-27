@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
-import { Deck, type SlotsOptions } from '@segnavia/format'
+import { Deck, Page, type SlotsOptions } from '@segnavia/format'
 import { SlotFillRefusedError } from '@segnavia/html'
+import { expandFramePage } from './motif-expansion.ts'
 
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
@@ -16,6 +17,37 @@ const { SegnaviaStage } = await import('./stage.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { SegnaviaPaper } = await import('./paper.ts')
 const { thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+
+test('page fast path and expanded print path refuse the same reserved motif placement', async () => {
+  const iframe = { srcdoc: '' }
+  const errors: Error[] = []
+  const pageElement = {
+    isConnected: true,
+    loadGeneration: 0,
+    slotPreparation: undefined,
+    cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    mount: () => iframe,
+    querySelector: () => iframe,
+    fit() {},
+    dispatchEvent(event: ErrorEvent) {
+      errors.push(event.error)
+      return true
+    },
+    load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
+  }
+  const page = Page.parse({ html: '<div DATA-MOTIF=segnavia:folio></div>' })
+  pageElement.load(page)
+  expect(iframe.srcdoc).toBe('')
+  expect(errors).toHaveLength(1)
+
+  let expanded: Error | undefined
+  try {
+    await expandFramePage(page, undefined, new AbortController().signal)
+  } catch (error) {
+    expanded = error as Error
+  }
+  expect(errors[0]?.message).toBe(expanded?.message)
+})
 
 test('page keeps authored HTML and reports a refused fill for a scripted item', () => {
   let iframe = { srcdoc: '' }

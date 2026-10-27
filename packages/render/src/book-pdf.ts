@@ -2,7 +2,7 @@ import { Book, type BookInput, bookParentPages, formatNumber, resolveDirection, 
 import { type BookDocument, type BookHeading, type BookPageFacts, type BookSectionInfo, bookDocument, bookPrintPart, planBookPages } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
-import { marginDocument } from './book-margins.ts'
+import { marginCss, marginDocument } from './book-margins.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -10,7 +10,7 @@ import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 
 export interface BookPdfAdapter {
-  print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart): Promise<PrintResult<true>>
+  print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
@@ -227,7 +227,9 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
-  const margin = await adapter.print(marginDocument(book, planBookPages(marginFacts, direction), bookParentPages(book.page.margin)), book, options, 'margin')
+  const plan = planBookPages(marginFacts, direction)
+  const parents = bookParentPages(book.page.margin)
+  const margin = await adapter.print(marginDocument(book, plan, parents), book, options, 'margin', marginCss(book, plan, parents))
   const output = await adapter.finish(await setPdfPageSize(await join(front, printedBody.part, margin.bytes), sheetMm(book.page)), options)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),

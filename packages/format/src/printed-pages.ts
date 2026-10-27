@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 
 export const PRINTED_PAGE_LIMIT = 500
@@ -66,15 +67,20 @@ export const BOOK_PARENT_NAMES = {
   blank: 'segnavia:blank',
 } as const
 
-const RUNNING_HEAD_PLACEMENT = '<div class="segnavia-running-head" data-motif="segnavia:running-head"></div>'
-const FOLIO_PLACEMENT = '<div class="segnavia-folio" data-motif="segnavia:folio"></div>'
+function furniture(region: 'head' | 'foot'): string {
+  return BOOK_FURNITURE.filter((item) => item.region === region)
+    .map((item) => `<div class="${item.className}" data-motif="${item.key}"></div>`)
+    .join('')
+}
 
 export function bookParentPages(margin: ParentPageMargin): ParentPage[] {
   const held = () => ({ ...margin })
+  const head = furniture('head')
+  const foot = furniture('foot')
   return [
-    { name: BOOK_PARENT_NAMES.recto, margin: held(), head: RUNNING_HEAD_PLACEMENT, foot: FOLIO_PLACEMENT },
-    { name: BOOK_PARENT_NAMES.verso, margin: held(), head: RUNNING_HEAD_PLACEMENT, foot: FOLIO_PLACEMENT },
-    { name: BOOK_PARENT_NAMES.opener, margin: held(), foot: FOLIO_PLACEMENT },
+    { name: BOOK_PARENT_NAMES.recto, margin: held(), head, foot },
+    { name: BOOK_PARENT_NAMES.verso, margin: held(), head, foot },
+    { name: BOOK_PARENT_NAMES.opener, margin: held(), foot },
     { name: BOOK_PARENT_NAMES.blank, margin: held() },
   ]
 }

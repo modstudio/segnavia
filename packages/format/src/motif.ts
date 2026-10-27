@@ -9,6 +9,17 @@ export const PRINTED_PAGE_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.total`
 export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
 export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
+export const BOOK_FURNITURE = [
+  { key: 'segnavia:folio', path: PRINTED_PAGE_FOLIO_PATH, value: 'folio', className: 'segnavia-folio', region: 'foot' },
+  {
+    key: 'segnavia:running-head',
+    path: PRINTED_PAGE_RUNNING_HEAD_PATH,
+    value: 'runningHead',
+    className: 'segnavia-running-head',
+    region: 'head',
+  },
+] as const
+export type BookFurniture = (typeof BOOK_FURNITURE)[number]
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 
 const uniqueChoices = (field: { choices?: string[]; default?: string }, ctx: z.RefinementCtx) => {

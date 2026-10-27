@@ -170,4 +170,18 @@ describe('printedPageDocument', () => {
       '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
     )
   })
+
+  test('parses an unquoted reserved parent placement without a motif source', async () => {
+    const placed = Page.parse({
+      ...page,
+      printedPages: {
+        ...page.printedPages,
+        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer DATA-MOTIF=segnavia:folio></footer>' }],
+        rules: { every: 'body' },
+      },
+    })
+    await expect(expandFramePage(placed, undefined, new AbortController().signal)).rejects.toThrow(
+      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+  })
 })
