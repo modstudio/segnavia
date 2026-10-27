@@ -1,6 +1,6 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
-import { edgePresence, INK_BAND_PX, INK_COMPARE_PX, INK_NEIGHBORHOOD_PX, type InkImage, inkBounds, inkCount, stackImages } from './paginated-ink-pixels.ts'
+import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, INK_PIXEL_TOLERANCE, type InkImage, inkBounds, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
 
 interface InkWindow {
   flow: string
@@ -50,11 +50,10 @@ async function screenshotBand(h: Harness, frame: Frame, selector: string, localX
   const handle = await frame.$(selector)
   if (!handle) throw new Error(`The paginated book has no ${selector}.`)
   await handle.evaluate((element, y) => {
-    element.scrollIntoView({ block: 'center', inline: 'nearest' })
     const box = element.getBoundingClientRect()
     const root = document.scrollingElement
     if (!root) return
-    root.scrollTop += y
+    root.scrollTop += box.top + y - innerHeight / 2
   }, localY)
   const local = await handle.evaluate(
     (element, arg) => {
@@ -222,8 +221,11 @@ async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]):
 }
 
 function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
-  const diff = edgePresence(galley, page, side ?? 'break')
-  if (diff.over === 0) return
+  const pageInk = inkBounds(page).count
+  const galleyInk = inkBounds(galley).count
+  if (side === 'start' && pageInk === 0) return
+  const diff = presenceDiff(galley, page)
+  if (diff.over <= INK_PIXEL_TOLERANCE) return
   mismatches.push({
     flow: view.flow,
     column: view.column,
@@ -232,11 +234,26 @@ function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number,
     over: diff.over,
     lost: diff.lost,
     extra: diff.extra,
-    galleyInk: inkBounds(galley).count,
-    pageInk: inkBounds(page).count,
+    galleyInk,
+    pageInk,
     galleySize: [galley.width, galley.height],
     pageSize: [page.width, page.height],
   })
+}
+
+function lastOfColumn(windows: InkWindow[]): Set<number> {
+  const last = new Set<number>()
+  const groups = new Map<string, number[]>()
+  for (const [index, view] of windows.entries()) {
+    const key = `${view.flow}:${view.column}`
+    groups.set(key, [...(groups.get(key) ?? []), index])
+  }
+  for (const indexes of groups.values()) {
+    const ordered = [...indexes].sort((left, right) => (windows[left]?.start ?? 0) - (windows[right]?.start ?? 0))
+    const tail = ordered[ordered.length - 1]
+    if (tail !== undefined) last.add(tail)
+  }
+  return last
 }
 
 function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
@@ -266,15 +283,9 @@ function sequentialPairs(windows: InkWindow[]): Array<{ previous: InkWindow; nex
   return pairs
 }
 
-async function gapInk(h: Harness, frame: Frame, previous: InkWindow, next: InkWindow): Promise<number> {
+function recordBreak(previous: InkWindow, next: InkWindow, previousBands: EdgeBands, nextBands: EdgeBands, mismatches: Mismatch[]): void {
   const gap = next.start - previous.end
-  if (gap <= 0.5) return 0
-  const png = await screenshotBand(h, frame, flowSelector(previous.flow), previous.localX, previous.end, previous.width, gap)
-  return inkCount(await pngRgba(h, png))
-}
-
-function recordBreak(previous: InkWindow, previousBands: EdgeBands, nextBands: EdgeBands, gap: number, mismatches: Mismatch[]): void {
-  if (gap > 0) {
+  if (gap > 0.5) {
     mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: gap, lost: gap, extra: 0 })
     return
   }
@@ -296,20 +307,19 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
   const pageBands = await capturePageBands(h, frame, windows)
   const held = await showGalley(frame)
   const galleyBands = await captureGalleyBands(h, frame, windows)
-  const gaps: number[] = []
-  for (const pair of pairs) gaps.push(await gapInk(h, frame, pair.previous, pair.next))
   await restoreGalley(frame, held)
   await unmarkWindows(frame)
   await hideOutsideText(frame, false)
   const mismatches: Mismatch[] = []
+  const last = lastOfColumn(windows)
   for (const [index, view] of windows.entries()) {
     const galley = galleyBands[index]
     const page = pageBands[index]
     if (!galley || !page) continue
     recordInside(view, 'start', galley.start, page.start, mismatches)
-    recordInside(view, 'end', galley.end, page.end, mismatches)
+    if (!last.has(index)) recordInside(view, 'end', galley.end, page.end, mismatches)
   }
-  for (const [index, pair] of pairs.entries()) {
+  for (const pair of pairs) {
     const previous = galleyBands[pair.previousIndex]
     const next = galleyBands[pair.nextIndex]
     const previousPage = pageBands[pair.previousIndex]
@@ -317,9 +327,9 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     if (!previous || !next || !previousPage || !nextPage) continue
     recordBreak(
       pair.previous,
+      pair.next,
       { galleyStart: previous.start, galleyEnd: previous.end, pageStart: previousPage.start, pageEnd: previousPage.end },
       { galleyStart: next.start, galleyEnd: next.end, pageStart: nextPage.start, pageEnd: nextPage.end },
-      gaps[index] ?? 0,
       mismatches,
     )
   }
@@ -332,8 +342,8 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
       lost: mismatches.reduce((sum, item) => sum + item.lost, 0),
       extra: mismatches.reduce((sum, item) => sum + item.extra, 0),
       neighborhood: INK_NEIGHBORHOOD_PX,
-      band: INK_COMPARE_PX,
-      capture: INK_BAND_PX,
+      leftover: INK_PIXEL_TOLERANCE,
+      band: INK_BAND_PX,
       first: mismatches,
     }),
   }
