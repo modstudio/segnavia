@@ -79,6 +79,24 @@ describe('prepareRenderedPage', () => {
     const prepared = await prepareRenderedPage(page, {}, undefined, signal)
     expect(prepared.options.css).toBe('')
   })
+
+  test('embeds a transported local face under the CSS family and reports missing faces', async () => {
+    const reports: unknown[] = []
+    const prepared = await prepareRenderedPage(
+      {
+        html: '<p style="font-family: Local Family">Local</p>',
+        fonts: [
+          { local: 'Local Family', fallback: 'serif' },
+          { local: 'Missing Family', fallback: 'heading' },
+        ],
+      },
+      { localFonts: { faces: [{ family: 'local family', format: 'truetype', data: 'AAEAAA==' }], report: (report) => reports.push(report) } },
+      undefined,
+      signal,
+    )
+    expect(prepared.options.css).toContain('@font-face{font-family:"Local Family"')
+    expect(reports).toEqual([{ fellBack: [{ family: 'Missing Family', fallback: 'heading' }] }])
+  })
 })
 
 describe('renderOptionsWithBookFonts', () => {

@@ -17,6 +17,18 @@ export type FontReferenceInput = z.input<typeof FontReferenceInput>
 export const FONT_FORMATS = ['woff2', 'woff', 'truetype', 'opentype'] as const
 export type FontFormat = (typeof FONT_FORMATS)[number]
 
+const LocalFaceTransportShape = {
+  family: z.string().min(1),
+  format: z.enum(FONT_FORMATS),
+  weight: z.union([z.number(), z.string()]).optional(),
+  style: z.enum(['normal', 'italic']).optional(),
+  data: z.string(),
+} as const
+
+export const LocalFaceTransport = z.strictObject(LocalFaceTransportShape)
+export type LocalFaceTransport = z.infer<typeof LocalFaceTransport>
+export type LocalFacesInput = LocalFaceTransport[]
+
 export const FONT_GENERICS = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'] as const
 export type FontGeneric = (typeof FONT_GENERICS)[number]
 

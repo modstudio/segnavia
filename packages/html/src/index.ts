@@ -4,12 +4,13 @@
 import { hasBindings } from './bindings.ts'
 import { elements, parse } from './sanitize.ts'
 
-export { bytesToBase64 } from './base64.ts'
+export { base64ToBytes, bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
 export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
+export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export {
   type ExpandedMotifs,

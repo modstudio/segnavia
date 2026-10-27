@@ -122,6 +122,8 @@ export {
   FontReference,
   FontReferenceInput,
   type FontSource,
+  type LocalFacesInput,
+  LocalFaceTransport,
 } from './fonts.ts'
 export {
   fitPage,

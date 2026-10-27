@@ -123,9 +123,12 @@ worked under refused scripts; this design closes that gap.
 name the fonts they use. Preview, browser print and server PDF resolve app
 font names through one `FontSource` and prepend the same `@font-face` rules to
 that frame's css, so screen and print cannot differ for app fonts. A local
-font is a browser face; until server local fonts exist, a server PDF shows
-the declared app-font fallback. A page never embeds a font itself; the
-sanitizer still refuses one it writes.
+font is a browser face. For one server render, the host may send only the
+page's named local faces as JSON-safe base64 transport; render validates and
+embeds them under their declared families, reports absent faces as fallbacks,
+and retains nothing after that call. The host must not persist or log the
+transport either. A page never embeds a font itself; the sanitizer still
+refuses one it writes.
 
 **Live data or script, never both, holds across the whole page.** A page
 whose `scripts` is not `refuse` places only motif versions without live data;

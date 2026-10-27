@@ -2,7 +2,7 @@ import { APP_FONT_NAME, type AppFont, type FontFace, type FontReference, type Fo
 import { fontCss } from '@segnavia/html'
 
 export interface FontsOptions {
-  source: FontSource
+  source?: FontSource
   local?: FontFace[]
 }
 
@@ -58,6 +58,10 @@ function requireAppFontName(name: string, place: string): void {
 
 export async function resolveFontReferences(references: FontReference[], fonts: FontsOptions, signal: AbortSignal, place: string): Promise<string> {
   const app = new Map<string, AppFont>()
+  if (!fonts.source) {
+    refuseMissingFontSource(references, place)
+    return fontCss({ app, local: fonts.local ?? [] })
+  }
   for (const name of appNames(references)) {
     requireAppFontName(name, place)
     const font = await fonts.source.font(name, { signal })

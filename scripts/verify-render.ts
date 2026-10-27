@@ -19,6 +19,7 @@ import { verifyDeckRender } from './verify/deck-render.ts'
 import { verifyFontSource } from './verify/font-source.ts'
 import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
+import { verifyLocalFont } from './verify/local-font.ts'
 import { verifyNamedPaperRender } from './verify/named-paper-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
@@ -131,6 +132,7 @@ try {
     check('a face passed as bytes is embedded in the PDF', fonts.includes('DejaVuSerif-Bold'), fonts.split('\n').slice(2).join(' ').trim())
   }
   await verifyFontSource(renderer, work, check)
+  await verifyLocalFont(renderer, work, check)
   await verifyScriptFaces(renderer, work, check)
   await verifyHebrewNotice(renderer, work, check)
   let background = ''

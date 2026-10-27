@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { AppFont, FontSource } from '@segnavia/format'
 import { Page } from '@segnavia/format'
-import { readLocalFonts } from './local-fonts.ts'
+import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
 import { resolvePageFonts } from './page-fonts.ts'
 
 const signal = new AbortController().signal
@@ -133,5 +133,20 @@ describe('readLocalFonts', () => {
     expect(css).toContain('@font-face{font-family:"Local Face";src:url(data:font/ttf;base64,')
     expect(css).toContain('format("truetype");font-weight:400;font-style:normal;font-display:block}')
     expect(css).toContain('--segnavia-font-serif:"Body Serif",serif')
+  })
+})
+
+describe('packLocalFaces', () => {
+  test('keeps only named local families, using the declared case and round-trippable bytes', async () => {
+    const { base64ToBytes } = await import('@segnavia/html')
+    const packed = packLocalFaces(
+      [
+        { family: 'ALEF', data: truetype, format: 'truetype', weight: 400, style: 'normal' },
+        { family: 'Other', data: new Uint8Array([1, 2, 3, 4]), format: 'woff' },
+      ],
+      [{ app: 'heading' }, { local: 'Alef', fallback: 'serif' }],
+    )
+    expect(packed).toEqual([{ family: 'Alef', data: 'AAEAAA==', format: 'truetype', weight: 400, style: 'normal' }])
+    expect(base64ToBytes(packed[0]?.data ?? '')).toEqual(truetype)
   })
 })

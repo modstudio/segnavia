@@ -1,4 +1,5 @@
-import type { FontFace, FontFormat, FontReference } from '@segnavia/format'
+import type { FontFace, FontReference, LocalFacesInput } from '@segnavia/format'
+import { bytesToBase64, fontFormat } from '@segnavia/html'
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
@@ -67,16 +68,6 @@ function queryLocalFonts(): QueryLocalFonts | undefined {
 
 function isAbort(error: unknown): boolean {
   return (error instanceof Error && error.name === 'AbortError') || (error instanceof DOMException && error.name === 'AbortError')
-}
-
-function fontFormat(data: Uint8Array): FontFormat | undefined {
-  if (data.length < 4) return
-  const tag = String.fromCharCode(data[0] ?? 0, data[1] ?? 0, data[2] ?? 0, data[3] ?? 0)
-  if (tag === 'wOF2') return 'woff2'
-  if (tag === 'wOFF') return 'woff'
-  if (tag === 'OTTO') return 'opentype'
-  if (tag === 'true' || (data[0] === 0 && data[1] === 1 && data[2] === 0 && data[3] === 0)) return 'truetype'
-  if (tag === 'ttcf') return
 }
 
 function cutKey(font: LocalFontData): string {
@@ -169,4 +160,16 @@ export async function readLocalFonts(references: readonly FontReference[], optio
     unavailableFaces.push({ family: ref.local, fallback: ref.fallback, reason: unreadable.has(ref.local) ? 'unreadable' : 'not-installed' })
   }
   return { faces, unavailable: unavailableFaces }
+}
+
+export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[]): LocalFacesInput {
+  const families = new Map<string, string>()
+  for (const reference of references) {
+    if ('local' in reference && !families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
+  }
+  return faces.flatMap((face) => {
+    const family = families.get(face.family.toLowerCase())
+    if (!family) return []
+    return [{ family, format: face.format, weight: face.weight, style: face.style, data: bytesToBase64(face.data) }]
+  })
 }

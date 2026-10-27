@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { FontReference, FontReferenceInput } from './fonts.ts'
+import { FontReference, FontReferenceInput, LocalFaceTransport } from './fonts.ts'
 import { Book, Page } from './index.ts'
 
 describe('FontReference', () => {
@@ -23,5 +23,22 @@ describe('Page and Book fonts', () => {
     expect(Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], fonts: [{ app: 'serif' }] }).fonts).toEqual([
       { app: 'serif' },
     ])
+  })
+})
+
+describe('LocalFaceTransport', () => {
+  test('accepts the JSON-safe transport shape', () => {
+    expect(LocalFaceTransport.parse({ family: 'Local Face', format: 'truetype', weight: 400, style: 'normal', data: 'AAEAAA==' })).toEqual({
+      family: 'Local Face',
+      format: 'truetype',
+      weight: 400,
+      style: 'normal',
+      data: 'AAEAAA==',
+    })
+  })
+
+  test('refuses extra keys and unknown formats', () => {
+    expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'ttf', data: '', extra: true }).success).toBe(false)
+    expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'truetype', data: '', extra: true }).success).toBe(false)
   })
 })
