@@ -7,7 +7,7 @@ import { elements, parse } from './sanitize.ts'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
-export { paginateBook } from './book/paginate-book.ts'
+export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
 export type {
   PaginateBlock,
   PaginateBookInput,
@@ -16,10 +16,14 @@ export type {
   PaginateBookResult,
   PaginateFlow,
   PaginateLine,
+  PaginateMark,
   PaginateNote,
   PaginateNoteRef,
   PaginateNumberSystem,
+  PaginatePageMarks,
   PaginatePageNote,
+  PaginatePageRole,
+  PaginateSequence,
   PaginateWindow,
 } from './book/paginate-types.ts'
 export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
