@@ -187,6 +187,19 @@ async function showTwoLiveItems(h: Harness) {
 }
 
 async function checkPanKeepsFrames(h: Harness) {
+  await h.page.waitForFunction(
+    () => {
+      const loadedFrames = (window as typeof window & { boardLoadedFrames: WeakSet<HTMLIFrameElement> }).boardLoadedFrames
+      const root = document.querySelector('segnavia-board')?.shadowRoot
+      const frames = [...(root?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) => {
+        const frame = thumbnail.shadowRoot?.querySelector('iframe')
+        return frame ? [frame] : []
+      })
+      return frames.every((frame) => loadedFrames.has(frame))
+    },
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
   const result = await h.page.locator('segnavia-board').evaluate(async (element) => {
     const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: Size } }
     const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
@@ -222,6 +235,23 @@ async function checkBoardUpdateKeepsFrames(h: Harness) {
 }
 
 export async function verifyBoard(h: Harness) {
+  await h.page.addInitScript(() => {
+    if (window.top !== window) return
+    const loadedFrames = new WeakSet<HTMLIFrameElement>()
+    ;(window as typeof window & { boardLoadedFrames: WeakSet<HTMLIFrameElement> }).boardLoadedFrames = loadedFrames
+    const attachShadow = Element.prototype.attachShadow
+    Element.prototype.attachShadow = function (init) {
+      const root = attachShadow.call(this, init)
+      root.addEventListener(
+        'load',
+        (event) => {
+          if (event.target instanceof HTMLIFrameElement) loadedFrames.add(event.target)
+        },
+        true,
+      )
+      return root
+    }
+  })
   await h.page.goto(h.url('board.html'))
   const board = h.page.locator('segnavia-board')
   // Initial auto-section settlement writes through the asynchronous host seam.
