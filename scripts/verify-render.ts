@@ -23,6 +23,7 @@ import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyPressRender } from './verify/press-render.ts'
+import { verifyScriptFaces } from './verify/script-faces.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const FACE = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
@@ -128,6 +129,7 @@ try {
     const fonts = execFileSync('pdffonts', [file], { encoding: 'utf8' })
     check('a face passed as bytes is embedded in the PDF', fonts.includes('DejaVuSerif-Bold'), fonts.split('\n').slice(2).join(' ').trim())
   }
+  await verifyScriptFaces(renderer, work, check)
   await verifyHebrewNotice(renderer, work, check)
   let background = ''
   await renderer.pageImage(
