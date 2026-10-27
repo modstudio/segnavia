@@ -284,7 +284,7 @@ describe('paginateBook', () => {
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 90, 0)], [win('c1', 90, 110, 0)]])
   })
 
-  test('orphans and widows honour a custom value', () => {
+  test('orphans and widows honor a custom value', () => {
     const pages = paginateBook(
       input({
         settings: { ...settings, rectoOpenings: false, orphans: 3, widows: 3 },
