@@ -39,13 +39,14 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   const english = parentText('english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
   const englishFeet = english.map((page, index) => page.includes(`Page ${index + 1} of 3`))
-  const englishBreaks =
-    english[0]?.includes('English-20') && !english[0]?.includes('English-21') && english[1]?.includes('English-21') && english[2]?.includes('English-41')
+  const englishBreaks = english[1]?.includes('English-40') && !english[1]?.includes('English-41') && english[2]?.includes('English-41')
+  const widowCounts = english.map((page) => [...page.matchAll(/WIDOW-\d/g)].length)
+  const widowsHonored = widowCounts[0] === 2 && widowCounts[1] === 2
   const keepWhole = english.filter((page) => page.includes('KEEP-A') || page.includes('KEEP-B') || page.includes('KEEP-C')).length === 1
   check(
     'the English flowing letter composes three pages with first-only head, numbered feet, forced break and intact keep',
-    english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole,
-    `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole}`,
+    english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole && widowsHonored,
+    `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole} widows=${widowCounts.join(',')}`,
   )
 
   const englishBoxes = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-parent-english.pdf'), '-'], { encoding: 'utf8' })

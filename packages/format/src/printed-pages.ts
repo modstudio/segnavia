@@ -97,3 +97,25 @@ export function printedPagesIssues(value: PrintedPages): Array<{ path: (string |
   })
   return issues
 }
+
+export function pagePrintedPagesIssues(page: {
+  scripts: 'refuse' | 'sandboxed'
+  print?: { margin?: unknown; bleed: number; marks: boolean }
+  printedPages?: PrintedPages
+}): Array<{ path: (string | number)[]; message: string }> {
+  if (!page.printedPages) return []
+  const issues = printedPagesIssues(page.printedPages).map((issue) => ({ ...issue, path: ['printedPages', ...issue.path] }))
+  if (!page.print) issues.push({ path: ['print'], message: 'printedPages could not establish a paper; add print.paper to clear this refusal' })
+  if (page.scripts !== 'refuse') {
+    issues.push({ path: ['scripts'], message: 'printedPages could not establish deterministic cloned content; set scripts to "refuse" to clear this refusal' })
+  }
+  if (page.print?.margin)
+    issues.push({ path: ['print', 'margin'], message: 'printedPages and print.margin both own the margins; remove print.margin to clear this refusal' })
+  if (page.print && (page.print.bleed > 0 || page.print.marks)) {
+    issues.push({
+      path: ['print'],
+      message: 'printedPages could not establish one composed paper with bleed or marks; remove bleed and marks to clear this refusal',
+    })
+  }
+  return issues
+}

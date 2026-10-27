@@ -13,7 +13,7 @@ import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
 import { Motif, MotifInput } from './motif.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
-import { PrintedPages, printedPagesIssues } from './printed-pages.ts'
+import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
 
@@ -348,31 +348,7 @@ export const Page = z
     fonts: z.array(FontReference).optional(),
   })
   .superRefine((page, ctx) => {
-    if (!page.printedPages) return
-    for (const issue of printedPagesIssues(page.printedPages)) ctx.addIssue({ code: 'custom', path: ['printedPages', ...issue.path], message: issue.message })
-    if (!page.print)
-      ctx.addIssue({ code: 'custom', path: ['print'], message: 'printedPages could not establish a paper; add print.paper to clear this refusal' })
-    if (page.scripts !== 'refuse') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['scripts'],
-        message: 'printedPages could not establish deterministic cloned content; set scripts to "refuse" to clear this refusal',
-      })
-    }
-    if (page.print?.margin) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['print', 'margin'],
-        message: 'printedPages and print.margin both own the margins; remove print.margin to clear this refusal',
-      })
-    }
-    if (page.print && (page.print.bleed > 0 || page.print.marks)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['print'],
-        message: 'printedPages could not establish one composed paper with bleed or marks; remove bleed and marks to clear this refusal',
-      })
-    }
+    for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
   })
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>

@@ -191,10 +191,11 @@ const parentPages = {
 const flowingLines = (prefix: string, count: number, breaks: number[]) =>
   Array.from({ length: count }, (_, index) => `<p${breaks.includes(index) ? ' class="forced"' : ''}>${prefix}-${index + 1} flowing body</p>`).join('')
 
-const flowingCss = '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}</style>'
+const flowingCss =
+  '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}.widow{widows:2;orphans:2;line-height:20px}.widow-space{block-size:360px}</style>'
 
 export const parentPageEnglish: PageInput = {
-  html: `${flowingCss}${flowingLines('English', 55, [20, 40])}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
+  html: `${flowingCss}${flowingLines('English', 20, [])}<div class="widow-space"></div><p class="widow">WIDOW-1<br>WIDOW-2<br>WIDOW-3<br>WIDOW-4</p>${Array.from({ length: 35 }, (_, index) => `<p${index === 20 ? ' class="forced"' : ''}>English-${index + 21} flowing body</p>`).join('')}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
   lang: 'en',
   print: { paper: 'letter' },
   printedPages: parentPages,
