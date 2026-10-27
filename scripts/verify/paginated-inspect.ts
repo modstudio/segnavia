@@ -146,18 +146,29 @@ export function inspectPaginatedBook(): PaginatedReport {
     }
   }
 
+  function flowLines(flowId: string) {
+    const flow = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-flow="${flowId}"]`)
+    if (!flow) return []
+    const origin = originTop(flow)
+    const lines: Array<{ top: number; bottom: number }> = []
+    for (const child of Array.from(flow.children)) {
+      if (child.tagName === 'STYLE' || child.tagName === 'SCRIPT') continue
+      lines.push(...lineBoxes(child, origin))
+    }
+    return lines.sort((left, right) => left.top - right.top)
+  }
+
   function clip() {
     let midpoint = true
     let inkAtEdge = true
     for (const view of Array.from(document.querySelectorAll('[data-segnavia-window]'))) {
-      const clone = view.firstElementChild
-      if (!clone) continue
-      const height = view.getBoundingClientRect().height
-      const lines = lineBoxes(clone, originTop(view))
-      const firstVisible = lines.find((line) => line.bottom > 0.5 && line.top < height)
-      const continuation = Number(view.getAttribute('data-start')) > 1
-      if (continuation && firstVisible && firstVisible.top <= 0.25) midpoint = false
-      if (continuation && firstVisible && firstVisible.top > 0.25) inkAtEdge = inkAtEdge && firstVisible.top < height
+      const start = Number(view.getAttribute('data-start'))
+      const lines = flowLines(view.getAttribute('data-flow') ?? '')
+      const onBottom = lines.some((line) => Math.abs(line.bottom - start) < 0.5)
+      const onTop = lines.some((line) => Math.abs(line.top - start) < 0.5)
+      const between = lines.some((line, index) => line.bottom < start - 0.25 && lines[index + 1] !== undefined && (lines[index + 1]?.top ?? 0) > start + 0.25)
+      if (onBottom && !onTop && !between) midpoint = false
+      if (between || onTop) inkAtEdge = inkAtEdge && start >= 0
     }
     return { midpoint, inkAtEdge }
   }
