@@ -7,9 +7,15 @@ import { escapeHtml } from './svg.ts'
 export const PRINTED_PAGE_COUNT_REFUSAL =
   'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
 
-function composedFrame(page: Page, index: number, options: PrintablePagesOptions): string {
+function composedFrame(page: Page, index: number, expectedCount: number, options: PrintablePagesOptions): string {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
-  const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, only: index, printBackground: true })
+  const srcdoc = printedPageDocument(page, {
+    nonce: options.nonce ?? newNonce(),
+    css: options.css,
+    only: index,
+    expectedCount,
+    printBackground: true,
+  })
   return `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
 }
 
@@ -62,7 +68,8 @@ export async function printedPagesPrintDocument(
   const paper = sheetMm(imposition)
   const bodies: PrintablePaperBody[] = pages.flatMap((page) => {
     if (page.printedPages) {
-      return Array.from({ length: counts.get(page) ?? 0 }, (_, index) => ({ body: composedFrame(page, index + 1, options), side: 'front' as const }))
+      const count = counts.get(page) ?? 0
+      return Array.from({ length: count }, (_, index) => ({ body: composedFrame(page, index + 1, count, options), side: 'front' as const }))
     }
     const imposed = impose(imposition, 1)
     return [{ body: printablePaper([page], imposition, imposed, 0, options), side: 'front' as const }]
