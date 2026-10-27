@@ -173,12 +173,69 @@ export function inspectPaginatedBook(): PaginatedReport {
     return { midpoint }
   }
 
+  function blockExtent(element: Element, origin: number) {
+    const lines = lineBoxes(element, origin)
+    if (!lines.length) {
+      const box = element.getBoundingClientRect()
+      return { top: box.top - origin, bottom: box.bottom - origin }
+    }
+    return { top: lines[0]?.top ?? 0, bottom: lines[lines.length - 1]?.bottom ?? 0 }
+  }
+
+  function tallyBlock(view: Element, extent: { top: number; bottom: number }, index: number, counts: { extra: number; missing: number; shown: number }) {
+    const start = Number(view.getAttribute('data-start'))
+    const end = Number(view.getAttribute('data-end'))
+    const intersects = extent.bottom > start && extent.top < end
+    const present = Boolean(view.querySelector(`[data-segnavia-block="${index}"]`))
+    if (present) counts.shown += 1
+    if (intersects === present) return
+    if (intersects) counts.missing += 1
+    else counts.extra += 1
+  }
+
   function blocks() {
-    return countBlocks(originTop, lineBoxes)
+    const counts = { extra: 0, missing: 0, shown: 0 }
+    for (const flow of Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]'))) {
+      const id = flow.getAttribute('data-segnavia-flow') ?? ''
+      const origin = originTop(flow)
+      const windows = Array.from(document.querySelectorAll(`[data-segnavia-window][data-flow="${id}"]`))
+      for (const [index, child] of Array.from(flow.children).entries()) {
+        if (child.tagName === 'STYLE' || child.tagName === 'SCRIPT') continue
+        const extent = blockExtent(child, origin)
+        for (const view of windows) tallyBlock(view, extent, index, counts)
+      }
+    }
+    return counts
+  }
+
+  function placedLines(view: Element) {
+    const clone = view.firstElementChild
+    if (!clone) return []
+    const origin = originTop(view)
+    const placed: Array<{ top: number; bottom: number }> = []
+    for (const child of Array.from(clone.children)) {
+      if (child.hasAttribute('data-segnavia-window-spacer')) continue
+      placed.push(...lineBoxes(child, origin))
+    }
+    return placed
   }
 
   function lineShift() {
-    return countLineShift(originTop, lineBoxes, flowLines)
+    let shifted = 0
+    let checked = 0
+    for (const view of Array.from(document.querySelectorAll('[data-segnavia-window]'))) {
+      const start = Number(view.getAttribute('data-start'))
+      const end = Number(view.getAttribute('data-end'))
+      const placed = placedLines(view)
+      if (!placed.length && !view.firstElementChild) continue
+      for (const line of flowLines(view.getAttribute('data-flow') ?? '')) {
+        const mid = (line.top + line.bottom) / 2
+        if (mid < start || mid >= end) continue
+        checked += 1
+        if (!placed.some((held) => Math.abs(held.top - (line.top - start)) < 0.5)) shifted += 1
+      }
+    }
+    return { shifted, checked }
   }
 
   function runningHead() {

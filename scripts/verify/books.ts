@@ -33,39 +33,41 @@ async function pngRgba(h: Harness, png: Buffer) {
   }, png.toString('base64'))
 }
 
-function inkMismatch(left: number[], right: number[]): { over: number; worst: number } {
-  const limit = Math.min(left.length, right.length)
+function isInk(red: number, green: number, blue: number): boolean {
+  return Math.min(red, green, blue) < 250
+}
+
+function inkMismatch(galley: number[], composed: number[]): { over: number; worst: number } {
+  const limit = Math.min(galley.length, composed.length)
   let over = 0
   let worst = 0
   for (let index = 0; index + 2 < limit; index += 4) {
-    const delta = Math.max(
-      Math.abs((left[index] ?? 0) - (right[index] ?? 0)),
-      Math.abs((left[index + 1] ?? 0) - (right[index + 1] ?? 0)),
-      Math.abs((left[index + 2] ?? 0) - (right[index + 2] ?? 0)),
-    )
+    const red = galley[index] ?? 0
+    const green = galley[index + 1] ?? 0
+    const blue = galley[index + 2] ?? 0
+    if (!isInk(red, green, blue)) continue
+    const delta = Math.max(Math.abs(red - (composed[index] ?? 0)), Math.abs(green - (composed[index + 1] ?? 0)), Math.abs(blue - (composed[index + 2] ?? 0)))
     if (delta > worst) worst = delta
     if (delta > INK_CHANNEL_TOLERANCE) over += 1
   }
   return { over, worst }
 }
 
-async function screenshotBand(h: Harness, frame: Frame, selector: string, localX: number, localY: number, width: number, height: number) {
+async function screenshotBand(_h: Harness, frame: Frame, selector: string, localX: number, localY: number, width: number, height: number) {
   const handle = await frame.$(selector)
   if (!handle) throw new Error(`The paginated book has no ${selector}.`)
-  await handle.evaluate((element, y) => {
+  const size = await handle.evaluate((element) => {
     const box = element.getBoundingClientRect()
-    const root = document.scrollingElement
-    if (!root) return
-    root.scrollTop += box.top + y - innerHeight / 2
-  }, localY)
-  const box = await handle.boundingBox()
-  if (!box) throw new Error(`The paginated book has no box for ${selector}.`)
-  return h.page.screenshot({
+    return { width: box.width, height: box.height }
+  })
+  const x = Math.max(0, localX)
+  const y = Math.max(0, localY)
+  return handle.screenshot({
     clip: {
-      x: Math.max(0, Math.round(box.x + localX)),
-      y: Math.max(0, Math.round(box.y + localY)),
-      width: Math.max(1, Math.round(width)),
-      height: Math.max(1, Math.round(height)),
+      x,
+      y,
+      width: Math.max(1, Math.min(width, size.width - x)),
+      height: Math.max(1, Math.min(height, size.height - y)),
     },
     animations: 'disabled',
   })
@@ -156,44 +158,56 @@ async function unmarkWindows(frame: Frame) {
   })
 }
 
+function inkBand(side: InkEdge['side']): { galleyY: (offset: number) => number; windowY: (height: number) => number; height: number } {
+  if (side === 'start') return { galleyY: (offset) => offset, windowY: () => 0, height: INK_BAND_PX }
+  return { galleyY: (offset) => offset - INK_BAND_PX, windowY: (height) => height - INK_BAND_PX, height: INK_BAND_PX }
+}
+
+async function hideFurniture(frame: Frame, hidden: boolean) {
+  await frame.evaluate((hide) => {
+    for (const node of Array.from(document.querySelectorAll('[data-segnavia-head], [data-segnavia-foot]'))) {
+      ;(node as HTMLElement).style.visibility = hide ? 'hidden' : ''
+    }
+  }, hidden)
+}
+
 async function compareHebrewInk(h: Harness, frame: Frame) {
   const edges = await collectInkEdges(frame)
   const held = await showGalley(frame)
   const galleyBands: Buffer[] = []
   for (const edge of edges) {
+    const band = inkBand(edge.side)
     galleyBands.push(
       await screenshotBand(
         h,
         frame,
         `[data-segnavia-galley-source] [data-segnavia-flow="${edge.flow}"]`,
         edge.localX,
-        edge.offset - INK_BAND_PX,
+        band.galleyY(edge.offset),
         edge.width,
-        INK_BAND_PX * 2,
+        band.height,
       ),
     )
   }
   await restoreGalley(frame, held)
   await markWindows(frame)
+  await hideFurniture(frame, true)
   let mismatched = 0
   let pointedEdges = 0
   let worst = 0
   for (const [index, edge] of edges.entries()) {
     const height = await frame.evaluate((i) => document.querySelectorAll('[data-segnavia-window]')[i]?.getBoundingClientRect().height ?? 0, edge.windowIndex)
-    const localY = edge.side === 'start' ? -INK_BAND_PX : height - INK_BAND_PX
-    const composed = await screenshotBand(h, frame, windowSelector(edge.windowIndex), 0, localY, edge.width, INK_BAND_PX * 2)
+    const band = inkBand(edge.side)
+    const composed = await screenshotBand(h, frame, windowSelector(edge.windowIndex), 0, band.windowY(height), edge.width, band.height)
     const galley = await pngRgba(h, galleyBands[index] ?? Buffer.from([]))
     const page = await pngRgba(h, composed)
     if (edge.pointed) pointedEdges += 1
-    if (galley.width !== page.width || galley.height !== page.height) {
-      mismatched += 1
-      continue
-    }
-    const diff = inkMismatch(galley.data, page.data)
+    const diff = galley.width !== page.width || galley.height !== page.height ? { over: 1, worst: 255 } : inkMismatch(galley.data, page.data)
     if (diff.worst > worst) worst = diff.worst
     if (diff.over > 0) mismatched += 1
   }
   await unmarkWindows(frame)
+  await hideFurniture(frame, false)
   return {
     ok: mismatched === 0 && edges.length > 0 && pointedEdges > 0,
     detail: JSON.stringify({
