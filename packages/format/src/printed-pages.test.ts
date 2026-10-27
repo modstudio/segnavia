@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
+import { BOOK_PARENT_NAMES, bookParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -40,5 +41,28 @@ describe('Page printedPages', () => {
     expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, rules: { every: 'body', middle: 'body' } } })).toThrow(
       'use only every, first, recto, verso or last',
     )
+  })
+})
+
+describe('bookParentPages', () => {
+  test('builds mirrored book furniture from one margin', () => {
+    const margin = { top: 15, bottom: 16, inner: 20, outer: 12 }
+    const parents = bookParentPages(margin)
+
+    expect(parents.map(({ name, head, foot }) => ({ name, head, foot }))).toEqual([
+      {
+        name: BOOK_PARENT_NAMES.recto,
+        head: '<div class="segnavia-running-head" data-motif="segnavia:running-head"></div>',
+        foot: '<div class="segnavia-folio" data-motif="segnavia:folio"></div>',
+      },
+      {
+        name: BOOK_PARENT_NAMES.verso,
+        head: '<div class="segnavia-running-head" data-motif="segnavia:running-head"></div>',
+        foot: '<div class="segnavia-folio" data-motif="segnavia:folio"></div>',
+      },
+      { name: BOOK_PARENT_NAMES.opener, head: undefined, foot: '<div class="segnavia-folio" data-motif="segnavia:folio"></div>' },
+      { name: BOOK_PARENT_NAMES.blank, head: undefined, foot: undefined },
+    ])
+    expect(parents.every((parent) => parent.margin !== margin && parent.margin?.top === margin.top)).toBe(true)
   })
 })

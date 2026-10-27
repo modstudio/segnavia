@@ -16,10 +16,13 @@ export {
   type ExpandedMotifs,
   type ExpandMotifsOptions,
   expandMotifs,
+  hasMotifPlacement,
+  libraryMotifPlacementRefusal,
   MOTIF_DEPTH_LIMIT,
   MotifRefusedError,
   motifPlacementRefusals,
   type PlacedMotif,
+  renderMotifPlacements,
 } from './motifs.ts'
 export * from './printed-pages.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'

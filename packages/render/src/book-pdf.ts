@@ -1,8 +1,8 @@
-import { Book, type BookInput, formatNumber, resolveDirection, sheetMm } from '@segnavia/format'
-import { type BookDocument, type BookHeading, type BookSectionInfo, bookDocument, bookPrintPart } from '@segnavia/html'
+import { Book, type BookInput, bookParentPages, formatNumber, resolveDirection, sheetMm } from '@segnavia/format'
+import { type BookDocument, type BookHeading, type BookPageFacts, type BookSectionInfo, bookDocument, bookPrintPart, planBookPages } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
-import { type MarginPage, marginDocument } from './book-margins.ts'
+import { marginCss, marginDocument } from './book-margins.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -10,7 +10,7 @@ import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 
 export interface BookPdfAdapter {
-  print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart): Promise<PrintResult<true>>
+  print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
@@ -77,35 +77,28 @@ async function appendBlank(part: PrintedPart): Promise<PrintedPart> {
   return { ...part, bytes: await document.save(), pages: part.pages + 1 }
 }
 
-function pageSide(book: Book, physicalPage: number): 'left' | 'right' {
-  const odd = resolveDirection(book.dir, book.lang, book.title) === 'rtl' ? 'left' : 'right'
-  return physicalPage % 2 === 1 ? odd : odd === 'left' ? 'right' : 'left'
-}
-
-function marginsFor(
-  book: Book,
+function marginFactsFor(
   sections: BookSectionInfo[],
   destinations: Map<string, BookDestination>,
   pages: number,
-  offset: number,
   blanks: Set<number>,
   system: Book['numbering']['body'],
-): MarginPage[] {
+): BookPageFacts[] {
   const starts = sections
     .flatMap((section) => {
       const page = destinations.get(section.id)?.page
       return page === undefined ? [] : [{ page, section }]
     })
     .sort((left, right) => left.page - right.page)
-  return Array.from({ length: pages }, (_, index): MarginPage => {
+  return Array.from({ length: pages }, (_, index): BookPageFacts => {
     const page = index + 1
-    if (blanks.has(page)) return { kind: 'blank', side: pageSide(book, offset + page) }
+    if (blanks.has(page)) return { blank: true, sectionOpening: false }
     const owner = starts.filter((start) => start.page <= page).at(-1)
     return {
-      kind: owner?.section.kind ?? 'blank',
-      side: pageSide(book, offset + page),
+      blank: false,
+      sectionOpening: owner?.page === page,
       folio: formatNumber(page, system),
-      runningHead: owner?.page === page ? undefined : owner?.section.runningHead,
+      ...(owner?.section.runningHead === undefined ? {} : { runningHead: owner.section.runningHead }),
     }
   })
 }
@@ -223,19 +216,20 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
   const front = printedFront.part
   const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
-  const marginPages = [
-    ...marginsFor(book, sectionsFor(printedBody.document.sections, 'front'), front.destinations, front.pages, 0, frontBlankPages, book.numbering.frontMatter),
-    ...marginsFor(
-      book,
+  const marginFacts = [
+    ...marginFactsFor(sectionsFor(printedBody.document.sections, 'front'), front.destinations, front.pages, frontBlankPages, book.numbering.frontMatter),
+    ...marginFactsFor(
       sectionsFor(printedBody.document.sections, 'body'),
       printedBody.part.destinations,
       printedBody.part.pages,
-      front.pages,
       bodyBlankPages,
       book.numbering.body,
     ),
   ]
-  const margin = await adapter.print(marginDocument(book, marginPages), book, options, 'margin')
+  const direction = resolveDirection(book.dir, book.lang, book.title)
+  const plan = planBookPages(marginFacts, direction)
+  const parents = bookParentPages(book.page.margin)
+  const margin = await adapter.print(marginDocument(book, plan, parents), book, options, 'margin', marginCss(book, plan, parents))
   const output = await adapter.finish(await setPdfPageSize(await join(front, printedBody.part, margin.bytes), sheetMm(book.page)), options)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),

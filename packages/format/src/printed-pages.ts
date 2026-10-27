@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 
 export const PRINTED_PAGE_LIMIT = 500
@@ -58,6 +59,31 @@ export type ParentPageMargin = z.infer<typeof ParentPageMargin>
 export type ParentPage = z.infer<typeof ParentPage>
 export type PrintedPageRules = z.infer<typeof PrintedPageRules>
 export type PrintedPages = z.infer<typeof PrintedPages>
+
+export const BOOK_PARENT_NAMES = {
+  recto: 'segnavia:recto',
+  verso: 'segnavia:verso',
+  opener: 'segnavia:opener',
+  blank: 'segnavia:blank',
+} as const
+
+function furniture(region: 'head' | 'foot'): string {
+  return BOOK_FURNITURE.filter((item) => item.region === region)
+    .map((item) => `<div class="${item.className}" data-motif="${item.key}"></div>`)
+    .join('')
+}
+
+export function bookParentPages(margin: ParentPageMargin): ParentPage[] {
+  const held = () => ({ ...margin })
+  const head = furniture('head')
+  const foot = furniture('foot')
+  return [
+    { name: BOOK_PARENT_NAMES.recto, margin: held(), head, foot },
+    { name: BOOK_PARENT_NAMES.verso, margin: held(), head, foot },
+    { name: BOOK_PARENT_NAMES.opener, margin: held(), foot },
+    { name: BOOK_PARENT_NAMES.blank, margin: held() },
+  ]
+}
 
 export interface ResolvedParentPage {
   name: string

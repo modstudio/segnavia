@@ -1,6 +1,7 @@
 import {
   chooseMotifVersion,
   type FontReference,
+  LIBRARY_MOTIF_PREFIX,
   MOTIF_ATTRIBUTE,
   type Motif,
   type MotifPlacement,
@@ -68,6 +69,41 @@ function placementName(element: Element): string {
 
 function refusal(element: Element, problem: string, remedy: string): string {
   return `${placementName(element)} could not establish ${problem}; ${remedy} to clear this refusal.`
+}
+
+function motifElements(html: string): Element[] {
+  return elements(parse(html).children).filter((element) => Object.hasOwn(element.attribs, MOTIF_ATTRIBUTE))
+}
+
+export function libraryMotifPlacementRefusal(html: string): string | undefined {
+  const placed = motifElements(html).find((element) => (element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+  return placed ? refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key') : undefined
+}
+
+export function hasMotifPlacement(html: string): boolean {
+  return motifElements(html).length > 0
+}
+
+export function renderMotifPlacements(html: string, replacement: (key: string) => string | undefined): string {
+  const document = parse(html)
+  const visit = (nodes: ChildNode[]): void => {
+    for (const node of [...nodes]) {
+      if (!isTag(node)) continue
+      if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE)) {
+        const rendered = replacement(node.attribs[MOTIF_ATTRIBUTE] ?? '')
+        if (rendered === undefined) {
+          const index = nodes.indexOf(node)
+          if (index >= 0) nodes.splice(index, 1)
+          continue
+        }
+        delete node.attribs[MOTIF_ATTRIBUTE]
+        replaceChildren(node, rendered)
+      }
+      visit(node.children)
+    }
+  }
+  visit(document.children)
+  return serialize(document)
 }
 
 function refuse(state: ExpansionState, element: Element, problem: string, remedy: string): false {
@@ -148,6 +184,10 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
     refuse(state, element, 'a motif key', `set ${MOTIF_ATTRIBUTE} to a known motif key`)
     return undefined
   }
+  if (key.startsWith(LIBRARY_MOTIF_PREFIX)) {
+    refuse(state, element, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
+    return undefined
+  }
   const revision = state.options.pins && Object.hasOwn(state.options.pins, key) ? state.options.pins[key] : undefined
   const cacheKey = JSON.stringify([key, revision])
   let request = state.motifCache.get(cacheKey)
@@ -159,6 +199,10 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
   state.options.signal.throwIfAborted()
   if (!motif) {
     refuse(state, element, `motif "${key}"${revision ? ` at revision "${revision}"` : ''}`, 'make that motif available from the source')
+    return undefined
+  }
+  if (motif.key.startsWith(LIBRARY_MOTIF_PREFIX)) {
+    refuse(state, element, `a host MotifSource result key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
     return undefined
   }
   return motif

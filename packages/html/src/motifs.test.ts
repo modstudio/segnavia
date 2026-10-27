@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Motif, MotifPlacement, MotifSource } from '@segnavia/format'
-import { expandMotifs, MOTIF_DEPTH_LIMIT, MOTIF_PLACEMENT_LIMIT, MotifRefusedError, motifPlacementRefusals } from './motifs.ts'
+import { expandMotifs, libraryMotifPlacementRefusal, MOTIF_DEPTH_LIMIT, MOTIF_PLACEMENT_LIMIT, MotifRefusedError, motifPlacementRefusals } from './motifs.ts'
 
 const signal = new AbortController().signal
 
@@ -20,6 +20,19 @@ const letterhead: Motif = {
   versions: [{ lang: 'he', dir: 'ltr', html: '<p>שלום</p><script>bad()</script>' }],
   fonts: [{ app: 'Body' }],
 }
+
+describe('libraryMotifPlacementRefusal', () => {
+  test.each(['<div DATA-MOTIF="segnavia:x"></div>', '<div data-motif=segnavia:x></div>', "<div data-motif='segnavia:x'></div>"])(
+    'parses reserved placements in %s',
+    (html) => {
+      expect(libraryMotifPlacementRefusal(html)).toContain('reserved for library motifs; rename the motif key to clear this refusal')
+    },
+  )
+
+  test('does not refuse a motif key containing the prefix later', () => {
+    expect(libraryMotifPlacementRefusal('<div data-motif="host:segnavia:x"></div>')).toBeUndefined()
+  })
+})
 
 describe('expandMotifs', () => {
   test('expands in place, sanitizes content, and sets language direction', async () => {
@@ -95,6 +108,27 @@ describe('expandMotifs', () => {
       pins: { letterhead: 'r1' },
     })
     expect(requests).toEqual([{ key: '__proto__' }])
+  })
+
+  test('reserves the segnavia motif prefix for library furniture', async () => {
+    let requested = false
+    const motifSource: MotifSource = {
+      motif: async () => {
+        requested = true
+        return { ...letterhead, key: 'segnavia:returned' }
+      },
+    }
+    await expect(expandMotifs('<div data-motif="segnavia:folio"></div>', { ...options({}), source: motifSource })).rejects.toThrow(
+      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+    expect(requested).toBe(false)
+
+    await expect(expandMotifs('<div data-motif="host"></div>', { ...options({}), source: motifSource })).rejects.toThrow(
+      'host MotifSource result key because "segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
+    )
+
+    const nested = { ...letterhead, versions: [{ lang: 'he', html: '<span data-motif="segnavia:running-head"></span>' }] }
+    await expect(expandMotifs('<div data-motif="letterhead"></div>', options({ letterhead: nested }))).rejects.toThrow('reserved for library motifs')
   })
 
   test('matches camelCase field keys through case-insensitive HTML attributes', async () => {

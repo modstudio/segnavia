@@ -1,46 +1,57 @@
-import { type Book, resolveDirection, sheetMm } from '@segnavia/format'
-import type { BookSectionInfo } from '@segnavia/html'
-
-export interface MarginPage {
-  kind: BookSectionInfo['kind'] | 'blank'
-  folio?: string
-  runningHead?: string
-  side: 'left' | 'right'
-}
+import { BOOK_FURNITURE, type Book, type ParentPage, resolveDirection, resolveParentPages, sheetMm } from '@segnavia/format'
+import { type BookPrintedPagePlan, renderMotifPlacements } from '@segnavia/html'
 
 function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
 }
 
-export function marginCss(book: Book): string {
+export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
   if (!book.page) return ''
   const size = sheetMm(book.page)
-  const edge = book.page.margin
+  const byName = new Map(resolveParentPages(parents).map((parent) => [parent.name, parent]))
+  const geometry = pages
+    .map((page, index) => {
+      const edge = byName.get(page.parent)?.margin
+      if (!edge) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
+      const selector = `.segnavia-margin-page:nth-of-type(${index + 1})`
+      const inline =
+        page.side === 'left'
+          ? `inset-inline-start:${edge.outer}mm;inset-inline-end:${edge.inner}mm;justify-content:flex-start`
+          : `inset-inline-start:${edge.inner}mm;inset-inline-end:${edge.outer}mm;justify-content:flex-end`
+      return (
+        `:where(${selector} .segnavia-running-head){inset-block-start:0;block-size:${edge.top}mm;${inline}}` +
+        `:where(${selector} .segnavia-folio){inset-block-end:0;block-size:${edge.bottom}mm;${inline}}`
+      )
+    })
+    .join('')
   return (
     `@page{size:${size.width}mm ${size.height}mm;margin:0}` +
     `:where(html,body){margin:0}` +
     `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
     `:where(.segnavia-running-head,.segnavia-folio){position:absolute;display:flex;align-items:center}` +
-    `:where(.segnavia-running-head){inset-block-start:0;block-size:${edge.top}mm}` +
-    `:where(.segnavia-folio){inset-block-end:0;block-size:${edge.bottom}mm}` +
-    `:where([data-side="left"] .segnavia-running-head,[data-side="left"] .segnavia-folio){inset-inline-start:${edge.outer}mm;inset-inline-end:${edge.inner}mm;justify-content:flex-start}` +
-    `:where([data-side="right"] .segnavia-running-head,[data-side="right"] .segnavia-folio){inset-inline-start:${edge.inner}mm;inset-inline-end:${edge.outer}mm;justify-content:flex-end}`
+    geometry
   )
 }
 
-export function marginDocument(book: Book, pages: MarginPage[]): string {
-  const html = pages
+function furniture(book: Book, html: string, page: BookPrintedPagePlan): string {
+  return renderMotifPlacements(html, (key) => {
+    const descriptor = BOOK_FURNITURE.find((item) => item.key === key)
+    if (!descriptor) return undefined
+    const value = page[descriptor.value]
+    if (value === undefined) return undefined
+    return `<bdi dir="${resolveDirection(book.dir, book.lang, value)}">${escapeHtml(value)}</bdi>`
+  })
+}
+
+export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
+  const byName = new Map(resolveParentPages(parents).map((parent) => [parent.name, parent]))
+  return pages
     .map((page) => {
-      const head =
-        page.runningHead === undefined
-          ? ''
-          : `<div class="segnavia-running-head"><bdi dir="${resolveDirection(book.dir, book.lang, page.runningHead)}">${escapeHtml(page.runningHead)}</bdi></div>`
-      const folio =
-        page.folio === undefined
-          ? ''
-          : `<div class="segnavia-folio"><bdi dir="${resolveDirection(book.dir, book.lang, page.folio)}">${escapeHtml(page.folio)}</bdi></div>`
-      return `<div class="segnavia-margin-page" data-side="${page.side}">${head}${folio}</div>`
+      const parent = byName.get(page.parent)
+      if (!parent) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
+      const head = furniture(book, parent.head, page)
+      const foot = furniture(book, parent.foot, page)
+      return `<div class="segnavia-margin-page" data-side="${page.side}">${head}${foot}</div>`
     })
     .join('')
-  return html
 }

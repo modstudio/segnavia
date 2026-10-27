@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { defaultPageNumbering } from '@segnavia/format'
-import { planPrintedPages, printedPageAt } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, defaultPageNumbering } from '@segnavia/format'
+import { planBookPages, planPrintedPages, printedPageAt } from './printed-pages.ts'
 
 describe('planPrintedPages', () => {
   const rules = { every: 'body', first: 'opening', last: 'ending', recto: 'odd', verso: 'even' }
@@ -32,5 +32,40 @@ describe('planPrintedPages', () => {
     expect(defaultPageNumbering('he-IL')).toBe('hebrew')
     expect(defaultPageNumbering('iw-IL')).toBe('hebrew')
     expect(defaultPageNumbering('en')).toBe('arabic')
+  })
+})
+
+describe('planBookPages', () => {
+  test('gives blanks and section openings precedence over physical-page parity', () => {
+    const pages = planBookPages(
+      [
+        { blank: false, sectionOpening: true, folio: 'i', runningHead: 'Front' },
+        { blank: false, sectionOpening: false, folio: 'ii', runningHead: 'Front' },
+        { blank: true, sectionOpening: false, folio: 'iii', runningHead: 'Front' },
+        { blank: false, sectionOpening: false, folio: 'iv', runningHead: 'Next' },
+      ],
+      'ltr',
+    )
+
+    expect(pages).toEqual([
+      { index: 1, role: 'opener', parent: BOOK_PARENT_NAMES.opener, side: 'right', folio: 'i' },
+      { index: 2, role: 'verso', parent: BOOK_PARENT_NAMES.verso, side: 'left', folio: 'ii', runningHead: 'Front' },
+      { index: 3, role: 'blank', parent: BOOK_PARENT_NAMES.blank, side: 'right' },
+      { index: 4, role: 'verso', parent: BOOK_PARENT_NAMES.verso, side: 'left', folio: 'iv', runningHead: 'Next' },
+    ])
+  })
+
+  test('puts odd physical pages on the left for right-to-left books', () => {
+    const pages = planBookPages(
+      [
+        { blank: false, sectionOpening: false, folio: 'א', runningHead: 'ראשון' },
+        { blank: false, sectionOpening: false, folio: 'ב', runningHead: 'ראשון' },
+      ],
+      'rtl',
+    )
+    expect(pages.map(({ role, side }) => ({ role, side }))).toEqual([
+      { role: 'recto', side: 'left' },
+      { role: 'verso', side: 'right' },
+    ])
   })
 })
