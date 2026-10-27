@@ -34,6 +34,8 @@ export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins'> {
   // A trusted host source may supply link values without knowing their origins
   // until this fill resolves them.
   registerHrefOrigins?: boolean
+  // Leaves bindings for these data roots in place for a later trusted pass.
+  deferPaths?: Iterable<string>
 }
 
 export interface Filled {
@@ -113,6 +115,7 @@ export function fill(html: string, options: FillOptions): Filled {
   const origins = new Set([...(options.linkOrigins ?? [])].map((origin) => new URL(origin).origin))
   const unavailable = new Set(options.unavailable ?? [])
   const values: string[] = []
+  const deferred = new Set(options.deferPaths ?? [])
   const document: Document = parse(sanitize(html, { linkOrigins: options.linkOrigins }))
 
   const resolve = (path: string, stack: unknown[]) => {
@@ -124,6 +127,8 @@ export function fill(html: string, options: FillOptions): Filled {
 
   const take = (element: Element, name: string): string | undefined => {
     const value = element.attribs[name]
+    const root = value?.replace(/^(?:\.\.\/)+/, '').split('.')[0]
+    if (root && deferred.has(root)) return undefined
     delete element.attribs[name]
     return value
   }

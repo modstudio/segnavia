@@ -170,3 +170,48 @@ export const growingFixedImposition: ImpositionInput = {
   gap: { column: 0, row: 0 },
   bleed: 2,
 }
+
+const parentPages = {
+  parents: [
+    {
+      name: 'body',
+      margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+      foot: '<footer data-motif="printed-foot"></footer>',
+    },
+    {
+      name: 'first',
+      basedOn: 'body',
+      margin: { top: 30, bottom: 18, inner: 22, outer: 12 },
+      head: '<header data-motif="printed-head"></header>',
+    },
+  ],
+  rules: { every: 'body', first: 'first' },
+}
+
+const flowingLines = (prefix: string, count: number, breaks: number[]) =>
+  Array.from({ length: count }, (_, index) => `<p${breaks.includes(index) ? ' class="forced"' : ''}>${prefix}-${index + 1} flowing body</p>`).join('')
+
+const flowingCss = '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}</style>'
+
+export const parentPageEnglish: PageInput = {
+  html: `${flowingCss}${flowingLines('English', 55, [20, 40])}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageHebrew: PageInput = {
+  html: `${flowingCss}${flowingLines('עברית', 34, [18])}`,
+  lang: 'he',
+  dir: 'rtl',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageMixed: PageInput = {
+  html: `${flowingCss}<p>English opening בתוך מסמך mixed.</p>${flowingLines('Mixed', 32, [17])}`,
+  lang: 'he',
+  dir: 'rtl',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}

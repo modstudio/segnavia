@@ -1,5 +1,5 @@
 import { type FontReference, type MotifSource, type Page, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type ExpandedMotifs, expandMotifs } from '@segnavia/html'
+import { type ExpandedMotifs, expandMotifs, MotifRefusedError } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
@@ -17,7 +17,13 @@ export interface ExpandedFramePage {
 }
 
 export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {
-  if (!motifs) return { page, fonts: [] }
+  const parentHtml = page.printedPages?.parents.flatMap((parent) => [parent.head, parent.foot]).filter((html): html is string => html !== undefined) ?? []
+  if (!motifs) {
+    if (parentHtml.some((html) => /\bdata-motif\s*=/.test(html))) {
+      throw new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+    }
+    return { page, fonts: [] }
+  }
   const result = await expandMotifs(page.html, {
     source: motifs.source,
     pins: motifs.pins,
@@ -27,9 +33,40 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
     linkOrigins: motifs.linkOrigins,
     signal,
   })
+  const parentResults = await Promise.all(
+    parentHtml.map((html) =>
+      expandMotifs(html, {
+        source: motifs.source,
+        pins: motifs.pins,
+        lang: page.lang,
+        scripts: page.scripts,
+        prefix: 'slot',
+        linkOrigins: motifs.linkOrigins,
+        signal,
+        deferPaths: ['printedPage'],
+      }),
+    ),
+  )
   signal.throwIfAborted()
-  motifs.placed?.({ placed: result.placed, fonts: result.fonts, unavailable: result.unavailable })
-  return { page: { ...page, html: result.html }, fonts: result.fonts }
+  const summaries = [result, ...parentResults]
+  const summary = {
+    placed: summaries.flatMap((item) => item.placed),
+    fonts: summaries.flatMap((item) => item.fonts),
+    unavailable: [...new Set(summaries.flatMap((item) => item.unavailable))],
+  }
+  motifs.placed?.(summary)
+  let parentIndex = 0
+  const printedPages = page.printedPages
+    ? {
+        ...page.printedPages,
+        parents: page.printedPages.parents.map((parent) => ({
+          ...parent,
+          ...(parent.head === undefined ? {} : { head: parentResults[parentIndex++]?.html ?? parent.head }),
+          ...(parent.foot === undefined ? {} : { foot: parentResults[parentIndex++]?.html ?? parent.foot }),
+        })),
+      }
+    : undefined
+  return { page: { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }, fonts: summary.fonts }
 }
 
 export function expandFramePages(pages: Page[], motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage[]> {

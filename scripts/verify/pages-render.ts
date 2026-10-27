@@ -32,6 +32,44 @@ function closeBox(actual: number[] | undefined, expected: number[]): boolean {
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
+  const parentText = (name: string) =>
+    execFileSync('pdftotext', ['-layout', path.join(output, `pages-parent-${name}.pdf`), '-'], { encoding: 'utf8' })
+      .split('\f')
+      .filter(Boolean)
+  const english = parentText('english')
+  const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
+  const englishFeet = english.map((page, index) => page.includes(`Page ${index + 1} of 3`))
+  const englishBreaks =
+    english[0]?.includes('English-20') && !english[0]?.includes('English-21') && english[1]?.includes('English-21') && english[2]?.includes('English-41')
+  const keepWhole = english.filter((page) => page.includes('KEEP-A') || page.includes('KEEP-B') || page.includes('KEEP-C')).length === 1
+  check(
+    'the English flowing letter composes three pages with first-only head, numbered feet, forced break and intact keep',
+    english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole,
+    `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole}`,
+  )
+
+  const englishBoxes = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-parent-english.pdf'), '-'], { encoding: 'utf8' })
+  const bodyBoxes = [...englishBoxes.matchAll(/<word xMin="[\d.]+" yMin="([\d.]+)" xMax="[\d.]+" yMax="([\d.]+)">English-\d+<\/word>/g)]
+  const bodyClear = bodyBoxes.every((match) => Number(match[1]) >= 51 && Number(match[2]) <= 741)
+  check('the English flowing body stays clear of head and foot regions', bodyBoxes.length === 55 && bodyClear, `words=${bodyBoxes.length} clear=${bodyClear}`)
+
+  const hebrew = parentText('hebrew')
+  const hebrewNumbered = hebrew.length === 2 && hebrew[0]?.includes('א') && hebrew[1]?.includes('ב') && hebrew.every((page) => page.includes('מתוך ב'))
+  const hebrewHead = hebrew.filter((page) => page.includes('כותרת')).length
+  check(
+    'the Hebrew flowing letter prints Hebrew folios from the page start with right-to-left recto and verso',
+    Boolean(hebrewNumbered) && hebrewHead === 1,
+    `pages=${hebrew.length} head=${hebrewHead} numbered=${hebrewNumbered}`,
+  )
+
+  const mixed = parentText('mixed')
+  const mixedIsolated =
+    mixed.length === 2 && mixed[0]?.includes('English opening') && mixed[0]?.includes('כותרת') && mixed.every((page) => page.includes('עמוד'))
+  check(
+    'the mixed-direction flowing letter keeps body and furniture text present in their own runs',
+    Boolean(mixedIsolated),
+    `pages=${mixed.length} isolated=${mixedIsolated}`,
+  )
   check(
     '30 labels fill one paper and a 31st label starts a second paper',
     /Pages:\s+1\b/.test(imposedInfo('pages-labels.pdf')) && /Pages:\s+2\b/.test(imposedInfo('pages-labels-31.pdf')),

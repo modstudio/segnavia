@@ -21,6 +21,7 @@ export {
   motifPlacementRefusals,
   type PlacedMotif,
 } from './motifs.ts'
+export * from './printed-pages.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
 export {
   assertSingleSlotCopy,

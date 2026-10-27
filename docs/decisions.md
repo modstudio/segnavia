@@ -214,6 +214,15 @@ imposition piece is corrected to the paper it was printed at before it is
 embedded. A browser page more than 2 points from the requested paper is refused
 rather than treated as rounding.
 
+**Flowing printed pages are composed inside the page document.** A measuring
+multicol lets Chromium decide keeps, widows, tables and ordinary fragmentation;
+authored page breaks are mapped to column breaks. One clipped clone of that
+flow is then placed on each exact paper with the parent page selected for its
+role. Head and foot motifs are expanded by the host first, and the nonce-bound
+composer fills their formatted printed-page number and total. Post-print PDF
+stamping is not used for flowing pages because a browser print cannot perform
+the same read-back and stamping pass.
+
 **Rendering is offline by construction.** Everything a document shows
 arrives inside it.
 
