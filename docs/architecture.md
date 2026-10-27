@@ -270,13 +270,15 @@ element, so root colors reach paper without changing the on-screen page.
 Two-sided imposition, crop marks and folds are built.
 
 After the browser prints a plain page (one without bleed or marks and without
-`preferCssPageSize`) or a book, the renderer sets every page box to the paper's
-exact size at origin 0. Chromium snaps printed paper dimensions to its own grid
+`preferCssPageSize`), a book, a page with bleed or marks, or an imposition
+piece, the renderer sets every page box to the exact size it asked for at
+origin 0: the paper, the bleed box, or the piece's paper. Chromium snaps printed paper dimensions to its own grid
 regardless of the unit it is given, so the renderer moves the page content and
 link annotations with the box to keep the top edge fixed. The zero origin is
 required because a PDF embedder such as pdf-lib's ignores a MediaBox origin.
-The press path continues to draw its own exact trim, bleed and media boxes. A
-browser page whose width or height is more than 2 points from the requested
+The press path corrects its page before counting papers, then draws its own
+exact trim, bleed and media boxes around it, and an imposition piece is
+corrected before it is embedded, so both are drawn at scale 1. A browser page whose width or height is more than 2 points from the requested
 paper is refused rather than treated as a rounding difference.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its

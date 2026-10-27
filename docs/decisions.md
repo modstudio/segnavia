@@ -204,7 +204,7 @@ bleed boxes and the crop marks are added afterwards. Padding insets only the
 first paper, so a page with bleed or marks is one printed piece, and content
 that needs a second paper is refused.
 
-**Plain pages and books use an exact origin-zero paper box after printing.**
+**Every printed page and piece gets an exact origin-zero paper box.**
 Chromium snaps paper dimensions to its own grid regardless of the unit it is
 given, so the renderer moves page content and link annotations with the box to
 keep the top edge fixed. The origin stays at zero because PDF embedders such as
