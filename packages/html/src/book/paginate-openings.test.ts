@@ -94,16 +94,18 @@ describe('paginateBook opening sides', () => {
     ])
   })
 
-  test('odd front plus an explicit any body opening inserts no blank when rectoOpenings is on', () => {
+  test('under rectoOpenings the body starts on a recto, so a verso first section takes body page 1 as its blank', () => {
     const pages = paginateBook(
       input({
         settings,
-        flows: [flow('preface', 'front', [block('text', 'p', 0, 1, 3, 0)]), { ...short('c1', 1), opens: 'any' }],
+        flows: [flow('preface', 'front', [block('text', 'p', 0, 1, 3, 0)]), { ...short('c1', 1), opens: 'verso' }],
       }),
     ).pages
     expect(sides(pages)).toEqual([
       { flow: 'preface', role: 'opener', number: 1, blank: false, opener: true },
-      { flow: 'c1', role: 'opener', number: 1, blank: false, opener: true },
+      { flow: 'preface', role: 'blank', number: 2, blank: true, opener: false },
+      { flow: 'c1', role: 'blank', number: 1, blank: true, opener: false },
+      { flow: 'c1', role: 'opener', number: 2, blank: false, opener: true },
     ])
   })
 

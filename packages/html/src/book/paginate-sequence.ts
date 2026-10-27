@@ -270,7 +270,11 @@ export function paginateSequence(
   const front = paginatePart(frontFlows, 'front')
   const firstBody = bodyFlows[0]
   const lastFront = frontFlows[frontFlows.length - 1]
-  if (front.pages.length > 0 && lastFront && firstBody && needsOpeningBlank(openingOf(firstBody), front.pages.length)) {
+  // Under recto openings the body's first page is a recto, so its odd folios fall on rectos; otherwise only the first body section's opening pads the front.
+  const padFront = input.settings.rectoOpenings
+    ? front.pages.length % 2 === 1
+    : firstBody !== undefined && needsOpeningBlank(openingOf(firstBody), front.pages.length)
+  if (front.pages.length > 0 && lastFront && padFront) {
     front.pages.push(makeBlank(front.pages.length + 1, 'front', lastFront))
   }
   const body = paginatePart(bodyFlows, 'body', front.pages.length)
