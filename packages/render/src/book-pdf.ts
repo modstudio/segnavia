@@ -207,9 +207,20 @@ async function join(front: PrintedPart, body: PrintedPart, marginBytes: Uint8Arr
   return output.save()
 }
 
+async function renderPaginatedBookPdf(book: Book, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
+  if (!book.page) throw new RenderRefusedError('Printing a paginated book needs page; set page before calling bookPdf.')
+  const printed = await inspect(await adapter.print('', book, options, 'body'))
+  if (!printed.bytes) throw new RenderRefusedError('The paginated book print produced no bytes.')
+  const document = await loadPdf(printed.bytes)
+  rewriteBookLinks(document, 0, new Map(), printed.destinations)
+  const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
+  options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
+  return output
+}
+
 export async function renderBookPdf(input: BookInput, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
   const book = Book.parse(input)
-  if (book.mode === 'paginated') throw new RenderRefusedError('bookPdf prints continuous books; printing a paginated book is not built yet.')
+  if (book.mode === 'paginated') return renderPaginatedBookPdf(book, options, adapter)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
   const printedBody = await printBody(book, options, adapter)
   const printedFront = await printFront(book, printedBody.document, printedBody.part, options, adapter)

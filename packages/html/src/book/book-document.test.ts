@@ -176,6 +176,24 @@ describe('book document', () => {
     }
   })
 
+  test('a paginated document keeps footnote refs in the flow and moves notes to a notes galley', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        chapters: [chapter('One', '<p>A<span data-note="footnote">note</span></p>')],
+      }),
+    )
+    const result = bookDocument(book)
+    expect(result.html).toContain('data-segnavia-galleys')
+    expect(result.html).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(result.html).toContain('id="segnavia-fnref-1-1"')
+    expect(result.html).toContain('data-segnavia-notes-galley')
+    expect(result.html).toContain('data-segnavia-note="segnavia-fn-1-1"')
+    expect(result.html).not.toContain('class="segnavia-footnotes"')
+    expect(result.html).not.toContain('break-before:page')
+  })
+
   test('writes geometry-only contents list layout for levels one through six', () => {
     const html = bookDocument(Book.parse(input({ frontMatter: [{ kind: 'contents' }] }))).html
     expect(html).toContain(':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}')

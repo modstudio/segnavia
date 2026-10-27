@@ -1,9 +1,5 @@
-import { BOOK_FURNITURE, type Book, type ParentPage, resolveDirection, resolveParentPages, sheetMm } from '@segnavia/format'
-import { type BookPrintedPagePlan, renderMotifPlacements } from '@segnavia/html'
-
-function escapeHtml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
-}
+import { type Book, type ParentPage, resolveParentPages, sheetMm } from '@segnavia/format'
+import { type BookPrintedPagePlan, fillBookFurniture } from '@segnavia/html'
 
 export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
   if (!book.page) return ''
@@ -34,13 +30,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
 }
 
 function furniture(book: Book, html: string, page: BookPrintedPagePlan): string {
-  return renderMotifPlacements(html, (key) => {
-    const descriptor = BOOK_FURNITURE.find((item) => item.key === key)
-    if (!descriptor) return undefined
-    const value = page[descriptor.value]
-    if (value === undefined) return undefined
-    return `<bdi dir="${resolveDirection(book.dir, book.lang, value)}">${escapeHtml(value)}</bdi>`
-  })
+  return fillBookFurniture(html, { folio: page.folio, runningHead: page.runningHead }, book.dir, book.lang)
 }
 
 export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {

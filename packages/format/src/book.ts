@@ -3,6 +3,7 @@ import { Direction } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
+import { ParentPage } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
@@ -44,8 +45,21 @@ export const BookPage = z.object({
     inner: z.number().nonnegative(),
     outer: z.number().nonnegative(),
   }),
+  columnGap: z.number().nonnegative().default(4),
 })
 export type BookPage = z.infer<typeof BookPage>
+
+export const BookRunningHeadSource = z.union([
+  z.literal('title'),
+  z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) }),
+])
+export type BookRunningHeadSource = z.infer<typeof BookRunningHeadSource>
+
+export const BookRunningHead = z.object({
+  recto: BookRunningHeadSource.default('title'),
+  verso: BookRunningHeadSource.default('title'),
+})
+export type BookRunningHead = z.infer<typeof BookRunningHead>
 
 export const BookShape = z.object({
   title: z.string(),
@@ -77,12 +91,32 @@ export const BookShape = z.object({
     })
     .default({ placement: 'book' }),
   rectoOpenings: z.boolean().default(false),
+  orphans: z.number().int().min(1).default(2),
+  widows: z.number().int().min(1).default(2),
+  runningHead: BookRunningHead.default({ recto: 'title', verso: 'title' }),
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
+
+export const BookViewPagination = z.object({
+  paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+  margin: BookPage.shape.margin,
+  columnGap: z.number().nonnegative(),
+  direction: z.enum(['ltr', 'rtl']),
+  numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
+  rectoOpenings: z.boolean(),
+  orphans: z.number().int().min(1),
+  widows: z.number().int().min(1),
+  parents: z.array(ParentPage),
+  endnotePlacement: z.enum(['book', 'chapter']),
+  contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
+  runningHead: BookRunningHead,
+})
+export type BookViewPagination = z.infer<typeof BookViewPagination>
 
 export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true }).extend({
   title: BookShape.shape.title.optional(),
   html: z.string(),
+  pagination: BookViewPagination.optional(),
 })
 export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>

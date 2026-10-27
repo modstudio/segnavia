@@ -62,6 +62,11 @@
       "types": "./dist/printed-page-document.d.ts",
       "default": "./dist/printed-page-document.js"
     },
+    "./book-document": {
+      "@segnavia/source": "./src/book-document.ts",
+      "types": "./dist/book-document.d.ts",
+      "default": "./dist/book-document.js"
+    },
     "./motifs": {
       "@segnavia/source": "./src/motif-expansion.ts",
       "types": "./dist/motif-expansion.d.ts",

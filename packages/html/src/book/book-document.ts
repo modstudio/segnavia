@@ -6,8 +6,10 @@ import { noteState, transformNotes } from './notes.ts'
 import { type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
 
 // The front/body selectors here agree with bookPrintPart, the source of print membership.
-const PRINT_CSS =
-  ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}'
+const CONTENTS_CSS =
+  ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}'
+const PRINT_CSS = `${CONTENTS_CSS}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}`
+const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}`
 
 interface BuiltSection {
   info: BookSectionInfo
@@ -18,28 +20,33 @@ function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
 }
 
-function sectionNode(kind: BookSectionInfo['kind'], id: string, children: ChildNode[] = []) {
-  return element('section', { class: `segnavia-section segnavia-${kind}`, id }, children)
+function sectionNode(kind: BookSectionInfo['kind'], id: string, children: ChildNode[] = [], galley = false, runningHead?: string) {
+  const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id }
+  if (galley) attribs['data-segnavia-flow'] = id
+  if (galley && runningHead !== undefined) attribs['data-running-head'] = runningHead
+  return element('section', attribs, children)
 }
 
-function authoredSection(section: BookSection, id: string): BuiltSection {
+function authoredSection(section: BookSection, id: string, galley = false): BuiltSection {
   const document = parse(section.html)
-  const node = sectionNode('front', id, document.children)
-  return { info: { id, kind: 'front', title: section.title, runningHead: section.title }, node }
+  const runningHead = section.title
+  const node = sectionNode('front', id, document.children, galley, runningHead)
+  return { info: { id, kind: 'front', title: section.title, runningHead }, node }
 }
 
-function contentsSection(title: string | undefined): BuiltSection {
+function contentsSection(title: string | undefined, galley = false): BuiltSection {
   const id = 'segnavia-contents'
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
-  return { info: { id, kind: 'contents', title, runningHead: title }, node: sectionNode('contents', id, children) }
+  return { info: { id, kind: 'contents', title, runningHead: title }, node: sectionNode('contents', id, children, galley, title) }
 }
 
-function chapterSection(chapter: Book['chapters'][number], index: number): BuiltSection {
+function chapterSection(chapter: Book['chapters'][number], index: number, galley = false): BuiltSection {
   const id = `segnavia-chapter-${index}`
   const document = parse(chapter.html)
+  const runningHead = chapter.runningHead ?? chapter.title
   return {
-    info: { id, kind: 'chapter', title: chapter.title, runningHead: chapter.runningHead ?? chapter.title },
-    node: sectionNode('chapter', id, document.children),
+    info: { id, kind: 'chapter', title: chapter.title, runningHead },
+    node: sectionNode('chapter', id, document.children, galley, runningHead),
   }
 }
 
@@ -107,14 +114,19 @@ function reservedIdIssues(section: BuiltSection): string[] {
   })
 }
 
-function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[]): BuiltSection {
+function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[], galley = false): BuiltSection {
   const id = 'segnavia-endnotes'
   const titleValue = book.endnotes.title
   const titleNode = element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
   return {
     info: { id, kind: 'endnotes', title: titleValue, runningHead: titleValue },
-    node: sectionNode('endnotes', id, [titleNode, ...paragraphs]),
+    node: sectionNode('endnotes', id, [titleNode, ...paragraphs], galley, titleValue),
   }
+}
+
+function notesGalley(paragraphs: ReturnType<typeof element>[]): ReturnType<typeof element> {
+  const notes = paragraphs.map((paragraph) => element('div', { 'data-segnavia-note': paragraph.attribs.id ?? '' }, [paragraph]))
+  return element('aside', { 'data-segnavia-notes-galley': '', 'aria-hidden': 'true' }, notes)
 }
 
 function withBlankPages(sections: BuiltSection[], blankBefore: string[] | undefined): ChildNode[] {
@@ -127,6 +139,7 @@ function withBlankPages(sections: BuiltSection[], blankBefore: string[] | undefi
 }
 
 export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
+  const galley = book.mode === 'paginated'
   const notes = noteState()
   const sections: BuiltSection[] = []
   const headings: BookHeading[] = []
@@ -136,28 +149,28 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
 
   for (const entry of book.frontMatter) {
     if (isBookContents(entry)) {
-      contents = contentsSection(entry.title)
+      contents = contentsSection(entry.title, galley)
       sections.push(contents)
       continue
     }
     frontNumber += 1
-    const section = authoredSection(entry, `segnavia-front-${frontNumber}`)
+    const section = authoredSection(entry, `segnavia-front-${frontNumber}`, galley)
     sections.push(section)
     issues.push(...reservedIdIssues(section))
     if (entry.contents && entry.title !== undefined) headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
-    transformNotes(section.node, book, 0, notes)
+    transformNotes(section.node, book, 0, notes, galley)
   }
 
   for (const [offset, chapter] of book.chapters.entries()) {
     const number = offset + 1
-    const section = chapterSection(chapter, number)
+    const section = chapterSection(chapter, number, galley)
     sections.push(section)
     issues.push(...reservedIdIssues(section))
     headings.push({ id: section.info.id, level: 1, text: chapter.title, sectionId: section.info.id }, ...chapterHeadings(section, number, book.contents.depth))
-    transformNotes(section.node, book, number, notes)
+    transformNotes(section.node, book, number, notes, galley)
   }
 
-  if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs))
+  if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   if (book.endnotes.placement === 'chapter') {
     issues.push('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
   }
@@ -165,11 +178,19 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind) === options.part)
   const document = parse('') as Document
-  document.children = [
-    element('style', {}, [text(PRINT_CSS)]),
-    ...(options.targets ? [targetLinks(visible)] : []),
-    ...withBlankPages(visible, options.blankBefore),
-  ]
+  document.children = galley
+    ? [
+        element('style', {}, [text(GALLEY_CSS)]),
+        element('div', { 'data-segnavia-galleys': '' }, [
+          ...visible.map((section) => section.node),
+          ...(notes.footnoteParagraphs.length > 0 ? [notesGalley(notes.footnoteParagraphs)] : []),
+        ]),
+      ]
+    : [
+        element('style', {}, [text(PRINT_CSS)]),
+        ...(options.targets ? [targetLinks(visible)] : []),
+        ...withBlankPages(visible, options.blankBefore),
+      ]
   linkChildren(document)
   return {
     html: serialize(document),

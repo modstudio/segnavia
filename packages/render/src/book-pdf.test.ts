@@ -29,12 +29,16 @@ describe('front print convergence', () => {
   })
 })
 
-test('refuses paginated books with the continuous workflow requirement', async () => {
-  const adapter = {
-    print: () => Promise.reject(new Error('print should not run')),
-    finish: () => Promise.reject(new Error('finish should not run')),
+test('prints a paginated book once then finishes', async () => {
+  const printedBook = async () => {
+    const document = await PDFDocument.create()
+    const page = document.addPage([419.53, 595.28])
+    page.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+    document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'segnavia-chapter-1': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
+    return document.save()
   }
-  const result = renderBookPdf(
+  let prints = 0
+  const output = await renderBookPdf(
     {
       title: 'Book',
       mode: 'paginated',
@@ -42,9 +46,16 @@ test('refuses paginated books with the continuous workflow requirement', async (
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
     },
     {},
-    adapter,
+    {
+      print: async () => {
+        prints += 1
+        return { bytes: await printedBook(), overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] } }
+      },
+      finish: async (pdf) => pdf,
+    },
   )
-  await expect(result).rejects.toThrow('bookPdf prints continuous books; printing a paginated book is not built yet.')
+  expect(prints).toBe(1)
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
 })
 
 test('corrects every joined book page to the exact trim before finishing', async () => {
