@@ -1,4 +1,4 @@
-import { type Imposition, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Imposition, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import { MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
 import { printablePagesDocument } from './print-document.ts'
@@ -12,15 +12,16 @@ const bodyOf = (html: string) => html.match(/<body>([\s\S]*)<\/body>/i)?.[1] ?? 
 
 function composedFrame(page: Page, index: number, options: PrintablePagesOptions): string {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
+  const offset = resolveDirection(page.dir, page.lang, page.html) === 'rtl' ? `margin-left:-${paper.width}mm;` : ''
   const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, only: index })
-  return `<section class="paper"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe></section>`
+  return `<section class="paper"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="${offset}width:${paper.width * 2}mm;height:${paper.height}mm;border:0;display:block"></iframe></section>`
 }
 
 function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadlineMs: number): Promise<number> {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', 'allow-scripts')
-  frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
+  frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM * 2}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
   return new Promise((resolve, reject) => {
     let timer = 0
     const finish = (result: number | Error) => {
