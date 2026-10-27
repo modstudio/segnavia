@@ -42,13 +42,17 @@ function verifyParentDetails(output: string, check: Check): void {
   const pageBodyBoxes = englishBoxPages.map((content) => [
     ...content.matchAll(/<word xMin="[\d.]+" yMin="([\d.]+)" xMax="[\d.]+" yMax="([\d.]+)">English-\d+<\/word>/g),
   ])
-  const firstClear = pageBodyBoxes[0]?.every((match) => Number(match[1]) >= 85 && Number(match[2]) <= 741) ?? false
-  const normalClear = pageBodyBoxes.slice(1).every((boxes) => boxes.every((match) => Number(match[1]) >= 51 && Number(match[2]) <= 741))
+  // The fixture's first page has a 30mm top margin and every page an 18mm bottom; later pages have 18mm on top.
+  // Chromium snaps text baselines to whole pixels, so a line may start up to half a CSS pixel outside its text area.
+  const snap = 0.375
+  const clearOf = (top: number) => (match: RegExpMatchArray) => Number(match[1]) >= top / MM_PER_PT - snap && Number(match[2]) <= 792 - 18 / MM_PER_PT + snap
+  const firstClear = pageBodyBoxes[0]?.every(clearOf(30)) ?? false
+  const normalClear = pageBodyBoxes.slice(1).every((boxes) => boxes.every(clearOf(18)))
   const bodyWordCount = pageBodyBoxes.reduce((sum, boxes) => sum + boxes.length, 0)
   check(
     'the English flowing body stays clear of the first and normal furniture regions per page',
     bodyWordCount === 55 && firstClear && normalClear,
-    `words=${bodyWordCount} first>=85=${firstClear} later>=51=${normalClear}`,
+    `words=${bodyWordCount} first=${firstClear} later=${normalClear} firstTop=${pageBodyBoxes[0]?.[0]?.[1]}`,
   )
   const englishEntry = JSON.parse(readFileSync(path.join(output, 'pages-parent-english-overflow.json'), 'utf8')).entries?.[0]
   check(
