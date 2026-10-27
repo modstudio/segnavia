@@ -29,60 +29,32 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
     await page.goto(url)
-    const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as unknown[]
-    const names = ['english', 'hebrew', 'mixed']
-    for (const [index, fixture] of fixtures.entries()) {
+    const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as {
+      cases: Array<{ name: string; page: unknown }>
+      motifs: Array<{ key: string }>
+    }
+    for (const fixture of fixtures.cases) {
       await page.goto(url)
       const html = await page
-        .evaluate(async (printedPage) => {
-          const bundle = '/segnavia.js'
-          const { printPages } = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
-          let output = ''
-          const source = {
-            motif: async (key: string) => {
-              if (key === 'printed-head') {
-                return {
-                  key,
-                  revision: 'demo',
-                  label: 'Printed head',
-                  fields: [],
-                  fonts: [],
-                  versions: [
-                    { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
-                    { lang: 'he', html: '<bdi>כותרת</bdi>' },
-                  ],
-                }
-              }
-              if (key === 'printed-foot') {
-                return {
-                  key,
-                  revision: 'demo',
-                  label: 'Printed foot',
-                  fields: [],
-                  fonts: [],
-                  versions: [
-                    {
-                      lang: 'en',
-                      html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>',
-                    },
-                    {
-                      lang: 'he',
-                      html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>',
-                    },
-                  ],
-                }
-              }
-            },
-          }
-          await printPages(
-            [printedPage],
-            { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
-            { motifs: { source }, print: (win: Window) => (output = `<!doctype html>${win.document.documentElement.outerHTML}`) },
-          )
-          return output
-        }, fixture)
+        .evaluate(
+          async ({ motifs, printedPage }) => {
+            const bundle = '/segnavia.js'
+            const { printPages } = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
+            let output = ''
+            const source = {
+              motif: async (key: string) => motifs.find((motif) => motif.key === key),
+            }
+            await printPages(
+              [printedPage],
+              { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
+              { motifs: { source }, print: (win: Window) => (output = `<!doctype html>${win.document.documentElement.outerHTML}`) },
+            )
+            return output
+          },
+          { motifs: fixtures.motifs, printedPage: fixture.page },
+        )
         .catch((error) => {
-          throw new Error(`Browser printing the ${names[index]} parent-page fixture failed: ${String(error)}`)
+          throw new Error(`Browser printing the ${fixture.name} parent-page fixture failed: ${String(error)}`)
         })
       await page.setContent(html, { waitUntil: 'load' })
       await page.waitForTimeout(50)
@@ -92,9 +64,9 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
           .slice(1)
           .map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))),
       )
-      const browserFile = path.join(work, `${names[index]}.pdf`)
+      const browserFile = path.join(work, `${fixture.name}.pdf`)
       writeFileSync(browserFile, await page.pdf({ printBackground: true, preferCSSPageSize: true }))
-      const serverFile = path.join(ROOT, 'out', `pages-parent-${names[index]}.pdf`)
+      const serverFile = path.join(ROOT, 'out', `pages-parent-${fixture.name}.pdf`)
       const browser = pdfWords(browserFile)
       const server = pdfWords(serverFile)
       const furnitureMatches =
@@ -112,7 +84,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
           return Boolean(actual && expected && closeWord(actual, expected))
         })
       check(
-        `browser and server ${names[index]} parent-page letters have matching papers, furniture and first body lines`,
+        `browser and server ${fixture.name} parent-page letters have matching papers, furniture and first body lines`,
         browser.length === server.length && furnitureMatches && bodyMatches,
         `browser=${browser.length} server=${server.length} furniture=${furnitureMatches} body=${bodyMatches}`,
       )

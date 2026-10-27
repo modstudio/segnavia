@@ -1,27 +1,24 @@
-import { type Imposition, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Imposition, impose, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, sheetMm } from '@segnavia/format'
 import { MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import type { PrintablePagesOptions } from './print-document.ts'
-import { printablePagesDocument } from './print-document.ts'
+import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
 import { printedPageDocument } from './printed-page-document.ts'
 import { escapeHtml } from './svg.ts'
 
 export const PRINTED_PAGE_COUNT_REFUSAL =
-  'The browser could not establish the composed page count; wait for the page resources or shorten the content to clear this refusal.'
-
-const bodyOf = (html: string) => html.match(/<body>([\s\S]*)<\/body>/i)?.[1] ?? ''
+  'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
 
 function composedFrame(page: Page, index: number, options: PrintablePagesOptions): string {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
-  const offset = resolveDirection(page.dir, page.lang, page.html) === 'rtl' ? `margin-left:-${paper.width}mm;` : ''
-  const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, only: index })
-  return `<section class="paper"><iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="${offset}width:${paper.width * 2}mm;height:${paper.height}mm;border:0;display:block"></iframe></section>`
+  const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, only: index, printBackground: true })
+  return `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
 }
 
-function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadlineMs: number): Promise<number> {
+function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadlineAt: number): Promise<number> {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', 'allow-scripts')
-  frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM * 2}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
+  frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
+  const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
   return new Promise((resolve, reject) => {
     let timer = 0
     const finish = (result: number | Error) => {
@@ -41,8 +38,8 @@ function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadline
       finish(count)
     }
     window.addEventListener('message', onMessage)
-    timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), deadlineMs)
-    frame.srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
+    timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), Math.max(0, deadlineAt - Date.now()))
+    frame.srcdoc = srcdoc
     document.body.append(frame)
   })
 }
@@ -50,7 +47,7 @@ function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadline
 export async function printedPagesPrintDocument(
   pages: Page[],
   imposition: Imposition,
-  options: PrintablePagesOptions & { deadlineMs: number },
+  options: PrintablePagesOptions & { deadlineAt: number },
 ): Promise<{ html: string; paper: { width: number; height: number } }> {
   const printed = pages.filter((page) => page.printedPages)
   for (const page of printed) {
@@ -61,14 +58,14 @@ export async function printedPagesPrintDocument(
     }
   }
   const counts = new Map<Page, number>()
-  for (const page of printed) counts.set(page, await measurePrintedPage(page, options, options.deadlineMs))
+  for (const page of printed) counts.set(page, await measurePrintedPage(page, options, options.deadlineAt))
   const paper = sheetMm(imposition)
-  const papers = pages.flatMap((page) => {
+  const bodies: PrintablePaperBody[] = pages.flatMap((page) => {
     if (page.printedPages) {
-      return Array.from({ length: counts.get(page) ?? 0 }, (_, index) => composedFrame(page, index + 1, options))
+      return Array.from({ length: counts.get(page) ?? 0 }, (_, index) => ({ body: composedFrame(page, index + 1, options), side: 'front' as const }))
     }
-    return [bodyOf(printablePagesDocument([page], imposition, options).html)]
+    const imposed = impose(imposition, 1)
+    return [{ body: printablePaper([page], imposition, imposed, 0, options), side: 'front' as const }]
   })
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${paper.width}mm;height:${paper.height}mm;position:relative;overflow:hidden;break-after:page}`
-  return { html: `<!doctype html><html dir="ltr"><head><meta charset="utf-8"><style>${css}</style></head><body>${papers.join('')}</body></html>`, paper }
+  return { html: imposedPaperDocument(paper, ' dir="ltr"', bodies), paper }
 }

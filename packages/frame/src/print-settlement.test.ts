@@ -68,7 +68,7 @@ test('an incomplete image holds printing until it loads', async () => {
   const resolved = await resolutionOf(wait)
   expect(resolved()).toBeFalse()
   image.settle('load')
-  await wait
+  await expect(wait).resolves.toBeTrue()
   expect(resolved()).toBeTrue()
 })
 
@@ -124,7 +124,7 @@ test('frames and images must both settle', async () => {
   await Promise.resolve()
   expect(otherResolved()).toBeFalse()
   reportReady(otherMessages, otherFrame)
-  await otherWait
+  await expect(otherWait).resolves.toBeTrue()
   expect(otherResolved()).toBeTrue()
 })
 
@@ -181,11 +181,9 @@ test('the deadline releases a print document still waiting for a fit report', as
   const frame = new EventTarget()
   const wait = printDocumentSettled(messages, [frame], [], deadline.promise, undefined, () => true)
   const resolved = await resolutionOf(wait)
-  reportReady(messages, frame)
-  await Promise.resolve()
   expect(resolved()).toBeFalse()
   deadline.resolve()
-  await wait
+  await expect(wait).resolves.toBeFalse()
   expect(resolved()).toBeTrue()
 })
 

@@ -14,22 +14,21 @@ import {
   labelsImposition,
   letterFoldImposition,
   letterFoldPages,
-  parentPageEnglish,
   parentPageFurnitureOverflow,
-  parentPageHebrew,
-  parentPageMixed,
   parentPageNarrowBreak,
   parentPageUnsizedImage,
   postcardBackPage,
   postcardPage,
   printedPageMotifSource,
+  printedPageMotifs,
+  printedParentPageCases,
   twoSidedCardImposition,
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
 
 function buildParentPageBrowserFixtures(site: string): void {
-  writeFileSync(path.join(site, 'parent-pages-print.json'), JSON.stringify([parentPageEnglish, parentPageHebrew, parentPageMixed]))
+  writeFileSync(path.join(site, 'parent-pages-print.json'), JSON.stringify({ cases: printedParentPageCases, motifs: printedPageMotifs }))
 }
 
 export async function buildPagePdfs(renderer: Renderer, output: string, site?: string): Promise<void> {
@@ -38,13 +37,17 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
     source: printedPageMotifSource,
   }
   let englishOverflow = ''
-  writeFileSync(
-    path.join(output, 'pages-parent-english.pdf'),
-    await renderer.pagePdf(parentPageEnglish, { motifs, overflow: { report: (report) => (englishOverflow = JSON.stringify(report)) } }),
-  )
+  for (const fixture of printedParentPageCases) {
+    const pdf =
+      fixture.name === 'mixed'
+        ? await renderer.pagesPdf([fixture.page], { motifs })
+        : await renderer.pagePdf(fixture.page, {
+            motifs,
+            ...(fixture.name === 'english' ? { overflow: { report: (report) => (englishOverflow = JSON.stringify(report)) } } : {}),
+          })
+    writeFileSync(path.join(output, `pages-parent-${fixture.name}.pdf`), pdf)
+  }
   writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
-  writeFileSync(path.join(output, 'pages-parent-hebrew.pdf'), await renderer.pagePdf(parentPageHebrew, { motifs }))
-  writeFileSync(path.join(output, 'pages-parent-mixed.pdf'), await renderer.pagesPdf([parentPageMixed], { motifs }))
   writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
   writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
   let furnitureOverflow = ''

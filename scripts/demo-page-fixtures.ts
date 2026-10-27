@@ -1,36 +1,33 @@
 import './source-guard.ts'
-import type { ImpositionInput, MotifSource, PageInput } from '@segnavia/format'
+import type { ImpositionInput, Motif, MotifSource, PageInput } from '@segnavia/format'
+
+export const printedPageMotifs: Motif[] = [
+  {
+    key: 'printed-head',
+    revision: 'demo',
+    label: 'Printed head',
+    fields: [],
+    fonts: [],
+    versions: [
+      { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
+      { lang: 'he', html: '<bdi>כותרת</bdi>' },
+    ],
+  },
+  {
+    key: 'printed-foot',
+    revision: 'demo',
+    label: 'Printed foot',
+    fields: [],
+    fonts: [],
+    versions: [
+      { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
+      { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
+    ],
+  },
+]
 
 export const printedPageMotifSource: MotifSource = {
-  motif: async (key: string) => {
-    if (key === 'printed-head') {
-      return {
-        key,
-        revision: 'demo',
-        label: 'Printed head',
-        fields: [],
-        fonts: [],
-        versions: [
-          { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
-          { lang: 'he', html: '<bdi>כותרת</bdi>' },
-        ],
-      }
-    }
-    if (key === 'printed-foot') {
-      return {
-        key,
-        revision: 'demo',
-        label: 'Printed foot',
-        fields: [],
-        fonts: [],
-        versions: [
-          { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
-          { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
-        ],
-      }
-    }
-    return undefined
-  },
+  motif: async (key: string) => printedPageMotifs.find((motif) => motif.key === key),
 }
 
 export const fluidPage: PageInput = {
@@ -248,6 +245,12 @@ export const parentPageMixed: PageInput = {
   print: { paper: 'letter' },
   printedPages: parentPages,
 }
+
+export const printedParentPageCases = [
+  { name: 'english', page: parentPageEnglish },
+  { name: 'hebrew', page: parentPageHebrew },
+  { name: 'mixed', page: parentPageMixed },
+] as const
 
 const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
 const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
