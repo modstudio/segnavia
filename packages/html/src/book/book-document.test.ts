@@ -124,7 +124,7 @@ describe('book document', () => {
     ])
   })
 
-  test('reports that chapter endnotes belong to unbuilt paginated mode', () => {
+  test('reports that chapter endnotes are not supported yet in paginated mode', () => {
     const result = bookDocument(
       Book.parse(
         input({
@@ -134,7 +134,7 @@ describe('book document', () => {
         }),
       ),
     )
-    expect(result.issues).toContain('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
+    expect(result.issues).toContain('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
   })
 
   test('reports authored ids that use the reserved library prefix', () => {
@@ -174,6 +174,40 @@ describe('book document', () => {
     for (const id of ['segnavia-chapter-1', 'topic', 'segnavia-fn-1-1', 'segnavia-fnref-1-1', 'segnavia-en-1', 'segnavia-enref-1']) {
       expect(body).toContain(`href="#${id}"`)
     }
+  })
+
+  test('a paginated document keeps footnote refs in the flow and moves notes to a notes galley', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        chapters: [chapter('One', '<p>A<span data-note="footnote">note</span></p>')],
+      }),
+    )
+    const result = bookDocument(book)
+    expect(result.html).toContain('data-segnavia-galleys')
+    expect(result.html).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(result.html).toContain('id="segnavia-fnref-1-1"')
+    expect(result.html).toContain('data-segnavia-notes-galley')
+    expect(result.html).toContain('data-segnavia-note="segnavia-fn-1-1"')
+    expect(result.html).not.toContain('class="segnavia-footnotes"')
+    expect(result.html).not.toContain('break-before:page')
+  })
+
+  test('reports a data-columns value that is not an integer from 2 to 4, naming the block', () => {
+    const issues = (html: string) => bookDocument(Book.parse(input({ chapters: [chapter('One', html)] }))).issues
+    expect(issues('<p data-columns="2">Two</p>')).toEqual([])
+    expect(issues('<p data-columns="4">Four</p>')).toEqual([])
+    expect(issues('<p>None</p>')).toEqual([])
+    expect(issues('<p data-columns="5">Wide</p>')).toEqual([
+      'The p in One (segnavia-chapter-1) could not establish data-columns "5"; set it to an integer from 2 to 4 to clear this',
+    ])
+    expect(issues('<div data-columns="1">Single</div>')).toEqual([
+      'The div in One (segnavia-chapter-1) could not establish data-columns "1"; set it to an integer from 2 to 4 to clear this',
+    ])
+    expect(issues('<p data-columns="two">Words</p>')).toEqual([
+      'The p in One (segnavia-chapter-1) could not establish data-columns "two"; set it to an integer from 2 to 4 to clear this',
+    ])
   })
 
   test('writes geometry-only contents list layout for levels one through six', () => {

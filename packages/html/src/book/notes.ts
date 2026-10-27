@@ -13,10 +13,19 @@ export interface NoteState {
   chapterFootnotes: Map<number, number>
   endnoteCount: number
   endnoteParagraphs: Element[]
+  footnoteParagraphs: Element[]
 }
 
 export function noteState(): NoteState {
-  return { footnotes: false, endnotes: false, globalFootnote: 0, chapterFootnotes: new Map(), endnoteCount: 0, endnoteParagraphs: [] }
+  return {
+    footnotes: false,
+    endnotes: false,
+    globalFootnote: 0,
+    chapterFootnotes: new Map(),
+    endnoteCount: 0,
+    endnoteParagraphs: [],
+    footnoteParagraphs: [],
+  }
 }
 
 function nearestBlock(note: Element): Element | undefined {
@@ -56,7 +65,7 @@ function addFootnoteBlock(block: Element, paragraph: Element, blocks: Map<Elemen
   else insertAfter(block, notes)
 }
 
-function transformFootnote(note: Element, book: Book, chapter: number, state: NoteState, blocks: Map<Element, Element>): void {
+function transformFootnote(note: Element, book: Book, chapter: number, state: NoteState, blocks: Map<Element, Element>, galley: boolean): void {
   const block = nearestBlock(note)
   if (!block) return
   const number = footnoteNumber(book, chapter, state)
@@ -65,7 +74,9 @@ function transformFootnote(note: Element, book: Book, chapter: number, state: No
   const marker = noteMarker(number, book.footnotes.marker)
   const content = [...note.children]
   replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
-  addFootnoteBlock(block, noteParagraph('segnavia-footnote', noteId, refId, marker, content), blocks)
+  const paragraph = noteParagraph('segnavia-footnote', noteId, refId, marker, content)
+  if (galley) state.footnoteParagraphs.push(paragraph)
+  else addFootnoteBlock(block, paragraph, blocks)
   state.footnotes = true
 }
 
@@ -81,13 +92,13 @@ function transformEndnote(note: Element, book: Book, state: NoteState): void {
   state.endnotes = true
 }
 
-export function transformNotes(root: Element, book: Book, chapter: number, state: NoteState): void {
+export function transformNotes(root: Element, book: Book, chapter: number, state: NoteState, galley = false): void {
   const blocks = new Map<Element, Element>()
   const notes = elements(root.children).filter(
     (node) => node.name === 'span' && (node.attribs['data-note'] === 'footnote' || node.attribs['data-note'] === 'endnote'),
   )
   for (const note of notes) {
-    if (note.attribs['data-note'] === 'footnote') transformFootnote(note, book, chapter, state, blocks)
+    if (note.attribs['data-note'] === 'footnote') transformFootnote(note, book, chapter, state, blocks, galley)
     else transformEndnote(note, book, state)
   }
 }

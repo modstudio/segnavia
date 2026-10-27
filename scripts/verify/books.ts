@@ -1,5 +1,10 @@
 import path from 'node:path'
+import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
+import { compareHebrewInk } from './paginated-ink.ts'
+import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+
+const PAGINATED_INNER_PX = 18 * PX_PER_MM
 
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
@@ -75,4 +80,92 @@ export async function verifyBooks(h: Harness) {
     messages.every((kind) => BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
+
+  await verifyPaginatedBooks(h)
+}
+
+async function paginatedFrame(h: Harness, id: string) {
+  const element = await h.page.$(`#${id}`)
+  const frame = await element?.contentFrame()
+  if (!frame) throw new Error(`The paginated book frame ${id} did not load.`)
+  await frame.waitForFunction(
+    () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
+    undefined,
+    { timeout: 20_000 },
+  )
+  return frame
+}
+
+async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport> {
+  const frame = await paginatedFrame(h, id)
+  return frame.evaluate(inspectPaginatedBook)
+}
+
+async function verifyPaginatedBooks(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('book-paginated.html'))
+  for (const id of ['book-paginated-en', 'book-paginated-he'] as const) {
+    const frame = await paginatedFrame(h, id)
+    const report = await inspectPaginated(h, id)
+    check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
+    check(
+      `${id} every galley line is on exactly one window`,
+      report.lost === 0 && report.repeated === 0,
+      JSON.stringify({ lost: report.lost, repeated: report.repeated }),
+    )
+    check(
+      `${id} each block appears only in the windows its extent intersects`,
+      report.blocks.extra === 0 && report.blocks.missing === 0 && report.blocks.shown > 0,
+      JSON.stringify(report.blocks),
+    )
+    check(
+      `${id} each placed line sits at its galley position minus the window start`,
+      report.lines.shifted === 0 && report.lines.checked > 0,
+      JSON.stringify(report.lines),
+    )
+    check(
+      `${id} every footnote is on its ref's page or continues from it`,
+      report.notes.length > 0 && report.notes.every((note) => note.ok),
+      JSON.stringify(report.notes),
+    )
+    check(
+      `${id} column windows keep the galley's lines, balanced to one line`,
+      report.columns.lost === 0 && report.columns.repeated === 0 && report.columns.balanced,
+      JSON.stringify(report.columns),
+    )
+    check(
+      `${id} blanks have no furniture and openers have no running head`,
+      report.furniture.blanksHaveNone && report.furniture.openersHaveNoHead && report.furniture.bodyHasFolio,
+      JSON.stringify(report.furniture),
+    )
+    check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
+    check(
+      `${id} text area sits the inner margin from the spine`,
+      report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - PAGINATED_INNER_PX) < 0.5),
+      JSON.stringify(report.spine),
+    )
+    check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
+    check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
+    if (id === 'book-paginated-he') {
+      const ink = await compareHebrewInk(h, frame)
+      check(`${id} no niqqud or taamim ink is lost at any window edge`, ink.ok, ink.detail)
+    }
+    check(
+      `${id} running heads take the first mark and carry onto a page with none`,
+      report.runningHead.fromMark && report.runningHead.carried,
+      report.runningHead.detail,
+    )
+
+    await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
+    const landed = await frame.evaluate(() => {
+      const target = document.getElementById('segnavia-chapter-1')
+      if (!target) return false
+      const box = target.getBoundingClientRect()
+      return box.bottom > 0 && box.top < innerHeight
+    })
+    check(`${id} contents links land on the chapter's first page`, landed)
+    await page.locator(`#${id}`).screenshot({ path: path.join(EVIDENCE, `${id}.png`) })
+  }
+  const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))
+  check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
 }

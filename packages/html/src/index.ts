@@ -7,6 +7,8 @@ import { elements, parse } from './sanitize.ts'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
+export { bookView } from './book/book-view.ts'
+export { type BookFurnitureValues, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
 export type {
   PaginateBlock,

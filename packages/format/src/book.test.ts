@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues } from './index.ts'
+import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -48,6 +48,9 @@ describe('book', () => {
       footnotes: { marker: 'symbols', restart: 'chapter' },
       endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
       rectoOpenings: false,
+      orphans: 2,
+      widows: 2,
+      runningHead: { recto: 'title', verso: 'title' },
       contents: { pageNumbers: true, depth: 2 },
     })
   })
@@ -80,6 +83,27 @@ describe('book', () => {
   test('a paginated book needs page', () => {
     const result = Book.safeParse(input({ mode: 'paginated' }))
     expect(result.error?.issues[0]).toMatchObject({ path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
+  })
+
+  test('page column gap defaults to four millimetres and running heads default to the title', () => {
+    const book = Book.parse(input({ mode: 'paginated', page }))
+    expect(book.page?.columnGap).toBe(4)
+    expect(book.runningHead).toEqual({ recto: 'title', verso: 'title' })
+    expect(book.orphans).toBe(2)
+    expect(book.widows).toBe(2)
+    const marked = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { ...page, columnGap: 6 },
+        runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } },
+        orphans: 3,
+        widows: 1,
+      }),
+    )
+    expect(marked.page?.columnGap).toBe(6)
+    expect(marked.runningHead).toEqual({ recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } })
+    expect(marked.orphans).toBe(3)
+    expect(marked.widows).toBe(1)
   })
 
   test('front matter and body must have different numbering systems', () => {
@@ -123,5 +147,20 @@ describe('book', () => {
     const schema = jsonSchemas().book as { properties?: Record<string, unknown>; required?: string[] }
     expect(schema.properties).toHaveProperty('numbering')
     expect(schema.required).not.toContain('page')
+  })
+
+  test('resolveBookPagination is absent for continuous books and complete for paginated ones', () => {
+    expect(resolveBookPagination(Book.parse(input()))).toBeUndefined()
+    expect(resolveBookPagination(Book.parse(input({ mode: 'paginated', lang: 'he', page, rectoOpenings: true })))).toMatchObject({
+      paper: { width: 148, height: 210 },
+      margin: page.margin,
+      columnGap: 4,
+      direction: 'rtl',
+      numbering: { frontMatter: 'arabic', body: 'hebrew' },
+      rectoOpenings: true,
+      orphans: 2,
+      widows: 2,
+      endnotePlacement: 'book',
+    })
   })
 })
