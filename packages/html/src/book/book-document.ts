@@ -187,7 +187,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
 
   if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   if (book.endnotes.placement === 'chapter') {
-    issues.push('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
+    issues.push('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
   }
   if (contents) addContents(book, contents, headings, options)
 

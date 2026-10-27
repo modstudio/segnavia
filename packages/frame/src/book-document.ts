@@ -1,13 +1,11 @@
 import {
   BOOK_PARENT_NAMES,
   type Book,
-  bookParentPages,
   formatNumber,
   PRINTED_PAGE_LIMIT,
   PX_PER_MM,
-  resolveDirection,
+  resolveBookPagination,
   resolveParentPages,
-  sheetMm,
 } from '@segnavia/format'
 import { bookDocument as htmlBookDocument } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
@@ -31,15 +29,13 @@ function folios(system: Book['numbering']['body']): string[] {
 }
 
 export function bookDocument(book: Book, options: { nonce: string; css?: string; printBackground?: boolean }): string {
-  if (book.mode !== 'paginated' || !book.page) {
+  const pagination = resolveBookPagination(book)
+  if (!pagination) {
     throw new PaginatedBookRefusedError('A paginated book document needs mode paginated and page; set both to clear this refusal.')
   }
   const built = htmlBookDocument(book)
   if (built.issues.length > 0) throw new PaginatedBookRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  const paper = sheetMm(book.page)
-  const direction = resolveDirection(book.dir, book.lang, book.title)
-  const margin = book.page.margin
-  const parents = resolveParentPages(bookParentPages(margin)).map((parent) => ({
+  const parents = resolveParentPages(pagination.parents).map((parent) => ({
     ...parent,
     margin: {
       top: px(parent.margin.top),
@@ -49,35 +45,35 @@ export function bookDocument(book: Book, options: { nonce: string; css?: string;
     },
   }))
   const config = {
-    direction,
+    direction: pagination.direction,
     dir: book.dir,
     lang: book.lang,
     geometry: {
-      paperWidth: px(paper.width),
-      paperHeight: px(paper.height),
-      textWidth: px(paper.width - margin.inner - margin.outer),
-      textHeight: px(paper.height - margin.top - margin.bottom),
-      columnGap: px(book.page.columnGap),
+      paperWidth: px(pagination.paper.width),
+      paperHeight: px(pagination.paper.height),
+      textWidth: px(pagination.paper.width - pagination.margin.inner - pagination.margin.outer),
+      textHeight: px(pagination.paper.height - pagination.margin.top - pagination.margin.bottom),
+      columnGap: px(pagination.columnGap),
       notesGap: 9,
     },
-    orphans: book.orphans,
-    widows: book.widows,
-    rectoOpenings: book.rectoOpenings,
-    endnotePlacement: book.endnotes.placement,
-    runningHead: book.runningHead,
-    contentsPageNumbers: book.contents.pageNumbers,
+    orphans: pagination.orphans,
+    widows: pagination.widows,
+    rectoOpenings: pagination.rectoOpenings,
+    endnotePlacement: pagination.endnotePlacement,
+    runningHead: pagination.runningHead,
+    contentsPageNumbers: pagination.contents.pageNumbers,
     parents,
     parentNames: BOOK_PARENT_NAMES,
-    folios: { front: folios(book.numbering.frontMatter), body: folios(book.numbering.body) },
+    folios: { front: folios(pagination.numbering.frontMatter), body: folios(pagination.numbering.body) },
     limit: PRINTED_PAGE_LIMIT,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const css =
-    `@page{size:${paper.width}mm ${paper.height}mm;margin:0}` +
+    `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
     `:where(html,body){margin:0!important;padding:0!important}` +
     `:where(html:not([${BOOK_COMPOSED_ATTRIBUTE}]),html:not([${BOOK_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
     `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
-    `:where([data-segnavia-pages]){inline-size:${paper.width}mm}` +
+    `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
     (options.css ?? '')
@@ -85,7 +81,7 @@ export function bookDocument(book: Book, options: { nonce: string; css?: string;
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
-    dir: direction,
+    dir: pagination.direction,
     lang: book.lang,
     css,
     relayKeys: false,

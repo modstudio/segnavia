@@ -1,4 +1,4 @@
-import { type Book, type BookView, bookParentPages, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, type BookView, resolveBookPagination } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
 export function bookView(book: Book): BookView {
@@ -12,23 +12,6 @@ export function bookView(book: Book): BookView {
     ...(book.lang === undefined ? {} : { lang: book.lang }),
     ...(book.fonts === undefined ? {} : { fonts: book.fonts }),
   }
-  if (book.mode !== 'paginated' || !book.page) return view
-  const paper = sheetMm(book.page)
-  return {
-    ...view,
-    pagination: {
-      paper,
-      margin: book.page.margin,
-      columnGap: book.page.columnGap,
-      direction: resolveDirection(book.dir, book.lang, book.title),
-      numbering: book.numbering,
-      rectoOpenings: book.rectoOpenings,
-      orphans: book.orphans,
-      widows: book.widows,
-      parents: bookParentPages(book.page.margin),
-      endnotePlacement: book.endnotes.placement,
-      contents: book.contents,
-      runningHead: book.runningHead,
-    },
-  }
+  const pagination = resolveBookPagination(book)
+  return pagination ? { ...view, pagination } : view
 }

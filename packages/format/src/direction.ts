@@ -32,8 +32,24 @@ export function languageDirection(lang: string | undefined): TextDirection | nul
 }
 
 // A declared direction wins; `auto` or none falls to the language, then to
-// the text itself, then to left to right.
+// the text itself, then to left to right. Nested helpers keep this embeddable
+// by toString() for the book furniture filler.
 export function resolveDirection(dir: 'ltr' | 'rtl' | 'auto' | undefined, lang: string | undefined, sample: string): TextDirection {
+  const rtlLetter =
+    /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}\p{Script=Adlam}\p{Script=Hanifi_Rohingya}\p{Script=Mende_Kikakui}\p{Script=Old_Hungarian}\p{Script=Imperial_Aramaic}\p{Script=Phoenician}]/u
+  const letter = /\p{L}/u
+  const rtlLanguages = new Set(['ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'iw', 'ji', 'ks', 'ku', 'nqo', 'ps', 'sd', 'syr', 'ug', 'ur', 'yi'])
+  function firstStrong(text: string): TextDirection | null {
+    for (const char of text) {
+      if (rtlLetter.test(char)) return 'rtl'
+      if (letter.test(char)) return 'ltr'
+    }
+    return null
+  }
+  function languageDir(value: string | undefined): TextDirection | null {
+    if (!value) return null
+    return rtlLanguages.has(value.toLowerCase().split('-')[0] ?? '') ? 'rtl' : 'ltr'
+  }
   if (dir === 'ltr' || dir === 'rtl') return dir
-  return languageDirection(lang) ?? firstStrongDirection(sample) ?? 'ltr'
+  return languageDir(lang) ?? firstStrong(sample) ?? 'ltr'
 }

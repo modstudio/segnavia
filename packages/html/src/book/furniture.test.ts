@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { resolveDirection } from '@segnavia/format'
 import { fillBookFurniture, furnitureScript } from './furniture.ts'
 
 describe('fillBookFurniture', () => {
@@ -18,5 +19,13 @@ describe('fillBookFurniture', () => {
     const run = new Function(`${furnitureScript()}; return fillBookFurniture;`)() as typeof fillBookFurniture
     const html = '<div data-motif="segnavia:folio"></div>'
     expect(run(html, { folio: 'א' }, undefined, 'he')).toEqual(fillBookFurniture(html, { folio: 'א' }, undefined, 'he'))
+  })
+
+  test('the embedded resolver matches the format export', () => {
+    const run = new Function(`${furnitureScript()}; return resolveDirection;`)() as typeof resolveDirection
+    expect(run('ltr', 'he', 'שלום')).toBe(resolveDirection('ltr', 'he', 'שלום'))
+    expect(run('auto', 'he-IL', 'Hello')).toBe(resolveDirection('auto', 'he-IL', 'Hello'))
+    expect(run(undefined, undefined, 'שלום')).toBe(resolveDirection(undefined, undefined, 'שלום'))
+    expect(run(undefined, undefined, '42')).toBe(resolveDirection(undefined, undefined, '42'))
   })
 })

@@ -83,6 +83,7 @@ export {
   Chapter,
   isBookContents,
   noteMarkerIssues,
+  resolveBookPagination,
 } from './book.ts'
 export {
   Annotation,

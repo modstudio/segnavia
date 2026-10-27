@@ -12,6 +12,8 @@ export interface PaginatedReport {
   lines: { shifted: number; checked: number }
   runningHead: { fromMark: boolean; carried: boolean; detail: string }
   direction: string | null
+  ids: { unique: boolean; count: number; duplicates: string[] }
+  spine: { page: number; distance: number; side: string }[]
 }
 
 export function inspectPaginatedBook(): PaginatedReport {
@@ -250,6 +252,33 @@ export function inspectPaginatedBook(): PaginatedReport {
     }
   }
 
+  function uniqueIds() {
+    const ids = Array.from(document.querySelectorAll('[id]'))
+      .map((node) => node.id)
+      .filter(Boolean)
+    const counts = new Map<string, number>()
+    for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1)
+    const duplicates = [...counts].filter(([, count]) => count > 1).map(([id]) => id)
+    return { unique: duplicates.length === 0 && ids.length > 0, count: ids.length, duplicates }
+  }
+
+  function spine() {
+    const direction = document.documentElement.getAttribute('dir') === 'rtl' ? 'rtl' : 'ltr'
+    return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
+      const index = Number(page.getAttribute('data-segnavia-book-page'))
+      const text = page.querySelector('[data-segnavia-text]')
+      if (!text) return { page: index, distance: Number.NaN, side: 'missing' }
+      const paperBox = page.getBoundingClientRect()
+      const textBox = text.getBoundingClientRect()
+      const rightHand = (index % 2 === 1) === (direction === 'ltr')
+      return {
+        page: index,
+        distance: rightHand ? textBox.left - paperBox.left : paperBox.right - textBox.right,
+        side: rightHand ? 'right' : 'left',
+      }
+    })
+  }
+
   const counted = coverage()
   return {
     failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
@@ -265,5 +294,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     lines: lineShift(),
     runningHead: runningHead(),
     direction: document.documentElement.getAttribute('dir'),
+    ids: uniqueIds(),
+    spine: spine(),
   }
 }

@@ -1,7 +1,10 @@
 import path from 'node:path'
+import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+
+const PAGINATED_INNER_PX = 18 * PX_PER_MM
 
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
@@ -136,6 +139,12 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
+    check(
+      `${id} text area sits the inner margin from the spine`,
+      report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - PAGINATED_INNER_PX) < 0.5),
+      JSON.stringify(report.spine),
+    )
+    check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
     check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
     if (id === 'book-paginated-he') {
       const ink = await compareHebrewInk(h, frame)

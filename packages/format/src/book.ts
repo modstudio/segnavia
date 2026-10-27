@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { Direction } from './direction.ts'
+import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-import { ParentPage } from './printed-pages.ts'
+import { bookParentPages, ParentPage } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
@@ -178,6 +178,24 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
 })
 export type Book = z.infer<typeof Book>
 export type BookInput = z.input<typeof Book>
+
+export function resolveBookPagination(book: Book): BookViewPagination | undefined {
+  if (book.mode !== 'paginated' || !book.page) return undefined
+  return {
+    paper: sheetMm(book.page),
+    margin: book.page.margin,
+    columnGap: book.page.columnGap,
+    direction: resolveDirection(book.dir, book.lang, book.title),
+    numbering: book.numbering,
+    rectoOpenings: book.rectoOpenings,
+    orphans: book.orphans,
+    widows: book.widows,
+    parents: bookParentPages(book.page.margin),
+    endnotePlacement: book.endnotes.placement,
+    contents: book.contents,
+    runningHead: book.runningHead,
+  }
+}
 
 // This is the one Book refusal that depends on chapter content. The HTML
 // reader applies it once it knows which note kinds are used; Book.parse cannot.

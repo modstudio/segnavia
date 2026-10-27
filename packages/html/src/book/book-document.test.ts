@@ -124,7 +124,7 @@ describe('book document', () => {
     ])
   })
 
-  test('reports that chapter endnotes belong to unbuilt paginated mode', () => {
+  test('reports that chapter endnotes are not supported yet in paginated mode', () => {
     const result = bookDocument(
       Book.parse(
         input({
@@ -134,7 +134,7 @@ describe('book document', () => {
         }),
       ),
     )
-    expect(result.issues).toContain('endnotes at the end of each chapter belong to paginated mode, which is not built yet')
+    expect(result.issues).toContain('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
   })
 
   test('reports authored ids that use the reserved library prefix', () => {

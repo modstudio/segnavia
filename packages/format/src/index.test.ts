@@ -212,4 +212,12 @@ describe('direction', () => {
     expect(resolveDirection(undefined, undefined, 'שלום')).toBe('rtl')
     expect(resolveDirection(undefined, undefined, '42')).toBe('ltr')
   })
+
+  test('resolveDirection is self-contained for script embedding', () => {
+    const run = new Function(`return (${resolveDirection.toString()});`)() as typeof resolveDirection
+    expect(run('ltr', 'he', 'שלום')).toBe(resolveDirection('ltr', 'he', 'שלום'))
+    expect(run('auto', 'he-IL', 'Hello')).toBe(resolveDirection('auto', 'he-IL', 'Hello'))
+    expect(run(undefined, undefined, 'שלום')).toBe(resolveDirection(undefined, undefined, 'שלום'))
+    expect(run(undefined, undefined, '42')).toBe(resolveDirection(undefined, undefined, '42'))
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues } from './index.ts'
+import { Book, type BookInput, isBookContents, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -147,5 +147,20 @@ describe('book', () => {
     const schema = jsonSchemas().book as { properties?: Record<string, unknown>; required?: string[] }
     expect(schema.properties).toHaveProperty('numbering')
     expect(schema.required).not.toContain('page')
+  })
+
+  test('resolveBookPagination is absent for continuous books and complete for paginated ones', () => {
+    expect(resolveBookPagination(Book.parse(input()))).toBeUndefined()
+    expect(resolveBookPagination(Book.parse(input({ mode: 'paginated', lang: 'he', page, rectoOpenings: true })))).toMatchObject({
+      paper: { width: 148, height: 210 },
+      margin: page.margin,
+      columnGap: 4,
+      direction: 'rtl',
+      numbering: { frontMatter: 'arabic', body: 'hebrew' },
+      rectoOpenings: true,
+      orphans: 2,
+      widows: 2,
+      endnotePlacement: 'book',
+    })
   })
 })

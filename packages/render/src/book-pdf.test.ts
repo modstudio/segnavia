@@ -38,6 +38,7 @@ test('prints a paginated book once then finishes', async () => {
     return document.save()
   }
   let prints = 0
+  let finishes = 0
   const output = await renderBookPdf(
     {
       title: 'Book',
@@ -51,10 +52,14 @@ test('prints a paginated book once then finishes', async () => {
         prints += 1
         return { bytes: await printedBook(), overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] } }
       },
-      finish: async (pdf) => pdf,
+      finish: async (pdf) => {
+        finishes += 1
+        return pdf
+      },
     },
   )
   expect(prints).toBe(1)
+  expect(finishes).toBe(1)
   expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
 })
 
