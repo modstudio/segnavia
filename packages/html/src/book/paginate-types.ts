@@ -125,13 +125,16 @@ export interface PaginatePageFill {
   done?: boolean
 }
 
-export interface PaginateNotesPayload {
+export type PaginateNotesUsed = (placed: PaginateUnit[], fragments: PaginatePageNote[]) => number
+
+interface PaginateNotesBase {
   notes: PaginateNote[]
   geometry: { textHeight: number; notesGap: number }
-  fragments?: PaginatePageNote[]
-  pending?: PaginatePageNote[]
-  placed?: PaginateUnit[]
-  unit?: PaginateUnit
-  seed?: PaginatePageNote[]
-  used?: (placed: PaginateUnit[], fragments: PaginatePageNote[]) => number
 }
+
+export type PaginateNotesOp =
+  | (PaginateNotesBase & { op: 'space'; fragments: PaginatePageNote[] })
+  | (PaginateNotesBase & { op: 'continue'; pending: PaginatePageNote[]; used: PaginateNotesUsed })
+  | (PaginateNotesBase & { op: 'allocate'; placed: PaginateUnit[]; fragments: PaginatePageNote[]; unit: PaginateUnit; used: PaginateNotesUsed })
+  | (PaginateNotesBase & { op: 'recompute'; placed: PaginateUnit[]; seed: PaginatePageNote[]; used: PaginateNotesUsed })
+  | (PaginateNotesBase & { op: 'leftover'; fragments: PaginatePageNote[] })

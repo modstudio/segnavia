@@ -1,13 +1,12 @@
-import type { PaginateNote, PaginateNotesPayload, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
+import type { PaginateNote, PaginateNotesOp, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
 
-export function paginateNotes(op: 'space', payload: PaginateNotesPayload): number
-export function paginateNotes(op: 'continue', payload: PaginateNotesPayload): { fragments: PaginatePageNote[]; leftover: PaginatePageNote[] }
-export function paginateNotes(op: 'allocate', payload: PaginateNotesPayload): PaginatePageNote[] | undefined
-export function paginateNotes(op: 'recompute', payload: PaginateNotesPayload): PaginatePageNote[]
-export function paginateNotes(op: 'leftover', payload: PaginateNotesPayload): PaginatePageNote[]
+export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'space' }>): number
+export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'continue' }>): { fragments: PaginatePageNote[]; leftover: PaginatePageNote[] }
+export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'allocate' }>): PaginatePageNote[] | undefined
+export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'recompute' }>): PaginatePageNote[]
+export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'leftover' }>): PaginatePageNote[]
 export function paginateNotes(
-  op: 'space' | 'continue' | 'allocate' | 'recompute' | 'leftover',
-  payload: PaginateNotesPayload,
+  payload: PaginateNotesOp,
 ): number | PaginatePageNote[] | { fragments: PaginatePageNote[]; leftover: PaginatePageNote[] } | undefined {
   const notesById = new Map(payload.notes.map((note: PaginateNote) => [note.id, note]))
   const notesGap = payload.geometry.notesGap
@@ -32,7 +31,10 @@ export function paginateNotes(
   }
 
   function measure(placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
-    return payload.used ? payload.used(placed, fragments) : notesSpace(fragments)
+    if (payload.op === 'continue' || payload.op === 'allocate' || payload.op === 'recompute') {
+      return payload.used(placed, fragments)
+    }
+    return notesSpace(fragments)
   }
 
   function makeFragment(id: string, start: number, end: number): PaginatePageNote {
@@ -103,13 +105,9 @@ export function paginateNotes(
     return fragments
   }
 
-  if (op === 'space') return notesSpace(payload.fragments ?? [])
-  if (op === 'continue') return takeContinued(payload.pending ?? [])
-  if (op === 'allocate') {
-    const unit = payload.unit
-    if (!unit) return undefined
-    return allocateNotes(payload.placed ?? [], payload.fragments ?? [], unit)
-  }
-  if (op === 'recompute') return notesFor(payload.placed ?? [], payload.seed ?? [])
-  return leftoverFrom(payload.fragments ?? [])
+  if (payload.op === 'space') return notesSpace(payload.fragments)
+  if (payload.op === 'continue') return takeContinued(payload.pending)
+  if (payload.op === 'allocate') return allocateNotes(payload.placed, payload.fragments, payload.unit)
+  if (payload.op === 'recompute') return notesFor(payload.placed, payload.seed)
+  return leftoverFrom(payload.fragments)
 }

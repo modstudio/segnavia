@@ -1,7 +1,14 @@
 import { paginateColumns } from './paginate-columns.ts'
 import type { PaginateBlock, PaginateUnit } from './paginate-types.ts'
 
-export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undefined, textHeight: number, orphans: number, widows: number): PaginateUnit[] {
+export function paginateKeeps(
+  placed: PaginateUnit[],
+  next: PaginateUnit | undefined,
+  textHeight: number,
+  orphans: number,
+  widows: number,
+  allowEmpty?: boolean,
+): PaginateUnit[] {
   function sameBlock(left: PaginateBlock, right: PaginateBlock): boolean {
     return left.position.chapter === right.position.chapter && left.position.block === right.position.block
   }
@@ -17,7 +24,8 @@ export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undef
   }
 
   function kept(dropped: PaginateUnit[]): PaginateUnit[] | undefined {
-    return dropped.length === 0 ? undefined : dropped
+    if (dropped.length > 0) return dropped
+    return allowEmpty ? dropped : undefined
   }
 
   function layoutHeight(block: PaginateBlock): number {

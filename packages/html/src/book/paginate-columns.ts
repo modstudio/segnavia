@@ -2,8 +2,7 @@ import type { PaginateBlock, PaginateUnit, PaginateWindow } from './paginate-typ
 
 export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWindow[]; height: number; headerRepeat: number } {
   function columnCount(block: PaginateBlock): number {
-    const count = block.columns ?? 1
-    return count < 1 ? 1 : count
+    return block.columns ?? 1
   }
 
   function headerFor(): number {

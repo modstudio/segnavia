@@ -1,8 +1,10 @@
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import type {
+  PaginateBlock,
   PaginateBookInput,
   PaginateBookPage,
+  PaginateBookRefusal,
   PaginateBookResult,
   PaginateFlow,
   PaginatePageFill,
@@ -16,6 +18,45 @@ export function paginateSequence(
   input: PaginateBookInput,
   fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[]) => PaginatePageFill,
 ): PaginateBookResult {
+  function emptyMarks(): PaginatePageMarks {
+    return Object.create(null) as PaginatePageMarks
+  }
+
+  function columnRefusal(block: PaginateBlock): PaginateBookRefusal | undefined {
+    const ceiling = 12
+    const count = block.columns
+    if (count === undefined) return undefined
+    if (Number.isInteger(count) && count >= 1 && count <= ceiling) return undefined
+    const position = `chapter ${block.position.chapter} block ${block.position.block}`
+    return {
+      tag: block.tag,
+      position: block.position,
+      message: `The ${block.tag} at ${position} could not establish a column count; use an integer from 1 to 12 to clear this refusal.`,
+    }
+  }
+
+  function pagesRefusal(flow: PaginateFlow): PaginateBookRefusal | undefined {
+    if (flow.kind !== 'fixed') return undefined
+    if (Number.isSafeInteger(flow.pages) && flow.pages >= 0) return undefined
+    return {
+      tag: flow.id,
+      position: { chapter: 0, block: 0 },
+      message: `The ${flow.id} flow could not establish a page count; use a safe integer of 0 or more to clear this refusal.`,
+    }
+  }
+
+  function boundsRefusal(): PaginateBookRefusal | undefined {
+    for (const flow of input.flows) {
+      const pages = pagesRefusal(flow)
+      if (pages) return pages
+      if (flow.kind === 'fixed') continue
+      for (const block of flow.blocks) {
+        const columns = columnRefusal(block)
+        if (columns) return columns
+      }
+    }
+  }
+
   function isFront(flow: PaginateFlow): boolean {
     if (flow.kind === 'fixed') return flow.sequence === 'front'
     return flow.kind === 'front' || flow.kind === 'contents'
@@ -146,7 +187,7 @@ export function paginateSequence(
   function paginatePart(flows: PaginateFlow[], part: PaginateSequence): PaginateBookResult {
     const pages: PaginateBookPage[] = []
     let continued: PaginatePageNote[] = []
-    let carried: PaginatePageMarks = {}
+    let carried: PaginatePageMarks = emptyMarks()
     for (const flow of flows) {
       if (part === 'body' && input.settings.rectoOpenings && pages.length % 2 === 1) pages.push(makeBlank(pages.length + 1, part, flow.id))
       const result = paginateFlow(flow, part, pages, continued, carried)
@@ -165,6 +206,8 @@ export function paginateSequence(
     return { pages, refusals: [] }
   }
 
+  const bounded = boundsRefusal()
+  if (bounded) return { pages: [], refusals: [bounded] }
   const body = paginatePart(
     input.flows.filter((flow) => !isFront(flow)),
     'body',
