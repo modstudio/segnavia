@@ -152,53 +152,6 @@ export class SegnaviaPaper extends HTMLElement {
     this.dataset.sides = String(this.sides)
   }
 
-  private paintCurrent(generation: number, controller: AbortController, pages: Page[], imposition: Imposition, imposed: ReturnType<typeof impose>) {
-    return () =>
-      this.isConnected &&
-      !controller.signal.aborted &&
-      generation === this.slotGeneration &&
-      pages === this.pages &&
-      imposition === this.imposition &&
-      imposed === this.imposed
-  }
-
-  private commitPaint(shown: Page[], resolved: PreparedSlots | undefined, generation: number, imposition: Imposition, imposed: ReturnType<typeof impose>) {
-    this.resolvedSlots = resolved
-    this.resolvedGeneration = resolved ? generation : 0
-    this.paintResolved(imposition, imposed, shown)
-  }
-
-  private reportPaint(error: unknown, imposition: Imposition, imposed: ReturnType<typeof impose>) {
-    this.resolvedSlots = undefined
-    this.resolvedGeneration = 0
-    if (!this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
-    this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-  }
-
-  private continuePaint(
-    shown: Page[],
-    generation: number,
-    controller: AbortController,
-    imposition: Imposition,
-    imposed: ReturnType<typeof impose>,
-    current: () => boolean,
-  ) {
-    const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-    if (refusal) throw refusal
-    const declarations = shown.map((page) => page.slots)
-    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
-      if (this.motifOptions || this.fontOptions) this.commitPaint(shown, undefined, generation, imposition, imposed)
-      return
-    }
-    void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-      .then((resolved) => {
-        if (current()) this.commitPaint(shown, resolved, generation, imposition, imposed)
-      })
-      .catch((error) => {
-        if (current()) this.reportPaint(error, imposition, imposed)
-      })
-  }
-
   private paint() {
     this.cancelSlotPreparation()
     const imposition = this.imposition
@@ -211,14 +164,42 @@ export class SegnaviaPaper extends HTMLElement {
     const pages = this.pages
     const controller = new AbortController()
     this.slotPreparation = controller
-    const current = this.paintCurrent(generation, controller, pages, imposition, imposed)
+    const current = () =>
+      this.isConnected &&
+      !controller.signal.aborted &&
+      generation === this.slotGeneration &&
+      pages === this.pages &&
+      imposition === this.imposition &&
+      imposed === this.imposed
+    const commit = (shown: Page[], resolved?: PreparedSlots) => {
+      if (!current()) return
+      this.resolvedSlots = resolved
+      this.resolvedGeneration = resolved ? generation : 0
+      this.paintResolved(imposition, imposed, shown)
+    }
     const report = (error: unknown) => {
-      if (current()) this.reportPaint(error, imposition, imposed)
+      if (!current()) return
+      this.resolvedSlots = undefined
+      this.resolvedGeneration = 0
+      if (!this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
+      this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    }
+    const continuePaint = (shown: Page[]) => {
+      const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
+      if (refusal) throw refusal
+      const declarations = shown.map((page) => page.slots)
+      if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+        if (this.motifOptions || this.fontOptions) commit(shown)
+        return
+      }
+      void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
+        .then((resolved) => commit(shown, resolved))
+        .catch(report)
     }
     if (!this.motifOptions && !this.fontOptions) {
       this.paintResolved(imposition, imposed)
       try {
-        this.continuePaint(pages, generation, controller, imposition, imposed, current)
+        continuePaint(pages)
       } catch (error) {
         report(error)
       }
@@ -230,14 +211,7 @@ export class SegnaviaPaper extends HTMLElement {
         const css = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
         if (!current()) return
         this.resolvedFontCss = css
-        this.continuePaint(
-          expanded.map((item) => item.page),
-          generation,
-          controller,
-          imposition,
-          imposed,
-          current,
-        )
+        continuePaint(expanded.map((item) => item.page))
       })
       .catch(report)
   }

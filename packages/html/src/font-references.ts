@@ -2,7 +2,13 @@ import { APP_FONT_NAME, type FontReference } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse } from './sanitize.ts'
 
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]/
+function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) return true
+  }
+  return false
+}
 const FONT_PROPERTY = /(?:^|[;{])\s*(font-family|font)\s*:([^;{}]+)/gi
 const FONT_VAR = /var\(\s*--segnavia-font-([A-Za-z0-9-]+)\s*\)/g
 
@@ -132,7 +138,7 @@ function referenceRefusals(references: FontReference[], known: ReadonlySet<strin
     if (!known.has(name)) {
       refusals.push(refusal(referencePlace(ref), `app font ${JSON.stringify(name)}`, 'make that font available from the source'))
     }
-    if (local && CONTROL_CHARS.test(local.local)) {
+    if (local && hasControlChars(local.local)) {
       refusals.push(refusal(referencePlace(ref), 'a local family without control characters', 'remove control characters from the family name'))
     }
   }
@@ -155,7 +161,7 @@ function localCssRefusals(lists: string[][], references: FontReference[]): strin
       const next = items[index + 1]
       if (next === expected) continue
       const place = `page CSS font-family ${JSON.stringify(items.join(', '))}`
-      if (!next || !next.startsWith('var(--segnavia-font-')) {
+      if (!next?.startsWith('var(--segnavia-font-')) {
         refusals.push(
           refusal(place, `the declared fallback after ${JSON.stringify(local.local)}`, `write font-family: ${JSON.stringify(local.local)}, ${expected}`),
         )

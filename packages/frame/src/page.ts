@@ -3,7 +3,7 @@
 // scaled to fit the element's width; a fixed width that grows does both. It
 // brings no appearance, only that geometry, which a host can override.
 //
-// Attributes: src (page JSON), unstyled (bring no styles at all). Properties: page, css, cspExtra. `showUrl`
+// Attributes: src (page JSON), unstyled (bring no styles at all). Properties: page, css, cspExtra, slots, motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
