@@ -29,7 +29,7 @@ import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
 
 export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null
@@ -43,6 +43,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
+  private fontOptions: FontsOptions | undefined
   private viewEvent = 0
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -107,6 +108,13 @@ export class SegnaviaBoard extends BoardSelectionElement {
   }
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.render()
+  }
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+  set fonts(value: FontsOptions | undefined) {
+    this.fontOptions = value
     this.render()
   }
   set board(input: Board | null) {
@@ -356,7 +364,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions)
+    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.fontOptions)
   }
 
   private resolve(item: BoardItem) {

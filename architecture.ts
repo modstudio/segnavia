@@ -40,6 +40,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/stage-layout.ts',
       'src/print-document.ts',
       'src/motif-expansion.ts',
+      'src/page-fonts.ts',
       'src/slot-render.ts',
       'src/styled-elements.ts',
       'src/icons.ts',

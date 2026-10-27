@@ -1,4 +1,4 @@
-import { fontCss, FontCssRefusedError } from '@segnavia/html'
+import { FontCssRefusedError, fontCss } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { Font } from './options.ts'
 

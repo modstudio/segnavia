@@ -88,8 +88,7 @@ function familyItems(value: string): string[] {
   while (i < value.length) {
     i = skipSpace(value, i)
     if (i >= value.length) break
-    const next =
-      value.startsWith('var(', i) ? readVar(value, i) : value[i] === '"' || value[i] === "'" ? readQuoted(value, i) : readIdent(value, i)
+    const next = value.startsWith('var(', i) ? readVar(value, i) : value[i] === '"' || value[i] === "'" ? readQuoted(value, i) : readIdent(value, i)
     if (next.text) items.push(next.text)
     i = next.next
     i = skipSpace(value, i)
@@ -127,18 +126,14 @@ function referenceRefusals(references: FontReference[], known: ReadonlySet<strin
     const local = localRef(ref)
     const name = app ?? local?.fallback ?? ''
     if (!APP_FONT_NAME.test(name)) {
-      refusals.push(
-        refusal(referencePlace(ref), `an app font name matching ${APP_FONT_NAME}`, 'use a lowercase name of letters, digits and hyphens'),
-      )
+      refusals.push(refusal(referencePlace(ref), `an app font name matching ${APP_FONT_NAME}`, 'use a lowercase name of letters, digits and hyphens'))
       continue
     }
     if (!known.has(name)) {
       refusals.push(refusal(referencePlace(ref), `app font ${JSON.stringify(name)}`, 'make that font available from the source'))
     }
     if (local && CONTROL_CHARS.test(local.local)) {
-      refusals.push(
-        refusal(referencePlace(ref), 'a local family without control characters', 'remove control characters from the family name'),
-      )
+      refusals.push(refusal(referencePlace(ref), 'a local family without control characters', 'remove control characters from the family name'))
     }
   }
   return refusals
@@ -165,13 +160,7 @@ function localCssRefusals(lists: string[][], references: FontReference[]): strin
           refusal(place, `the declared fallback after ${JSON.stringify(local.local)}`, `write font-family: ${JSON.stringify(local.local)}, ${expected}`),
         )
       } else {
-        refusals.push(
-          refusal(
-            place,
-            `fallback ${next} matching declared ${expected}`,
-            `write font-family: ${JSON.stringify(local.local)}, ${expected}`,
-          ),
-        )
+        refusals.push(refusal(place, `fallback ${next} matching declared ${expected}`, `write font-family: ${JSON.stringify(local.local)}, ${expected}`))
       }
     }
   }
@@ -202,9 +191,5 @@ function undeclaredVarRefusals(chunks: string[], declared: ReadonlySet<string>):
 export function fontReferenceRefusals(html: string, references: FontReference[], known: ReadonlySet<string>): string[] {
   const chunks = cssChunks(html)
   const lists = chunks.flatMap(familyLists)
-  return [
-    ...referenceRefusals(references, known),
-    ...localCssRefusals(lists, references),
-    ...undeclaredVarRefusals(chunks, appNames(references)),
-  ]
+  return [...referenceRefusals(references, known), ...localCssRefusals(lists, references), ...undeclaredVarRefusals(chunks, appNames(references))]
 }

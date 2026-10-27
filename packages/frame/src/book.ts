@@ -5,10 +5,11 @@ import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
+import { type FontsOptions, resolveFontReferences } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
-export function bookFrame(view: BookView): { title: string; srcdoc: string } {
+export function bookFrame(view: BookView, css?: string): { title: string; srcdoc: string } {
   return {
     title: view.title ?? bookLabel(view.lang),
     srcdoc: frameDocument(view.html, {
@@ -16,6 +17,7 @@ export function bookFrame(view: BookView): { title: string; srcdoc: string } {
       nonce: newNonce(),
       dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
       lang: view.lang,
+      css,
       relayKeys: false,
       reportHeight: false,
     }),
@@ -36,6 +38,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private loadGeneration = 0
   private loadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
+  private fontOptions: FontsOptions | undefined
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
@@ -76,6 +79,19 @@ export class SegnaviaBook extends HTMLElementBase {
     }
   }
 
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+
+  set fonts(value: FontsOptions | undefined) {
+    this.fontOptions = value
+    if (!this.currentView) return
+    ++this.loadGeneration
+    this.loadController?.abort()
+    this.loadController = null
+    this.mount()
+  }
+
   get view(): BookView | null {
     return this.currentView
   }
@@ -99,15 +115,34 @@ export class SegnaviaBook extends HTMLElementBase {
     this.dispatchEvent(new CustomEvent('error', { detail: { message } }))
   }
 
-  private mount() {
-    const view = this.currentView
-    if (!view) return
-    const rendered = bookFrame(view)
+  private mountFrame(rendered: { title: string; srcdoc: string }) {
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.title = rendered.title
     iframe.srcdoc = rendered.srcdoc
     this.replaceChildren(iframe)
+  }
+
+  private mount() {
+    const view = this.currentView
+    if (!view) return
+    if (!this.fontOptions) {
+      this.mountFrame(bookFrame(view))
+      return
+    }
+    const generation = this.loadGeneration
+    this.loadController?.abort()
+    const controller = new AbortController()
+    this.loadController = controller
+    void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, view.title ? `book ${JSON.stringify(view.title)}` : 'book')
+      .then((css) => {
+        if (generation !== this.loadGeneration) return
+        this.mountFrame(bookFrame(view, css))
+      })
+      .catch((reason) => {
+        if (generation !== this.loadGeneration) return
+        this.reportError(reason)
+      })
   }
 
   private onMessage = (event: MessageEvent) => {

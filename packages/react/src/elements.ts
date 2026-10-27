@@ -82,7 +82,7 @@ export const ELEMENTS = {
   ),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs'],
+    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts'],
     {
       onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
     },
@@ -97,15 +97,15 @@ export const ELEMENTS = {
       onSegnaviaFillSelect: 'segnavia-fill-select',
     },
   ),
-  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'slots', 'motifs'], {}),
+  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'slots', 'motifs', 'fonts'], {}),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'slots', 'motifs'],
+    ['paper', 'side', 'css', 'cspExtra', 'slots', 'motifs', 'fonts'],
     {},
   ),
   document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'pages', 'print', 'slots', 'motifs'],
+    ['css', 'cspExtra', 'pages', 'print', 'slots', 'motifs', 'fonts'],
     {},
   ),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),

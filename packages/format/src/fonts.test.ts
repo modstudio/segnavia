@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, Page } from './index.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
+import { Book, Page } from './index.ts'
 
 describe('FontReference', () => {
   test('reads stored references tolerantly and writes them strictly', () => {
@@ -20,9 +20,8 @@ describe('Page and Book fonts', () => {
   test('carry optional font references', () => {
     expect(Page.parse({ html: '' }).fonts).toBeUndefined()
     expect(Page.parse({ html: '', fonts: [{ app: 'serif' }] }).fonts).toEqual([{ app: 'serif' }])
-    expect(
-      Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], fonts: [{ app: 'serif' }] }).fonts,
-    ).toEqual([{ app: 'serif' }])
+    expect(Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], fonts: [{ app: 'serif' }] }).fonts).toEqual([
+      { app: 'serif' },
+    ])
   })
 })
-

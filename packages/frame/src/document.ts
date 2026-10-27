@@ -4,7 +4,7 @@
 
 import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -23,6 +23,7 @@ export class SegnaviaDocument extends HTMLElement {
   private authoringRail: HTMLElement | null = null
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private fontOptions: FontsOptions | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
@@ -45,6 +46,15 @@ export class SegnaviaDocument extends HTMLElement {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.paint()
+  }
+
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+
+  set fonts(value: FontsOptions | undefined) {
+    this.fontOptions = value
     this.paint()
   }
 
@@ -230,6 +240,7 @@ export class SegnaviaDocument extends HTMLElement {
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
+    page.fonts = this.fontOptions
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
