@@ -47,4 +47,16 @@ describe('fontReferenceRefusals', () => {
     const html = '<p style=\'font-family: "Some Local Face", var(--segnavia-font-serif)\'></p><style>h1{font-family:var(--segnavia-font-heading)}</style>'
     expect(fontReferenceRefusals(html, [{ local: 'Some Local Face', fallback: 'serif' }, { app: 'serif' }, { app: 'heading' }], known)).toEqual([])
   })
+
+  test('font shorthand without a fallback is refused like font-family', () => {
+    const html = '<p style="font:16px &quot;Some Local Face&quot;"></p>'
+    expect(fontReferenceRefusals(html, [{ local: 'Some Local Face', fallback: 'serif' }], known)).toEqual([
+      'page CSS font-family "Some Local Face" could not establish the declared fallback after "Some Local Face"; write font-family: "Some Local Face", var(--segnavia-font-serif) to clear this refusal.',
+    ])
+  })
+
+  test('font shorthand with size, line-height and the declared fallback is accepted', () => {
+    const html = '<p style=\'font:16px/1.4 "Some Local Face", var(--segnavia-font-serif)\'></p>'
+    expect(fontReferenceRefusals(html, [{ local: 'Some Local Face', fallback: 'serif' }, { app: 'serif' }], known)).toEqual([])
+  })
 })

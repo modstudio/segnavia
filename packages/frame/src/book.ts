@@ -5,7 +5,7 @@ import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
-import { type FontsOptions, resolveFontReferences } from './page-fonts.ts'
+import { type FontsOptions, refuseMissingFontSource, resolveFontReferences } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
@@ -126,7 +126,14 @@ export class SegnaviaBook extends HTMLElementBase {
   private mount() {
     const view = this.currentView
     if (!view) return
+    const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
     if (!this.fontOptions) {
+      try {
+        refuseMissingFontSource(view.fonts ?? [], place)
+      } catch (reason) {
+        this.reportError(reason)
+        return
+      }
       this.mountFrame(bookFrame(view))
       return
     }
@@ -134,13 +141,13 @@ export class SegnaviaBook extends HTMLElementBase {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, view.title ? `book ${JSON.stringify(view.title)}` : 'book')
+    void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
       .then((css) => {
-        if (generation !== this.loadGeneration) return
+        if (generation !== this.loadGeneration || !this.isConnected) return
         this.mountFrame(bookFrame(view, css))
       })
       .catch((reason) => {
-        if (generation !== this.loadGeneration) return
+        if (generation !== this.loadGeneration || !this.isConnected) return
         this.reportError(reason)
       })
   }

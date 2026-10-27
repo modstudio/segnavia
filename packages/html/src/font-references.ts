@@ -1,15 +1,13 @@
 import { APP_FONT_NAME, type FontReference } from '@segnavia/format'
 import type { Element } from 'domhandler'
+import { hasControlChar } from './control-char.ts'
 import { elements, parse } from './sanitize.ts'
 
-function hasControlChars(value: string): boolean {
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i)
-    if (code <= 0x1f || code === 0x7f) return true
-  }
-  return false
-}
 const FONT_PROPERTY = /(?:^|[;{])\s*(font-family|font)\s*:([^;{}]+)/gi
+const FONT_PREFIX_KEYWORD =
+  /^(?:italic|oblique|normal|small-caps|bold|bolder|lighter|(?:ultra-|extra-|semi-)?(?:condensed|expanded)|[1-9]00)\s+/i
+const FONT_SIZE =
+  /^(?:xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|smaller|larger|\d+(?:\.\d+)?(?:px|em|rem|pt|pc|in|cm|mm|ex|ch|vw|vh|%))(?:\s*\/\s*(?:normal|\d+(?:\.\d+)?(?:px|em|rem|pt|pc|in|cm|mm|ex|ch|vw|vh|%)?))?\s*/i
 const FONT_VAR = /var\(\s*--segnavia-font-([A-Za-z0-9-]+)\s*\)/g
 
 function refusal(place: string, problem: string, remedy: string): string {
@@ -88,6 +86,13 @@ function readIdent(value: string, index: number): { text: string; next: number }
   return { text: value.slice(index, i).trim(), next: i }
 }
 
+function stripFontShorthand(value: string): string {
+  let rest = value.trim()
+  while (FONT_PREFIX_KEYWORD.test(rest)) rest = rest.replace(FONT_PREFIX_KEYWORD, '')
+  if (!FONT_SIZE.test(rest)) return value.trim()
+  return rest.replace(FONT_SIZE, '')
+}
+
 function familyItems(value: string): string[] {
   const items: string[] = []
   let i = 0
@@ -109,9 +114,8 @@ function familyLists(css: string): string[][] {
   for (const match of css.matchAll(FONT_PROPERTY)) {
     const property = (match[1] ?? '').toLowerCase()
     const value = match[2] ?? ''
-    const items = familyItems(value)
-    if (property === 'font-family') lists.push(items)
-    else if (items.length > 0) lists.push(items)
+    const items = familyItems(property === 'font' ? stripFontShorthand(value) : value)
+    if (items.length > 0) lists.push(items)
   }
   return lists
 }
@@ -138,7 +142,7 @@ function referenceRefusals(references: FontReference[], known: ReadonlySet<strin
     if (!known.has(name)) {
       refusals.push(refusal(referencePlace(ref), `app font ${JSON.stringify(name)}`, 'make that font available from the source'))
     }
-    if (local && hasControlChars(local.local)) {
+    if (local && hasControlChar(local.local)) {
       refusals.push(refusal(referencePlace(ref), 'a local family without control characters', 'remove control characters from the family name'))
     }
   }

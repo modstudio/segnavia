@@ -5,7 +5,8 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
-import { expandedPagesFontCss, expandFramePages, type FontsOptions, type MotifsOptions } from './motif-expansion.ts'
+import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
+import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
   type PrintablePagesOptions,

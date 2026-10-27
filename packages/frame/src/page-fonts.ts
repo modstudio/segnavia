@@ -1,4 +1,5 @@
 import type { AppFont, FontFace, FontReference, FontSource, Page } from '@segnavia/format'
+import { APP_FONT_NAME } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 
 export interface FontsOptions {
@@ -37,9 +38,29 @@ function appNames(references: FontReference[]): string[] {
   return names
 }
 
+function declaredAppFont(references: FontReference[]): string | undefined {
+  for (const ref of references) {
+    if ('app' in ref) return ref.app
+  }
+}
+
+export function refuseMissingFontSource(references: FontReference[], place: string): void {
+  const name = declaredAppFont(references)
+  if (!name) return
+  throw new FontRefusedError(`${place} could not establish app font ${JSON.stringify(name)}; supply a FontSource to clear this refusal.`)
+}
+
+function requireAppFontName(name: string, place: string): void {
+  if (APP_FONT_NAME.test(name)) return
+  throw new FontRefusedError(
+    `${place} could not establish an app font name matching ${APP_FONT_NAME} (${JSON.stringify(name)}); use a lowercase name of letters, digits and hyphens to clear this refusal.`,
+  )
+}
+
 export async function resolveFontReferences(references: FontReference[], fonts: FontsOptions, signal: AbortSignal, place: string): Promise<string> {
   const app = new Map<string, AppFont>()
   for (const name of appNames(references)) {
+    requireAppFontName(name, place)
     const font = await fonts.source.font(name, { signal })
     signal.throwIfAborted()
     if (!font) {
@@ -58,8 +79,13 @@ export async function resolvePageFonts(page: Page, motifFonts: FontReference[], 
 }
 
 export async function pageFontCss(page: Page, motifFonts: FontReference[], fonts: FontsOptions | undefined, signal: AbortSignal): Promise<string> {
-  if (!fonts) return ''
-  return resolvePageFonts(page, motifFonts, fonts, signal)
+  const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
+  const references = uniqueFontReferences([...(page.fonts ?? []), ...motifFonts])
+  if (!fonts) {
+    refuseMissingFontSource(references, place)
+    return ''
+  }
+  return resolveFontReferences(references, fonts, signal, place)
 }
 
 export async function expandedPagesFontCss(
@@ -68,11 +94,10 @@ export async function expandedPagesFontCss(
   signal: AbortSignal,
   place = 'page',
 ): Promise<string> {
-  if (!fonts) return ''
-  return resolveFontReferences(
-    uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)]),
-    fonts,
-    signal,
-    place,
-  )
+  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+  if (!fonts) {
+    refuseMissingFontSource(references, place)
+    return ''
+  }
+  return resolveFontReferences(references, fonts, signal, place)
 }

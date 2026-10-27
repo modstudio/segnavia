@@ -91,6 +91,31 @@ describe('fontCss', () => {
     )
   })
 
+  test('refuses an app font name that is not an APP_FONT_NAME', () => {
+    const work = () =>
+      fontCss({
+        app: new Map([['x}body{color:red', { family: 'Body Serif', faces: [face({ family: 'Body Serif' })] }]]),
+      })
+    expect(work).toThrow(FontCssRefusedError)
+    expect(work).toThrow(
+      'The app font name "x}body{color:red" could not establish an app font name matching /^[a-z0-9-]+$/; use a lowercase name of letters, digits and hyphens to clear this refusal.',
+    )
+  })
+
+  test('refuses a face weight, style or format that is not a CSS descriptor', () => {
+    const weight = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: '400;}body{' })] })
+    expect(weight).toThrow(FontCssRefusedError)
+    expect(weight).toThrow('The face "Face" could not establish a CSS font-weight; supply a number 1-1000 or a CSS weight keyword to clear this refusal.')
+    const style = () => fontCss({ app: new Map(), local: [face({ family: 'Face', style: 'italic;}body{' as FontFace['style'] })] })
+    expect(style).toThrow(FontCssRefusedError)
+    expect(style).toThrow("The face \"Face\" could not establish a font-style of 'normal' or 'italic'; supply 'normal' or 'italic' to clear this refusal.")
+    const format = () => fontCss({ app: new Map(), local: [face({ family: 'Face', format: 'woff2;}body{' as FontFace['format'] })] })
+    expect(format).toThrow(FontCssRefusedError)
+    expect(format).toThrow(
+      'The face "Face" could not establish a font format that is one of woff2, woff, truetype, opentype; supply one of woff2, woff, truetype, opentype to clear this refusal.',
+    )
+  })
+
   test('refuses a malformed unicodeRange naming the face, the range, and what clears it', () => {
     const work = () =>
       fontCss({

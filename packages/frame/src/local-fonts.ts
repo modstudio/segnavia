@@ -1,6 +1,6 @@
 import type { FontFace, FontFormat, FontReference } from '@segnavia/format'
 
-export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed'
+export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
 export interface LocalFontUnavailable {
   family: string
@@ -76,6 +76,7 @@ function fontFormat(data: Uint8Array): FontFormat | undefined {
   if (tag === 'wOFF') return 'woff'
   if (tag === 'OTTO') return 'opentype'
   if (tag === 'true' || (data[0] === 0 && data[1] === 1 && data[2] === 0 && data[3] === 0)) return 'truetype'
+  if (tag === 'ttcf') return
 }
 
 function cutKey(font: LocalFontData): string {
@@ -110,21 +111,30 @@ async function readCut(font: LocalFontData, family: string, signal: AbortSignal)
   }
 }
 
-async function facesForFamily(family: string, installed: readonly LocalFontData[], signal: AbortSignal): Promise<FontFace[]> {
+async function facesForFamily(
+  family: string,
+  installed: readonly LocalFontData[],
+  signal: AbortSignal,
+): Promise<{ faces: FontFace[]; unreadable: boolean }> {
   const faces: FontFace[] = []
   const seen = new Set<string>()
+  let matched = false
+  let unreadable = false
+  const declared = family.toLowerCase()
   for (const font of installed) {
-    if (font.family !== family) continue
+    if (font.family.toLowerCase() !== declared) continue
+    matched = true
     const key = cutKey(font)
     if (seen.has(key)) continue
     seen.add(key)
     const face = await readCut(font, family, signal)
     if (face) faces.push(face)
+    else unreadable = true
   }
-  return faces
+  return { faces, unreadable: matched && faces.length === 0 && unreadable }
 }
 
-async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontData[]; reason?: Exclude<LocalFontUnavailableReason, 'not-installed'> }> {
+async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontData[]; reason?: 'unsupported' | 'denied' }> {
   const query = queryLocalFonts()
   if (!query) return { reason: 'unsupported' }
   signal.throwIfAborted()
@@ -146,17 +156,21 @@ export async function readLocalFonts(references: readonly FontReference[], optio
   const fonts = installed.fonts ?? []
   const faces: FontFace[] = []
   const present = new Set<string>()
+  const unreadable = new Set<string>()
   for (const ref of locals) {
-    if (present.has(ref.local)) continue
-    const familyFaces = await facesForFamily(ref.local, fonts, options.signal)
-    if (familyFaces.length === 0) continue
-    faces.push(...familyFaces)
-    present.add(ref.local)
+    if (present.has(ref.local) || unreadable.has(ref.local)) continue
+    const family = await facesForFamily(ref.local, fonts, options.signal)
+    if (family.faces.length > 0) {
+      faces.push(...family.faces)
+      present.add(ref.local)
+      continue
+    }
+    if (family.unreadable) unreadable.add(ref.local)
   }
   const unavailableFaces: LocalFontUnavailable[] = []
   for (const ref of locals) {
     if (present.has(ref.local)) continue
-    unavailableFaces.push({ family: ref.local, fallback: ref.fallback, reason: 'not-installed' })
+    unavailableFaces.push({ family: ref.local, fallback: ref.fallback, reason: unreadable.has(ref.local) ? 'unreadable' : 'not-installed' })
   }
   return { faces, unavailable: unavailableFaces }
 }

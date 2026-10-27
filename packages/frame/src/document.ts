@@ -4,7 +4,8 @@
 
 import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPage } from './page.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'

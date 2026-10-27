@@ -29,7 +29,8 @@ import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
-import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 
 export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null

@@ -1,6 +1,7 @@
 import type { ResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
-import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
@@ -51,20 +52,32 @@ export function liveBoardItem(
   }
   if (resolved.kind === 'page') {
     const page = new SegnaviaPage()
+    const onError = (event: Event) => {
+      event.stopPropagation()
+      const errorEvent = event as ErrorEvent
+      failed(errorEvent.error ?? errorEvent.message)
+    }
+    page.addEventListener('error', onError)
     page.motifs = motifs
     page.fonts = fonts
     page.load({ ...resolved.page, scripts: 'refuse' })
-    return { element: page, dispose: () => {} }
+    return { element: page, dispose: () => page.removeEventListener('error', onError) }
   }
   if (resolved.kind === 'paper') {
     const paper = new SegnaviaPaper()
+    const onError = (event: Event) => {
+      event.stopPropagation()
+      const errorEvent = event as ErrorEvent
+      failed(errorEvent.error ?? errorEvent.message)
+    }
+    paper.addEventListener('error', onError)
     paper.motifs = motifs
     paper.fonts = fonts
     paper.load(
       resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
       resolved.imposition,
     )
-    return { element: paper, dispose: () => {} }
+    return { element: paper, dispose: () => paper.removeEventListener('error', onError) }
   }
   const book = new SegnaviaBook()
   let loadError: unknown

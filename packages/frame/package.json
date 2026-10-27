@@ -62,6 +62,11 @@
       "types": "./dist/motif-expansion.d.ts",
       "default": "./dist/motif-expansion.js"
     },
+    "./fonts": {
+      "@segnavia/source": "./src/page-fonts.ts",
+      "types": "./dist/page-fonts.d.ts",
+      "default": "./dist/page-fonts.js"
+    },
     "./styled-elements": {
       "@segnavia/source": "./src/styled-elements.ts",
       "types": "./dist/styled-elements.d.ts",

@@ -12,7 +12,8 @@
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { type FontsOptions, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import { type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
@@ -123,7 +124,7 @@ export class SegnaviaPage extends HTMLElement {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (!this.motifOptions && !this.fontOptions) {
+    if (!this.motifOptions && !this.fontOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
       iframe.srcdoc = frameDocument(page.html, {
         scripts: page.scripts,
         nonce: newNonce(),

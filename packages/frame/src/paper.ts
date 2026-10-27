@@ -3,7 +3,8 @@
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { expandedPagesFontCss, expandFramePages, type FontsOptions, type MotifsOptions } from './motif-expansion.ts'
+import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
+import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -196,7 +197,7 @@ export class SegnaviaPaper extends HTMLElement {
         .then((resolved) => commit(shown, resolved))
         .catch(report)
     }
-    if (!this.motifOptions && !this.fontOptions) {
+    if (!this.motifOptions && !this.fontOptions && !pages.some((page) => (page.fonts ?? []).some((ref) => 'app' in ref))) {
       this.paintResolved(imposition, imposed)
       try {
         continuePaint(pages)

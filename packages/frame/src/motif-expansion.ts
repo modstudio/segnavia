@@ -4,9 +4,6 @@ import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
-export type { FontsOptions } from './page-fonts.ts'
-export { expandedPagesFontCss, FontRefusedError, pageFontCss, resolveFontReferences, resolvePageFonts, uniqueFontReferences } from './page-fonts.ts'
-
 export interface MotifsOptions {
   source: MotifSource
   pins?: Record<string, string>

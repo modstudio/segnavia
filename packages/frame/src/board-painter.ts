@@ -1,7 +1,8 @@
 import type { BoardItem } from '@segnavia/format'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
 import type { BoardTier, ResolvedBoardItem } from './board-policy.ts'
-import type { FontsOptions, MotifsOptions } from './motif-expansion.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 
 export class BoardPainter {
   fonts?: FontsOptions
