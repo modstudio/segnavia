@@ -1,58 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { block, flow, input, note, settings, win } from './paginate-book.test-helper.ts'
 import { paginateBook, paginateScript } from './paginate-book.ts'
-import type { PaginateBlock, PaginateBookInput, PaginateFlow, PaginateNote, PaginateWindow } from './paginate-types.ts'
-
-const lineHeight = 10
-
-function lines(count: number, start = 0, height = lineHeight) {
-  return Array.from({ length: count }, (_, index) => ({ top: start + index * height, bottom: start + (index + 1) * height }))
-}
-
-function block(
-  kind: PaginateBlock['kind'],
-  tag: string,
-  chapter: number,
-  index: number,
-  count: number,
-  start: number,
-  extra: Partial<PaginateBlock> = {},
-): PaginateBlock {
-  return { kind, tag, position: { chapter, block: index }, lines: lines(count, start), ...extra }
-}
-
-function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, blocks: PaginateBlock[], runningHead?: string): PaginateFlow {
-  return { id, kind, blocks, ...(runningHead === undefined ? {} : { runningHead }) }
-}
-
-function note(id: string, count: number, height = lineHeight): PaginateNote {
-  return { id, lines: lines(count, 0, height) }
-}
-
-function input(overrides: Partial<PaginateBookInput> & Pick<PaginateBookInput, 'flows'>): PaginateBookInput {
-  return {
-    notes: [],
-    geometry: { textHeight: 50, notesGap: 10 },
-    settings: {
-      rectoOpenings: false,
-      direction: 'ltr',
-      endnotePlacement: 'book',
-    },
-    ...overrides,
-  }
-}
-
-function win(id: string, start: number, end: number, top: number, column = 0, columns = 1): PaginateWindow {
-  return { flow: id, start, end, top, column, columns }
-}
+import type { PaginateBookInput } from './paginate-types.ts'
 
 function rebuilt() {
   return new Function(`${paginateScript()}; return paginateBook;`)() as typeof paginateBook
-}
-
-const settings = {
-  rectoOpenings: true as const,
-  direction: 'ltr' as const,
-  endnotePlacement: 'book' as const,
 }
 
 function fixtures(): PaginateBookInput[] {
@@ -155,6 +107,58 @@ function fixtures(): PaginateBookInput[] {
         flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)]),
       ],
     }),
+    input({
+      geometry: { textHeight: 200, notesGap: 10 },
+      flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 4, 0, { columns: 2 }), block('text', 'p', 1, 2, 4, 40, { columns: 2 })])],
+    }),
+    input({
+      flows: [
+        flow('c1', 'chapter', [
+          block('text', 'p', 1, 1, 2, 0, {
+            marks: [
+              { name: '__proto__', value: 'P', line: 0 },
+              { name: 'constructor', value: 'C', line: 1 },
+            ],
+          }),
+        ]),
+      ],
+    }),
+    input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 2, 0, { columns: 13 })])] }),
+    input({ flows: [{ id: 'art', kind: 'fixed', pages: Number.POSITIVE_INFINITY }] }),
+    input({
+      flows: [flow('c1', 'chapter', [block('figure', 'img', 1, 2, 1, 0, { columns: 2, lines: [{ top: 0, bottom: 80 }] })])],
+    }),
+    input({
+      settings,
+      flows: [
+        flow('preface', 'front', [block('text', 'p', 0, 2, 6, 0)], 'Preface'),
+        flow('toc', 'contents', [block('text', 'p', 0, 1, 2, 0)], 'Contents'),
+        flow('c1', 'chapter', [block('text', 'p', 1, 1, 12, 0)], 'One'),
+      ],
+    }),
+    input({
+      flows: [
+        flow('c1', 'chapter', [
+          block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] }),
+          block('heading', 'h2', 1, 2, 1, 20),
+          block('text', 'p', 1, 3, 4, 30),
+        ]),
+      ],
+      notes: [note('n1', 4)],
+    }),
+    input({
+      flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] })])],
+      notes: [
+        {
+          id: 'n1',
+          lines: [
+            { top: 0, bottom: 10 },
+            { top: 10, bottom: 20 },
+            { top: 20, bottom: 80 },
+          ],
+        },
+      ],
+    }),
   ]
 }
 
@@ -208,6 +212,35 @@ describe('paginateBook', () => {
     expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: true, start: 0, end: 2 }])
   })
 
+  test('a continued note that cannot place a line is refused by the referring block', () => {
+    const paragraph = block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] })
+    const result = paginateBook(
+      input({
+        flows: [flow('c1', 'chapter', [paragraph])],
+        notes: [
+          {
+            id: 'n1',
+            lines: [
+              { top: 0, bottom: 10 },
+              { top: 10, bottom: 20 },
+              { top: 20, bottom: 80 },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(result.pages).toHaveLength(1)
+    expect(result.pages[0]?.notes).toEqual([{ id: 'n1', whole: false, start: 0, end: 2 }])
+    expect(result.refusals).toEqual([
+      {
+        tag: 'p',
+        position: { chapter: 1, block: 1 },
+        message:
+          'The p at chapter 1 block 1 could not establish a fit for a note line in the text area; use a taller text area or a shorter note line to clear this refusal.',
+      },
+    ])
+  })
+
   test('a heading keeps with the next block', () => {
     const heading = block('heading', 'h2', 1, 1, 1, 0)
     const paragraph = block('text', 'p', 1, 2, 5, 10)
@@ -216,6 +249,26 @@ describe('paginateBook', () => {
     expect(pages[0]?.windows).toEqual([win('c1', -40, 0, 0)])
     expect(pages[1]?.windows[0]?.start).toBe(0)
     expect(pages[1]?.sectionOpening).toBe(false)
+  })
+
+  test('a keep rewind that would empty a page with continued notes leaves only the notes', () => {
+    const pages = paginateBook(
+      input({
+        flows: [
+          flow('c1', 'chapter', [
+            block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] }),
+            block('heading', 'h2', 1, 2, 1, 20),
+            block('text', 'p', 1, 3, 4, 30),
+          ]),
+        ],
+        notes: [note('n1', 4)],
+      }),
+    ).pages
+    expect(pages[0]?.windows).toEqual([win('c1', 0, 20, 0)])
+    expect(pages[0]?.notes).toEqual([{ id: 'n1', whole: false, start: 0, end: 2 }])
+    expect(pages[1]?.windows).toEqual([])
+    expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: false, start: 2, end: 4 }])
+    expect(pages[2]?.windows[0]?.start).toBe(20)
   })
 
   test('a figure or table that fits stays whole', () => {
@@ -252,7 +305,7 @@ describe('paginateBook', () => {
   })
 
   test('an oversized line is refused by name', () => {
-    const figure = block('figure', 'img', 1, 2, 1, 0, { lines: [{ top: 0, bottom: 80 }] })
+    const figure = block('figure', 'img', 1, 2, 1, 0, { columns: 2, lines: [{ top: 0, bottom: 80 }] })
     const result = paginateBook(input({ flows: [flow('c1', 'chapter', [figure])] }))
     expect(result.pages).toEqual([])
     expect(result.refusals).toEqual([
@@ -292,15 +345,19 @@ describe('paginateBook', () => {
 
   test('front matter is planned after contents and gets a trailing blank', () => {
     const contents = flow('toc', 'contents', [block('text', 'p', 0, 1, 2, 0)], 'Contents')
-    const preface = flow('preface', 'front', [block('text', 'p', 0, 2, 2, 0)], 'Preface')
+    const preface = flow('preface', 'front', [block('text', 'p', 0, 2, 6, 0)], 'Preface')
     const chapter = flow('c1', 'chapter', [block('text', 'p', 1, 1, 12, 0)], 'One')
     const pages = paginateBook(input({ settings, flows: [preface, contents, chapter] })).pages
-    expect(pages.map((page) => ({ kind: page.kind, number: page.number, sequence: page.sequence, flow: page.windows[0]?.flow ?? page.flow }))).toEqual([
-      { kind: 'front', number: 1, sequence: 'front', flow: 'preface' },
-      { kind: 'front', number: 2, sequence: 'front', flow: 'toc' },
-      { kind: 'body', number: 1, sequence: 'body', flow: 'c1' },
-      { kind: 'body', number: 2, sequence: 'body', flow: 'c1' },
-      { kind: 'body', number: 3, sequence: 'body', flow: 'c1' },
+    expect(
+      pages.map((page) => ({ kind: page.kind, number: page.number, sequence: page.sequence, flow: page.windows[0]?.flow ?? page.flow, blank: page.blank })),
+    ).toEqual([
+      { kind: 'front', number: 1, sequence: 'front', flow: 'preface', blank: false },
+      { kind: 'front', number: 2, sequence: 'front', flow: 'preface', blank: false },
+      { kind: 'front', number: 3, sequence: 'front', flow: 'toc', blank: false },
+      { kind: 'blank', number: 4, sequence: 'front', flow: 'toc', blank: true },
+      { kind: 'body', number: 1, sequence: 'body', flow: 'c1', blank: false },
+      { kind: 'body', number: 2, sequence: 'body', flow: 'c1', blank: false },
+      { kind: 'body', number: 3, sequence: 'body', flow: 'c1', blank: false },
     ])
   })
 

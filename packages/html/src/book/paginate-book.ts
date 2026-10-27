@@ -97,6 +97,8 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
       return { placed, fragments, index: nextIndex, pending: paginateNotes(withNotes({ op: 'leftover' as const, fragments })) }
     }
     const unit = units[nextIndex]
+    const leftoverNote = pending[0]
+    if (!unit && leftoverNote) return { placed: [], fragments: [], index: nextIndex, pending, refusal: noteRefusal(leftoverNote.id) }
     if (!unit) return { placed: [], fragments: [], index: nextIndex, pending, done: true }
     const forced = forcePlace(unit)
     if (forced.refusal) return forced

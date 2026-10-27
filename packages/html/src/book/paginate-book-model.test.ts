@@ -1,51 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { block, flow, input, settings, win } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
-import type { PaginateBlock, PaginateBookInput, PaginateFlow, PaginateWindow } from './paginate-types.ts'
-
-const lineHeight = 10
-
-function lines(count: number, start = 0, height = lineHeight) {
-  return Array.from({ length: count }, (_, index) => ({ top: start + index * height, bottom: start + (index + 1) * height }))
-}
-
-function block(
-  kind: PaginateBlock['kind'],
-  tag: string,
-  chapter: number,
-  index: number,
-  count: number,
-  start: number,
-  extra: Partial<PaginateBlock> = {},
-): PaginateBlock {
-  return { kind, tag, position: { chapter, block: index }, lines: lines(count, start), ...extra }
-}
-
-function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, blocks: PaginateBlock[], runningHead?: string): PaginateFlow {
-  return { id, kind, blocks, ...(runningHead === undefined ? {} : { runningHead }) }
-}
-
-function input(overrides: Partial<PaginateBookInput> & Pick<PaginateBookInput, 'flows'>): PaginateBookInput {
-  return {
-    notes: [],
-    geometry: { textHeight: 50, notesGap: 10 },
-    settings: {
-      rectoOpenings: false,
-      direction: 'ltr',
-      endnotePlacement: 'book',
-    },
-    ...overrides,
-  }
-}
-
-function win(id: string, start: number, end: number, top: number, column = 0, columns = 1): PaginateWindow {
-  return { flow: id, start, end, top, column, columns }
-}
-
-const settings = {
-  rectoOpenings: true as const,
-  direction: 'ltr' as const,
-  endnotePlacement: 'book' as const,
-}
 
 describe('paginateBook model', () => {
   test('a two-column run is balanced on one page', () => {
@@ -60,6 +15,17 @@ describe('paginateBook model', () => {
       [win('c1', 0, 50, 0, 0, 2), win('c1', 50, 100, 0, 1, 2)],
       [win('c1', 100, 110, 0, 0, 2), win('c1', 110, 120, 0, 1, 2)],
     ])
+  })
+
+  test('adjacent two-column blocks merge into one balanced run', () => {
+    const pages = paginateBook(
+      input({
+        geometry: { textHeight: 200, notesGap: 10 },
+        flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 4, 0, { columns: 2 }), block('text', 'p', 1, 2, 4, 40, { columns: 2 })])],
+      }),
+    ).pages
+    expect(pages).toHaveLength(1)
+    expect(pages[0]?.windows).toEqual([win('c1', 0, 40, 0, 0, 2), win('c1', 40, 80, 0, 1, 2)])
   })
 
   test('full-width and column runs alternate on one page with stacked tops', () => {
@@ -141,12 +107,6 @@ describe('paginateBook model', () => {
     ])
   })
 
-  test('a column run whose single line is taller than the text area is refused by name', () => {
-    const result = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 1, 0, { columns: 2, lines: [{ top: 0, bottom: 80 }] })])] }))
-    expect(result.pages).toEqual([])
-    expect(result.refusals[0]?.tag).toBe('p')
-  })
-
   test('blanks carry no marks', () => {
     const pages = paginateBook(
       input({
@@ -214,6 +174,55 @@ describe('paginateBook model', () => {
       { role: 'fixed', sequence: 'front', flow: 'dedication', number: 3, kind: 'front' },
       { role: 'opener', sequence: 'front', flow: 'toc', number: 4, kind: 'front' },
       { role: 'opener', sequence: 'body', flow: 'c1', number: 1, kind: 'body' },
+    ])
+  })
+
+  test('marks named __proto__ and constructor leave Object.prototype untouched', () => {
+    const beforeLast = Object.getOwnPropertyDescriptor(Object.prototype, 'last')
+    const beforeFirst = Object.getOwnPropertyDescriptor(Object.prototype, 'first')
+    const pages = paginateBook(
+      input({
+        flows: [
+          flow('c1', 'chapter', [
+            block('text', 'p', 1, 1, 2, 0, {
+              marks: [
+                { name: '__proto__', value: 'P', line: 0 },
+                { name: 'constructor', value: 'C', line: 1 },
+              ],
+            }),
+          ]),
+        ],
+      }),
+    ).pages
+    expect(Object.getOwnPropertyDescriptor(Object.prototype, 'last')).toEqual(beforeLast)
+    expect(Object.getOwnPropertyDescriptor(Object.prototype, 'first')).toEqual(beforeFirst)
+    expect(Object.prototype).not.toHaveProperty('last')
+    const marks = pages[0]?.marks
+    expect(marks ? Object.getOwnPropertyDescriptor(marks, '__proto__')?.value : undefined).toEqual({ first: 'P', last: 'P' })
+    expect(marks ? Object.getOwnPropertyDescriptor(marks, 'constructor')?.value : undefined).toEqual({ first: 'C', last: 'C' })
+  })
+
+  test('a block with more than 12 columns is refused by name', () => {
+    const result = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 2, 0, { columns: 13 })])] }))
+    expect(result.pages).toEqual([])
+    expect(result.refusals).toEqual([
+      {
+        tag: 'p',
+        position: { chapter: 1, block: 1 },
+        message: 'The p at chapter 1 block 1 could not establish a column count; use an integer from 1 to 12 to clear this refusal.',
+      },
+    ])
+  })
+
+  test('a fixed flow with a non-finite page count is refused by name', () => {
+    const result = paginateBook(input({ flows: [{ id: 'art', kind: 'fixed', pages: Number.POSITIVE_INFINITY }] }))
+    expect(result.pages).toEqual([])
+    expect(result.refusals).toEqual([
+      {
+        tag: 'art',
+        position: { chapter: 0, block: 0 },
+        message: 'The art flow could not establish a page count; use a safe integer of 0 or more to clear this refusal.',
+      },
     ])
   })
 })
