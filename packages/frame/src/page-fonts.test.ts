@@ -107,7 +107,7 @@ describe('frame and print documents', () => {
 })
 
 describe('pageFontCss', () => {
-  test('refuses named app fonts when no FontSource is supplied', async () => {
+  test('pageFontCss refuses named app fonts when no FontSource is supplied', async () => {
     const page = PageSchema.parse({ id: 'cover', html: '<p></p>', fonts: [{ app: 'serif' }] })
     await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(FontRefusedError)
     await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(
@@ -143,7 +143,7 @@ describe('expandedPagesFontCss', () => {
     expect(css).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
   })
 
-  test('refuses named app fonts when no FontSource is supplied', async () => {
+  test('expandedPagesFontCss refuses named app fonts when no FontSource is supplied', async () => {
     const page = PageSchema.parse({ html: '<p></p>', fonts: [{ app: 'serif' }] })
     await expect(expandedPagesFontCss([{ page, fonts: [] }], undefined, signal)).rejects.toThrow(FontRefusedError)
     await expect(expandedPagesFontCss([{ page, fonts: [] }], undefined, signal)).rejects.toThrow(

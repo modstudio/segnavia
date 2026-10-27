@@ -46,7 +46,7 @@ describe('prepareRenderedPage', () => {
     expect(prepared.page.html).toContain('<header style="font-family: var(--segnavia-font-heading)">Head</header>')
   })
 
-  test('converts a missing FontSource into RenderRefusedError', async () => {
+  test('prepareRenderedPage converts a missing FontSource into RenderRefusedError', async () => {
     const page = Page.parse({ html: '<p></p>', fonts: [{ app: 'serif' }] })
     await expect(prepareRenderedPage(page, {}, undefined, signal)).rejects.toThrow(RenderRefusedError)
     await expect(prepareRenderedPage(page, {}, undefined, signal)).rejects.toThrow(
@@ -89,7 +89,7 @@ describe('renderOptionsWithBookFonts', () => {
     expect(options.css).toContain('p{color:red}')
   })
 
-  test('converts a missing FontSource into RenderRefusedError', async () => {
+  test('renderOptionsWithBookFonts converts a missing FontSource into RenderRefusedError', async () => {
     await expect(renderOptionsWithBookFonts(book, {}, signal)).rejects.toThrow(RenderRefusedError)
     await expect(renderOptionsWithBookFonts(book, {}, signal)).rejects.toThrow(
       'book "Book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
