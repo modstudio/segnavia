@@ -185,17 +185,14 @@ async function showTwoLiveItems(h: Harness) {
     { timeout: BOUNDED_WAIT_MS },
   )
 }
-
 async function checkPanKeepsFrames(h: Harness) {
   await h.page.waitForFunction(
     () => {
       const loadedFrames = (window as typeof window & { boardLoadedFrames: WeakSet<HTMLIFrameElement> }).boardLoadedFrames
-      const root = document.querySelector('segnavia-board')?.shadowRoot
-      const frames = [...(root?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) => {
+      return [...(document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].every((thumbnail) => {
         const frame = thumbnail.shadowRoot?.querySelector('iframe')
-        return frame ? [frame] : []
+        return !frame || loadedFrames.has(frame)
       })
-      return frames.every((frame) => loadedFrames.has(frame))
     },
     undefined,
     { timeout: BOUNDED_WAIT_MS },
@@ -216,7 +213,6 @@ async function checkPanKeepsFrames(h: Harness) {
   })
   h.check('panning keeps every live board frame mounted without reloading it', result.count >= 2 && result.loads === 0 && result.same, JSON.stringify(result))
 }
-
 async function checkBoardUpdateKeepsFrames(h: Harness) {
   const result = await h.page.locator('segnavia-board').evaluate((element) => {
     const board = element as HTMLElement & {
@@ -233,7 +229,6 @@ async function checkBoardUpdateKeepsFrames(h: Harness) {
   })
   h.check('setting a moved board keeps every unchanged live frame', result.count >= 2 && result.same, JSON.stringify(result))
 }
-
 export async function verifyBoard(h: Harness) {
   await h.page.addInitScript(() => {
     if (window.top !== window) return
@@ -242,13 +237,7 @@ export async function verifyBoard(h: Harness) {
     const attachShadow = Element.prototype.attachShadow
     Element.prototype.attachShadow = function (init) {
       const root = attachShadow.call(this, init)
-      root.addEventListener(
-        'load',
-        (event) => {
-          if (event.target instanceof HTMLIFrameElement) loadedFrames.add(event.target)
-        },
-        true,
-      )
+      root.addEventListener('load', (event) => event.target instanceof HTMLIFrameElement && loadedFrames.add(event.target), true)
       return root
     }
   })
@@ -285,13 +274,10 @@ export async function verifyBoard(h: Harness) {
     { timeout: BOUNDED_WAIT_MS },
   )
   await checkPlacement(h, 'after fit')
-
   const farInitially = await board.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[data-board-item="deck-far"]')))
   h.check('a far board item is not mounted after the initial fit', !farInitially, String(farInitially))
-
   const initialNameCalls = await h.page.evaluate(() => (window as typeof window & { initialItemNamesCalls?: number }).initialItemNamesCalls)
   h.check('board item names are requested once for the initial board', initialNameCalls === 1, String(initialNameCalls))
-
   const viewBeforeList = await board.evaluate((element) => (element as HTMLElement & { view: BoardView }).view)
   const list = h.page.locator('segnavia-board-list')
   const search = list.locator('input[type="search"]')
@@ -338,7 +324,6 @@ export async function verifyBoard(h: Harness) {
   await board.evaluate((element, view) => {
     ;(element as HTMLElement & { view: BoardView }).view = view
   }, viewBeforeList)
-
   const small = board.locator('[data-board-item="deck-small"]')
   const initialTier = await board.evaluate((element) => {
     const item = element.shadowRoot?.querySelector('[data-board-item="deck-small"]')
