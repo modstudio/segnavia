@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Motif, MotifPlacement, MotifSource } from '@segnavia/format'
-import { expandMotifs, MOTIF_DEPTH_LIMIT, MotifRefusedError, motifPlacementRefusals } from './motifs.ts'
+import { expandMotifs, MOTIF_DEPTH_LIMIT, MOTIF_PLACEMENT_LIMIT, MotifRefusedError, motifPlacementRefusals } from './motifs.ts'
 
 const signal = new AbortController().signal
 
@@ -17,14 +17,14 @@ const letterhead: Motif = {
   revision: 'r2',
   label: 'Letterhead',
   fields: [{ key: 'form', label: 'Form', choices: ['full', 'compact'], default: 'full', required: false }],
-  versions: [{ lang: 'he', html: '<p>שלום</p><script>bad()</script>' }],
+  versions: [{ lang: 'he', dir: 'ltr', html: '<p>שלום</p><script>bad()</script>' }],
   fonts: [{ app: 'Body' }],
 }
 
 describe('expandMotifs', () => {
   test('expands in place, sanitizes content, and sets language direction', async () => {
     const result = await expandMotifs('<section class="held" data-motif="letterhead">old</section>', options({ letterhead }))
-    expect(result.html).toBe('<section class="held" data-motif="letterhead" lang="he" dir="rtl"><p>שלום</p></section>')
+    expect(result.html).toBe('<section class="held" data-motif="letterhead" lang="he" dir="ltr"><p>שלום</p></section>')
     expect(result.placed).toEqual([{ key: 'letterhead', revision: 'r2', version: 0, lang: 'he', fields: { form: 'full' } }])
   })
 
@@ -38,7 +38,7 @@ describe('expandMotifs', () => {
       fonts: [],
     }
     const result = await expandMotifs('<main data-motif="outer"></main>', options({ outer, letterhead }))
-    expect(result.html).toContain('data-motif="letterhead" lang="he" dir="rtl"><p>שלום</p>')
+    expect(result.html).toContain('data-motif="letterhead" lang="he" dir="ltr"><p>שלום</p>')
     expect(result.placed.map(({ key }) => key)).toEqual(['outer', 'letterhead'])
   })
 
@@ -81,6 +81,59 @@ describe('expandMotifs', () => {
     expect(result.fonts).toEqual([shared, { local: 'Arial', fallback: 'Body' }])
   })
 
+  test('reads pins as own properties and caches motif lookups', async () => {
+    const requests: Array<{ key: string; revision?: string }> = []
+    const motifSource: MotifSource = {
+      motif: async (key, request) => {
+        requests.push({ key, ...(request.revision === undefined ? {} : { revision: request.revision }) })
+        return { ...letterhead, key }
+      },
+    }
+    await expandMotifs('<div data-motif="__proto__"></div><div data-motif="__proto__"></div>', {
+      ...options({}),
+      source: motifSource,
+      pins: { letterhead: 'r1' },
+    })
+    expect(requests).toEqual([{ key: '__proto__' }])
+  })
+
+  test('matches camelCase field keys through case-insensitive HTML attributes', async () => {
+    const named: Motif = {
+      key: 'named',
+      revision: '1',
+      label: 'Named',
+      fields: [{ key: 'issuerName', label: 'Issuer', required: true }],
+      versions: [{ lang: 'en', html: '<b></b>' }],
+      fonts: [],
+    }
+    const result = await expandMotifs('<div data-motif="named" data-motif-issuerName="Held"></div>', options({ named }))
+    expect(result.placed[0]?.fields).toEqual({ issuerName: 'Held' })
+  })
+
+  test('keeps allowed authored and source-bound links while stripping other origins', async () => {
+    const linked: Motif = {
+      key: 'linked',
+      revision: '1',
+      label: 'Linked',
+      fields: [],
+      versions: [
+        {
+          lang: 'en',
+          html: '<a href="https://allowed.example/authored">Authored</a><a href="https://outside.example/no">Outside</a><a data-live-href="issuer.url">Bound</a>',
+        },
+      ],
+      fonts: [],
+    }
+    const result = await expandMotifs('<div data-motif="linked"></div>', {
+      ...options({ linked }),
+      linkOrigins: ['https://allowed.example'],
+      source: source({ linked }, async () => ({ issuer: { url: 'https://bound.example/give' } })),
+    })
+    expect(result.html).toContain('href="https://allowed.example/authored"')
+    expect(result.html).toContain('href="https://bound.example/give"')
+    expect(result.html).not.toContain('https://outside.example/no')
+  })
+
   test('refuses cycles and nesting beyond the limit', async () => {
     const cycle: Motif = {
       key: 'cycle',
@@ -112,6 +165,22 @@ describe('expandMotifs', () => {
     await expect(expandMotifs('<div data-motif="live"></div>', scripted)).rejects.toThrow('data-free motif version')
     expect(await motifPlacementRefusals('<div data-motif="live"></div>', scripted)).toHaveLength(1)
     expect((await expandMotifs('<div data-motif="letterhead"></div>', { ...options({ letterhead }), scripts: 'sandboxed' })).html).toContain('<p>שלום</p>')
+  })
+
+  test('bounds total placements and observes an aborted signal', async () => {
+    const repeated = Array.from({ length: MOTIF_PLACEMENT_LIMIT + 1 }, () => '<i data-motif="letterhead"></i>').join('')
+    await expect(expandMotifs(repeated, options({ letterhead }))).rejects.toThrow(`at most ${MOTIF_PLACEMENT_LIMIT}`)
+
+    const controller = new AbortController()
+    const abortingSource: MotifSource = {
+      motif: async () => {
+        controller.abort(new Error('stopped'))
+        return letterhead
+      },
+    }
+    await expect(expandMotifs('<div data-motif="letterhead"></div>', { ...options({}), source: abortingSource, signal: controller.signal })).rejects.toThrow(
+      'stopped',
+    )
   })
 })
 

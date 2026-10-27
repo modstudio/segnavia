@@ -6,6 +6,7 @@ import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtm
 export interface MotifsOptions {
   source: MotifSource
   pins?: Record<string, string>
+  linkOrigins?: Iterable<string>
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
 
@@ -17,6 +18,7 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
     lang: page.lang,
     scripts: page.scripts,
     prefix: 'slot',
+    linkOrigins: motifs.linkOrigins,
     signal,
   })
   signal.throwIfAborted()

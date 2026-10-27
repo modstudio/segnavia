@@ -286,7 +286,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pageImage(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const page = await filledPage(Page.parse(input), opts.slots, deadline.signal)
+        const expanded = await preparePagePdfPage(Page.parse(input), opts.motifs, deadline.signal)
+        const page = await filledPage(expanded, opts.slots, deadline.signal)
         const viewport = pageViewport(page, opts.width)
         const grows = page.size === 'fluid' || (typeof page.size === 'object' && page.size.height === 'auto')
         return withTab(

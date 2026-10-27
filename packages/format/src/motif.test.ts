@@ -35,6 +35,16 @@ describe('Motif', () => {
     ['when outside choices', { ...input, versions: [{ lang: 'en', when: { form: 'tiny' }, html: '' }] }],
     ['default outside choices', { ...input, fields: [{ key: 'form', label: 'Form', choices: ['full'], default: 'tiny' }] }],
     ['declared lang', { ...input, fields: [{ key: 'lang', label: 'Language' }] }],
+    [
+      'field keys differing only by case',
+      {
+        ...input,
+        fields: [
+          { key: 'issuerName', label: 'Name' },
+          { key: 'issuername', label: 'Other' },
+        ],
+      },
+    ],
   ])('refuses %s', (_name, value) => expect(Motif.safeParse(value).success).toBe(false))
 })
 
@@ -56,6 +66,9 @@ describe('chooseMotifVersion', () => {
       ],
     })
     expect(chooseMotifVersion(exact, { lang: 'he-IL' })).toMatchObject({ ok: true, index: 1 })
+    expect(chooseMotifVersion(exact, { lang: 'he' })).toMatchObject({ ok: true, index: 0 })
+    const regional = Motif.parse({ ...input, versions: [{ lang: 'he-IL', html: 'regional' }] })
+    expect(chooseMotifVersion(regional, { lang: 'he' })).toMatchObject({ ok: true, index: 0 })
   })
 
   test('refuses ambiguous matches and absent language', () => {

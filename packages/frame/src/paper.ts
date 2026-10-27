@@ -149,92 +149,63 @@ export class SegnaviaPaper extends HTMLElement {
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
     const pages = this.pages
-    if (!this.motifOptions) {
-      const declarations = pages.map((page) => page.slots)
-      const refusal = pages.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-      if (refusal) {
-        this.paintResolved(imposition, imposed)
-        this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
-        return
-      }
-      if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
-        this.paintResolved(imposition, imposed)
-        return
-      }
-      const controller = new AbortController()
-      this.slotPreparation = controller
-      this.paintResolved(imposition, imposed)
-      void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-        .then((resolved) => {
-          if (
-            !this.isConnected ||
-            controller.signal.aborted ||
-            generation !== this.slotGeneration ||
-            pages !== this.pages ||
-            imposition !== this.imposition ||
-            imposed !== this.imposed
-          )
-            return
-          this.resolvedSlots = resolved
-          this.resolvedGeneration = generation
-          this.paintResolved(imposition, imposed)
-        })
-        .catch((error) => {
-          if (
-            !this.isConnected ||
-            controller.signal.aborted ||
-            generation !== this.slotGeneration ||
-            pages !== this.pages ||
-            imposition !== this.imposition ||
-            imposed !== this.imposed
-          )
-            return
-          this.resolvedSlots = undefined
-          this.resolvedGeneration = 0
-          this.paintResolved(imposition, imposed)
-          this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-        })
-      return
-    }
     const controller = new AbortController()
     this.slotPreparation = controller
-    this.paintResolved(imposition, imposed)
-    void expandFramePages(pages, this.motifOptions, controller.signal)
-      .then(async (expanded) => {
-        const refusal = expanded.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-        if (refusal) throw refusal
-        const declarations = expanded.map((page) => page.slots)
-        const resolved = declarations.some((item) => hasSlotWork(item, this.slotOptions))
-          ? await prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-          : undefined
-        if (
-          !this.isConnected ||
-          controller.signal.aborted ||
-          generation !== this.slotGeneration ||
-          pages !== this.pages ||
-          imposition !== this.imposition ||
-          imposed !== this.imposed
-        )
-          return
-        this.resolvedSlots = resolved
-        this.resolvedGeneration = resolved ? generation : 0
-        this.paintResolved(imposition, imposed, expanded)
-      })
-      .catch((error) => {
-        if (
-          !this.isConnected ||
-          controller.signal.aborted ||
-          generation !== this.slotGeneration ||
-          pages !== this.pages ||
-          imposition !== this.imposition ||
-          imposed !== this.imposed
-        )
-          return
-        this.resolvedSlots = undefined
-        this.resolvedGeneration = 0
-        this.paintResolved(imposition, imposed)
-        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-      })
+    const current = () =>
+      this.isConnected &&
+      !controller.signal.aborted &&
+      generation === this.slotGeneration &&
+      pages === this.pages &&
+      imposition === this.imposition &&
+      imposed === this.imposed
+    const commit = (shown: Page[], resolved?: PreparedSlots) => {
+      if (!current()) return
+      this.resolvedSlots = resolved
+      this.resolvedGeneration = resolved ? generation : 0
+      this.paintResolved(imposition, imposed, shown)
+    }
+    const report = (error: unknown) => {
+      if (!current()) return
+      this.resolvedSlots = undefined
+      this.resolvedGeneration = 0
+      if (!this.motifOptions) this.paintResolved(imposition, imposed)
+      this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    }
+    const continuePaint = (shown: Page[]) => {
+      const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
+      if (refusal) throw refusal
+      const declarations = shown.map((page) => page.slots)
+      if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+        if (this.motifOptions) commit(shown)
+        return
+      }
+      void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
+        .then((resolved) => commit(shown, resolved))
+        .catch(report)
+    }
+    if (!this.motifOptions) {
+      this.paintResolved(imposition, imposed)
+      try {
+        continuePaint(pages)
+      } catch (error) {
+        report(error)
+      }
+      return
+    }
+    this.paintPlaceholder(imposed)
+    void expandFramePages(pages, this.motifOptions, controller.signal).then(continuePaint).catch(report)
+  }
+
+  private paintPlaceholder(imposed: ReturnType<typeof impose>) {
+    const box = document.createElement('div')
+    box.className = 'segnavia-paper__paper'
+    box.dir = 'ltr'
+    const paper = paperBoxSize(imposed.paper)
+    box.style.width = `${paper.width}px`
+    box.style.height = `${paper.height}px`
+    this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
+    this.replaceChildren(box)
+    this.fit()
   }
 
   private cancelSlotPreparation() {

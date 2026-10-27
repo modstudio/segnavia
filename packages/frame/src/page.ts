@@ -101,29 +101,28 @@ export class SegnaviaPage extends HTMLElement {
     const iframe = this.mount(page)
     const show = (shownPage: Page, resolved?: PreparedSlots) => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
-      const filledFrame = this.mount(shownPage)
       this.resolvedSlots = resolved
-      this.slotFrame = resolved ? { frame: filledFrame, generation } : undefined
-      filledFrame.srcdoc = shownPageDocument(shownPage, resolved, {
+      this.slotFrame = resolved ? { frame: iframe, generation } : undefined
+      iframe.srcdoc = shownPageDocument(shownPage, resolved, {
         nonce: newNonce(),
         css: this.css,
         csp: this.cspExtra || undefined,
       })
     }
-    iframe.srcdoc = frameDocument(page.html, {
-      scripts: page.scripts,
-      nonce: newNonce(),
-      dir: page.dir,
-      lang: page.lang,
-      css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
-      csp: this.cspExtra || undefined,
-      relayKeys: false,
-    })
     const report = (error: unknown) => {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
     if (!this.motifOptions) {
+      iframe.srcdoc = frameDocument(page.html, {
+        scripts: page.scripts,
+        nonce: newNonce(),
+        dir: page.dir,
+        lang: page.lang,
+        css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
+        csp: this.cspExtra || undefined,
+        relayKeys: false,
+      })
       const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
       if (refusal) report(refusal)
       else if (hasSlotWork(page.slots, this.slotOptions))

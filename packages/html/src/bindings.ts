@@ -31,6 +31,9 @@ export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins'> {
   // Keeps authored text and URLs when a value is absent. Slot filling uses
   // this so an unfilled design remains a useful preview.
   preserveUnavailable?: boolean
+  // A trusted host source may supply link values without knowing their origins
+  // until this fill resolves them.
+  registerHrefOrigins?: boolean
 }
 
 export interface Filled {
@@ -88,6 +91,14 @@ function safeHref(value: string, origins: ReadonlySet<string>): boolean {
   } catch {
     return false
   }
+}
+
+function registerHrefOrigin(origins: Set<string>, attribute: 'href' | 'src', value: unknown, register: boolean | undefined): void {
+  if (attribute !== 'href' || !register || typeof value !== 'string') return
+  try {
+    const url = new URL(value)
+    if (url.protocol === 'https:') origins.add(url.origin)
+  } catch {}
 }
 
 // Bindings name data, so a page using them runs no script of its own: a
@@ -157,6 +168,7 @@ export function fill(html: string, options: FillOptions): Filled {
       if (path === undefined) continue
       const value = resolve(path, stack)
       if (preserves(value)) continue
+      registerHrefOrigin(origins, attribute, value, options.registerHrefOrigins)
       const allowed = typeof value === 'string' && (attribute === 'href' ? safeHref(value, origins) : /^data:image\//i.test(value))
       if (allowed) element.attribs[attribute] = value
       else {

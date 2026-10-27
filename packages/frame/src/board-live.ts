@@ -1,5 +1,6 @@
 import type { ResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
@@ -29,7 +30,11 @@ export function boardShield(): HTMLElement {
   return shield
 }
 
-export function liveBoardItem(resolved: Exclude<ResolvedBoardItem, { kind: 'image' | 'shot' }>, failed: (error: unknown) => void): LiveBoardItem {
+export function liveBoardItem(
+  resolved: Exclude<ResolvedBoardItem, { kind: 'image' | 'shot' }>,
+  failed: (error: unknown) => void,
+  motifs?: MotifsOptions,
+): LiveBoardItem {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()
     const onError = (event: Event) => {
@@ -45,11 +50,13 @@ export function liveBoardItem(resolved: Exclude<ResolvedBoardItem, { kind: 'imag
   }
   if (resolved.kind === 'page') {
     const page = new SegnaviaPage()
+    page.motifs = motifs
     page.load({ ...resolved.page, scripts: 'refuse' })
     return { element: page, dispose: () => {} }
   }
   if (resolved.kind === 'paper') {
     const paper = new SegnaviaPaper()
+    paper.motifs = motifs
     paper.load(
       resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
       resolved.imposition,

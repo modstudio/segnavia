@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
-const FontReferenceShape = z.union([z.object({ app: z.string().min(1) }), z.object({ local: z.string().min(1), fallback: z.string().min(1) })])
-const FontReferenceInputShape = z.union([z.strictObject({ app: z.string().min(1) }), z.strictObject({ local: z.string().min(1), fallback: z.string().min(1) })])
+const AppFontShape = { app: z.string().min(1) } as const
+const LocalFontShape = { local: z.string().min(1), fallback: z.string().min(1) } as const
 
-export const FontReference = FontReferenceShape
+export const FontReference = z.union([z.object(AppFontShape), z.object(LocalFontShape)])
 export type FontReference = z.infer<typeof FontReference>
 
-export const FontReferenceInput = FontReferenceInputShape
+export const FontReferenceInput = z.union([z.strictObject(AppFontShape), z.strictObject(LocalFontShape)])
 export type FontReferenceInput = z.input<typeof FontReferenceInput>

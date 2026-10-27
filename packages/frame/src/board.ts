@@ -29,6 +29,7 @@ import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import type { BoardLabels } from './labels.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
 
 export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null
@@ -41,6 +42,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private items = new Map<string, BoardItem>()
   private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
+  private motifOptions: MotifsOptions | undefined
   private viewEvent = 0
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -94,23 +96,23 @@ export class SegnaviaBoard extends BoardSelectionElement {
     focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
-
   constructor() {
     super()
     this.surface.part.add('surface')
     this.surface.dir = 'ltr'
     this.root.append(this.surface)
   }
-
   get board(): Board | null {
     return this.value
   }
-
+  set motifs(value: MotifsOptions | undefined) {
+    this.motifOptions = value
+    this.render()
+  }
   set board(input: Board | null) {
     this.setBoardValue(input, true)
     this.editingHostValue?.(this.value)
   }
-
   private setBoardValue(input: Board | null, dispatch: boolean) {
     const previous = this.value
     this.value = input === null ? null : Board.parse(input)
@@ -354,7 +356,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error))
+    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions)
   }
 
   private resolve(item: BoardItem) {

@@ -3,7 +3,7 @@ import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
-export const motifFieldAttribute = (key: string) => `data-motif-${key}`
+export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 
 const uniqueChoices = (field: { choices?: string[]; default?: string }, ctx: z.RefinementCtx) => {
   if (field.choices && new Set(field.choices).size !== field.choices.length) {
@@ -41,10 +41,16 @@ export type MotifVersionInput = z.input<typeof MotifVersionInput>
 
 const validateMotif = (motif: { fields: MotifField[]; versions: MotifVersion[] }, ctx: z.RefinementCtx) => {
   const fields = new Map(motif.fields.map((field) => [field.key, field]))
+  const fieldCases = new Map<string, number>()
   motif.fields.forEach((field, index) => {
+    const normalized = field.key.toLowerCase()
     if (field.key.toLowerCase() === 'lang') {
       ctx.addIssue({ code: 'custom', path: ['fields', index, 'key'], message: 'lang is always present and must not be declared' })
     }
+    const previous = fieldCases.get(normalized)
+    if (previous !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['fields', index, 'key'], message: `field key differs only by case from field ${previous + 1}` })
+    } else fieldCases.set(normalized, index)
   })
   const seen = new Map<string, number>()
   motif.versions.forEach((version, index) => {
@@ -113,7 +119,8 @@ export function chooseMotifVersion(motif: Motif, values: { lang?: string } & Rec
     .map((version, index) => ({ version, index }))
     .filter(({ version }) => {
       const versionLang = version.lang.toLowerCase()
-      if (versionLang !== normalized && versionLang !== primary) return false
+      const versionPrimary = versionLang.split('-')[0]
+      if (versionLang !== normalized && versionPrimary !== primary) return false
       return Object.entries(version.when ?? {}).every(([key, value]) => resolved[key] === value)
     })
     .map((match) => ({ ...match, exact: match.version.lang.toLowerCase() === normalized, specificity: Object.keys(match.version.when ?? {}).length }))

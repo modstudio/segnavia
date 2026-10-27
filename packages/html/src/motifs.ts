@@ -14,6 +14,7 @@ import { fill, hasBindings } from './bindings.ts'
 import { parse, sanitize, serialize } from './sanitize.ts'
 
 export const MOTIF_DEPTH_LIMIT = 8
+export const MOTIF_PLACEMENT_LIMIT = 256
 
 export interface ExpandMotifsOptions {
   source: MotifSource
@@ -50,6 +51,8 @@ interface ExpansionState {
   placed: PlacedMotif[]
   fonts: Map<string, FontReference>
   unavailable: Set<string>
+  motifCache: Map<string, Promise<Motif | undefined>>
+  placements: number
 }
 
 function placementName(element: Element): string {
@@ -73,8 +76,8 @@ function refuse(state: ExpansionState, element: Element, problem: string, remedy
 }
 
 function placementValues(element: Element, motif: Motif, inheritedLang: string | undefined, state: ExpansionState): Record<string, string> | undefined {
-  const known = new Set(motif.fields.map((field) => motifFieldAttribute(field.key)))
-  known.add(motifFieldAttribute('lang'))
+  const known = new Set(motif.fields.map((field) => motifFieldAttribute(field.key).toLowerCase()))
+  known.add(motifFieldAttribute('lang').toLowerCase())
   const unknown = Object.keys(element.attribs).filter((name) => name.startsWith(`${MOTIF_ATTRIBUTE}-`) && !known.has(name))
   if (unknown.length > 0) {
     refuse(state, element, `fields for ${unknown.join(', ')}`, 'remove the unknown field attributes')
@@ -83,7 +86,7 @@ function placementValues(element: Element, motif: Motif, inheritedLang: string |
 
   const values: Record<string, string> = {}
   for (const field of motif.fields) {
-    const value = element.attribs[motifFieldAttribute(field.key)] ?? field.default
+    const value = element.attribs[motifFieldAttribute(field.key).toLowerCase()] ?? field.default
     if (value === undefined) {
       if (field.required) {
         refuse(state, element, `a value for required field "${field.key}"`, `set ${motifFieldAttribute(field.key)}`)
@@ -114,8 +117,15 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
     refuse(state, element, 'a motif key', `set ${MOTIF_ATTRIBUTE} to a known motif key`)
     return undefined
   }
-  const revision = state.options.pins?.[key]
-  const motif = await state.options.source.motif(key, { ...(revision === undefined ? {} : { revision }), signal: state.options.signal })
+  const revision = state.options.pins && Object.hasOwn(state.options.pins, key) ? state.options.pins[key] : undefined
+  const cacheKey = JSON.stringify([key, revision])
+  let request = state.motifCache.get(cacheKey)
+  if (!request) {
+    request = state.options.source.motif(key, { ...(revision === undefined ? {} : { revision }), signal: state.options.signal })
+    state.motifCache.set(cacheKey, request)
+  }
+  const motif = await request
+  state.options.signal.throwIfAborted()
   if (!motif) {
     refuse(state, element, `motif "${key}"${revision ? ` at revision "${revision}"` : ''}`, 'make that motif available from the source')
     return undefined
@@ -124,6 +134,12 @@ async function motifFor(element: Element, state: ExpansionState): Promise<Motif 
 }
 
 async function expandPlacement(element: Element, inheritedLang: string | undefined, stack: string[], state: ExpansionState): Promise<void> {
+  state.options.signal.throwIfAborted()
+  state.placements += 1
+  if (state.placements > MOTIF_PLACEMENT_LIMIT) {
+    refuse(state, element, `at most ${MOTIF_PLACEMENT_LIMIT} expanded motif placements`, 'reduce the number of motif placements')
+    return
+  }
   const motif = await motifFor(element, state)
   if (!motif) return
   if (stack.includes(motif.key)) {
@@ -158,7 +174,13 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
   let versionHtml = sanitize(choice.version.html, { linkOrigins: state.options.linkOrigins })
   if (bound && !state.validateOnly) {
     const data = await state.options.source.data?.(placement, { signal: state.options.signal })
-    const filled = fill(versionHtml, { prefix: state.options.prefix, data: data ?? {}, linkOrigins: state.options.linkOrigins })
+    state.options.signal.throwIfAborted()
+    const filled = fill(versionHtml, {
+      prefix: state.options.prefix,
+      data: data ?? {},
+      linkOrigins: state.options.linkOrigins,
+      registerHrefOrigins: true,
+    })
     versionHtml = filled.html
     for (const path of filled.unavailable) state.unavailable.add(path)
   }
@@ -175,6 +197,7 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
 
 async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined, stack: string[], state: ExpansionState): Promise<void> {
   for (const node of [...nodes]) {
+    state.options.signal.throwIfAborted()
     if (!isTag(node)) continue
     if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE)) await expandPlacement(node, inheritedLang, stack, state)
     else await expandNodes(node.children, inheritedLang, stack, state)
@@ -190,6 +213,8 @@ async function run(html: string, options: ExpandMotifsOptions, validateOnly: boo
     placed: [],
     fonts: new Map(),
     unavailable: new Set(),
+    motifCache: new Map(),
+    placements: 0,
   }
   await expandNodes(document.children, options.lang, [], state)
   return { document, state }
