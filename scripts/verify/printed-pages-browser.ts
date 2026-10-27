@@ -26,9 +26,6 @@ const furnitureWord = (word: string) => ['LETTERHEAD', 'Page', 'of', 'כותרת
 const closeWord = (left: PdfWord, right: PdfWord) => left.text === right.text && Math.abs(left.x - right.x) <= 0.5 && Math.abs(left.y - right.y) <= 0.5
 
 export async function verifyPrintedParentPages(page: Page, url: string, check: Harness['check']) {
-  page.on('console', (message) => {
-    if (message.text().includes('SEGNA-167 probe')) console.log(message.text())
-  })
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
     await page.goto(url)

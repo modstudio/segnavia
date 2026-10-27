@@ -72,6 +72,7 @@ describe('printedPagesPrintDocument', () => {
       expect.stringContaining(`width:${215.9 * PX_PER_MM}px;height:${279.4 * PX_PER_MM}px`),
     ])
     expect(result.html.match(/width:215\.9mm;height:279\.4mm;border:0;display:block/g)).toHaveLength(2)
+    expect(result.html.match(/&quot;expectedCount&quot;:1/g)).toHaveLength(2)
     expect(result.html).not.toContain('width:431.8mm')
     expect(result.html).not.toContain('margin-left:')
   })

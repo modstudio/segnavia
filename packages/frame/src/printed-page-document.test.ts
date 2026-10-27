@@ -68,6 +68,15 @@ describe('printedPageDocument', () => {
     expect(html).not.toContain('setTimeout(resolve,50)')
   })
 
+  test('counts columns after loaded layout is stable and refuses a changed measured count', () => {
+    const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
+    expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
+    expect(html).toContain('var channel=new MessageChannel()')
+    expect(html).toContain('current===last')
+    expect(html).toContain('"expectedCount":3')
+    expect(html).toContain('the composed page count changed from ')
+  })
+
   test('carries root backgrounds only for a printable composed paper', () => {
     const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
     const printable = printedPageDocument(page, { nonce: 'held', only: 1, printBackground: true })
