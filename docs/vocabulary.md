@@ -57,6 +57,9 @@ something else.
 | **Bindings** | `data-<prefix>-*` attributes that fill a page from data with no script. The prefix is the host's. |
 | **Slot** | A declared dotted binding path on a reusable page or deck. Slot HTML uses the fixed `slot` binding prefix; its declaration gives the host a label, type, required flag and optional placeholder. |
 | **Fill** | One named set of slot values applied before a viewer, thumbnail or print frame is built. Image values may name a host-resolved asset. |
+| **Motif** | Reusable designed HTML and CSS that a host supplies by key and a page places in its own markup. It may declare fields, fonts and language versions. |
+| **Placement** | An element with `data-motif` and optional motif field attributes. Expansion keeps the element and replaces its children with the chosen motif version. |
+| **Motif version** | One rendition of a motif, keyed by values of its choice fields and chosen by most-specific match. |
 
 ## Words the API avoids
 

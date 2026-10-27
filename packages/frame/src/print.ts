@@ -5,6 +5,7 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
   type PrintablePagesOptions,
@@ -181,12 +182,19 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
 
 export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions {
   slots?: SlotPrintOptions
+  motifs?: MotifsOptions
 }
 
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
-  if (!options.slots?.fills) return printFrame(await preparedPagesPrint(pagesInput, impositionInput, options))
+  const pages = await expandFramePages(
+    pagesInput.map((page) => Page.parse(page)),
+    options.motifs,
+    new AbortController().signal,
+  )
+  const preparedOptions = { ...options, motifs: undefined }
+  if (!options.slots?.fills) return printFrame(await preparedPagesPrint(pages, impositionInput, preparedOptions))
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
-    const prepared = await preparedPagesPrint(pagesInput, impositionInput, { ...options, slots: copySlots })
+    const prepared = await preparedPagesPrint(pages, impositionInput, { ...preparedOptions, slots: copySlots })
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })

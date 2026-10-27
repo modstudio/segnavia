@@ -11,6 +11,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
+import { expandRenderPage, expandRenderPages, type RenderMotifsOptions } from './motif-expansion.ts'
 import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
@@ -28,6 +29,7 @@ export { captureImage } from './capture-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
+export type { RenderMotifsOptions } from './motif-expansion.ts'
 export type {
   Font,
   ImageOptions,
@@ -58,10 +60,12 @@ export interface RendererOptions {
   jsHeapMb?: number
 }
 
+export type PagePdfOptions = RenderOptions & { motifs?: RenderMotifsOptions }
+
 export interface Renderer {
   bookPdf(book: BookInput, options?: RenderOptions): Promise<Uint8Array>
-  pagePdf(page: PageInput, options?: RenderOptions): Promise<Uint8Array>
-  pagesPdf(pages: PageInput[], options?: RenderOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
+  pagePdf(page: PageInput, options?: PagePdfOptions): Promise<Uint8Array>
+  pagesPdf(pages: PageInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
@@ -273,8 +277,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagePdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
+        const expanded = await expandRenderPage(Page.parse(input), opts.motifs, deadline.signal)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const page = await filledPage(Page.parse(input), copySlots, deadline.signal)
+          const page = await filledPage(expanded, copySlots, deadline.signal)
           const printed = await renderPagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -312,7 +317,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pagesPdf(inputs, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const parsed = inputs.map((input) => Page.parse(input))
+        const parsed = await expandRenderPages(
+          inputs.map((input) => Page.parse(input)),
+          opts.motifs,
+          deadline.signal,
+        )
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)
           return renderPagesPdf(

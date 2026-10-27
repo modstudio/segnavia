@@ -125,14 +125,24 @@ describe('motifPlacementRefusals', () => {
       versions: [{ lang: 'en', html: '' }],
       fonts: [],
     }
+    const specific: Motif = {
+      key: 'specific',
+      revision: '1',
+      label: 'Specific',
+      fields: [{ key: 'form', label: 'Form', choices: ['full', 'compact'], required: true }],
+      versions: [{ lang: 'en', when: { form: 'full' }, html: '' }],
+      fonts: [],
+    }
     const html = [
       '<div data-motif="missing" data-motif-lang="en"></div>',
       '<div data-motif="required" data-motif-extra="x"></div>',
       '<div data-motif="required"></div>',
       '<div data-motif="required" data-motif-form="compact"></div>',
+      '<div data-motif="required" data-motif-lang="he" data-motif-form="full"></div>',
+      '<div data-motif="specific" data-motif-lang="en" data-motif-form="compact"></div>',
     ].join('')
-    const refusals = await motifPlacementRefusals(html, options({ required }))
-    expect(refusals).toHaveLength(4)
+    const refusals = await motifPlacementRefusals(html, options({ required, specific }))
+    expect(refusals).toHaveLength(6)
     for (const reason of refusals) {
       expect(reason).toContain('motif placement data-motif=')
       expect(reason.endsWith('to clear this refusal.')).toBe(true)
