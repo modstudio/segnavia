@@ -6,12 +6,13 @@ import {
   type MotifPlacement,
   type MotifSource,
   motifFieldAttribute,
+  PRINTED_PAGE_CONTEXT,
   resolveDirection,
   type Scripts,
 } from '@segnavia/format'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
-import { fill, hasBindings } from './bindings.ts'
-import { parse, sanitize, serialize } from './sanitize.ts'
+import { bindingNames, bindingRoot, fill, hasBindings } from './bindings.ts'
+import { elements, parse, sanitize, serialize } from './sanitize.ts'
 
 export const MOTIF_DEPTH_LIMIT = 8
 export const MOTIF_PLACEMENT_LIMIT = 256
@@ -24,6 +25,7 @@ export interface ExpandMotifsOptions {
   prefix: string
   linkOrigins?: Iterable<string>
   signal: AbortSignal
+  deferPaths?: Iterable<string>
 }
 
 export interface PlacedMotif extends MotifPlacement {
@@ -111,6 +113,35 @@ function replaceChildren(element: Element, html: string): void {
   element.children = children
 }
 
+function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
+  const deferred = new Set(options.deferPaths ?? [])
+  const names = new Set(Object.values(bindingNames(options.prefix)))
+  return elements(parse(html).children).some((held) => Object.entries(held.attribs).some(([name, path]) => names.has(name) && !deferred.has(bindingRoot(path))))
+}
+
+async function fillVersion(html: string, placement: MotifPlacement, element: Element, state: ExpansionState): Promise<string | undefined> {
+  const data = await state.options.source.data?.(placement, { signal: state.options.signal })
+  state.options.signal.throwIfAborted()
+  if (data && new Set(state.options.deferPaths ?? []).has(PRINTED_PAGE_CONTEXT) && Object.hasOwn(data, PRINTED_PAGE_CONTEXT)) {
+    refuse(
+      state,
+      element,
+      `the reserved ${PRINTED_PAGE_CONTEXT} context because host data contains that key`,
+      `remove ${PRINTED_PAGE_CONTEXT} from MotifSource.data`,
+    )
+    return undefined
+  }
+  const filled = fill(html, {
+    prefix: state.options.prefix,
+    data: data ?? {},
+    linkOrigins: state.options.linkOrigins,
+    registerHrefOrigins: true,
+    deferPaths: state.options.deferPaths,
+  })
+  for (const path of filled.unavailable) state.unavailable.add(path)
+  return filled.html
+}
+
 async function motifFor(element: Element, state: ExpansionState): Promise<Motif | undefined> {
   const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
   if (!key) {
@@ -163,7 +194,7 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
     refuse(state, element, 'a data-free motif version for a scripted page', 'remove its bindings or refuse page scripts')
     return
   }
-  if (bound && !state.options.source.data) {
+  if (needsHostData(choice.version.html, state.options) && !state.options.source.data) {
     refuse(state, element, 'data for the motif version bindings', 'provide MotifSource.data or remove the bindings')
     return
   }
@@ -173,16 +204,9 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
   const placement = { key: motif.key, revision: motif.revision, lang, fields }
   let versionHtml = sanitize(choice.version.html, { linkOrigins: state.options.linkOrigins })
   if (bound && !state.validateOnly) {
-    const data = await state.options.source.data?.(placement, { signal: state.options.signal })
-    state.options.signal.throwIfAborted()
-    const filled = fill(versionHtml, {
-      prefix: state.options.prefix,
-      data: data ?? {},
-      linkOrigins: state.options.linkOrigins,
-      registerHrefOrigins: true,
-    })
-    versionHtml = filled.html
-    for (const path of filled.unavailable) state.unavailable.add(path)
+    const filled = await fillVersion(versionHtml, placement, element, state)
+    if (filled === undefined) return
+    versionHtml = filled
   }
 
   element.attribs.lang = lang

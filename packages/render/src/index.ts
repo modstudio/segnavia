@@ -1,4 +1,3 @@
-// Renders pages, slides and decks in a host-named, offline headless Chromium.
 import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { expandFramePages, type MotifsOptions } from '@segnavia/frame/motifs'
@@ -15,11 +14,12 @@ import { fontFaces } from './font-faces.ts'
 import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts, renderPageDocument } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 import { assertPrintOptions, printPage, printViewport } from './page-paper.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
+import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
@@ -76,8 +76,7 @@ export interface Renderer {
   close(): Promise<void>
 }
 
-// A page that grows takes the height of its content. The viewport is
-// collapsed first, because a document is never shorter than its viewport.
+// Collapse the viewport because a growing document is never shorter than it.
 async function contentHeight(tab: Tab): Promise<number> {
   const width = tab.viewportSize()?.width ?? FLUID_WIDTH
   await tab.setViewportSize({ width, height: 1 })
@@ -184,13 +183,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         viewport,
         scripts: true,
         slots: preparedSlotsFor(page),
-        html: renderPageDocument(page, opts, true),
+        html: renderedPageDocument(page, opts, true),
         waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
       },
       async (tab) => {
+        await awaitPrintedPageComposition(tab, page)
         const captures = await prepareBackdropRasters(tab, opts.effects)
         if (page.print) {
           const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex)
@@ -298,13 +298,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             slots: preparedSlotsFor(page),
             scale: opts.scale,
-            html: renderPageDocument(page, prepared.options),
+            html: renderedPageDocument(page, prepared.options),
             waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,
           },
           async (tab) => {
+            await awaitPrintedPageComposition(tab, page)
             if (grows) await contentHeight(tab)
             return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
           },

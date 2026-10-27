@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
 import { FontReference } from './fonts.ts'
-import { NoteMarker, NumberSystem } from './numbering.ts'
+import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Scripts } from './scripts.ts'
 
@@ -86,11 +86,6 @@ export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scr
 })
 export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>
-
-export function isHebrew(lang: string | undefined): boolean {
-  const primary = lang?.split('-')[0]?.toLowerCase()
-  return primary === 'he' || primary === 'iw'
-}
 
 const ResolvedBook = BookShape.transform((book) => {
   const hebrew = isHebrew(book.lang)

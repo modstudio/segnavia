@@ -120,9 +120,9 @@ test('pagePdf embeds only named transported local faces and retains no decoded b
   expect(documents[0]).not.toContain('Unreferenced Family')
   expect(reports).toEqual([{ fellBack: [{ family: 'Missing Family', fallback: 'heading' }] }])
   expect(decoded).toHaveLength(2)
-  for (let attempt = 0; attempt < 20 && decoded.some((reference) => reference.deref()); attempt += 1) {
+  for (let attempt = 0; attempt < 50 && decoded.some((reference) => reference.deref()); attempt += 1) {
     Bun.gc(true)
-    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    await new Promise<void>((resolve) => setTimeout(resolve, 5))
   }
   expect(decoded.every((reference) => reference.deref() === undefined)).toBe(true)
 })

@@ -13,6 +13,7 @@ import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
 import { Motif, MotifInput } from './motif.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
+import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
 
@@ -78,7 +79,6 @@ export {
   type BookViewInput,
   Chapter,
   isBookContents,
-  isHebrew,
   noteMarkerIssues,
 } from './book.ts'
 export {
@@ -184,6 +184,7 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
@@ -332,17 +333,22 @@ export type ImpositionInput = z.input<typeof Imposition>
 export const PageSize = z.union([z.literal('fluid'), Size, z.object({ width: z.number().int().positive(), height: z.literal('auto') })])
 export type PageSize = z.infer<typeof PageSize>
 
-export const Page = z.object({
-  id: z.string().optional(),
-  html: z.string(),
-  size: PageSize.default('fluid'),
-  scripts: Scripts.default('refuse'),
-  dir: Direction.optional(),
-  lang: z.string().optional(),
-  print: Print.optional(),
-  slots: Slots.optional(),
-  fonts: z.array(FontReference).optional(),
-})
+export const Page = z
+  .object({
+    id: z.string().optional(),
+    html: z.string(),
+    size: PageSize.default('fluid'),
+    scripts: Scripts.default('refuse'),
+    dir: Direction.optional(),
+    lang: z.string().optional(),
+    print: Print.optional(),
+    printedPages: PrintedPages.optional(),
+    slots: Slots.optional(),
+    fonts: z.array(FontReference).optional(),
+  })
+  .superRefine((page, ctx) => {
+    for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
+  })
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>
 

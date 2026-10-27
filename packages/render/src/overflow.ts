@@ -141,18 +141,24 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       }
       return { left, right }
     }
-    const elements = [...document.querySelectorAll('*')].map((element) => {
-      const box = element.getBoundingClientRect()
-      const clips: HorizontalBox[] = []
-      let ancestor = element.parentElement
-      while (ancestor) {
-        const style = getComputedStyle(ancestor)
-        if (clipsContent(style)) clips.push(clipBox(ancestor, style))
-        ancestor = ancestor.parentElement
-      }
-      return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
+    const elements = [...document.querySelectorAll('*')]
+      .filter((element) => !element.closest('[data-segnavia-flow-clone]'))
+      .map((element) => {
+        const box = element.getBoundingClientRect()
+        const clips: HorizontalBox[] = []
+        let ancestor = element.parentElement
+        while (ancestor) {
+          const style = getComputedStyle(ancestor)
+          if (clipsContent(style)) clips.push(clipBox(ancestor, style))
+          ancestor = ancestor.parentElement
+        }
+        return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
+      })
+    const furniture = [...document.querySelectorAll('[data-segnavia-furniture-overflow]')].map((element) => {
+      const [parent, region, excess] = (element.getAttribute('data-segnavia-furniture-overflow') ?? '').split(':')
+      return { locator: `parent page ${parent} ${region}`, excess: Number(excess) || 0 }
     })
-    return { extent, endOverflow, extentClipped, rtl, elements }
+    return { extent, endOverflow, extentClipped, rtl, elements, furniture }
   })
   const contributions: OverflowContribution[] = []
   let clippedStart = 0
@@ -166,6 +172,10 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
     if ((overflow.clippedStart > 0 || overflow.clippedEnd > 0) && contributions.length < 20) {
       contributions.push({ locator: element.locator, clippedStart: overflow.clippedStart, clippedEnd: overflow.clippedEnd })
     }
+  }
+  for (const furniture of measured.furniture ?? []) {
+    clippedEnd = Math.max(clippedEnd, furniture.excess)
+    if (contributions.length < 20) contributions.push({ locator: furniture.locator, clippedStart: 0, clippedEnd: furniture.excess })
   }
   return {
     overflow: {

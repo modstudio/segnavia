@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Renderer } from '@segnavia/render'
+import type { MotifsOptions, Renderer } from '@segnavia/render'
 import {
   bleedGridImposition,
   bleedGridPages,
@@ -14,14 +14,40 @@ import {
   labelsImposition,
   letterFoldImposition,
   letterFoldPages,
+  parentPageEnglish,
+  parentPageFurnitureOverflow,
+  parentPageHebrew,
+  parentPageMixed,
+  parentPageNarrowBreak,
+  parentPageUnsizedImage,
   postcardBackPage,
   postcardPage,
+  printedPageMotifSource,
   twoSidedCardImposition,
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
 
 export async function buildPagePdfs(renderer: Renderer, output: string): Promise<void> {
+  const motifs: MotifsOptions = {
+    source: printedPageMotifSource,
+  }
+  let englishOverflow = ''
+  writeFileSync(
+    path.join(output, 'pages-parent-english.pdf'),
+    await renderer.pagePdf(parentPageEnglish, { motifs, overflow: { report: (report) => (englishOverflow = JSON.stringify(report)) } }),
+  )
+  writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
+  writeFileSync(path.join(output, 'pages-parent-hebrew.pdf'), await renderer.pagePdf(parentPageHebrew, { motifs }))
+  writeFileSync(path.join(output, 'pages-parent-mixed.pdf'), await renderer.pagesPdf([parentPageMixed], { motifs }))
+  writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
+  writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
+  let furnitureOverflow = ''
+  writeFileSync(
+    path.join(output, 'pages-parent-furniture-overflow.pdf'),
+    await renderer.pagePdf(parentPageFurnitureOverflow, { overflow: { report: (report) => (furnitureOverflow = JSON.stringify(report)) } }),
+  )
+  writeFileSync(path.join(output, 'pages-parent-furniture-overflow.json'), furnitureOverflow)
   writeFileSync(path.join(output, 'pages-postcard.pdf'), await renderer.pagesPdf([postcardPage, postcardBackPage]))
   writeFileSync(path.join(output, 'pages-labels.pdf'), await renderer.pagesPdf(labelPages.slice(0, 30), { imposition: labelsImposition }))
   writeFileSync(path.join(output, 'pages-labels-31.pdf'), await renderer.pagesPdf(labelPages, { imposition: labelsImposition }))

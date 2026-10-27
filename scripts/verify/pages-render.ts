@@ -30,8 +30,96 @@ function closeBox(actual: number[] | undefined, expected: number[]): boolean {
   return actual?.every((value, index) => Math.abs(value - (expected[index] ?? Number.NaN)) <= 0.5) ?? false
 }
 
+function parentText(output: string, name: string): string[] {
+  return execFileSync('pdftotext', ['-layout', path.join(output, `pages-parent-${name}.pdf`), '-'], { encoding: 'utf8' })
+    .split('\f')
+    .filter(Boolean)
+}
+
+function verifyParentDetails(output: string, check: Check): void {
+  const englishBoxes = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-parent-english.pdf'), '-'], { encoding: 'utf8' })
+  const englishBoxPages = [...englishBoxes.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
+  const pageBodyBoxes = englishBoxPages.map((content) => [
+    ...content.matchAll(/<word xMin="[\d.]+" yMin="([\d.]+)" xMax="[\d.]+" yMax="([\d.]+)">English-\d+<\/word>/g),
+  ])
+  // The fixture's first page has a 30mm top margin and every page an 18mm bottom; later pages have 18mm on top.
+  // Chromium snaps text baselines to whole pixels, so a line may start up to half a CSS pixel outside its text area.
+  const snap = 0.375
+  const clearOf = (top: number) => (match: RegExpMatchArray) => Number(match[1]) >= top / MM_PER_PT - snap && Number(match[2]) <= 792 - 18 / MM_PER_PT + snap
+  const firstClear = pageBodyBoxes[0]?.every(clearOf(30)) ?? false
+  const normalClear = pageBodyBoxes.slice(1).every((boxes) => boxes.every(clearOf(18)))
+  const bodyWordCount = pageBodyBoxes.reduce((sum, boxes) => sum + boxes.length, 0)
+  check(
+    'the English flowing body stays clear of the first and normal furniture regions per page',
+    bodyWordCount === 55 && firstClear && normalClear,
+    `words=${bodyWordCount} first=${firstClear} later=${normalClear} firstTop=${pageBodyBoxes[0]?.[0]?.[1]}`,
+  )
+  const englishEntry = JSON.parse(readFileSync(path.join(output, 'pages-parent-english-overflow.json'), 'utf8')).entries?.[0]
+  check(
+    'the English composed clones do not create overflow entries',
+    englishEntry?.clippedStart === 0 && englishEntry?.clippedEnd === 0 && englishEntry?.elements?.length === 0,
+    JSON.stringify(englishEntry),
+  )
+  const hebrew = parentText(output, 'hebrew')
+  const numbered = hebrew.length === 2 && hebrew[0]?.includes('א') && hebrew[1]?.includes('ב') && hebrew.every((page) => page.includes('מתוך ב'))
+  const head = hebrew.filter((page) => page.includes('כותרת')).length
+  check(
+    'the Hebrew flowing letter prints Hebrew folios from the page start with right-to-left recto and verso',
+    Boolean(numbered) && head === 1 && Boolean(hebrew[1]?.includes('flowing body 19-')),
+    `pages=${hebrew.length} head=${head} numbered=${numbered} page2-body19=${Boolean(hebrew[1]?.includes('flowing body 19-'))}`,
+  )
+  const hebrewBoxes = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-parent-hebrew.pdf'), '-'], { encoding: 'utf8' })
+  const boxPages = [...hebrewBoxes.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
+  const firstBodyX = Number(boxPages[0]?.match(/<word xMin="([\d.]+)"[^>]*>flowing<\/word>/)?.[1])
+  const secondBodyX = Number(boxPages[1]?.match(/<word xMin="([\d.]+)"[^>]*>flowing<\/word>/)?.[1])
+  check(
+    'right-to-left recto and verso use inner then outer at inline start',
+    Number.isFinite(firstBodyX) && Number.isFinite(secondBodyX) && secondBodyX - firstBodyX > 20,
+    `recto x=${firstBodyX} verso x=${secondBodyX}`,
+  )
+  const mixed = parentText(output, 'mixed')
+  const isolated = mixed.length === 2 && mixed[0]?.includes('English opening') && mixed[0]?.includes('כותרת') && mixed.every((page) => page.includes('עמוד'))
+  check(
+    'the mixed-direction flowing letter keeps body and furniture text present in their own runs',
+    Boolean(isolated) && Boolean(mixed[1]?.match(/Mixed-1\d/)),
+    `pages=${mixed.length} isolated=${isolated} page2-mixed=${mixed[1]?.match(/Mixed-1\d/)?.[0] ?? 'missing'}`,
+  )
+  const imageText = parentText(output, 'unsized-image').join('\n')
+  check(
+    'an unsized data image settles before composition without losing surrounding words',
+    (imageText.match(/ImageWord-/g)?.length ?? 0) === 220 && imageText.includes('ImageWord-220'),
+    `words=${imageText.match(/ImageWord-/g)?.length ?? 0} last=${imageText.includes('ImageWord-220')}`,
+  )
+  const narrow = parentText(output, 'narrow-break')
+  check(
+    'a narrow-only forced page is counted from column geometry and retains all lines',
+    narrow.length === 3 && (narrow[1]?.match(/Narrow-/g)?.length ?? 0) === 30 && Boolean(narrow[2]?.includes('Wide ending')),
+    `pages=${narrow.length} narrow=${narrow[1]?.match(/Narrow-/g)?.length ?? 0} ending=${Boolean(narrow[2]?.includes('Wide ending'))}`,
+  )
+  const furnitureEntry = JSON.parse(readFileSync(path.join(output, 'pages-parent-furniture-overflow.json'), 'utf8')).entries?.[0]
+  check(
+    'oversized furniture appears in the overflow report with parent and region',
+    furnitureEntry?.elements?.some((element: { locator?: string }) => element.locator === 'parent page body head') ?? false,
+    JSON.stringify(furnitureEntry),
+  )
+}
+
 export function verifyPagesRender(output: string, work: string, check: Check): void {
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
+  const english = parentText(output, 'english')
+  const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
+  const englishFeet = english.map((page, index) => page.includes(`Page ${index + 1} of 3`))
+  const englishBreaks = english[1]?.includes('English-40') && !english[1]?.includes('English-41') && english[2]?.includes('English-41')
+  const widowCounts = english.map((page) => [...page.matchAll(/WIDOW-\d/g)].length)
+  const widowsHonored = widowCounts[0] === 2 && widowCounts[1] === 2
+  const keepWhole = english.filter((page) => page.includes('KEEP-A') || page.includes('KEEP-B') || page.includes('KEEP-C')).length === 1
+  check(
+    'the English flowing letter composes three pages with first-only head, numbered feet, forced break and intact keep',
+    english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole && widowsHonored,
+    `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole} widows=${widowCounts.join(',')}`,
+  )
+
+  verifyParentDetails(output, check)
   check(
     '30 labels fill one paper and a 31st label starts a second paper',
     /Pages:\s+1\b/.test(imposedInfo('pages-labels.pdf')) && /Pages:\s+2\b/.test(imposedInfo('pages-labels-31.pdf')),

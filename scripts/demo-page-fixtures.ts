@@ -1,5 +1,37 @@
 import './source-guard.ts'
-import type { ImpositionInput, PageInput } from '@segnavia/format'
+import type { ImpositionInput, MotifSource, PageInput } from '@segnavia/format'
+
+export const printedPageMotifSource: MotifSource = {
+  motif: async (key: string) => {
+    if (key === 'printed-head') {
+      return {
+        key,
+        revision: 'demo',
+        label: 'Printed head',
+        fields: [],
+        fonts: [],
+        versions: [
+          { lang: 'en', html: '<bdi>LETTERHEAD</bdi>' },
+          { lang: 'he', html: '<bdi>כותרת</bdi>' },
+        ],
+      }
+    }
+    if (key === 'printed-foot') {
+      return {
+        key,
+        revision: 'demo',
+        label: 'Printed foot',
+        fields: [],
+        fonts: [],
+        versions: [
+          { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
+          { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
+        ],
+      }
+    }
+    return undefined
+  },
+}
 
 export const fluidPage: PageInput = {
   html:
@@ -169,4 +201,83 @@ export const growingFixedImposition: ImpositionInput = {
   margin: { top: 2, right: 2, bottom: 2, left: 2 },
   gap: { column: 0, row: 0 },
   bleed: 2,
+}
+
+const parentPages = {
+  parents: [
+    {
+      name: 'body',
+      margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+      foot: '<footer data-motif="printed-foot"></footer>',
+    },
+    {
+      name: 'first',
+      basedOn: 'body',
+      margin: { top: 30, bottom: 18, inner: 22, outer: 12 },
+      head: '<header data-motif="printed-head"></header>',
+    },
+  ],
+  rules: { every: 'body', first: 'first' },
+}
+
+const flowingLines = (prefix: string, count: number, breaks: number[]) =>
+  Array.from({ length: count }, (_, index) => `<p${breaks.includes(index) ? ' class="forced"' : ''}>${prefix}-${index + 1} flowing body</p>`).join('')
+
+const flowingCss =
+  '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}.widow{widows:2;orphans:2;line-height:20px}.widow-space{block-size:360px}</style>'
+
+export const parentPageEnglish: PageInput = {
+  html: `${flowingCss}${flowingLines('English', 20, [])}<div class="widow-space"></div><p class="widow">WIDOW-1<br>WIDOW-2<br>WIDOW-3<br>WIDOW-4</p>${Array.from({ length: 35 }, (_, index) => `<p${index === 20 ? ' class="forced"' : ''}>English-${index + 21} flowing body</p>`).join('')}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageHebrew: PageInput = {
+  html: `${flowingCss}${flowingLines('עברית', 34, [18])}`,
+  lang: 'he',
+  dir: 'rtl',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageMixed: PageInput = {
+  html: `${flowingCss}<p>English opening בתוך מסמך mixed.</p>${flowingLines('Mixed', 32, [17])}`,
+  lang: 'he',
+  dir: 'rtl',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
+const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
+
+export const parentPageUnsizedImage: PageInput = {
+  html: `${flowingCss}<p>${imageWords.slice(0, 110).join('')}</p><img src="data:image/svg+xml,${unsizedImage}"><p>${imageWords.slice(110).join('')}</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageNarrowBreak: PageInput = {
+  html: `${flowingCss}<p>Wide opening</p><div style="break-before:page;break-after:page;inline-size:40%">${Array.from({ length: 30 }, (_, index) => `<div>Narrow-${index + 1}</div>`).join('')}</div><p>Wide ending</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: parentPages,
+}
+
+export const parentPageFurnitureOverflow: PageInput = {
+  html: `${flowingCss}<p>Furniture overflow body</p>`,
+  lang: 'en',
+  print: { paper: 'letter' },
+  printedPages: {
+    parents: [
+      {
+        name: 'body',
+        margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+        head: '<div style="block-size:200px">Too-tall furniture</div>',
+      },
+    ],
+    rules: { every: 'body' },
+  },
 }
