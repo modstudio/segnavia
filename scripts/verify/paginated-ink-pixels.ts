@@ -1,4 +1,5 @@
-export const INK_BAND_PX = 8
+export const INK_BAND_PX = 40
+export const INK_COMPARE_PX = 8
 // A pixel is ink when min(R,G,B) < 240. It matches if the other band has ink within 1 CSS pixel.
 export const INK_NEIGHBORHOOD_PX = 1
 
@@ -33,6 +34,30 @@ function nearbyInk(image: InkImage, x: number, y: number): boolean {
   return false
 }
 
+function firstInkRow(image: InkImage): number {
+  for (let y = 0; y < image.height; y += 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (inkAt(image, x, y)) return y
+    }
+  }
+  return -1
+}
+
+function lastInkRow(image: InkImage): number {
+  for (let y = image.height - 1; y >= 0; y -= 1) {
+    for (let x = 0; x < image.width; x += 1) {
+      if (inkAt(image, x, y)) return y
+    }
+  }
+  return -1
+}
+
+function cropRows(image: InkImage, from: number, height: number): InkImage {
+  const start = Math.max(0, from)
+  const held = Math.max(0, Math.min(height, image.height - start))
+  return { width: image.width, height: held, data: image.data.slice(start * image.width * 4, (start + held) * image.width * 4) }
+}
+
 export function presenceDiff(galley: InkImage, composed: InkImage): PixelDiff {
   const height = Math.min(galley.height, composed.height)
   const width = Math.min(galley.width, composed.width)
@@ -47,6 +72,31 @@ export function presenceDiff(galley: InkImage, composed: InkImage): PixelDiff {
     }
   }
   return { over: lost + extra, lost, extra }
+}
+
+const EMPTY: PixelDiff = { over: 0, lost: 0, extra: 0 }
+
+function missing(image: InkImage, lost: boolean): PixelDiff {
+  const count = image.width * Math.max(1, image.height)
+  return lost ? { over: count, lost: count, extra: 0 } : { over: count, lost: 0, extra: count }
+}
+
+export function edgePresence(galley: InkImage, composed: InkImage, side: 'start' | 'end' | 'break'): PixelDiff {
+  if (side === 'break') return presenceDiff(galley, composed)
+  if (side === 'start') {
+    const galleyRow = firstInkRow(galley)
+    const pageRow = firstInkRow(composed)
+    if (galleyRow < 0 && pageRow < 0) return EMPTY
+    if (galleyRow < 0) return missing(composed, false)
+    if (pageRow < 0) return missing(galley, true)
+    return presenceDiff(cropRows(galley, galleyRow, INK_COMPARE_PX), cropRows(composed, pageRow, INK_COMPARE_PX))
+  }
+  const galleyRow = lastInkRow(galley)
+  const pageRow = lastInkRow(composed)
+  if (galleyRow < 0 && pageRow < 0) return EMPTY
+  if (galleyRow < 0) return missing(composed, false)
+  if (pageRow < 0) return missing(galley, true)
+  return presenceDiff(cropRows(galley, galleyRow - INK_COMPARE_PX + 1, INK_COMPARE_PX), cropRows(composed, pageRow - INK_COMPARE_PX + 1, INK_COMPARE_PX))
 }
 
 export function inkBounds(image: InkImage): { count: number; minX: number; minY: number; maxX: number; maxY: number } {

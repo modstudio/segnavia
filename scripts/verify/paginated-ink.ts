@@ -1,6 +1,6 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
-import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, type InkImage, inkBounds, inkCount, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
+import { edgePresence, INK_BAND_PX, INK_COMPARE_PX, INK_NEIGHBORHOOD_PX, type InkImage, inkBounds, inkCount, stackImages } from './paginated-ink-pixels.ts'
 
 interface InkWindow {
   flow: string
@@ -12,6 +12,7 @@ interface InkWindow {
   localX: number
   width: number
   height: number
+  blocks: number[]
 }
 
 interface Mismatch {
@@ -24,6 +25,8 @@ interface Mismatch {
   extra: number
   galleyInk?: number
   pageInk?: number
+  galleySize?: number[]
+  pageSize?: number[]
 }
 
 async function pngRgba(h: Harness, png: Buffer): Promise<InkImage> {
@@ -47,10 +50,11 @@ async function screenshotBand(h: Harness, frame: Frame, selector: string, localX
   const handle = await frame.$(selector)
   if (!handle) throw new Error(`The paginated book has no ${selector}.`)
   await handle.evaluate((element, y) => {
+    element.scrollIntoView({ block: 'center', inline: 'nearest' })
     const box = element.getBoundingClientRect()
     const root = document.scrollingElement
     if (!root) return
-    root.scrollTop += box.top + y - innerHeight / 2
+    root.scrollTop += y
   }, localY)
   const local = await handle.evaluate(
     (element, arg) => {
@@ -89,8 +93,8 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
       if (!flow) continue
       const flowBox = flow.getBoundingClientRect()
       const viewBox = view.getBoundingClientRect()
-      const stamped = view.querySelector('[data-segnavia-block]')?.getAttribute('data-segnavia-block')
-      const child = stamped === undefined || stamped === null ? undefined : flow.children[Number(stamped)]
+      const blocks = Array.from(view.querySelectorAll('[data-segnavia-block]')).map((node) => Number(node.getAttribute('data-segnavia-block')))
+      const child = blocks[0] === undefined ? undefined : flow.children[blocks[0]]
       windows.push({
         flow: flowId,
         column: Number(view.getAttribute('data-column') ?? 0),
@@ -101,6 +105,7 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
         width: viewBox.width,
         height: viewBox.height,
         top: Number(view.getAttribute('data-top')),
+        blocks,
       })
     }
     return windows
@@ -166,39 +171,26 @@ interface EdgeBands {
   pageEnd: InkImage
 }
 
-function galleyBlockExtent(held: Element, origin: number): { top: number; bottom: number } {
-  const range = document.createRange()
-  range.selectNodeContents(held)
-  const rects = Array.from(range.getClientRects())
-  if (!rects.length) {
-    const box = held.getBoundingClientRect()
-    return { top: box.top - origin, bottom: box.bottom - origin }
-  }
-  return { top: Math.min(...rects.map((rect) => rect.top - origin)), bottom: Math.max(...rects.map((rect) => rect.bottom - origin)) }
-}
-
 async function hideOtherGalleyBlocks(frame: Frame, view: InkWindow, hide: boolean) {
   await frame.evaluate(
-    ({ flow, start, end, hide: hideBlocks, extentSrc }) => {
-      const extent = new Function('held', 'origin', `return (${extentSrc})(held, origin)`) as typeof galleyBlockExtent
+    ({ flow, blocks, hide: hideBlocks }) => {
       const root = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-flow="${flow}"]`)
       if (!root) return
-      const origin = root.getBoundingClientRect().top
-      for (const child of Array.from(root.children)) {
+      const kept = new Set(blocks)
+      for (const [index, child] of Array.from(root.children).entries()) {
         if (child.tagName === 'STYLE' || child.tagName === 'SCRIPT') continue
         const held = child as HTMLElement
         if (!hideBlocks) {
-          held.style.visibility = held.hasAttribute('data-segnavia-ink-hide') ? '' : held.style.visibility
+          if (held.hasAttribute('data-segnavia-ink-hide')) held.style.visibility = ''
           held.removeAttribute('data-segnavia-ink-hide')
           continue
         }
-        const box = extent(held, origin)
-        if (box.bottom > start && box.top < end) continue
+        if (kept.has(index)) continue
         held.setAttribute('data-segnavia-ink-hide', '')
         held.style.visibility = 'hidden'
       }
     },
-    { flow: view.flow, start: view.start, end: view.end, hide, extentSrc: galleyBlockExtent.toString() },
+    { flow: view.flow, blocks: view.blocks, hide },
   )
 }
 
@@ -230,7 +222,7 @@ async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]):
 }
 
 function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
-  const diff = presenceDiff(galley, page)
+  const diff = edgePresence(galley, page, side ?? 'break')
   if (diff.over === 0) return
   mismatches.push({
     flow: view.flow,
@@ -242,6 +234,8 @@ function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number,
     extra: diff.extra,
     galleyInk: inkBounds(galley).count,
     pageInk: inkBounds(page).count,
+    galleySize: [galley.width, galley.height],
+    pageSize: [page.width, page.height],
   })
 }
 
@@ -296,16 +290,15 @@ function recordBreak(previous: InkWindow, previousBands: EdgeBands, nextBands: E
 
 export async function compareHebrewInk(h: Harness, frame: Frame) {
   const windows = await collectWindows(frame)
-  const held = await showGalley(frame)
-  await hideOutsideText(frame, true)
-  const galleyBands = await captureGalleyBands(h, frame, windows)
   const pairs = sequentialPairs(windows)
-  const gaps: number[] = []
-  for (const pair of pairs) gaps.push(await gapInk(h, frame, pair.previous, pair.next))
-  await restoreGalley(frame, held)
   await markWindows(frame)
   await hideOutsideText(frame, true)
   const pageBands = await capturePageBands(h, frame, windows)
+  const held = await showGalley(frame)
+  const galleyBands = await captureGalleyBands(h, frame, windows)
+  const gaps: number[] = []
+  for (const pair of pairs) gaps.push(await gapInk(h, frame, pair.previous, pair.next))
+  await restoreGalley(frame, held)
   await unmarkWindows(frame)
   await hideOutsideText(frame, false)
   const mismatches: Mismatch[] = []
@@ -339,7 +332,8 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
       lost: mismatches.reduce((sum, item) => sum + item.lost, 0),
       extra: mismatches.reduce((sum, item) => sum + item.extra, 0),
       neighborhood: INK_NEIGHBORHOOD_PX,
-      band: INK_BAND_PX,
+      band: INK_COMPARE_PX,
+      capture: INK_BAND_PX,
       first: mismatches,
     }),
   }
