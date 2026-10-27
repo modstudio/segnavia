@@ -174,6 +174,7 @@ describe('paginateBook model', () => {
       { role: 'fixed', sequence: 'front', flow: 'dedication', number: 3, kind: 'front' },
       { role: 'fixed', sequence: 'front', flow: 'dedication', number: 4, kind: 'front' },
       { role: 'opener', sequence: 'front', flow: 'toc', number: 5, kind: 'front' },
+      { role: 'blank', sequence: 'front', flow: 'toc', number: 6, kind: 'blank' },
       { role: 'opener', sequence: 'body', flow: 'c1', number: 1, kind: 'body' },
     ])
   })

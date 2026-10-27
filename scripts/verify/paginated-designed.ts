@@ -59,7 +59,9 @@ export async function compareDesignedPages(h: Harness, id: string): Promise<Desi
       { timeout: 20_000 },
     )
     const pages = await printPage.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-role="fixed"]')).map((node) => Number(node.getAttribute('data-segnavia-book-page'))),
+      Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-role="fixed"]')).map((node) =>
+        Number(node.getAttribute('data-segnavia-book-page')),
+      ),
     )
     const pdf = await printPage.pdf({ printBackground: true, width: '148mm', height: '210mm', margin: { top: 0, right: 0, bottom: 0, left: 0 } })
     const matches: DesignedPageMatch[] = []

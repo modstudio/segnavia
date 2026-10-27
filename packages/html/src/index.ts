@@ -10,8 +10,8 @@ export { bookDocument } from './book/book-document.ts'
 export { bookView } from './book/book-view.ts'
 export { type BookFurnitureValues, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
-export { pageIndexForTarget } from './book/paginate-target.ts'
 export type { PaginateTarget, PaginateTargetPage } from './book/paginate-target.ts'
+export { pageIndexForTarget } from './book/paginate-target.ts'
 export type {
   PaginateBlock,
   PaginateBookInput,

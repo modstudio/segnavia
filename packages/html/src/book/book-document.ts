@@ -82,29 +82,35 @@ function chapterSection(chapter: Chapter, index: number, galley = false): BuiltS
   }
 }
 
-function designedHeadings(children: ChildNode[], sectionId: string, depth: number): BookHeading[] {
-  let generated = 0
+function designedHeadings(children: ChildNode[], sectionId: string, depth: number, generated: { n: number }): BookHeading[] {
   return elements(children).flatMap((heading): BookHeading[] => {
     const match = /^h([1-6])$/.exec(heading.name)
     if (!match || heading.attribs['data-contents'] === 'exclude') return []
     const level = Number(match[1])
     if (level > depth) return []
-    generated += 1
-    const id = heading.attribs.id ?? `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${generated}`
+    generated.n += 1
+    const id = heading.attribs.id ?? `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${generated.n}`
     heading.attribs.id = id
     return [{ id, level, text: textContent(heading, true).replace(/\s+/g, ' ').trim(), sectionId }]
   })
 }
 
-function designedSection(entry: DesignedSection, id: string, kind: 'front' | 'designed', galley: boolean, depth: number): { built: BuiltSection; headings: BookHeading[] } {
+function designedSection(
+  entry: DesignedSection,
+  id: string,
+  kind: 'front' | 'designed',
+  galley: boolean,
+  depth: number,
+): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(entry.opens, entry.parents, {
     'data-segnavia-kind': 'fixed',
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   const headings: BookHeading[] = []
+  const generated = { n: 0 }
   const holders = entry.pages.map((page, offset) => {
     const document = parse(page.html)
-    headings.push(...designedHeadings(document.children, id, depth))
+    headings.push(...designedHeadings(document.children, id, depth, generated))
     return element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
   })
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })

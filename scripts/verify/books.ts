@@ -1,8 +1,8 @@
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness } from './harness.ts'
-import { compareHebrewInk } from './paginated-ink.ts'
 import { compareDesignedPages, DESIGNED_PAGE_MEAN, DESIGNED_PAGE_P99 } from './paginated-designed.ts'
+import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
@@ -177,11 +177,7 @@ async function verifyPaginatedBooks(h: Harness) {
       designed.spreadHasNoFurniture && designed.leafHasFurniture,
       JSON.stringify({ spreadHasNoFurniture: designed.spreadHasNoFurniture, leafHasFurniture: designed.leafHasFurniture }),
     )
-    check(
-      `${id} contents page numbers equal the designed section's first page and its headings' pages`,
-      designed.contents.matches,
-      designed.contents.detail,
-    )
+    check(`${id} contents page numbers equal the designed section's first page and its headings' pages`, designed.contents.matches, designed.contents.detail)
     await frame.locator('[data-segnavia-pages] a[href="#spread-open"]').evaluate((element: HTMLAnchorElement) => element.click())
     const spreadLanded = await frame.evaluate(() => {
       const target = document.getElementById('spread-open')

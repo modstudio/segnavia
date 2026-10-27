@@ -181,9 +181,11 @@ describe('book', () => {
         chapters: [designed, chapter],
       }),
     )
-    expect(isDesignedSection(book.chapters[0] ?? chapter)).toBe(true)
-    expect(book.chapters[0]).toMatchObject({ kind: 'designed', title: 'Spread', opens: 'verso', contents: true, pages: designed.pages })
-    expect(isDesignedSection(book.chapters[1] ?? designed)).toBe(false)
+    const first = book.chapters[0]
+    const second = book.chapters[1]
+    expect(first !== undefined && isDesignedSection(first)).toBe(true)
+    expect(first).toMatchObject({ kind: 'designed', title: 'Spread', opens: 'verso', contents: true, pages: designed.pages })
+    expect(second !== undefined && isDesignedSection(second)).toBe(false)
   })
 
   test('a continuous book refuses a designed section', () => {

@@ -12,26 +12,36 @@ export interface PaginateTarget {
   top?: number
 }
 
+function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPage: number): number | undefined {
+  let seen = 0
+  for (const [index, page] of pages.entries()) {
+    if (page.flow !== flow || page.role !== 'fixed') continue
+    seen += 1
+    if (seen === designedPage) return index
+  }
+}
+
+function windowPageIndex(pages: PaginateTargetPage[], flow: string, top: number): number | undefined {
+  for (const [index, page] of pages.entries()) {
+    if (page.blank) continue
+    for (const win of page.windows) {
+      if (win.flow === flow && top >= win.start && top < win.end) return index
+    }
+  }
+}
+
+function openerPageIndex(pages: PaginateTargetPage[], flow: string): number | undefined {
+  for (const [index, page] of pages.entries()) {
+    if (!page.blank && page.flow === flow && page.sectionOpening) return index
+  }
+}
+
 export function pageIndexForTarget(pages: PaginateTargetPage[], target: PaginateTarget): number | undefined {
   const designed = target.designedPage
-  if (designed !== undefined && Number.isSafeInteger(designed) && designed > 0) {
-    let seen = 0
-    for (const [index, page] of pages.entries()) {
-      if (page.flow !== target.flow || page.role !== 'fixed') continue
-      seen += 1
-      if (seen === designed) return index
-    }
-    return undefined
-  }
+  if (designed !== undefined && Number.isSafeInteger(designed) && designed > 0) return designedPageIndex(pages, target.flow, designed)
   if (target.top !== undefined) {
-    for (const [index, page] of pages.entries()) {
-      if (page.blank) continue
-      for (const win of page.windows) {
-        if (win.flow === target.flow && target.top >= win.start && target.top < win.end) return index
-      }
-    }
+    const held = windowPageIndex(pages, target.flow, target.top)
+    if (held !== undefined) return held
   }
-  for (const [index, page] of pages.entries()) {
-    if (!page.blank && page.flow === target.flow && page.sectionOpening) return index
-  }
+  return openerPageIndex(pages, target.flow)
 }

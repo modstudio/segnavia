@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BOOK_PARENT_NAMES, ParentPage, printedPagesIssues } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, type ParentPage, printedPagesIssues } from './printed-pages.ts'
 
 export const BookOpens = z.enum(['recto', 'verso', 'any'])
 export type BookOpens = z.infer<typeof BookOpens>
@@ -77,10 +77,7 @@ interface NamedSection {
   parents?: BookSectionParents
 }
 
-function namedSections(book: {
-  frontMatter: BookFrontMatterEntry[]
-  chapters: BookChapterEntry[]
-}): NamedSection[] {
+function namedSections(book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] }): NamedSection[] {
   const front = book.frontMatter.map((entry, index): NamedSection => {
     const path = ['frontMatter', index]
     if (isBookContents(entry)) return { label: entry.title ?? `frontMatter[${index}]`, path, parents: entry.parents }
@@ -116,7 +113,8 @@ export function bookParentIssues(book: {
   for (const issue of printedPagesIssues({ parents: [...defaults, ...book.parentPages], rules: { every: BOOK_PARENT_NAMES.recto } })) {
     if (issue.path[0] === 'rules') continue
     if (issue.path[0] === 'parents' && typeof issue.path[1] === 'number' && issue.path[1] < defaults.length) continue
-    const path = issue.path[0] === 'parents' && typeof issue.path[1] === 'number' ? ['parentPages', issue.path[1] - defaults.length, ...issue.path.slice(2)] : issue.path
+    const path =
+      issue.path[0] === 'parents' && typeof issue.path[1] === 'number' ? ['parentPages', issue.path[1] - defaults.length, ...issue.path.slice(2)] : issue.path
     issues.push({ path, message: issue.message })
   }
   const known = new Set<string>([...Object.values(BOOK_PARENT_NAMES), ...book.parentPages.map((parent) => parent.name)])

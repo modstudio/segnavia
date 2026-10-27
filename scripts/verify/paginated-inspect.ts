@@ -304,7 +304,8 @@ export function inspectPaginatedBook(): PaginatedReport {
       const target = document.getElementById(id)
       const paper = target?.closest('[data-segnavia-book-page]')
       if (paper?.getAttribute('data-segnavia-role') !== 'fixed' && !id.startsWith('segnavia-designed-')) return []
-      const folio = (id.startsWith('segnavia-designed-') ? designedPages(id)[0]?.getAttribute('data-segnavia-folio') : paper?.getAttribute('data-segnavia-folio')) ?? ''
+      const folio =
+        (id.startsWith('segnavia-designed-') ? designedPages(id)[0]?.getAttribute('data-segnavia-folio') : paper?.getAttribute('data-segnavia-folio')) ?? ''
       const text = node.textContent?.trim() ?? ''
       return [{ id, text, folio }]
     })
