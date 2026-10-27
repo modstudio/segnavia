@@ -26,7 +26,7 @@ const sectionFields = {
 export const DesignedSection = z.object({
   kind: z.literal('designed'),
   ...sectionFields,
-  pages: z.array(DesignedPage),
+  pages: z.array(DesignedPage).min(1, 'a designed section needs at least one page; add a page or remove the section to clear this refusal'),
 })
 export type DesignedSection = z.infer<typeof DesignedSection>
 

@@ -196,6 +196,11 @@ describe('book', () => {
     })
   })
 
+  test('a designed section without pages is refused', () => {
+    const result = Book.safeParse(input({ mode: 'paginated', page, chapters: [{ kind: 'designed', pages: [] }, chapter] }))
+    expect(JSON.stringify(result.error?.issues)).toContain('a designed section needs at least one page')
+  })
+
   test('an unknown section parent names the section and the name', () => {
     const result = Book.safeParse(
       input({
