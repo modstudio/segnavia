@@ -39,7 +39,14 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
       const geometry = pieceGeometry(first)
       const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${hostCss}`
       try {
-        return { group, bytes: await setPdfPageSize(await services.piecePdf(page, geometry, css, opts), geometry.paper) }
+        return {
+          group,
+          bytes: await setPdfPageSize(
+            await services.piecePdf(page, geometry, css, opts),
+            geometry.paper,
+            'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
+          ),
+        }
       } catch (error) {
         namePageError(error, group.page)
       }

@@ -110,7 +110,11 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
     },
     inputIndex,
   )
-  const bytes = await setPdfPageSize(printed.bytes, boxes.bleedBox)
+  const bytes = await setPdfPageSize(
+    printed.bytes,
+    boxes.bleedBox,
+    'A page with bleed or marks prints at its bleed box, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
+  )
   const papers = (await loadPdf(bytes)).getPageCount()
   if (papers > 1) {
     throw new RenderRefusedError(

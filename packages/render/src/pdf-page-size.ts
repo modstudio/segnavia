@@ -38,14 +38,17 @@ export const pagePdfSize = (size: MillimeterPageSize, margin?: PageMargins) => (
     : {}),
 })
 
+const DEFAULT_PAGE_SIZE_REMEDY = 'Remove any @page size rule that changes the paper, or set preferCssPageSize, to clear this refusal.'
+
 export function pdfPageSizeCorrection(
   printed: PdfRectangle,
   exactMillimeters: MillimeterPageSize,
+  remedy = DEFAULT_PAGE_SIZE_REMEDY,
 ): { mediaBox: PdfRectangle; translation: { x: number; y: number } } {
   const exact = { width: Number(pt(exactMillimeters.width).toFixed(12)), height: Number(pt(exactMillimeters.height).toFixed(12)) }
   if (Math.abs(printed.width - exact.width) > 2 || Math.abs(printed.height - exact.height) > 2) {
     throw new RenderRefusedError(
-      `Chromium printed a ${printed.width.toFixed(2)} x ${printed.height.toFixed(2)} pt page where ${exact.width.toFixed(2)} x ${exact.height.toFixed(2)} pt was requested. Remove any @page size rule that changes the paper, or set preferCssPageSize, to clear this refusal.`,
+      `Chromium printed a ${printed.width.toFixed(2)} x ${printed.height.toFixed(2)} pt page where ${exact.width.toFixed(2)} x ${exact.height.toFixed(2)} pt was requested. ${remedy}`,
     )
   }
   return {
@@ -73,11 +76,11 @@ function translateAnnotations(annotations: PDFArray | undefined, x: number, y: n
   }
 }
 
-export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize): Promise<Uint8Array> {
+export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, remedy?: string): Promise<Uint8Array> {
   const document = await loadPdf(pdf, { updateMetadata: false })
   for (const page of document.getPages()) {
     const cropBox = page.node.CropBox()
-    const correction = pdfPageSizeCorrection(page.getMediaBox(), size)
+    const correction = pdfPageSizeCorrection(page.getMediaBox(), size, remedy)
     page.translateContent(correction.translation.x, correction.translation.y)
     translateAnnotations(page.node.Annots(), correction.translation.x, correction.translation.y)
     // Keep the exact box at origin 0 because PDF embedders such as pdf-lib ignore a MediaBox origin.

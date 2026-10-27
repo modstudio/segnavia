@@ -51,6 +51,20 @@ test('corrects only Chromium paper-size snapping within two points', () => {
   )
 })
 
+test('uses a supplied remedy in place of the default clearing step', () => {
+  expect(() =>
+    pdfPageSizeCorrection(
+      { x: 0, y: 0, width: 614.1, height: 794.1 },
+      { width: 215.9, height: 279.4 },
+      'Remove an @page size rule or the rule that resizes the page to clear this refusal.',
+    ),
+  ).toThrow(
+    new RenderRefusedError(
+      'Chromium printed a 614.10 x 794.10 pt page where 612.00 x 792.00 pt was requested. Remove an @page size rule or the rule that resizes the page to clear this refusal.',
+    ),
+  )
+})
+
 test('corrects the page box, content and link annotation together', async () => {
   const input = await PDFDocument.create()
   const page = input.addPage([612.96, 792.96])
