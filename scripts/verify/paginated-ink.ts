@@ -1,6 +1,6 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
-import { bestShift, diffAtShift, INK_BAND_PX, INK_CHANNEL_TOLERANCE, type InkImage, inkBounds, inkCount, stackImages } from './paginated-ink-pixels.ts'
+import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, type InkImage, inkBounds, inkCount, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
 
 interface InkWindow {
   flow: string
@@ -20,13 +20,10 @@ interface Mismatch {
   side?: 'start' | 'end' | 'break'
   offset: number
   over: number
-  worst: number
-  shift: number
-  dx?: number
+  lost: number
+  extra: number
   galleyInk?: number
   pageInk?: number
-  galleyBox?: number[]
-  pageBox?: number[]
 }
 
 async function pngRgba(h: Harness, png: Buffer): Promise<InkImage> {
@@ -169,13 +166,54 @@ interface EdgeBands {
   pageEnd: InkImage
 }
 
+function galleyBlockExtent(held: Element, origin: number): { top: number; bottom: number } {
+  const range = document.createRange()
+  range.selectNodeContents(held)
+  const rects = Array.from(range.getClientRects())
+  if (!rects.length) {
+    const box = held.getBoundingClientRect()
+    return { top: box.top - origin, bottom: box.bottom - origin }
+  }
+  return { top: Math.min(...rects.map((rect) => rect.top - origin)), bottom: Math.max(...rects.map((rect) => rect.bottom - origin)) }
+}
+
+async function hideOtherGalleyBlocks(frame: Frame, view: InkWindow, hide: boolean) {
+  await frame.evaluate(
+    ({ flow, start, end, hide: hideBlocks, extentSrc }) => {
+      const extent = new Function('held', 'origin', `return (${extentSrc})(held, origin)`) as typeof galleyBlockExtent
+      const root = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-flow="${flow}"]`)
+      if (!root) return
+      const origin = root.getBoundingClientRect().top
+      for (const child of Array.from(root.children)) {
+        if (child.tagName === 'STYLE' || child.tagName === 'SCRIPT') continue
+        const held = child as HTMLElement
+        if (!hideBlocks) {
+          held.style.visibility = held.hasAttribute('data-segnavia-ink-hide') ? '' : held.style.visibility
+          held.removeAttribute('data-segnavia-ink-hide')
+          continue
+        }
+        const box = extent(held, origin)
+        if (box.bottom > start && box.top < end) continue
+        held.setAttribute('data-segnavia-ink-hide', '')
+        held.style.visibility = 'hidden'
+      }
+    },
+    { flow: view.flow, start: view.start, end: view.end, hide, extentSrc: galleyBlockExtent.toString() },
+  )
+}
+
 async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkImage; end: InkImage }>> {
   const bands: Array<{ start: InkImage; end: InkImage }> = []
   for (const view of windows) {
     const height = bandHeight(view.height)
-    const start = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, height))
-    const end = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height))
-    bands.push({ start, end })
+    await hideOtherGalleyBlocks(frame, view, true)
+    try {
+      const start = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, height))
+      const end = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height))
+      bands.push({ start, end })
+    } finally {
+      await hideOtherGalleyBlocks(frame, view, false)
+    }
   }
   return bands
 }
@@ -192,24 +230,18 @@ async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]):
 }
 
 function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
-  const aligned = diffAtShift(galley, page, 0, 0)
-  if (aligned.over === 0) return
-  const shifted = bestShift(galley, page)
-  const galleyBox = inkBounds(galley)
-  const pageBox = inkBounds(page)
+  const diff = presenceDiff(galley, page)
+  if (diff.over === 0) return
   mismatches.push({
     flow: view.flow,
     column: view.column,
     side,
     offset,
-    over: aligned.over,
-    worst: aligned.worst,
-    shift: shifted.shift,
-    dx: shifted.dx,
-    galleyInk: galleyBox.count,
-    pageInk: pageBox.count,
-    galleyBox: [galleyBox.minX, galleyBox.minY, galleyBox.maxX, galleyBox.maxY],
-    pageBox: [pageBox.minX, pageBox.minY, pageBox.maxX, pageBox.maxY],
+    over: diff.over,
+    lost: diff.lost,
+    extra: diff.extra,
+    galleyInk: inkBounds(galley).count,
+    pageInk: inkBounds(page).count,
   })
 }
 
@@ -232,6 +264,8 @@ function sequentialPairs(windows: InkWindow[]): Array<{ previous: InkWindow; nex
       const previous = windows[previousIndex]
       const next = windows[nextIndex]
       if (!previous || !next || previous.end > next.start + 0.5) continue
+      // Other column runs sit between same-column windows in galley order; only near edges are page breaks.
+      if (next.start - previous.end > 40) continue
       pairs.push({ previous, next, previousIndex, nextIndex })
     }
   }
@@ -247,7 +281,7 @@ async function gapInk(h: Harness, frame: Frame, previous: InkWindow, next: InkWi
 
 function recordBreak(previous: InkWindow, previousBands: EdgeBands, nextBands: EdgeBands, gap: number, mismatches: Mismatch[]): void {
   if (gap > 0) {
-    mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: gap, worst: 255, shift: 0 })
+    mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: gap, lost: gap, extra: 0 })
     return
   }
   recordMismatch(
@@ -302,11 +336,11 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
       compared: windows.length * 2,
       breaks: pairs.length,
       mismatched: mismatches.length,
-      worst: mismatches.reduce((max, item) => Math.max(max, item.worst), 0),
-      shifts: mismatches.map((item) => item.shift),
-      tolerance: INK_CHANNEL_TOLERANCE,
+      lost: mismatches.reduce((sum, item) => sum + item.lost, 0),
+      extra: mismatches.reduce((sum, item) => sum + item.extra, 0),
+      neighborhood: INK_NEIGHBORHOOD_PX,
       band: INK_BAND_PX,
-      first: mismatches.slice(0, 8),
+      first: mismatches,
     }),
   }
 }
