@@ -35,7 +35,6 @@ function input(overrides: Partial<PaginateBookInput> & Pick<PaginateBookInput, '
     settings: {
       rectoOpenings: false,
       direction: 'ltr',
-      sequences: { frontMatter: 'roman-lower', body: 'arabic' },
       endnotePlacement: 'book',
     },
     ...overrides,
@@ -53,7 +52,6 @@ function rebuilt() {
 const settings = {
   rectoOpenings: true as const,
   direction: 'ltr' as const,
-  sequences: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
   endnotePlacement: 'book' as const,
 }
 
@@ -71,7 +69,6 @@ function fixtures(): PaginateBookInput[] {
         ...settings,
         rectoOpenings: false,
         direction: 'rtl',
-        sequences: { frontMatter: 'roman-lower', body: 'hebrew' },
         endnotePlacement: 'chapter',
         orphans: 2,
         widows: 2,
@@ -127,6 +124,35 @@ function fixtures(): PaginateBookInput[] {
         flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)], 'One'),
         { id: 'art', kind: 'fixed', pages: 2 },
         flow('c2', 'chapter', [block('text', 'p', 2, 1, 3, 0)], 'Two'),
+      ],
+    }),
+    input({
+      geometry: { textHeight: 200, notesGap: 10 },
+      flows: [flow('c1', 'chapter', [block('text', 'p', 1, 0, 3, 0), block('text', 'p', 1, 1, 4, 50, { columns: 2 }), block('text', 'p', 1, 2, 2, 120)])],
+    }),
+    input({
+      geometry: { textHeight: 200, notesGap: 10 },
+      flows: [
+        flow('c1', 'chapter', [
+          block('text', 'p', 1, 0, 1, 0, { lines: [{ top: 0, bottom: 20 }] }),
+          block('text', 'p', 1, 1, 2, 10, {
+            columns: 2,
+            lines: [
+              { top: 10, bottom: 20 },
+              { top: 20, bottom: 30 },
+            ],
+          }),
+          block('text', 'p', 1, 2, 1, 22, { lines: [{ top: 22, bottom: 32 }] }),
+        ]),
+      ],
+    }),
+    input({
+      settings,
+      flows: [
+        flow('preface', 'front', [block('text', 'p', 0, 1, 2, 0)]),
+        { id: 'dedication', kind: 'fixed', pages: 2, sequence: 'front' },
+        flow('toc', 'contents', [block('text', 'p', 0, 2, 2, 0)]),
+        flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)]),
       ],
     }),
   ]

@@ -1,5 +1,3 @@
-export type PaginateNumberSystem = 'arabic' | 'roman-lower' | 'roman-upper' | 'hebrew'
-
 export type PaginateSequence = 'front' | 'body'
 
 export type PaginatePageRole = 'opener' | 'body' | 'blank' | 'fixed'
@@ -43,7 +41,7 @@ interface PaginateFlowBase {
 
 export type PaginateFlow =
   | (PaginateFlowBase & { kind: 'front' | 'contents' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
-  | (PaginateFlowBase & { kind: 'fixed'; pages: number })
+  | (PaginateFlowBase & { kind: 'fixed'; pages: number; sequence?: PaginateSequence })
 
 export interface PaginateNote {
   id: string
@@ -59,7 +57,6 @@ export interface PaginateBookInput {
     widows?: number
     rectoOpenings: boolean
     direction: 'ltr' | 'rtl'
-    sequences: { frontMatter: PaginateNumberSystem; body: PaginateNumberSystem }
     endnotePlacement: 'chapter' | 'book'
   }
 }
@@ -115,6 +112,8 @@ export interface PaginateUnit {
   top: number
   bottom: number
   refs: string[]
+  prevBottom?: number
+  nextTop?: number
 }
 
 export interface PaginatePageFill {

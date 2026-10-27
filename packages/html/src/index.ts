@@ -19,7 +19,6 @@ export type {
   PaginateMark,
   PaginateNote,
   PaginateNoteRef,
-  PaginateNumberSystem,
   PaginatePageMarks,
   PaginatePageNote,
   PaginatePageRole,

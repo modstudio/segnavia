@@ -31,7 +31,6 @@ function input(overrides: Partial<PaginateBookInput> & Pick<PaginateBookInput, '
     settings: {
       rectoOpenings: false,
       direction: 'ltr',
-      sequences: { frontMatter: 'roman-lower', body: 'arabic' },
       endnotePlacement: 'book',
     },
     ...overrides,
@@ -45,7 +44,6 @@ function win(id: string, start: number, end: number, top: number, column = 0, co
 const settings = {
   rectoOpenings: true as const,
   direction: 'ltr' as const,
-  sequences: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
   endnotePlacement: 'book' as const,
 }
 
@@ -162,5 +160,60 @@ describe('paginateBook model', () => {
     expect(pages[1]?.blank).toBe(true)
     expect(pages[1]?.marks).toBeUndefined()
     expect(pages[2]?.marks).toEqual({ siman: { first: 'A', last: 'A' } })
+  })
+
+  test('galley gaps between blocks survive on the page', () => {
+    const pages = paginateBook(
+      input({
+        geometry: { textHeight: 200, notesGap: 10 },
+        flows: [flow('c1', 'chapter', [block('text', 'p', 1, 0, 3, 0), block('text', 'p', 1, 1, 4, 50, { columns: 2 }), block('text', 'p', 1, 2, 2, 120)])],
+      }),
+    ).pages
+    expect(pages).toHaveLength(1)
+    expect(pages[0]?.windows).toEqual([win('c1', 0, 40, 0), win('c1', 40, 70, 40, 0, 2), win('c1', 70, 105, 50, 1, 2), win('c1', 105, 140, 85)])
+  })
+
+  test('overlapping line rects keep a negative galley gap', () => {
+    const pages = paginateBook(
+      input({
+        geometry: { textHeight: 200, notesGap: 10 },
+        flows: [
+          flow('c1', 'chapter', [
+            block('text', 'p', 1, 0, 1, 0, { lines: [{ top: 0, bottom: 20 }] }),
+            block('text', 'p', 1, 1, 2, 10, {
+              columns: 2,
+              lines: [
+                { top: 10, bottom: 20 },
+                { top: 20, bottom: 30 },
+              ],
+            }),
+            block('text', 'p', 1, 2, 1, 22, { lines: [{ top: 22, bottom: 32 }] }),
+          ]),
+        ],
+      }),
+    ).pages
+    expect(pages).toHaveLength(1)
+    expect(pages[0]?.windows).toEqual([win('c1', 0, 15, 0), win('c1', 15, 20, 15, 0, 2), win('c1', 20, 26, 10, 1, 2), win('c1', 26, 32, 16)])
+  })
+
+  test('a front-sequence fixed flow appears among the front pages', () => {
+    const pages = paginateBook(
+      input({
+        settings,
+        flows: [
+          flow('preface', 'front', [block('text', 'p', 0, 1, 2, 0)]),
+          { id: 'dedication', kind: 'fixed', pages: 2, sequence: 'front' },
+          flow('toc', 'contents', [block('text', 'p', 0, 2, 2, 0)]),
+          flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)]),
+        ],
+      }),
+    ).pages
+    expect(pages.map((page) => ({ role: page.role, sequence: page.sequence, flow: page.flow, number: page.number, kind: page.kind }))).toEqual([
+      { role: 'opener', sequence: 'front', flow: 'preface', number: 1, kind: 'front' },
+      { role: 'fixed', sequence: 'front', flow: 'dedication', number: 2, kind: 'front' },
+      { role: 'fixed', sequence: 'front', flow: 'dedication', number: 3, kind: 'front' },
+      { role: 'opener', sequence: 'front', flow: 'toc', number: 4, kind: 'front' },
+      { role: 'opener', sequence: 'body', flow: 'c1', number: 1, kind: 'body' },
+    ])
   })
 })

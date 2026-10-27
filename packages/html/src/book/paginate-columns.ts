@@ -18,65 +18,96 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
     return Array.from({ length: columns }, (_, index) => base + (index < extra ? 1 : 0))
   }
 
-  function lineSpan(unit: PaginateUnit): number {
+  function lineHeight(unit: PaginateUnit): number {
     return unit.bottom - unit.top
   }
 
-  function sameBlock(left: PaginateBlock, right: PaginateBlock): boolean {
-    return left.position.chapter === right.position.chapter && left.position.block === right.position.block
+  // Clip at the line-box midpoint so pointed Hebrew's marks are not cut.
+  function edgeStart(unit: PaginateUnit): number {
+    return unit.prevBottom === undefined ? unit.top : (unit.top + unit.prevBottom) / 2
   }
 
-  function emitGroup(group: PaginateUnit[], column: number, columns: number, top: number, windows: PaginateWindow[]): number {
-    const first = group[0]
-    const last = group[group.length - 1]
-    if (!first || !last) return 0
-    windows.push({ flow: first.flowId, start: first.top, end: last.bottom, top, column, columns })
-    let span = 0
-    for (const unit of group) span += lineSpan(unit)
-    return span
-  }
-
-  function emitColumn(slice: PaginateUnit[], column: number, columns: number, top: number, windows: PaginateWindow[]): number {
-    let height = 0
-    let index = 0
-    while (index < slice.length) {
-      const start = index
-      const block = slice[index]?.block
-      if (!block) break
-      index += 1
-      while (index < slice.length) {
-        const next = slice[index]
-        if (!next || !sameBlock(next.block, block)) break
-        index += 1
-      }
-      height += emitGroup(slice.slice(start, index), column, columns, top + height, windows)
-    }
-    return height
-  }
-
-  function emitRun(run: PaginateUnit[], columns: number, top: number, windows: PaginateWindow[]): number {
-    const first = run[0]
-    const last = run[run.length - 1]
-    if (!first || !last) return 0
-    if (columns <= 1) {
-      windows.push({ flow: first.flowId, start: first.top, end: last.bottom, top, column: 0, columns: 1 })
-      return last.bottom - first.top
-    }
-    const parts = sizes(run.length, columns)
-    let offset = 0
-    let tallest = 0
-    for (let column = 0; column < columns; column += 1) {
-      const size = parts[column] ?? 0
-      const height = emitColumn(run.slice(offset, offset + size), column, columns, top, windows)
-      offset += size
-      if (height > tallest) tallest = height
-    }
-    return tallest
+  function edgeEnd(unit: PaginateUnit): number {
+    return unit.nextTop === undefined ? unit.bottom : (unit.bottom + unit.nextTop) / 2
   }
 
   const headerRepeat = headerFor()
   const windows: PaginateWindow[] = []
-  let content = 0
+  let cursorBottom: number | undefined
+  let cursorGalley: number | undefined
+  let lowest = 0
+
+  function beginY(index: number): number {
+    const unit = placed[index]
+    if (!unit || cursorBottom === undefined || cursorGalley === undefined) return 0
+    return cursorBottom + (unit.top - cursorGalley)
+  }
+
+  function stack(from: number, to: number, startY: number): { tallest: number; lastBottom: number } {
+    let y = startY
+    let tallest = startY
+    let lastBottom = startY
+    for (let index = from; index < to; index += 1) {
+      const unit = placed[index]
+      const previous = index > from ? placed[index - 1] : undefined
+      if (!unit) break
+      if (previous) y += lineHeight(previous) + (unit.top - previous.bottom)
+      lastBottom = y + lineHeight(unit)
+      if (lastBottom > tallest) tallest = lastBottom
+    }
+    return { tallest, lastBottom }
+  }
+
+  function emit(from: number, to: number, startY: number, column: number, columns: number): void {
+    const first = placed[from]
+    const last = placed[to - 1]
+    if (!first || !last) return
+    const start = edgeStart(first)
+    windows.push({
+      flow: first.flowId,
+      start,
+      end: edgeEnd(last),
+      top: startY - (first.top - start) + headerRepeat,
+      column,
+      columns,
+    })
+  }
+
+  function remember(bottom: number, last: PaginateUnit | undefined): void {
+    cursorBottom = bottom
+    if (last) cursorGalley = last.bottom
+  }
+
+  function raise(height: number): void {
+    if (height > lowest) lowest = height
+  }
+
+  function layoutRun(from: number, to: number, columns: number): void {
+    const startY = beginY(from)
+    if (columns <= 1) {
+      const laid = stack(from, to, startY)
+      emit(from, to, startY, 0, 1)
+      remember(laid.lastBottom, placed[to - 1])
+      raise(laid.tallest)
+      return
+    }
+    const parts = sizes(to - from, columns)
+    let offset = 0
+    let tallest = startY
+    for (let column = 0; column < columns; column += 1) {
+      const size = parts[column] ?? 0
+      const start = from + offset
+      const end = start + size
+      offset += size
+      if (size === 0) continue
+      const laid = stack(start, end, startY)
+      emit(start, end, startY, column, columns)
+      if (laid.tallest > tallest) tallest = laid.tallest
+    }
+    remember(tallest, placed[to - 1])
+    raise(tallest)
+  }
+
   let index = 0
   while (index < placed.length) {
     const unit = placed[index]
@@ -88,8 +119,8 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
       if (!next || columnCount(next.block) !== columns) break
       end += 1
     }
-    content += emitRun(placed.slice(index, end), columns, headerRepeat + content, windows)
+    layoutRun(index, end, columns)
     index = end
   }
-  return { windows, height: headerRepeat + content, headerRepeat }
+  return { windows, height: headerRepeat + lowest, headerRepeat }
 }

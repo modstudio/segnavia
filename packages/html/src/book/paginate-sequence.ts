@@ -17,6 +17,7 @@ export function paginateSequence(
   fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[]) => PaginatePageFill,
 ): PaginateBookResult {
   function isFront(flow: PaginateFlow): boolean {
+    if (flow.kind === 'fixed') return flow.sequence === 'front'
     return flow.kind === 'front' || flow.kind === 'contents'
   }
 
@@ -25,8 +26,14 @@ export function paginateSequence(
     const units: PaginateUnit[] = []
     for (const block of flow.blocks) {
       for (const [index, line] of block.lines.entries()) {
+        const previous = units[units.length - 1]
         const refs = (block.footnoteRefs ?? []).filter((ref) => ref.line === index).map((ref) => ref.note)
-        units.push({ flowId: flow.id, block, index, top: line.top, bottom: line.bottom, refs })
+        const unit: PaginateUnit = { flowId: flow.id, block, index, top: line.top, bottom: line.bottom, refs }
+        if (previous) {
+          unit.prevBottom = previous.bottom
+          previous.nextTop = line.top
+        }
+        units.push(unit)
       }
     }
     return units
