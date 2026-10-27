@@ -1,6 +1,7 @@
-import { type MotifSource, type Page, printProperties, type SlotsOptions } from '@segnavia/format'
+import { type FontReference, type MotifSource, type Page, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type ExpandedMotifs, expandMotifs } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
+import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 export interface MotifsOptions {
@@ -10,8 +11,13 @@ export interface MotifsOptions {
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
 
-export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<Page> {
-  if (!motifs) return page
+export interface ExpandedFramePage {
+  page: Page
+  fonts: FontReference[]
+}
+
+export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {
+  if (!motifs) return { page, fonts: [] }
   const result = await expandMotifs(page.html, {
     source: motifs.source,
     pins: motifs.pins,
@@ -23,10 +29,10 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
   })
   signal.throwIfAborted()
   motifs.placed?.({ placed: result.placed, fonts: result.fonts, unavailable: result.unavailable })
-  return { ...page, html: result.html }
+  return { page: { ...page, html: result.html }, fonts: result.fonts }
 }
 
-export function expandFramePages(pages: Page[], motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<Page[]> {
+export function expandFramePages(pages: Page[], motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage[]> {
   return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal)))
 }
 
@@ -34,13 +40,15 @@ export async function prepareShownPage(
   page: Page,
   motifs: MotifsOptions | undefined,
   slots: SlotsOptions | undefined,
+  fonts: FontsOptions | undefined,
   signal: AbortSignal,
-): Promise<{ page: Page; resolved?: PreparedSlots }> {
+): Promise<{ page: Page; resolved?: PreparedSlots; css: string }> {
   const expanded = await expandFramePage(page, motifs, signal)
-  const refusal = slotFillRefusal(expanded.scripts, expanded.slots, slots)
+  const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
   if (refusal) throw refusal
-  const resolved = hasSlotWork(expanded.slots, slots) ? await prepareSlots(expanded.slots, slots, signal) : undefined
-  return { page: expanded, resolved }
+  const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined
+  const css = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
+  return { page: expanded.page, resolved, css }
 }
 
 export function shownPageDocument(page: Page, resolved: PreparedSlots | undefined, options: { nonce: string; css?: string; csp?: string }): string {

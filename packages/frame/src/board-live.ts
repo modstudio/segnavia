@@ -2,6 +2,7 @@ import type { ResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
@@ -30,10 +31,21 @@ export function boardShield(): HTMLElement {
   return shield
 }
 
+function listenForError(element: HTMLElement, failed: (error: unknown) => void): () => void {
+  const onError = (event: Event) => {
+    event.stopPropagation()
+    const errorEvent = event as ErrorEvent
+    failed(errorEvent.error ?? errorEvent.message)
+  }
+  element.addEventListener('error', onError)
+  return () => element.removeEventListener('error', onError)
+}
+
 export function liveBoardItem(
   resolved: Exclude<ResolvedBoardItem, { kind: 'image' | 'shot' }>,
   failed: (error: unknown) => void,
   motifs?: MotifsOptions,
+  fonts?: FontsOptions,
 ): LiveBoardItem {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()
@@ -50,18 +62,22 @@ export function liveBoardItem(
   }
   if (resolved.kind === 'page') {
     const page = new SegnaviaPage()
+    const dispose = listenForError(page, failed)
     page.motifs = motifs
+    page.fonts = fonts
     page.load({ ...resolved.page, scripts: 'refuse' })
-    return { element: page, dispose: () => {} }
+    return { element: page, dispose }
   }
   if (resolved.kind === 'paper') {
     const paper = new SegnaviaPaper()
+    const dispose = listenForError(paper, failed)
     paper.motifs = motifs
+    paper.fonts = fonts
     paper.load(
       resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
       resolved.imposition,
     )
-    return { element: paper, dispose: () => {} }
+    return { element: paper, dispose }
   }
   const book = new SegnaviaBook()
   let loadError: unknown
@@ -73,6 +89,7 @@ export function liveBoardItem(
     else failed(error)
   }
   book.addEventListener('error', onError)
+  book.fonts = fonts
   book.view = { ...resolved.view, scripts: 'refuse' }
   mounting = false
   if (loadError !== undefined) throw loadError

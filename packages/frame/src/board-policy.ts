@@ -95,6 +95,14 @@ export function keyToView(view: BoardView, key: string): BoardKeyAction | null {
   return null
 }
 
+export function applyBoardKey(event: KeyboardEvent, view: BoardView, fitAll: () => void, setView: (view: BoardView) => void): void {
+  const action = keyToView(view, event.key)
+  if (!action) return
+  event.preventDefault()
+  if (action.kind === 'fit') fitAll()
+  else setView(action.view)
+}
+
 export function zoomView(view: BoardView, zoom: number): BoardView {
   const point = { x: view.viewport.width / 2, y: view.viewport.height / 2 }
   const target = Number.isNaN(zoom) ? view.zoom : Math.min(MAX_BOARD_ZOOM, Math.max(MIN_BOARD_ZOOM, zoom))

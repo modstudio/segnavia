@@ -3,6 +3,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
@@ -24,6 +25,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private resolution = 0
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private fontOptions: FontsOptions | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
@@ -121,6 +123,15 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.changed()
+  }
+
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+
+  set fonts(value: FontsOptions | undefined) {
+    this.fontOptions = value
     this.changed()
   }
 
@@ -249,6 +260,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
+    page.fonts = this.fontOptions
     page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = ''

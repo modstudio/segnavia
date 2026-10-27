@@ -110,7 +110,19 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
-export { FontReference, FontReferenceInput } from './fonts.ts'
+export {
+  APP_FONT_NAME,
+  APP_FONT_NAME_MESSAGE,
+  type AppFont,
+  FONT_FORMATS,
+  FONT_GENERICS,
+  type FontFace,
+  type FontFormat,
+  type FontGeneric,
+  FontReference,
+  FontReferenceInput,
+  type FontSource,
+} from './fonts.ts'
 export {
   fitPage,
   type Imposed,
@@ -325,6 +337,7 @@ export const Page = z.object({
   lang: z.string().optional(),
   print: Print.optional(),
   slots: Slots.optional(),
+  fonts: z.array(FontReference).optional(),
 })
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>

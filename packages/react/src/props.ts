@@ -92,6 +92,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   mountMargin?: number
   slots?: SegnaviaThumbnail['slots']
   motifs?: SegnaviaThumbnail['motifs']
+  fonts?: SegnaviaThumbnail['fonts']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
@@ -117,6 +118,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   cspExtra?: string
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
+  fonts?: SegnaviaPage['fonts']
   src?: string
   unstyled?: boolean
 }
@@ -128,6 +130,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   cspExtra?: string
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
+  fonts?: SegnaviaPaper['fonts']
   unstyled?: boolean
 }
 
@@ -138,6 +141,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   cspExtra?: string
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
+  fonts?: SegnaviaDocument['fonts']
   unstyled?: boolean
 }
 

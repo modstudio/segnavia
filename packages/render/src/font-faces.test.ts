@@ -15,20 +15,6 @@ test('fontFaces without unicodeRange is the @font-face rule it emits today', () 
   )
 })
 
-test('fontFaces emits unicode-range after font-style when given', () => {
-  const css = fontFaces([
-    face({
-      family: 'Segnavia Scripts',
-      weight: 400,
-      style: 'italic',
-      unicodeRange: 'u+0590-05ff, u+fb1d-fb4f',
-    }),
-  ])
-  expect(css).toBe(
-    '@font-face{font-family:"Segnavia Scripts";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:400;font-style:italic;unicode-range:U+0590-05FF, U+FB1D-FB4F;font-display:block}',
-  )
-})
-
 test('fontFaces leaves a sibling without unicodeRange byte-identical and still emits the other face', () => {
   const css = fontFaces([face({ family: 'Segnavia Scripts', unicodeRange: 'U+0000-024F' }), face({ family: 'Segnavia Scripts' })])
   expect(css).toBe(

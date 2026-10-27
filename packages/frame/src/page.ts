@@ -3,7 +3,7 @@
 // scaled to fit the element's width; a fixed width that grows does both. It
 // brings no appearance, only that geometry, which a host can override.
 //
-// Attributes: src (page JSON), unstyled (bring no styles at all). Properties: page, css, cspExtra. `showUrl`
+// Attributes: src (page JSON), unstyled (bring no styles at all). Properties: page, css, cspExtra, slots, motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
@@ -13,6 +13,7 @@ import { Page, type PageInput, printProperties, type SlotsOptions } from '@segna
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
@@ -26,6 +27,7 @@ export class SegnaviaPage extends HTMLElement {
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private fontOptions: FontsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
@@ -46,6 +48,15 @@ export class SegnaviaPage extends HTMLElement {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    if (this.pageValue) this.load(this.pageValue)
+  }
+
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+
+  set fonts(value: FontsOptions | undefined) {
+    this.fontOptions = value
     if (this.pageValue) this.load(this.pageValue)
   }
 
@@ -99,13 +110,13 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (shownPage: Page, resolved?: PreparedSlots) => {
+    const show = (shownPage: Page, resolved?: PreparedSlots, fontCss = '') => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
       iframe.srcdoc = shownPageDocument(shownPage, resolved, {
         nonce: newNonce(),
-        css: this.css,
+        css: `${fontCss}${this.css}`,
         csp: this.cspExtra || undefined,
       })
     }
@@ -113,7 +124,7 @@ export class SegnaviaPage extends HTMLElement {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (!this.motifOptions) {
+    if (!this.motifOptions && !this.fontOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
       iframe.srcdoc = frameDocument(page.html, {
         scripts: page.scripts,
         nonce: newNonce(),
@@ -132,8 +143,8 @@ export class SegnaviaPage extends HTMLElement {
       this.fit()
       return
     }
-    void prepareShownPage(page, this.motifOptions, this.slotOptions, controller.signal)
-      .then(({ page: shownPage, resolved }) => show(shownPage, resolved))
+    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal)
+      .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
       .catch(report)
     this.fit()
   }

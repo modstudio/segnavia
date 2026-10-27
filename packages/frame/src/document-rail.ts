@@ -1,4 +1,5 @@
 import type { Page, Print, SlotsOptions } from '@segnavia/format'
+import type { FontsOptions } from './page-fonts.ts'
 import { railSelection } from './rail-navigation.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import type { SegnaviaThumbnail } from './thumbnail.ts'
@@ -32,6 +33,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
   private selectPage: (index: number) => void = () => {}
   private itemSettings: { label: string; open: () => void } | null = null
   private slotOptions: SlotsOptions | undefined
+  private fontOptions: FontsOptions | undefined
 
   constructor() {
     super()
@@ -54,6 +56,16 @@ export class SegnaviaDocumentRail extends HTMLElement {
     if (this.slotOptions === value) return
     this.slotOptions = value
     for (const thumbnail of this.thumbnails()) thumbnail.slots = value
+  }
+
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+
+  set fonts(value: FontsOptions | undefined) {
+    if (this.fontOptions === value) return
+    this.fontOptions = value
+    for (const thumbnail of this.thumbnails()) thumbnail.fonts = value
   }
 
   configure(pages: readonly Page[], print: Print | null, css: string, select: (index: number) => void) {
@@ -87,6 +99,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
       thumbnail.print = print
       thumbnail.css = css
       thumbnail.slots = this.slotOptions
+      thumbnail.fonts = this.fontOptions
       preview.append(thumbnail)
       const number = document.createElement('span')
       number.className = 'number'

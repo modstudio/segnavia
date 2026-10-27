@@ -73,6 +73,7 @@ export class DocumentAuthoringController extends EventTarget {
     const pages = this.document.pages
     this.identityError = pageIdentityError(pages)
     this.rail.slots = this.document.slots
+    this.rail.fonts = this.document.fonts
     this.rail.configure(pages, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))
     this.rail.setSelected(this.currentPage)
     this.rail.setReorderEnabled(!this.pending && !this.identityError)
@@ -100,6 +101,7 @@ export class DocumentAuthoringController extends EventTarget {
 
   private slotsChanged = () => {
     this.rail.slots = this.document.slots
+    this.rail.fonts = this.document.fonts
   }
 
   private async move(fromIndex: number, toIndex: number) {

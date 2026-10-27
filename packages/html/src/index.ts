@@ -4,10 +4,13 @@
 import { hasBindings } from './bindings.ts'
 import { elements, parse } from './sanitize.ts'
 
+export { bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { bookDocument } from './book/book-document.ts'
 export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
+export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
+export { fontReferenceRefusals } from './font-references.ts'
 export {
   type ExpandedMotifs,
   type ExpandMotifsOptions,
@@ -45,6 +48,7 @@ export {
   UnmeasuredSlotsRefusedError,
   unmeasuredSlotRefusal,
 } from './slots.ts'
+export { parseUnicodeRange, UNICODE_RANGE_CLEARANCE, type UnicodeRangeParse } from './unicode-range.ts'
 
 // How a page runs, decided only by what it holds: plain, filled from data,
 // running its own code, or both, which is refused.
