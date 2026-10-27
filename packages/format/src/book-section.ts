@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BOOK_PARENT_NAMES, type ParentPage, printedPagesIssues } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 
 export const BookOpens = z.enum(['recto', 'verso', 'any'])
 export type BookOpens = z.infer<typeof BookOpens>
@@ -16,6 +16,8 @@ export type BookSectionParents = z.infer<typeof BookSectionParents>
 export const DesignedPage = z.object({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
 
+const designedPagesRefusal = 'a designed section needs at least one page; add a page or remove the section to clear this refusal'
+
 const sectionFields = {
   title: z.string().optional(),
   contents: z.boolean().default(true),
@@ -26,7 +28,7 @@ const sectionFields = {
 export const DesignedSection = z.object({
   kind: z.literal('designed'),
   ...sectionFields,
-  pages: z.array(DesignedPage).min(1, 'a designed section needs at least one page; add a page or remove the section to clear this refusal'),
+  pages: z.array(DesignedPage, { error: designedPagesRefusal }).min(1, designedPagesRefusal),
 })
 export type DesignedSection = z.infer<typeof DesignedSection>
 
@@ -44,7 +46,9 @@ export const BookContents = z.object({
 })
 export type BookContents = z.infer<typeof BookContents>
 
-export const BookFrontMatterEntry = z.union([DesignedSection, BookContents, BookSection])
+const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
+
+export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, BookContents, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
 export const Chapter = z.object({
@@ -56,7 +60,9 @@ export const Chapter = z.object({
 })
 export type Chapter = z.infer<typeof Chapter>
 
-export const BookChapterEntry = z.union([DesignedSection, Chapter])
+const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
+
+export const BookChapterEntry = z.discriminatedUnion('kind', [DesignedSection, flowingChapter])
 export type BookChapterEntry = z.infer<typeof BookChapterEntry>
 
 export function isBookContents(entry: BookFrontMatterEntry): entry is BookContents {
@@ -80,8 +86,6 @@ interface NamedSection {
 function namedSections(book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] }): NamedSection[] {
   const front = book.frontMatter.map((entry, index): NamedSection => {
     const path = ['frontMatter', index]
-    if (isBookContents(entry)) return { label: entry.title ?? `frontMatter[${index}]`, path, parents: entry.parents }
-    if (isDesignedSection(entry)) return { label: entry.title ?? `frontMatter[${index}]`, path, parents: entry.parents }
     return { label: entry.title ?? `frontMatter[${index}]`, path, parents: entry.parents }
   })
   const chapters = book.chapters.map((entry, index): NamedSection => {
@@ -109,14 +113,12 @@ export function bookParentIssues(book: {
       message: "designed sections print in paginated mode; set mode: 'paginated' to clear this refusal",
     })
   }
-  const defaults = Object.values(BOOK_PARENT_NAMES).map((name) => ({ name }))
-  for (const issue of printedPagesIssues({ parents: [...defaults, ...book.parentPages], rules: { every: BOOK_PARENT_NAMES.recto } })) {
-    if (issue.path[0] === 'rules') continue
-    if (issue.path[0] === 'parents' && typeof issue.path[1] === 'number' && issue.path[1] < defaults.length) continue
-    const path =
-      issue.path[0] === 'parents' && typeof issue.path[1] === 'number' ? ['parentPages', issue.path[1] - defaults.length, ...issue.path.slice(2)] : issue.path
-    issues.push({ path, message: issue.message })
-  }
+  issues.push(
+    ...parentListIssues(book.parentPages, {
+      path: ['parentPages'],
+      known: Object.values(BOOK_PARENT_NAMES),
+    }),
+  )
   const known = new Set<string>([...Object.values(BOOK_PARENT_NAMES), ...book.parentPages.map((parent) => parent.name)])
   for (const section of namedSections(book)) {
     if (!section.parents) continue

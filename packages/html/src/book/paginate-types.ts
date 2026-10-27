@@ -1,3 +1,5 @@
+import type { BookOpens, BookSectionParents } from '@segnavia/format'
+
 export type PaginateSequence = 'front' | 'body'
 
 export type PaginatePageRole = 'opener' | 'body' | 'blank' | 'fixed'
@@ -33,15 +35,9 @@ export interface PaginateBlock {
   marks?: PaginateMark[]
 }
 
-export interface PaginateFlowParents {
-  opener?: string
-  recto?: string
-  verso?: string
-  blank?: string
-  fixed?: string
-}
+export type PaginateFlowParents = BookSectionParents
 
-export type PaginateOpens = 'recto' | 'verso' | 'any'
+export type PaginateOpens = BookOpens
 
 interface PaginateFlowBase {
   id: string

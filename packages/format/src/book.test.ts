@@ -201,6 +201,13 @@ describe('book', () => {
     expect(JSON.stringify(result.error?.issues)).toContain('a designed section needs at least one page')
   })
 
+  test('kind designed without pages is refused even when flowing fields are present', () => {
+    const withHtml = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate', html: '<p>Art</p>' }, chapter] })
+    expect(JSON.stringify(withHtml.error?.issues)).toContain('a designed section needs at least one page')
+    const titleOnly = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate' }, chapter] })
+    expect(JSON.stringify(titleOnly.error?.issues)).toContain('a designed section needs at least one page')
+  })
+
   test('an unknown section parent names the section and the name', () => {
     const result = Book.safeParse(
       input({

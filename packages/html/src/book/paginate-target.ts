@@ -1,10 +1,6 @@
-export interface PaginateTargetPage {
-  blank: boolean
-  flow: string
-  role: string
-  sectionOpening: boolean
-  windows: Array<{ flow: string; start: number; end: number }>
-}
+import type { PaginateBookPage } from './paginate-types.ts'
+
+export type PaginateTargetPage = Pick<PaginateBookPage, 'blank' | 'flow' | 'role' | 'sectionOpening' | 'windows'>
 
 export interface PaginateTarget {
   flow: string

@@ -1,4 +1,6 @@
-import { BOOK_PARENT_NAMES, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+
+export type { BookSectionParents }
 
 export type PrintedPageSide = 'left' | 'right'
 
@@ -12,14 +14,6 @@ export interface PrintedPagePlan {
 }
 
 export type BookPrintedPageRole = 'recto' | 'verso' | 'opener' | 'blank' | 'fixed'
-
-export interface BookSectionParents {
-  opener?: string
-  recto?: string
-  verso?: string
-  blank?: string
-  fixed?: string
-}
 
 export interface BookPageFacts {
   blank: boolean

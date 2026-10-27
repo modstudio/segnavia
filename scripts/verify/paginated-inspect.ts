@@ -295,7 +295,7 @@ export function inspectPaginatedBook(): PaginatedReport {
   }
 
   function hasFurniture(page: Element) {
-    return Boolean(page.querySelector('.segnavia-running-head, .segnavia-folio, .designed-foot'))
+    return Boolean(page.querySelector('.segnavia-running-head, .segnavia-folio, [data-segnavia-parent="ornament-foot"]'))
   }
 
   function designedContents() {
@@ -326,7 +326,8 @@ export function inspectPaginatedBook(): PaginatedReport {
       spreadVerso: firstIndex % 2 === 0,
       spreadFaces: Boolean(first && second && secondIndex === firstIndex + 1 && secondIndex % 2 === 1),
       spreadHasNoFurniture: spread.length === 2 && spread.every((page) => !hasFurniture(page)),
-      leafHasFurniture: leaf.length === 1 && leaf.every((page) => Boolean(page.querySelector('.designed-foot .segnavia-folio')?.textContent?.trim())),
+      leafHasFurniture:
+        leaf.length === 1 && leaf.every((page) => Boolean(page.querySelector('[data-segnavia-parent="ornament-foot"] .segnavia-folio')?.textContent?.trim())),
       contents: designedContents(),
     }
   }

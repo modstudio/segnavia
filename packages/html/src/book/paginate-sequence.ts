@@ -233,22 +233,23 @@ export function paginateSequence(
     carried: PaginatePageMarks,
     part: PaginateSequence,
     pages: PaginateBookPage[],
+    physicalOffset: number,
   ) {
     const held = flushBeforeFixed(flow, previous, continued, carried, part, pages)
     if ('refusal' in held && held.refusal) return { refusal: held.refusal }
-    if (needsOpeningBlank(openingOf(flow), pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
+    if (needsOpeningBlank(openingOf(flow), physicalOffset + pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
     const result = paginateFlow(flow, part, pages, held.continued, held.carried)
     if ('refusal' in result && result.refusal) return { refusal: result.refusal }
     return { continued: result.pending, carried: result.carried }
   }
 
-  function paginatePart(flows: PaginateFlow[], part: PaginateSequence): PaginateBookResult {
+  function paginatePart(flows: PaginateFlow[], part: PaginateSequence, physicalOffset = 0): PaginateBookResult {
     const pages: PaginateBookPage[] = []
     let continued: PaginatePageNote[] = []
     let carried: PaginatePageMarks = emptyMarks()
     let previous: PaginateFlow | undefined
     for (const flow of flows) {
-      const result = emitFlow(flow, previous, continued, carried, part, pages)
+      const result = emitFlow(flow, previous, continued, carried, part, pages, physicalOffset)
       if ('refusal' in result && result.refusal) return { pages, refusals: [result.refusal] }
       continued = result.continued
       carried = result.carried
@@ -259,23 +260,21 @@ export function paginateSequence(
       const flushed = flushNotes(continued, last, part, pages, carried)
       if ('refusal' in flushed && flushed.refusal) return { pages, refusals: [flushed.refusal] }
     }
-    if (part === 'front' && last && input.settings.rectoOpenings && pages.length % 2 === 1) {
-      pages.push(makeBlank(pages.length + 1, part, last))
-    }
     return { pages, refusals: [] }
   }
 
   const bounded = boundsRefusal()
   if (bounded) return { pages: [], refusals: [bounded] }
-  const body = paginatePart(
-    input.flows.filter((flow) => !isFront(flow)),
-    'body',
-  )
-  if (body.refusals.length > 0) return body
-  const front = paginatePart(
-    input.flows.filter((flow) => isFront(flow)),
-    'front',
-  )
+  const frontFlows = input.flows.filter(isFront)
+  const bodyFlows = input.flows.filter((flow) => !isFront(flow))
+  const front = paginatePart(frontFlows, 'front')
+  const firstBody = bodyFlows[0]
+  const lastFront = frontFlows[frontFlows.length - 1]
+  if (front.pages.length > 0 && lastFront && firstBody && needsOpeningBlank(openingOf(firstBody), front.pages.length)) {
+    front.pages.push(makeBlank(front.pages.length + 1, 'front', lastFront))
+  }
+  const body = paginatePart(bodyFlows, 'body', front.pages.length)
+  if (body.refusals.length > 0) return { pages: [...front.pages, ...body.pages], refusals: body.refusals }
   if (front.refusals.length > 0) return { pages: [...front.pages, ...body.pages], refusals: front.refusals }
   return { pages: [...front.pages, ...body.pages], refusals: [] }
 }

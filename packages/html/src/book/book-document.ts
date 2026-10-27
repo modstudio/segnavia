@@ -82,17 +82,28 @@ function chapterSection(chapter: Chapter, index: number, galley = false): BuiltS
   }
 }
 
-function designedHeadings(children: ChildNode[], sectionId: string, depth: number, generated: { n: number }): BookHeading[] {
+function collectHeadings(
+  children: ChildNode[],
+  sectionId: string,
+  depth: number,
+  firstLevel: number,
+  idFor: (n: number) => string,
+  generated: { n: number },
+): BookHeading[] {
   return elements(children).flatMap((heading): BookHeading[] => {
     const match = /^h([1-6])$/.exec(heading.name)
     if (!match || heading.attribs['data-contents'] === 'exclude') return []
     const level = Number(match[1])
-    if (level > depth) return []
+    if (level < firstLevel || level > depth) return []
     generated.n += 1
-    const id = heading.attribs.id ?? `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${generated.n}`
+    const id = heading.attribs.id ?? idFor(generated.n)
     heading.attribs.id = id
     return [{ id, level, text: textContent(heading, true).replace(/\s+/g, ' ').trim(), sectionId }]
   })
+}
+
+function designedHeadings(children: ChildNode[], sectionId: string, depth: number, generated: { n: number }): BookHeading[] {
+  return collectHeadings(children, sectionId, depth, 1, (n) => `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${n}`, generated)
 }
 
 function designedSection(
@@ -140,17 +151,7 @@ function appendDesigned(
 }
 
 function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
-  let generated = 0
-  return elements(section.node.children).flatMap((heading): BookHeading[] => {
-    const match = /^h([2-6])$/.exec(heading.name)
-    if (!match || heading.attribs['data-contents'] === 'exclude') return []
-    const level = Number(match[1])
-    if (level > depth) return []
-    generated += 1
-    const id = heading.attribs.id ?? `segnavia-h-${chapter}-${generated}`
-    heading.attribs.id = id
-    return [{ id, level, text: textContent(heading, true).replace(/\s+/g, ' ').trim(), sectionId: section.info.id }]
-  })
+  return collectHeadings(section.node.children, section.info.id, depth, 2, (n) => `segnavia-h-${chapter}-${n}`, { n: 0 })
 }
 
 function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {

@@ -79,4 +79,46 @@ describe('paginateBook opening sides', () => {
     expect(paginateBook(input({ settings, flows: two })).pages.map((page) => page.blank)).toEqual([false, true, false])
     expect(paginateBook(input({ flows: two })).pages.map((page) => page.blank)).toEqual([false, false])
   })
+
+  test('odd front plus a recto body opening inserts the blank at the front end when rectoOpenings is off', () => {
+    const pages = paginateBook(
+      input({
+        settings: { ...settings, rectoOpenings: false },
+        flows: [flow('preface', 'front', [block('text', 'p', 0, 1, 3, 0)]), { ...short('c1', 1), opens: 'recto' }],
+      }),
+    ).pages
+    expect(sides(pages)).toEqual([
+      { flow: 'preface', role: 'opener', number: 1, blank: false, opener: true },
+      { flow: 'preface', role: 'blank', number: 2, blank: true, opener: false },
+      { flow: 'c1', role: 'opener', number: 1, blank: false, opener: true },
+    ])
+  })
+
+  test('odd front plus an explicit any body opening inserts no blank when rectoOpenings is on', () => {
+    const pages = paginateBook(
+      input({
+        settings,
+        flows: [flow('preface', 'front', [block('text', 'p', 0, 1, 3, 0)]), { ...short('c1', 1), opens: 'any' }],
+      }),
+    ).pages
+    expect(sides(pages)).toEqual([
+      { flow: 'preface', role: 'opener', number: 1, blank: false, opener: true },
+      { flow: 'c1', role: 'opener', number: 1, blank: false, opener: true },
+    ])
+  })
+
+  test('even front plus a verso body opening inserts the blank at the front end', () => {
+    const pages = paginateBook(
+      input({
+        settings: { ...settings, rectoOpenings: false },
+        flows: [flow('preface', 'front', [block('text', 'p', 0, 1, 6, 0)]), { ...short('c1', 1), opens: 'verso' }],
+      }),
+    ).pages
+    expect(sides(pages)).toEqual([
+      { flow: 'preface', role: 'opener', number: 1, blank: false, opener: true },
+      { flow: 'preface', role: 'body', number: 2, blank: false, opener: false },
+      { flow: 'preface', role: 'blank', number: 3, blank: true, opener: false },
+      { flow: 'c1', role: 'opener', number: 1, blank: false, opener: true },
+    ])
+  })
 })
