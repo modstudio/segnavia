@@ -212,22 +212,45 @@ export function paginateSequence(
     return { carried: nextCarried }
   }
 
+  function flushBeforeFixed(
+    flow: PaginateFlow,
+    previous: PaginateFlow | undefined,
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+  ) {
+    if (flow.kind !== 'fixed' || continued.length === 0 || !previous) return { continued, carried }
+    const flushed = flushNotes(continued, previous, part, pages, carried)
+    if ('refusal' in flushed && flushed.refusal) return { refusal: flushed.refusal }
+    return { continued: [] as PaginatePageNote[], carried: flushed.carried }
+  }
+
+  function emitFlow(
+    flow: PaginateFlow,
+    previous: PaginateFlow | undefined,
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+  ) {
+    const held = flushBeforeFixed(flow, previous, continued, carried, part, pages)
+    if ('refusal' in held && held.refusal) return { refusal: held.refusal }
+    if (needsOpeningBlank(openingOf(flow), pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
+    const result = paginateFlow(flow, part, pages, held.continued, held.carried)
+    if ('refusal' in result && result.refusal) return { refusal: result.refusal }
+    return { continued: result.pending, carried: result.carried }
+  }
+
   function paginatePart(flows: PaginateFlow[], part: PaginateSequence): PaginateBookResult {
     const pages: PaginateBookPage[] = []
     let continued: PaginatePageNote[] = []
     let carried: PaginatePageMarks = emptyMarks()
     let previous: PaginateFlow | undefined
     for (const flow of flows) {
-      if (flow.kind === 'fixed' && continued.length > 0 && previous) {
-        const flushed = flushNotes(continued, previous, part, pages, carried)
-        if ('refusal' in flushed && flushed.refusal) return { pages, refusals: [flushed.refusal] }
-        continued = []
-        carried = flushed.carried
-      }
-      if (needsOpeningBlank(openingOf(flow), pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
-      const result = paginateFlow(flow, part, pages, continued, carried)
+      const result = emitFlow(flow, previous, continued, carried, part, pages)
       if ('refusal' in result && result.refusal) return { pages, refusals: [result.refusal] }
-      continued = result.pending
+      continued = result.continued
       carried = result.carried
       previous = flow
     }

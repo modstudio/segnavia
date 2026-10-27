@@ -43,7 +43,7 @@ const fixture = (hebrew: boolean): BookInput => ({
 
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
-    ? 'בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ וְהָאָרֶץ הָיְתָה תֹהוּ וָבֹהוּ '
+    ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
     : 'The tide turned against the hull and the lanterns of the harbour receded into a thin gold line. '
   const markSpan = mark ? `<span data-mark="${mark}">${hebrew ? 'סימן ב' : 'Mark B'}</span> ` : ''
   return `<p data-columns="2">${markSpan}${words.repeat(lines)}</p>`
