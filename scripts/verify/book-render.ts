@@ -302,8 +302,8 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
     const hebrew = key === 'hebrew'
     const one = hebrew ? 'פרק א' : 'Chapter One'
     const two = hebrew ? 'פרק ב' : 'Chapter Two'
-    const openOne = hebrew ? 'OPENHE1' : 'OPENEN1'
-    const openTwo = hebrew ? 'OPENHE2' : 'OPENEN2'
+    const openOne = hebrew ? 'OPEN_HE1' : 'OPEN_EN1'
+    const openTwo = hebrew ? 'OPEN_HE2' : 'OPEN_EN2'
     const bytes = await renderer.bookPdf(
       {
         title: hebrew ? 'ספר' : 'Book',

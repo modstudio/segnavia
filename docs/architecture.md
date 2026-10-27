@@ -64,7 +64,7 @@ For a continuous book, the host calls `bookDocument` from `@segnavia/html`
 and passes its HTML and the book's title, direction, language and script policy
 as a `BookView` to `<segnavia-book>`. `bookView(book)` builds that view for
 either mode; a paginated view also carries the resolved `pagination` object
-(paper size and margins in millimetres, direction, number systems, recto
+(paper size and margins in millimeters, direction, number systems, recto
 openings, orphans and widows, default parent pages, endnote placement, contents
 settings and running-head choices). The frame library validates that view,
 resolves its direction and shows a continuous book in one internally scrolling

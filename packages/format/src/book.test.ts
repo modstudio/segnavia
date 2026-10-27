@@ -86,7 +86,7 @@ describe('book', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   })
 
-  test('page column gap defaults to four millimetres and running heads default to the title', () => {
+  test('page column gap defaults to four millimeters and running heads default to the title', () => {
     const book = Book.parse(input({ mode: 'paginated', page }))
     expect(book.page?.columnGap).toBe(4)
     expect(book.runningHead).toEqual({ recto: 'title', verso: 'title' })
