@@ -102,6 +102,11 @@
       "types": "./dist/item-settings.d.ts",
       "default": "./dist/item-settings.js"
     },
+    "./local-fonts": {
+      "@segnavia/source": "./src/local-fonts.ts",
+      "types": "./dist/local-fonts.d.ts",
+      "default": "./dist/local-fonts.js"
+    },
     "./icons": {
       "@segnavia/source": "./src/icons.ts",
       "types": "./dist/icons.d.ts",

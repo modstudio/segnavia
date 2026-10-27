@@ -119,6 +119,12 @@ one host's rule (no author scripts) and another host's behavior (keys pressed
 inside a slide still page the deck) at once. The first host's key relay never
 worked under refused scripts; this design closes that gap.
 
+**Fonts reach every frame as data: faces in its own css.** A page and a motif
+name the fonts they use. Preview, browser print and server PDF resolve those
+names through one `FontSource` and prepend the same `@font-face` rules to that
+frame's css, so screen and print cannot differ. A page never embeds a font
+itself; the sanitizer still refuses one it writes.
+
 **Live data or script, never both, holds across the whole page.** A page
 whose `scripts` is not `refuse` places only motif versions without live data;
 a live-data motif there is refused at save and at expansion. A nested frame

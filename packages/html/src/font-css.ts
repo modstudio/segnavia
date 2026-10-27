@@ -28,12 +28,32 @@ function unicodeRangeDeclaration(font: FontFace): string {
   return `unicode-range:${parsed.value};`
 }
 
-export function fontFaceCss(font: FontFace): string {
-  return `@font-face{font-family:${JSON.stringify(font.family)};src:url(data:font/${mimeType(font.format)};base64,${bytesToBase64(font.data)}) format(${JSON.stringify(font.format)});font-weight:${font.weight ?? 'normal'};font-style:${font.style ?? 'normal'};${unicodeRangeDeclaration(font)}font-display:block}`
+function hasControlChar(family: string): boolean {
+  for (let i = 0; i < family.length; i += 1) {
+    const code = family.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) return true
+  }
+  return false
 }
 
+// A family sits in a <style> element, so `<` is the CSS hex escape `\3c `.
 function quoteFamily(family: string): string {
-  return JSON.stringify(family)
+  if (hasControlChar(family)) {
+    throw new FontCssRefusedError(
+      `The family ${JSON.stringify(family)} contains a control character; remove control characters from the family name to clear this refusal.`,
+    )
+  }
+  let quoted = '"'
+  for (const ch of family) {
+    if (ch === '\\' || ch === '"') quoted += `\\${ch}`
+    else if (ch === '<') quoted += '\\3c '
+    else quoted += ch
+  }
+  return `${quoted}"`
+}
+
+export function fontFaceCss(font: FontFace): string {
+  return `@font-face{font-family:${quoteFamily(font.family)};src:url(data:font/${mimeType(font.format)};base64,${bytesToBase64(font.data)}) format(${JSON.stringify(font.format)});font-weight:${font.weight ?? 'normal'};font-style:${font.style ?? 'normal'};${unicodeRangeDeclaration(font)}font-display:block}`
 }
 
 function customProperty(name: string, font: AppFont): string {

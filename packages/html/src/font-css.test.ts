@@ -62,6 +62,35 @@ describe('fontCss', () => {
     )
   })
 
+  test('escapes < in face families and custom properties so a style element cannot close', () => {
+    const family = 'X</style><script>alert(1)</script>'
+    const css = fontCss({
+      app: new Map([['serif', { family, faces: [face({ family })], generic: 'serif' }]]),
+      local: [face({ family })],
+    })
+    expect(css.includes('</style>')).toBe(false)
+    expect(css).toContain('font-family:"X\\3c /style>\\3c script>alert(1)\\3c /script>"')
+    expect(css).toContain('--segnavia-font-serif:"X\\3c /style>\\3c script>alert(1)\\3c /script>",serif')
+  })
+
+  test('refuses a family with a control character, naming the family and what clears it', () => {
+    const family = 'Face\u0001'
+    const work = () => fontCss({ app: new Map(), local: [face({ family })] })
+    expect(work).toThrow(FontCssRefusedError)
+    expect(work).toThrow(
+      `The family ${JSON.stringify(family)} contains a control character; remove control characters from the family name to clear this refusal.`,
+    )
+  })
+
+  test('refuses a control character in the app-font family used as a custom property', () => {
+    const family = 'Body\u007fSerif'
+    const work = () => fontCss({ app: new Map([['serif', { family, faces: [face({ family: 'Safe' })] }]]) })
+    expect(work).toThrow(FontCssRefusedError)
+    expect(work).toThrow(
+      `The family ${JSON.stringify(family)} contains a control character; remove control characters from the family name to clear this refusal.`,
+    )
+  })
+
   test('refuses a malformed unicodeRange naming the face, the range, and what clears it', () => {
     const work = () =>
       fontCss({
