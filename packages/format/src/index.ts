@@ -112,7 +112,7 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
-export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection } from './direction.ts'
+export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   APP_FONT_NAME,

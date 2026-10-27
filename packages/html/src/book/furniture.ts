@@ -1,4 +1,4 @@
-import { resolveDirection } from '@segnavia/format'
+import { resolveDirection, textDirection } from '@segnavia/format'
 
 export interface BookFurnitureValues {
   folio?: string
@@ -31,5 +31,5 @@ export function fillBookFurniture(html: string, values: BookFurnitureValues, dir
 }
 
 export function furnitureScript(): string {
-  return `var resolveDirection=${resolveDirection.toString()};\n${fillBookFurniture.toString()}`
+  return `var textDirection=${textDirection.toString()};\nvar resolveDirection=${resolveDirection.toString()};\n${fillBookFurniture.toString()}`
 }

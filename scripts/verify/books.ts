@@ -156,9 +156,7 @@ async function verifyPaginatedBooks(h: Harness) {
       report.runningHead.detail,
     )
 
-    await frame
-      .locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]')
-      .evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
       const target = document.getElementById('segnavia-chapter-1')
       if (!target) return false

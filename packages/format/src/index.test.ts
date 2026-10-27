@@ -196,7 +196,7 @@ describe('limits', () => {
   })
 })
 
-import { firstStrongDirection, resolveDirection } from './index.ts'
+import { firstStrongDirection, languageDirection, resolveDirection, textDirection } from './index.ts'
 
 describe('direction', () => {
   test('the first strong letter decides; digits and punctuation do not', () => {
@@ -213,8 +213,11 @@ describe('direction', () => {
     expect(resolveDirection(undefined, undefined, '42')).toBe('ltr')
   })
 
-  test('resolveDirection is self-contained for script embedding', () => {
-    const run = new Function(`return (${resolveDirection.toString()});`)() as typeof resolveDirection
+  test('textDirection is self-contained for script embedding', () => {
+    expect(languageDirection('')).toBeNull()
+    expect(languageDirection('yi')).toBe('rtl')
+    const embedded = new Function(`return (${textDirection.toString()});`)() as typeof textDirection
+    const run = (dir: 'ltr' | 'rtl' | 'auto' | undefined, lang: string | undefined, sample: string) => embedded(dir, lang, sample) ?? 'ltr'
     expect(run('ltr', 'he', 'שלום')).toBe(resolveDirection('ltr', 'he', 'שלום'))
     expect(run('auto', 'he-IL', 'Hello')).toBe(resolveDirection('auto', 'he-IL', 'Hello'))
     expect(run(undefined, undefined, 'שלום')).toBe(resolveDirection(undefined, undefined, 'שלום'))
