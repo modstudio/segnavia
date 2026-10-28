@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { FontRefusedError } from './page-fonts.ts'
-import { printableDeck } from './print-document.ts'
 import { printDeck } from './print.ts'
+import { printableDeck } from './print-document.ts'
 
 const deck = Deck.parse({
   title: 'Notes font',
