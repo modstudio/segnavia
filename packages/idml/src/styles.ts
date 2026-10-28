@@ -1,55 +1,12 @@
 import { type Element, isTag } from 'domhandler'
 import type { ReportCollector } from './report.ts'
+import { MAPPED_STYLE_PROPERTIES, NON_FORMATTING_STYLE_PROPERTIES, reportableStyleProperties } from './style-property-report.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
 
 const PARAGRAPH_ROOT = '$ID/[No paragraph style]'
 const CHARACTER_ROOT = '$ID/[No character style]'
-const NON_FORMATTING = new Set([
-  'Self',
-  'Name',
-  'BasedOn',
-  'AppliedParagraphStyle',
-  'AppliedCharacterStyle',
-  'SpanColumnType',
-  'EmitCss',
-  'StyleUniqueId',
-  'KeyboardShortcut',
-  'ExtendedKeyboardShortcut',
-  'Imported',
-  'PreviewColor',
-  'IncludeClass',
-  'EpubAriaRole',
-  'SplitDocument',
-  'NextStyle',
-])
-const MAPPED = new Set([
-  'PointSize',
-  'Leading',
-  'AutoLeading',
-  'Tracking',
-  'SpaceBefore',
-  'SpaceAfter',
-  'FirstLineIndent',
-  'Capitalization',
-  'Underline',
-  'FillColor',
-  'LeftIndent',
-  'RightIndent',
-  'Justification',
-  'KeepWithNext',
-  'KeepLinesTogether',
-  'KeepAllLinesTogether',
-  'KeepFirstLines',
-  'KeepLastLines',
-  'StartParagraph',
-  'ParagraphDirection',
-  'AppliedLanguage',
-  'AppliedFont',
-  'FontStyle',
-  'SpanColumnType',
-])
 const CSS_MAPPED = new Set(
-  [...MAPPED].filter((name) => !['ParagraphDirection', 'AppliedLanguage', 'AppliedFont', 'FontStyle', 'SpanColumnType'].includes(name)),
+  [...MAPPED_STYLE_PROPERTIES].filter((name) => !['ParagraphDirection', 'AppliedLanguage', 'AppliedFont', 'FontStyle', 'SpanColumnType'].includes(name)),
 )
 
 function localName(name: string): string {
@@ -69,7 +26,7 @@ function properties(element: Element): Record<string, string> {
   for (const child of holder?.children ?? []) {
     if (!isTag(child)) continue
     const value = text(child)
-    if (value) result[localName(child.name)] = value
+    if (value || child.children.some(isTag)) result[localName(child.name)] = value || '[entry]'
   }
   return result
 }
@@ -125,14 +82,6 @@ function direction(value: string | undefined): 'ltr' | 'rtl' | undefined {
   if (value?.toLowerCase().includes('righttoleft')) return 'rtl'
   if (value?.toLowerCase().includes('lefttoright')) return 'ltr'
   return undefined
-}
-
-function activeValue(value: string): boolean {
-  const normalized = value.trim().toLowerCase()
-  if (!normalized) return false
-  if (['false', 'none', 'nothing', '$id/none', '$id/nothing', 'n', 'no', 'off'].includes(normalized)) return false
-  const numbers = normalized.split(/[\s,]+/).map(Number)
-  return numbers.length === 0 || !numbers.every((number) => Number.isFinite(number) && number === 0)
 }
 
 const LANGUAGES: Record<string, string> = {
@@ -205,9 +154,10 @@ export class StyleMapper {
     location: string,
     styleDirection?: 'ltr' | 'rtl',
   ): string | undefined {
-    const changed = Object.fromEntries(Object.entries(values).filter(([name, value]) => !NON_FORMATTING.has(name) && value !== base[name]))
-    for (const name of Object.keys(changed)) {
-      if (!MAPPED.has(name)) this.report.add(this.report.unsupportedOverrideProperties, name, location)
+    const changed = Object.fromEntries(Object.entries(values).filter(([name, value]) => !NON_FORMATTING_STYLE_PROPERTIES.has(name) && value !== base[name]))
+    const resolved = { ...base, ...values }
+    for (const name of reportableStyleProperties(changed, resolved)) {
+      this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
     this.report.font(changed.AppliedFont, changed.FontStyle, location)
     const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => CSS_MAPPED.has(name)))
@@ -306,9 +256,10 @@ export class StyleMapper {
 
   private reportUnmappedStyleProperties(style: IdmlStyle): void {
     const root = this.rootStyle(style.kind)
+    const resolved: Record<string, string> = {}
     for (const source of this.styleChain(style.id, style.kind)) {
-      for (const [name, value] of Object.entries(source.properties)) {
-        if (MAPPED.has(name) || NON_FORMATTING.has(name) || (source === root && !activeValue(value))) continue
+      Object.assign(resolved, source.properties)
+      for (const name of reportableStyleProperties(source.properties, resolved, source === root)) {
         const key = `${source.id}\u0000${name}`
         if (this.reportedStyleProperties.has(key)) continue
         this.reportedStyleProperties.add(key)
