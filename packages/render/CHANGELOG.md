@@ -1,5 +1,31 @@
 # @segnavia/render
 
+## 0.28.0
+
+### Minor Changes
+
+- 48493cf: Carry a sanitized `Book.css` stylesheet after generated font CSS and before host render CSS in every book view and PDF.
+- 0566139: Let a host name an app font for deck notes print. printDeck and deckPdf resolve it through FontSource and embed the face in the notes head; the default is sans-serif.
+- ab06b35: Print a paginated book from Chromium's line boxes, with footnotes, column runs, marks and running heads.
+- 6c93500: Cap every renderer's JavaScript heap at 2048 MB, including hosts that passed no jsHeapMb (`jsHeapMb` changes it), refuse a crashed page, relaunch a dead browser, and refuse work after close.
+- f491698: Fill templated pages, report overfull regions and apply host slot values in a paginated book.
+
+### Patch Changes
+
+- Updated dependencies [48493cf]
+- Updated dependencies [7a398eb]
+- Updated dependencies [492e956]
+- Updated dependencies [0566139]
+- Updated dependencies [e6ebbd7]
+- Updated dependencies [ab06b35]
+- Updated dependencies [52ba024]
+- Updated dependencies [ca43ac9]
+- Updated dependencies [a9b9c57]
+- Updated dependencies [f491698]
+  - @segnavia/format@0.28.0
+  - @segnavia/html@0.28.0
+  - @segnavia/frame@0.28.0
+
 ## 0.27.0
 
 ### Minor Changes

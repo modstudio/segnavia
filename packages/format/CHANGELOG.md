@@ -1,5 +1,15 @@
 # @segnavia/format
 
+## 0.28.0
+
+### Minor Changes
+
+- 48493cf: Carry a sanitized `Book.css` stylesheet after generated font CSS and before host render CSS in every book view and PDF.
+- 492e956: Place designed pages and per-section parent pages in a paginated book.
+- ab06b35: Print a paginated book from Chromium's line boxes, with footnotes, column runs, marks and running heads.
+- ca43ac9: Place any named page mark in a paginated book's parent-page head or foot with `data-motif="segnavia:mark"`, `data-motif-name` and optional `data-motif-which`.
+- f491698: Fill templated pages, report overfull regions and apply host slot values in a paginated book.
+
 ## 0.27.0
 
 ### Minor Changes

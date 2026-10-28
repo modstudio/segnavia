@@ -1,5 +1,32 @@
 # @segnavia/frame
 
+## 0.28.0
+
+### Minor Changes
+
+- 48493cf: Carry a sanitized `Book.css` stylesheet after generated font CSS and before host render CSS in every book view and PDF.
+- 7a398eb: Place chapter endnotes and split or refuse oversized blocks in a paginated book.
+- 492e956: Place designed pages and per-section parent pages in a paginated book.
+- 0566139: Let a host name an app font for deck notes print. printDeck and deckPdf resolve it through FontSource and embed the face in the notes head; the default is sans-serif.
+- ab06b35: Print a paginated book from Chromium's line boxes, with footnotes, column runs, marks and running heads.
+- 52ba024: Show paginated book views as scaled single pages or direction-aware two-page spreads in `<segnavia-book>`. `@segnavia/html` exports `bookViewFromHtml`, which builds a `BookView` from a book and its built HTML, and `embedFunction`, which embeds a function in a composer script under a name that survives minification.
+- ca43ac9: Place any named page mark in a paginated book's parent-page head or foot with `data-motif="segnavia:mark"`, `data-motif-name` and optional `data-motif-which`.
+- f491698: Fill templated pages, report overfull regions and apply host slot values in a paginated book.
+
+### Patch Changes
+
+- Updated dependencies [48493cf]
+- Updated dependencies [7a398eb]
+- Updated dependencies [492e956]
+- Updated dependencies [e6ebbd7]
+- Updated dependencies [ab06b35]
+- Updated dependencies [52ba024]
+- Updated dependencies [ca43ac9]
+- Updated dependencies [a9b9c57]
+- Updated dependencies [f491698]
+  - @segnavia/format@0.28.0
+  - @segnavia/html@0.28.0
+
 ## 0.27.0
 
 ### Minor Changes
