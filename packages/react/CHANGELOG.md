@@ -1,5 +1,11 @@
 # @segnavia/react
 
+## 0.29.0
+
+### Patch Changes
+
+- @segnavia/frame@0.29.0
+
 ## 0.28.0
 
 ### Patch Changes
