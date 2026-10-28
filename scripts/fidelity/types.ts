@@ -8,11 +8,18 @@ export interface Threshold {
   p99: number
 }
 
+export interface RegistrationThreshold {
+  shift: number
+  residual: number
+}
+
+export type BarThreshold = Threshold | { mean: number } | { multiple: number; absoluteBytes: number } | RegistrationThreshold
+
 export interface BarResult<T> {
   measured?: T
   passed: boolean
   applicable?: boolean
-  threshold?: Threshold | { multiple: number; absoluteBytes: number }
+  threshold?: BarThreshold
   reason?: string
 }
 
@@ -30,6 +37,15 @@ export interface AlignmentResult {
   measuredScore: number
   passed: boolean
   error?: string
+}
+
+export interface RegistrationMeasurement {
+  dy: number
+  residual: number
+  residual0: number
+  dx: number
+  residualX: number
+  residualX0: number
 }
 
 export interface GlyphBox {
@@ -94,6 +110,7 @@ export interface ReaderResult {
   page?: Difference
   regions?: RegionResult[]
   alignment?: AlignmentResult
+  registration?: RegistrationMeasurement
 }
 
 export interface DocumentResult {
@@ -141,9 +158,9 @@ export interface BookFixture {
   book: BookInput
 }
 
-export type FixtureKind = 'control' | 'effects'
-export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size'
-export type BarMeasurement = Difference | SizeMeasurement
+export type FixtureKind = 'control' | 'effects' | 'book'
+export type BarId = 'effects' | 'pressColor' | 'grayPressColor' | 'size' | 'registration'
+export type BarMeasurement = Difference | SizeMeasurement | RegistrationMeasurement
 
 export interface FidelityRun {
   metadata: {
@@ -151,7 +168,7 @@ export interface FidelityRun {
     commit: string
     createdAt: string
     scale: number
-    thresholds: Record<BarId, Threshold | { multiple: number; absoluteBytes: number }>
+    thresholds: Record<BarId, BarThreshold>
     chromium: string
     profile?: string
     grayProfile?: string

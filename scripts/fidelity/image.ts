@@ -28,7 +28,7 @@ export async function imageSize(file: string): Promise<{ width: number; height: 
   return { width: view.getUint32(16), height: view.getUint32(20) }
 }
 
-function rgb(file: string, width: number, height: number): Uint8Array {
+export function rgbPixels(file: string, width: number, height: number): Uint8Array {
   const bytes = command([
     'ffmpeg',
     '-loglevel',
@@ -48,7 +48,7 @@ function rgb(file: string, width: number, height: number): Uint8Array {
 }
 
 export function glyphLineBoxes(file: string, width: number, height: number): GlyphBox[] {
-  const pixels = rgb(file, width, height)
+  const pixels = rgbPixels(file, width, height)
   const occupied = new Uint8Array(height)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -98,7 +98,7 @@ export function proofPressPixels(profile: Profile, table: ProofTable, source: Ui
 }
 
 export function proofImage(reference: string, destination: string, width: number, height: number, table: ProofTable, profile?: Profile): void {
-  const source = rgb(reference, width, height)
+  const source = rgbPixels(reference, width, height)
   const proved = profile?.colorSpace === 'CMYK' ? proofPressPixels(profile, table, source) : proofPixels(table, source)
   const result = Bun.spawnSync(
     ['ffmpeg', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${width}x${height}`, '-i', '-', '-frames:v', '1', '-y', destination],
@@ -187,7 +187,7 @@ export function alignmentOffset(
   expectedX: number,
   expectedY: number,
 ): { offsetX: number; offsetY: number; referenceScore: number; measuredScore: number; passed: boolean; error?: string } {
-  return alignmentFromPixels(rgb(reference, width, height), rgb(actual, width, height), width, height, expectedX, expectedY)
+  return alignmentFromPixels(rgbPixels(reference, width, height), rgbPixels(actual, width, height), width, height, expectedX, expectedY)
 }
 
 export function alignmentFromPixels(
@@ -220,8 +220,8 @@ export function alignmentFromPixels(
 }
 
 export function difference(reference: string, actual: string, width: number, height: number, box?: Box, mask?: Uint8Array, selected = true): Difference {
-  const left = rgb(reference, width, height)
-  const right = rgb(actual, width, height)
+  const left = rgbPixels(reference, width, height)
+  const right = rgbPixels(actual, width, height)
   return differencePixels(left, right, width, height, mask, selected, box)
 }
 

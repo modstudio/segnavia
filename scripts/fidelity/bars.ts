@@ -1,5 +1,12 @@
-import { ACCEPTANCE_BARS, type BarFacts } from './config.ts'
-import type { BarId, BarMeasurement, BarResult, Difference, DocumentResult, SizeMeasurement } from './types.ts'
+import { ACCEPTANCE_BARS, type BarFacts, PRESS_BLEND_THRESHOLD } from './config.ts'
+import { worstRegistration } from './registration.ts'
+import type { BarId, BarMeasurement, BarResult, Difference, DocumentResult, RegistrationMeasurement, SizeMeasurement } from './types.ts'
+
+function barApplicable(id: BarId, kind: BarFacts['kind']): boolean {
+  if (id === 'effects') return kind === 'effects'
+  if (id === 'registration') return kind === 'book'
+  return true
+}
 
 export function measureBars(facts: BarFacts): Record<BarId, BarResult<BarMeasurement>> {
   return Object.fromEntries(
@@ -10,7 +17,7 @@ export function measureBars(facts: BarFacts): Record<BarId, BarResult<BarMeasure
         {
           measured,
           passed: bar.pass(measured, facts),
-          applicable: bar.id !== 'effects' || facts.kind === 'effects',
+          applicable: barApplicable(bar.id, facts.kind),
           threshold: bar.thresholdFor?.(facts) ?? bar.threshold,
           reason: bar.reason(measured, facts),
         },
@@ -44,6 +51,15 @@ export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<
     effectlessPdfBytes: 0,
     multiple: Math.max(...judged.map((document) => (document.bars.size.measured as SizeMeasurement | undefined)?.multiple ?? 0), 0),
   }
+  const registrationMeasured = worstRegistration(
+    judged.flatMap((document) => {
+      const value = document.bars.registration.measured as RegistrationMeasurement | undefined
+      return value ? [value] : []
+    }),
+  )
+  const failedRegistration = judged.flatMap((document) =>
+    document.bars.registration.applicable && document.bars.registration.reason ? [`${document.title}: ${document.bars.registration.reason}`] : [],
+  )
   return {
     effects: {
       measured: differences('effects'),
@@ -59,12 +75,19 @@ export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<
           {
             measured: differences(id),
             passed: judged.every((document) => document.bars[id].passed),
+            threshold: judged.some((document) => document.kind === 'book') ? { mean: PRESS_BLEND_THRESHOLD.mean } : undefined,
             reason: absent.length ? `Missing press measurement: ${absent.map((document) => document.title).join(', ')}` : undefined,
           },
         ]
       }),
     ),
     size: { measured: size, passed: judged.every((document) => document.bars.size.passed) },
+    registration: {
+      measured: registrationMeasured,
+      passed: judged.every((document) => document.bars.registration.passed),
+      applicable: judged.some((document) => document.bars.registration.applicable),
+      reason: failedRegistration.length ? failedRegistration.join('; ') : undefined,
+    },
   } as Record<BarId, BarResult<BarMeasurement>>
 }
 

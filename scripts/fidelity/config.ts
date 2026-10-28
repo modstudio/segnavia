@@ -2,7 +2,17 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
 import { EFFECT_REGION_THRESHOLD, SCALE } from '../verify/pixel-difference.ts'
-import type { BarId, Difference, FixtureKind, ReaderResult, SizeMeasurement, Threshold } from './types.ts'
+import { registrationPasses, worstRegistration } from './registration.ts'
+import type {
+  BarId,
+  BarThreshold,
+  Difference,
+  FixtureKind,
+  ReaderResult,
+  RegistrationMeasurement,
+  SizeMeasurement,
+  Threshold,
+} from './types.ts'
 
 export { EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from '../verify/pixel-difference.ts'
 
@@ -12,6 +22,10 @@ export const CSS_PX_PER_INCH = 96
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 // This regression ceiling sits just above the worst measured effects document.
 export const PRESS_BLEND_THRESHOLD = { mean: 10, p99: 90 }
+// Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723. The one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312. 0.15 sits about 2x above the unshifted maximum and about 2x below the fault minimum.
+export const BOOK_REGISTRATION_TOLERANCE = 1
+export const BOOK_PROFILE_RESIDUAL_MAX = 0.15
+export const BOOK_REGISTRATION_SEARCH = 120
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
 export const ALIGNMENT_SEARCH_RADIUS = 16
 export const ALIGNMENT_TOLERANCE = 8
@@ -51,28 +65,76 @@ export interface BarFacts {
 export interface AcceptanceBar {
   id: BarId
   title: string
-  threshold: Threshold | { multiple: number; absoluteBytes: number }
-  thresholdFor?: (facts: BarFacts) => Threshold | { multiple: number; absoluteBytes: number }
-  measure: (facts: BarFacts) => Difference | SizeMeasurement | undefined
-  pass: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => boolean
-  reason: (measured: Difference | SizeMeasurement | undefined, facts: BarFacts) => string | undefined
-  format: (measured: Difference | SizeMeasurement | undefined, threshold: Threshold | { multiple: number; absoluteBytes: number }, total: boolean) => string
+  threshold: BarThreshold
+  thresholdFor?: (facts: BarFacts) => BarThreshold
+  measure: (facts: BarFacts) => Difference | SizeMeasurement | RegistrationMeasurement | undefined
+  pass: (measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined, facts: BarFacts) => boolean
+  reason: (measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined, facts: BarFacts) => string | undefined
+  format: (measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined, threshold: BarThreshold, total: boolean) => string
 }
 
 const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
-const differenceFormat = (measured: Difference | SizeMeasurement | undefined, threshold: Threshold | { multiple: number; absoluteBytes: number }) => {
+const differenceFormat = (measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined, threshold: BarThreshold) => {
   const value = measured as Difference | undefined
-  if (!('mean' in threshold)) throw new Error('A difference bar requires a mean/p99 threshold.')
-  return `mean ${decimal(value?.mean)}, p99 ${decimal(value?.p99)} / mean ≤ ${threshold.mean}, p99 ≤ ${threshold.p99}`
+  if (!('mean' in threshold)) throw new Error('A difference bar requires a mean threshold.')
+  const p99Gate = 'p99' in threshold && threshold.p99 !== undefined ? `, p99 ≤ ${threshold.p99}` : ''
+  return `mean ${decimal(value?.mean)}, p99 ${decimal(value?.p99)} / mean ≤ ${threshold.mean}${p99Gate}`
 }
 
-export function pressThreshold(kind: FixtureKind): Threshold {
-  return kind === 'control' ? PRESS_COLOR_THRESHOLD : PRESS_BLEND_THRESHOLD
+export function pressThreshold(kind: FixtureKind): Threshold | { mean: number } {
+  if (kind === 'control') return PRESS_COLOR_THRESHOLD
+  if (kind === 'book') return { mean: PRESS_BLEND_THRESHOLD.mean }
+  return PRESS_BLEND_THRESHOLD
 }
 
 export function judgePress(kind: FixtureKind, difference: Difference): boolean {
   const threshold = pressThreshold(kind)
-  return difference.mean <= threshold.mean && difference.p99 <= threshold.p99
+  if (difference.mean > threshold.mean) return false
+  return !('p99' in threshold) || threshold.p99 === undefined || difference.p99 <= threshold.p99
+}
+
+function bookRegistration(facts: BarFacts): RegistrationMeasurement | undefined {
+  return worstRegistration(facts.readers.flatMap((reader) => (reader.worked && reader.registration ? [reader.registration] : [])))
+}
+
+function bookRegistrationPasses(facts: BarFacts): boolean {
+  if (facts.kind !== 'book') return true
+  const working = facts.readers.filter((reader) => reader.worked)
+  return (
+    working.length > 0 &&
+    working.every(
+      (reader) => reader.registration && registrationPasses(reader.registration, BOOK_REGISTRATION_TOLERANCE, BOOK_PROFILE_RESIDUAL_MAX),
+    )
+  )
+}
+
+function bookRegistrationReason(facts: BarFacts): string | undefined {
+  if (facts.kind !== 'book') return 'Not applicable to page fixtures.'
+  const working = facts.readers.filter((reader) => reader.worked)
+  if (!working.length) return 'No working reader produced a registration measurement.'
+  const failed = working.filter(
+    (reader) => !reader.registration || !registrationPasses(reader.registration, BOOK_REGISTRATION_TOLERANCE, BOOK_PROFILE_RESIDUAL_MAX),
+  )
+  if (!failed.length) return undefined
+  return failed
+    .map((reader) => {
+      const held = reader.registration
+      return held
+        ? `${reader.engine}: dy ${held.dy}, nL1@0 ${held.residual0.toFixed(4)}; dx ${held.dx}, nL1@0 ${held.residualX0.toFixed(4)}`
+        : `${reader.engine}: missing registration`
+    })
+    .join('; ')
+}
+
+function registrationFormat(
+  measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined,
+  threshold: BarThreshold,
+): string {
+  const value = measured as RegistrationMeasurement | undefined
+  if (!('shift' in threshold)) throw new Error('A registration bar requires a shift/residual threshold.')
+  const dy = value ? String(value.dy) : '—'
+  const dx = value ? String(value.dx) : '—'
+  return `dy ${dy}, nL1@0 ${decimal(value?.residual0)}; dx ${dx}, nL1@0 ${decimal(value?.residualX0)} / |d| ≤ ${threshold.shift}, nL1@0 ≤ ${threshold.residual}`
 }
 
 function controlMaskReason({ kind, blendedFraction }: BarFacts): string | undefined {
@@ -88,12 +150,13 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
     threshold: EFFECT_REGION_THRESHOLD,
     measure: ({ worstRegion }) => worstRegion,
     pass: (measured, { kind, readers }) => {
-      if (kind === 'control') return true
+      if (kind !== 'effects') return true
       const value = measured as Difference
       return readers.every((reader) => reader.worked) && value.mean <= EFFECT_REGION_THRESHOLD.mean && value.p99 <= EFFECT_REGION_THRESHOLD.p99
     },
     reason: (_, { kind, readers }) => {
       if (kind === 'control') return 'Not applicable to control documents.'
+      if (kind === 'book') return 'Not applicable to book documents.'
       const failed = readers.filter((reader) => !reader.worked)
       return failed.length ? failed.map((reader) => `${reader.engine} skipped: ${reader.error ?? 'unknown failure'}`).join('; ') : undefined
     },
@@ -161,6 +224,15 @@ export const ACCEPTANCE_BARS: readonly AcceptanceBar[] = [
         ? `${amount} / 3× exempt; ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
         : `${amount} / ≤ ${threshold.multiple}× and ≤ ${threshold.absoluteBytes.toLocaleString()} bytes`
     },
+  },
+  {
+    id: 'registration',
+    title: 'Line registration',
+    threshold: { shift: BOOK_REGISTRATION_TOLERANCE, residual: BOOK_PROFILE_RESIDUAL_MAX },
+    measure: bookRegistration,
+    pass: (_, facts) => bookRegistrationPasses(facts),
+    reason: (_, facts) => bookRegistrationReason(facts),
+    format: registrationFormat,
   },
 ]
 
