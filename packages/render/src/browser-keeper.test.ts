@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events'
 import { expect, test } from 'bun:test'
+import { EventEmitter } from 'node:events'
 import type { Browser } from 'playwright-core'
 import { keepBrowser } from './browser-keeper.ts'
 import { RendererUnavailableError } from './errors.ts'

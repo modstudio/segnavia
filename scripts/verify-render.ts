@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
-import { captureImage, openRenderer, RendererUnavailableError, RenderRefusedError } from '@segnavia/render'
+import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyBackdropRaster } from './verify/backdrop-raster.ts'
@@ -25,6 +25,7 @@ import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyPressRender } from './verify/press-render.ts'
+import { verifyRenderContainment } from './verify/render-containment.ts'
 import { verifyScriptFaces } from './verify/script-faces.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
@@ -373,43 +374,7 @@ try {
     run.ok && existsSync(path.join(shots, 'node.button.webp')) && existsSync(path.join(shots, 'node.button.annotated.webp')),
     run.results[0]?.error,
   )
-
-  const pdfMagic = (bytes: Uint8Array) => bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46
-  const unavailable = (work: Promise<unknown>) =>
-    work.then(
-      () => 'rendered',
-      (error: unknown) => (error instanceof RendererUnavailableError ? `unavailable: ${error.message}` : `other: ${String(error)}`),
-    )
-  const [heapResult, ordinaryPdf] = await Promise.all([
-    refusal(
-      renderer.pagePdf(
-        { html: '<script>const chunks = []; for (;;) chunks.push(new Uint8Array(1 << 20))</script>', scripts: 'sandboxed', size: { width: 400, height: 200 } },
-        { waitForPageReady: false },
-      ),
-    ),
-    renderer.pagePdf({ html: '<p>ordinary</p>', size: { width: 400, height: 200 } }),
-  ])
-  check(
-    'a page that exhausts the heap is refused while a concurrent page prints',
-    heapResult.startsWith('refused:') && heapResult.includes('128 MB') && pdfMagic(ordinaryPdf),
-    `${heapResult}; ordinary=${ordinaryPdf.length}`,
-  )
-  const crashed = await unavailable(
-    renderer.pagePdf(
-      { html: '<p>crash</p>', size: { width: 400, height: 200 } },
-      {
-        beforeOutput: async (tab) => {
-          await (await tab.context().newCDPSession(tab)).send('Browser.crash')
-        },
-      },
-    ),
-  )
-  check('a browser that exits mid-render is refused as unavailable', crashed.startsWith('unavailable:'), crashed)
-  const afterCrash = await renderer.pagePdf({ html: '<p>after crash</p>', size: { width: 400, height: 200 } })
-  check('the next render after a browser exit returns a PDF', pdfMagic(afterCrash), `bytes=${afterCrash.length}`)
-  await renderer.close()
-  const afterClose = await unavailable(renderer.pagePdf({ html: '<p>closed</p>', size: { width: 400, height: 200 } }))
-  check('a render after close is refused as unavailable', afterClose.startsWith('unavailable:'), afterClose)
+  await verifyRenderContainment(renderer, check, 128)
 } finally {
   await renderer.close()
   server.close()

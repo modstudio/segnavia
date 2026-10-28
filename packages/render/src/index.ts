@@ -6,11 +6,11 @@ import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
+import { keepBrowser } from './browser-keeper.ts'
 import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { keepBrowser } from './browser-keeper.ts'
-import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { launchUnavailable, RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -51,7 +51,15 @@ export type {
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
-export { CONTAINER_ARGS, DEFAULT_JS_HEAP_MB, PAGE_READY_BOUND_MS, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+export {
+  CONTAINER_ARGS,
+  DEFAULT_JS_HEAP_MB,
+  PAGE_READY_BOUND_MS,
+  type PagePdfOptions,
+  RENDER_BOUND_MS,
+  type Renderer,
+  type RendererOptions,
+} from './renderer.ts'
 export { filledBook }
 
 const FLUID_WIDTH = 1024
@@ -64,10 +72,6 @@ async function contentHeight(tab: Tab): Promise<number> {
   const height = await tab.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0))
   await tab.setViewportSize({ width, height })
   return height
-}
-
-function launchUnavailable(executablePath: string, error: unknown): RendererUnavailableError {
-  return new RendererUnavailableError(`Chromium at ${executablePath} could not start: ${(error as Error).message}`)
 }
 
 export async function openRenderer(options: RendererOptions): Promise<Renderer> {

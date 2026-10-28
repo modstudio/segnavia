@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { RenderRefusedError } from './errors.ts'
-import { renderFailure } from './render-failure.ts'
 import { RenderTimeoutError } from './render-deadline.ts'
+import { renderFailure } from './render-failure.ts'
 
 test('maps crash, close and disconnect and passes other errors through', () => {
   const timeout = new RenderTimeoutError('bound')
