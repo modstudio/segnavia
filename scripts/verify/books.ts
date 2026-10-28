@@ -99,7 +99,39 @@ export async function verifyBooks(h: Harness) {
 }
 
 function normalizedPageText() {
-  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => page.textContent ?? '')
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  const inside = (inner: DOMRect, outer: DOMRect) => {
+    const x = inner.left + inner.width / 2
+    const y = inner.top + inner.height / 2
+    return x >= outer.left && x <= outer.right && y >= outer.top && y <= outer.bottom
+  }
+  const visibleNodeText = (node: Text): string => {
+    const parent = node.parentElement
+    if (parent?.closest('[data-segnavia-galley-source]')) return ''
+    const clip = parent?.closest('[data-segnavia-page-note],[data-segnavia-window],[data-segnavia-book-page]')
+    const clipRect = clip?.getBoundingClientRect()
+    if (!clipRect) return ''
+    let text = ''
+    for (const segment of segmenter.segment(node.textContent ?? '')) {
+      const range = document.createRange()
+      range.setStart(node, segment.index)
+      range.setEnd(node, segment.index + segment.segment.length)
+      if (inside(range.getBoundingClientRect(), clipRect)) text += segment.segment
+    }
+    return text
+  }
+  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
+    // Each paginated window holds a translated clone of its whole flow, so textContent includes
+    // text clipped off this page. Range geometry keeps only graphemes visibly inside its clip.
+    let text = ''
+    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode() as Text | null
+    while (node) {
+      text += visibleNodeText(node)
+      node = walker.nextNode() as Text | null
+    }
+    return text
+  })
 }
 
 function pdfPageText(language: 'en' | 'he'): string[] {
