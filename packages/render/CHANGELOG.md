@@ -1,5 +1,14 @@
 # @segnavia/render
 
+## 0.29.0
+
+### Patch Changes
+
+- 6a8341f: Reject a render as soon as its browser exits and relaunch for the next render.
+  - @segnavia/format@0.29.0
+  - @segnavia/frame@0.29.0
+  - @segnavia/html@0.29.0
+
 ## 0.28.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @segnavia/html
 
+## 0.29.0
+
+### Minor Changes
+
+- 0e118dc: Export `BOOK_COLUMN_MIN` and `BOOK_COLUMN_MAX`, the bounds on a block's `data-columns` count, so importers can check a column count before writing it.
+
+### Patch Changes
+
+- @segnavia/format@0.29.0
+
 ## 0.28.0
 
 ### Minor Changes
