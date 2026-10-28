@@ -36,7 +36,6 @@ const build = Bun.spawn(['bun', 'run', 'build'], { cwd: ROOT, stdout: 'inherit',
 if ((await build.exited) !== 0) throw new Error('bun run build failed.')
 rmSync(SITE, { recursive: true, force: true })
 mkdirSync(path.join(SITE, 'shots'), { recursive: true })
-
 // The demo app: English or Hebrew, signed in by cookie or a guest, with an
 // API that answers or refuses under load.
 const app = Bun.serve({

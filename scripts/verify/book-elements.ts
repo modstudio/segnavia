@@ -1,10 +1,27 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
+import type { FrameLocator } from 'playwright-core'
 import type { Harness } from './harness.ts'
 import { SITE } from './harness.ts'
 import { pointMultiset, unpointed } from './hebrew-text.ts'
 
 export const REPAGINATE_BOUND_MS = 20_000
+
+async function waitForLargeBook(frame: FrameLocator): Promise<void> {
+  const deadline = Date.now() + REPAGINATE_BOUND_MS
+  while (Date.now() < deadline) {
+    try {
+      const ready = await frame
+        .locator('html')
+        .evaluate((root) => root.hasAttribute('data-segnavia-compose-failure') || root.querySelectorAll('[data-segnavia-book-page]').length >= 300)
+      if (ready) return
+    } catch {
+      // The element replaces its sandboxed srcdoc frame after its large src view arrives.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error(`The large book did not compose 300 pages or report a failure within ${REPAGINATE_BOUND_MS}ms.`)
+}
 
 interface ClipRect {
   left: number
@@ -323,7 +340,9 @@ export async function verifyPaginatedBookElements(h: Harness) {
   const screenTexts: Record<string, ScreenPageText[]> = {}
   for (const language of ['en', 'he'] as const) {
     const frame = page.frameLocator(`#book-large-${language} iframe`)
-    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
+    // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
+    // is mounting. Wait for the stress book's required 300th page, without accepting that transient.
+    await waitForLargeBook(frame)
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`book-large-${language} composition failed: ${failure}`)
     const report = await frame.locator('html').evaluate(() => ({
