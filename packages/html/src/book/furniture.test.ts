@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { resolveDirection } from '@segnavia/format'
+import { BOOK_FURNITURE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
 import { fillBookFurniture, furnitureScript } from './furniture.ts'
 
 describe('fillBookFurniture', () => {
@@ -15,10 +15,40 @@ describe('fillBookFurniture', () => {
     expect(fillBookFurniture(html, { runningHead: 'ראשון' })).toBe('<div class="segnavia-running-head"><bdi dir="rtl">ראשון</bdi></div>')
   })
 
+  test('fills first and last values for two named marks from each page plan', () => {
+    const html =
+      '<span class="kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="siman" data-motif="segnavia:mark" data-motif-name="siman" data-motif-which="last"></span>'
+    const pages = [
+      { marks: { kavana: { first: 'Intention A', last: 'Intention B' }, siman: { first: 'Sign A', last: 'Sign B' } } },
+      { marks: { kavana: { first: 'Intention B', last: 'Intention B' }, siman: { first: 'Sign B', last: 'Sign B' } } },
+      {},
+    ]
+    expect(pages.map((page) => fillBookFurniture(html, page, undefined, 'en'))).toEqual([
+      '<span class="kavana"><bdi dir="ltr">Intention A</bdi></span><span class="siman"><bdi dir="ltr">Sign B</bdi></span>',
+      '<span class="kavana"><bdi dir="ltr">Intention B</bdi></span><span class="siman"><bdi dir="ltr">Sign B</bdi></span>',
+      '',
+    ])
+  })
+
+  test('handles every catalogued mark field and choice', () => {
+    const mark = BOOK_FURNITURE.find((item) => item.key === 'segnavia:mark')
+    expect(mark?.fields).toEqual([
+      { key: 'name', required: true },
+      { key: 'which', choices: ['first', 'last'], default: 'first' },
+    ])
+    const placement = (which: string) =>
+      `<span data-motif="segnavia:mark" ${motifFieldAttribute('name')}="siman" ${motifFieldAttribute('which')}="${which}"></span>`
+    expect(['first', 'last'].map((which) => fillBookFurniture(placement(which), { marks: { siman: { first: 'A', last: 'B' } } }))).toEqual([
+      '<span><bdi dir="ltr">A</bdi></span>',
+      '<span><bdi dir="ltr">B</bdi></span>',
+    ])
+  })
+
   test('the embedded script matches the imported function', () => {
     const run = new Function(`${furnitureScript()}; return fillBookFurniture;`)() as typeof fillBookFurniture
-    const html = '<div data-motif="segnavia:folio"></div>'
-    expect(run(html, { folio: 'א' }, undefined, 'he')).toEqual(fillBookFurniture(html, { folio: 'א' }, undefined, 'he'))
+    const html = '<div data-motif="segnavia:mark" data-motif-name="siman"></div>'
+    const values = { marks: { siman: { first: 'א', last: 'ב' } } }
+    expect(run(html, values, undefined, 'he')).toEqual(fillBookFurniture(html, values, undefined, 'he'))
   })
 
   test('the embedded resolver matches the format export', () => {

@@ -1,7 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
-import { EVIDENCE, type Harness } from './harness.ts'
+import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
   compareDesignedPages,
@@ -165,6 +166,18 @@ async function verifyPaginatedBooks(h: Harness) {
       const ink = await compareHebrewInk(h, frame)
       check(`${id} no niqqud or taamim ink is lost at any window edge`, ink.ok, ink.detail)
     }
+    check(`${id} two-mark heads show each planned value and carry earlier values`, report.markHead.complete && report.markHead.carried, report.markHead.detail)
+    const pdfPages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
+    const pdfMarks = report.markHead.values.map((head) => ({
+      page: head.page,
+      kavana: pdfPages[head.page - 1]?.includes(head.kavana) ?? false,
+      siman: pdfPages[head.page - 1]?.includes(head.siman) ?? false,
+    }))
+    check(
+      `${id} PDF pages contain the same two planned mark values as the screen`,
+      pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
+      JSON.stringify(pdfMarks),
+    )
     check(
       `${id} running heads take the first mark and carry onto a page with none`,
       report.runningHead.fromMark && report.runningHead.carried,

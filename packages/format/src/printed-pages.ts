@@ -69,6 +69,7 @@ export const BOOK_PARENT_NAMES = {
 
 function furniture(region: 'head' | 'foot'): string {
   return BOOK_FURNITURE.filter((item) => item.region === region)
+    .filter((item) => item.fields.every((field) => !('required' in field) || !field.required))
     .map((item) => `<div class="${item.className}" data-motif="${item.key}"></div>`)
     .join('')
 }
