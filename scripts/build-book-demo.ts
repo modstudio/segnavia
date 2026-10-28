@@ -70,8 +70,7 @@ function chapterTwoHtml(hebrew: boolean): string {
   const lead = hebrew ? 'הטקסט המלא נמשך על פני העמוד.' : 'A full-width paragraph opens the chapter on its own line of the page.'
   const mid = hebrew ? 'שוב רוחב מלא בין העמודות.' : 'Full width returns between the column runs.'
   const close = hebrew ? 'סוף המעבר בין העמודות.' : 'The chapter closes after the column run is cut by a page break.'
-  const end = hebrew ? 'מקור לפרק השני.' : 'The source for the second chapter.'
-  return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}</p>`
 }
 
 function chapterThreeHtml(hebrew: boolean): string {
@@ -87,7 +86,8 @@ function chapterThreeHtml(hebrew: boolean): string {
   const letters = hebrew ? 'אבגדהוזחטיכלמנסעפצקרשת' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const rows = Array.from({ length: 40 }, (_, index) => `<tr><td>${letters[index % letters.length]}</td><td>${index + 1}</td></tr>`).join('')
   const table = `<table${hebrew ? ' dir="rtl"' : ''}><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`
-  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p>${image}<p>${body}</p>${table}`
+  const end = hebrew ? 'מקור לפרק השלישי.' : 'The source for the third chapter.'
+  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p>${image}<p>${body}</p>${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
 }
 
 const designedCss =
