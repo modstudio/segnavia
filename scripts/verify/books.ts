@@ -40,6 +40,19 @@ interface PdfWord extends ClipRect {
   lineInline: number
 }
 
+interface SkippedRun {
+  page: number
+  text: string
+}
+
+interface PageTextRelation {
+  matches: boolean
+  skipped: string[]
+  excessPoints: string
+}
+
+const graphemes = (value: string): string[] => [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].map(({ segment }) => segment)
+
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
   return h.page
     .frameLocator(`${frame} iframe`)
@@ -245,6 +258,51 @@ function pdfPageText(language: 'en' | 'he', screens: ScreenPageText[]): { pages:
   return { pages, dropped }
 }
 
+function boundedSubsequencePath(screen: string[], pdf: string[]): number[] | undefined {
+  let reachable = new Map<number, number[]>()
+  for (let pdfIndex = 0; pdfIndex <= Math.min(3, pdf.length - 1); pdfIndex++) {
+    if (pdf[pdfIndex] === screen[0]) reachable.set(pdfIndex, [pdfIndex])
+  }
+  if (screen.length === 0) reachable = pdf.length <= 3 ? new Map([[-1, []]]) : new Map()
+  for (let screenIndex = 1; screenIndex < screen.length && reachable.size > 0; screenIndex++) {
+    const next = new Map<number, number[]>()
+    for (const [previous, path] of reachable) {
+      for (let pdfIndex = previous + 1; pdfIndex <= Math.min(previous + 4, pdf.length - 1); pdfIndex++) {
+        if (pdf[pdfIndex] === screen[screenIndex] && !next.has(pdfIndex)) next.set(pdfIndex, [...path, pdfIndex])
+      }
+    }
+    reachable = next
+  }
+  return [...reachable.entries()].find(([last]) => pdf.length - last - 1 <= 3)?.[1]
+}
+
+function pointExcess(screenText: string, pdfText: string): { contained: boolean; excess: string } {
+  const screenPoints = pointMultiset(screenText)
+  const excessPoints = [...pointMultiset(pdfText)]
+  for (const point of screenPoints) {
+    const index = excessPoints.indexOf(point)
+    if (index >= 0) excessPoints.splice(index, 1)
+    else return { contained: false, excess: excessPoints.join('') }
+  }
+  return { contained: true, excess: excessPoints.join('') }
+}
+
+function pageTextRelation(screenText: string, pdfText: string): PageTextRelation {
+  const screen = graphemes(unpointed(screenText))
+  const pdf = graphemes(unpointed(pdfText))
+  const path = boundedSubsequencePath(screen, pdf)
+  const points = pointExcess(screenText, pdfText)
+  if (!path || !points.contained) return { matches: false, skipped: [], excessPoints: points.excess }
+  const skipped: string[] = []
+  let previous = -1
+  for (const index of [...path, pdf.length]) {
+    const run = pdf.slice(previous + 1, index).join('')
+    if (run) skipped.push(run)
+    previous = index
+  }
+  return { matches: true, skipped, excessPoints: points.excess }
+}
+
 async function spreadFacts(h: Harness, language: 'en' | 'he') {
   return h.page
     .frameLocator(`#book-screen-${language} iframe`)
@@ -332,16 +390,33 @@ async function verifyPaginatedBookElements(h: Harness) {
       screenTexts[language]?.length === pdf.pages.length,
       `${screenTexts[language]?.length ?? 0}/${pdf.pages.length} pages`,
     )
-    const different =
-      screenTexts[language]?.findIndex(
-        (screen, index) => unpointed(screen.text) !== unpointed(pdf.pages[index] ?? '') || pointMultiset(screen.text) !== pointMultiset(pdf.pages[index] ?? ''),
-      ) ?? -1
+    const relations = (screenTexts[language] ?? []).map((screen, index) => pageTextRelation(screen.text, pdf.pages[index] ?? ''))
+    const different = relations.findIndex(({ matches }) => !matches)
+    const skippedRuns: SkippedRun[] = relations.flatMap(({ skipped }, index) => skipped.map((text) => ({ page: index + 1, text })))
+    const longestSkippedRun = skippedRuns.reduce((longest, run) => Math.max(longest, graphemes(run.text).length), 0)
+    const excessPoints = relations.flatMap(({ excessPoints }, index) => (excessPoints ? [{ page: index + 1, points: excessPoints }] : []))
+    const relationDetail = {
+      pages: pdf.pages.length,
+      droppedPdfWords: pdf.dropped,
+      skippedRuns: skippedRuns.length,
+      longestSkippedRun,
+      skippedExamples: skippedRuns.slice(0, 3),
+      excessPoints,
+    }
+    // The bounded-gap subsequence rule admits Poppler's clipped edge-glyph fragments while still
+    // rejecting missing, reordered or misplaced screen text and every leaked run over three graphemes.
     check(
       `book-large-${language} has the PDF's text on every page`,
       different === -1,
       different === -1
-        ? `${pdf.pages.length} pages; dropped ${pdf.dropped} PDF words outside page clips`
-        : JSON.stringify({ page: different + 1, screen: screenTexts[language]?.[different]?.text, pdf: pdf.pages[different], dropped: pdf.dropped }),
+        ? JSON.stringify(relationDetail)
+        : JSON.stringify({
+            page: different + 1,
+            screen: screenTexts[language]?.[different]?.text,
+            pdf: pdf.pages[different],
+            relation: relations[different],
+            ...relationDetail,
+          }),
     )
   }
 }
