@@ -128,6 +128,27 @@ async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport
   return frame.evaluate(inspectPaginatedBook)
 }
 
+function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
+  const { check } = h
+  check(`${id} two-mark heads show each planned value and carry earlier values`, report.markHead.complete && report.markHead.carried, report.markHead.detail)
+  const pdfPages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
+  const pdfMarks = report.markHead.values.map((head) => ({
+    page: head.page,
+    kavana: pdfPages[head.page - 1]?.includes(head.kavana) ?? false,
+    siman: pdfPages[head.page - 1]?.includes(head.siman) ?? false,
+  }))
+  check(
+    `${id} PDF pages contain the same two planned mark values as the screen`,
+    pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
+    JSON.stringify(pdfMarks),
+  )
+  check(
+    `${id} running heads take the first mark and carry onto a page with none`,
+    report.runningHead.fromMark && report.runningHead.carried,
+    report.runningHead.detail,
+  )
+}
+
 async function verifyPaginatedBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated.html'))
@@ -187,23 +208,7 @@ async function verifyPaginatedBooks(h: Harness) {
       const ink = await compareHebrewInk(h, frame)
       check(`${id} no niqqud or taamim ink is lost at any window edge`, ink.ok, ink.detail)
     }
-    check(`${id} two-mark heads show each planned value and carry earlier values`, report.markHead.complete && report.markHead.carried, report.markHead.detail)
-    const pdfPages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
-    const pdfMarks = report.markHead.values.map((head) => ({
-      page: head.page,
-      kavana: pdfPages[head.page - 1]?.includes(head.kavana) ?? false,
-      siman: pdfPages[head.page - 1]?.includes(head.siman) ?? false,
-    }))
-    check(
-      `${id} PDF pages contain the same two planned mark values as the screen`,
-      pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
-      JSON.stringify(pdfMarks),
-    )
-    check(
-      `${id} running heads take the first mark and carry onto a page with none`,
-      report.runningHead.fromMark && report.runningHead.carried,
-      report.runningHead.detail,
-    )
+    checkMarkHeads(h, id, report)
 
     await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
