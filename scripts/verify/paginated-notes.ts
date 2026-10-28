@@ -33,6 +33,14 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     return rects
   }
 
+  function distinctTops(rects: DOMRect[]) {
+    const tops: number[] = []
+    for (const rect of rects) {
+      if (!tops.some((top) => Math.abs(top - rect.top) < 0.5)) tops.push(rect.top)
+    }
+    return tops.length
+  }
+
   const views = Array.from(document.querySelectorAll('[data-segnavia-page-note]'))
   let outside = 0
   let empty = 0
@@ -40,12 +48,16 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
   for (const view of views) {
     const box = view.getBoundingClientRect()
     const rects = textInkRects(view)
+    const expected = Number(view.getAttribute('data-segnavia-note-lines'))
     const inside = rects.filter((rect) => containsRect(box, rect, 0.5))
     const spilled = rects.filter((rect) => intersectsRect(box, rect) && !containsRect(box, rect, 0.5))
-    if (inside.length === 0) empty += 1
-    if (spilled.length > 0) {
+    const lines = distinctTops(inside)
+    if (rects.length === 0 || inside.length === 0) empty += 1
+    if (!(expected >= 1) || spilled.length > 0 || lines !== expected) {
       outside += 1
-      if (samples.length < 3) samples.push(`${view.getAttribute('data-segnavia-page-note') ?? ''}:inside ${inside.length} spilled ${spilled.length}`)
+      if (samples.length < 3) {
+        samples.push(`${view.getAttribute('data-segnavia-page-note') ?? ''}:inside ${inside.length} lines ${lines} expected ${expected} spilled ${spilled.length}`)
+      }
     }
   }
   return {
