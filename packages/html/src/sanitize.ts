@@ -5,6 +5,7 @@
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
+import { sanitizeCss } from './sanitize-css.ts'
 
 // Elements that reach outside the document, embed another one, or submit.
 export const REFUSED_ELEMENTS = new Set([
@@ -35,6 +36,8 @@ export interface SanitizeOptions {
   linkOrigins?: Iterable<string>
   // Keep the author's scripts, for a document that will run sandboxed.
   keepScripts?: boolean
+  // Keep data: font faces written by the author.
+  dataFonts?: boolean
   // Elements refused in addition to, or instead of, the default set.
   refuseElements?: Iterable<string>
 }
@@ -103,23 +106,9 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>)
   return false
 }
 
-// A style may name an image only as a data URL; anything else would fetch.
-function safeStyle(value: string): boolean {
-  const matches = [...value.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/gi)]
-  if ((value.match(/url\(/gi)?.length ?? 0) !== matches.length) return false
-  return matches.every((match) => normalizeUrl(match[2] ?? '').startsWith('data:image/'))
-}
-
-function refusedStyleElement(element: Element): boolean {
-  if (element.name.toLowerCase() !== 'style') return false
-  const text = element.children.map((child) => ('data' in child ? child.data : '')).join('')
-  return /@import/i.test(text) || !safeStyle(text)
-}
-
 function refusedElement(element: Element, refused: ReadonlySet<string>, keepScripts: boolean): boolean {
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts
-  if (refusedStyleElement(element)) return true
   if (refused.has(name)) return true
   if (insideSvg(element) && REFUSED_SVG_ELEMENTS.has(name)) return true
   // http-equiv can set a CSP, a refresh or a cookie from inside the document.
@@ -129,13 +118,27 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, keepScri
 function refusedAttribute(name: string, value: string, allowed: ReadonlySet<string>, keepScripts: boolean): boolean {
   const attribute = name.toLowerCase()
   if (attribute.startsWith('on')) return !keepScripts
-  return (
-    REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed)) || (attribute === 'style' && !safeStyle(value))
-  )
+  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed))
 }
 
 function refusedSet(options: SanitizeOptions): Set<string> {
   return new Set([...REFUSED_ELEMENTS, ...(options.refuseElements ?? [])].map((name) => name.toLowerCase()))
+}
+
+function styleText(element: Element): string {
+  return element.children.map((child) => ('data' in child ? child.data : '')).join('')
+}
+
+function styleFindings(element: Element, dataFonts: boolean): string[] {
+  const found: string[] = []
+  if (element.name.toLowerCase() === 'style') {
+    for (const construct of sanitizeCss(styleText(element), false, dataFonts).removed) found.push(`<style> ${construct}`)
+  }
+  for (const [name, value] of Object.entries(element.attribs)) {
+    if (name.toLowerCase() !== 'style') continue
+    for (const construct of sanitizeCss(value, true, dataFonts).removed) found.push(`${element.name}[${name}] ${construct}`)
+  }
+  return found
 }
 
 // What the rule would remove, named, so a host can refuse a write with the
@@ -147,11 +150,29 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
   const found: string[] = []
   for (const element of elements(parse(html).children)) {
     if (refusedElement(element, refused, keepScripts)) found.push(`<${element.name}>`)
+    found.push(...styleFindings(element, options.dataFonts ?? false))
     for (const [name, value] of Object.entries(element.attribs)) {
       if (refusedAttribute(name, value, allowed, keepScripts)) found.push(`${element.name}[${name}]`)
     }
   }
   return found
+}
+
+function cleanStyleElement(element: Element, dataFonts: boolean): void {
+  if (element.name.toLowerCase() !== 'style') return
+  const child = element.children.find((candidate) => 'data' in candidate)
+  if (child && 'data' in child) child.data = sanitizeCss(child.data, false, dataFonts).css
+}
+
+function cleanAttributes(element: Element, allowed: ReadonlySet<string>, keepScripts: boolean, dataFonts: boolean): void {
+  for (const [name, value] of Object.entries(element.attribs)) {
+    if (refusedAttribute(name, value, allowed, keepScripts)) delete element.attribs[name]
+    else if (name.toLowerCase() === 'style') {
+      const css = sanitizeCss(value, true, dataFonts).css.trim()
+      if (css) element.attribs[name] = css
+      else delete element.attribs[name]
+    }
+  }
 }
 
 export function sanitize(html: string, options: SanitizeOptions = {}): string {
@@ -163,9 +184,8 @@ export function sanitize(html: string, options: SanitizeOptions = {}): string {
     nodes.filter((node) => {
       if (!isTag(node)) return true
       if (refusedElement(node, refused, keepScripts)) return false
-      for (const [name, value] of Object.entries(node.attribs)) {
-        if (refusedAttribute(name, value, allowed, keepScripts)) delete node.attribs[name]
-      }
+      cleanStyleElement(node, options.dataFonts ?? false)
+      cleanAttributes(node, allowed, keepScripts, options.dataFonts ?? false)
       node.children = prune(node.children)
       return true
     })
