@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { printedPageAt } from '@segnavia/html'
 import { expandFramePage } from './motif-expansion.ts'
-import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
+import { decideLayoutSettle, PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',
@@ -34,6 +34,29 @@ const changedPage = (parent: object, rules: object) =>
   })
 
 describe('printedPageDocument', () => {
+  test('waits for usable geometry until the elapsed-time bound', () => {
+    const sample = { inlineSize: 0, paperSize: 0, scrollWidth: 0 }
+    const configured = { textWidth: 700, paperWidth: 800 }
+    expect(decideLayoutSettle(sample, undefined, configured, 1999, 2000)).toBe('wait-for-layout')
+    expect(decideLayoutSettle(sample, undefined, configured, 2000, 2000)).toBe('refuse')
+  })
+
+  test('samples non-zero geometry again until matching geometry repeats', () => {
+    const configured = { textWidth: 700, paperWidth: 800 }
+    const first = { inlineSize: 700, paperSize: 800, scrollWidth: 1400 }
+    const changed = { ...first, scrollWidth: 2100 }
+    expect(decideLayoutSettle(first, undefined, configured, 10, 2000)).toBe('sample-again')
+    expect(decideLayoutSettle(changed, first, configured, 11, 2000)).toBe('sample-again')
+    expect(decideLayoutSettle(changed, changed, configured, 12, 2000)).toBe('settled')
+  })
+
+  test('refuses an off-width viewport by elapsed time rather than sample count', () => {
+    const configured = { textWidth: 700, paperWidth: 800 }
+    const sample = { inlineSize: 700, paperSize: 799, scrollWidth: 1400 }
+    for (let count = 0; count < 2000; count++) expect(decideLayoutSettle(sample, sample, configured, 1999, 2000)).toBe('sample-again')
+    expect(decideLayoutSettle(sample, sample, configured, 2000, 2000)).toBe('refuse')
+  })
+
   test('carries resolved config under the bridge nonce and injects the shared policy', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
@@ -41,6 +64,8 @@ describe('printedPageDocument', () => {
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain('performance.now()-startedAt,2000')
   })
 
   test('keeps whole-document head resources beside a flow holding only body children', () => {
@@ -72,7 +97,8 @@ describe('printedPageDocument', () => {
     const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
     expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
     expect(html).toContain('var channel=new MessageChannel()')
-    expect(html).toContain('current===last')
+    expect(html).toContain("decision==='wait-for-layout'")
+    expect(html).toContain('setTimeout(sample,0)')
     expect(html).toContain('"expectedCount":3')
     expect(html).toContain('the composed page count changed from ')
   })
