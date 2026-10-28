@@ -1,4 +1,4 @@
-import { RendererUnavailableError, RenderRefusedError, rendererClosed } from './errors.ts'
+import { browserExited, RenderRefusedError, rendererClosed } from './errors.ts'
 
 export function renderFailure(facts: { crashed: boolean; disconnected: boolean; closed: boolean; heapMb: number }, error: unknown): unknown {
   if (facts.crashed) {
@@ -7,6 +7,6 @@ export function renderFailure(facts: { crashed: boolean; disconnected: boolean; 
     )
   }
   if (facts.closed) return rendererClosed()
-  if (facts.disconnected) return new RendererUnavailableError("The renderer's browser exited during the render; the next render relaunches it.")
+  if (facts.disconnected) return browserExited()
   return error
 }

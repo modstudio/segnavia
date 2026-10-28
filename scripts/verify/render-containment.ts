@@ -31,6 +31,7 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
     heapResult.startsWith('refused:') && heapResult.includes(`${heapMb} MB`) && pdfMagic(ordinaryPdf),
     `${heapResult}; ordinary=${ordinaryPdf.length}`,
   )
+  const crashStarted = performance.now()
   const crashed = await unavailable(
     renderer.pagePdf(
       { html: '<p>crash</p>', size: { width: 400, height: 200 } },
@@ -41,7 +42,12 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
       },
     ),
   )
-  check('a browser that exits mid-render is refused as unavailable', crashed.startsWith('unavailable:'), crashed)
+  const crashElapsedMs = Math.round(performance.now() - crashStarted)
+  check(
+    'a browser that exits mid-render is refused as unavailable within 5s',
+    crashed.startsWith('unavailable:') && crashElapsedMs <= 5000,
+    `${crashed}; elapsed=${crashElapsedMs}ms`,
+  )
   const afterCrash = await renderer.pagePdf({ html: '<p>after crash</p>', size: { width: 400, height: 200 } })
   check('the next render after a browser exit returns a PDF', pdfMagic(afterCrash), `bytes=${afterCrash.length}`)
   await renderer.close()

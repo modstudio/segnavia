@@ -44,6 +44,9 @@ const browser = {
   on() {
     return browser
   },
+  off() {
+    return browser
+  },
 }
 
 mock.module('playwright-core', () => ({ chromium: { launch: () => Promise.resolve(browser) } }))
