@@ -62,7 +62,7 @@ function chapterOneHtml(hebrew: boolean): string {
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${longNote(hebrew)}</span>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${longNote(hebrew)}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 
 function chapterTwoHtml(hebrew: boolean): string {
@@ -78,6 +78,11 @@ function chapterThreeHtml(hebrew: boolean): string {
   const lead = hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
   const note = hebrew ? 'הערה קצרה.' : 'A short note.'
   const body = hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
+  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
+}
+
+function chapterFourHtml(hebrew: boolean): string {
+  const title = hebrew ? 'פרק רביעי' : 'Chapter Four'
   const svg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="2400"><rect width="240" height="2400" fill="#2b6cb0"/><text x="16" y="64" fill="#fff" font-size="28">${hebrew ? 'תמונה' : 'Image'}</text></svg>`,
   )
@@ -86,8 +91,8 @@ function chapterThreeHtml(hebrew: boolean): string {
   const letters = hebrew ? 'אבגדהוזחטיכלמנסעפצקרשת' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const rows = Array.from({ length: 40 }, (_, index) => `<tr><td>${letters[index % letters.length]}</td><td>${index + 1}</td></tr>`).join('')
   const table = `<table${hebrew ? ' dir="rtl"' : ''}><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`
-  const end = hebrew ? 'מקור לפרק השלישי.' : 'The source for the third chapter.'
-  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p>${image}<p>${body}</p>${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
+  const end = hebrew ? 'מקור לפרק הרביעי.' : 'The source for the fourth chapter.'
+  return `<h1>${title}</h1>${image}${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
 }
 
 const designedCss =
@@ -143,6 +148,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     designedLeaf(hebrew),
     { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew) },
     { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
+    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
   ],
 })
 
