@@ -60,14 +60,18 @@ export async function prepareRenderedPages(
   return withFontCss(options, css)
 }
 
-export async function renderOptionsWithBookFonts(input: BookInput, options: RenderOptions, signal: AbortSignal): Promise<RenderOptions> {
+export async function renderOptionsWithBookFonts(
+  input: BookInput,
+  options: RenderOptions,
+  signal: AbortSignal,
+): Promise<{ options: RenderOptions; fontCss: string }> {
   const book = Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
   const references = book.fonts ?? []
   const local = localFontsForRender(options.localFonts, references)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
-  return withFontCss(options, css)
+  return { options, fontCss: css }
 }
 
 export function renderPageDocument(page: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {

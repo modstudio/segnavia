@@ -33,7 +33,7 @@ export type {
 } from './book/paginate-types.ts'
 export type { BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
-export { type BookCssResult, sanitizeBookCss } from './book-css.ts'
+export { sanitizeBookCss } from './book-css.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'

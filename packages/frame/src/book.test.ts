@@ -132,8 +132,13 @@ describe('book element input', () => {
       contents: { pageNumbers: true, depth: 2 },
       runningHead: { recto: 'title' as const, verso: 'title' as const },
     }
-    const rendered = bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, undefined, true)
+    const rendered = bookFrame(
+      { html: '<main class="lead" data-segnavia-galleys></main>', css: '.lead{color:purple}', scripts: 'refuse', pagination },
+      '.font-marker{font-family:Held}',
+      true,
+    )
     expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+    expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
 })
 

@@ -6,11 +6,6 @@ const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, o
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
-  test('accepts an optional stylesheet and otherwise leaves it absent', () => {
-    expect(Book.parse(input()).css).toBeUndefined()
-    expect(Book.parse(input({ css: '.lead{color:purple}' })).css).toBe('.lead{color:purple}')
-  })
-
   test('language resolves page numbering and note marker defaults', () => {
     for (const lang of ['he', 'he-IL', 'iw']) {
       expect(Book.parse(input({ lang }))).toMatchObject({

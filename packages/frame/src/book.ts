@@ -13,7 +13,6 @@ const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElemen
 
 export function bookFrame(view: BookView, css?: string, spread = false): { title: string; srcdoc: string } {
   const title = view.title ?? bookLabel(view.lang)
-  const bookCss = sanitizeBookCss(view.css).css
   if (view.pagination) {
     return {
       title,
@@ -27,7 +26,7 @@ export function bookFrame(view: BookView, css?: string, spread = false): { title
       nonce: newNonce(),
       dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
       lang: view.lang,
-      css: `${css ?? ''}${bookCss}`,
+      css: sanitizeBookCss(css, view.css, undefined).css,
       relayKeys: false,
       reportHeight: false,
     }),

@@ -3,6 +3,7 @@ import type { BookSectionInfo } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
 import { frontPrintStatus, renderBookPdf } from './book-pdf.ts'
+import { renderBrowserBookPdf } from './book-render.ts'
 
 const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', title: 'Preface' }]
 const destinations = (page: number): Map<string, BookDestination> =>
@@ -10,6 +11,35 @@ const destinations = (page: number): Map<string, BookDestination> =>
     ['segnavia-front-1', { page: 1, x: 0, y: 0 }],
     ['topic', { page, x: 10, y: 20 }],
   ])
+
+test('places FontSource CSS before book CSS in the printed document', async () => {
+  let srcdoc = ''
+  await renderBrowserBookPdf(
+    {
+      title: 'Book',
+      mode: 'paginated',
+      css: '.book-rule{color:purple}',
+      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      chapters: [{ title: 'One', html: '<p class="book-rule">Text</p>' }],
+    },
+    {},
+    '.font-source-marker{font-family:Held}',
+    {
+      render: async (setup) => {
+        srcdoc = setup.html
+        const document = await PDFDocument.create()
+        document.addPage([419.53, 595.28])
+        return {
+          bytes: await document.save(),
+          overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+        }
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(srcdoc.indexOf('.font-source-marker')).toBeLessThan(srcdoc.indexOf('.book-rule{color:purple}'))
+})
 
 describe('front print convergence', () => {
   test('is stable on the second print when destination pages match', () => {

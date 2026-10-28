@@ -1,10 +1,6 @@
-import { sanitizeCss } from './sanitize-css.ts'
+import { type CssSanitizeResult, sanitizeCss } from './sanitize-css.ts'
 
-export interface BookCssResult {
-  css: string
-  removed: string[]
-}
-
-export function sanitizeBookCss(css: string | undefined, dataFonts = false): BookCssResult {
-  return sanitizeCss(css ?? '', false, dataFonts)
+export function sanitizeBookCss(fontCss: string | undefined, bookCss: string | undefined, hostCss: string | undefined): CssSanitizeResult {
+  const sanitized = sanitizeCss(bookCss ?? '', false, false)
+  return { css: `${fontCss ?? ''}${sanitized.css.replaceAll('<', '\\3c ')}${hostCss ?? ''}`, removed: sanitized.removed }
 }

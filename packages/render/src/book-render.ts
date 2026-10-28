@@ -43,13 +43,12 @@ export interface BrowserBookDependencies {
 function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean): string {
   const nonce = newNonce()
   if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true })
-  const bookCss = sanitizeBookCss(book.css).css
   return frameDocument(html, {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
     lang: book.lang,
-    css: `${fontCss}${bookCss}${css}`,
+    css: sanitizeBookCss(fontCss, book.css, css).css,
     relayKeys: false,
     reportHeight: false,
   })
@@ -61,13 +60,14 @@ function printBook(
   renderOptions: RenderOptions,
   part: BookOverflowPart,
   layerCss: string,
+  resolvedFontCss: string,
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
   const size = sheetMm(book.page)
   const paginated = book.mode === 'paginated'
   const marginLayer = part === 'margin'
-  const fontCss = dependencies.fontFaces(renderOptions)
+  const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
   const css = `${bookPageCss(book, marginLayer || paginated)}${layerCss}${renderOptions.css ?? ''}`
   let srcdoc: string
   try {
@@ -102,9 +102,9 @@ function printBook(
   )
 }
 
-export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   return renderBookPdf(input, options, {
-    print: (html, book, renderOptions, part, layerCss = '') => printBook(html, book, renderOptions, part, layerCss, dependencies),
+    print: (html, book, renderOptions, part, layerCss = '') => printBook(html, book, renderOptions, part, layerCss, fontCss, dependencies),
     finish: dependencies.finish,
   })
 }
