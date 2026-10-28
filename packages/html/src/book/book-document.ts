@@ -22,6 +22,7 @@ import {
   sectionNode,
   templatedSection,
   templateHolders,
+  templateRegionNameIssues,
   undeclaredRegionIssues,
 } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
@@ -343,6 +344,11 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     html: serialize(document),
     sections: sections.map((section) => section.info),
     headings,
-    issues: [...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }), ...issues, ...duplicateIdIssues(sections, headings)],
+    issues: [
+      ...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
+      ...templateRegionNameIssues(book.templates),
+      ...issues,
+      ...duplicateIdIssues(sections, headings),
+    ],
   }
 }

@@ -24,7 +24,6 @@ export {
   isDesignedSection,
   isTemplatedSection,
   REGION_NAME,
-  regionNamesInHtml,
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'

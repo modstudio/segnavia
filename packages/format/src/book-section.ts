@@ -106,14 +106,6 @@ export function isChapter(entry: BookChapterEntry): entry is Chapter {
   return !isDesignedSection(entry) && !isTemplatedSection(entry)
 }
 
-export function regionNamesInHtml(html: string): string[] {
-  const names: string[] = []
-  for (const match of html.matchAll(/data-region\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
-    names.push(match[1] ?? match[2] ?? match[3] ?? '')
-  }
-  return names
-}
-
 interface NamedSection {
   label: string
   path: (string | number)[]
@@ -163,6 +155,12 @@ function templateListIssues(templates: BookTemplate[], knownParents: Set<string>
   const seen = new Set<string>()
   templates.forEach((template, index) => {
     const path = ['templates', index]
+    if (!REGION_NAME.test(template.name)) {
+      issues.push({
+        path: [...path, 'name'],
+        message: `template "${template.name}" is not an HTML name token; ${regionNameClear}`,
+      })
+    }
     if (seen.has(template.name)) {
       issues.push({
         path: [...path, 'name'],
@@ -171,13 +169,6 @@ function templateListIssues(templates: BookTemplate[], knownParents: Set<string>
     }
     seen.add(template.name)
     issues.push(...parentNameIssues(`template ${template.name}`, path, template.parents, knownParents))
-    for (const key of regionNamesInHtml(template.html)) {
-      if (REGION_NAME.test(key)) continue
-      issues.push({
-        path: [...path, 'html'],
-        message: `template "${template.name}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`,
-      })
-    }
   })
   return issues
 }

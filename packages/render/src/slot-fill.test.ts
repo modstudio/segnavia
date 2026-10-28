@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Book, Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
-import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
-import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
+import { prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
+import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 
 const slots = {
   declarations: [{ key: 'host.name', label: 'Host name', type: 'text' as const, required: true }],
@@ -43,8 +43,29 @@ test('filledBook refuses a missing required slot by name', async () => {
     slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
     chapters: [{ title: 'One', html: '<p data-slot-value="school">School</p>' }],
   })
-  await expect(filledBook(book, { fill: { id: 'host', values: {} } })).rejects.toBeInstanceOf(RequiredSlotsRefusedError)
-  await expect(filledBook(book, { fill: { id: 'host', values: {} } })).rejects.toThrow('"school"')
+  const error = await filledBook(book, { fill: { id: 'host', values: {} } }).catch((caught) => caught)
+  expect(error).toBeInstanceOf(RequiredSlotsRefusedError)
+  expect(error.message).toContain('"school"')
+})
+
+test('a refuse-overflow key bound in two chapters is marked once per book document', async () => {
+  const book = Book.parse({
+    title: 'Workbook',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+    slots: [{ key: 'school', label: 'School', type: 'text', overflow: 'refuse' }],
+    chapters: [
+      { title: 'One', html: '<p data-slot-value="school">School</p>' },
+      { title: 'Two', html: '<p data-slot-value="school">School</p>' },
+    ],
+  })
+  const fill = { fill: { id: 'host', values: { school: 'Lincoln School' } } }
+  const filled = await filledBook(book, fill)
+  const chapters = book.chapters.flatMap((entry) => ('html' in entry ? [entry.html] : []))
+  const once = await prepareSlots(book.slots, fill)
+  once.apply(chapters.join(''))
+  expect([...(preparedSlotsFor(filled)?.marked ?? [])]).toEqual([...once.marked])
+  expect(preparedSlotsFor(filled)?.marked.get('school')).toBe(1)
 })
 
 test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor host declarations', async () => {

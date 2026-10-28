@@ -93,7 +93,6 @@ export {
   isTemplatedSection,
   noteMarkerIssues,
   REGION_NAME,
-  regionNamesInHtml,
   resolveBookPagination,
   TemplatedPage,
   TemplatedSection,

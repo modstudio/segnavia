@@ -1,4 +1,4 @@
-import type { BookSectionParents, BookTemplate, DesignedSection, TemplatedSection } from '@segnavia/format'
+import { type BookSectionParents, type BookTemplate, type DesignedSection, REGION_NAME, type TemplatedSection } from '@segnavia/format'
 import type { ChildNode } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { element, textContent } from './dom.ts'
@@ -86,6 +86,16 @@ export function designedSection(
 
 function declaredRegions(html: string): Set<string> {
   return new Set(elements(parse(html).children).flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))
+}
+
+const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
+
+export function templateRegionNameIssues(templates: BookTemplate[]): string[] {
+  return templates.flatMap((template) =>
+    [...declaredRegions(template.html)].flatMap((key) =>
+      REGION_NAME.test(key) ? [] : [`template "${template.name}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
+    ),
+  )
 }
 
 export function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {

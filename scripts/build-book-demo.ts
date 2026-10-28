@@ -4,7 +4,7 @@ import { Book, type BookInput } from '@segnavia/format'
 import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
-import { filledBook } from '../packages/render/src/slot-fill.ts'
+import { filledBook } from '@segnavia/render'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_CSS = `<style>

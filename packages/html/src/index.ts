@@ -11,7 +11,7 @@ export { bookView } from './book/book-view.ts'
 export { type BookFurnitureValues, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
 export type { PaginateTarget, PaginateTargetPage } from './book/paginate-target.ts'
-export { designedPageIndex, openerPageIndex, pageIndexForTarget, windowPageIndex } from './book/paginate-target.ts'
+export { heldPageNumber, openerPageIndex, pageIndexForTarget, windowPageIndex } from './book/paginate-target.ts'
 export type {
   PaginateBlock,
   PaginateBookInput,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, resolveDirection } from '@segnavia/format'
 import {
-  designedPageIndex,
+  heldPageNumber,
   openerPageIndex,
   pageIndexForTarget,
   paginateScript,
@@ -32,7 +32,7 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(selectBookParent.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(planBookPages.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(designedPageIndex.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())

@@ -304,17 +304,17 @@ describe('book', () => {
     expect(result.error?.issues[0]?.message).toContain('HTML name token')
   })
 
-  test('a template data-region that is not an HTML name token is refused', () => {
+  test('a template name that is not an HTML name token is refused', () => {
     const result = Book.safeParse(
       input({
         mode: 'paginated',
         page,
-        templates: [{ name: 'lesson', html: '<div data-region="reading text"></div>' }],
+        templates: [{ name: 'say "hi"', html: '<div data-region="heading"></div>' }],
         chapters: [chapter],
       }),
     )
-    expect(result.error?.issues[0]?.message).toContain('template "lesson"')
-    expect(result.error?.issues[0]?.message).toContain('"reading text"')
+    expect(result.error?.issues[0]?.path).toEqual(['templates', 0, 'name'])
+    expect(result.error?.issues[0]?.message).toContain('template "say "hi""')
     expect(result.error?.issues[0]?.message).toContain('HTML name token')
   })
 })

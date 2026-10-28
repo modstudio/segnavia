@@ -78,13 +78,14 @@ describe('paginateBook opening sides', () => {
     const pages = paginateBook(
       input({
         settings: { ...settings, rectoOpenings: false },
-        flows: [{ id: 'lesson', kind: 'fixed', pages: 2, role: 'body', opens: 'any' }],
+        flows: [{ id: 'lesson', kind: 'fixed', pages: 2, role: 'body', opens: 'any', runningHead: 'Lesson' }],
       }),
     ).pages
     expect(sides(pages)).toEqual([
       { flow: 'lesson', role: 'body', number: 1, blank: false, opener: true },
       { flow: 'lesson', role: 'body', number: 2, blank: false, opener: false },
     ])
+    expect(pages[0]).toMatchObject({ role: 'body', sectionOpening: true, runningHead: 'Lesson' })
   })
 
   test('the default is recto when rectoOpenings is on and any otherwise', () => {

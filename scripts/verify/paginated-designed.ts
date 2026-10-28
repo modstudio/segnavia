@@ -9,7 +9,8 @@ import { decodePng, type PngPixels } from './png-pixels.ts'
 export const DESIGNED_PAGE_MEAN = 8
 export const DESIGNED_PAGE_P99 = 48
 export const TEMPLATED_PAGE_MEAN = 8
-export const TEMPLATED_PAGE_P99 = 240
+export const TEMPLATED_PAGE_P99 = 48
+const ALIGN_PX = 2
 
 export interface DesignedPageMatch {
   page: number
@@ -19,13 +20,32 @@ export interface DesignedPageMatch {
   detail: string
 }
 
-function crop(image: PngPixels, width: number, height: number): Uint8Array {
+function extract(image: PngPixels, x: number, y: number, width: number, height: number): Uint8Array {
   const pixels = new Uint8Array(width * height * 3)
-  for (let y = 0; y < height; y += 1) {
-    const start = y * image.width * 3
-    pixels.set(image.pixels.subarray(start, start + width * 3), y * width * 3)
+  for (let row = 0; row < height; row += 1) {
+    const start = ((y + row) * image.width + x) * 3
+    pixels.set(image.pixels.subarray(start, start + width * 3), row * width * 3)
   }
   return pixels
+}
+
+function alignedDifference(screen: PngPixels, printed: PngPixels, width: number, height: number): ReturnType<typeof differencePixels> {
+  let best: ReturnType<typeof differencePixels> | undefined
+  for (let dy = -ALIGN_PX; dy <= ALIGN_PX; dy += 1) {
+    for (let dx = -ALIGN_PX; dx <= ALIGN_PX; dx += 1) {
+      const overlapW = width - Math.abs(dx)
+      const overlapH = height - Math.abs(dy)
+      if (overlapW <= 0 || overlapH <= 0) continue
+      const diff = differencePixels(
+        extract(screen, Math.max(0, -dx), Math.max(0, -dy), overlapW, overlapH),
+        extract(printed, Math.max(0, dx), Math.max(0, dy), overlapW, overlapH),
+        overlapW,
+        overlapH,
+      )
+      if (!best || diff.mean < best.mean || (diff.mean === best.mean && diff.p99 < best.p99)) best = diff
+    }
+  }
+  return best ?? { mean: Number.POSITIVE_INFINITY, p99: Number.POSITIVE_INFINITY }
 }
 
 async function screenshotPage(page: Page, selector: string): Promise<PngPixels> {
@@ -68,7 +88,7 @@ async function compareSelectedPages(h: Harness, id: string, file: string, select
     const printed = rasterPdfPage(pdf, page, work)
     const width = Math.min(screen.width, printed.width)
     const height = Math.min(screen.height, printed.height)
-    const diff = differencePixels(crop(screen, width, height), crop(printed, width, height), width, height)
+    const diff = alignedDifference(screen, printed, width, height)
     const meanLimit = label === 'templated' ? TEMPLATED_PAGE_MEAN : DESIGNED_PAGE_MEAN
     const p99Limit = label === 'templated' ? TEMPLATED_PAGE_P99 : DESIGNED_PAGE_P99
     matches.push({

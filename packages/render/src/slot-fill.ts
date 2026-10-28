@@ -97,6 +97,9 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
     chapters: book.chapters.map((entry) => fillEntry(entry, prepared.apply)),
     templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
   }
+  // One book document reports each key once, so marks are per rendered tab, not per applied field.
+  const marked = prepared.marked as Map<string, number>
+  for (const key of marked.keys()) marked.set(key, 1)
   preparations.set(filled, prepared)
   return filled
 }

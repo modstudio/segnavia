@@ -297,6 +297,20 @@ describe('book document', () => {
     ])
   })
 
+  test('refuses a template data-region that is not an HTML name token', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        templates: [{ name: 'lesson', html: '<div data-region="reading text"></div>' }],
+        chapters: [chapter('One')],
+      }),
+    )
+    expect(bookDocument(book).issues).toEqual([
+      'template "lesson" marks region "reading text" which is not an HTML name token; use a letter followed by letters, digits, hyphens or underscores to clear this refusal',
+    ])
+  })
+
   test('refuses a page that fills a region its template does not declare', () => {
     const book = Book.parse(
       input({
