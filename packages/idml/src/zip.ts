@@ -1,4 +1,5 @@
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
+import { refusal } from './refusal.ts'
 
 const END_SIGNATURE = 0x0605_4b50
 const CENTRAL_SIGNATURE = 0x0201_4b50
@@ -17,10 +18,6 @@ interface CentralEntry {
   compressedSize: number
   inflatedSize: number
   localOffset: number
-}
-
-function refusal(subject: string, clear: string): Error {
-  return new Error(`${subject}; ${clear} to clear this refusal`)
 }
 
 function range(view: DataView, offset: number, length: number, label: string): void {

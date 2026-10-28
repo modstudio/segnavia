@@ -1,6 +1,7 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
 import { Parser, parseDocument } from 'htmlparser2'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
+import { refusal } from './refusal.ts'
 import type { ZipEntry } from './zip.ts'
 
 export interface IdmlMargin {
@@ -50,11 +51,7 @@ export interface IdmlModel {
   unsupportedElements: Record<string, number>
 }
 
-const MAPPED_ELEMENTS = new Set(['Document', 'DocumentPreference', 'MarginPreference', 'Spread', 'Page', 'TextFrame'])
-
-function refusal(subject: string, clear: string): Error {
-  return new Error(`${subject}; ${clear} to clear this refusal`)
-}
+const MAPPED_ELEMENTS = new Set(['Document', 'DocumentPreference', 'MarginPreference', 'MasterSpread', 'Spread', 'Page', 'Story', 'TextFrame'])
 
 function localName(name: string): string {
   return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
@@ -252,11 +249,22 @@ function placeStories(element: Element, pageElements: Element[], pages: IdmlPage
 function spreads(
   parts: ParsedPart[],
   kind: 'Spread' | 'MasterSpread',
+  orderedNames: string[],
   unsupportedCounts: Map<string, number>,
 ): { values: (IdmlSpread | IdmlMasterSpread)[]; frameStories: Set<string> } {
   const result: (IdmlSpread | IdmlMasterSpread)[] = []
   const frameStories = new Set<string>()
-  for (const part of parts) {
+  const byName = new Map(parts.map((part) => [part.name, part]))
+  const named = new Set(orderedNames)
+  const unlisted = parts.filter(
+    (part) => !named.has(part.name) && part.all.some((element) => localName(element.name) === kind && attribute(element, 'Self')),
+  ).length
+  if (unlisted > 0) unsupportedCounts.set('unlisted spread part', (unsupportedCounts.get('unlisted spread part') ?? 0) + unlisted)
+  for (const name of orderedNames) {
+    const part = byName.get(name)
+    if (!part) {
+      throw refusal(`designmap.xml ${kind} src ${name} has no matching ZIP entry`, `add the named ${kind} part to the package`)
+    }
     for (const element of part.all.filter((candidate) => localName(candidate.name) === kind)) {
       const id = attribute(element, 'Self')
       if (!id) continue
@@ -267,6 +275,13 @@ function spreads(
     }
   }
   return { values: result, frameStories }
+}
+
+function spreadSources(document: ParsedPart, kind: 'Spread' | 'MasterSpread'): string[] {
+  return document.all
+    .filter((element) => localName(element.name) === kind)
+    .map((element) => attribute(element, 'src'))
+    .filter((source): source is string => source !== undefined)
 }
 
 function stories(parts: ParsedPart[]): IdmlStory[] {
@@ -297,6 +312,8 @@ function unsupported(parts: ParsedPart[]): Map<string, number> {
 
 export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS): IdmlModel {
   const parts = parseParts(entries, limits)
+  const designmap = parts.find((part) => part.name === 'designmap.xml')
+  if (!designmap) throw refusal('the IDML designmap.xml entry is missing', 'add the required designmap.xml entry')
   const document = parts.flatMap((part) => part.all).find((element) => localName(element.name) === 'Document')
   const preference = parts.flatMap((part) => part.all).find((element) => localName(element.name) === 'DocumentPreference')
   if (!document) throw refusal('designmap.xml has no IDML Document element', 'export a valid IDML design map')
@@ -307,8 +324,8 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     throw refusal(`IDML PageBinding ${binding} is not supported`, 'use LeftToRight or RightToLeft page binding')
   }
   const unsupportedCounts = unsupported(parts)
-  const spreadResult = spreads(parts, 'Spread', unsupportedCounts)
-  const masterResult = spreads(parts, 'MasterSpread', unsupportedCounts)
+  const spreadResult = spreads(parts, 'Spread', spreadSources(designmap, 'Spread'), unsupportedCounts)
+  const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), unsupportedCounts)
   const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
   if (masterStoryIds.length > 0) unsupportedCounts.set('master story', masterStoryIds.length)
   return {
@@ -329,7 +346,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     masterSpreads: masterResult.values as IdmlMasterSpread[],
     stories: stories(parts),
     masterStoryIds,
-    partsRead: entries.map((entry) => entry.name),
+    partsRead: parts.map((part) => part.name),
     unsupportedElements: Object.fromEntries([...unsupportedCounts].sort(([left], [right]) => left.localeCompare(right))),
   }
 }

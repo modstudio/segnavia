@@ -10,7 +10,7 @@ describe('idmlModel', () => {
       {
         name: 'designmap.xml',
         bytes: bytes(
-          '<?xml version="1.0"?><idPkg:Document xmlns:idPkg="urn:idml" Self="doc"><DocumentPreference PageWidth="396" PageHeight="612" FacingPages="true" PageBinding="RightToLeft"/><MarginPreference Top="36" Bottom="37" Left="38" Right="39"/><idPkg:Story src="Stories/Story_second.xml"/></idPkg:Document>',
+          '<?xml version="1.0"?><idPkg:Document xmlns:idPkg="urn:idml" Self="doc"><DocumentPreference PageWidth="396" PageHeight="612" FacingPages="true" PageBinding="RightToLeft"/><MarginPreference Top="36" Bottom="37" Left="38" Right="39"/><idPkg:Spread src="Spreads/Spread_one.xml"/><idPkg:MasterSpread src="MasterSpreads/MasterSpread_master.xml"/><idPkg:Story src="Stories/Story_second.xml"/></idPkg:Document>',
         ),
       },
       {
@@ -42,11 +42,41 @@ describe('idmlModel', () => {
     ])
     expect(model.masterSpreads[0]?.id).toBe('master')
     expect(model.masterStoryIds).toEqual(['master-story'])
-    expect(model.unsupportedElements).toMatchObject({ Story: 4, MasterSpread: 1, Polygon: 1, ParagraphStyleRange: 1, 'master story': 1 })
+    expect(model.unsupportedElements).toMatchObject({ Polygon: 1, ParagraphStyleRange: 1, 'master story': 1 })
+    expect(model.unsupportedElements).not.toHaveProperty('Story')
+    expect(model.unsupportedElements).not.toHaveProperty('MasterSpread')
+  })
+
+  test('uses design-map order and reports spread parts omitted from the design map', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes(
+          '<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/><idPkg:Spread src="Spreads/first.xml"/><idPkg:Spread src="Spreads/second.xml"/></Document>',
+        ),
+      },
+      { name: 'Spreads/second.xml', bytes: bytes('<Spread Self="second"><Page Self="page-2"/></Spread>') },
+      { name: 'Spreads/extra.xml', bytes: bytes('<Spread Self="extra"><Page Self="page-extra"/></Spread>') },
+      { name: 'Spreads/first.xml', bytes: bytes('<Spread Self="first"><Page Self="page-1"/></Spread>') },
+    ])
+    expect(model.spreads.map((spread) => spread.id)).toEqual(['first', 'second'])
+    expect(model.unsupportedElements['unlisted spread part']).toBe(1)
   })
 
   test('refuses XML beyond the named depth cap', () => {
     const deeplyNested = `${'<a>'.repeat(1_000_000)}${'</a>'.repeat(1_000_000)}`
     expect(() => idmlModel([{ name: 'designmap.xml', bytes: bytes(deeplyNested) }], IDML_LIMITS)).toThrow('XML depth limit')
+  })
+
+  test('refuses invalid UTF-8 by part name', () => {
+    expect(() =>
+      idmlModel([
+        {
+          name: 'designmap.xml',
+          bytes: bytes('<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/></Document>'),
+        },
+        { name: 'Stories/broken.xml', bytes: new Uint8Array([0xff]) },
+      ]),
+    ).toThrow('IDML XML part Stories/broken.xml is not valid UTF-8')
   })
 })

@@ -3,6 +3,7 @@ import { findActiveContent } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element } from 'domhandler'
 import type { IdmlModel, IdmlStory } from './model.ts'
+import { refusal } from './refusal.ts'
 
 const emptyParagraph = (): string => serialize(new Element('p', {}, []), { xmlMode: false })
 
@@ -23,10 +24,10 @@ export function modelToBook(model: IdmlModel): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const chapters = orderedStories(model).map((story) => ({ title: story.id, html: emptyParagraph() }))
-  if (chapters.length === 0) throw new Error('the IDML has no stories; add at least one Story to clear this refusal')
+  if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   const html = chapters.map((chapter) => chapter.html).join('')
   const active = findActiveContent(html)
-  if (active.length > 0) throw new Error(`the imported Book contains active content (${active.join(', ')}); remove that active content to clear this refusal`)
+  if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
   return Book.parse({
     title: model.id,
     mode: 'paginated',

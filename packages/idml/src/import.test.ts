@@ -4,7 +4,7 @@ import { testZip } from './zip.test-helper.ts'
 
 const mimetype = 'application/vnd.adobe.indesign-idml-package'
 const designmap =
-  '<Document Self="sample"><DocumentPreference PageWidth="396" PageHeight="612" FacingPages="true" PageBinding="LeftToRight"/><MarginPreference Top="36" Bottom="36" Left="36" Right="36"/></Document>'
+  '<Document Self="sample"><DocumentPreference PageWidth="396" PageHeight="612" FacingPages="true" PageBinding="LeftToRight"/><MarginPreference Top="36" Bottom="36" Left="30" Right="40"/><idPkg:Spread src="Spreads/Spread_s.xml"/><idPkg:MasterSpread src="MasterSpreads/MasterSpread_m.xml"/></Document>'
 
 const frame = (story: string, left: number): string =>
   `<TextFrame ParentStory="${story}" ItemTransform="1 0 0 1 ${left} 0"><PathGeometry><PathPointType Anchor="10 10"/><PathPointType Anchor="90 90"/></PathGeometry></TextFrame>`
@@ -29,8 +29,12 @@ describe('importIdml', () => {
     ])
     const result = await importIdml(bytes)
     expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
-    expect(result.report.partsRead).toHaveLength(8)
-    expect(result.report.unsupportedElements).toMatchObject({ Story: 4, Content: 1, 'TextFrame off page': 1, 'master story': 1 })
+    expect(result.book.dir).toBe('ltr')
+    expect(result.book.page?.margin.inner).toBeCloseTo(30 * (25.4 / 72))
+    expect(result.book.page?.margin.outer).toBeCloseTo(40 * (25.4 / 72))
+    expect(result.report.partsRead).toHaveLength(7)
+    expect(result.report.partsRead).not.toContain('mimetype')
+    expect(result.report.unsupportedElements).toMatchObject({ Content: 1, 'TextFrame off page': 1, 'master story': 1 })
   })
 
   test('refuses a missing or wrong IDML identity entry by name', async () => {

@@ -37,6 +37,19 @@ describe('readZip', () => {
     await expect(readZip(await testZip([], { disk: 1 }))).rejects.toThrow('spanning disks')
   })
 
+  test('refuses duplicate entry names', async () => {
+    const bytes = await testZip([
+      { name: 'same.xml', content: 'first' },
+      { name: 'same.xml', content: 'second' },
+    ])
+    await expect(readZip(bytes)).rejects.toThrow('duplicate entry same.xml')
+  })
+
+  test('refuses a complete deflate stream whose inflated size is declared incorrectly', async () => {
+    const bytes = await testZip([{ name: 'wrong-size.xml', content: 'complete content', method: 8, declaredInflatedSize: 3 }])
+    await expect(readZip(bytes)).rejects.toThrow('declared 3 inflated bytes but produced 16')
+  })
+
   test('names missing DecompressionStream at run time', async () => {
     const bytes = await testZip([{ name: 'deflated', content: 'text', method: 8 }])
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'DecompressionStream')
