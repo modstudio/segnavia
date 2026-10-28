@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
+import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
 import { pointMultiset, unpointed } from './hebrew-text.ts'
 
@@ -296,14 +296,14 @@ export async function verifyPaginatedBookElements(h: Harness) {
   for (const language of ['en', 'he'] as const) {
     const id = `book-screen-${language}`
     const frame = page.frameLocator(`#${id} iframe`)
-    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
+    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`${id} composition failed: ${failure}`)
   }
 
-  await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+  await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
-  await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+  await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   for (const language of ['en', 'he'] as const) {
     const positions = await spreadFacts(h, language)
     check(
@@ -339,7 +339,7 @@ export async function verifyPaginatedBookElements(h: Harness) {
     }))
     screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
     check(
-      `book-large-${language} composes 300+ pages within the provisional bound`,
+      `book-large-${language} composes 300+ pages within the repagination bound`,
       report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
       JSON.stringify({ ...report, bound: REPAGINATE_BOUND_MS }),
     )
