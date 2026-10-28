@@ -4,6 +4,7 @@ import path from 'node:path'
 import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
+import { verifyBookCssRender } from './book-css-render.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -332,6 +333,7 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
 }
 
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
+  await verifyBookCssRender(renderer, work, check)
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)

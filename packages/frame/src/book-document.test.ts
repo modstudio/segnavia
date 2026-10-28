@@ -142,4 +142,30 @@ describe('bookDocument', () => {
     expect(screen).toContain('"screen":{"spread":true}')
     expect(print).not.toContain('"screen"')
   })
+
+  test('places sanitized book CSS between generated fonts and host CSS', () => {
+    const view = {
+      html: '<main data-segnavia-galleys><p class="lead">Held</p></main>',
+      css: '.lead{color:purple;background:url(https://example.test/ink.png)}',
+      scripts: 'refuse' as const,
+      pagination: {
+        paper: { width: 148, height: 210 },
+        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        columnGap: 4,
+        direction: 'ltr' as const,
+        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+        rectoOpenings: false,
+        orphans: 2,
+        widows: 2,
+        parents: [],
+        endnotePlacement: 'book' as const,
+        contents: { pageNumbers: true, depth: 2 },
+        runningHead: { recto: 'title' as const, verso: 'title' as const },
+      },
+    }
+    const html = bookViewDocument(view, { nonce: 'held', fontCss: '.lead{color:blue}', css: '.lead{color:green}' })
+    expect(html).not.toContain('example.test')
+    expect(html.indexOf('.lead{color:blue}')).toBeLessThan(html.indexOf('.lead{color:purple;}'))
+    expect(html.indexOf('.lead{color:purple;}')).toBeLessThan(html.indexOf('.lead{color:green}'))
+  })
 })

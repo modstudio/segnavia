@@ -135,11 +135,11 @@ describe('prepareRenderedPages', () => {
 })
 
 describe('renderOptionsWithBookFonts', () => {
-  test('folds book fontSource faces into options.css', async () => {
-    const options = await renderOptionsWithBookFonts(book, { fontSource: source, css: 'p{color:red}' }, signal)
-    expect(options.css).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
-    expect(options.css).toContain('--segnavia-font-serif:"Body Serif",serif')
-    expect(options.css).toContain('p{color:red}')
+  test('returns book fontSource faces separately from host CSS', async () => {
+    const prepared = await renderOptionsWithBookFonts(book, { fontSource: source, css: 'p{color:red}' }, signal)
+    expect(prepared.fontCss).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+    expect(prepared.fontCss).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(prepared.options.css).toBe('p{color:red}')
   })
 
   test('renderOptionsWithBookFonts converts a missing FontSource into RenderRefusedError', async () => {
@@ -151,7 +151,7 @@ describe('renderOptionsWithBookFonts', () => {
 
   test('embeds a transported book face and reports a missing family', async () => {
     const reports: unknown[] = []
-    const options = await renderOptionsWithBookFonts(
+    const prepared = await renderOptionsWithBookFonts(
       {
         ...book,
         fonts: [
@@ -165,8 +165,8 @@ describe('renderOptionsWithBookFonts', () => {
       },
       signal,
     )
-    expect(options.css).toContain('@font-face{font-family:"Book Local"')
-    expect(options.css).toContain('--segnavia-font-serif:"Body Serif",serif')
+    expect(prepared.fontCss).toContain('@font-face{font-family:"Book Local"')
+    expect(prepared.fontCss).toContain('--segnavia-font-serif:"Body Serif",serif')
     expect(reports).toEqual([{ fellBack: [{ family: 'Missing Book', fallback: 'heading' }] }])
   })
 })

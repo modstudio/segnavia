@@ -8,9 +8,8 @@ import { filledBook } from '@segnavia/render'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
-const BOOK_CSS = `<style>
-html{font:18px/1.55 Georgia,serif;scroll-behavior:auto}body{margin:0}.segnavia-section{box-sizing:border-box;min-block-size:520px;padding:24px 32px}.segnavia-contents{background:#f3efe4}.segnavia-chapter:nth-of-type(even){background:#edf4f6}.note-paragraph{min-block-size:360px}.segnavia-footnotes{border-block-start:1px solid;padding-block-start:12px}.segnavia-endnotes{background:#f6f0f4}h1{margin-block-start:0}a{color:#174f72}
-</style>`
+const BOOK_STYLE_CHECK_CSS = '.book-css-check{color:rgb(91, 42, 123);font-size:23px}'
+const BOOK_CSS = `html{font:18px/1.55 Georgia,serif;scroll-behavior:auto}body{margin:0}.segnavia-section{box-sizing:border-box;min-block-size:520px;padding:24px 32px}.segnavia-contents{background:#f3efe4}.segnavia-chapter:nth-of-type(even){background:#edf4f6}.note-paragraph{min-block-size:360px}.segnavia-footnotes{border-block-start:1px solid;padding-block-start:12px}.segnavia-endnotes{background:#f6f0f4}h1{margin-block-start:0}a{color:#174f72}${BOOK_STYLE_CHECK_CSS}`
 
 const alefCss = () => {
   const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/Alef-Regular.ttf')).toString('base64')
@@ -26,11 +25,12 @@ const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
   lang: hebrew ? 'he' : 'en',
+  css: BOOK_CSS,
   frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
   chapters: [
     {
       title: hebrew ? 'התחלה' : 'Beginning',
-      html: `${BOOK_CSS}<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph">${
+      html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
         hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
       }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>`,
     },
@@ -128,7 +128,7 @@ function designedLeaf(hebrew: boolean) {
     kind: 'designed' as const,
     title,
     parents: { fixed: 'ornament-foot' },
-    pages: [{ html: `<div class="designed-leaf"><h1 id="plate">${title}</h1></div>` }],
+    pages: [{ html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` }],
   }
 }
 
@@ -136,6 +136,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'הגדת הדף' : 'The Paged Book',
   mode: 'paginated',
   lang: hebrew ? 'he' : 'en',
+  css: BOOK_STYLE_CHECK_CSS,
   page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },

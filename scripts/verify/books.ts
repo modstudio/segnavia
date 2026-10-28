@@ -44,6 +44,19 @@ export async function verifyBooks(h: Harness) {
   await page.goto(h.url('book.html'))
   await Promise.all(['#book-en', '#book-he'].map((book) => page.frameLocator(`${book} iframe`).locator('.segnavia-contents-list').waitFor()))
 
+  const continuousBookStyle = await page
+    .frameLocator('#book-en iframe')
+    .locator('.book-css-check')
+    .evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { color: style.color, size: style.fontSize }
+    })
+  check(
+    'book CSS styles continuous text color and size',
+    continuousBookStyle.color === 'rgb(91, 42, 123)' && continuousBookStyle.size === '23px',
+    JSON.stringify(continuousBookStyle),
+  )
+
   const geometry = await page.evaluate(() => ({
     heights: ['book-en', 'book-he'].map((id) => document.getElementById(id)?.getBoundingClientRect().height),
     hostScroll: scrollY,
@@ -115,11 +128,40 @@ async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport
   return frame.evaluate(inspectPaginatedBook)
 }
 
+function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
+  const { check } = h
+  check(`${id} two-mark heads show each planned value and carry earlier values`, report.markHead.complete && report.markHead.carried, report.markHead.detail)
+  const pdfPages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
+  const pdfMarks = report.markHead.values.map((head) => ({
+    page: head.page,
+    kavana: pdfPages[head.page - 1]?.includes(head.kavana) ?? false,
+    siman: pdfPages[head.page - 1]?.includes(head.siman) ?? false,
+  }))
+  check(
+    `${id} PDF pages contain the same two planned mark values as the screen`,
+    pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
+    JSON.stringify(pdfMarks),
+  )
+  check(
+    `${id} running heads take the first mark and carry onto a page with none`,
+    report.runningHead.fromMark && report.runningHead.carried,
+    report.runningHead.detail,
+  )
+}
+
 async function verifyPaginatedBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated.html'))
   for (const id of ['book-paginated-en', 'book-paginated-he'] as const) {
     const frame = await paginatedFrame(h, id)
+    const bookStyle = await frame
+      .locator('[data-segnavia-book-page] .book-css-check')
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { color: style.color, size: style.fontSize }
+      })
+    check(`${id} book CSS styles paginated text color and size`, bookStyle.color === 'rgb(91, 42, 123)' && bookStyle.size === '23px', JSON.stringify(bookStyle))
     const report = await inspectPaginated(h, id)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
     check(
@@ -166,23 +208,7 @@ async function verifyPaginatedBooks(h: Harness) {
       const ink = await compareHebrewInk(h, frame)
       check(`${id} no niqqud or taamim ink is lost at any window edge`, ink.ok, ink.detail)
     }
-    check(`${id} two-mark heads show each planned value and carry earlier values`, report.markHead.complete && report.markHead.carried, report.markHead.detail)
-    const pdfPages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
-    const pdfMarks = report.markHead.values.map((head) => ({
-      page: head.page,
-      kavana: pdfPages[head.page - 1]?.includes(head.kavana) ?? false,
-      siman: pdfPages[head.page - 1]?.includes(head.siman) ?? false,
-    }))
-    check(
-      `${id} PDF pages contain the same two planned mark values as the screen`,
-      pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
-      JSON.stringify(pdfMarks),
-    )
-    check(
-      `${id} running heads take the first mark and carry onto a page with none`,
-      report.runningHead.fromMark && report.runningHead.carried,
-      report.runningHead.detail,
-    )
+    checkMarkHeads(h, id, report)
 
     await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
