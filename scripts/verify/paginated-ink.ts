@@ -1,21 +1,24 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
 import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, INK_PIXEL_TOLERANCE, type InkImage, inkBounds, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
-import { galleyInlineOffset, sequentialPairs } from './paginated-ink-windows.ts'
+import {
+  columnGroupKey,
+  galleyInlineOffset,
+  groupedWindowIndexes,
+  intersectsScaledExtent,
+  type OffsetRange,
+  type SequentialWindow,
+  sequentialPairs,
+} from './paginated-ink-windows.ts'
 
-interface InkWindow {
-  flow: string
-  column: number
-  columns: number
-  start: number
-  end: number
+interface InkWindow extends SequentialWindow {
   top: number
   windowIndex: number
   localX: number
   width: number
   height: number
   blocks: number[]
-  scaledBlock: boolean
+  scaledExtents: OffsetRange[]
 }
 
 type CollectedInkWindow = Omit<InkWindow, 'localX'> & { flowLeft: number; runLeft?: number }
@@ -89,6 +92,25 @@ async function screenshotBand(h: Harness, frame: Frame, selector: string, localX
 
 async function collectWindows(frame: Frame): Promise<InkWindow[]> {
   const windows = await frame.evaluate(() => {
+    const replacedExtent = (node: Element, flowTop: number): OffsetRange | undefined => {
+      const replaced = node as Element & { naturalHeight?: number; naturalWidth?: number }
+      const naturalHeight = replaced.naturalHeight
+      const naturalWidth = replaced.naturalWidth
+      if (typeof naturalHeight !== 'number' || typeof naturalWidth !== 'number' || naturalHeight <= 0 || naturalWidth <= 0) return
+      const box = node.getBoundingClientRect()
+      if (box.height >= naturalHeight - 0.5 && box.width >= naturalWidth - 0.5) return
+      return { start: box.top - flowTop, end: box.bottom - flowTop }
+    }
+    const scaledExtentsFor = (children: Element[], flowTop: number): OffsetRange[] => {
+      const extents: OffsetRange[] = []
+      for (const child of children) {
+        for (const node of [child, ...Array.from(child.querySelectorAll('*'))]) {
+          const extent = replacedExtent(node, flowTop)
+          if (extent) extents.push(extent)
+        }
+      }
+      return extents
+    }
     const windows: CollectedInkWindow[] = []
     const views = Array.from(document.querySelectorAll('[data-segnavia-window]'))
     for (const [windowIndex, view] of views.entries()) {
@@ -100,20 +122,15 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
       const columns = Number(view.getAttribute('data-columns') ?? 1)
       const blocks = Array.from(view.querySelectorAll('[data-segnavia-block]')).map((node) => Number(node.getAttribute('data-segnavia-block')))
       const children = blocks.map((index) => flow.children[index]).filter((child): child is Element => child !== undefined)
-      const run = columns > 1 ? children.find((child) => Number(child.getAttribute('data-columns')) === columns) : undefined
+      const runIndex = columns > 1 ? blocks.find((index) => Number(flow.children[index]?.getAttribute('data-columns')) === columns) : undefined
+      const run = runIndex === undefined ? undefined : flow.children[runIndex]
       const runBox = run?.getBoundingClientRect()
-      const scaledBlock = children.some((child) => {
-        const replaced = child as Element & { naturalHeight?: number; naturalWidth?: number }
-        const naturalHeight = replaced.naturalHeight ?? 0
-        const naturalWidth = replaced.naturalWidth ?? 0
-        if (naturalHeight <= 0 || naturalWidth <= 0) return false
-        const box = child.getBoundingClientRect()
-        return box.height < naturalHeight - 0.5 || box.width < naturalWidth - 0.5
-      })
+      const scaledExtents = scaledExtentsFor(children, flowBox.top)
       windows.push({
         flow: flowId,
         column: Number(view.getAttribute('data-column') ?? 0),
         columns,
+        run: runIndex,
         start: Number(view.getAttribute('data-start')),
         end: Number(view.getAttribute('data-end')),
         windowIndex,
@@ -123,7 +140,7 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
         height: viewBox.height,
         top: Number(view.getAttribute('data-top')),
         blocks,
-        scaledBlock,
+        scaledExtents,
       })
     }
     return windows
@@ -265,13 +282,7 @@ function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number,
 
 function lastOfColumn(windows: InkWindow[]): Set<number> {
   const last = new Set<number>()
-  const groups = new Map<string, number[]>()
-  for (const [index, view] of windows.entries()) {
-    const key = `${view.flow}:${view.column}`
-    groups.set(key, [...(groups.get(key) ?? []), index])
-  }
-  for (const indexes of groups.values()) {
-    const ordered = [...indexes].sort((left, right) => (windows[left]?.start ?? 0) - (windows[right]?.start ?? 0))
+  for (const ordered of groupedWindowIndexes(windows, columnGroupKey)) {
     const tail = ordered[ordered.length - 1]
     if (tail !== undefined) last.add(tail)
   }
@@ -282,12 +293,21 @@ function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, 
   recordMismatch(view, side, side === 'start' ? view.start : view.end, galley, page, mismatches)
 }
 
-function recordBreak(previous: InkWindow, next: InkWindow, previousBands: EdgeBands, nextBands: EdgeBands, mismatches: Mismatch[]): void {
+function recordBreak(
+  previous: InkWindow,
+  next: InkWindow,
+  previousBands: EdgeBands,
+  nextBands: EdgeBands,
+  comparePixels: boolean,
+  mismatches: Mismatch[],
+): boolean {
   const gap = next.start - previous.end
   if (gap > 0.5) {
     mismatches.push({ flow: previous.flow, column: previous.column, side: 'break', offset: previous.end, over: gap, lost: gap, extra: 0 })
-    return
+    return false
   }
+  // A constrained replaced element is resampled onto different page and galley pixel grids, so only an edge band that intersects it is incomparable.
+  if (!comparePixels) return false
   recordMismatch(
     previous,
     'break',
@@ -296,6 +316,7 @@ function recordBreak(previous: InkWindow, next: InkWindow, previousBands: EdgeBa
     stackImages(previousBands.pageEnd, nextBands.pageStart),
     mismatches,
   )
+  return true
 }
 
 export async function compareHebrewInk(h: Harness, frame: Frame) {
@@ -310,36 +331,51 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
   await unmarkWindows(frame)
   await hideOutsideText(frame, false)
   const mismatches: Mismatch[] = []
+  const comparedBands = new Set<string>()
   const last = lastOfColumn(windows)
   for (const [index, view] of windows.entries()) {
     const galley = galleyBands[index]
     const page = pageBands[index]
     if (!galley || !page) continue
-    // A constrained replaced block is resampled onto different page and galley pixel grids, so its edge pixels cannot be compared exactly.
-    if (!view.scaledBlock) {
+    const height = bandHeight(view.height)
+    if (!intersectsScaledExtent({ start: view.start, end: view.start + height }, view.scaledExtents)) {
       recordInside(view, 'start', galley.start, page.start, mismatches)
-      if (!last.has(index)) recordInside(view, 'end', galley.end, page.end, mismatches)
+      comparedBands.add(`${index}:start`)
+    }
+    if (!last.has(index) && !intersectsScaledExtent({ start: view.end - height, end: view.end }, view.scaledExtents)) {
+      recordInside(view, 'end', galley.end, page.end, mismatches)
+      comparedBands.add(`${index}:end`)
     }
   }
   for (const pair of pairs) {
-    if (pair.previous.scaledBlock || pair.next.scaledBlock) continue
     const previous = galleyBands[pair.previousIndex]
     const next = galleyBands[pair.nextIndex]
     const previousPage = pageBands[pair.previousIndex]
     const nextPage = pageBands[pair.nextIndex]
     if (!previous || !next || !previousPage || !nextPage) continue
-    recordBreak(
-      pair.previous,
-      pair.next,
-      { galleyStart: previous.start, galleyEnd: previous.end, pageStart: previousPage.start, pageEnd: previousPage.end },
-      { galleyStart: next.start, galleyEnd: next.end, pageStart: nextPage.start, pageEnd: nextPage.end },
-      mismatches,
-    )
+    const previousHeight = bandHeight(pair.previous.height)
+    const nextHeight = bandHeight(pair.next.height)
+    const comparePixels =
+      !intersectsScaledExtent({ start: pair.previous.end - previousHeight, end: pair.previous.end }, pair.previous.scaledExtents) &&
+      !intersectsScaledExtent({ start: pair.next.start, end: pair.next.start + nextHeight }, pair.next.scaledExtents)
+    if (
+      recordBreak(
+        pair.previous,
+        pair.next,
+        { galleyStart: previous.start, galleyEnd: previous.end, pageStart: previousPage.start, pageEnd: previousPage.end },
+        { galleyStart: next.start, galleyEnd: next.end, pageStart: nextPage.start, pageEnd: nextPage.end },
+        comparePixels,
+        mismatches,
+      )
+    ) {
+      comparedBands.add(`${pair.previousIndex}:end`)
+      comparedBands.add(`${pair.nextIndex}:start`)
+    }
   }
   return {
     ok: mismatches.length === 0 && windows.length > 0,
     detail: JSON.stringify({
-      compared: windows.length * 2,
+      compared: comparedBands.size,
       breaks: pairs.length,
       mismatched: mismatches.length,
       lost: mismatches.reduce((sum, item) => sum + item.lost, 0),
