@@ -10,10 +10,11 @@ export interface PaginateTarget {
 
 export function heldPageNumber(pages: PaginateTargetPage[], index: number): number {
   const page = pages[index]
+  if (!page) return 0
   let seen = 0
   for (let i = 0; i <= index; i++) {
     const held = pages[i]
-    if (held.flow !== page.flow || held.blank) continue
+    if (!held || held.flow !== page.flow || held.blank) continue
     if (held.role !== 'fixed' && !(held.role === 'body' && held.windows.length === 0)) continue
     seen += 1
   }
@@ -39,7 +40,7 @@ export function pageIndexForTarget(pages: PaginateTargetPage[], target: Paginate
   const held = target.heldPage
   if (held !== undefined && Number.isSafeInteger(held) && held > 0) {
     for (let index = 0; index < pages.length; index++) {
-      if (pages[index].flow === target.flow && heldPageNumber(pages, index) === held) return index
+      if (pages[index]?.flow === target.flow && heldPageNumber(pages, index) === held) return index
     }
     return undefined
   }
