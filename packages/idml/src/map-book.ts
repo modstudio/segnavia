@@ -1,10 +1,12 @@
 import { Book, MM_PER_PT, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
+import { chapterParents, mapMasters } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
+import type { IdmlTextVariable } from './types.ts'
 
 function orderedStories(model: IdmlModel): IdmlStory[] {
   const order = new Map<string, number>()
@@ -39,16 +41,37 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
   const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection)
+  const matchVariables: IdmlTextVariable[] = []
+  const matchedStyles = new Set<string>()
+  for (const variable of model.textVariables ?? []) {
+    if (variable.type !== 'MatchCharacterStyleType' || !variable.appliedCharacterStyle) {
+      report.add(report.unsupportedElements, `TextVariable:${variable.name}`, variable.location)
+      continue
+    }
+    if (matchedStyles.has(variable.appliedCharacterStyle)) {
+      report.add(report.unsupportedElements, `TextVariable duplicate style:${variable.name}`, variable.location)
+      continue
+    }
+    matchedStyles.add(variable.appliedCharacterStyle)
+    matchVariables.push(variable)
+  }
   const bookLanguage = styles.rootLanguage()
   const stories = orderedStories(model)
-  const mapped = stories.map((story) => ({ story, mapped: storyHtml(story, styles, report, bookDirection, bookLanguage) }))
-  const chapters = mapped.map(({ story, mapped: value }) => ({ title: story.id, html: value.html }))
+  const masters = mapMasters({ ...model, textVariables: matchVariables }, styles, report)
+  const mapped = stories.map((story) => ({
+    story,
+    mapped: storyHtml({ ...story, textVariables: matchVariables }, styles, report, bookDirection, bookLanguage),
+  }))
+  const chapters = mapped.map(({ story, mapped: value }) => {
+    const parents = chapterParents(story.id, model, masters, report)
+    return { title: story.id, html: value.html, ...(parents ? { parents } : {}) }
+  })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   const html = chapters.map((chapter) => chapter.html).join('')
   const active = findActiveContent(html)
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
   const columnGap = bodyColumnGap(model, stories, report)
-  const css = styles.css()
+  const css = `${styles.css()}${masters.css}`
   return Book.parse({
     title: model.id,
     mode: 'paginated',
@@ -66,6 +89,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     ...(bookLanguage ? { lang: bookLanguage } : {}),
     ...(css ? { css } : {}),
     rectoOpenings: preferences.facingPages,
+    parentPages: masters.parents,
     chapters,
   })
 }

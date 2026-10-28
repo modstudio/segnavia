@@ -119,3 +119,31 @@ test('omits and reports column counts outside the Book HTML range once per frame
   expect(report.data().unsupportedElements).toEqual({ 'TextColumnCount:5': 1 })
   expect(report.data().locations['element:TextColumnCount:5']).toEqual(['Spread#frame'])
 })
+
+test('walks a tagged story wrapper and defaults an unset span to one frame column run', () => {
+  const report = new ReportCollector()
+  const plainStyle: IdmlStyle = { ...paragraphStyle, properties: {}, id: 'plain', name: 'Plain' }
+  const styles = new StyleMapper([plainStyle], [], report, 'ltr')
+  const root = node('Story', [node('XMLElement', [node('ParagraphStyleRange', [node('Content', [], {}, 'Tagged')], { AppliedParagraphStyle: 'plain' })])])
+  const result = storyHtml({ id: 'tagged', root, frame: { columns: 2, gutter: 8 } }, styles, report, 'ltr', undefined)
+  expect(result.html).toBe('<p class="idml-p-plain" data-columns="2">Tagged</p>')
+})
+
+test('reports a body processing instruction as a special character', () => {
+  const report = new ReportCollector()
+  const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
+  const root = node('Story', [node('ParagraphStyleRange', [node('#processing-instruction', [], {}, '?ACE 7?')])])
+  storyHtml({ id: 'special', root }, styles, report, 'rtl', undefined)
+  expect(report.data().unsupportedSpecialCharacters).toEqual({ '?ACE 7?': 1 })
+})
+
+test('reports unknown languages and spot colors in their dedicated buckets', () => {
+  const report = new ReportCollector()
+  const styled: IdmlStyle = { ...paragraphStyle, properties: { AppliedLanguage: 'Language/Unknown', FillColor: 'Color/Brand' } }
+  const styles = new StyleMapper([styled], [{ id: 'Color/Brand', name: 'Brand', model: 'spot', values: [0, 100, 0, 0] }], report, 'rtl')
+  const root = node('Story', [node('ParagraphStyleRange', [node('Content', [], {}, 'Text')], { AppliedParagraphStyle: 'p' })])
+  storyHtml({ id: 'reported', root }, styles, report, 'rtl', undefined)
+  styles.css()
+  expect(report.data().unsupportedLanguages).toEqual({ 'Language/Unknown': 1 })
+  expect(report.data().spotColors).toEqual({ Brand: 1 })
+})

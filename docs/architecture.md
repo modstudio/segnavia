@@ -37,6 +37,9 @@ become chapters, and the paragraph and character styles they use become
 `idml-*` classes in `Book.css`, with physical indents and alignment resolved
 to logical properties by each paragraph's direction. Single-column paragraphs
 in a multi-column frame carry `data-columns` within the bound `html` exports.
+Applied master spreads become mirrored parent pages. Margin text frames become
+positioned head or foot boxes, Match Character Style variables become marks,
+and auto page-number characters become folios.
 The report names every unmapped element, style or override property, special
 character, language and spot color, with locations, and lists the fonts the
 styles reference. It never resolves linked resources or reaches the network. `frame` defines

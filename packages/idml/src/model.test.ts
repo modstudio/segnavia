@@ -42,7 +42,7 @@ describe('idmlModel', () => {
     ])
     expect(model.masterSpreads[0]?.id).toBe('master')
     expect(model.masterStoryIds).toEqual(['master-story'])
-    expect(model.report?.unsupportedElements).toMatchObject({ Polygon: 1, 'master story': 1 })
+    expect(model.report?.unsupportedElements).toMatchObject({ Polygon: 1 })
     expect(model.report?.unsupportedElements).not.toHaveProperty('Story')
     expect(model.report?.unsupportedElements).not.toHaveProperty('MasterSpread')
     expect(model.report?.unsupportedElements).not.toHaveProperty('Group')
@@ -146,5 +146,61 @@ describe('idmlModel', () => {
         { name: 'Stories/broken.xml', bytes: new Uint8Array([0xff]) },
       ]),
     ).toThrow('IDML XML part Stories/broken.xml is not valid UTF-8')
+  })
+
+  test('refuses a malformed text column count by its property name', () => {
+    expect(() =>
+      idmlModel([
+        {
+          name: 'designmap.xml',
+          bytes: bytes('<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/><idPkg:Spread src="Spreads/s.xml"/></Document>'),
+        },
+        {
+          name: 'Spreads/s.xml',
+          bytes: bytes('<Spread Self="s"><Page Self="p"/><TextFrame ParentStory="story"><TextFramePreference TextColumnCount="many"/></TextFrame></Spread>'),
+        },
+      ]),
+    ).toThrow('TextColumnCount')
+  })
+
+  test('keeps master names, sides, margins, frames, bases, and text variables', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes(
+          '<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100" PageBinding="RightToLeft"/><TextVariable Self="v" Name="Siman" VariableType="MatchCharacterStyleType"><MatchCharacterStylePreference AppliedCharacterStyle="CharacterStyle/Mark" SearchStrategy="LastOnPage"/></TextVariable><idPkg:MasterSpread src="MasterSpreads/h.xml"/></Document>',
+        ),
+      },
+      {
+        name: 'MasterSpreads/h.xml',
+        bytes: bytes(
+          '<MasterSpread Self="h" NamePrefix="H" BaseName="Book" BasedOn="base"><Page Self="left" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 -100 0"><MarginPreference Top="10" Bottom="11" Left="12" Right="13"/></Page><Page Self="right" GeometricBounds="0 0 100 100"><MarginPreference Top="20" Bottom="21" Left="22" Right="23"/></Page><TextFrame Self="head" ParentStory="running" ItemTransform="1 0 0 1 -100 0"><PathGeometry><PathPointType Anchor="10 2"/><PathPointType Anchor="30 7"/></PathGeometry></TextFrame></MasterSpread>',
+        ),
+      },
+      { name: 'Stories/r.xml', bytes: bytes('<Story Self="running"/>') },
+    ])
+    expect(model.masterSpreads[0]).toMatchObject({
+      id: 'h',
+      name: 'H-Book',
+      basedOn: 'base',
+      pages: [
+        {
+          side: 'left',
+          margin: { top: 10, bottom: 11, left: 12, right: 13 },
+          frames: [{ id: 'head', story: 'running', bounds: { left: 10, top: 2, width: 20, height: 5 } }],
+        },
+        { side: 'right', margin: { top: 20, bottom: 21, left: 22, right: 23 } },
+      ],
+    })
+    expect(model.textVariables).toEqual([
+      {
+        id: 'v',
+        name: 'Siman',
+        type: 'MatchCharacterStyleType',
+        appliedCharacterStyle: 'CharacterStyle/Mark',
+        searchStrategy: 'LastOnPage',
+        location: 'designmap.xml#v',
+      },
+    ])
   })
 })
