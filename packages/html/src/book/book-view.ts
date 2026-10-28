@@ -9,6 +9,7 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
     ...(book.dir === undefined ? {} : { dir: book.dir }),
     ...(book.lang === undefined ? {} : { lang: book.lang }),
     ...(book.fonts === undefined ? {} : { fonts: book.fonts }),
+    ...(book.css === undefined ? {} : { css: book.css }),
   }
   const pagination = resolveBookPagination(book)
   return pagination ? { ...view, pagination } : view

@@ -8,11 +8,13 @@ import {
   PX_PER_MM,
   resolveParentPages,
 } from '@segnavia/format'
+import { sanitizeBookCss } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { frameDocument } from './bridge.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
+  fontCss?: string
   css?: string
   printBackground?: boolean
   screen?: { spread: boolean }
@@ -61,6 +63,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     ...(options.screen ? { screen: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
+  const bookCss = sanitizeBookCss(view.css).css
   const css =
     `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
     `:where(html,body){margin:0!important;padding:0!important}` +
@@ -69,6 +72,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
+    (options.fontCss ?? '') +
+    bookCss +
     (options.css ?? '')
   const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {

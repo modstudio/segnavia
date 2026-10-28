@@ -304,19 +304,33 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
     const two = hebrew ? 'פרק ב' : 'Chapter Two'
     const openOne = hebrew ? 'OPEN_HE1' : 'OPEN_EN1'
     const openTwo = hebrew ? 'OPEN_HE2' : 'OPEN_EN2'
+    let printedStyle: { color: string; size: string } | undefined
     const bytes = await renderer.bookPdf(
       {
         title: hebrew ? 'ספר' : 'Book',
         mode: 'paginated',
         lang: hebrew ? 'he' : 'en',
+        css: '.book-css-check{color:rgb(91, 42, 123);font-size:23px}',
         page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
         frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
         chapters: [
-          { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
+          { title: one, html: `<p class="book-css-check">${openOne}</p><p>${'text '.repeat(40)}</p>` },
           { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
         ],
       },
-      { effects: false, css: 'body{font:16px serif}' },
+      {
+        effects: false,
+        css: 'body{font:16px serif}',
+        beforeOutput: async (tab) => {
+          printedStyle = await tab
+            .locator('[data-segnavia-book-page] .book-css-check')
+            .first()
+            .evaluate((element) => {
+              const style = getComputedStyle(element)
+              return { color: style.color, size: style.fontSize }
+            })
+        },
+      },
     )
     const file = path.join(work, `book-paginated-${key}.pdf`)
     writeFileSync(file, bytes)
@@ -327,6 +341,11 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
       `${key} paginated contents links resolve to each chapter's first page`,
       chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),
       `chapters=${chapterPages.join(',')} links=${links.join(',')}`,
+    )
+    check(
+      `${key} PDF text uses the book CSS color and size`,
+      printedStyle?.color === 'rgb(91, 42, 123)' && printedStyle.size === '23px' && pagesText(file).some((page) => page.includes(openOne)),
+      JSON.stringify(printedStyle),
     )
   }
 }

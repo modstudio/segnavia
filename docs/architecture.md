@@ -77,6 +77,10 @@ the server-safe `@segnavia/frame/book-document` entry, which embeds
 `paginateScript()` under the bridge nonce. Contents and note links are ordinary
 in-page anchors handled inside the frame, and the bridge carries only its
 existing key, height and ready messages.
+
+A book's optional `css` travels with its `BookView` and is sanitized before it
+is shown or printed. Generated font CSS comes first, then book CSS, then the
+host render `css` option, so the host retains the final override in every view.
 The element emits `ready` when that bridge message arrives and emits `error`
 with `detail.message` when loading or validating an input fails.
 

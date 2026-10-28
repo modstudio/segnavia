@@ -44,6 +44,19 @@ export async function verifyBooks(h: Harness) {
   await page.goto(h.url('book.html'))
   await Promise.all(['#book-en', '#book-he'].map((book) => page.frameLocator(`${book} iframe`).locator('.segnavia-contents-list').waitFor()))
 
+  const continuousBookStyle = await page
+    .frameLocator('#book-en iframe')
+    .locator('.book-css-check')
+    .evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { color: style.color, size: style.fontSize }
+    })
+  check(
+    'book CSS styles continuous text color and size',
+    continuousBookStyle.color === 'rgb(91, 42, 123)' && continuousBookStyle.size === '23px',
+    JSON.stringify(continuousBookStyle),
+  )
+
   const geometry = await page.evaluate(() => ({
     heights: ['book-en', 'book-he'].map((id) => document.getElementById(id)?.getBoundingClientRect().height),
     hostScroll: scrollY,
@@ -120,6 +133,14 @@ async function verifyPaginatedBooks(h: Harness) {
   await page.goto(h.url('book-paginated.html'))
   for (const id of ['book-paginated-en', 'book-paginated-he'] as const) {
     const frame = await paginatedFrame(h, id)
+    const bookStyle = await frame
+      .locator('[data-segnavia-book-page] .book-css-check')
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element)
+        return { color: style.color, size: style.fontSize }
+      })
+    check(`${id} book CSS styles paginated text color and size`, bookStyle.color === 'rgb(91, 42, 123)' && bookStyle.size === '23px', JSON.stringify(bookStyle))
     const report = await inspectPaginated(h, id)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
     check(

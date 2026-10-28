@@ -12,11 +12,12 @@ const input = (overrides: Partial<BookInput> = {}): BookInput => ({
 
 describe('bookView', () => {
   test('builds a continuous view from the book document', () => {
-    const view = bookView(Book.parse(input({ lang: 'en' })))
+    const view = bookView(Book.parse(input({ lang: 'en', css: '.lead{color:purple}' })))
     expect(view.html).toContain('id="segnavia-chapter-1"')
     expect(view.title).toBe('Book')
     expect(view.lang).toBe('en')
     expect(view.scripts).toBe('refuse')
+    expect(view.css).toBe('.lead{color:purple}')
     expect(view.pagination).toBeUndefined()
   })
 

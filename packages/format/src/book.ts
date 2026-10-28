@@ -66,6 +66,7 @@ export const BookShape = z.object({
   templates: z.array(BookTemplate).default([]),
   slots: Slots.optional(),
   fonts: z.array(FontReference).optional(),
+  css: z.string().optional(),
   numbering: z
     .object({
       frontMatter: NumberSystem.optional(),
@@ -108,7 +109,7 @@ export const BookViewPagination = z.object({
 })
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
-export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true }).extend({
+export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true, css: true }).extend({
   title: BookShape.shape.title.optional(),
   html: z.string(),
   pagination: BookViewPagination.optional(),
