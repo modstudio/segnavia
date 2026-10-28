@@ -17,11 +17,11 @@ const page = { paper: { width: 6, height: 9, unit: 'in' as const }, margin: { to
 function controlBook(id: 'en' | 'he', html: string): BookInput {
   const hebrew = id === 'he'
   return {
-    title: hebrew ? 'ספר הַנָּמֵל' : 'The Harbour Book',
+    title: hebrew ? 'ספר הַנָּמֵל' : 'The Harbor Book',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
     page,
-    chapters: [{ title: hebrew ? 'הַנָּמֵל' : 'The Harbour', html }],
+    chapters: [{ title: hebrew ? 'הַנָּמֵל' : 'The Harbor', html }],
   }
 }
 
