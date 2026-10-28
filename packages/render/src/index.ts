@@ -10,7 +10,7 @@ import { keepBrowser } from './browser-keeper.ts'
 import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { launchUnavailable, relaunchUnavailable, RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { launchUnavailable, RenderRefusedError, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -114,10 +114,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
         (async () => {
-          instance = await keeper.browser().catch((error) => {
-            throw error instanceof RendererUnavailableError ? error : relaunchUnavailable(options.executablePath, error)
-          })
-          context = await instance.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
+          const browser = await keeper.browser().catch((error) => Promise.reject(relaunchUnavailable(options.executablePath, error)))
+          instance = browser
+          context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
           if (settled) {
             await context.close().catch(() => {})
             return undefined as T

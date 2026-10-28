@@ -7,6 +7,7 @@ export function launchUnavailable(executablePath: string, error: unknown): Rende
 }
 
 export function relaunchUnavailable(executablePath: string, error: unknown): RendererUnavailableError {
+  if (error instanceof RendererUnavailableError) return error
   return new RendererUnavailableError(`Chromium at ${executablePath} exited and could not be relaunched: ${(error as Error).message}`)
 }
 

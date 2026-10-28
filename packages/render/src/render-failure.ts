@@ -1,4 +1,4 @@
-import { rendererClosed, RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { RendererUnavailableError, RenderRefusedError, rendererClosed } from './errors.ts'
 
 export function renderFailure(facts: { crashed: boolean; disconnected: boolean; closed: boolean; heapMb: number }, error: unknown): unknown {
   if (facts.crashed) {

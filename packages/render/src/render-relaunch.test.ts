@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
-import { relaunchUnavailable, RendererUnavailableError } from './errors.ts'
+import { RendererUnavailableError, relaunchUnavailable } from './errors.ts'
 
 const contexts: Array<{ closed: boolean }> = []
 let launch: () => Promise<FakeBrowser> = async () => new FakeBrowser()
@@ -23,6 +23,7 @@ class FakeBrowser extends EventEmitter {
   }
 
   async newContext() {
+    // Yield a macrotask so an already-expired bound can settle before this context exists.
     await new Promise<void>((resolve) => setTimeout(resolve, 15))
     const record = { closed: false }
     contexts.push(record)

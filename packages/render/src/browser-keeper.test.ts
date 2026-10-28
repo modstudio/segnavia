@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
 import type { Browser } from 'playwright-core'
 import { keepBrowser } from './browser-keeper.ts'
-import { rendererClosed, RendererUnavailableError } from './errors.ts'
+import { RendererUnavailableError, rendererClosed } from './errors.ts'
 
 class FakeBrowser extends EventEmitter {
   closeCalls = 0

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { rendererClosed, RenderRefusedError } from './errors.ts'
+import { RenderRefusedError, rendererClosed } from './errors.ts'
 import { RenderTimeoutError } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 

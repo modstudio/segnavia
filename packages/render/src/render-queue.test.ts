@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { rendererClosed, RendererUnavailableError } from './errors.ts'
+import { RendererUnavailableError, rendererClosed } from './errors.ts'
 import { renderQueue } from './render-queue.ts'
 
 test('admits up to the limit and queues the rest in order', async () => {
