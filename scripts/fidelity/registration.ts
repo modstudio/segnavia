@@ -92,6 +92,10 @@ export function worstRegistration(items: RegistrationMeasurement[]): Registratio
 }
 
 export function measureRegistration(left: Uint8Array, right: Uint8Array, width: number, height: number, box: Box, search: number): RegistrationMeasurement {
+  const area = clampBox(box, width, height)
+  if (area.x1 <= area.x0 || area.y1 <= area.y0) {
+    throw new Error(`The body text window ${box.x},${box.y} ${box.width}×${box.height} does not overlap the ${width}×${height} raster.`)
+  }
   const y0 = Math.floor(box.y)
   const y1 = Math.ceil(box.y + box.height)
   const x0 = Math.floor(box.x)

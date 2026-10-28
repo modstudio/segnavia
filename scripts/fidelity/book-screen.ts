@@ -154,10 +154,6 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
     const captures: BookPaperCapture[] = []
     for (const held of papers) {
       const locator = tab.locator(`[data-segnavia-book-page="${held.index}"]`)
-      const origin = await locator.evaluate((element) => {
-        const box = element.getBoundingClientRect()
-        return { x: box.x, y: box.y }
-      })
       const bytes = new Uint8Array(await locator.screenshot({ type: 'png' }))
       const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
       const width = view.getUint32(16)
@@ -167,12 +163,28 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
           `Paper ${held.index} screenshot is ${width}×${height} device px; expected ${rasterWidth}×${rasterHeight} (${held.expectedWidth}×${held.expectedHeight} CSS px at scale ${SCALE}).`,
         )
       }
+      // Screenshot scrolls the paper into view; measure geometry after that so the origin matches the raster.
+      const origin = await locator.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return { x: box.x, y: box.y }
+      })
+      const textWindow = await paperTextWindow(tab, held.index, origin)
+      if (
+        textWindow.x + textWindow.width <= 0 ||
+        textWindow.y + textWindow.height <= 0 ||
+        textWindow.x >= held.expectedWidth ||
+        textWindow.y >= held.expectedHeight
+      ) {
+        throw new Error(
+          `Paper ${held.index} text window at ${textWindow.x},${textWindow.y} ${textWindow.width}×${textWindow.height} CSS px does not overlap the ${held.expectedWidth}×${held.expectedHeight} paper.`,
+        )
+      }
       captures.push({
         index: held.index,
         bytes,
         regions: await paperRegions(tab, held.index, origin),
         blendedFacts: await paperBlendedFacts(tab, held.index, origin),
-        textWindow: await paperTextWindow(tab, held.index, origin),
+        textWindow,
       })
     }
     return captures
