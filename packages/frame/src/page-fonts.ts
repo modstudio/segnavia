@@ -94,3 +94,27 @@ export async function expandedPagesFontCss(
   }
   return resolveFontReferences(references, fonts, signal, place)
 }
+
+export const DEFAULT_NOTES_FONT_FAMILY = 'sans-serif'
+export const NOTES_FONT_PLACE = 'notes'
+
+export function notesSheetFontFamily(name: string | undefined): string {
+  if (name === undefined) return DEFAULT_NOTES_FONT_FAMILY
+  requireAppFontName(name, NOTES_FONT_PLACE)
+  return `var(--segnavia-font-${name})`
+}
+
+export async function resolveNotesFontCss(
+  name: string | undefined,
+  fonts: FontsOptions | undefined,
+  signal: AbortSignal,
+): Promise<{ family: string; css: string }> {
+  if (name === undefined) return { family: DEFAULT_NOTES_FONT_FAMILY, css: '' }
+  requireAppFontName(name, NOTES_FONT_PLACE)
+  const references: FontReference[] = [{ app: name }]
+  if (!fonts) {
+    refuseMissingFontSource(references, NOTES_FONT_PLACE)
+    return { family: notesSheetFontFamily(name), css: '' }
+  }
+  return { family: notesSheetFontFamily(name), css: await resolveFontReferences(references, fonts, signal, NOTES_FONT_PLACE) }
+}

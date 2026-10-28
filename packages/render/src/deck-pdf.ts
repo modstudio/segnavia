@@ -9,6 +9,7 @@ import {
   pagePlacementLayout,
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
   htmlSlideDocument,
@@ -22,6 +23,7 @@ import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
+import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -41,6 +43,7 @@ interface DeckPdfServices {
   ): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
+  signal?: AbortSignal
 }
 
 async function waitForPrintReady(tab: Tab): Promise<void> {
@@ -106,13 +109,18 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
+  const notesSheetFont = notesGeometry
+    ? await fontCssForRender(
+        resolveNotesFontCss(opts.notesFont, opts.fontSource ? { source: opts.fontSource } : undefined, services.signal ?? new AbortController().signal),
+      )
+    : undefined
   let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
         scripts: true,
-        html: printableDeck(deck, { ...opts, css, omitHtmlSlideFrames: true }),
+        html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)

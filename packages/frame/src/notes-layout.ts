@@ -1,4 +1,5 @@
 import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import { DEFAULT_NOTES_FONT_FAMILY } from './page-fonts.ts'
 import { escapeHtml } from './svg.ts'
 
 export const NOTES_PAPER: PrintInput = { paper: 'letter', orientation: 'portrait' }
@@ -31,6 +32,7 @@ export interface NotesDocumentOptions {
   slideBody: (slide: Slide) => string
   title?: string
   labels?: { noSpeakerNotes?: string }
+  font?: { family: string; css: string }
 }
 
 export interface NotesPaginationResult {
@@ -152,6 +154,7 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   })
   const root = `dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
   const title = options.title ? `<title>${escapeHtml(options.title)}</title>` : ''
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 system-ui,sans-serif;display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
+  const family = options.font?.family ?? DEFAULT_NOTES_FONT_FAMILY
+  const css = `${options.font?.css ?? ''}@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 ${family};display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
   return `<!doctype html><html ${root}><head><meta charset="utf-8">${title}<style>${css}</style></head><body>${sheets.join('')}</body></html>`
 }

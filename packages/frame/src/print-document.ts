@@ -21,6 +21,7 @@ import {
 import { frameDocument, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
+import { FontRefusedError } from './page-fonts.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -38,6 +39,13 @@ export interface PrintOptions {
   title?: string
   // Overrides the English "No speaker notes" placeholder in a mixed notes layout.
   labels?: { noSpeakerNotes?: string }
+  // App-font name for the notes sheet's number and notes text. printDeck and
+  // deckPdf resolve it through FontSource and embed the face in the notes head.
+  // printableDeck does not resolve the face: pass the `{ family, css }` from
+  // resolveNotesFontCss as `notesSheetFont`, or print with printDeck or deckPdf.
+  // A named font without that value is refused. With no name, the sheet uses
+  // sans-serif.
+  notesFont?: string
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -124,7 +132,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
 }
 
-export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
+export function printableDeck(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
   const { width, height } = deck.size
   if (options.imposition) {
     return printableDeckDocument(deck, { ...options, imposition: options.imposition }).html
@@ -133,11 +141,17 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
     return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
   }
+  if (options.notesFont !== undefined && options.notesSheetFont === undefined) {
+    throw new FontRefusedError(
+      `notes could not establish app font ${JSON.stringify(options.notesFont)}; print with printDeck or deckPdf, or resolve it with resolveNotesFontCss and pass the result, to clear this refusal.`,
+    )
+  }
   return notesDocument(deck, {
     notesPaper: options.notesPaper,
     slideBody: (slide) => slideBody(deck, slide, options),
     title: options.title ?? deck.title,
     labels: options.labels,
+    font: options.notesSheetFont,
   })
 }
 

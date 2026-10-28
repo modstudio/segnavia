@@ -348,6 +348,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
+              signal: deadline.signal,
             },
           )
         })

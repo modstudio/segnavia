@@ -216,6 +216,93 @@ test('an imposed deck refuses notes before rendering', async () => {
   expect(renders).toBe(0)
 })
 
+test('deck PDF refuses an unknown notesFont before rendering', async () => {
+  let renders = 0
+  const rendering = renderDeckPdf(
+    deck,
+    { layout: 'notes', notesFont: 'missing', fontSource: { font: async () => undefined } },
+    {
+      renderPdf: async () => {
+        renders++
+        return onePage()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  await expect(rendering).rejects.toThrow('notes could not establish app font "missing"; make that font available from the source to clear this refusal.')
+  expect(renders).toBe(0)
+})
+
+test('deck PDF refuses a named notesFont with no FontSource before rendering', async () => {
+  let renders = 0
+  const rendering = renderDeckPdf(
+    deck,
+    { layout: 'notes', notesFont: 'serif' },
+    {
+      renderPdf: async () => {
+        renders++
+        return onePage()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  await expect(rendering).rejects.toThrow('notes could not establish app font "serif"; supply a FontSource to clear this refusal.')
+  expect(renders).toBe(0)
+})
+
+test('deck PDF refuses an empty notesFont before rendering', async () => {
+  let renders = 0
+  const rendering = renderDeckPdf(
+    deck,
+    { layout: 'notes', notesFont: '' },
+    {
+      renderPdf: async () => {
+        renders++
+        return onePage()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  await expect(rendering).rejects.toThrow(
+    'notes could not establish an app font name matching /^[a-z0-9-]+$/ (""); use a lowercase name of letters, digits and hyphens to clear this refusal.',
+  )
+  expect(renders).toBe(0)
+})
+
+test('deck PDF puts the named notes face in the notes head', async () => {
+  const documents: string[] = []
+  const serif = {
+    family: 'Body Serif',
+    faces: [{ family: 'Body Serif', data: new Uint8Array([0]), format: 'truetype' as const }],
+    generic: 'serif' as const,
+  }
+  const notes = await PDFDocument.create()
+  notes.addPage([816, 1056])
+  notes.addPage([816, 1056])
+  await renderDeckPdf(
+    deck,
+    { layout: 'notes', notesFont: 'serif', fontSource: { font: async (name) => (name === 'serif' ? serif : undefined) } },
+    {
+      renderPdf: async (setup) => {
+        documents.push(setup.html)
+        return setup.html.includes('data-notes-source') ? notes.save() : onePage(400, 200)
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const html = documents.find((document) => document.includes('data-notes-source')) ?? ''
+  expect(html).toContain('font:15px/1.5 var(--segnavia-font-serif);')
+  expect(html).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
+  expect(html).not.toContain('system-ui')
+})
+
 test('a failed non-HTML slide render names the slide id', async () => {
   const rendering = renderDeckPdf(
     deck,

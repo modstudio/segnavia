@@ -14,7 +14,7 @@ export function withFontCss(options: RenderOptions, css: string): RenderOptions 
   return { ...options, css: `${css}${options.css ?? ''}` }
 }
 
-export async function fontCssForRender(work: Promise<string>): Promise<string> {
+export async function fontCssForRender<T>(work: Promise<T>): Promise<T> {
   try {
     return await work
   } catch (error) {
