@@ -107,14 +107,17 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     if (!galley || !flow) return { ok: false, detail: 'no galley table' }
     const origin = originTop(flow)
     const tableBox = galley.getBoundingClientRect()
-    const tableTop = tableBox.top - origin
     const tableBottom = tableBox.bottom - origin
+    const head = galley.querySelector('thead')
+    const headBottom = head ? head.getBoundingClientRect().bottom - origin : tableBox.top - origin
+    const flowId = flow.getAttribute('data-segnavia-flow') ?? ''
     const expected = Array.from(galley.querySelectorAll('tbody tr')).map((row) => textOf(row))
     const shown = Array.from(document.querySelectorAll('[data-segnavia-window]')).flatMap((view) => rowsInView(view))
     const sequence = shown.join('|') === expected.join('|')
     const continuations = Array.from(document.querySelectorAll('[data-segnavia-window]')).filter((win) => {
+      if (win.getAttribute('data-flow') !== flowId) return false
       const start = Number(win.getAttribute('data-start'))
-      return start > tableTop && start < tableBottom
+      return start > headBottom && start < tableBottom
     })
     const clones = Array.from(document.querySelectorAll('[data-segnavia-table-header]'))
     const clipOk = clones.length > 0 && clones.every((clone) => headerClipOk(clone))
