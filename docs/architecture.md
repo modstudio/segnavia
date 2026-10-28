@@ -39,7 +39,9 @@ to logical properties by each paragraph's direction. Single-column paragraphs
 in a multi-column frame carry `data-columns` within the bound `html` exports.
 Applied master spreads become mirrored parent pages. Margin text frames become
 positioned head or foot boxes, Match Character Style variables become marks,
-and auto page-number characters become folios.
+and auto page-number characters become folios. When every applied master
+shares its margins, those become the book page margins; when they differ, the
+report names them.
 The report names every unmapped element, style or override property, special
 character, language and spot color, with locations, and lists the fonts the
 styles reference. It never resolves linked resources or reaches the network. `frame` defines
