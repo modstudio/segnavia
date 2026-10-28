@@ -91,7 +91,7 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBooks(h)
-  await verifyPaginatedBookElements(h)
+  await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
 }
 

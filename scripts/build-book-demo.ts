@@ -62,7 +62,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 
 function chapterTwoHtml(hebrew: boolean): string {

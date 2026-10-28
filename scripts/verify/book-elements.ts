@@ -193,8 +193,41 @@ async function spreadFacts(h: Harness, language: 'en' | 'he') {
     })
 }
 
-export async function verifyPaginatedBookElements(h: Harness) {
+async function verifyNonceAuthorizedAuthorScripts(h: Harness) {
+  for (const language of ['en', 'he'] as const) {
+    const id = `book-screen-${language}`
+    await h.page.locator(`#${id} iframe`).evaluate((frame: HTMLIFrameElement) => {
+      const nonce = frame.srcdoc.match(/<script nonce="([^"]+)"/)?.[1]
+      if (!nonce) throw new Error(`${frame.title} has no bridge nonce.`)
+      frame.srcdoc = frame.srcdoc.replace('<script data-segnavia-author-script>', `<script data-segnavia-author-script nonce="${nonce}">`)
+    })
+    await h.page.frameLocator(`#${id} iframe`).locator('html[data-segnavia-author-script-ran]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
+    const composed = await h.page.frameLocator(`#${id} iframe`).locator('html').getAttribute('data-segnavia-composed')
+    h.check(`${id} author-script refusal check detects a nonce-authorized mutation`, composed !== null, String(composed))
+  }
+}
+
+function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
+  const paginationData = /^(?:page|pages|pageCount|spread|composedMs|compositionMs|elapsedMs)$/i
+  const timingData = /(?:timing|duration|elapsed|length).*ms$/i
+  return messages.some(
+    ({ data }) =>
+      data && typeof data === 'object' && Object.entries(data).some(([key, value]) => paginationData.test(key) || (timingData.test(key) && value !== null)),
+  )
+}
+
+export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await page.addInitScript(() => {
+    const messages: Array<{ id: string; data: unknown }> = []
+    Object.defineProperty(window, '__bookMessages', { value: messages })
+    window.addEventListener('message', (event) => {
+      for (const id of ['book-screen-en', 'book-screen-he']) {
+        const frame = document.querySelector(`#${id} iframe`) as HTMLIFrameElement | null
+        if (frame?.contentWindow === event.source) messages.push({ id, data: event.data })
+      }
+    })
+  })
   await page.goto(h.url('book-paginated-screen.html'))
   for (const language of ['en', 'he'] as const) {
     const id = `book-screen-${language}`
@@ -202,11 +235,25 @@ export async function verifyPaginatedBookElements(h: Harness) {
     await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`${id} composition failed: ${failure}`)
+    const authorMark = await frame.locator('html').getAttribute('data-segnavia-author-script-ran')
+    check(`${id} composes with author scripts refused`, authorMark === null, String(authorMark))
   }
 
   await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
   await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
+  const bookMessages = await page.evaluate(() =>
+    (window as unknown as { __bookMessages: Array<{ id: string; data: unknown }> }).__bookMessages.map(({ id, data }) => ({ id, data })),
+  )
+  const messageTypes = bookMessages.map(({ data }) => (data && typeof data === 'object' ? (data as { type?: unknown }).type : undefined))
+  check(
+    'paginated screen books relay only declared bridge messages and no page, spread or composition timing data',
+    bookMessages.some(({ id }) => id === 'book-screen-en') &&
+      bookMessages.some(({ id }) => id === 'book-screen-he') &&
+      messageTypes.every((type) => typeof type === 'string' && bridgeMessages.has(type)) &&
+      !hasPaginationRelayData(bookMessages),
+    JSON.stringify(bookMessages),
+  )
   for (const language of ['en', 'he'] as const) {
     const positions = await spreadFacts(h, language)
     check(
@@ -219,6 +266,8 @@ export async function verifyPaginatedBookElements(h: Harness) {
   await englishFrame.locator('[data-segnavia-spread-blank]').evaluate((element) => element.remove())
   const mutated = await spreadFacts(h, 'en')
   check('the spread check detects a removed leading empty slot', !mutated.leadingRecto, JSON.stringify(mutated))
+
+  await verifyNonceAuthorizedAuthorScripts(h)
 
   // Keep the regular book checks from retaining frame state in the 300-page stress run.
   const stressContext = await page
