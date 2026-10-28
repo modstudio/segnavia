@@ -1,5 +1,15 @@
-import { type BookSectionParents, type BookTemplate, type DesignedSection, REGION_NAME, type TemplatedSection } from '@segnavia/format'
-import type { ChildNode } from 'domhandler'
+import {
+  BOOK_FURNITURE,
+  type BookSectionParents,
+  type BookTemplate,
+  type DesignedSection,
+  MOTIF_ATTRIBUTE,
+  motifFieldAttribute,
+  type ParentPage,
+  REGION_NAME,
+  type TemplatedSection,
+} from '@segnavia/format'
+import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { element, textContent } from './dom.ts'
 import type { BookHeading, BookSectionInfo } from './types.ts'
@@ -95,6 +105,47 @@ export function templateRegionNameIssues(templates: BookTemplate[]): string[] {
     [...declaredRegions(template.html)].flatMap((key) =>
       REGION_NAME.test(key) ? [] : [`template "${template.name}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
     ),
+  )
+}
+
+const markFurniture = BOOK_FURNITURE.find((item) => item.key === 'segnavia:mark') as Extract<(typeof BOOK_FURNITURE)[number], { key: 'segnavia:mark' }>
+const markFields = new Set(markFurniture.fields.map((field) => motifFieldAttribute(field.key)))
+const allowedMarkFields = markFurniture.fields.map((field) => field.key).join(' and ')
+
+function markNodeIssues(parent: ParentPage, node: Element): string[] {
+  if (node.attribs[MOTIF_ATTRIBUTE] !== markFurniture.key) return []
+  const issues = Object.keys(node.attribs)
+    .filter((attribute) => attribute.startsWith(`${MOTIF_ATTRIBUTE}-`) && !markFields.has(attribute))
+    .map((attribute) => {
+      const field = attribute.slice(`${MOTIF_ATTRIBUTE}-`.length)
+      return `parent page "${parent.name}" mark has unknown field "${field}"; use only ${allowedMarkFields} to clear this refusal`
+    })
+  for (const field of markFurniture.fields) {
+    const attribute = motifFieldAttribute(field.key)
+    const supplied = node.attribs[attribute]
+    const value = supplied ?? ('default' in field ? field.default : undefined)
+    if ('required' in field && field.required && (value === undefined || value.trim() === '')) {
+      issues.push(
+        `parent page "${parent.name}" mark has an empty ${field.key}; set a non-empty ${attribute} on the segnavia:mark placement to clear this refusal`,
+      )
+    }
+    if ('choices' in field && value !== undefined) {
+      const choices: readonly string[] = field.choices
+      if (!choices.includes(value)) {
+        issues.push(`parent page "${parent.name}" mark has unknown ${field.key} value "${value}"; use ${choices.join(' or ')} to clear this refusal`)
+      }
+    }
+  }
+  return issues
+}
+
+export function markPlacementIssues(parents: ParentPage[]): string[] {
+  return parents.flatMap((parent) =>
+    (['head', 'foot'] as const).flatMap((region) => {
+      const html = parent[region]
+      if (html === undefined) return []
+      return elements(parse(html).children).flatMap((node) => markNodeIssues(parent, node))
+    }),
   )
 }
 

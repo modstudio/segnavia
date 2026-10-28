@@ -360,6 +360,11 @@ describe('book document', () => {
     ])
   })
 
+  test('reports parent mark placement issues', () => {
+    const book = Book.parse(input({ parentPages: [{ name: 'body', head: '<span data-motif="segnavia:mark"></span>' }] }))
+    expect(bookDocument(book).issues[0]).toContain('mark has an empty name')
+  })
+
   test('refuses a page that fills a region its template does not declare', () => {
     const book = Book.parse(
       input({

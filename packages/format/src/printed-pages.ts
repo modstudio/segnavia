@@ -13,57 +13,13 @@ export const ParentPageMargin = z.object({
   outer: z.number().nonnegative(),
 })
 
-const markPlacementIssues = (parent: string, html: string, region: 'head' | 'foot', ctx: z.RefinementCtx) => {
-  for (const tag of html.match(/<[a-zA-Z][^>]*>/g) ?? []) {
-    const motif = /\sdata-motif\s*=\s*(?:(["'])([^"']*)\1|([^\s>]+))/i.exec(tag)
-    if ((motif?.[2] ?? motif?.[3])?.toLowerCase() !== 'segnavia:mark') continue
-    const fields = [...tag.matchAll(/\sdata-motif-([\w-]+)\s*=\s*(?:(["'])([^"']*)\2|([^\s>]+))/gi)]
-    const known = new Set(['name', 'which'])
-    for (const field of fields) {
-      const key = (field[1] ?? '').toLowerCase()
-      if (!known.has(key)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [region],
-          message: `parent page "${parent}" mark has unknown field "${field[1]}"; use only name and which to clear this refusal`,
-        })
-      }
-    }
-    const value = (key: string) => {
-      const field = fields.find((candidate) => candidate[1]?.toLowerCase() === key)
-      return field?.[3] ?? field?.[4]
-    }
-    const name = value('name')
-    if (name === undefined || name.trim() === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [region],
-        message: `parent page "${parent}" mark has an empty name; name the data-mark value to clear this refusal`,
-      })
-    }
-    const which = value('which')
-    if (which !== undefined && which !== 'first' && which !== 'last') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [region],
-        message: `parent page "${parent}" mark has unknown which value "${which}"; use first or last to clear this refusal`,
-      })
-    }
-  }
-}
-
-export const ParentPage = z
-  .object({
-    name: z.string().min(1),
-    basedOn: z.string().min(1).optional(),
-    margin: ParentPageMargin.optional(),
-    head: z.string().optional(),
-    foot: z.string().optional(),
-  })
-  .superRefine((parent, ctx) => {
-    if (parent.head) markPlacementIssues(parent.name, parent.head, 'head', ctx)
-    if (parent.foot) markPlacementIssues(parent.name, parent.foot, 'foot', ctx)
-  })
+export const ParentPage = z.object({
+  name: z.string().min(1),
+  basedOn: z.string().min(1).optional(),
+  margin: ParentPageMargin.optional(),
+  head: z.string().optional(),
+  foot: z.string().optional(),
+})
 
 const ParentName = z.string().min(1)
 

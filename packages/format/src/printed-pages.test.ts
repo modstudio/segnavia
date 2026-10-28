@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, ParentPage } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -64,25 +64,5 @@ describe('bookParentPages', () => {
       { name: BOOK_PARENT_NAMES.blank, head: undefined, foot: undefined },
     ])
     expect(parents.every((parent) => parent.margin !== margin && parent.margin?.top === margin.top)).toBe(true)
-  })
-})
-
-describe('ParentPage furniture', () => {
-  test('accepts a named mark with first as the default or an explicit last value', () => {
-    expect(
-      ParentPage.parse({
-        name: 'body',
-        head: '<span data-motif="segnavia:mark" data-motif-name="kavana"></span><span data-motif=segnavia:mark data-motif-name=siman data-motif-which=last></span>',
-      }).name,
-    ).toBe('body')
-  })
-
-  test('refuses an empty mark name and names the placement', () => {
-    expect(() => ParentPage.parse({ name: 'body', head: '<span data-motif="segnavia:mark" data-motif-name=""></span>' })).toThrow('mark has an empty name')
-  })
-
-  test('refuses an unknown mark field by name', () => {
-    const result = ParentPage.safeParse({ name: 'body', foot: '<span data-motif="segnavia:mark" data-motif-name="siman" data-motif-side="outer"></span>' })
-    expect(result.success ? '' : result.error.issues[0]?.message).toContain('mark has unknown field "side"')
   })
 })

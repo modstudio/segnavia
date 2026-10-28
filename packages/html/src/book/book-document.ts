@@ -19,6 +19,7 @@ import {
   collectHeadings,
   designedSection,
   flowAttribs,
+  markPlacementIssues,
   sectionNode,
   templatedSection,
   templateHolders,
@@ -384,6 +385,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     headings,
     issues: [
       ...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
+      ...markPlacementIssues(book.parentPages),
       ...templateRegionNameIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),

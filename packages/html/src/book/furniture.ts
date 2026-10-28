@@ -1,9 +1,10 @@
 import { resolveDirection, textDirection } from '@segnavia/format'
+import type { PaginatePageMarks } from './paginate-types.ts'
 
 export interface BookFurnitureValues {
   folio?: string
   runningHead?: string
-  marks?: Record<string, { first: string; last: string }>
+  marks?: PaginatePageMarks
 }
 
 export function fillBookFurniture(html: string, values: BookFurnitureValues, dir?: string, lang?: string): string {
