@@ -260,6 +260,9 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
     page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
     rectoOpenings: true,
     endnotes: { placement: 'chapter' },
+    // Regular paginated fixtures cover numbered contents; this stress fixture keeps pdftotext's
+    // spatial column ordering from obscuring its order-sensitive per-page text comparison.
+    contents: { pageNumbers: false, depth: 2 },
     frontMatter: [
       {
         title: hebrew ? 'פתיחה' : 'Preface',
