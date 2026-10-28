@@ -59,7 +59,12 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     const spilled = rects.filter((rect) => intersectsRect(box, rect) && !containsRect(box, rect, 0.5))
     const clone = view.querySelector('[data-segnavia-note]') ?? view.firstElementChild
     const origin = clone?.getBoundingClientRect().top ?? box.top
-    const lines = clone ? lineBoxes(clone, origin).filter((line) => line.top + origin >= box.top - 0.5 && line.bottom + origin <= box.bottom + 0.5).length : 0
+    const lines = clone
+      ? lineBoxes(clone, origin).filter((line) => {
+          const top = line.top + origin
+          return top >= box.top - 0.5 && top <= box.bottom + 0.5
+        }).length
+      : 0
     if (rects.length === 0 || inside.length === 0) empty += 1
     if (!(expected >= 1) || spilled.length > 0 || lines !== expected) {
       outside += 1
