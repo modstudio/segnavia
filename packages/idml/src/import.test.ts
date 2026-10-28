@@ -120,4 +120,43 @@ describe('importIdml', () => {
     expect(result.book.css).toContain('.idml-p-body{line-height:18pt}')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face' }])
   })
+
+  test('imports applied master furniture and matched body marks from package parts', async () => {
+    const map =
+      '<Document Self="master-book"><DocumentPreference PageWidth="100" PageHeight="100" FacingPages="true" PageBinding="RightToLeft"/><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/><TextVariable Self="v" Name="Siman" VariableType="MatchCharacterStyleType"><MatchCharacterStylePreference AppliedCharacterStyle="mark" SearchStrategy="FirstOnPage"/></TextVariable><idPkg:Spread src="Spreads/s.xml"/><idPkg:MasterSpread src="MasterSpreads/h.xml"/><idPkg:Styles src="Resources/Styles.xml"/></Document>'
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: map },
+      {
+        name: 'Spreads/s.xml',
+        content: `<Spread Self="s"><Page Self="p" AppliedMaster="h" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 -100 0"/>${frame('body', -100)}</Spread>`,
+      },
+      {
+        name: 'MasterSpreads/h.xml',
+        content:
+          '<MasterSpread Self="h" NamePrefix="H" BaseName="Book"><Page Self="left" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 -100 0"><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/></Page><Page Self="right" GeometricBounds="0 0 100 100"><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/></Page><TextFrame Self="head" ParentStory="head-story" ItemTransform="1 0 0 1 -100 0"><PathGeometry><PathPointType Anchor="30 2"/><PathPointType Anchor="70 7"/></PathGeometry></TextFrame></MasterSpread>',
+      },
+      {
+        name: 'Resources/Styles.xml',
+        content: '<idPkg:Styles><RootCharacterStyleGroup><CharacterStyle Self="mark" Name="Mark"/></RootCharacterStyleGroup></idPkg:Styles>',
+      },
+      {
+        name: 'Stories/body.xml',
+        content:
+          '<Story Self="body"><ParagraphStyleRange><CharacterStyleRange AppliedCharacterStyle="mark"><Content>Marked</Content></CharacterStyleRange></ParagraphStyleRange></Story>',
+      },
+      {
+        name: 'Stories/head.xml',
+        content:
+          '<Story Self="head-story"><ParagraphStyleRange><CharacterStyleRange><TextVariableInstance AssociatedTextVariable="v"/></CharacterStyleRange></ParagraphStyleRange></Story>',
+      },
+    ])
+    const result = await importIdml(bytes)
+    expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-book-recto', 'idml-h-book-verso'])
+    expect(result.book.parentPages[0]?.head).toContain('data-motif-name="Siman"')
+    expect(result.book.parentPages[0]?.head).toContain('data-motif-which="first"')
+    const chapter = result.book.chapters[0]
+    expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-mark="Siman">')
+    expect(result.report.unsupportedElements).not.toHaveProperty('master story')
+  })
 })

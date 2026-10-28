@@ -26,6 +26,8 @@ const MAPPED_ELEMENTS = new Set([
   'ParagraphStyle',
   'CharacterStyle',
   'Color',
+  'TextVariable',
+  'MatchCharacterStylePreference',
   'Properties',
 ])
 

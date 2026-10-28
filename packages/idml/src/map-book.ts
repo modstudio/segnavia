@@ -1,10 +1,13 @@
-import { Book, MM_PER_PT, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
+import { logicalMargin } from './margins.ts'
+import { chapterParents, mapMasters } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
+import { matchVariables } from './variables.ts'
 
 function orderedStories(model: IdmlModel): IdmlStory[] {
   const order = new Map<string, number>()
@@ -34,38 +37,46 @@ function bodyColumnGap(model: IdmlModel, stories: IdmlStory[], report: ReportCol
   return selected
 }
 
+export function refuseActiveBookHtml(chapters: { html: string }[], parents: ParentPage[]): void {
+  const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => [parent.head ?? '', parent.foot ?? ''])].join('')
+  const active = findActiveContent(html)
+  if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
+}
+
 export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report)): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
   const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection)
+  const matchedVariables = matchVariables(model.textVariables ?? [], report)
   const bookLanguage = styles.rootLanguage()
   const stories = orderedStories(model)
-  const mapped = stories.map((story) => ({ story, mapped: storyHtml(story, styles, report, bookDirection, bookLanguage) }))
-  const chapters = mapped.map(({ story, mapped: value }) => ({ title: story.id, html: value.html }))
+  const masters = mapMasters(model, matchedVariables, styles, report)
+  const mapped = stories.map((story) => ({
+    story,
+    mapped: storyHtml({ ...story, textVariables: matchedVariables }, styles, report, bookDirection, bookLanguage),
+  }))
+  const chapters = mapped.map(({ story, mapped: value }) => {
+    const parents = chapterParents(story.id, model, masters, report)
+    return { title: story.id, html: value.html, ...(parents ? { parents } : {}) }
+  })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
-  const html = chapters.map((chapter) => chapter.html).join('')
-  const active = findActiveContent(html)
-  if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
+  refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
-  const css = styles.css()
+  const css = `${styles.css()}${masters.css}`
   return Book.parse({
     title: model.id,
     mode: 'paginated',
     page: {
       paper: { width: preferences.pageWidth, height: preferences.pageHeight, unit: 'pt' },
-      margin: {
-        top: preferences.margin.top * MM_PER_PT,
-        bottom: preferences.margin.bottom * MM_PER_PT,
-        inner: (rightBinding ? preferences.margin.right : preferences.margin.left) * MM_PER_PT,
-        outer: (rightBinding ? preferences.margin.left : preferences.margin.right) * MM_PER_PT,
-      },
+      margin: masters.bookMargin ?? logicalMargin(preferences.margin, rightBinding ? 'left' : 'right'),
       ...(columnGap === undefined ? {} : { columnGap: columnGap * MM_PER_PT }),
     },
     dir: bookDirection,
     ...(bookLanguage ? { lang: bookLanguage } : {}),
     ...(css ? { css } : {}),
     rectoOpenings: preferences.facingPages,
+    parentPages: masters.parents,
     chapters,
   })
 }

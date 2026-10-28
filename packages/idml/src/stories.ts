@@ -1,19 +1,20 @@
-import { resolveDirection } from '@segnavia/format'
+import { BOOK_FURNITURE, MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
 import type { ReportCollector } from './report.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlFramePreference, IdmlTextNode } from './types.ts'
+import type { IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
 
-const OMITTED = new Set(['TextFrame', 'Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note', 'TextVariableInstance'])
+const OMITTED = new Set(['TextFrame', 'Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note'])
 const WRAPPERS = new Set(['HyperlinkTextSource', 'XMLElement', 'Change'])
 
 interface Token {
-  kind: 'text' | 'paragraph'
+  kind: 'text' | 'paragraph' | 'variable' | 'processing-instruction'
   text?: string
   character?: IdmlTextNode
   location: string
+  variable?: string
 }
 
 export interface StoryHtmlInput {
@@ -21,6 +22,8 @@ export interface StoryHtmlInput {
   root?: IdmlTextNode
   direction?: 'ltr' | 'rtl'
   frame?: IdmlFramePreference
+  textVariables?: IdmlTextVariable[]
+  master?: boolean
 }
 
 export interface StoryHtmlResult {
@@ -46,8 +49,11 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
   const terminal = (node: IdmlTextNode, character: IdmlTextNode | undefined): boolean => {
     if (node.name === 'Content') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
-    else if (node.name === '#processing-instruction') report.add(report.unsupportedSpecialCharacters, node.text ?? 'processing instruction', node.location)
-    else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
+    else if (node.name === '#processing-instruction') {
+      result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
+    } else if (node.name === 'TextVariableInstance') {
+      result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, character, location: node.location })
+    } else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
     else if (node.name === 'Properties') return true
     else if (node.name === 'Change' && node.attributes.ChangeType !== undefined && !node.attributes.ChangeType.includes('Inserted')) {
       report.add(report.unsupportedElements, 'Change', node.location)
@@ -79,6 +85,95 @@ function contentNodes(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl
   return classValue ? [new Element('span', { class: classValue }, nodes)] : nodes
 }
 
+function matchedVariable(character: IdmlTextNode | undefined, variables: IdmlTextVariable[]): IdmlTextVariable | undefined {
+  const style = character ? rangeAttributes(character).AppliedCharacterStyle : undefined
+  return variables.find((variable) => variable.appliedCharacterStyle === style)
+}
+
+const folioFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':folio'))
+const markFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':mark'))
+const markWhich = markFurniture?.fields.find((field) => field.key === 'which')
+
+function furnitureClass(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl'): string | undefined {
+  const characterAttributes = rangeAttributes(token.character)
+  const characterStyle = characterAttributes.AppliedCharacterStyle
+  return classes(
+    styles.styleClass(characterStyle, 'character'),
+    styles.overrideClass(characterAttributes, styles.flattened(characterStyle, 'character'), direction, token.character?.location ?? token.location),
+  )
+}
+
+function markNode(variable: IdmlTextVariable, className: string | undefined): Element | undefined {
+  if (!markFurniture) return undefined
+  const last = markWhich && 'choices' in markWhich ? markWhich.choices.find((choice) => choice === 'last') : undefined
+  const fallback = markWhich && 'default' in markWhich ? markWhich.default : undefined
+  return new Element(
+    'span',
+    {
+      [MOTIF_ATTRIBUTE]: markFurniture.key,
+      [motifFieldAttribute('name')]: variable.name,
+      [motifFieldAttribute('which')]: variable.searchStrategy === 'LastOnPage' ? (last ?? fallback ?? '') : (fallback ?? ''),
+      ...(className ? { class: className } : {}),
+    },
+    [],
+  )
+}
+
+function furnitureNode(
+  token: Token,
+  variables: IdmlTextVariable[],
+  master: boolean,
+  styles: StyleMapper,
+  direction: 'ltr' | 'rtl',
+  report: ReportCollector,
+): Element | undefined {
+  const className = furnitureClass(token, styles, direction)
+  if (token.kind === 'processing-instruction') {
+    if (master && /\bACE\s+18\b/.test(token.text ?? '') && folioFurniture) {
+      return new Element('span', { [MOTIF_ATTRIBUTE]: folioFurniture.key, ...(className ? { class: className } : {}) }, [])
+    }
+    report.add(report.unsupportedSpecialCharacters, token.text ?? 'processing instruction', token.location)
+    return undefined
+  }
+  if (token.kind !== 'variable') return undefined
+  const variable = variables.find((candidate) => candidate.id === token.variable)
+  if (master && variable) return markNode(variable, className)
+  report.add(report.unsupportedElements, variable ? `TextVariable:${variable.name}` : `TextVariableInstance:${token.variable ?? 'unknown'}`, token.location)
+  return undefined
+}
+
+function paragraphChildren(
+  paragraphTokens: Token[],
+  styles: StyleMapper,
+  report: ReportCollector,
+  direction: 'ltr' | 'rtl',
+  variables: IdmlTextVariable[],
+  master: boolean,
+): (Text | Element)[] {
+  const children: (Text | Element)[] = []
+  let marked: { variable: IdmlTextVariable; node: Element } | undefined
+  for (const token of paragraphTokens) {
+    if (token.kind === 'text') {
+      const variable = master ? undefined : matchedVariable(token.character, variables)
+      if (variable) {
+        if (marked?.variable.id !== variable.id) {
+          marked = { variable, node: new Element('span', { 'data-mark': variable.name }, []) }
+          children.push(marked.node)
+        }
+        marked.node.children.push(...contentNodes(token, styles, direction))
+      } else {
+        marked = undefined
+        children.push(...contentNodes(token, styles, direction))
+      }
+      continue
+    }
+    marked = undefined
+    const furniture = furnitureNode(token, variables, master, styles, direction, report)
+    if (furniture) children.push(furniture)
+  }
+  return children
+}
+
 function textNodes(value: string): (Text | Element)[] {
   const pieces = value.split('\u2028')
   const result: (Text | Element)[] = []
@@ -98,6 +193,8 @@ function paragraphNode(
   bookLanguage: string | undefined,
   storyDirection: 'ltr' | 'rtl' | undefined,
   frame: IdmlFramePreference | undefined,
+  variables: IdmlTextVariable[],
+  master: boolean,
 ): Element {
   const attributes = rangeAttributes(paragraph)
   const styleId = attributes.AppliedParagraphStyle
@@ -117,7 +214,7 @@ function paragraphNode(
   if (className) htmlAttributes.class = className
   if (resolvedDirection !== bookDirection) htmlAttributes.dir = resolvedDirection
   if (language && language !== bookLanguage) htmlAttributes.lang = language
-  const span = attributes.SpanColumnType ?? flattened.SpanColumnType
+  const span = attributes.SpanColumnType ?? flattened.SpanColumnType ?? 'SingleColumn'
   if (frame && frame.columns >= 2 && span === 'SingleColumn') {
     if (Number.isInteger(frame.columns) && frame.columns >= BOOK_COLUMN_MIN && frame.columns <= BOOK_COLUMN_MAX) {
       htmlAttributes['data-columns'] = String(frame.columns)
@@ -127,11 +224,7 @@ function paragraphNode(
   }
   if (span === 'SplitColumns') report.add(report.unsupportedStyleProperties, 'SpanColumnType:SplitColumns', paragraph.location)
 
-  const children: (Text | Element)[] = []
-  for (const token of paragraphTokens) {
-    if (token.kind !== 'text') continue
-    children.push(...contentNodes(token, styles, resolvedDirection))
-  }
+  const children = paragraphChildren(paragraphTokens, styles, report, resolvedDirection, variables, master)
   if (children.length === 0) children.push(new Element('br', {}, []))
   return new Element('p', htmlAttributes, children)
 }
@@ -145,11 +238,30 @@ export function storyHtml(
 ): StoryHtmlResult {
   if (!story.root) return { html: serialize(new Element('p', {}, [new Element('br', {}, [])]), { xmlMode: false, encodeEntities: 'utf8' }) }
   const paragraphs: Element[] = []
-  for (const paragraph of story.root.children.filter((node) => node.name === 'ParagraphStyleRange')) {
+  const paragraphRanges: IdmlTextNode[] = []
+  const collectParagraphs = (node: IdmlTextNode): void => {
+    if (node.name === 'ParagraphStyleRange') paragraphRanges.push(node)
+    else if (node.name === 'Story' || node.name === 'XMLElement') for (const child of node.children) collectParagraphs(child)
+  }
+  collectParagraphs(story.root)
+  for (const paragraph of paragraphRanges) {
     const all = tokens(paragraph, report)
     let current: Token[] = []
     const flush = () => {
-      paragraphs.push(paragraphNode(paragraph, current, styles, report, bookDirection, bookLanguage, story.direction, story.frame))
+      paragraphs.push(
+        paragraphNode(
+          paragraph,
+          current,
+          styles,
+          report,
+          bookDirection,
+          bookLanguage,
+          story.direction,
+          story.frame,
+          story.textVariables ?? [],
+          story.master ?? false,
+        ),
+      )
       current = []
     }
     for (const token of all) {
