@@ -3,15 +3,23 @@
 
 import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
 import { type FontsOptions, refuseMissingFontSource, resolveFontReferences } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
-export function bookFrame(view: BookView, css?: string): { title: string; srcdoc: string } {
+export function bookFrame(view: BookView, css?: string, spread = false): { title: string; srcdoc: string } {
+  const title = view.title ?? bookLabel(view.lang)
+  if (view.pagination) {
+    return {
+      title,
+      srcdoc: paginatedViewDocument(view, view.pagination, { nonce: newNonce(), css, screen: { spread } }),
+    }
+  }
   return {
-    title: view.title ?? bookLabel(view.lang),
+    title,
     srcdoc: frameDocument(view.html, {
       scripts: view.scripts,
       nonce: newNonce(),
@@ -33,7 +41,7 @@ function sourceUrl(src: string): URL {
 }
 
 export class SegnaviaBook extends HTMLElementBase {
-  static observedAttributes = ['src']
+  static observedAttributes = ['src', 'spread']
   private currentView: BookView | null = null
   private loadGeneration = 0
   private loadController: AbortController | null = null
@@ -53,7 +61,11 @@ export class SegnaviaBook extends HTMLElementBase {
     this.loadController = null
   }
 
-  async attributeChangedCallback(_: string, __: string | null, src: string | null) {
+  async attributeChangedCallback(name: string, previous: string | null, src: string | null) {
+    if (name === 'spread') {
+      if (previous !== src && this.currentView) this.mount()
+      return
+    }
     const generation = ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
@@ -85,6 +97,14 @@ export class SegnaviaBook extends HTMLElementBase {
 
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
+  }
+
+  get spread(): boolean {
+    return typeof this.hasAttribute === 'function' && this.hasAttribute('spread')
+  }
+
+  set spread(value: boolean) {
+    this.toggleAttribute('spread', value)
   }
 
   set fonts(value: FontsOptions | undefined) {
@@ -138,7 +158,7 @@ export class SegnaviaBook extends HTMLElementBase {
         this.reportError(reason)
         return
       }
-      this.mountFrame(bookFrame(view))
+      this.mountFrame(bookFrame(view, undefined, this.spread))
       return
     }
     const generation = this.loadGeneration
@@ -148,7 +168,7 @@ export class SegnaviaBook extends HTMLElementBase {
     void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
       .then((css) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrame(bookFrame(view, css))
+        this.mountFrame(bookFrame(view, css, this.spread))
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected) return

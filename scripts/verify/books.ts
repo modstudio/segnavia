@@ -14,6 +14,7 @@ import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
+export const REPAGINATE_BOUND_MS = 20_000
 
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
@@ -91,7 +92,74 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBooks(h)
+  await verifyPaginatedBookElements(h)
   await verifyWorkbooks(h)
+}
+
+function normalizedPageText() {
+  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => (page.textContent ?? '').replace(/\s+/g, ' ').trim())
+}
+
+async function verifyPaginatedBookElements(h: Harness) {
+  const { page, check } = h
+  await page.goto(h.url('book-paginated-screen.html'))
+  const screenTexts: Record<string, string[]> = {}
+  for (const language of ['en', 'he'] as const) {
+    const id = `book-screen-${language}`
+    const frame = page.frameLocator(`#${id} iframe`)
+    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
+    const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
+    if (failure) throw new Error(`${id} composition failed: ${failure}`)
+    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
+  }
+  for (const language of ['en', 'he'] as const) {
+    await page.goto(h.url(`book-paginated-${language}.html`))
+    await page.locator('html[data-segnavia-composed]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+    const printTexts = await page.locator('html').evaluate(normalizedPageText)
+    check(
+      `book-screen-${language} has the print document's page count and text`,
+      JSON.stringify(screenTexts[language]) === JSON.stringify(printTexts),
+      `${screenTexts[language]?.length ?? 0}/${printTexts.length} pages`,
+    )
+  }
+
+  await page.goto(h.url('book-paginated-screen.html'))
+  await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+  await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
+  await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+  for (const language of ['en', 'he'] as const) {
+    const positions = await page
+      .frameLocator(`#book-screen-${language} iframe`)
+      .locator('html')
+      .evaluate(() => {
+        const blank = document.querySelector('[data-segnavia-spread-blank]')?.getBoundingClientRect()
+        const first = document.querySelector('[data-segnavia-book-page="1"]')?.getBoundingClientRect()
+        return { blankLeft: blank?.left, firstLeft: first?.left, direction: document.documentElement.dir }
+      })
+    check(
+      `book-screen-${language} leaves the first page alone on its recto side`,
+      positions.blankLeft !== undefined &&
+        positions.firstLeft !== undefined &&
+        (positions.direction === 'rtl' ? positions.blankLeft > positions.firstLeft : positions.blankLeft < positions.firstLeft),
+      JSON.stringify(positions),
+    )
+  }
+
+  for (const language of ['en', 'he'] as const) {
+    const frame = page.frameLocator(`#book-large-${language} iframe`)
+    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
+    const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
+    if (failure) throw new Error(`book-large-${language} composition failed: ${failure}`)
+    const report = await frame.locator('html').evaluate(() => ({
+      pages: document.querySelectorAll('[data-segnavia-book-page]').length,
+      ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
+    }))
+    check(
+      `book-large-${language} composes 300+ pages within the provisional bound`,
+      report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
+      JSON.stringify({ ...report, bound: REPAGINATE_BOUND_MS }),
+    )
+  }
 }
 
 async function paginatedFrame(h: Harness, id: string) {

@@ -139,7 +139,10 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     },
   ],
   frontMatter: [
-    { title: hebrew ? 'פתיחה' : 'Preface', html: `<p>${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>` },
+    {
+      title: hebrew ? 'פתיחה' : 'Preface',
+      html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+    },
     { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
   ],
   chapters: [
@@ -241,6 +244,19 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   )
 }
 
+function largePaginatedFixture(hebrew: boolean): BookInput {
+  const pages = Array.from({ length: 302 }, (_, index) => ({
+    html: `<article><p>${hebrew ? 'עמוד' : 'Page'} ${index + 1}. ${hebrew ? 'טקסט לבדיקת ספר גדול.' : 'Text for the large-book check.'}</p></article>`,
+  }))
+  return {
+    title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    chapters: [{ kind: 'designed', title: hebrew ? 'עמודים' : 'Pages', pages }],
+  }
+}
+
 export async function buildBookDemo(site: string): Promise<void> {
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
@@ -259,6 +275,10 @@ export async function buildBookDemo(site: string): Promise<void> {
       : `${designedCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(book)))
+    writeFileSync(
+      path.join(site, hebrew ? 'book-paginated-large-he.json' : 'book-paginated-large-en.json'),
+      JSON.stringify(bookView(Book.parse(largePaginatedFixture(hebrew)))),
+    )
     writeOversizeBook(site, hebrew, css)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
@@ -276,6 +296,12 @@ export async function buildBookDemo(site: string): Promise<void> {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section></main></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-paginated-screen.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated book elements</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section><section class="book"><h2>300+ English pages</h2><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book></section><section class="book"><h2>300+ עמודים</h2><segnavia-book id="book-large-he" src="book-paginated-large-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-workbook.html'),

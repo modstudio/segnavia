@@ -1,4 +1,4 @@
-import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+import { type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
 
 export type { BookSectionParents }
 
@@ -68,21 +68,21 @@ export function planPrintedPages(rules: PrintedPageRules, count: number, directi
   })
 }
 
-const BOOK_RULES = { every: BOOK_PARENT_NAMES.recto, recto: BOOK_PARENT_NAMES.recto, verso: BOOK_PARENT_NAMES.verso }
-
 export function selectBookParent(
   fact: BookPageFacts,
   index: number,
-  count: number,
+  _count: number,
   direction: 'ltr' | 'rtl',
 ): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'side'> {
-  const selected = printedPageAt(BOOK_RULES, index, count, direction)
+  const names = { recto: 'segnavia:recto', verso: 'segnavia:verso', opener: 'segnavia:opener', blank: 'segnavia:blank' }
+  const recto = index % 2 === 1
+  const side = recto === (direction === 'ltr') ? 'right' : 'left'
   const named = fact.parents
-  if (fact.blank) return { role: 'blank', parent: named?.blank ?? BOOK_PARENT_NAMES.blank, side: selected.side }
-  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? BOOK_PARENT_NAMES.blank, side: selected.side }
-  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? BOOK_PARENT_NAMES.opener, side: selected.side }
-  if (selected.role === 'verso') return { role: 'verso', parent: named?.verso ?? selected.parent, side: selected.side }
-  return { role: 'recto', parent: named?.recto ?? selected.parent, side: selected.side }
+  if (fact.blank) return { role: 'blank', parent: named?.blank ?? names.blank, side }
+  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? names.blank, side }
+  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? names.opener, side }
+  if (!recto) return { role: 'verso', parent: named?.verso ?? names.verso, side }
+  return { role: 'recto', parent: named?.recto ?? names.recto, side }
 }
 
 export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl'): BookPrintedPagePlan[] {

@@ -66,13 +66,17 @@ as a `BookView` to `<segnavia-book>`. `bookView(book)` builds that view for
 either mode; a paginated view also carries the resolved `pagination` object
 (paper size and margins in millimeters, direction, number systems, recto
 openings, orphans and widows, default parent pages, endnote placement, contents
-settings and running-head choices). The frame library validates that view,
-resolves its direction and shows a continuous book in one internally scrolling
-sandboxed frame; it does not import the HTML library or construct the book
-document. Paginated print uses the server-safe `@segnavia/frame/book-document`
-entry, which embeds `paginateScript()` under the bridge nonce. Contents and
-note links are ordinary in-page anchors handled inside the frame, and the
-bridge carries only its existing key, height and ready messages.
+settings and running-head choices). The frame library validates that view and
+shows it in one internally scrolling sandboxed frame. A continuous view scrolls
+as one document. A paginated view uses the same composer as paginated print,
+then scales its paper-sized pages to the frame's width. Its `spread` boolean
+attribute and property rebuild the frame as direction-aware two-page spreads;
+page one occupies its recto side after an empty leading slot. Resizing changes
+only the presentation scale and does not paginate again. Paginated print uses
+the server-safe `@segnavia/frame/book-document` entry, which embeds
+`paginateScript()` under the bridge nonce. Contents and note links are ordinary
+in-page anchors handled inside the frame, and the bridge carries only its
+existing key, height and ready messages.
 The element emits `ready` when that bridge message arrives and emits `error`
 with `detail.message` when loading or validating an input fails.
 

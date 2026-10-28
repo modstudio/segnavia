@@ -112,5 +112,5 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 export const PAGINATE_FUNCTIONS = [paginateColumns, paginateNotes, paginateKeeps, paginateMarks, paginateSequence, paginateBook]
 
 export function paginateScript(): string {
-  return PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')
+  return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
 }

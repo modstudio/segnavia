@@ -31,5 +31,5 @@ export function fillBookFurniture(html: string, values: BookFurnitureValues, dir
 }
 
 export function furnitureScript(): string {
-  return `var textDirection=${textDirection.toString()};\nvar resolveDirection=${resolveDirection.toString()};\n${fillBookFurniture.toString()}`
+  return `var ${textDirection.name}=${textDirection.toString()};var textDirection=${textDirection.name};\nvar ${resolveDirection.name}=${resolveDirection.toString()};var resolveDirection=${resolveDirection.name};\nvar ${fillBookFurniture.name}=${fillBookFurniture.toString()};var fillBookFurniture=${fillBookFurniture.name};`
 }

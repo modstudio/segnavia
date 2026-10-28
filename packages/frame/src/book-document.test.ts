@@ -10,7 +10,7 @@ import {
   selectBookParent,
   windowPageIndex,
 } from '@segnavia/html'
-import { BOOK_COMPOSER_SCRIPT, bookDocument, PaginatedBookRefusedError } from './book-document.ts'
+import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 
 const book = Book.parse({
   title: 'Book',
@@ -65,5 +65,32 @@ describe('bookDocument', () => {
     expect(html).toContain('html:not([data-segnavia-composed])')
     expect(html).toContain('attributeFilter:[name]')
     expect(html).toContain('overflow:clip')
+  })
+
+  test('builds a screen document from a paginated view without changing the print document', () => {
+    const view = {
+      html: '<main data-segnavia-galleys>Held</main>',
+      scripts: 'refuse' as const,
+      pagination: {
+        paper: { width: 148, height: 210 },
+        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        columnGap: 4,
+        direction: 'rtl' as const,
+        numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const },
+        rectoOpenings: false,
+        orphans: 2,
+        widows: 2,
+        parents: [],
+        endnotePlacement: 'book' as const,
+        contents: { pageNumbers: true, depth: 2 },
+        runningHead: { recto: 'title' as const, verso: 'title' as const },
+      },
+    }
+    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
+    const print = bookViewDocument(view, { nonce: 'held' })
+    expect(screen).toContain('"screen":{"spread":true}')
+    expect(screen).toContain('data-segnavia-spread-blank')
+    expect(screen).toContain('data-segnavia-composed-ms')
+    expect(print).not.toContain('"screen"')
   })
 })

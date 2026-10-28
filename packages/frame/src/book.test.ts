@@ -107,6 +107,26 @@ describe('book element input', () => {
     expect(named.title).toBe('Named book')
     expect(named.srcdoc).not.toContain("script-src 'nonce-")
   })
+
+  test('a paginated frame uses the composer and carries the spread setting', () => {
+    const pagination = {
+      paper: { width: 148, height: 210 },
+      margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+      columnGap: 4,
+      direction: 'ltr' as const,
+      numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+      rectoOpenings: false,
+      orphans: 2,
+      widows: 2,
+      parents: [],
+      endnotePlacement: 'book' as const,
+      contents: { pageNumbers: true, depth: 2 },
+      runningHead: { recto: 'title' as const, verso: 'title' as const },
+    }
+    const rendered = bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, undefined, true)
+    expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+    expect(rendered.srcdoc).toContain('data-segnavia-composed-ms')
+  })
 })
 
 describe('book fonts', () => {
