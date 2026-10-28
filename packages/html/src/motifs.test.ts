@@ -66,6 +66,14 @@ describe('expandMotifs', () => {
     expect(await motifPlacementRefusals(html, motifOptions)).toEqual([])
   })
 
+  test.each(['', '  '])('uses the page language when the explicit language is empty (%j)', async (lang) => {
+    const html = '<html lang="he"><body><div data-motif="bilingual"></div></body></html>'
+    const motifOptions = options({ bilingual }, { lang })
+    const result = await expandMotifs(html, motifOptions)
+    expect(result.placed).toEqual([{ key: 'bilingual', revision: '1', version: 1, lang: 'he', fields: {} }])
+    expect(await motifPlacementRefusals(html, motifOptions)).toEqual([])
+  })
+
   test.each(['<html><body><div data-motif="bilingual"></div></body></html>', '<html lang="  "><body><div data-motif="bilingual"></div></body></html>'])(
     'still refuses a multi-language motif when the page language is absent in %s',
     async (html) => {

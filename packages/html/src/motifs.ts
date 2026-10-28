@@ -21,7 +21,7 @@ export const MOTIF_PLACEMENT_LIMIT = 256
 export interface ExpandMotifsOptions {
   source: MotifSource
   pins?: Record<string, string>
-  // Defaults to the document's non-empty <html lang> for expansion and refusal checks.
+  // Empty values default to the document's non-empty <html lang> for expansion and refusal checks.
   lang?: string
   scripts: Scripts
   prefix: string
@@ -275,8 +275,8 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
   }
 }
 
-function documentLanguage(document: Document): string | undefined {
-  const lang = elements(document.children)
+export function documentLanguage(html: string): string | undefined {
+  const lang = elements(parse(html).children)
     .find((element) => element.name === 'html')
     ?.attribs.lang?.trim()
   return lang || undefined
@@ -294,7 +294,7 @@ async function run(html: string, options: ExpandMotifsOptions, validateOnly: boo
     motifCache: new Map(),
     placements: 0,
   }
-  const lang = options.lang === undefined ? documentLanguage(document) : options.lang
+  const lang = options.lang?.trim() || documentLanguage(html)
   await expandNodes(document.children, lang, [], state)
   return { document, state }
 }

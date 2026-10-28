@@ -38,6 +38,7 @@ export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export {
+  documentLanguage,
   type ExpandedMotifs,
   type ExpandMotifsOptions,
   expandMotifs,
