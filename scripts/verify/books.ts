@@ -178,6 +178,11 @@ async function verifyPaginatedBooks(h: Harness) {
       pdfMarks.length > 0 && pdfMarks.every((item) => item.kavana && item.siman),
       JSON.stringify(pdfMarks),
     )
+    check(
+      `${id} running heads take the first mark and carry onto a page with none`,
+      report.runningHead.fromMark && report.runningHead.carried,
+      report.runningHead.detail,
+    )
 
     await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {

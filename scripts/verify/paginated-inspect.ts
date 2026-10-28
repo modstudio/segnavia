@@ -19,6 +19,7 @@ export interface PaginatedReport {
   blocks: { extra: number; missing: number; shown: number }
   lines: { shifted: number; checked: number }
   markHead: { complete: boolean; carried: boolean; values: { page: number; kavana: string; siman: string }[]; detail: string }
+  runningHead: { fromMark: boolean; carried: boolean; detail: string }
   direction: string | null
   ids: { unique: boolean; count: number; duplicates: string[] }
   spine: { page: number; distance: number; side: string }[]
@@ -252,7 +253,11 @@ export function inspectPaginatedBook(): PaginatedReport {
   }
 
   function markHead() {
-    const values = Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
+    const values = Array.from(
+      document.querySelectorAll(
+        '[data-segnavia-book-page][data-segnavia-flow="segnavia-chapter-1"], [data-segnavia-book-page][data-segnavia-flow="segnavia-chapter-2"]',
+      ),
+    )
       .map((page) => ({
         page: Number(page.getAttribute('data-segnavia-book-page')),
         kavana: page.querySelector('.haggadah-kavana')?.textContent?.trim() ?? '',
@@ -264,6 +269,21 @@ export function inspectPaginatedBook(): PaginatedReport {
       carried: values.filter((head) => head.kavana === values[0]?.kavana).length >= 2,
       values,
       detail: values.map((head) => `${head.page}:${head.kavana}:${head.siman}`).join('|'),
+    }
+  }
+
+  function runningHead() {
+    const heads = Array.from(
+      document.querySelectorAll(
+        '[data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-3"], [data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-4"]',
+      ),
+    ).map((page) => page.querySelector('.segnavia-running-head')?.textContent?.trim() ?? '')
+    const expected = document.documentElement.getAttribute('lang') === 'he' ? 'סימן ב' : 'Mark B'
+    const marked = heads.filter((head) => head === expected)
+    return {
+      fromMark: marked.length > 0,
+      carried: marked.length >= 2,
+      detail: heads.join('|'),
     }
   }
 
@@ -350,6 +370,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     blocks: blocks(),
     lines: lineShift(),
     markHead: markHead(),
+    runningHead: runningHead(),
     direction: document.documentElement.getAttribute('dir'),
     ids: uniqueIds(),
     spine: spine(),

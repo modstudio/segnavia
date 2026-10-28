@@ -161,8 +161,8 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: markParents },
     designedLeaf(hebrew),
     { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew), parents: markParents },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew), parents: markParents },
-    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew), parents: markParents },
+    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
+    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
   ],
 })
 
