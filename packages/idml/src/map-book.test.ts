@@ -22,7 +22,6 @@ test('maps document setup and orders placeholder chapters by first page', () => 
     ],
     masterStoryIds: ['master'],
     partsRead: [],
-    unsupportedElements: {},
     bodyFramePreferences: [
       { columns: 2, gutter: 12, location: 'frame-12-a' },
       { columns: 2, gutter: 12, location: 'frame-12-b' },
@@ -65,7 +64,6 @@ test('maps left binding, asymmetric margins, and non-facing pages', () => {
     stories: [{ id: 'story', part: 'Stories/story.xml' }],
     masterStoryIds: [],
     partsRead: [],
-    unsupportedElements: {},
   }
   const book = modelToBook(model)
   expect(book.dir).toBe('ltr')

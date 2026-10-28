@@ -74,3 +74,48 @@ test('deduplicates override classes across paragraphs and counts unmapped proper
   expect(result.html.match(/idml-o-1/g)).toHaveLength(2)
   expect(report.data().unsupportedOverrideProperties).toEqual({ RuleAbove: 2 })
 })
+
+test('maps a character style and a local character override onto one span', () => {
+  const report = new ReportCollector()
+  const characterStyle: IdmlStyle = {
+    id: 'strong',
+    name: 'Strong',
+    kind: 'character',
+    properties: { PointSize: '11', Tracking: '50' },
+    location: 'Styles#strong',
+  }
+  const styles = new StyleMapper([paragraphStyle, characterStyle], [], report, 'rtl')
+  const root = node('Story', [
+    node('ParagraphStyleRange', [node('CharacterStyleRange', [node('Content', [], {}, 'מודגש')], { AppliedCharacterStyle: 'strong', PointSize: '13' })], {
+      AppliedParagraphStyle: 'p',
+    }),
+  ])
+  const result = storyHtml({ id: 'story', root }, styles, report, 'rtl', 'he')
+  expect(result.html).toContain('<span class="idml-c-strong idml-o-1">מודגש</span>')
+  expect(styles.css()).toContain('.idml-c-strong{font-size:11pt;letter-spacing:0.05em}')
+  expect(styles.css()).toContain('.idml-o-1{font-size:13pt}')
+})
+
+test('uses story direction before content and content direction when the story has none', () => {
+  const plainStyle: IdmlStyle = { ...paragraphStyle, id: 'plain', name: 'Plain', properties: {} }
+  const root = node('Story', [node('ParagraphStyleRange', [node('Content', [], {}, 'עברית')], { AppliedParagraphStyle: 'plain' })])
+
+  const storyStyles = new StyleMapper([plainStyle], [], new ReportCollector(), 'rtl')
+  expect(storyHtml({ id: 'story', root, direction: 'ltr' }, storyStyles, new ReportCollector(), 'rtl', undefined).html).toContain('dir="ltr"')
+
+  const contentStyles = new StyleMapper([plainStyle], [], new ReportCollector(), 'rtl')
+  expect(storyHtml({ id: 'story', root }, contentStyles, new ReportCollector(), 'rtl', undefined).html).not.toContain('dir=')
+})
+
+test('omits and reports column counts outside the Book HTML range once per frame', () => {
+  const report = new ReportCollector()
+  const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
+  const root = node('Story', [
+    node('ParagraphStyleRange', [node('Content', [], {}, 'א')], { AppliedParagraphStyle: 'p' }),
+    node('ParagraphStyleRange', [node('Content', [], {}, 'ב')], { AppliedParagraphStyle: 'p' }),
+  ])
+  const result = storyHtml({ id: 'story', root, frame: { columns: 5, gutter: 10, location: 'Spread#frame' } }, styles, report, 'rtl', 'he')
+  expect(result.html).not.toContain('data-columns')
+  expect(report.data().unsupportedElements).toEqual({ 'TextColumnCount:5': 1 })
+  expect(report.data().locations['element:TextColumnCount:5']).toEqual(['Spread#frame'])
+})

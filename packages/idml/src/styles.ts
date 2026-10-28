@@ -1,18 +1,12 @@
 import { type Element, isTag } from 'domhandler'
 import type { ReportCollector } from './report.ts'
-import { MAPPED_STYLE_PROPERTIES, NON_FORMATTING_STYLE_PROPERTIES, reportableStyleProperties } from './style-property-report.ts'
+import { stylePropertyMapping } from './style-mappings.ts'
+import { reportableStyleProperties } from './style-property-report.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
+import { idmlDirection, localName } from './xml.ts'
 
 const PARAGRAPH_ROOT = '$ID/[No paragraph style]'
 const CHARACTER_ROOT = '$ID/[No character style]'
-const CSS_MAPPED = new Set(
-  [...MAPPED_STYLE_PROPERTIES].filter((name) => !['ParagraphDirection', 'AppliedLanguage', 'AppliedFont', 'FontStyle', 'SpanColumnType'].includes(name)),
-)
-
-function localName(name: string): string {
-  return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
-}
-
 function text(element: Element): string {
   return element.children
     .map((child) => ('data' in child ? child.data : isTag(child) ? text(child) : ''))
@@ -78,12 +72,6 @@ function slug(value: string): string {
   return normalized || 'style'
 }
 
-function direction(value: string | undefined): 'ltr' | 'rtl' | undefined {
-  if (value?.toLowerCase().includes('righttoleft')) return 'rtl'
-  if (value?.toLowerCase().includes('lefttoright')) return 'ltr'
-  return undefined
-}
-
 const LANGUAGES: Record<string, string> = {
   '$ID/Hebrew': 'he',
   '$ID/English: USA': 'en-US',
@@ -93,6 +81,19 @@ const LANGUAGES: Record<string, string> = {
   '$ID/Spanish': 'es',
   '$ID/Italian': 'it',
   '$ID/Arabic': 'ar',
+}
+
+function hasCssMapping(names: Set<string>, css: string): boolean {
+  return [...names].some((name) => {
+    const mapping = stylePropertyMapping(name)
+    return mapping?.kind === 'css' && mapping.css === css
+  })
+}
+
+function textDeclarations(values: Record<string, string>, mapped: Set<string>, output: string[]): void {
+  if (mapped.has('Capitalization') && values.Capitalization === 'SmallCaps') output.push('font-variant-caps:small-caps')
+  if (mapped.has('Capitalization') && values.Capitalization === 'AllCaps') output.push('text-transform:uppercase')
+  if (mapped.has('Underline') && (values.Underline === 'true' || values.Underline === 'Underline')) output.push('text-decoration-line:underline')
 }
 
 export class StyleMapper {
@@ -154,15 +155,18 @@ export class StyleMapper {
     location: string,
     styleDirection?: 'ltr' | 'rtl',
   ): string | undefined {
-    const changed = Object.fromEntries(Object.entries(values).filter(([name, value]) => !NON_FORMATTING_STYLE_PROPERTIES.has(name) && value !== base[name]))
+    const changed = Object.fromEntries(
+      Object.entries(values).filter(([name, value]) => stylePropertyMapping(name)?.kind !== 'non-formatting' && value !== base[name]),
+    )
     const resolved = { ...base, ...values }
     for (const name of reportableStyleProperties(changed, resolved)) {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
-    this.report.font(changed.AppliedFont, changed.FontStyle, location)
-    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => CSS_MAPPED.has(name)))
+    if (changed.AppliedFont !== undefined || changed.FontStyle !== undefined) this.report.font(resolved.AppliedFont, resolved.FontStyle, location)
+    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => stylePropertyMapping(name)?.kind === 'css'))
     if (styleDirection && styleDirection !== directionValue) {
-      for (const name of ['LeftIndent', 'RightIndent', 'Justification']) {
+      for (const name of ['LeftIndent', 'RightIndent']) cssProperties[name] = base[name] ?? '0'
+      for (const name of ['Justification']) {
         if (base[name] !== undefined && cssProperties[name] === undefined) cssProperties[name] = base[name]
       }
     }
@@ -176,7 +180,7 @@ export class StyleMapper {
   }
 
   paragraphDirection(properties: Record<string, string>): 'ltr' | 'rtl' | undefined {
-    return direction(properties.ParagraphDirection)
+    return idmlDirection(properties.ParagraphDirection)
   }
 
   paragraphStyleDirection(properties: Record<string, string>): 'ltr' | 'rtl' {
@@ -217,15 +221,17 @@ export class StyleMapper {
 
   private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported = this.report.unsupportedStyleProperties): string {
     const output: string[] = []
+    const mapped = new Set(Object.keys(values).filter((name) => stylePropertyMapping(name)?.kind === 'css'))
     const pt = (name: string, property: string) => {
+      if (!mapped.has(name)) return
       const value = Number(values[name])
       if (Number.isFinite(value)) output.push(`${property}:${value}pt`)
     }
     pt('PointSize', 'font-size')
-    if (values.Leading === 'Auto') output.push(`line-height:${(Number(values.AutoLeading) || 120) / 100}`)
+    if (mapped.has('Leading') && values.Leading === 'Auto') output.push(`line-height:${(Number(values.AutoLeading) || 120) / 100}`)
     else pt('Leading', 'line-height')
     const tracking = Number(values.Tracking)
-    if (Number.isFinite(tracking)) output.push(`letter-spacing:${tracking / 1000}em`)
+    if (mapped.has('Tracking') && Number.isFinite(tracking)) output.push(`letter-spacing:${tracking / 1000}em`)
     pt('SpaceBefore', 'margin-block-start')
     pt('SpaceAfter', 'margin-block-end')
     pt('FirstLineIndent', 'text-indent')
@@ -233,12 +239,13 @@ export class StyleMapper {
     const endIndent = dir === 'rtl' ? 'LeftIndent' : 'RightIndent'
     pt(startIndent, 'padding-inline-start')
     pt(endIndent, 'padding-inline-end')
-    if (values.Capitalization === 'SmallCaps') output.push('font-variant-caps:small-caps')
-    if (values.Capitalization === 'AllCaps') output.push('text-transform:uppercase')
-    if (values.Underline === 'true' || values.Underline === 'Underline') output.push('text-decoration-line:underline')
-    this.justification(values.Justification, dir, output, location, unsupported)
-    this.keeps(values, output)
-    const color = this.color(values.FillColor, location)
+    textDeclarations(values, mapped, output)
+    if (mapped.has('Justification')) this.justification(values.Justification, dir, output, location, unsupported)
+    if (hasCssMapping(mapped, 'keeps')) this.keeps(values, output)
+    if (mapped.has('StartParagraph') && values.StartParagraph && values.StartParagraph !== 'Anywhere') {
+      this.report.add(unsupported, `StartParagraph:${values.StartParagraph}`, location)
+    }
+    const color = mapped.has('FillColor') ? this.color(values.FillColor, location) : undefined
     if (color) output.push(`color:${color}`)
     return output.join(';')
   }
@@ -292,12 +299,6 @@ export class StyleMapper {
       const last = Number(values.KeepLastLines)
       if (Number.isInteger(first) && first > 0) output.push(`orphans:${first}`)
       if (Number.isInteger(last) && last > 0) output.push(`widows:${last}`)
-    }
-    const starts: Record<string, string> = { NextColumn: 'column', NextPage: 'page' }
-    const start = values.StartParagraph && starts[values.StartParagraph]
-    if (start) output.push(`break-before:${start}`)
-    else if (values.StartParagraph === 'NextOddPage' || values.StartParagraph === 'NextEvenPage') {
-      this.report.add(this.report.unsupportedStyleProperties, `StartParagraph:${values.StartParagraph}`, 'paginator')
     }
   }
 

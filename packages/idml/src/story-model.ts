@@ -1,10 +1,9 @@
 import { type Element, isTag } from 'domhandler'
 import type { FramePreferenceIndex } from './frame-preferences.ts'
+import type { ReportCollector } from './report.ts'
+import { activeIdmlValue } from './style-property-report.ts'
 import type { IdmlStory, IdmlTextNode } from './types.ts'
-
-function localName(name: string): string {
-  return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
-}
+import { idmlDirection, localName } from './xml.ts'
 
 function textNode(node: Element, part: string, path: string): IdmlTextNode {
   const children: IdmlTextNode[] = []
@@ -29,7 +28,17 @@ function textNode(node: Element, part: string, path: string): IdmlTextNode {
   }
 }
 
-export function parseStories(parts: { name: string; all: Element[] }[], framePreferences: FramePreferenceIndex): IdmlStory[] {
+function storyDirection(element: Element, part: string, id: string, report: ReportCollector): 'ltr' | 'rtl' | undefined {
+  const preference = element.children.find((child): child is Element => isTag(child) && localName(child.name) === 'StoryPreference')
+  for (const [name, value] of Object.entries(preference?.attribs ?? {})) {
+    if (name !== 'StoryDirection' && activeIdmlValue(value)) {
+      report.add(report.unsupportedElements, `StoryPreference:${name}`, `${part}#${id}`)
+    }
+  }
+  return idmlDirection(preference?.attribs.StoryDirection ?? element.attribs.StoryDirection)
+}
+
+export function parseStories(parts: { name: string; all: Element[] }[], framePreferences: FramePreferenceIndex, report: ReportCollector): IdmlStory[] {
   const result: IdmlStory[] = []
   const seen = new Set<string>()
   for (const part of parts) {
@@ -37,8 +46,7 @@ export function parseStories(parts: { name: string; all: Element[] }[], framePre
       const id = element.attribs.Self
       if (!id || seen.has(id)) continue
       seen.add(id)
-      const rawDirection = element.attribs.StoryDirection
-      const direction = rawDirection?.includes('RightToLeft') ? 'rtl' : rawDirection?.includes('LeftToRight') ? 'ltr' : undefined
+      const direction = storyDirection(element, part.name, id, report)
       const frame = framePreferences.preferred(id)
       result.push({
         id,

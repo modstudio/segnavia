@@ -88,4 +88,36 @@ describe('importIdml', () => {
     expect(result.report.unsupportedStyleProperties).toMatchObject({ RuleAbove: 1 })
     expect(result.report.locations['element:Table']).toBeDefined()
   })
+
+  test('reads based-on, font and leading values from a style Properties child', async () => {
+    const styledMap = designmap
+      .replace('PageBinding="LeftToRight"', 'PageBinding="RightToLeft"')
+      .replace('</Document>', '<idPkg:Styles src="Resources/Styles.xml"/></Document>')
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: styledMap },
+      {
+        name: 'Spreads/Spread_s.xml',
+        content: `<Spread Self="s"><Page Self="p" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>`,
+      },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content:
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" AppliedLanguage="$ID/Hebrew"/><ParagraphStyle Self="body" Name="Body"><Properties><BasedOn>root</BasedOn><AppliedFont>Hebrew Face</AppliedFont><Leading>18</Leading></Properties></ParagraphStyle></RootParagraphStyleGroup></idPkg:Styles>',
+      },
+      {
+        name: 'Stories/Story_story.xml',
+        content:
+          '<Story Self="story"><StoryPreference StoryDirection="LeftToRightDirection"/><ParagraphStyleRange AppliedParagraphStyle="body"><Content>שלום</Content></ParagraphStyleRange></Story>',
+      },
+    ])
+    const result = await importIdml(bytes)
+    expect(result.book.lang).toBe('he')
+    const chapter = result.book.chapters[0]
+    if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
+    expect(chapter.html).toContain('dir="ltr"')
+    expect(result.book.css).toContain('.idml-p-body{line-height:18pt}')
+    expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face' }])
+  })
 })

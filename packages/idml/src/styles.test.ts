@@ -51,22 +51,27 @@ test('maps physical alignment and hanging indents to logical sides', () => {
 })
 
 test('maps keeps and deduplicates equal local override property sets', () => {
+  const report = new ReportCollector()
   const mapper = new StyleMapper(
     [style('kept', 'Kept', { KeepWithNext: '1', KeepLinesTogether: 'true', KeepAllLinesTogether: 'true', StartParagraph: 'NextPage' })],
     [],
-    new ReportCollector(),
+    report,
     'ltr',
   )
   mapper.styleClass('kept', 'paragraph')
   const first = mapper.overrideClass({ PointSize: '14' }, {}, 'ltr', 'one')
   const second = mapper.overrideClass({ PointSize: '14' }, {}, 'ltr', 'two')
   expect(first).toBe(second)
-  expect(mapper.css()).toContain('break-after:avoid;break-inside:avoid;break-before:page')
-  expect(mapper.css().match(/\.idml-o-1/g)).toHaveLength(1)
-  expect(sanitizeBookCss(mapper.css()).removed).toEqual([])
+  const css = mapper.css()
+  expect(css).toContain('break-after:avoid;break-inside:avoid')
+  expect(css).not.toContain('break-before')
+  expect(report.data().unsupportedStyleProperties).toMatchObject({ 'StartParagraph:NextPage': 1 })
+  expect(css.match(/\.idml-o-1/g)).toHaveLength(1)
+  expect(sanitizeBookCss(css).removed).toEqual([])
 })
 
 test('maps partial line keeps to orphans and widows', () => {
+  const report = new ReportCollector()
   const mapper = new StyleMapper(
     [
       style('partial', 'Partial', {
@@ -78,11 +83,14 @@ test('maps partial line keeps to orphans and widows', () => {
       }),
     ],
     [],
-    new ReportCollector(),
+    report,
     'ltr',
   )
   mapper.styleClass('partial', 'paragraph')
-  expect(mapper.css()).toContain('orphans:3;widows:4;break-before:column')
+  const css = mapper.css()
+  expect(css).toContain('orphans:3;widows:4')
+  expect(css).not.toContain('break-before')
+  expect(report.data().unsupportedStyleProperties).toMatchObject({ 'StartParagraph:NextColumn': 1 })
 })
 
 test('reports only active root gaps, non-root formatting gaps, and no style metadata', () => {
@@ -168,5 +176,15 @@ test('corrects physical indents and alignment when paragraph direction overrides
     mapper.paragraphStyleDirection(base),
   )
   expect(override).toBe('idml-o-1')
-  expect(mapper.css()).toContain('.idml-o-1{padding-inline-end:52pt;text-align:end}')
+  const css = mapper.css()
+  expect(css).toContain('.idml-p-rtl{padding-inline-start:52pt;text-align:start}')
+  expect(css).toContain('.idml-o-1{padding-inline-start:0pt;padding-inline-end:52pt;text-align:end}')
+  expect(['idml-p-rtl', override]).toEqual(['idml-p-rtl', 'idml-o-1'])
+})
+
+test('records the resolved family when only a font style is overridden', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper([], [], report, 'ltr')
+  mapper.overrideClass({ FontStyle: 'Bold' }, { AppliedFont: 'Book Face', FontStyle: 'Regular' }, 'ltr', 'Story#run')
+  expect(report.data().fonts).toMatchObject([{ appliedFont: 'Book Face', fontStyle: 'Bold' }])
 })

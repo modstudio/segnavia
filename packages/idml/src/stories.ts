@@ -1,4 +1,5 @@
 import { resolveDirection } from '@segnavia/format'
+import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
 import type { ReportCollector } from './report.ts'
@@ -117,7 +118,13 @@ function paragraphNode(
   if (resolvedDirection !== bookDirection) htmlAttributes.dir = resolvedDirection
   if (language && language !== bookLanguage) htmlAttributes.lang = language
   const span = attributes.SpanColumnType ?? flattened.SpanColumnType
-  if (frame && frame.columns >= 2 && span === 'SingleColumn') htmlAttributes['data-columns'] = String(frame.columns)
+  if (frame && frame.columns >= 2 && span === 'SingleColumn') {
+    if (Number.isInteger(frame.columns) && frame.columns >= BOOK_COLUMN_MIN && frame.columns <= BOOK_COLUMN_MAX) {
+      htmlAttributes['data-columns'] = String(frame.columns)
+    } else {
+      report.addOnce(report.unsupportedElements, `TextColumnCount:${frame.columns}`, frame.location ?? paragraph.location)
+    }
+  }
   if (span === 'SplitColumns') report.add(report.unsupportedStyleProperties, 'SpanColumnType:SplitColumns', paragraph.location)
 
   const children: (Text | Element)[] = []

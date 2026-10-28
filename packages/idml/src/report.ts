@@ -15,26 +15,48 @@ export interface IdmlReportData {
   fonts: IdmlFontUse[]
 }
 
+const BUCKET_NAMES = {
+  unsupportedElements: 'element',
+  unsupportedStyleProperties: 'style',
+  unsupportedOverrideProperties: 'override',
+  unsupportedSpecialCharacters: 'special',
+  unsupportedLanguages: 'language',
+  spotColors: 'spot',
+} as const
+
+type BucketKey = keyof typeof BUCKET_NAMES
+
 export class ReportCollector {
   readonly locations = new Map<string, string[]>()
-  readonly unsupportedElements = new Map<string, number>()
-  readonly unsupportedStyleProperties = new Map<string, number>()
-  readonly unsupportedOverrideProperties = new Map<string, number>()
-  readonly unsupportedSpecialCharacters = new Map<string, number>()
-  readonly unsupportedLanguages = new Map<string, number>()
-  readonly spotColors = new Map<string, number>()
   readonly fonts = new Map<string, IdmlFontUse>()
+  private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
+    BucketKey,
+    Map<string, number>
+  >
+
+  get unsupportedElements(): Map<string, number> {
+    return this.buckets.unsupportedElements
+  }
+  get unsupportedStyleProperties(): Map<string, number> {
+    return this.buckets.unsupportedStyleProperties
+  }
+  get unsupportedOverrideProperties(): Map<string, number> {
+    return this.buckets.unsupportedOverrideProperties
+  }
+  get unsupportedSpecialCharacters(): Map<string, number> {
+    return this.buckets.unsupportedSpecialCharacters
+  }
+  get unsupportedLanguages(): Map<string, number> {
+    return this.buckets.unsupportedLanguages
+  }
+  get spotColors(): Map<string, number> {
+    return this.buckets.spotColors
+  }
 
   constructor(seed?: Partial<IdmlReportData>) {
-    const fill = (target: Map<string, number>, values: Record<string, number> | undefined) => {
-      for (const [name, count] of Object.entries(values ?? {})) target.set(name, count)
+    for (const name of Object.keys(BUCKET_NAMES) as BucketKey[]) {
+      for (const [key, count] of Object.entries(seed?.[name] ?? {})) this.buckets[name].set(key, count)
     }
-    fill(this.unsupportedElements, seed?.unsupportedElements)
-    fill(this.unsupportedStyleProperties, seed?.unsupportedStyleProperties)
-    fill(this.unsupportedOverrideProperties, seed?.unsupportedOverrideProperties)
-    fill(this.unsupportedSpecialCharacters, seed?.unsupportedSpecialCharacters)
-    fill(this.unsupportedLanguages, seed?.unsupportedLanguages)
-    fill(this.spotColors, seed?.spotColors)
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
     for (const font of seed?.fonts ?? []) this.font(font.appliedFont, font.fontStyle, font.locations[0] ?? 'Resources/Styles.xml')
   }
@@ -47,6 +69,12 @@ export class ReportCollector {
     this.locations.set(key, values)
   }
 
+  addOnce(bucket: Map<string, number>, name: string, location: string): void {
+    const key = `${this.bucketName(bucket)}:${name}`
+    if (this.locations.get(key)?.includes(location)) return
+    this.add(bucket, name, location)
+  }
+
   font(appliedFont: string | undefined, fontStyle: string | undefined, location: string): void {
     if (!appliedFont) return
     const key = `${appliedFont}\u0000${fontStyle ?? ''}`
@@ -57,24 +85,20 @@ export class ReportCollector {
 
   data(): IdmlReportData {
     const record = (values: Map<string, number>) => Object.fromEntries([...values].sort(([a], [b]) => a.localeCompare(b)))
+    const buckets = Object.fromEntries((Object.keys(BUCKET_NAMES) as BucketKey[]).map((name) => [name, record(this.buckets[name])])) as Pick<
+      IdmlReportData,
+      BucketKey
+    >
     return {
-      unsupportedElements: record(this.unsupportedElements),
-      unsupportedStyleProperties: record(this.unsupportedStyleProperties),
-      unsupportedOverrideProperties: record(this.unsupportedOverrideProperties),
-      unsupportedSpecialCharacters: record(this.unsupportedSpecialCharacters),
-      unsupportedLanguages: record(this.unsupportedLanguages),
-      spotColors: record(this.spotColors),
+      ...buckets,
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
     }
   }
 
   private bucketName(bucket: Map<string, number>): string {
-    if (bucket === this.unsupportedElements) return 'element'
-    if (bucket === this.unsupportedStyleProperties) return 'style'
-    if (bucket === this.unsupportedOverrideProperties) return 'override'
-    if (bucket === this.unsupportedSpecialCharacters) return 'special'
-    if (bucket === this.unsupportedLanguages) return 'language'
-    return 'spot'
+    const found = (Object.keys(BUCKET_NAMES) as BucketKey[]).find((name) => this.buckets[name] === bucket)
+    if (!found) throw new Error('Report bucket is not registered.')
+    return BUCKET_NAMES[found]
   }
 }

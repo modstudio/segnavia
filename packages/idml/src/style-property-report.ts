@@ -1,3 +1,5 @@
+import { stylePropertyMapping } from './style-mappings.ts'
+
 // These are InDesign's defaults for properties that otherwise look like active formatting.
 export const INDESIGN_PROPERTY_DEFAULTS: Readonly<Record<string, readonly (string | number | boolean)[]>> = {
   HorizontalScale: [100],
@@ -37,52 +39,6 @@ export const INDESIGN_PROPERTY_DEFAULTS: Readonly<Record<string, readonly (strin
   SingleWordJustification: ['LeftAlign'],
   'OTF*': [false],
 }
-
-export const NON_FORMATTING_STYLE_PROPERTIES = new Set([
-  'Self',
-  'Name',
-  'BasedOn',
-  'AppliedParagraphStyle',
-  'AppliedCharacterStyle',
-  'SpanColumnType',
-  'EmitCss',
-  'StyleUniqueId',
-  'KeyboardShortcut',
-  'ExtendedKeyboardShortcut',
-  'Imported',
-  'PreviewColor',
-  'IncludeClass',
-  'EpubAriaRole',
-  'SplitDocument',
-  'NextStyle',
-])
-
-export const MAPPED_STYLE_PROPERTIES = new Set([
-  'PointSize',
-  'Leading',
-  'AutoLeading',
-  'Tracking',
-  'SpaceBefore',
-  'SpaceAfter',
-  'FirstLineIndent',
-  'Capitalization',
-  'Underline',
-  'FillColor',
-  'LeftIndent',
-  'RightIndent',
-  'Justification',
-  'KeepWithNext',
-  'KeepLinesTogether',
-  'KeepAllLinesTogether',
-  'KeepFirstLines',
-  'KeepLastLines',
-  'StartParagraph',
-  'ParagraphDirection',
-  'AppliedLanguage',
-  'AppliedFont',
-  'FontStyle',
-  'SpanColumnType',
-])
 
 const JUSTIFICATION_SETTINGS = new Set([
   'DesiredWordSpacing',
@@ -178,7 +134,7 @@ function isCjkLanguage(value: string | undefined): boolean {
   return /(?:chinese|japanese|korean|^zh(?:-|$)|^ja(?:-|$)|^ko(?:-|$))/i.test(value ?? '')
 }
 
-function activeRootValue(value: string): boolean {
+export function activeIdmlValue(value: string): boolean {
   const normalized = value.trim().toLowerCase()
   if (!normalized || ['false', 'none', 'nothing', '$id/none', '$id/nothing', 'n', 'no', 'off'].includes(normalized)) return false
   const numbers = normalized.split(/[\s,]+/).map(Number)
@@ -201,7 +157,7 @@ function groupedProperties(names: string[], resolved: Record<string, string>): s
 }
 
 function reportableProperty(name: string, value: string, resolved: Record<string, string>, root: boolean): string | undefined {
-  if (NON_FORMATTING_STYLE_PROPERTIES.has(name) || MAPPED_STYLE_PROPERTIES.has(name)) return undefined
+  if (stylePropertyMapping(name)) return undefined
   if (isHyphenationProperty(name) || JUSTIFICATION_SETTINGS.has(name)) return undefined
   if (['EmptyGrepStyles', 'EmptyNestedStyles', 'EmptyLineStyles'].includes(name)) return undefined
   if (['AllGREPStyles', 'AllNestedStyles', 'AllLineStyles'].includes(name) || name === 'TabList') return hasEntries(value) ? name : undefined
@@ -210,7 +166,7 @@ function reportableProperty(name: string, value: string, resolved: Record<string
   const cjkOnly = CJK_PREFIXES.some((prefix) => name.startsWith(prefix)) || CJK_PROPERTIES.has(name)
   if (cjkOnly && !isCjkLanguage(resolved.AppliedLanguage)) return undefined
   if (equalsDefault(name, value)) return undefined
-  return !root || activeRootValue(value) ? name : undefined
+  return !root || activeIdmlValue(value) ? name : undefined
 }
 
 export function reportableStyleProperties(source: Record<string, string>, resolved: Record<string, string>, root = false): string[] {

@@ -2,23 +2,15 @@ import type { Book } from '@segnavia/format'
 import { modelToBook } from './map-book.ts'
 import { idmlModel } from './model.ts'
 import { refusal } from './refusal.ts'
-import { type IdmlFontUse, ReportCollector } from './report.ts'
+import { type IdmlReportData, ReportCollector } from './report.ts'
 import { readZip } from './zip.ts'
 
 const IDML_MIMETYPE = 'application/vnd.adobe.indesign-idml-package'
 
 export type IdmlImportOptions = Record<never, never>
 
-export interface IdmlImportReport {
+export interface IdmlImportReport extends IdmlReportData {
   partsRead: string[]
-  unsupportedElements: Record<string, number>
-  unsupportedStyleProperties: Record<string, number>
-  unsupportedOverrideProperties: Record<string, number>
-  unsupportedSpecialCharacters: Record<string, number>
-  unsupportedLanguages: Record<string, number>
-  spotColors: Record<string, number>
-  locations: Record<string, string[]>
-  fonts: IdmlFontUse[]
 }
 
 export interface IdmlImportResult {

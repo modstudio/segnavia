@@ -1,10 +1,6 @@
 import { type Element, isTag } from 'domhandler'
-import { refusal } from './refusal.ts'
 import type { IdmlFramePreference } from './types.ts'
-
-function localName(name: string): string {
-  return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
-}
+import { localName, numberAttribute } from './xml.ts'
 
 function preferenceElement(frame: Element): Element | undefined {
   const pending = [...frame.children]
@@ -15,15 +11,6 @@ function preferenceElement(frame: Element): Element | undefined {
     pending.push(...node.children)
   }
   return undefined
-}
-
-function numberAttribute(element: Element, name: string, fallback: number): number {
-  const raw = element.attribs[name]
-  const value = raw === undefined ? fallback : Number(raw)
-  if (!Number.isFinite(value) || value < 0) {
-    throw refusal(`IDML ${name} must be a non-negative number`, `set ${name} to a non-negative numeric value`)
-  }
-  return value
 }
 
 export function framePreference(frame: Element, location: string): IdmlFramePreference | undefined {

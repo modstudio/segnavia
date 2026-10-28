@@ -8,6 +8,7 @@ import { parseStories } from './story-model.ts'
 import { parseStyles, parseSwatches } from './styles.ts'
 import type { IdmlFramePreference, IdmlStory, IdmlStyle, IdmlSwatch } from './types.ts'
 import { collectUnsupportedElements } from './unsupported-elements.ts'
+import { localName, numberAttribute } from './xml.ts'
 import type { ZipEntry } from './zip.ts'
 
 export type { IdmlStory } from './types.ts'
@@ -51,15 +52,10 @@ export interface IdmlModel {
   stories: IdmlStory[]
   masterStoryIds: string[]
   partsRead: string[]
-  unsupportedElements: Record<string, number>
   styles?: IdmlStyle[]
   swatches?: IdmlSwatch[]
   bodyFramePreferences?: IdmlFramePreference[]
   report?: IdmlReportData
-}
-
-function localName(name: string): string {
-  return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
 }
 
 function elements(root: AnyNode | Document, name?: string): Element[] {
@@ -84,15 +80,6 @@ function attribute(element: Element, ...names: string[]): string | undefined {
     if (value !== undefined) return value
   }
   return undefined
-}
-
-function numberAttribute(element: Element | undefined, name: string, fallback?: number): number {
-  const raw = element && attribute(element, name)
-  const value = raw === undefined ? fallback : Number(raw)
-  if (value === undefined || !Number.isFinite(value) || value < 0) {
-    throw refusal(`IDML ${name} must be a non-negative number`, `set ${name} to a non-negative numeric value`)
-  }
-  return value
 }
 
 function boolAttribute(element: Element, name: string, fallback: boolean): boolean {
@@ -324,7 +311,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     throw refusal(`IDML PageBinding ${binding} is not supported`, 'use LeftToRight or RightToLeft page binding')
   }
   const report = new ReportCollector()
-  const unsupportedCounts = collectUnsupportedElements(parts, report)
+  collectUnsupportedElements(parts, report)
   const framePreferences = new FramePreferenceIndex()
   const spreadResult = spreads(parts, 'Spread', spreadSources(designmap, 'Spread'), report, framePreferences)
   const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), report, new FramePreferenceIndex())
@@ -346,11 +333,10 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     },
     spreads: spreadResult.values as IdmlSpread[],
     masterSpreads: masterResult.values as IdmlMasterSpread[],
-    stories: parseStories(parts, framePreferences),
+    stories: parseStories(parts, framePreferences, report),
     bodyFramePreferences: framePreferences.values(),
     masterStoryIds,
     partsRead: parts.map((part) => part.name),
-    unsupportedElements: Object.fromEntries([...unsupportedCounts].sort(([left], [right]) => left.localeCompare(right))),
     styles: parts.flatMap((part) => (part.name.endsWith('/Styles.xml') || part.name === 'Resources/Styles.xml' ? parseStyles(part.all, part.name) : [])),
     swatches: parts.flatMap((part) => (part.name.endsWith('/Graphic.xml') || part.name === 'Resources/Graphic.xml' ? parseSwatches(part.all) : [])),
     report: report.data(),
