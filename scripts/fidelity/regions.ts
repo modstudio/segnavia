@@ -84,7 +84,7 @@ export function blendedRegionBoxes(facts: ComputedStyleFacts[]): Box[] {
 }
 
 export async function computedStyleFacts(root: Locator): Promise<ComputedStyleFacts[]> {
-  return root.locator('*').evaluateAll((elements) =>
+  return root.locator('xpath=descendant-or-self::*').evaluateAll((elements) =>
     elements.map((element) => {
       const box = element.getBoundingClientRect()
       const style = getComputedStyle(element)
