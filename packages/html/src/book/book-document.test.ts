@@ -3,7 +3,7 @@ import { Book, type BookInput } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
-const sectionOpen = (html: string, id: string) => html.match(new RegExp(`<section[^>]*id="${id}"[^>]*>`))?.[0] ?? ''
+const sectionOpen = (html: string, id: string) => html.match(new RegExp(`<section[^>]*id="${id}"(?:\\s[^>]*)?>`))?.[0] ?? ''
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({
   title: 'Book',
   mode: 'continuous',
@@ -154,7 +154,7 @@ describe('book document', () => {
     expect(second).toContain('data-running-head="Two"')
     expect(result.html).toContain('id="segnavia-en-1"')
     expect(result.html).toContain('id="segnavia-en-2"')
-    expect(result.html).not.toContain('id="segnavia-endnotes"')
+    expect(sectionOpen(result.html, 'segnavia-endnotes')).toBe('')
     expect(result.html).toContain('max-block-size:var(--segnavia-text-height)')
     expect(result.html).toContain('[data-segnavia-page-note] img')
   })

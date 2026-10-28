@@ -23,6 +23,13 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     }))
   }
 
+  function nextAfterNotesOk(next: ReturnType<typeof pages>[number] | undefined, chapter: string) {
+    if (!next) return true
+    if (next.flow === chapter) return false
+    if (next.role === 'blank' || next.role === 'opener' || next.role === 'fixed') return true
+    return next.role === 'body' && !/^segnavia-chapter-\d+$/.test(next.flow)
+  }
+
   function noteFlowOk(held: ReturnType<typeof pages>, flow: string) {
     const chapter = flow.replace('segnavia-endnotes-', 'segnavia-chapter-')
     const notePages = held.filter((page) => page.flow === flow)
@@ -30,8 +37,12 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     const lastChapter = Math.max(0, ...chapterPages.map((page) => page.number))
     const firstNote = Math.min(...notePages.map((page) => page.number))
     const lastNote = Math.max(...notePages.map((page) => page.number))
-    const next = held.find((page) => page.number > lastNote && page.flow !== flow)
-    const ok = lastChapter < firstNote && notePages.every((page) => page.role !== 'blank')
+    const afterChapter = held.find((page) => page.number === lastChapter + 1)
+    const next = held.find((page) => page.number === lastNote + 1)
+    const otherChapter = held.some(
+      (page) => page.number >= firstNote && page.number <= lastNote && page.flow !== flow && /^segnavia-chapter-\d+$/.test(page.flow),
+    )
+    const ok = afterChapter?.flow === flow && !otherChapter && nextAfterNotesOk(next, chapter) && notePages.every((page) => page.role !== 'blank')
     return { ok, detail: `${flow}:${lastChapter}->${firstNote}-${lastNote}:${next ? `${next.role}:${next.flow}` : 'end'}` }
   }
 
@@ -72,20 +83,46 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     })
   }
 
+  function headerClipOk(clone: Element) {
+    const clip = clone.getBoundingClientRect()
+    const head = clone.querySelector('thead')
+    const row = clone.querySelector('tbody tr')
+    if (!head || !row) return false
+    const headBox = head.getBoundingClientRect()
+    const rowBox = row.getBoundingClientRect()
+    const intersects = headBox.bottom > clip.top + 0.5 && headBox.top < clip.bottom - 0.5
+    return intersects && (rowBox.top + rowBox.bottom) / 2 >= clip.bottom - 0.5
+  }
+
+  function cloneMatchesWindow(clone: Element, win: Element) {
+    if (clone.closest('[data-segnavia-book-page]') !== win.closest('[data-segnavia-book-page]')) return false
+    const clip = clone.getBoundingClientRect()
+    const box = win.getBoundingClientRect()
+    return Math.abs(clip.bottom - box.top) <= 1.5 && Math.abs(clip.left - box.left) <= 1.5 && Math.abs(clip.right - box.right) <= 1.5
+  }
+
   function table() {
     const galley = document.querySelector('[data-segnavia-galley-source] table')
-    if (!galley) return { ok: false, detail: 'no galley table' }
+    const flow = galley?.closest('[data-segnavia-flow]')
+    if (!galley || !flow) return { ok: false, detail: 'no galley table' }
+    const origin = originTop(flow)
+    const tableBox = galley.getBoundingClientRect()
+    const tableTop = tableBox.top - origin
+    const tableBottom = tableBox.bottom - origin
     const expected = Array.from(galley.querySelectorAll('tbody tr')).map((row) => textOf(row))
-    const header = Array.from(galley.querySelectorAll('thead tr'))
-      .map((row) => textOf(row))
-      .join(' ')
     const shown = Array.from(document.querySelectorAll('[data-segnavia-window]')).flatMap((view) => rowsInView(view))
-    const repeats = Array.from(document.querySelectorAll('[data-segnavia-table-header]')).map((clone) => textOf(clone))
     const sequence = shown.join('|') === expected.join('|')
-    const continued = repeats.length > 0 && header !== '' && repeats.every((text) => text.includes(header))
+    const continuations = Array.from(document.querySelectorAll('[data-segnavia-window]')).filter((win) => {
+      const start = Number(win.getAttribute('data-start'))
+      return start > tableTop && start < tableBottom
+    })
+    const clones = Array.from(document.querySelectorAll('[data-segnavia-table-header]'))
+    const clipOk = clones.length > 0 && clones.every((clone) => headerClipOk(clone))
+    const onlyOnContinuation = clones.every((clone) => continuations.some((win) => cloneMatchesWindow(clone, win)))
+    const everyContinuation = continuations.every((win) => clones.some((clone) => cloneMatchesWindow(clone, win)))
     return {
-      ok: sequence && continued && expected.length > 0,
-      detail: `rows ${shown.length}/${expected.length} repeats ${repeats.length} header ${JSON.stringify(header)}`,
+      ok: sequence && expected.length > 0 && continuations.length > 0 && clipOk && onlyOnContinuation && everyContinuation,
+      detail: `rows ${shown.length}/${expected.length} repeats ${clones.length}/${continuations.length} clip ${clipOk}`,
     }
   }
 
