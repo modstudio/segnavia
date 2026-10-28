@@ -137,6 +137,12 @@ describe('readLocalFonts', () => {
 })
 
 describe('packLocalFaces', () => {
+  test('packs a variable-font weight range', () => {
+    expect(
+      packLocalFaces([{ family: 'Alef', data: truetype, format: 'truetype', weight: '100 900', style: 'normal' }], [{ local: 'Alef', fallback: 'serif' }]),
+    ).toEqual([{ family: 'Alef', data: 'AAEAAA==', format: 'truetype', weight: '100 900', style: 'normal' }])
+  })
+
   test('keeps only named local families, using the declared case and round-trippable bytes', async () => {
     const { base64ToBytes } = await import('@segnavia/html')
     const packed = packLocalFaces(

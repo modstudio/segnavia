@@ -33,6 +33,7 @@ export type FontFormat = (typeof FONT_FORMATS)[number]
 const LocalFaceTransportShape = {
   family: z.string().min(1),
   format: z.enum(FONT_FORMATS),
+  // Same form as FontFace.weight, including a variable-font range of two integers 1-1000, low then high, separated by one space.
   weight: z.union([z.number(), z.string()]).optional(),
   style: z.enum(['normal', 'italic']).optional(),
   data: z.string(),
@@ -50,6 +51,7 @@ export interface FontFace {
   family: string
   data: Uint8Array
   format: FontFormat
+  // A CSS font-weight: a keyword, an integer 1-1000, or two such integers low then high separated by one space (a variable-font range).
   weight?: number | string
   style?: 'normal' | 'italic'
   unicodeRange?: string

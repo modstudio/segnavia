@@ -102,10 +102,29 @@ describe('fontCss', () => {
     )
   })
 
+  test('writes a variable-font weight range of two integers low then high', () => {
+    expect(fontCss({ app: new Map(), local: [face({ family: 'Variable Face', weight: '100 900' })] })).toBe(
+      '@font-face{font-family:"Variable Face";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:100 900;font-style:normal;font-display:block}',
+    )
+    expect(fontCss({ app: new Map(), local: [face({ family: 'Equal Range', weight: '400 400' })] })).toBe(
+      '@font-face{font-family:"Equal Range";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:400 400;font-style:normal;font-display:block}',
+    )
+    expect(fontCss({ app: new Map(), local: [face({ family: 'Bounds', weight: '1 1000' })] })).toBe(
+      '@font-face{font-family:"Bounds";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:1 1000;font-style:normal;font-display:block}',
+    )
+  })
+
   test('refuses a face weight, style or format that is not a CSS descriptor', () => {
+    const weightMessage =
+      'The face "Face" could not establish a CSS font-weight; supply a number 1-1000, two such numbers low then high, or a CSS weight keyword to clear this refusal.'
     const weight = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: '400;}body{' })] })
     expect(weight).toThrow(FontCssRefusedError)
-    expect(weight).toThrow('The face "Face" could not establish a CSS font-weight; supply a number 1-1000 or a CSS weight keyword to clear this refusal.')
+    expect(weight).toThrow(weightMessage)
+    for (const invalid of ['900 100', '0 900', '100 1001', '100  900', '100 500 900', '100.5 900', 'normal 900', '100\t900', '100-900'] as const) {
+      const malformed = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: invalid })] })
+      expect(malformed).toThrow(FontCssRefusedError)
+      expect(malformed).toThrow(weightMessage)
+    }
     const style = () => fontCss({ app: new Map(), local: [face({ family: 'Face', style: 'italic;}body{' as FontFace['style'] })] })
     expect(style).toThrow(FontCssRefusedError)
     expect(style).toThrow("The face \"Face\" could not establish a font-style of 'normal' or 'italic'; supply 'normal' or 'italic' to clear this refusal.")
