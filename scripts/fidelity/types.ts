@@ -1,3 +1,4 @@
+import type { BookInput } from '@segnavia/format'
 import type { Box, Difference } from '../verify/pixel-difference.ts'
 
 export type { Box, Difference } from '../verify/pixel-difference.ts'
@@ -128,6 +129,16 @@ export interface DocumentResult {
   blendedFraction: number
   rasterEffects?: number
   bars: Record<BarId, BarResult<BarMeasurement>>
+  bookId?: string
+  pageIndex?: number
+  faultControl?: boolean
+}
+
+export interface BookFixture {
+  id: string
+  title: string
+  kind: FixtureKind
+  book: BookInput
 }
 
 export type FixtureKind = 'control' | 'effects'

@@ -25,7 +25,13 @@ export const MARKER_MATCH_MAX_SCORE = 50
 export const EXPECTED_MARKER_POSITION = MARKER_INSET * SCALE
 
 const color = (value: readonly number[]) => `rgb(${value.join(' ')})`
-export const MEASUREMENT_CSS = `html{overflow:clip!important}html::after{content:"";position:fixed;left:${MARKER_INSET}px;top:${MARKER_INSET}px;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;box-sizing:border-box;background:${color(MARKER_FILL)};border:${MARKER_BORDER}px solid ${color(MARKER_BORDER_COLOR)};z-index:2147483647;pointer-events:none}`
+
+export function markerAfterCss(selector: string, position: 'fixed' | 'absolute'): string {
+  return `${selector}{content:"";position:${position};left:${MARKER_INSET}px;top:${MARKER_INSET}px;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;box-sizing:border-box;background:${color(MARKER_FILL)};border:${MARKER_BORDER}px solid ${color(MARKER_BORDER_COLOR)};z-index:2147483647;pointer-events:none}`
+}
+
+export const MEASUREMENT_CSS = `html{overflow:clip!important}${markerAfterCss('html::after', 'fixed')}`
+export const BOOK_MEASUREMENT_CSS = markerAfterCss('[data-segnavia-book-page]::after', 'absolute')
 
 export interface BarFacts {
   kind: FixtureKind
@@ -194,6 +200,8 @@ export async function fixtures(): Promise<Fixture[]> {
   for (const entry of entries) entry.page.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
   return entries
 }
+
+export { BOOK_FACE_CSS, bookFixtures, ENGLISH_BOOK_ID, FAULT_CONTROL_PAGE, HEBREW_BOOK_ID, SHIFTED_BOOK_ID } from './book-fixtures.ts'
 
 export function chromiumPath(): string {
   const candidates = [

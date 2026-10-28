@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { PDFDocument, rgb } from 'pdf-lib'
-import { normalizeCropBox } from './pdf.ts'
+import { normalizeCropBox, splitPdfPages } from './pdf.ts'
 
 describe('fidelity PDF boxes', () => {
   test('moves a non-zero crop origin to a zero-origin media page', async () => {
@@ -22,6 +22,25 @@ describe('fidelity PDF boxes', () => {
       const normalized = await PDFDocument.load(await Bun.file(destination).arrayBuffer())
       expect(normalized.getPage(0)?.getMediaBox()).toEqual({ x: 0, y: 0, width: 100, height: 150 })
       expect(normalized.getPage(0)?.getCropBox()).toEqual({ x: 0, y: 0, width: 100, height: 150 })
+    } finally {
+      await rm(work, { recursive: true, force: true })
+    }
+  })
+
+  test('writes one single-page PDF for each source page', async () => {
+    const work = await mkdtemp(path.join(tmpdir(), 'segnavia-fidelity-split-'))
+    try {
+      const source = path.join(work, 'book.pdf')
+      const document = await PDFDocument.create()
+      document.addPage([100, 200])
+      document.addPage([100, 200])
+      document.addPage([100, 200])
+      await Bun.write(source, await document.save())
+      const pages = await splitPdfPages(source, work, 'book')
+      expect(pages).toHaveLength(3)
+      expect(pages[1]?.endsWith('book-p02.pdf')).toBeTrue()
+      const second = await PDFDocument.load(await Bun.file(pages[1] as string).arrayBuffer())
+      expect(second.getPageCount()).toBe(1)
     } finally {
       await rm(work, { recursive: true, force: true })
     }
