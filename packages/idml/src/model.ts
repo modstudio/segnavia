@@ -1,5 +1,5 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
-import { parseDocument } from 'htmlparser2'
+import { Parser, parseDocument } from 'htmlparser2'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
 import type { ZipEntry } from './zip.ts'
 
@@ -45,6 +45,7 @@ export interface IdmlModel {
   spreads: IdmlSpread[]
   masterSpreads: IdmlMasterSpread[]
   stories: IdmlStory[]
+  masterStoryIds: string[]
   partsRead: string[]
   unsupportedElements: Record<string, number>
 }
@@ -61,13 +62,17 @@ function localName(name: string): string {
 
 function elements(root: AnyNode | Document, name?: string): Element[] {
   const found: Element[] = []
-  const visit = (node: AnyNode | Document): void => {
+  const pending: (AnyNode | Document)[] = [root]
+  while (pending.length > 0) {
+    const node = pending.pop()
+    if (!node) continue
     if (isTag(node)) {
       if (!name || localName(node.name) === name) found.push(node)
     }
-    if ('children' in node) for (const child of node.children) visit(child)
+    if ('children' in node) {
+      for (let index = node.children.length - 1; index >= 0; index -= 1) pending.push(node.children[index] as AnyNode)
+    }
   }
-  visit(root)
   return found
 }
 
@@ -96,16 +101,23 @@ function boolAttribute(element: Element, name: string, fallback: boolean): boole
   throw refusal(`IDML ${name} must be true or false`, `set ${name} to true or false`)
 }
 
-function documentDepth(document: Document): number {
-  let deepest = 0
-  const visit = (node: AnyNode, depth: number): void => {
-    if (isTag(node)) {
-      deepest = Math.max(deepest, depth)
-      for (const child of node.children) visit(child, depth + 1)
-    }
-  }
-  for (const child of document.children) visit(child, 1)
-  return deepest
+function checkXmlDepth(source: string, part: string, limit: number): void {
+  let depth = 0
+  const parser = new Parser(
+    {
+      onopentag() {
+        depth += 1
+        if (depth > limit) {
+          throw refusal(`IDML XML part ${part} exceeds the ${limit} level XML depth limit`, `reduce its nesting to ${limit} levels or fewer`)
+        }
+      },
+      onclosetag() {
+        depth -= 1
+      },
+    },
+    { xmlMode: true, recognizeSelfClosing: true },
+  )
+  parser.end(source)
 }
 
 interface ParsedPart {
@@ -127,55 +139,134 @@ function parseParts(entries: ZipEntry[], limits: IdmlLimits): ParsedPart[] {
       }
       let document: Document
       try {
+        checkXmlDepth(source, entry.name, limits.xmlDepth)
         document = parseDocument(source, { xmlMode: true, recognizeSelfClosing: true })
       } catch (error) {
+        if (error instanceof Error && error.message.includes('XML depth limit')) throw error
         throw refusal(`IDML XML part ${entry.name} could not be parsed: ${String(error)}`, 'export well-formed XML')
       }
-      if (elements(document).length === 0) throw refusal(`IDML XML part ${entry.name} has no root element`, 'export a non-empty well-formed XML part')
-      const depth = documentDepth(document)
-      if (depth > limits.xmlDepth) {
-        throw refusal(
-          `IDML XML part ${entry.name} has depth ${depth}, exceeding the ${limits.xmlDepth} level XML depth limit`,
-          `reduce its nesting to ${limits.xmlDepth} levels or fewer`,
-        )
-      }
-      return { name: entry.name, document, all: elements(document) }
+      const all = elements(document)
+      if (all.length === 0) throw refusal(`IDML XML part ${entry.name} has no root element`, 'export a non-empty well-formed XML part')
+      return { name: entry.name, document, all }
     })
 }
 
 function page(element: Element): IdmlPage {
   const id = attribute(element, 'Self')
   if (!id) throw refusal('an IDML Page has no Self identifier', 'give every Page a Self identifier')
-  const stories = new Set<string>()
-  for (const frame of elements(element, 'TextFrame')) {
-    const story = attribute(frame, 'ParentStory')
-    if (story) stories.add(story)
-  }
-  return { id, appliedMaster: attribute(element, 'AppliedMaster'), stories: [...stories] }
+  return { id, appliedMaster: attribute(element, 'AppliedMaster'), stories: [] }
 }
 
-function pageStoriesFromPart(part: ParsedPart, pages: IdmlPage[]): void {
-  const byId = new Map(pages.map((value) => [value.id, value]))
-  for (const frame of part.all.filter((element) => localName(element.name) === 'TextFrame')) {
-    const parentPage = attribute(frame, 'ParentPage')
-    const story = attribute(frame, 'ParentStory')
-    const target = parentPage && byId.get(parentPage)
-    if (target && story && !target.stories.includes(story)) target.stories.push(story)
-  }
+type Transform = [number, number, number, number, number, number]
+type Point = [number, number]
+
+const IDENTITY: Transform = [1, 0, 0, 1, 0, 0]
+
+function transform(element: Element): Transform {
+  const values = (attribute(element, 'ItemTransform') ?? '').trim().split(/\s+/).map(Number)
+  return values.length === 6 && values.every(Number.isFinite) ? (values as Transform) : IDENTITY
 }
 
-function spreads(parts: ParsedPart[], kind: 'Spread' | 'MasterSpread'): (IdmlSpread | IdmlMasterSpread)[] {
+function compose(parent: Transform, child: Transform): Transform {
+  const [a, b, c, d, x, y] = parent
+  const [e, f, g, h, u, v] = child
+  return [a * e + c * f, b * e + d * f, a * g + c * h, b * g + d * h, a * u + c * v + x, b * u + d * v + y]
+}
+
+function apply(value: Transform, point: Point): Point {
+  return [value[0] * point[0] + value[2] * point[1] + value[4], value[1] * point[0] + value[3] * point[1] + value[5]]
+}
+
+function pageArea(element: Element): Point[] | undefined {
+  const bounds = (attribute(element, 'GeometricBounds') ?? '').trim().split(/\s+/).map(Number)
+  if (bounds.length !== 4 || !bounds.every(Number.isFinite)) return undefined
+  const [top, left, bottom, right] = bounds as [number, number, number, number]
+  const matrix = transform(element)
+  return [apply(matrix, [left, top]), apply(matrix, [right, top]), apply(matrix, [right, bottom]), apply(matrix, [left, bottom])]
+}
+
+function frameCenter(element: Element, matrix: Transform): Point | undefined {
+  const anchors = elements(element)
+    .map((candidate) => attribute(candidate, 'Anchor'))
+    .filter((value): value is string => value !== undefined)
+    .map((value) => value.trim().split(/\s+/).map(Number))
+    .filter((value): value is [number, number] => value.length === 2 && value.every(Number.isFinite))
+    .map((point) => apply(matrix, point))
+  if (anchors.length === 0) return undefined
+  const xs = anchors.map(([x]) => x)
+  const ys = anchors.map(([, y]) => y)
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
+}
+
+function contains(area: Point[], [x, y]: Point): boolean {
+  let inside = false
+  for (let index = 0, previous = area.length - 1; index < area.length; previous = index, index += 1) {
+    const [xi, yi] = area[index] as Point
+    const [xj, yj] = area[previous] as Point
+    if (yi === yj && y === yi && x >= Math.min(xi, xj) && x <= Math.max(xi, xj)) return true
+    const crosses = yi > y !== yj > y && x <= ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    if (crosses) inside = !inside
+  }
+  return inside
+}
+
+interface FramePlacement {
+  story: string
+  center?: Point
+}
+
+function spreadFrames(spread: Element): FramePlacement[] {
+  const result: FramePlacement[] = []
+  const pending = [...spread.children].reverse().map((node) => ({ node, matrix: IDENTITY }))
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (!current || !isTag(current.node)) continue
+    const name = localName(current.node.name)
+    if (name === 'Page' || name === 'Spread' || name === 'MasterSpread') continue
+    const matrix = name === 'Group' || name === 'TextFrame' ? compose(current.matrix, transform(current.node)) : current.matrix
+    if (name === 'TextFrame') {
+      const story = attribute(current.node, 'ParentStory')
+      if (story) result.push({ story, center: frameCenter(current.node, matrix) })
+      continue
+    }
+    for (let index = current.node.children.length - 1; index >= 0; index -= 1) {
+      pending.push({ node: current.node.children[index] as AnyNode, matrix })
+    }
+  }
+  return result
+}
+
+function placeStories(element: Element, pageElements: Element[], pages: IdmlPage[], unsupportedCounts: Map<string, number>): Set<string> {
+  const areas = pageElements.map(pageArea)
+  const frameStories = new Set<string>()
+  for (const frame of spreadFrames(element)) {
+    frameStories.add(frame.story)
+    const pageIndex = frame.center ? areas.findIndex((area) => area !== undefined && contains(area, frame.center as Point)) : -1
+    const target = pages[pageIndex]
+    if (target && !target.stories.includes(frame.story)) target.stories.push(frame.story)
+    else if (pageIndex < 0) unsupportedCounts.set('TextFrame off page', (unsupportedCounts.get('TextFrame off page') ?? 0) + 1)
+  }
+  return frameStories
+}
+
+function spreads(
+  parts: ParsedPart[],
+  kind: 'Spread' | 'MasterSpread',
+  unsupportedCounts: Map<string, number>,
+): { values: (IdmlSpread | IdmlMasterSpread)[]; frameStories: Set<string> } {
   const result: (IdmlSpread | IdmlMasterSpread)[] = []
+  const frameStories = new Set<string>()
   for (const part of parts) {
     for (const element of part.all.filter((candidate) => localName(candidate.name) === kind)) {
       const id = attribute(element, 'Self')
       if (!id) continue
-      const pages = elements(element, 'Page').map(page)
-      pageStoriesFromPart(part, pages)
+      const pageElements = elements(element, 'Page')
+      const pages = pageElements.map(page)
+      for (const story of placeStories(element, pageElements, pages, unsupportedCounts)) frameStories.add(story)
       result.push({ id, pages })
     }
   }
-  return result
+  return { values: result, frameStories }
 }
 
 function stories(parts: ParsedPart[]): IdmlStory[] {
@@ -192,7 +283,7 @@ function stories(parts: ParsedPart[]): IdmlStory[] {
   return result
 }
 
-function unsupported(parts: ParsedPart[]): Record<string, number> {
+function unsupported(parts: ParsedPart[]): Map<string, number> {
   const counts = new Map<string, number>()
   for (const part of parts) {
     for (const element of part.all) {
@@ -201,7 +292,7 @@ function unsupported(parts: ParsedPart[]): Record<string, number> {
       counts.set(name, (counts.get(name) ?? 0) + 1)
     }
   }
-  return Object.fromEntries([...counts].sort(([left], [right]) => left.localeCompare(right)))
+  return counts
 }
 
 export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS): IdmlModel {
@@ -215,7 +306,11 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
   if (binding !== 'LeftToRight' && binding !== 'RightToLeft') {
     throw refusal(`IDML PageBinding ${binding} is not supported`, 'use LeftToRight or RightToLeft page binding')
   }
-  const spreadList = spreads(parts, 'Spread') as IdmlSpread[]
+  const unsupportedCounts = unsupported(parts)
+  const spreadResult = spreads(parts, 'Spread', unsupportedCounts)
+  const masterResult = spreads(parts, 'MasterSpread', unsupportedCounts)
+  const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
+  if (masterStoryIds.length > 0) unsupportedCounts.set('master story', masterStoryIds.length)
   return {
     id: attribute(document, 'Self') ?? 'IDML document',
     preferences: {
@@ -230,10 +325,11 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
         right: numberAttribute(margin, 'Right', 0),
       },
     },
-    spreads: spreadList,
-    masterSpreads: spreads(parts, 'MasterSpread') as IdmlMasterSpread[],
+    spreads: spreadResult.values as IdmlSpread[],
+    masterSpreads: masterResult.values as IdmlMasterSpread[],
     stories: stories(parts),
+    masterStoryIds,
     partsRead: entries.map((entry) => entry.name),
-    unsupportedElements: unsupported(parts),
+    unsupportedElements: Object.fromEntries([...unsupportedCounts].sort(([left], [right]) => left.localeCompare(right))),
   }
 }

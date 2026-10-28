@@ -7,6 +7,7 @@ export interface TestZipEntry {
   declaredInflatedSize?: number
   declaredCompressedSize?: number
   localOffset?: number
+  truncateCompressedBytes?: number
 }
 
 export interface TestZipOptions {
@@ -34,6 +35,11 @@ async function deflate(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
+async function compressedContent(content: Uint8Array, entry: TestZipEntry): Promise<Uint8Array> {
+  const complete = entry.method === 8 ? await deflate(content) : content
+  return complete.subarray(0, Math.max(0, complete.byteLength - (entry.truncateCompressedBytes ?? 0)))
+}
+
 function record(size: number): { bytes: Uint8Array; view: DataView } {
   const bytes = new Uint8Array(size)
   return { bytes, view: new DataView(bytes.buffer) }
@@ -48,7 +54,7 @@ export async function testZip(entries: TestZipEntry[], options: TestZipOptions =
     const name = encoder.encode(entry.name)
     const content = typeof entry.content === 'string' ? encoder.encode(entry.content) : entry.content
     const method = entry.method ?? 0
-    const compressed = method === 8 ? await deflate(content) : content
+    const compressed = await compressedContent(content, entry)
     const local = record(30 + name.byteLength + compressed.byteLength)
     local.view.setUint32(0, 0x0403_4b50, true)
     local.view.setUint16(4, 20, true)

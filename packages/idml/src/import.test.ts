@@ -6,18 +6,31 @@ const mimetype = 'application/vnd.adobe.indesign-idml-package'
 const designmap =
   '<Document Self="sample"><DocumentPreference PageWidth="396" PageHeight="612" FacingPages="true" PageBinding="LeftToRight"/><MarginPreference Top="36" Bottom="36" Left="36" Right="36"/></Document>'
 
+const frame = (story: string, left: number): string =>
+  `<TextFrame ParentStory="${story}" ItemTransform="1 0 0 1 ${left} 0"><PathGeometry><PathPointType Anchor="10 10"/><PathPointType Anchor="90 90"/></PathGeometry></TextFrame>`
+
 describe('importIdml', () => {
   test('validates and imports an IDML package end to end', async () => {
     const bytes = await testZip([
       { name: 'mimetype', content: mimetype },
       { name: 'designmap.xml', content: designmap, method: 8 },
-      { name: 'Spreads/Spread_s.xml', content: '<Spread Self="s"><Page Self="p"><TextFrame ParentStory="story"/></Page></Spread>' },
+      {
+        name: 'Spreads/Spread_s.xml',
+        content: `<Spread Self="s"><Page Self="p1" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 0 0"/><Page Self="p2" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 100 0"/><Group ItemTransform="1 0 0 1 100 0">${frame('later', 0)}</Group>${frame('story', 0)}${frame('off-page', 300)}</Spread>`,
+      },
+      {
+        name: 'MasterSpreads/MasterSpread_m.xml',
+        content: `<MasterSpread Self="m"><Page Self="mp" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 0 0"/>${frame('master-story', 0)}</MasterSpread>`,
+      },
+      { name: 'Stories/Story_later.xml', content: '<Story Self="later"/>' },
       { name: 'Stories/Story_story.xml', content: '<Story Self="story"><Content>ignored in this slice</Content></Story>' },
+      { name: 'Stories/Story_off.xml', content: '<Story Self="off-page"/>' },
+      { name: 'Stories/Story_master.xml', content: '<Story Self="master-story"/>' },
     ])
     const result = await importIdml(bytes)
-    expect(result.book.chapters).toEqual([expect.objectContaining({ title: 'story', html: '<p></p>' })])
-    expect(result.report.partsRead).toEqual(['mimetype', 'designmap.xml', 'Spreads/Spread_s.xml', 'Stories/Story_story.xml'])
-    expect(result.report.unsupportedElements).toMatchObject({ Story: 1, Content: 1 })
+    expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
+    expect(result.report.partsRead).toHaveLength(8)
+    expect(result.report.unsupportedElements).toMatchObject({ Story: 4, Content: 1, 'TextFrame off page': 1, 'master story': 1 })
   })
 
   test('refuses a missing or wrong IDML identity entry by name', async () => {

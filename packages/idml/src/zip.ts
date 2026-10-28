@@ -131,7 +131,12 @@ async function inflate(bytes: Uint8Array, entry: CentralEntry, limits: IdmlLimit
   const chunks: Uint8Array[] = []
   let size = 0
   while (true) {
-    const next = await reader.read()
+    let next: Awaited<ReturnType<typeof reader.read>>
+    try {
+      next = await reader.read()
+    } catch {
+      throw refusal(`ZIP entry ${entry.name} could not be inflated`, 'export a complete IDML package')
+    }
     if (next.done) break
     size += next.value.byteLength
     total.bytes += next.value.byteLength

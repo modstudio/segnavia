@@ -13,7 +13,10 @@ function orderedStories(model: IdmlModel): IdmlStory[] {
       for (const story of page.stories) if (!order.has(story)) order.set(story, order.size)
     }
   }
-  return [...model.stories].sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
+  const masterStories = new Set(model.masterStoryIds)
+  return model.stories
+    .filter((story) => !masterStories.has(story.id))
+    .sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
 }
 
 export function modelToBook(model: IdmlModel): SegnaviaBook {

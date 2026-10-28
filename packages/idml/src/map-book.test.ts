@@ -17,7 +17,9 @@ test('maps document setup and orders placeholder chapters by first page', () => 
     stories: [
       { id: 'earlier', part: 'Stories/earlier.xml' },
       { id: 'later', part: 'Stories/later.xml' },
+      { id: 'master', part: 'Stories/master.xml' },
     ],
+    masterStoryIds: ['master'],
     partsRead: [],
     unsupportedElements: {},
   }

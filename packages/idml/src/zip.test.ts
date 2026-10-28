@@ -47,4 +47,9 @@ describe('readZip', () => {
       if (descriptor) Object.defineProperty(globalThis, 'DecompressionStream', descriptor)
     }
   })
+
+  test('refuses corrupt deflate data by entry name', async () => {
+    const bytes = await testZip([{ name: 'broken.xml', content: 'content that needs its complete deflate stream', method: 8, truncateCompressedBytes: 2 }])
+    await expect(readZip(bytes)).rejects.toThrow('ZIP entry broken.xml could not be inflated; export a complete IDML package to clear this refusal')
+  })
 })
