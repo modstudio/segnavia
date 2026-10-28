@@ -107,9 +107,108 @@ describe('book element input', () => {
     expect(named.title).toBe('Named book')
     expect(named.srcdoc).not.toContain("script-src 'nonce-")
   })
+
+  test('a paginated frame uses the composer and carries the spread setting', () => {
+    const pagination = {
+      paper: { width: 148, height: 210 },
+      margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+      columnGap: 4,
+      direction: 'ltr' as const,
+      numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+      rectoOpenings: false,
+      orphans: 2,
+      widows: 2,
+      parents: [],
+      endnotePlacement: 'book' as const,
+      contents: { pageNumbers: true, depth: 2 },
+      runningHead: { recto: 'title' as const, verso: 'title' as const },
+    }
+    const rendered = bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, undefined, true)
+    expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+  })
 })
 
 describe('book fonts', () => {
+  test('toggling spread supersedes a pending font resolution without reporting its abort', async () => {
+    const pending = deferred<void>()
+    const mounted: Array<{ title: string; srcdoc: string }> = []
+    const errors: unknown[] = []
+    let resolutions = 0
+    let spread = false
+    const book = new SegnaviaBook()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
+    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent).detail)
+      return true
+    }) as typeof book.dispatchEvent
+    book.fonts = {
+      source: {
+        font: async (_name, { signal }) => {
+          resolutions++
+          if (resolutions === 1) await pending.promise
+          signal.throwIfAborted()
+          return { family: 'Body Serif', faces: [], generic: 'serif' }
+        },
+      },
+    }
+    book.view = {
+      html: '<main data-segnavia-galleys></main>',
+      title: 'Latest',
+      fonts: [{ app: 'serif' }],
+      pagination: {
+        paper: { width: 148, height: 210 },
+        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        columnGap: 4,
+        direction: 'ltr',
+        numbering: { frontMatter: 'roman-lower', body: 'arabic' },
+        rectoOpenings: false,
+        orphans: 2,
+        widows: 2,
+        parents: [],
+        endnotePlacement: 'book',
+        contents: { pageNumbers: true, depth: 2 },
+        runningHead: { recto: 'title', verso: 'title' },
+      },
+    }
+    spread = true
+    await book.attributeChangedCallback('spread', null, '')
+    pending.resolve()
+    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+
+    expect(errors).toEqual([])
+    expect(mounted.at(-1)?.title).toBe('Latest')
+    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true}')
+  })
+
+  test('toggling spread during a source fetch leaves that fetch to mount its book', async () => {
+    let spread = false
+    let resolveResponse!: (response: Response) => void
+    globalThis.fetch = ((_input, init) =>
+      new Promise<Response>((resolve, reject) => {
+        resolveResponse = resolve
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      })) as typeof fetch
+    const mounted: Array<{ title: string; srcdoc: string }> = []
+    const book = new SegnaviaBook()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
+    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
+    book.view = { html: '<main>Initial</main>', title: 'Initial' }
+    await Promise.resolve()
+    const loading = book.attributeChangedCallback('src', null, 'https://example.test/book.json')
+    spread = true
+    await book.attributeChangedCallback('spread', null, '')
+    resolveResponse(Response.json({ html: '<main>Fetched</main>', title: 'Fetched' }))
+    await loading
+    for (let i = 0; i < 4; i += 1) await Promise.resolve()
+
+    expect(book.view?.title).toBe('Fetched')
+    expect(mounted.at(-1)?.title).toBe('Fetched')
+  })
+
   test('fonts and view assigned before connection mount the latest frame on connect', async () => {
     const previousDocument = globalThis.document
     const previousWindow = globalThis.window
@@ -168,6 +267,7 @@ describe('book fonts', () => {
     })
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    ;(book as unknown as { hasAttribute: () => boolean }).hasAttribute = () => false
     const children: unknown[] = []
     book.replaceChildren = ((...nodes: unknown[]) => {
       children.splice(0, children.length, ...nodes)

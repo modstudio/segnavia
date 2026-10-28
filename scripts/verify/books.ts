@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
+import { verifyPaginatedBookElements } from './book-elements.ts'
 import { EVIDENCE, type Harness } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -14,7 +15,6 @@ import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
-
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
@@ -91,6 +91,7 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBooks(h)
+  await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
 }
 

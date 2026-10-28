@@ -68,27 +68,26 @@ export function planPrintedPages(rules: PrintedPageRules, count: number, directi
   })
 }
 
-const BOOK_RULES = { every: BOOK_PARENT_NAMES.recto, recto: BOOK_PARENT_NAMES.recto, verso: BOOK_PARENT_NAMES.verso }
-
 export function selectBookParent(
   fact: BookPageFacts,
   index: number,
   count: number,
   direction: 'ltr' | 'rtl',
+  names = BOOK_PARENT_NAMES,
 ): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'side'> {
-  const selected = printedPageAt(BOOK_RULES, index, count, direction)
+  const physical = printedPageAt({ every: names.recto, recto: names.recto, verso: names.verso }, index, count, direction)
   const named = fact.parents
-  if (fact.blank) return { role: 'blank', parent: named?.blank ?? BOOK_PARENT_NAMES.blank, side: selected.side }
-  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? BOOK_PARENT_NAMES.blank, side: selected.side }
-  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? BOOK_PARENT_NAMES.opener, side: selected.side }
-  if (selected.role === 'verso') return { role: 'verso', parent: named?.verso ?? selected.parent, side: selected.side }
-  return { role: 'recto', parent: named?.recto ?? selected.parent, side: selected.side }
+  if (fact.blank) return { role: 'blank', parent: named?.blank ?? names.blank, side: physical.side }
+  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? names.blank, side: physical.side }
+  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? names.opener, side: physical.side }
+  if (physical.role === 'verso') return { role: 'verso', parent: named?.verso ?? names.verso, side: physical.side }
+  return { role: 'recto', parent: named?.recto ?? names.recto, side: physical.side }
 }
 
-export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl'): BookPrintedPagePlan[] {
+export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl', names = BOOK_PARENT_NAMES): BookPrintedPagePlan[] {
   return facts.map((fact, offset) => {
     const index = offset + 1
-    const selected = selectBookParent(fact, index, facts.length, direction)
+    const selected = selectBookParent(fact, index, facts.length, direction, names)
     if (selected.role === 'blank') return { index, ...selected }
     if (selected.role === 'opener') {
       return { index, ...selected, ...(fact.folio === undefined ? {} : { folio: fact.folio }) }

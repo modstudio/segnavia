@@ -1,17 +1,25 @@
-// <segnavia-book>: shows one continuous book in a sandboxed frame. The frame
-// fills the box its host supplies and the document scrolls inside it.
+// <segnavia-book>: shows a continuous book in a sandboxed frame, or a paginated
+// book as scaled pages and, with spread, direction-aware two-page spreads.
 
 import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
 import { type FontsOptions, refuseMissingFontSource, resolveFontReferences } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
-export function bookFrame(view: BookView, css?: string): { title: string; srcdoc: string } {
+export function bookFrame(view: BookView, css?: string, spread = false): { title: string; srcdoc: string } {
+  const title = view.title ?? bookLabel(view.lang)
+  if (view.pagination) {
+    return {
+      title,
+      srcdoc: paginatedViewDocument(view, view.pagination, { nonce: newNonce(), css, screen: { spread } }),
+    }
+  }
   return {
-    title: view.title ?? bookLabel(view.lang),
+    title,
     srcdoc: frameDocument(view.html, {
       scripts: view.scripts,
       nonce: newNonce(),
@@ -33,10 +41,11 @@ function sourceUrl(src: string): URL {
 }
 
 export class SegnaviaBook extends HTMLElementBase {
-  static observedAttributes = ['src']
+  static observedAttributes = ['src', 'spread']
   private currentView: BookView | null = null
   private loadGeneration = 0
   private loadController: AbortController | null = null
+  private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
   private fontOptions: FontsOptions | undefined
 
@@ -51,12 +60,22 @@ export class SegnaviaBook extends HTMLElementBase {
     ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
+    this.sourceLoadController = null
   }
 
-  async attributeChangedCallback(_: string, __: string | null, src: string | null) {
+  async attributeChangedCallback(name: string, previous: string | null, src: string | null) {
+    if (name === 'spread') {
+      if (previous === src || !this.currentView || this.sourceLoadController) return
+      ++this.loadGeneration
+      this.loadController?.abort()
+      this.loadController = null
+      this.mount()
+      return
+    }
     const generation = ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
+    this.sourceLoadController = null
     if (!src) {
       if (this.latestInput !== 'view') {
         this.latestInput = 'src'
@@ -68,23 +87,34 @@ export class SegnaviaBook extends HTMLElementBase {
     this.latestInput = 'src'
     const controller = new AbortController()
     this.loadController = controller
+    this.sourceLoadController = controller
     try {
       const response = await fetch(sourceUrl(src), { signal: controller.signal })
       if (!response.ok) throw new Error(`The book at ${src} answered ${response.status}.`)
       const view = BookView.parse(await response.json())
       if (generation !== this.loadGeneration) return
+      this.sourceLoadController = null
       this.currentView = view
       this.mount()
     } catch (reason) {
       if (generation !== this.loadGeneration) return
       this.reportError(reason)
     } finally {
-      if (generation === this.loadGeneration) this.loadController = null
+      if (this.sourceLoadController === controller) this.sourceLoadController = null
+      if (this.loadController === controller) this.loadController = null
     }
   }
 
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
+  }
+
+  get spread(): boolean {
+    return this.hasAttribute('spread')
+  }
+
+  set spread(value: boolean) {
+    this.toggleAttribute('spread', value)
   }
 
   set fonts(value: FontsOptions | undefined) {
@@ -93,6 +123,7 @@ export class SegnaviaBook extends HTMLElementBase {
     ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
+    this.sourceLoadController = null
     this.mount()
   }
 
@@ -104,6 +135,7 @@ export class SegnaviaBook extends HTMLElementBase {
     ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
+    this.sourceLoadController = null
     this.latestInput = 'view'
     const parsed = BookView.safeParse(input)
     if (!parsed.success) {
@@ -138,7 +170,7 @@ export class SegnaviaBook extends HTMLElementBase {
         this.reportError(reason)
         return
       }
-      this.mountFrame(bookFrame(view))
+      this.mountFrame(bookFrame(view, undefined, this.spread))
       return
     }
     const generation = this.loadGeneration
@@ -148,11 +180,14 @@ export class SegnaviaBook extends HTMLElementBase {
     void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
       .then((css) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrame(bookFrame(view, css))
+        this.mountFrame(bookFrame(view, css, this.spread))
       })
       .catch((reason) => {
-        if (generation !== this.loadGeneration || !this.isConnected) return
+        if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return
         this.reportError(reason)
+      })
+      .finally(() => {
+        if (this.loadController === controller) this.loadController = null
       })
   }
 

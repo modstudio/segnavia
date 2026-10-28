@@ -12,7 +12,7 @@ import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildAuthoringDemo } from './build-authoring-demo.ts'
 import { buildBoardDemo } from './build-board-demo.ts'
-import { buildBookDemo } from './build-book-demo.ts'
+import { buildBookDemo, buildLargeBookPdfs } from './build-book-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
@@ -36,7 +36,6 @@ const build = Bun.spawn(['bun', 'run', 'build'], { cwd: ROOT, stdout: 'inherit',
 if ((await build.exited) !== 0) throw new Error('bun run build failed.')
 rmSync(SITE, { recursive: true, force: true })
 mkdirSync(path.join(SITE, 'shots'), { recursive: true })
-
 // The demo app: English or Hebrew, signed in by cookie or a guest, with an
 // API that answers or refuses under load.
 const app = Bun.serve({
@@ -362,6 +361,7 @@ writeFileSync(
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
+  await buildLargeBookPdfs(SITE, (book) => renderer.bookPdf(book, { effects: false }))
   writeFileSync(path.join(OUT, 'deck.pdf'), await renderer.deckPdf(printable, { inline }))
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))
   writeFileSync(

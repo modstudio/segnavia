@@ -30,6 +30,10 @@ export function fillBookFurniture(html: string, values: BookFurnitureValues, dir
   )
 }
 
+export function embedFunction(name: string, fn: { name: string; toString(): string }): string {
+  return `var ${fn.name}=${fn.toString()};var ${name}=${fn.name};`
+}
+
 export function furnitureScript(): string {
-  return `var textDirection=${textDirection.toString()};\nvar resolveDirection=${resolveDirection.toString()};\n${fillBookFurniture.toString()}`
+  return `${embedFunction('textDirection', textDirection)}\n${embedFunction('resolveDirection', resolveDirection)}\n${embedFunction('fillBookFurniture', fillBookFurniture)}`
 }

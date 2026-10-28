@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, resolveDirection } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
 import {
   heldPageNumber,
   openerPageIndex,
@@ -10,7 +10,8 @@ import {
   selectBookParent,
   windowPageIndex,
 } from '@segnavia/html'
-import { BOOK_COMPOSER_SCRIPT, bookDocument, PaginatedBookRefusedError } from './book-document.ts'
+import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
+import { pageScale, spreadSlots } from './book-presentation.ts'
 
 const book = Book.parse({
   title: 'Book',
@@ -21,6 +22,56 @@ const book = Book.parse({
 })
 
 describe('bookDocument', () => {
+  test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
+    const built = await Bun.build({
+      entrypoints: ['virtual:composer-functions'],
+      minify: true,
+      target: 'browser',
+      conditions: ['@segnavia/source'],
+      format: 'cjs',
+      plugins: [
+        {
+          name: 'composer-functions',
+          setup(builder) {
+            builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
+            builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
+              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/book-composer.ts`)}; export const script = embeddedComposerFunctions();`,
+              loader: 'ts',
+            }))
+          },
+        },
+      ],
+    })
+    expect(built.success).toBe(true)
+    const bundle = await built.outputs[0]?.text()
+    expect(bundle).toBeDefined()
+    const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
+    const embedded = new Function(`${script};return {planBookPages,selectBookParent,printedPageAt,spreadSlots,pageScale}`)() as {
+      planBookPages: typeof planBookPages
+      selectBookParent: typeof selectBookParent
+      printedPageAt: typeof printedPageAt
+      spreadSlots: typeof spreadSlots
+      pageScale: typeof pageScale
+    }
+    const facts = [
+      { blank: false, sectionOpening: true, folio: '1' },
+      { blank: true, sectionOpening: false },
+      { blank: false, sectionOpening: true, role: 'fixed' as const },
+    ]
+    const blankFact = { blank: true, sectionOpening: false }
+    for (const direction of ['ltr', 'rtl'] as const) {
+      expect(embedded.planBookPages(facts, direction, BOOK_PARENT_NAMES)).toEqual(planBookPages(facts, direction, BOOK_PARENT_NAMES))
+      expect(embedded.selectBookParent(blankFact, 2, facts.length, direction, BOOK_PARENT_NAMES)).toEqual(
+        selectBookParent(blankFact, 2, facts.length, direction, BOOK_PARENT_NAMES),
+      )
+      expect(embedded.printedPageAt({ every: 'all', recto: 'odd', verso: 'even' }, 2, 3, direction)).toEqual(
+        printedPageAt({ every: 'all', recto: 'odd', verso: 'even' }, 2, 3, direction),
+      )
+    }
+    expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
+    expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
+  })
+
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
     const html = bookDocument(book, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
@@ -65,5 +116,30 @@ describe('bookDocument', () => {
     expect(html).toContain('html:not([data-segnavia-composed])')
     expect(html).toContain('attributeFilter:[name]')
     expect(html).toContain('overflow:clip')
+  })
+
+  test('builds a screen document from a paginated view without changing the print document', () => {
+    const view = {
+      html: '<main data-segnavia-galleys>Held</main>',
+      scripts: 'refuse' as const,
+      pagination: {
+        paper: { width: 148, height: 210 },
+        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        columnGap: 4,
+        direction: 'rtl' as const,
+        numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const },
+        rectoOpenings: false,
+        orphans: 2,
+        widows: 2,
+        parents: [],
+        endnotePlacement: 'book' as const,
+        contents: { pageNumbers: true, depth: 2 },
+        runningHead: { recto: 'title' as const, verso: 'title' as const },
+      },
+    }
+    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
+    const print = bookViewDocument(view, { nonce: 'held' })
+    expect(screen).toContain('"screen":{"spread":true}')
+    expect(print).not.toContain('"screen"')
   })
 })
