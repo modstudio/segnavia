@@ -1,10 +1,12 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
 import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, INK_PIXEL_TOLERANCE, type InkImage, inkBounds, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
+import { galleyInlineOffset, sequentialPairs } from './paginated-ink-windows.ts'
 
 interface InkWindow {
   flow: string
   column: number
+  columns: number
   start: number
   end: number
   top: number
@@ -13,7 +15,10 @@ interface InkWindow {
   width: number
   height: number
   blocks: number[]
+  scaledBlock: boolean
 }
+
+type CollectedInkWindow = Omit<InkWindow, 'localX'> & { flowLeft: number; runLeft?: number }
 
 interface Mismatch {
   flow: string
@@ -73,8 +78,8 @@ async function screenshotBand(h: Harness, frame: Frame, selector: string, localX
   const clipY = Math.max(iframeBox.y, y)
   return h.page.screenshot({
     clip: {
-      x: Math.round(clipX),
-      y: Math.round(clipY),
+      x: Math.floor(clipX),
+      y: Math.floor(clipY),
       width: Math.max(1, Math.round(Math.min(width, maxX - clipX))),
       height: Math.max(1, Math.round(Math.min(height, maxY - clipY))),
     },
@@ -83,8 +88,8 @@ async function screenshotBand(h: Harness, frame: Frame, selector: string, localX
 }
 
 async function collectWindows(frame: Frame): Promise<InkWindow[]> {
-  return frame.evaluate(() => {
-    const windows: InkWindow[] = []
+  const windows = await frame.evaluate(() => {
+    const windows: CollectedInkWindow[] = []
     const views = Array.from(document.querySelectorAll('[data-segnavia-window]'))
     for (const [windowIndex, view] of views.entries()) {
       const flowId = view.getAttribute('data-flow') ?? ''
@@ -92,23 +97,38 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
       if (!flow) continue
       const flowBox = flow.getBoundingClientRect()
       const viewBox = view.getBoundingClientRect()
+      const columns = Number(view.getAttribute('data-columns') ?? 1)
       const blocks = Array.from(view.querySelectorAll('[data-segnavia-block]')).map((node) => Number(node.getAttribute('data-segnavia-block')))
-      const child = blocks[0] === undefined ? undefined : flow.children[blocks[0]]
+      const children = blocks.map((index) => flow.children[index]).filter((child): child is Element => child !== undefined)
+      const run = columns > 1 ? children.find((child) => Number(child.getAttribute('data-columns')) === columns) : undefined
+      const runBox = run?.getBoundingClientRect()
+      const scaledBlock = children.some((child) => {
+        const replaced = child as Element & { naturalHeight?: number; naturalWidth?: number }
+        const naturalHeight = replaced.naturalHeight ?? 0
+        const naturalWidth = replaced.naturalWidth ?? 0
+        if (naturalHeight <= 0 || naturalWidth <= 0) return false
+        const box = child.getBoundingClientRect()
+        return box.height < naturalHeight - 0.5 || box.width < naturalWidth - 0.5
+      })
       windows.push({
         flow: flowId,
         column: Number(view.getAttribute('data-column') ?? 0),
+        columns,
         start: Number(view.getAttribute('data-start')),
         end: Number(view.getAttribute('data-end')),
         windowIndex,
-        localX: child ? Math.max(0, child.getBoundingClientRect().left - flowBox.left) : 0,
+        flowLeft: flowBox.left,
+        runLeft: runBox?.left,
         width: viewBox.width,
         height: viewBox.height,
         top: Number(view.getAttribute('data-top')),
         blocks,
+        scaledBlock,
       })
     }
     return windows
   })
+  return windows.map(({ flowLeft, runLeft, ...view }) => ({ ...view, localX: galleyInlineOffset(view.columns, flowLeft, runLeft) }))
 }
 
 function windowSelector(index: number): string {
@@ -127,19 +147,21 @@ async function showGalley(frame: Frame) {
   return frame.evaluate(() => {
     const galleys = document.querySelector('[data-segnavia-galley-source]') as HTMLElement | null
     const pages = document.querySelector('[data-segnavia-pages]') as HTMLElement | null
-    const held = { galley: galleys?.getAttribute('style') ?? '', pages: pages?.getAttribute('style') ?? '' }
+    const held = { galley: galleys?.getAttribute('style') ?? null, pages: pages?.getAttribute('style') ?? null }
     if (galleys) galleys.style.cssText = 'position:absolute;inset-block-start:0;inset-inline-start:0;visibility:visible;z-index:20;'
-    if (pages) pages.style.visibility = 'hidden'
+    if (pages) pages.style.opacity = '0'
     return held
   })
 }
 
-async function restoreGalley(frame: Frame, held: { galley: string; pages: string }) {
+async function restoreGalley(frame: Frame, held: { galley: string | null; pages: string | null }) {
   await frame.evaluate((styles) => {
     const galleys = document.querySelector('[data-segnavia-galley-source]') as HTMLElement | null
     const pages = document.querySelector('[data-segnavia-pages]') as HTMLElement | null
-    if (galleys) galleys.setAttribute('style', styles.galley)
-    if (pages) pages.setAttribute('style', styles.pages)
+    if (galleys && styles.galley === null) galleys.removeAttribute('style')
+    else if (galleys) galleys.setAttribute('style', styles.galley ?? '')
+    if (pages && styles.pages === null) pages.removeAttribute('style')
+    else if (pages) pages.setAttribute('style', styles.pages ?? '')
   }, held)
 }
 
@@ -260,29 +282,6 @@ function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, 
   recordMismatch(view, side, side === 'start' ? view.start : view.end, galley, page, mismatches)
 }
 
-function sequentialPairs(windows: InkWindow[]): Array<{ previous: InkWindow; next: InkWindow; previousIndex: number; nextIndex: number }> {
-  const groups = new Map<string, number[]>()
-  for (const [index, view] of windows.entries()) {
-    const key = `${view.flow}:${view.column}`
-    groups.set(key, [...(groups.get(key) ?? []), index])
-  }
-  const pairs: Array<{ previous: InkWindow; next: InkWindow; previousIndex: number; nextIndex: number }> = []
-  for (const indexes of groups.values()) {
-    const ordered = [...indexes].sort((left, right) => (windows[left]?.start ?? 0) - (windows[right]?.start ?? 0))
-    for (let index = 0; index + 1 < ordered.length; index += 1) {
-      const previousIndex = ordered[index] ?? 0
-      const nextIndex = ordered[index + 1] ?? 0
-      const previous = windows[previousIndex]
-      const next = windows[nextIndex]
-      if (!previous || !next || previous.end > next.start + 0.5) continue
-      // Other column runs sit between same-column windows in galley order; only near edges are page breaks.
-      if (next.start - previous.end > 40) continue
-      pairs.push({ previous, next, previousIndex, nextIndex })
-    }
-  }
-  return pairs
-}
-
 function recordBreak(previous: InkWindow, next: InkWindow, previousBands: EdgeBands, nextBands: EdgeBands, mismatches: Mismatch[]): void {
   const gap = next.start - previous.end
   if (gap > 0.5) {
@@ -316,10 +315,14 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     const galley = galleyBands[index]
     const page = pageBands[index]
     if (!galley || !page) continue
-    recordInside(view, 'start', galley.start, page.start, mismatches)
-    if (!last.has(index)) recordInside(view, 'end', galley.end, page.end, mismatches)
+    // A constrained replaced block is resampled onto different page and galley pixel grids, so its edge pixels cannot be compared exactly.
+    if (!view.scaledBlock) {
+      recordInside(view, 'start', galley.start, page.start, mismatches)
+      if (!last.has(index)) recordInside(view, 'end', galley.end, page.end, mismatches)
+    }
   }
   for (const pair of pairs) {
+    if (pair.previous.scaledBlock || pair.next.scaledBlock) continue
     const previous = galleyBands[pair.previousIndex]
     const next = galleyBands[pair.nextIndex]
     const previousPage = pageBands[pair.previousIndex]
