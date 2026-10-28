@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
+import { pointMultiset, unpointed } from './hebrew-text.ts'
 import { readPpm } from './pdf-raster.ts'
 import { differencePixels, EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from './pixel-difference.ts'
 import { decodePng } from './png-pixels.ts'
@@ -9,7 +10,6 @@ import { decodePng } from './png-pixels.ts'
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const PAGE = { width: 816, height: 1056 }
-const POINTS = /[\u0591-\u05c7]/g
 
 function downsample(source: Uint8Array, width: number, height: number): Uint8Array {
   if (width % SCALE !== 0 || height % SCALE !== 0 || source.length !== width * height * 3) throw new Error(`Unexpected ${SCALE}x raster size.`)
@@ -31,12 +31,6 @@ function downsample(source: Uint8Array, width: number, height: number): Uint8Arr
 }
 
 const text = (value: string): string => value.normalize('NFC').replace(/\s+/g, ' ').trim()
-const unpointed = (value: string): string => value.normalize('NFC').replace(POINTS, '').replace(/\s+/g, '')
-const pointMultiset = (value: string): string =>
-  [...value.normalize('NFC').matchAll(POINTS)]
-    .map(([point]) => point)
-    .sort()
-    .join('')
 
 function pointedLines(html: string): string[] {
   return [...html.matchAll(/<[^>]+\sdata-pointed(?:\s[^>]*)?>([^<]+)<\/[^>]+>/g)].map((match) => text(match[1] ?? ''))
@@ -66,9 +60,6 @@ export async function verifyHebrewNotice(renderer: Renderer, work: string, check
   const expectedFace = rows.length > 0 && rows.every((row) => /^\S*\+Alef-Regular\s/.test(row) && /\syes\s+yes\s+yes\s+\d+\s+\d+$/.test(row))
   check('the pointed Hebrew notice embeds only its supplied Hebrew face', expectedFace, rows.join('; '))
 
-  // Poppler reorders combining marks in RTL runs, so points are compared as a multiset and logical order
-  // without them. Single-point placement is held by the eye check in the parity record outside this
-  // repository, not by CI; this check holds point presence, logical order and the page-level raster.
   const extractedText = execFileSync('pdftotext', [pdfFile, '-'], { encoding: 'utf8' })
   const sourceLines = pointedLines(html)
   const sourcePoints = pointMultiset(sourceLines.join(''))

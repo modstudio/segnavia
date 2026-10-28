@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
+import { pointMultiset, unpointed } from './hebrew-text.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
   compareDesignedPages,
@@ -101,18 +102,10 @@ function normalizedPageText() {
   return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => page.textContent ?? '')
 }
 
-function normalizeBookText(value: string): string {
-  return value
-    .normalize('NFC')
-    .replace(/[\u00ad\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 function pdfPageText(language: 'en' | 'he'): string[] {
   const pages = execFileSync('pdftotext', [path.join(SITE, `book-paginated-large-${language}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
-  if (normalizeBookText(pages.at(-1) ?? '') === '') pages.pop()
-  return pages.map(normalizeBookText)
+  if (unpointed(pages.at(-1) ?? '') === '') pages.pop()
+  return pages
 }
 
 async function spreadFacts(h: Harness, language: 'en' | 'he') {
@@ -188,7 +181,7 @@ async function verifyPaginatedBookElements(h: Harness) {
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
     }))
-    screenTexts[language] = (await frame.locator('html').evaluate(normalizedPageText)).map(normalizeBookText)
+    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
     check(
       `book-large-${language} composes 300+ pages within the provisional bound`,
       report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
@@ -202,7 +195,10 @@ async function verifyPaginatedBookElements(h: Harness) {
       screenTexts[language]?.length === pdfTexts.length,
       `${screenTexts[language]?.length ?? 0}/${pdfTexts.length} pages`,
     )
-    const different = screenTexts[language]?.findIndex((text, index) => text !== pdfTexts[index]) ?? -1
+    const different =
+      screenTexts[language]?.findIndex(
+        (text, index) => unpointed(text) !== unpointed(pdfTexts[index] ?? '') || pointMultiset(text) !== pointMultiset(pdfTexts[index] ?? ''),
+      ) ?? -1
     check(
       `book-large-${language} has the PDF's text on every page`,
       different === -1,
