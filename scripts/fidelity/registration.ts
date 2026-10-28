@@ -79,6 +79,11 @@ export function registrationPasses(measured: RegistrationMeasurement, tolerance:
   )
 }
 
+export function formatRegistration(measured: RegistrationMeasurement | undefined): string {
+  if (!measured) return 'dy —, nL1@0 —; dx —, nL1@0 —'
+  return `dy ${measured.dy}, nL1@0 ${measured.residual0.toFixed(4)}; dx ${measured.dx}, nL1@0 ${measured.residualX0.toFixed(4)}`
+}
+
 export function worstRegistration(items: RegistrationMeasurement[]): RegistrationMeasurement | undefined {
   if (!items.length) return undefined
   return items.reduce((worst, next) => ({
@@ -96,12 +101,17 @@ export function measureRegistration(left: Uint8Array, right: Uint8Array, width: 
   if (area.x1 <= area.x0 || area.y1 <= area.y0) {
     throw new Error(`The body text window ${box.x},${box.y} ${box.width}×${box.height} does not overlap the ${width}×${height} raster.`)
   }
+  const screenRows = rowInk(left, width, height, box)
+  const screenColumns = columnInk(left, width, height, box)
+  if (screenRows.every((value) => value === 0) && screenColumns.every((value) => value === 0)) {
+    throw new Error(`The body text window ${box.x},${box.y} ${box.width}×${box.height} has no ink in the screen raster.`)
+  }
   const y0 = Math.floor(box.y)
   const y1 = Math.ceil(box.y + box.height)
   const x0 = Math.floor(box.x)
   const x1 = Math.ceil(box.x + box.width)
-  const row = bestProfileShift(rowInk(left, width, height, box), rowInk(right, width, height, box), y0, y1, search)
-  const column = bestProfileShift(columnInk(left, width, height, box), columnInk(right, width, height, box), x0, x1, search)
+  const row = bestProfileShift(screenRows, rowInk(right, width, height, box), y0, y1, search)
+  const column = bestProfileShift(screenColumns, columnInk(right, width, height, box), x0, x1, search)
   return {
     dy: row.best,
     residual: row.residual,

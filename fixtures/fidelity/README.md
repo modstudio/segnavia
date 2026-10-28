@@ -28,6 +28,8 @@ mask, so they test color conversion alone:
 - `control-photo.html`: deterministic generated JPEG photographs at three sizes on a flat background; regenerate it with `bun scripts/fidelity/control-photo.ts`.
 - `control-book-en.html` / `control-book-he.html`: paginated control books (English; vocalized right-to-left Hebrew), each with footnotes and a paragraph that breaks across a page. The suite registers them as book fixtures, not as single HTML pages.
 
+The Hebrew book's third page is deliberately periodic as the line-registration stress case.
+
 Every measured region has a `data-fidelity` name in its document. The run
 summary records whole-page and region differences for each PDF reader, PDF
 structure, reader failures, and links to threshold-exceeding side-by-sides.

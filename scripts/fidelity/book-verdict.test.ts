@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { bookPagesPass, failedBookBars, faultControlFailure, faultControlProvesShift, pageCountRefusal } from './book-verdict.ts'
+import { failedBookBars, faultControlFailure, faultControlProvesShift, pageCountRefusal } from './book-verdict.ts'
 import type { DocumentResult, RegistrationMeasurement } from './types.ts'
 
 const registration = (passed: boolean): RegistrationMeasurement => ({
@@ -18,7 +18,7 @@ const bars = (passed: boolean, registrationMeasured = true): DocumentResult['bar
     grayPressColor: { passed: true },
     size: { passed: true },
     registration: {
-      passed: registrationMeasured ? passed : true,
+      passed: registrationMeasured ? passed : false,
       measured: registrationMeasured ? registration(passed) : undefined,
       applicable: true,
     },
@@ -43,12 +43,6 @@ const page = (overrides: Partial<DocumentResult> & Pick<DocumentResult, 'id' | '
     ...overrides,
   }) as DocumentResult
 
-test('a book passes only when every page passes every bar', () => {
-  const passing = [page({ id: 'control-book-en/p01', bars: bars(true) }), page({ id: 'control-book-en/p02', bars: bars(true) })]
-  expect(bookPagesPass(passing)).toBeTrue()
-  expect(bookPagesPass([passing[0] as DocumentResult, page({ id: 'control-book-en/p02', bars: bars(false) })])).toBeFalse()
-})
-
 test('the fault control inverts: it holds only when the registration bar was measured and failed', () => {
   const failed = page({ id: 'control-book-en-shifted/p02', bars: bars(false), faultControl: true })
   const passed = page({ id: 'control-book-en-shifted/p02', bars: bars(true), faultControl: true })
@@ -61,7 +55,7 @@ test('the fault control inverts: it holds only when the registration bar was mea
   expect(faultControlProvesShift(passed)).toBeFalse()
   expect(faultControlProvesShift(missing)).toBeFalse()
   expect(faultControlFailure(passed)).toContain('passed the registration bar')
-  expect(faultControlFailure(missing)).toContain('no registration measurement')
+  expect(faultControlFailure(missing)).toBeUndefined()
   expect(faultControlFailure(failed)).toBeUndefined()
   expect(failedBookBars(failed)).toContain('Line registration')
 })

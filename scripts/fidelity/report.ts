@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { barCell, totalBars } from './bars.ts'
+import { ENGLISH_BOOK_ID, SHIFTED_BOOK_ID } from './book-fixtures.ts'
 import { failedBookBars } from './book-verdict.ts'
 import {
   ACCEPTANCE_BARS,
@@ -12,6 +13,7 @@ import {
   PRESS_BLEND_THRESHOLD,
   PRESS_COLOR_THRESHOLD,
 } from './config.ts'
+import { formatRegistration } from './registration.ts'
 import type { DocumentResult, FidelityRun, RegionResult, RegistrationMeasurement } from './types.ts'
 
 const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
@@ -42,13 +44,13 @@ function differenceCell(value: { mean: number; p99: number } | undefined): strin
 }
 
 function registrationCell(value: RegistrationMeasurement | undefined): string {
-  return value ? `dy ${value.dy}, nL1@0 ${value.residual0.toFixed(4)}; dx ${value.dx}, nL1@0 ${value.residualX0.toFixed(4)}` : 'not measured'
+  return value ? formatRegistration(value) : 'not measured'
 }
 
 function faultControlSection(run: FidelityRun): string {
-  const fault = run.documents.find((document) => document.faultControl)
+  const fault = run.documents.find((document) => document.bookId === SHIFTED_BOOK_ID)
   if (!fault) return ''
-  const passing = run.documents.filter((document) => document.bookId && document.bookId === fault.bookId?.replace(/-shifted$/, '') && !document.faultControl)
+  const passing = run.documents.filter((document) => document.bookId === ENGLISH_BOOK_ID)
   const passingPress = passing.map((document) => `${document.title}: ${differenceCell(document.pressDifference)}`).join('; ')
   const failed = failedBookBars(fault)
   return `\n## Fault control\n\n${documentTitle(fault)} is a standing negative control: the PDF text window of that page is shifted by one line pitch, and the screen is not. It must fail the registration bar.\n\n- Passing pages: ${passingPress || 'none'}\n- Fault control press: ${differenceCell(fault.pressDifference)} — ${fault.bars.pressColor.passed ? 'PASS' : 'FAIL'}\n- Fault control registration: ${registrationCell(fault.bars.registration.measured as RegistrationMeasurement | undefined)} — ${fault.bars.registration.passed ? 'PASS' : 'FAIL'}\n- Bars it fails: ${failed.length ? failed.join(', ') : 'none'}\n`

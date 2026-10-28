@@ -14,12 +14,6 @@ export const BOOK_FACE_CSS =
 
 const page = { paper: { width: 6, height: 9, unit: 'in' as const }, margin: { top: 16, bottom: 18, inner: 16, outer: 12 } }
 
-function filled(html: string, hebrew: boolean): string {
-  if (!hebrew) return html
-  const sentence = 'עוֹד מִשְׁפָּט עַל הַיָּם וְעַל הַנָּמֵל שֶׁמְּמַלֵּא אֶת הָעַמּוּד הַשְּׁלִישִׁי בְּפִסְקָה אַחַת. '
-  return `${html}<p data-fidelity="third-page">${sentence.repeat(24)}</p>`
-}
-
 function controlBook(id: 'en' | 'he', html: string): BookInput {
   const hebrew = id === 'he'
   return {
@@ -27,7 +21,7 @@ function controlBook(id: 'en' | 'he', html: string): BookInput {
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
     page,
-    chapters: [{ title: hebrew ? 'הַנָּמֵל' : 'The Harbour', html: filled(html, hebrew) }],
+    chapters: [{ title: hebrew ? 'הַנָּמֵל' : 'The Harbour', html }],
   }
 }
 

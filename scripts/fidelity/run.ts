@@ -7,6 +7,7 @@ import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'
 import { printCss } from '../../packages/render/src/page-paper.ts'
 import { renderBookFixtures } from './book-run.ts'
+import { faultControlProvesShift } from './book-verdict.ts'
 import { ACCEPTANCE_BARS, chromiumPath, EXPECTED_MARKER_POSITION, fixtures, MEASUREMENT_CSS, OUTPUT_ROOT, ROOT, SCALE } from './config.ts'
 import { bleedViewport, trimRasterBox } from './geometry.ts'
 import { cropImage, proofTable } from './image.ts'
@@ -14,7 +15,7 @@ import { type FidelitySession, finishDocument, prepareEffectless } from './measu
 import { trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
 import { pressDisplayProfile, pressGhostscriptSettings, pressRasterizer, pressRasterizerEngine } from './readers.ts'
-import { type ComputedStyleFacts, computedStyleFacts, offsetBoxes } from './regions.ts'
+import { type ComputedStyleFacts, computedStyleFacts, fidelityRegions, offsetBoxes } from './regions.ts'
 import { writeSummary } from './report.ts'
 import type { Box, DocumentResult, FidelityRun, PosterEvidence } from './types.ts'
 
@@ -90,15 +91,9 @@ try {
       css: reference.css,
       beforeOutput: async (tab: Tab) => {
         if (reference.crop) await tab.emulateMedia({ media: 'print' })
-        regions.push(
-          ...(await tab.locator('[data-fidelity]').evaluateAll((elements) =>
-            elements.map((element) => {
-              const box = element.getBoundingClientRect()
-              return { name: element.getAttribute('data-fidelity') ?? 'unnamed', box: { x: box.x, y: box.y, width: box.width, height: box.height } }
-            }),
-          )),
-        )
-        blendedFacts = await computedStyleFacts(tab)
+        const root = tab.locator('html')
+        regions.push(...(await fidelityRegions(root)))
+        blendedFacts = await computedStyleFacts(root)
       },
     })
     let rasterEffects = 0
@@ -194,3 +189,12 @@ const run: FidelityRun = {
 }
 await writeSummary(run, directory)
 console.log(`Fidelity report: ${path.join(directory, 'summary.md')}`)
+if (
+  documents.some(
+    (document) =>
+      (document.faultControl && !faultControlProvesShift(document)) ||
+      (!document.faultControl && Object.values(document.bars).some((bar) => bar.applicable !== false && !bar.passed)),
+  )
+) {
+  process.exitCode = 1
+}

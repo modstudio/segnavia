@@ -4,7 +4,7 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { type Browser, chromium, type Page as Tab } from 'playwright-core'
 import { SCALE } from './config.ts'
-import type { ComputedStyleFacts } from './regions.ts'
+import { type ComputedStyleFacts, computedStyleFacts, fidelityRegions, offsetBoxes } from './regions.ts'
 import type { Box } from './types.ts'
 
 const OFFLINE_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
@@ -78,40 +78,6 @@ async function paperTextWindow(tab: Tab, index: number, origin: { x: number; y: 
   return box
 }
 
-async function paperRegions(tab: Tab, index: number, origin: { x: number; y: number }): Promise<Array<{ name: string; box: Box }>> {
-  return tab.locator(`[data-segnavia-book-page="${index}"] [data-fidelity]`).evaluateAll((elements, held) => {
-    return elements.map((element) => {
-      const box = element.getBoundingClientRect()
-      return {
-        name: element.getAttribute('data-fidelity') ?? 'unnamed',
-        box: { x: box.x - held.x, y: box.y - held.y, width: box.width, height: box.height },
-      }
-    })
-  }, origin)
-}
-
-async function paperBlendedFacts(tab: Tab, index: number, origin: { x: number; y: number }): Promise<ComputedStyleFacts[]> {
-  return tab.locator(`[data-segnavia-book-page="${index}"] *`).evaluateAll((elements, held) => {
-    return elements.map((element) => {
-      const box = element.getBoundingClientRect()
-      const style = getComputedStyle(element)
-      return {
-        box: { x: box.x - held.x, y: box.y - held.y, width: box.width, height: box.height },
-        backgroundImage: style.backgroundImage,
-        borderImage: style.borderImage,
-        opacity: style.opacity,
-        mixBlendMode: style.mixBlendMode,
-        filter: style.filter,
-        backdropFilter: style.getPropertyValue('backdrop-filter') || style.getPropertyValue('-webkit-backdrop-filter'),
-        boxShadow: style.boxShadow,
-        textShadow: style.textShadow,
-        mask: style.getPropertyValue('mask') || style.getPropertyValue('-webkit-mask'),
-        maskImage: style.getPropertyValue('mask-image') || style.getPropertyValue('-webkit-mask-image'),
-      }
-    })
-  }, origin)
-}
-
 export async function captureBookPapers(browser: Browser, book: Book, css: string): Promise<BookPaperCapture[]> {
   const view = bookView(book)
   if (!view.pagination) throw new Error('A paginated book view needs pagination; supply a paginated Book to clear this refusal.')
@@ -179,11 +145,15 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
           `Paper ${held.index} text window at ${textWindow.x},${textWindow.y} ${textWindow.width}×${textWindow.height} CSS px does not overlap the ${held.expectedWidth}×${held.expectedHeight} paper.`,
         )
       }
+      const regions = await fidelityRegions(locator)
+      const blendedFacts = await computedStyleFacts(locator)
+      offsetBoxes(regions, origin.x, origin.y)
+      offsetBoxes(blendedFacts, origin.x, origin.y)
       captures.push({
         index: held.index,
         bytes,
-        regions: await paperRegions(tab, held.index, origin),
-        blendedFacts: await paperBlendedFacts(tab, held.index, origin),
+        regions,
+        blendedFacts,
         textWindow,
       })
     }

@@ -2,24 +2,19 @@ import { ACCEPTANCE_BARS, type BarFacts, PRESS_BLEND_THRESHOLD } from './config.
 import { worstRegistration } from './registration.ts'
 import type { BarId, BarMeasurement, BarResult, Difference, DocumentResult, RegistrationMeasurement, SizeMeasurement } from './types.ts'
 
-function barApplicable(id: BarId, kind: BarFacts['kind']): boolean {
-  if (id === 'effects') return kind === 'effects'
-  if (id === 'registration') return kind === 'book'
-  return true
-}
-
 export function measureBars(facts: BarFacts): Record<BarId, BarResult<BarMeasurement>> {
   return Object.fromEntries(
     ACCEPTANCE_BARS.map((bar) => {
       const measured = bar.measure(facts)
+      const applicable = bar.applicable(facts.kind)
       return [
         bar.id,
         {
           measured,
-          passed: bar.pass(measured, facts),
-          applicable: barApplicable(bar.id, facts.kind),
+          passed: !applicable || bar.pass(measured, facts),
+          applicable,
           threshold: bar.thresholdFor?.(facts) ?? bar.threshold,
-          reason: bar.reason(measured, facts),
+          reason: applicable ? bar.reason(measured, facts) : undefined,
         },
       ]
     }),

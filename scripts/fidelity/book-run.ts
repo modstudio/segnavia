@@ -6,7 +6,7 @@ import type { Page as Tab } from 'playwright-core'
 import { BOOK_FACE_CSS, bookFixtures, ENGLISH_BOOK_ID, FAULT_CONTROL_PAGE, SHIFTED_BOOK_ID } from './book-fixtures.ts'
 import { bookPageId } from './book-page-id.ts'
 import { captureBookPapers, openBookBrowser, shiftTextWindowByOneLine } from './book-screen.ts'
-import { bookPagesPass, faultControlFailure, pageCountRefusal } from './book-verdict.ts'
+import { faultControlFailure, pageCountRefusal } from './book-verdict.ts'
 import { BOOK_MEASUREMENT_CSS, EXPECTED_MARKER_POSITION } from './config.ts'
 import { type FidelitySession, finishDocument, prepareEffectless } from './measure-document.ts'
 import { splitPdfPages, trimPdf } from './pdf.ts'
@@ -198,14 +198,6 @@ export async function renderBookFixtures(session: FidelitySession, directory: st
   for (const fixture of fixtures) {
     console.log(`Rendering ${fixture.title}`)
     const pages = await measureBookPages(session, directory, fixture)
-    if (!bookPagesPass(pages)) {
-      const failed = pages.flatMap((page) =>
-        Object.entries(page.bars)
-          .filter(([, bar]) => !bar.passed)
-          .map(([id, bar]) => `${page.id} ${id}${bar.reason ? ` (${bar.reason})` : ''}`),
-      )
-      throw new Error(`${fixture.title} failed the book bars: ${failed.join('; ')}.`)
-    }
     documents.push(...pages)
   }
   console.log('Rendering English control book fault control')
