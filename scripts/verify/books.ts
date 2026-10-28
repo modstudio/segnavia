@@ -103,27 +103,14 @@ function normalizedPageText() {
 async function verifyPaginatedBookElements(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated-screen.html'))
-  const screenTexts: Record<string, string[]> = {}
   for (const language of ['en', 'he'] as const) {
     const id = `book-screen-${language}`
     const frame = page.frameLocator(`#${id} iframe`)
     await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`${id} composition failed: ${failure}`)
-    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
-  }
-  for (const language of ['en', 'he'] as const) {
-    await page.goto(h.url(`book-paginated-${language}.html`))
-    await page.locator('html[data-segnavia-composed]').waitFor({ timeout: REPAGINATE_BOUND_MS })
-    const printTexts = await page.locator('html').evaluate(normalizedPageText)
-    check(
-      `book-screen-${language} has the print document's page count and text`,
-      JSON.stringify(screenTexts[language]) === JSON.stringify(printTexts),
-      `${screenTexts[language]?.length ?? 0}/${printTexts.length} pages`,
-    )
   }
 
-  await page.goto(h.url('book-paginated-screen.html'))
   await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
   await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
@@ -145,6 +132,8 @@ async function verifyPaginatedBookElements(h: Harness) {
     )
   }
 
+  await page.goto(h.url('book-paginated-large.html'))
+  const screenTexts: Record<string, string[]> = {}
   for (const language of ['en', 'he'] as const) {
     const frame = page.frameLocator(`#book-large-${language} iframe`)
     await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
@@ -154,10 +143,21 @@ async function verifyPaginatedBookElements(h: Harness) {
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
     }))
+    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
     check(
       `book-large-${language} composes 300+ pages within the provisional bound`,
       report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
       JSON.stringify({ ...report, bound: REPAGINATE_BOUND_MS }),
+    )
+  }
+  for (const language of ['en', 'he'] as const) {
+    await page.goto(h.url(`book-paginated-large-${language}.html`))
+    await page.locator('html[data-segnavia-composed]').waitFor({ timeout: REPAGINATE_BOUND_MS })
+    const printTexts = await page.locator('html').evaluate(normalizedPageText)
+    check(
+      `book-large-${language} has the print document's page count and text`,
+      JSON.stringify(screenTexts[language]) === JSON.stringify(printTexts),
+      `${screenTexts[language]?.length ?? 0}/${printTexts.length} pages`,
     )
   }
 }

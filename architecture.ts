@@ -42,6 +42,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/printed-page-document.ts',
       'src/book-composer.ts',
       'src/book-document.ts',
+      'src/book-view-document.ts',
       'src/motif-expansion.ts',
       'src/page-fonts.ts',
       'src/slot-render.ts',
