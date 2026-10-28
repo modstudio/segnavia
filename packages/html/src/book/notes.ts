@@ -12,7 +12,6 @@ export interface NoteState {
   globalFootnote: number
   chapterFootnotes: Map<number, number>
   endnoteCount: number
-  endnoteParagraphs: Element[]
   chapterEndnotes: Map<number, Element[]>
   footnoteParagraphs: Element[]
 }
@@ -24,10 +23,13 @@ export function noteState(): NoteState {
     globalFootnote: 0,
     chapterFootnotes: new Map(),
     endnoteCount: 0,
-    endnoteParagraphs: [],
     chapterEndnotes: new Map(),
     footnoteParagraphs: [],
   }
+}
+
+export function endnotesInOrder(state: NoteState): Element[] {
+  return [...state.chapterEndnotes.values()].flat()
 }
 
 function nearestBlock(note: Element): Element | undefined {
@@ -82,7 +84,7 @@ function transformFootnote(note: Element, book: Book, chapter: number, state: No
   state.footnotes = true
 }
 
-function transformEndnote(note: Element, book: Book, chapter: number, state: NoteState): void {
+function transformEndnote(note: Element, book: Book, state: NoteState, owner: number): void {
   state.endnoteCount += 1
   const number = state.endnoteCount
   const noteId = `segnavia-en-${number}`
@@ -91,20 +93,19 @@ function transformEndnote(note: Element, book: Book, chapter: number, state: Not
   const content = [...note.children]
   replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
   const paragraph = noteParagraph('segnavia-endnote', noteId, refId, marker, content)
-  state.endnoteParagraphs.push(paragraph)
-  const held = state.chapterEndnotes.get(chapter) ?? []
+  const held = state.chapterEndnotes.get(owner) ?? []
   held.push(paragraph)
-  state.chapterEndnotes.set(chapter, held)
+  state.chapterEndnotes.set(owner, held)
   state.endnotes = true
 }
 
-export function transformNotes(root: Element, book: Book, chapter: number, state: NoteState, galley = false): void {
+export function transformNotes(root: Element, book: Book, chapter: number, state: NoteState, galley = false, notesOwner = chapter): void {
   const blocks = new Map<Element, Element>()
   const notes = elements(root.children).filter(
     (node) => node.name === 'span' && (node.attribs['data-note'] === 'footnote' || node.attribs['data-note'] === 'endnote'),
   )
   for (const note of notes) {
     if (note.attribs['data-note'] === 'footnote') transformFootnote(note, book, chapter, state, blocks, galley)
-    else transformEndnote(note, book, chapter, state)
+    else transformEndnote(note, book, state, notesOwner)
   }
 }
