@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { PX_PER_MM } from '@segnavia/format'
-import { EVIDENCE, type Harness } from './harness.ts'
+import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
   compareDesignedPages,
@@ -97,7 +98,56 @@ export async function verifyBooks(h: Harness) {
 }
 
 function normalizedPageText() {
-  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => (page.textContent ?? '').replace(/\s+/g, ' ').trim())
+  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => page.textContent ?? '')
+}
+
+function normalizeBookText(value: string): string {
+  return value
+    .normalize('NFC')
+    .replace(/[\u00ad\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function pdfPageText(language: 'en' | 'he'): string[] {
+  const pages = execFileSync('pdftotext', [path.join(SITE, `book-paginated-large-${language}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
+  if (normalizeBookText(pages.at(-1) ?? '') === '') pages.pop()
+  return pages.map(normalizeBookText)
+}
+
+async function spreadFacts(h: Harness, language: 'en' | 'he') {
+  return h.page
+    .frameLocator(`#book-screen-${language} iframe`)
+    .locator('html')
+    .evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
+      const direction = document.documentElement.dir
+      const leading = rect('[data-segnavia-spread-blank]')
+      const first = rect('[data-segnavia-book-page="1"]')
+      const rows = [2, 4, 6].map((even) => {
+        const left = rect(`[data-segnavia-book-page="${even}"]`)
+        const right = rect(`[data-segnavia-book-page="${even + 1}"]`)
+        return {
+          pages: `${even}/${even + 1}`,
+          sameRow: left !== undefined && right !== undefined && Math.abs(left.top - right.top) < 0.5,
+          readingOrder: left !== undefined && right !== undefined && (direction === 'rtl' ? left.left > right.left : left.left < right.left),
+        }
+      })
+      const planned = document.querySelector('[data-segnavia-book-page][data-segnavia-role="blank"]') as HTMLElement | null
+      const plannedRect = planned?.getBoundingClientRect()
+      const paper = rect('[data-segnavia-book-page="1"]')
+      return {
+        direction,
+        leadingRecto: leading !== undefined && first !== undefined && (direction === 'rtl' ? leading.left > first.left : leading.left < first.left),
+        rows,
+        plannedBlank: planned?.getAttribute('data-segnavia-book-page'),
+        plannedBlankKeepsSlot:
+          plannedRect !== undefined &&
+          paper !== undefined &&
+          Math.abs(plannedRect.width - paper.width) < 0.5 &&
+          Math.abs(plannedRect.height - paper.height) < 0.5,
+      }
+    })
 }
 
 async function verifyPaginatedBookElements(h: Harness) {
@@ -115,22 +165,17 @@ async function verifyPaginatedBookElements(h: Harness) {
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
   await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: REPAGINATE_BOUND_MS })
   for (const language of ['en', 'he'] as const) {
-    const positions = await page
-      .frameLocator(`#book-screen-${language} iframe`)
-      .locator('html')
-      .evaluate(() => {
-        const blank = document.querySelector('[data-segnavia-spread-blank]')?.getBoundingClientRect()
-        const first = document.querySelector('[data-segnavia-book-page="1"]')?.getBoundingClientRect()
-        return { blankLeft: blank?.left, firstLeft: first?.left, direction: document.documentElement.dir }
-      })
+    const positions = await spreadFacts(h, language)
     check(
-      `book-screen-${language} leaves the first page alone on its recto side`,
-      positions.blankLeft !== undefined &&
-        positions.firstLeft !== undefined &&
-        (positions.direction === 'rtl' ? positions.blankLeft > positions.firstLeft : positions.blankLeft < positions.firstLeft),
+      `book-screen-${language} keeps recto, paired rows and planned blanks in their spread slots`,
+      positions.leadingRecto && positions.rows.every((row) => row.sameRow && row.readingOrder) && positions.plannedBlankKeepsSlot,
       JSON.stringify(positions),
     )
   }
+  const englishFrame = page.frameLocator('#book-screen-en iframe')
+  await englishFrame.locator('[data-segnavia-spread-blank]').evaluate((element) => element.remove())
+  const mutated = await spreadFacts(h, 'en')
+  check('the spread check detects a removed leading empty slot', !mutated.leadingRecto, JSON.stringify(mutated))
 
   await page.goto(h.url('book-paginated-large.html'))
   const screenTexts: Record<string, string[]> = {}
@@ -143,7 +188,7 @@ async function verifyPaginatedBookElements(h: Harness) {
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
     }))
-    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
+    screenTexts[language] = (await frame.locator('html').evaluate(normalizedPageText)).map(normalizeBookText)
     check(
       `book-large-${language} composes 300+ pages within the provisional bound`,
       report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
@@ -151,13 +196,19 @@ async function verifyPaginatedBookElements(h: Harness) {
     )
   }
   for (const language of ['en', 'he'] as const) {
-    await page.goto(h.url(`book-paginated-large-${language}.html`))
-    await page.locator('html[data-segnavia-composed]').waitFor({ timeout: REPAGINATE_BOUND_MS })
-    const printTexts = await page.locator('html').evaluate(normalizedPageText)
+    const pdfTexts = pdfPageText(language)
     check(
-      `book-large-${language} has the print document's page count and text`,
-      JSON.stringify(screenTexts[language]) === JSON.stringify(printTexts),
-      `${screenTexts[language]?.length ?? 0}/${printTexts.length} pages`,
+      `book-large-${language} has the PDF's page count`,
+      screenTexts[language]?.length === pdfTexts.length,
+      `${screenTexts[language]?.length ?? 0}/${pdfTexts.length} pages`,
+    )
+    const different = screenTexts[language]?.findIndex((text, index) => text !== pdfTexts[index]) ?? -1
+    check(
+      `book-large-${language} has the PDF's text on every page`,
+      different === -1,
+      different === -1
+        ? `${pdfTexts.length} pages`
+        : JSON.stringify({ page: different + 1, screen: screenTexts[language]?.[different], pdf: pdfTexts[different] }),
     )
   }
 }

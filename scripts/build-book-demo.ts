@@ -244,16 +244,30 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   )
 }
 
-function largePaginatedFixture(hebrew: boolean): BookInput {
-  const pages = Array.from({ length: 302 }, (_, index) => ({
-    html: `<article><p>${hebrew ? 'עמוד' : 'Page'} ${index + 1}. ${hebrew ? 'טקסט לבדיקת ספר גדול.' : 'Text for the large-book check.'}</p></article>`,
-  }))
+export function largePaginatedFixture(hebrew: boolean): BookInput {
+  const chapters = Array.from({ length: 40 }, (_, cycle) => {
+    const number = cycle * 3
+    return [
+      { title: `${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, html: chapterOneHtml(hebrew) },
+      { title: `${hebrew ? 'פרק שני' : 'Chapter Two'} ${number + 2}`, html: chapterTwoHtml(hebrew) },
+      { title: `${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, html: chapterThreeHtml(hebrew) },
+    ]
+  }).flat()
   return {
     title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
     page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
-    chapters: [{ kind: 'designed', title: hebrew ? 'עמודים' : 'Pages', pages }],
+    rectoOpenings: true,
+    endnotes: { placement: 'chapter' },
+    frontMatter: [
+      {
+        title: hebrew ? 'פתיחה' : 'Preface',
+        html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+      },
+      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+    ],
+    chapters,
   }
 }
 
