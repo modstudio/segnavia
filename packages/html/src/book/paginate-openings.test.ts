@@ -123,6 +123,34 @@ describe('paginateBook opening sides', () => {
     ])
   })
 
+  test('chapter endnotes start on a new page, open on either side, and take the chapter running head', () => {
+    const pages = paginateBook(
+      input({
+        settings,
+        flows: [
+          flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)], 'One'),
+          { ...flow('c1-notes', 'endnotes', [block('text', 'p', 1, 2, 6, 0)], 'One'), opens: 'any' },
+          flow('c2', 'chapter', [block('text', 'p', 2, 1, 3, 0)], 'Two'),
+        ],
+      }),
+    ).pages
+    expect(
+      pages.map((page) => ({
+        flow: page.flow,
+        role: page.role,
+        blank: page.blank,
+        opener: page.sectionOpening,
+        head: page.runningHead,
+      })),
+    ).toEqual([
+      { flow: 'c1', role: 'opener', blank: false, opener: true, head: undefined },
+      { flow: 'c1-notes', role: 'opener', blank: false, opener: true, head: undefined },
+      { flow: 'c1-notes', role: 'body', blank: false, opener: false, head: 'One' },
+      { flow: 'c2', role: 'blank', blank: true, opener: false, head: undefined },
+      { flow: 'c2', role: 'opener', blank: false, opener: true, head: undefined },
+    ])
+  })
+
   test('even front plus a verso body opening inserts the blank at the front end', () => {
     const pages = paginateBook(
       input({

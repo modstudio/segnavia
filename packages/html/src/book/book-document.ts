@@ -26,14 +26,14 @@ import {
   undeclaredRegionIssues,
 } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
-import { noteState, transformNotes } from './notes.ts'
+import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
 
 // The front/body selectors here agree with bookPrintPart, the source of print membership.
 const CONTENTS_CSS =
   ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}'
 const PRINT_CSS = `${CONTENTS_CSS}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}`
-const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}`
+const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}:where([data-segnavia-galleys] img,[data-segnavia-window] img,[data-segnavia-page-note] img){display:block;max-block-size:var(--segnavia-text-height);max-inline-size:100%;block-size:auto;inline-size:auto}`
 
 function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
@@ -76,11 +76,12 @@ function appendHeld(
   sections: BuiltSection[],
   headings: BookHeading[],
   issues: string[],
+  notesOwner = 0,
 ) {
   sections.push(built)
   issues.push(...reservedIdIssues(built), ...columnIssues(built), ...extraIssues)
   headings.push(...heldHeadings)
-  transformNotes(built.node, book, 0, notes, galley)
+  transformNotes(built.node, book, 0, notes, galley, notesOwner)
 }
 
 function appendDesigned(
@@ -93,9 +94,10 @@ function appendDesigned(
   sections: BuiltSection[],
   headings: BookHeading[],
   issues: string[],
+  notesOwner = 0,
 ) {
   const held = designedSection(entry, id, kind, galley, book.contents.depth)
-  appendHeld(held.built, held.headings, [], book, notes, galley, sections, headings, issues)
+  appendHeld(held.built, held.headings, [], book, notes, galley, sections, headings, issues, notesOwner)
 }
 
 function appendTemplated(
@@ -109,9 +111,10 @@ function appendTemplated(
   sections: BuiltSection[],
   headings: BookHeading[],
   issues: string[],
+  notesOwner = 0,
 ) {
   const held = templatedSection(entry, id, kind, galley, book.contents.depth)
-  appendHeld(held.built, held.headings, undeclaredRegionIssues(entry, id, templates), book, notes, galley, sections, headings, issues)
+  appendHeld(held.built, held.headings, undeclaredRegionIssues(entry, id, templates), book, notes, galley, sections, headings, issues, notesOwner)
 }
 
 function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
@@ -183,13 +186,23 @@ function columnIssues(section: BuiltSection): string[] {
   })
 }
 
-function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[], galley = false): BuiltSection {
-  const id = 'segnavia-endnotes'
+function endnotesHeading(book: Book): ReturnType<typeof element> {
   const titleValue = book.endnotes.title
-  const titleNode = element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
+  return element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
+}
+
+function endnotesSection(
+  book: Book,
+  paragraphs: ReturnType<typeof element>[],
+  galley: boolean,
+  id: string,
+  runningHead: string | undefined,
+  opens?: string,
+): BuiltSection {
+  const titleValue = book.endnotes.title
   return {
-    info: { id, kind: 'endnotes', title: titleValue, runningHead: titleValue },
-    node: sectionNode('endnotes', id, [titleNode, ...paragraphs], galley, titleValue),
+    info: { id, kind: 'endnotes', title: titleValue, runningHead },
+    node: sectionNode('endnotes', id, [endnotesHeading(book), ...paragraphs], galley, runningHead, opens ? flowAttribs(opens) : {}),
   }
 }
 
@@ -216,6 +229,21 @@ interface DocumentBuild {
   templates: Map<string, BookTemplate>
   designedNumber: number
   templatedNumber: number
+  heldNotesOwner: number
+}
+
+function takeHeldNotesOwner(build: DocumentBuild): number {
+  build.heldNotesOwner -= 1
+  return build.heldNotesOwner
+}
+
+// Chapter endnotes open on either side so recto openings govern the next chapter, not the notes.
+function pushChapterEndnotes(book: Book, build: DocumentBuild, id: string, owner: number): void {
+  if (book.endnotes.placement !== 'chapter') return
+  const paragraphs = build.notes.chapterEndnotes.get(owner) ?? []
+  if (paragraphs.length === 0) return
+  const runningHead = build.sections.at(-1)?.info.runningHead
+  build.sections.push(endnotesSection(book, paragraphs, build.galley, id, runningHead, 'any'))
 }
 
 function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefined {
@@ -265,6 +293,7 @@ function addChapters(book: Book, build: DocumentBuild): void {
   for (const entry of book.chapters) {
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
+      const owner = takeHeldNotesOwner(build)
       appendDesigned(
         entry,
         `segnavia-designed-${build.designedNumber}`,
@@ -275,11 +304,14 @@ function addChapters(book: Book, build: DocumentBuild): void {
         build.sections,
         build.headings,
         build.issues,
+        owner,
       )
+      pushChapterEndnotes(book, build, `segnavia-endnotes-designed-${build.designedNumber}`, owner)
       continue
     }
     if (isTemplatedSection(entry)) {
       build.templatedNumber += 1
+      const owner = takeHeldNotesOwner(build)
       appendTemplated(
         entry,
         `segnavia-templated-${build.templatedNumber}`,
@@ -291,7 +323,9 @@ function addChapters(book: Book, build: DocumentBuild): void {
         build.sections,
         build.headings,
         build.issues,
+        owner,
       )
+      pushChapterEndnotes(book, build, `segnavia-endnotes-templated-${build.templatedNumber}`, owner)
       continue
     }
     chapterNumber += 1
@@ -303,6 +337,7 @@ function addChapters(book: Book, build: DocumentBuild): void {
       ...chapterHeadings(section, chapterNumber, book.contents.depth),
     )
     transformNotes(section.node, book, chapterNumber, build.notes, build.galley)
+    pushChapterEndnotes(book, build, `segnavia-endnotes-${chapterNumber}`, chapterNumber)
   }
 }
 
@@ -316,14 +351,17 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     templates: new Map(book.templates.map((template) => [template.name, template])),
     designedNumber: 0,
     templatedNumber: 0,
+    heldNotesOwner: 0,
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)
   const { galley, notes, sections, headings, issues } = build
 
-  if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   if (book.endnotes.placement === 'chapter') {
-    issues.push('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
+    const leftover = notes.chapterEndnotes.get(0) ?? []
+    if (leftover.length > 0) sections.push(endnotesSection(book, leftover, galley, 'segnavia-endnotes', book.endnotes.title))
+  } else if (notes.endnotes) {
+    sections.push(endnotesSection(book, endnotesInOrder(notes), galley, 'segnavia-endnotes', book.endnotes.title))
   }
   if (contents) addContents(book, contents, headings, options)
 

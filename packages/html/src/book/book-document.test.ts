@@ -3,6 +3,7 @@ import { Book, type BookInput } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
+const sectionOpen = (html: string, id: string) => html.match(new RegExp(`<section[^>]*id="${id}"(?:\\s[^>]*)?>`))?.[0] ?? ''
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({
   title: 'Book',
   mode: 'continuous',
@@ -124,17 +125,65 @@ describe('book document', () => {
     ])
   })
 
-  test('reports that chapter endnotes are not supported yet in paginated mode', () => {
+  test("places each chapter's endnotes as its last section, opening on either side with the chapter running head", () => {
     const result = bookDocument(
       Book.parse(
         input({
           mode: 'paginated',
           page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
           endnotes: { placement: 'chapter' },
+          chapters: [
+            { title: 'One', runningHead: 'I', html: '<p>A<span data-note="endnote">first</span></p>' },
+            chapter('Two', '<p>B<span data-note="endnote">second</span></p>'),
+          ],
         }),
       ),
     )
-    expect(result.issues).toContain('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
+    expect(result.issues).toEqual([])
+    expect(result.sections).toEqual([
+      { id: 'segnavia-chapter-1', kind: 'chapter', title: 'One', runningHead: 'I' },
+      { id: 'segnavia-endnotes-1', kind: 'endnotes', title: 'Notes', runningHead: 'I' },
+      { id: 'segnavia-chapter-2', kind: 'chapter', title: 'Two', runningHead: 'Two' },
+      { id: 'segnavia-endnotes-2', kind: 'endnotes', title: 'Notes', runningHead: 'Two' },
+    ])
+    const first = sectionOpen(result.html, 'segnavia-endnotes-1')
+    const second = sectionOpen(result.html, 'segnavia-endnotes-2')
+    expect(first).toContain('data-opens="any"')
+    expect(first).toContain('data-running-head="I"')
+    expect(second).toContain('data-opens="any"')
+    expect(second).toContain('data-running-head="Two"')
+    expect(result.html).toContain('id="segnavia-en-1"')
+    expect(result.html).toContain('id="segnavia-en-2"')
+    expect(sectionOpen(result.html, 'segnavia-endnotes')).toBe('')
+    expect(result.html).toContain('max-block-size:var(--segnavia-text-height)')
+    expect(result.html).toContain('[data-segnavia-page-note] img')
+  })
+
+  test("places a designed chapter entry's endnotes after it under chapter placement", () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          mode: 'paginated',
+          page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+          endnotes: { placement: 'chapter' },
+          chapters: [
+            { kind: 'designed', title: 'Spread', pages: [{ html: '<p>Art<span data-note="endnote">source</span></p>' }] },
+            chapter('One', '<p>B<span data-note="endnote">later</span></p>'),
+          ],
+        }),
+      ),
+    )
+    expect(result.sections).toEqual([
+      { id: 'segnavia-designed-1', kind: 'designed', title: 'Spread', runningHead: 'Spread' },
+      { id: 'segnavia-endnotes-designed-1', kind: 'endnotes', title: 'Notes', runningHead: 'Spread' },
+      { id: 'segnavia-chapter-1', kind: 'chapter', title: 'One', runningHead: 'One' },
+      { id: 'segnavia-endnotes-1', kind: 'endnotes', title: 'Notes', runningHead: 'One' },
+    ])
+    const tag = sectionOpen(result.html, 'segnavia-endnotes-designed-1')
+    expect(tag).toContain('data-opens="any"')
+    expect(tag).toContain('data-running-head="Spread"')
+    expect(result.html).toContain('id="segnavia-en-1"')
+    expect(result.html).toContain('id="segnavia-en-2"')
   })
 
   test('reports authored ids that use the reserved library prefix', () => {
