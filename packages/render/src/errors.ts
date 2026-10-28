@@ -15,6 +15,10 @@ export function rendererClosed(): RendererUnavailableError {
   return new RendererUnavailableError('The renderer is closed; open a new one.')
 }
 
+export function browserExited(): RendererUnavailableError {
+  return new RendererUnavailableError("The renderer's browser exited during the render; the next render relaunches it.")
+}
+
 // A render that produced something the host's limits refuse, a page that never
 // said it was ready, or a page that crashed. The message names which.
 export class RenderRefusedError extends Error {

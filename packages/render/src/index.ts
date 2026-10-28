@@ -5,12 +5,14 @@ import { printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
+import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
+import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { launchUnavailable, RenderRefusedError, relaunchUnavailable } from './errors.ts'
+import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -25,10 +27,9 @@ import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './pro
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
-import { DEFAULT_JS_HEAP_MB, PAGE_READY_BOUND_MS, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
-import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
@@ -92,15 +93,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const { acquire, release } = queue
 
   async function withTab<T>(
-    setup: {
-      viewport: { width: number; height: number }
-      scripts: boolean
-      scale?: number
-      html: string
-      waitForReady: boolean
+    setup: BrowserTabSetup & {
       boundMs?: number
       deadline?: RenderDeadline
-      beforeOutput?: (tab: Tab) => Promise<void>
       slots?: PreparedSlots
     },
     body: (tab: Tab) => Promise<T>,
@@ -109,6 +104,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     let instance: Browser | undefined
     let crashed = false
     let settled = false
+    let stopWatchingBrowser: (() => void) | undefined
     const measureSlots = setup.slots && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
     try {
       return await withinBound(
@@ -116,39 +112,36 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         (async () => {
           const browser = await keeper.browser().catch((error) => Promise.reject(relaunchUnavailable(options.executablePath, error)))
           instance = browser
-          context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
-          if (settled) {
-            await context.close().catch(() => {})
-            return undefined as T
-          }
-          if (measureSlots) await installSlotFitCapture(context)
-          await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
-          await context.routeWebSocket('**/*', (socket) => socket.close())
-          const tab = await context.newPage()
-          tab.on('crash', () => {
-            crashed = true
-          })
-          let ready: (() => void) | undefined
-          const readyPromise = new Promise<void>((resolve) => {
-            ready = resolve
-          })
-          if (setup.waitForReady) await tab.exposeFunction('pageReady', () => ready?.())
-          await tab.setContent(setup.html, { waitUntil: 'load' })
-          if (setup.waitForReady) {
-            await withinBound(PAGE_READY_BOUND_MS, readyPromise).catch(() => {
-              throw new RenderRefusedError(`The page did not call window.pageReady() within ${PAGE_READY_BOUND_MS / 1000}s.`)
-            })
-          }
-          await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
-          if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
-          await setup.beforeOutput?.(tab)
-          return body(tab)
+          return await raceBrowserDisconnect(
+            browser,
+            settled,
+            (stop) => {
+              stopWatchingBrowser = stop
+            },
+            () =>
+              renderInBrowserTab(
+                browser,
+                setup,
+                measureSlots,
+                {
+                  settled: () => settled,
+                  opened: (opened) => {
+                    context = opened
+                  },
+                  crashed: () => {
+                    crashed = true
+                  },
+                },
+                body,
+              ),
+          )
         })(),
       )
     } catch (error) {
       throw renderFailure({ crashed, disconnected: instance ? !instance.isConnected() : false, closed, heapMb }, error)
     } finally {
       settled = true
+      stopWatchingBrowser?.()
       await context?.close().catch(() => {})
     }
   }
