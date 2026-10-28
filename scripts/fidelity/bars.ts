@@ -20,15 +20,16 @@ export function measureBars(facts: BarFacts): Record<BarId, BarResult<BarMeasure
 }
 
 export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<BarMeasurement>> {
+  const judged = documents.filter((document) => !document.faultControl)
   const pressIds = ['pressColor'] as const
   const grayPressIds = ['grayPressColor'] as const
-  const missing = (id: (typeof pressIds)[number] | (typeof grayPressIds)[number]) => documents.filter((document) => !document.bars[id].measured)
-  const failedEffects = documents.flatMap((document) =>
+  const missing = (id: (typeof pressIds)[number] | (typeof grayPressIds)[number]) => judged.filter((document) => !document.bars[id].measured)
+  const failedEffects = judged.flatMap((document) =>
     document.bars.effects.applicable && document.bars.effects.reason ? [`${document.title}: ${document.bars.effects.reason}`] : [],
   )
   const differences = (id: 'effects' | (typeof pressIds)[number] | (typeof grayPressIds)[number]): Difference | undefined => {
     if (id !== 'effects' && missing(id).length) return undefined
-    return documents
+    return judged
       .filter((document) => id !== 'effects' || document.bars.effects.applicable)
       .reduce(
         (worst, document) => {
@@ -39,15 +40,15 @@ export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<
       )
   }
   const size: SizeMeasurement = {
-    pdfBytes: Math.max(...documents.map((document) => document.pdfBytes), 0),
+    pdfBytes: Math.max(...judged.map((document) => document.pdfBytes), 0),
     effectlessPdfBytes: 0,
-    multiple: Math.max(...documents.map((document) => (document.bars.size.measured as SizeMeasurement | undefined)?.multiple ?? 0), 0),
+    multiple: Math.max(...judged.map((document) => (document.bars.size.measured as SizeMeasurement | undefined)?.multiple ?? 0), 0),
   }
   return {
     effects: {
       measured: differences('effects'),
-      passed: documents.every((document) => document.bars.effects.passed),
-      applicable: documents.some((document) => document.bars.effects.applicable),
+      passed: judged.every((document) => document.bars.effects.passed),
+      applicable: judged.some((document) => document.bars.effects.applicable),
       reason: failedEffects.length ? failedEffects.join('; ') : undefined,
     },
     ...Object.fromEntries(
@@ -57,13 +58,13 @@ export function totalBars(documents: DocumentResult[]): Record<BarId, BarResult<
           id,
           {
             measured: differences(id),
-            passed: documents.every((document) => document.bars[id].passed),
+            passed: judged.every((document) => document.bars[id].passed),
             reason: absent.length ? `Missing press measurement: ${absent.map((document) => document.title).join(', ')}` : undefined,
           },
         ]
       }),
     ),
-    size: { measured: size, passed: documents.every((document) => document.bars.size.passed) },
+    size: { measured: size, passed: judged.every((document) => document.bars.size.passed) },
   } as Record<BarId, BarResult<BarMeasurement>>
 }
 

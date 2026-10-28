@@ -26,10 +26,30 @@ mask, so they test color conversion alone:
 - `control-flat.html`: flat saturated, dark, pastel, and brand-like swatches, a grey ramp, borders, and SVG fills and strokes.
 - `control-text.html`: English text across 9–64 px and vocalized right-to-left Hebrew on flat light and dark grounds.
 - `control-photo.html`: deterministic generated JPEG photographs at three sizes on a flat background; regenerate it with `bun scripts/fidelity/control-photo.ts`.
+- `control-book-en.html` / `control-book-he.html`: paginated control books (English; vocalized right-to-left Hebrew), each with footnotes and a paragraph that breaks across a page. The suite registers them as book fixtures, not as single HTML pages.
 
 Every measured region has a `data-fidelity` name in its document. The run
 summary records whole-page and region differences for each PDF reader, PDF
 structure, reader failures, and links to threshold-exceeding side-by-sides.
+
+## Paginated books
+
+A book fixture is compared page by page. The suite prints one PDF with
+`bookPdf`, splits it with pdf-lib into single-page documents, and sends each
+page to the existing readers unchanged. The screen reference is the paginated
+view (`screen: { spread: false }`) at scale 1; each `[data-segnavia-book-page]`
+is screenshotted. Page ids are `<book-id>/pNN` (two digits from 01). A
+page-count mismatch between screen papers and PDF pages fails the book and
+names both counts; no page is compared.
+
+Each page is judged by the control bars. The PDF size bar is measured once on
+the whole book against its effectless counterpart and shown once for the book.
+
+`control-book-en-shifted` is a standing fault control: the same English book,
+with the text window of body page 02 shifted by one line pitch in a PDF-only
+`beforeOutput`. The screen is unshifted. Only that page is compared. The run
+fails if that page passes the press bar. The report labels it as a fault
+control and prints its press mean and p99 beside the passing pages.
 
 Set `SEGNAVIA_FIDELITY_OUT` to write runs somewhere other than `out/fidelity/`,
 for example a folder that outlives a throwaway worktree.

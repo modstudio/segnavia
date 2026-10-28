@@ -8,16 +8,41 @@ import {
   PRESS_BLEND_THRESHOLD,
   PRESS_COLOR_THRESHOLD,
 } from './config.ts'
-import type { FidelityRun, RegionResult } from './types.ts'
+import type { DocumentResult, FidelityRun, RegionResult } from './types.ts'
 
 const decimal = (value: number | undefined): string => (value === undefined ? '—' : value.toFixed(2))
 const relative = (root: string, file: string): string => path.relative(root, file).split(path.sep).join('/')
+function documentTitle(document: DocumentResult): string {
+  return document.faultControl ? `${document.title} (fault control)` : document.title
+}
+
+function sizeCell(document: DocumentResult): string {
+  if (document.faultControl) return '—'
+  if (document.bookId && document.pageIndex !== 1) return '—'
+  return barCell(document.bars.size, 'size')
+}
+
 function barRows(run: FidelityRun): string[] {
   const total = totalBars(run.documents)
   return [
     `| **Total** | ${ACCEPTANCE_BARS.map((bar) => `**${barCell(total[bar.id], bar.id, true)}**`).join(' | ')} |`,
-    ...run.documents.map((document) => `| ${document.title} | ${ACCEPTANCE_BARS.map((bar) => barCell(document.bars[bar.id], bar.id)).join(' | ')} |`),
+    ...run.documents.map((document) => {
+      const cells = ACCEPTANCE_BARS.map((bar) => (bar.id === 'size' ? sizeCell(document) : barCell(document.bars[bar.id], bar.id)))
+      return `| ${documentTitle(document)} | ${cells.join(' | ')} |`
+    }),
   ]
+}
+
+function differenceCell(value: { mean: number; p99: number } | undefined): string {
+  return value ? `mean ${value.mean.toFixed(2)}, p99 ${value.p99}` : 'not measured'
+}
+
+function faultControlSection(run: FidelityRun): string {
+  const fault = run.documents.find((document) => document.faultControl)
+  if (!fault) return ''
+  const passing = run.documents.filter((document) => document.bookId && document.bookId === fault.bookId?.replace(/-shifted$/, '') && !document.faultControl)
+  const passingPress = passing.map((document) => `${document.title}: ${differenceCell(document.pressDifference)}`).join('; ')
+  return `\n## Fault control\n\n${documentTitle(fault)} is a standing negative control: the PDF text window of that page is shifted by one line pitch, and the screen is not. It must fail the press bar.\n\n- Passing pages: ${passingPress || 'none'}\n- Fault control: ${differenceCell(fault.pressDifference)} — ${fault.bars.pressColor.passed ? 'PASS' : 'FAIL'}\n`
 }
 
 export async function writeSummary(run: FidelityRun, directory: string): Promise<void> {
@@ -28,7 +53,7 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
       const reader = document.readers.find((candidate) => candidate.reader === name)
       return reader?.worked ? `${decimal(reader.page?.mean)} / ${decimal(reader.page?.p99)}` : `SKIP — ${reader?.error ?? 'not run'}`
     })
-    return `| ${document.title} | ${document.pdfBytes.toLocaleString()} | ${cells.join(' | ')} |`
+    return `| ${documentTitle(document)} | ${document.pdfBytes.toLocaleString()} | ${cells.join(' | ')} |`
   })
   const readerHeader = readerNames.map(([, engine]) => engine).join(' | ')
   const readerDivider = readerNames.map(() => '---:').join('|')
@@ -37,27 +62,29 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
     const values = [...new Set(results.map((reader) => reader?.colorProfile ?? 'not checked'))]
     return `- ${engine}: ${values.join(', ') || 'not rendered'}`
   })
-  const boxes = run.documents.map((document) => `- ${document.title}: screen ${document.comparisonBox.screen}; readers ${document.comparisonBox.readers}.`)
+  const boxes = run.documents.map(
+    (document) => `- ${documentTitle(document)}: screen ${document.comparisonBox.screen}; readers ${document.comparisonBox.readers}.`,
+  )
   const registration = run.documents.flatMap((document) =>
     document.readers.map((reader) => {
       const offset = reader.alignment
-      return `| ${document.title} | ${reader.engine} | ${offset ? `${offset.offsetX}, ${offset.offsetY} device px; scores ${offset.referenceScore}/${offset.measuredScore}` : `SKIP — ${reader.error ?? 'not run'}`} |`
+      return `| ${documentTitle(document)} | ${reader.engine} | ${offset ? `${offset.offsetX}, ${offset.offsetY} device px; scores ${offset.referenceScore}/${offset.measuredScore}` : `SKIP — ${reader.error ?? 'not run'}`} |`
     }),
   )
   const worst = run.documents
     .flatMap((document) =>
       document.readers.flatMap((reader) =>
-        (reader.regions ?? []).map((region) => ({ document: document.title, reader: reader.engine, region, score: region.mean + region.p99 / 255 })),
+        (reader.regions ?? []).map((region) => ({ document: documentTitle(document), reader: reader.engine, region, score: region.mean + region.p99 / 255 })),
       ),
     )
     .sort((left, right) => right.score - left.score)
   const failures = run.documents.flatMap((document) =>
-    document.readers.filter((reader) => !reader.worked).map((reader) => `- ${document.title} / ${reader.engine}: ${reader.error}`),
+    document.readers.filter((reader) => !reader.worked).map((reader) => `- ${documentTitle(document)} / ${reader.engine}: ${reader.error}`),
   )
   const rasters = run.documents.flatMap((document) =>
     document.analysis.images
       .filter((image) => image.type === 'image' && Math.abs(image.xDpi - 300) <= 1 && Math.abs(image.yDpi - 300) <= 1)
-      .map((image) => `- ${document.title}: ${image.width}×${image.height}, ${image.xDpi}×${image.yDpi} dpi, ${image.bytes.toLocaleString()} bytes`),
+      .map((image) => `- ${documentTitle(document)}: ${image.width}×${image.height}, ${image.xDpi}×${image.yDpi} dpi, ${image.bytes.toLocaleString()} bytes`),
   )
   const worstLines = worst.slice(0, 12).map(({ document, reader, region }) => {
     const image = region.sideBySide ? ` — [screen | reader](${relative(directory, region.sideBySide)})` : ''
@@ -81,13 +108,13 @@ export async function writeSummary(run: FidelityRun, directory: string): Promise
     value ? `${decimal(value.mean)} / ${decimal(value.p99)}` : `SKIP — ${reason ?? 'not measured'}`
   const pressRows = run.documents.map(
     (document) =>
-      `| ${document.title} | ${document.kind} | ${artifact(document.blendedMask, 'mask')} | ${(document.blendedFraction * 100).toFixed(2)}% | ${artifact(document.pressPdf, 'PDF')} | ${artifact(document.pressProof, 'proof')} | ${artifact(document.pressRaster, 'raster')} | ${measured(document.pressDifference, document.pressReason)} | ${artifact(document.grayPressPdf, 'PDF')} | ${artifact(document.grayPressProof, 'proof')} | ${artifact(document.grayPressRaster, 'raster')} | ${measured(document.grayPressDifference, document.grayPressReason)} | ${document.grayPressResidues ?? '—'}${document.grayPressResidueErrors?.length ? ` (${document.grayPressResidueErrors.join('; ')})` : ''} |`,
+      `| ${documentTitle(document)} | ${document.kind} | ${artifact(document.blendedMask, 'mask')} | ${(document.blendedFraction * 100).toFixed(2)}% | ${artifact(document.pressPdf, 'PDF')} | ${artifact(document.pressProof, 'proof')} | ${artifact(document.pressRaster, 'raster')} | ${measured(document.pressDifference, document.pressReason)} | ${artifact(document.grayPressPdf, 'PDF')} | ${artifact(document.grayPressProof, 'proof')} | ${artifact(document.grayPressRaster, 'raster')} | ${measured(document.grayPressDifference, document.grayPressReason)} | ${document.grayPressResidues ?? '—'}${document.grayPressResidueErrors?.length ? ` (${document.grayPressResidueErrors.join('; ')})` : ''} |`,
   )
   const rasterizer = run.metadata.pressRasterizer
   pressRows.push(
     `\nPress rasterizers: CMYK ${rasterizer.engine} (${rasterizer.mode}); gray ${rasterizer.grayEngine} (${rasterizer.grayMode}). Run profiles: CMYK \`${rasterizer.cmykProfile ?? 'not set'}\`; gray \`${rasterizer.grayProfile ?? 'not set'}\`. CMYK settings: \`${rasterizer.cmykSettings.join(' ')}\`. Gray settings: \`${rasterizer.graySettings.join(' ')}\`. ${rasterizer.outputIntent}`,
   )
-  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nControl documents use the strict press color bar (mean ≤ ${PRESS_COLOR_THRESHOLD.mean}, p99 ≤ ${PRESS_COLOR_THRESHOLD.p99}). Effects documents use the press regression ceiling (mean ≤ ${PRESS_BLEND_THRESHOLD.mean}, p99 ≤ ${PRESS_BLEND_THRESHOLD.p99}).\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows(run).join('\n')}\n\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Press proofs\n\nDifferences are whole-page mean / p99 channel difference. At screen capture time, the blended mask unions the border boxes of elements whose computed style has a background or border gradient, opacity below one, non-normal blend mode, filter or backdrop filter, box or text shadow, or mask; shadow boxes are expanded by their blur and spread. Its coverage is evidence and does not select the judged region. Gray residue counts come from an independent scan for RGB and CMYK operators and spaces.\n\n| Document | Kind | Blended mask | Page covered | CMYK PDF | CMYK proof | CMYK raster | CMYK difference | Gray PDF | Gray proof | Gray raster | Gray difference | Gray residues |\n|---|---|---|---:|---|---|---|---:|---|---|---|---:|---:|\n${pressRows.join('\n')}\n\n## Summary\n\nReader cells are mean / p99 channel difference.\n\n| Document | PDF bytes | ${readerHeader} |\n|---|---:|${readerDivider}|\n${rows.join('\n')}\n\n## Compared page boxes\n\n${boxes.join('\n')}\n\n## Registration\n\nOffsets are found from the fixed marker within ±${ALIGNMENT_SEARCH_RADIUS} device pixels and are diagnostic only; they are never applied to the comparison. A reader fails when either axis exceeds ${ALIGNMENT_TOLERANCE} device pixels or either five-sample marker score exceeds ${MARKER_MATCH_MAX_SCORE}.\n\n| Document | Reader | Reader minus screen; marker scores reference/reader |\n|---|---|---:|\n${registration.join('\n')}\n\n## Poster headline layout evidence\n\n${posterEvidence?.method ?? 'Not measured.'}\n\nEach displacement is Poppler minus screen in device pixels. Width and height changes are Poppler minus screen glyph-box dimensions.\n\n| Scratch variant | Line | Horizontal displacement | Vertical displacement | Width change | Height change |\n|---|---:|---:|---:|---:|---:|\n${posterLines?.join('\n') ?? ''}\n\n${posterCrops?.join('\n') ?? ''}\n\n${posterEvidence?.conclusion ?? ''} The scratch variants are generated in memory; the committed fixture is unchanged.\n\n## Reader color profiles\n\n${profiles.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n\n## Limits\n\nThe Harlequin RIP engine is not covered by this local suite.\n`
+  const markdown = `# Fidelity run: ${run.metadata.label}\n\n## Acceptance bars\n\nControl documents use the strict press color bar (mean ≤ ${PRESS_COLOR_THRESHOLD.mean}, p99 ≤ ${PRESS_COLOR_THRESHOLD.p99}). Effects documents use the press regression ceiling (mean ≤ ${PRESS_BLEND_THRESHOLD.mean}, p99 ≤ ${PRESS_BLEND_THRESHOLD.p99}).\n\n| Document | ${barHeader} |\n|---|${barDivider}|\n${barRows(run).join('\n')}\n${faultControlSection(run)}\nCommit: \`${run.metadata.commit}\`. Screen references use device scale factor ${run.metadata.scale}. Side-by-sides are emitted when mean difference exceeds ${imageThreshold.mean} or p99 exceeds ${imageThreshold.p99}; the screen image is on the left.\n\n## Press proofs\n\nDifferences are whole-page mean / p99 channel difference. At screen capture time, the blended mask unions the border boxes of elements whose computed style has a background or border gradient, opacity below one, non-normal blend mode, filter or backdrop filter, box or text shadow, or mask; shadow boxes are expanded by their blur and spread. Its coverage is evidence and does not select the judged region. Gray residue counts come from an independent scan for RGB and CMYK operators and spaces.\n\n| Document | Kind | Blended mask | Page covered | CMYK PDF | CMYK proof | CMYK raster | CMYK difference | Gray PDF | Gray proof | Gray raster | Gray difference | Gray residues |\n|---|---|---|---:|---|---|---|---:|---|---|---|---:|---:|\n${pressRows.join('\n')}\n\n## Summary\n\nReader cells are mean / p99 channel difference.\n\n| Document | PDF bytes | ${readerHeader} |\n|---|---:|${readerDivider}|\n${rows.join('\n')}\n\n## Compared page boxes\n\n${boxes.join('\n')}\n\n## Registration\n\nOffsets are found from the fixed marker within ±${ALIGNMENT_SEARCH_RADIUS} device pixels and are diagnostic only; they are never applied to the comparison. A reader fails when either axis exceeds ${ALIGNMENT_TOLERANCE} device pixels or either five-sample marker score exceeds ${MARKER_MATCH_MAX_SCORE}.\n\n| Document | Reader | Reader minus screen; marker scores reference/reader |\n|---|---|---:|\n${registration.join('\n')}\n\n## Poster headline layout evidence\n\n${posterEvidence?.method ?? 'Not measured.'}\n\nEach displacement is Poppler minus screen in device pixels. Width and height changes are Poppler minus screen glyph-box dimensions.\n\n| Scratch variant | Line | Horizontal displacement | Vertical displacement | Width change | Height change |\n|---|---:|---:|---:|---:|---:|\n${posterLines?.join('\n') ?? ''}\n\n${posterCrops?.join('\n') ?? ''}\n\n${posterEvidence?.conclusion ?? ''} The scratch variants are generated in memory; the committed fixture is unchanged.\n\n## Reader color profiles\n\n${profiles.join('\n')}\n\n## Worst regions\n\n${worstLines.join('\n') || 'No region exceeded the reporting set.'}\n\n## Reader failures\n\n${failures.join('\n') || 'None.'}\n\n## Chromium 300 dpi rasters\n\n${rasters.join('\n') || 'None.'}\n\n## Limits\n\nThe Harlequin RIP engine is not covered by this local suite.\n`
   await Bun.write(path.join(directory, 'summary.md'), markdown)
 }
 

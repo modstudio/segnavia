@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream, PDFRef } from 'pdf-lib'
 import type { PdfAnalysis, PdfImage } from './types.ts'
 
@@ -103,7 +104,7 @@ export async function splitPdfPages(source: string, directory: string, name: str
     const [page] = await single.copyPages(document, [index])
     if (!page) throw new Error(`PDF page ${index + 1} could not be copied from ${source}.`)
     single.addPage(page)
-    const destination = `${directory}/${name}-p${String(index + 1).padStart(2, '0')}.pdf`
+    const destination = path.join(directory, `${name}-p${String(index + 1).padStart(2, '0')}.pdf`)
     await Bun.write(destination, await single.save())
     paths.push(destination)
   }
