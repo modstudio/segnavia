@@ -66,7 +66,8 @@ export async function openHarness(): Promise<Harness> {
     // Recorded narration plays without a gesture, as it would after a click on Play.
     args: ['--autoplay-policy=no-user-gesture-required'],
   })
-  const page = await browser.newPage({ viewport: { width: 1280, height: 816 } })
+  const context = await browser.newContext({ viewport: { width: 1280, height: 816 } })
+  const page = await context.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   // Every message a page receives, so a check that waited in vain can say

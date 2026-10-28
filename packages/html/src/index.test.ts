@@ -18,18 +18,70 @@ describe('sanitize', () => {
     expect(sanitize('<img src="data:image/png;base64,AA==">')).toBe('<img src="data:image/png;base64,AA==">')
   })
 
-  test('a style element is refused when its CSS imports or fetches content', () => {
+  test('a style element removes only the rule or declaration that fetches content', () => {
     const unsafe = '<style>@IMPORT url(data:image/png;base64,AA==)</style>'
     const external = '<style>p{background:url(https://example.com/b.png)}</style>'
     const safe = '<style>p{background:url(data:image/png;base64,AA==)}</style>'
-    expect(findActiveContent(unsafe)).toEqual(['<style>'])
-    expect(sanitize(unsafe)).toBe('')
-    expect(sanitize(unsafe, { keepScripts: true })).toBe('')
-    expect(findActiveContent(external)).toEqual(['<style>'])
-    expect(sanitize(external)).toBe('')
+    expect(findActiveContent(unsafe)).toEqual(['<style> @import'])
+    expect(sanitize(unsafe)).toBe('<style></style>')
+    expect(sanitize(unsafe, { keepScripts: true })).toBe('<style></style>')
+    expect(findActiveContent(external)).toEqual(['<style> url()'])
+    expect(sanitize(external)).toBe('<style>p{}</style>')
     expect(findActiveContent(safe)).toEqual([])
     expect(sanitize(safe)).toBe(safe)
     expect(sanitize(safe, { keepScripts: true })).toBe(safe)
+  })
+
+  test('CSS fetch spellings are decoded and named', () => {
+    const css = String.raw`<style>
+      a { color: red; background: u\72l(https://example.com/a.png); }
+      b { color: blue; background: image-set("https://example.com/b.png" 1x); }
+      c { color: green; background: s\72 c(https://example.com/c.png); }
+    </style>`
+    expect(findActiveContent(css)).toEqual(['<style> url()', '<style> image-set()', '<style> src()'])
+    expect(sanitize(css)).toBe(`<style>
+      a { color: red;  }
+      b { color: blue;  }
+      c { color: green;  }
+    </style>`)
+  })
+
+  test('comments cannot split a fetching function name', () => {
+    const css = '<style>a{color:red;background:u/**/r/**/l(https://example.com/a.png)}</style>'
+    expect(findActiveContent(css)).toEqual(['<style> url()'])
+    expect(sanitize(css)).toBe('<style></style>')
+  })
+
+  test('an author data font is a host option and an external face is always removed', () => {
+    const embedded = '<style>@font-face{font-family:Example;src:url(data:font/woff2;base64,AA==)}p{font-family:Example}</style>'
+    const applicationFont = '<style>@font-face{font-family:Example;src:url(data:application/x-font-woff;base64,AA==)}</style>'
+    const external = '<style>@font-face{font-family:Example;src:url(https://example.com/font.woff2)}p{color:red}</style>'
+    expect(findActiveContent(embedded)).toEqual(['<style> data font'])
+    expect(findActiveContent(embedded, { dataFonts: true })).toEqual([])
+    expect(findActiveContent(applicationFont, { dataFonts: true })).toEqual([])
+    expect(findActiveContent(external, { dataFonts: true })).toEqual(['<style> url()'])
+    expect(sanitize(embedded)).toBe('<style>p{font-family:Example}</style>')
+    expect(sanitize(embedded, { dataFonts: true })).toBe(embedded)
+    expect(sanitize(applicationFont, { dataFonts: true })).toBe(applicationFont)
+    expect(sanitize(external, { dataFonts: true })).toBe('<style>p{color:red}</style>')
+  })
+
+  test('a style element cleans its joined text children', () => {
+    const html = '<style>p{color:red}<!-- split -->q{background:url(https://example.com/a.png)}</style>'
+    expect(findActiveContent(html)).toEqual(['<style> url()'])
+    expect(sanitize(html)).toBe('<style>p{color:red}<!-- split -->q{}</style>')
+  })
+
+  test('an inline style loses only an unsafe declaration', () => {
+    const html = '<p style="color:red;background:url(https://example.com/a.png);font-weight:bold">x</p>'
+    expect(findActiveContent(html)).toEqual(['p[style] url()'])
+    expect(sanitize(html)).toBe('<p style="color:red;font-weight:bold">x</p>')
+  })
+
+  test('nested rules keep their safe declarations and surrounding rules', () => {
+    const html =
+      '<style>@media (min-width:1px){a{color:red;background:url(https://example.com/a.png)}b{color:blue}}a{&:hover{background:url(https://example.com/b.png);color:red}font-weight:bold}</style>'
+    expect(sanitize(html)).toBe('<style>@media (min-width:1px){a{color:red;}b{color:blue}}a{&:hover{color:red}font-weight:bold}</style>')
   })
 
   test('a refused element goes with its content; scripts stay only when asked', () => {
@@ -43,6 +95,12 @@ describe('sanitize', () => {
 })
 
 describe('bindings', () => {
+  test('keeps an author data font through fill only when opted in', () => {
+    const html = '<style>@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}</style><p data-demo-value="name"></p>'
+    expect(fill(html, { prefix, data: { name: 'held' } }).html).not.toContain('@font-face')
+    expect(fill(html, { prefix, data: { name: 'held' }, dataFonts: true }).html).toContain('@font-face')
+  })
+
   test('a repeat reads its item, and ../ reads the page around it', () => {
     const html = `<ul><li data-demo-each="rows"><b data-demo-value="name"></b> of <i data-demo-value="../title"></i></li></ul>`
     const { html: out } = fill(html, { prefix, data: { title: 'T', rows: [{ name: 'a' }, { name: 'b' }] } })

@@ -27,7 +27,7 @@ export function bindingNames(prefix: string) {
   return Object.fromEntries(BINDINGS.map((binding) => [binding, `data-${prefix}-${binding}`])) as Record<(typeof BINDINGS)[number], string>
 }
 
-export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins'> {
+export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins' | 'dataFonts'> {
   prefix: string
   data: Record<string, unknown>
   // Paths the host knows it cannot supply, reported with those that resolved to nothing.
@@ -120,7 +120,7 @@ export function fill(html: string, options: FillOptions): Filled {
   const unavailable = new Set(options.unavailable ?? [])
   const values: string[] = []
   const deferred = new Set(options.deferPaths ?? [])
-  const document: Document = parse(sanitize(html, { linkOrigins: options.linkOrigins }))
+  const document: Document = parse(sanitize(html, { linkOrigins: options.linkOrigins, dataFonts: options.dataFonts }))
 
   const resolve = (path: string, stack: unknown[]) => {
     const { context, rest } = contextAt(stack, path)

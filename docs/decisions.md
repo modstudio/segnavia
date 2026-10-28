@@ -129,8 +129,10 @@ embeds them under their declared families, reports absent faces as fallbacks,
 and retains nothing after that call. Every local reference's fallback is an
 app font, so the host still supplies a `FontSource` to establish it; a missing
 local face is told and never blocks. The host must not persist or log the
-transport either. A page never embeds a font itself; the sanitizer still
-refuses one it writes.
+transport either. By default a page does not embed a font itself and the
+sanitizer removes an author-written data face. A host may opt in to author
+data fonts when its content model calls for them; other font URLs remain
+refused.
 
 **Live data or script, never both, holds across the whole page.** A page
 whose `scripts` is not `refuse` places only motif versions without live data;
