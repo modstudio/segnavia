@@ -1,11 +1,13 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
 import { Parser, parseDocument } from 'htmlparser2'
+import { FramePreferenceIndex, framePreference } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
 import { parseStories } from './story-model.ts'
 import { parseStyles, parseSwatches } from './styles.ts'
 import type { IdmlFramePreference, IdmlStory, IdmlStyle, IdmlSwatch } from './types.ts'
+import { collectUnsupportedElements } from './unsupported-elements.ts'
 import type { ZipEntry } from './zip.ts'
 
 export type { IdmlStory } from './types.ts'
@@ -52,26 +54,9 @@ export interface IdmlModel {
   unsupportedElements: Record<string, number>
   styles?: IdmlStyle[]
   swatches?: IdmlSwatch[]
+  bodyFramePreferences?: IdmlFramePreference[]
   report?: IdmlReportData
 }
-
-const MAPPED_ELEMENTS = new Set([
-  'Document',
-  'DocumentPreference',
-  'MarginPreference',
-  'MasterSpread',
-  'Spread',
-  'Page',
-  'Story',
-  'TextFrame',
-  'TextFramePreference',
-  'PathGeometry',
-  'GeometryPathType',
-  'PathPointArray',
-  'PathPointType',
-  'Styles',
-  'Graphic',
-])
 
 function localName(name: string): string {
   return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
@@ -233,25 +218,18 @@ interface FramePlacement {
   preference?: IdmlFramePreference
 }
 
-function framePlacement(element: Element, matrix: Transform): FramePlacement | undefined {
+function framePlacement(element: Element, matrix: Transform, location: string): FramePlacement | undefined {
   const story = attribute(element, 'ParentStory')
   if (!story) return undefined
-  const preference = elements(element, 'TextFramePreference')[0]
+  const preference = framePreference(element, location)
   return {
     story,
     center: frameCenter(element, matrix),
-    ...(preference
-      ? {
-          preference: {
-            columns: numberAttribute(preference, 'TextColumnCount', 1),
-            gutter: numberAttribute(preference, 'TextColumnGutter', 0),
-          },
-        }
-      : {}),
+    ...(preference ? { preference } : {}),
   }
 }
 
-function spreadFrames(spread: Element): FramePlacement[] {
+function spreadFrames(spread: Element, location: string): FramePlacement[] {
   const result: FramePlacement[] = []
   const pending = [...spread.children].reverse().map((node) => ({ node, matrix: IDENTITY }))
   while (pending.length > 0) {
@@ -261,7 +239,7 @@ function spreadFrames(spread: Element): FramePlacement[] {
     if (name === 'Page' || name === 'Spread' || name === 'MasterSpread') continue
     const matrix = name === 'Group' || name === 'TextFrame' ? compose(current.matrix, transform(current.node)) : current.matrix
     if (name === 'TextFrame') {
-      const placement = framePlacement(current.node, matrix)
+      const placement = framePlacement(current.node, matrix, `${location}#TextFrame[${result.length + 1}]`)
       if (placement) result.push(placement)
       continue
     }
@@ -277,17 +255,14 @@ function placeStories(
   pageElements: Element[],
   pages: IdmlPage[],
   report: ReportCollector,
-  framePreferences: Map<string, IdmlFramePreference>,
+  framePreferences: FramePreferenceIndex,
+  location: string,
 ): Set<string> {
   const areas = pageElements.map(pageArea)
   const frameStories = new Set<string>()
-  for (const frame of spreadFrames(element)) {
+  for (const frame of spreadFrames(element, location)) {
     frameStories.add(frame.story)
-    const existing = framePreferences.get(frame.story)
-    if (frame.preference && !existing) framePreferences.set(frame.story, frame.preference)
-    else if (frame.preference && existing && frame.preference.gutter !== existing.gutter) {
-      report.add(report.unsupportedElements, 'differing body frame gutters', frame.story)
-    }
+    framePreferences.add(frame.story, frame.preference)
     const pageIndex = frame.center ? areas.findIndex((area) => area !== undefined && contains(area, frame.center as Point)) : -1
     const target = pages[pageIndex]
     if (target && !target.stories.includes(frame.story)) target.stories.push(frame.story)
@@ -301,7 +276,7 @@ function spreads(
   kind: 'Spread' | 'MasterSpread',
   orderedNames: string[],
   report: ReportCollector,
-  framePreferences: Map<string, IdmlFramePreference>,
+  framePreferences: FramePreferenceIndex,
 ): { values: (IdmlSpread | IdmlMasterSpread)[]; frameStories: Set<string> } {
   const result: (IdmlSpread | IdmlMasterSpread)[] = []
   const frameStories = new Set<string>()
@@ -321,7 +296,7 @@ function spreads(
       if (!id) continue
       const pageElements = elements(element, 'Page')
       const pages = pageElements.map(page)
-      for (const story of placeStories(element, pageElements, pages, report, framePreferences)) frameStories.add(story)
+      for (const story of placeStories(element, pageElements, pages, report, framePreferences, name)) frameStories.add(story)
       result.push({ id, pages })
     }
   }
@@ -333,19 +308,6 @@ function spreadSources(document: ParsedPart, kind: 'Spread' | 'MasterSpread'): s
     .filter((element) => localName(element.name) === kind)
     .map((element) => attribute(element, 'src'))
     .filter((source): source is string => source !== undefined)
-}
-
-function unsupported(parts: ParsedPart[], report: ReportCollector): Map<string, number> {
-  const counts = report.unsupportedElements
-  for (const part of parts) {
-    if (part.name.startsWith('Stories/') || part.name.endsWith('/Styles.xml') || part.name.endsWith('/Graphic.xml')) continue
-    for (const element of part.all) {
-      const name = localName(element.name)
-      if (MAPPED_ELEMENTS.has(name)) continue
-      report.add(counts, name, part.name)
-    }
-  }
-  return counts
 }
 
 export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS): IdmlModel {
@@ -362,10 +324,10 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     throw refusal(`IDML PageBinding ${binding} is not supported`, 'use LeftToRight or RightToLeft page binding')
   }
   const report = new ReportCollector()
-  const unsupportedCounts = unsupported(parts, report)
-  const framePreferences = new Map<string, IdmlFramePreference>()
+  const unsupportedCounts = collectUnsupportedElements(parts, report)
+  const framePreferences = new FramePreferenceIndex()
   const spreadResult = spreads(parts, 'Spread', spreadSources(designmap, 'Spread'), report, framePreferences)
-  const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), report, framePreferences)
+  const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), report, new FramePreferenceIndex())
   const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
   for (const story of masterStoryIds) report.add(report.unsupportedElements, 'master story', story)
   return {
@@ -385,6 +347,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     spreads: spreadResult.values as IdmlSpread[],
     masterSpreads: masterResult.values as IdmlMasterSpread[],
     stories: parseStories(parts, framePreferences),
+    bodyFramePreferences: framePreferences.values(),
     masterStoryIds,
     partsRead: parts.map((part) => part.name),
     unsupportedElements: Object.fromEntries([...unsupportedCounts].sort(([left], [right]) => left.localeCompare(right))),

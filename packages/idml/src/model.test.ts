@@ -63,6 +63,26 @@ describe('idmlModel', () => {
     expect(model.unsupportedElements['unlisted spread part']).toBe(1)
   })
 
+  test('selects a story frame from its most common multi-column preference', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes(
+          '<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/><idPkg:Spread src="Spreads/body.xml"/><idPkg:Story src="Stories/story.xml"/></Document>',
+        ),
+      },
+      {
+        name: 'Spreads/body.xml',
+        bytes: bytes(
+          '<Spread Self="body"><Page Self="page" GeometricBounds="0 0 100 100"/><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="1" TextColumnGutter="0"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="14"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="12"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="12"/></Properties></TextFrame></Spread>',
+        ),
+      },
+      { name: 'Stories/story.xml', bytes: bytes('<Story Self="story"/>') },
+    ])
+    expect(model.stories[0]?.frame).toMatchObject({ columns: 2, gutter: 12 })
+    expect(model.bodyFramePreferences).toHaveLength(3)
+  })
+
   test('refuses XML beyond the named depth cap', () => {
     const deeplyNested = `${'<a>'.repeat(1_000_000)}${'</a>'.repeat(1_000_000)}`
     expect(() => idmlModel([{ name: 'designmap.xml', bytes: bytes(deeplyNested) }], IDML_LIMITS)).toThrow('XML depth limit')

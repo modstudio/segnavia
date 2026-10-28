@@ -4,7 +4,24 @@ import type { IdmlStyle, IdmlSwatch } from './types.ts'
 
 const PARAGRAPH_ROOT = '$ID/[No paragraph style]'
 const CHARACTER_ROOT = '$ID/[No character style]'
-const META = new Set(['Self', 'Name', 'BasedOn', 'AppliedParagraphStyle', 'AppliedCharacterStyle', 'SpanColumnType'])
+const NON_FORMATTING = new Set([
+  'Self',
+  'Name',
+  'BasedOn',
+  'AppliedParagraphStyle',
+  'AppliedCharacterStyle',
+  'SpanColumnType',
+  'EmitCss',
+  'StyleUniqueId',
+  'KeyboardShortcut',
+  'ExtendedKeyboardShortcut',
+  'Imported',
+  'PreviewColor',
+  'IncludeClass',
+  'EpubAriaRole',
+  'SplitDocument',
+  'NextStyle',
+])
 const MAPPED = new Set([
   'PointSize',
   'Leading',
@@ -110,6 +127,14 @@ function direction(value: string | undefined): 'ltr' | 'rtl' | undefined {
   return undefined
 }
 
+function activeValue(value: string): boolean {
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return false
+  if (['false', 'none', 'nothing', '$id/none', '$id/nothing', 'n', 'no', 'off'].includes(normalized)) return false
+  const numbers = normalized.split(/[\s,]+/).map(Number)
+  return numbers.length === 0 || !numbers.every((number) => Number.isFinite(number) && number === 0)
+}
+
 const LANGUAGES: Record<string, string> = {
   '$ID/Hebrew': 'he',
   '$ID/English: USA': 'en-US',
@@ -126,6 +151,7 @@ export class StyleMapper {
   private readonly classes = new Map<string, string>()
   private readonly used = new Set<string>()
   private readonly overrides = new Map<string, { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl' }>()
+  private readonly reportedStyleProperties = new Set<string>()
 
   constructor(
     styles: IdmlStyle[],
@@ -147,7 +173,11 @@ export class StyleMapper {
   }
 
   flattened(id: string | undefined, kind: IdmlStyle['kind']): Record<string, string> {
-    const root = [...this.byId.values()].find((style) => style.kind === kind && (style.name === rootName(kind) || style.id.endsWith(`/${rootName(kind)}`)))
+    return Object.assign({}, ...this.styleChain(id, kind).map((style) => style.properties))
+  }
+
+  private styleChain(id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle[] {
+    const root = this.rootStyle(kind)
     const chain: IdmlStyle[] = []
     const seen = new Set<string>()
     let current = this.findStyle(id, kind)
@@ -157,7 +187,7 @@ export class StyleMapper {
       current = this.findStyle(current.basedOn, kind)
     }
     if (root && !chain.includes(root)) chain.unshift(root)
-    return Object.assign({}, ...chain.map((style) => style.properties))
+    return chain
   }
 
   styleClass(id: string | undefined, _kind: IdmlStyle['kind']): string | undefined {
@@ -168,13 +198,24 @@ export class StyleMapper {
     return value
   }
 
-  overrideClass(values: Record<string, string>, base: Record<string, string>, directionValue: 'ltr' | 'rtl', location: string): string | undefined {
-    const changed = Object.fromEntries(Object.entries(values).filter(([name, value]) => !META.has(name) && value !== base[name]))
+  overrideClass(
+    values: Record<string, string>,
+    base: Record<string, string>,
+    directionValue: 'ltr' | 'rtl',
+    location: string,
+    styleDirection?: 'ltr' | 'rtl',
+  ): string | undefined {
+    const changed = Object.fromEntries(Object.entries(values).filter(([name, value]) => !NON_FORMATTING.has(name) && value !== base[name]))
     for (const name of Object.keys(changed)) {
       if (!MAPPED.has(name)) this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
     this.report.font(changed.AppliedFont, changed.FontStyle, location)
     const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => CSS_MAPPED.has(name)))
+    if (styleDirection && styleDirection !== directionValue) {
+      for (const name of ['LeftIndent', 'RightIndent', 'Justification']) {
+        if (base[name] !== undefined && cssProperties[name] === undefined) cssProperties[name] = base[name]
+      }
+    }
     if (Object.keys(cssProperties).length === 0) return undefined
     const key = JSON.stringify(Object.entries(cssProperties).sort(([a], [b]) => a.localeCompare(b))) + directionValue
     const found = this.overrides.get(key)
@@ -188,6 +229,10 @@ export class StyleMapper {
     return direction(properties.ParagraphDirection)
   }
 
+  paragraphStyleDirection(properties: Record<string, string>): 'ltr' | 'rtl' {
+    return this.paragraphDirection(properties) ?? this.bookDirection
+  }
+
   language(value: string | undefined, location: string): string | undefined {
     if (!value) return undefined
     const known = LANGUAGES[value]
@@ -196,7 +241,7 @@ export class StyleMapper {
   }
 
   rootLanguage(): string | undefined {
-    const root = [...this.byId.values()].find((style) => style.kind === 'paragraph' && style.name === PARAGRAPH_ROOT)
+    const root = this.rootStyle('paragraph')
     return this.language(root?.properties.AppliedLanguage, root?.location ?? 'Resources/Styles.xml')
   }
 
@@ -207,20 +252,20 @@ export class StyleMapper {
       const name = this.classes.get(id)
       if (!style || !name) continue
       const values = this.flattened(id, style.kind)
-      for (const property of Object.keys(values)) if (!MAPPED.has(property)) this.report.add(this.report.unsupportedStyleProperties, property, style.location)
+      this.reportUnmappedStyleProperties(style)
       this.report.font(values.AppliedFont, values.FontStyle, style.location)
-      const dir = style.kind === 'paragraph' ? (this.paragraphDirection(values) ?? this.bookDirection) : this.bookDirection
+      const dir = style.kind === 'paragraph' ? this.paragraphStyleDirection(values) : this.bookDirection
       const declarations = this.declarations(values, dir, style.location)
       rules.push(`.${name}{${declarations}}`)
     }
     for (const value of this.overrides.values()) {
-      const declarations = this.declarations(value.properties, value.direction, value.name)
+      const declarations = this.declarations(value.properties, value.direction, value.name, this.report.unsupportedOverrideProperties)
       if (declarations) rules.push(`.${value.name}{${declarations}}`)
     }
     return rules.join('')
   }
 
-  private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string): string {
+  private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported = this.report.unsupportedStyleProperties): string {
     const output: string[] = []
     const pt = (name: string, property: string) => {
       const value = Number(values[name])
@@ -241,7 +286,7 @@ export class StyleMapper {
     if (values.Capitalization === 'SmallCaps') output.push('font-variant-caps:small-caps')
     if (values.Capitalization === 'AllCaps') output.push('text-transform:uppercase')
     if (values.Underline === 'true' || values.Underline === 'Underline') output.push('text-decoration-line:underline')
-    this.justification(values.Justification, dir, output)
+    this.justification(values.Justification, dir, output, location, unsupported)
     this.keeps(values, output)
     const color = this.color(values.FillColor, location)
     if (color) output.push(`color:${color}`)
@@ -255,7 +300,24 @@ export class StyleMapper {
     return [...this.byId.values()].find((style) => style.kind === kind && (style.name === id || style.id.endsWith(`/${id}`)))
   }
 
-  private justification(value: string | undefined, dir: 'ltr' | 'rtl', output: string[]): void {
+  private rootStyle(kind: IdmlStyle['kind']): IdmlStyle | undefined {
+    return [...this.byId.values()].find((style) => style.kind === kind && (style.name === rootName(kind) || style.id.endsWith(`/${rootName(kind)}`)))
+  }
+
+  private reportUnmappedStyleProperties(style: IdmlStyle): void {
+    const root = this.rootStyle(style.kind)
+    for (const source of this.styleChain(style.id, style.kind)) {
+      for (const [name, value] of Object.entries(source.properties)) {
+        if (MAPPED.has(name) || NON_FORMATTING.has(name) || (source === root && !activeValue(value))) continue
+        const key = `${source.id}\u0000${name}`
+        if (this.reportedStyleProperties.has(key)) continue
+        this.reportedStyleProperties.add(key)
+        this.report.add(this.report.unsupportedStyleProperties, name, source.location)
+      }
+    }
+  }
+
+  private justification(value: string | undefined, dir: 'ltr' | 'rtl', output: string[], location: string, bucket: Map<string, number>): void {
     if (!value) return
     const side = (physical: 'left' | 'right') => (physical === (dir === 'rtl' ? 'right' : 'left') ? 'start' : 'end')
     if (value === 'LeftAlign' || value === 'RightAlign') output.push(`text-align:${side(value === 'LeftAlign' ? 'left' : 'right')}`)
@@ -267,8 +329,7 @@ export class StyleMapper {
       else if (value.startsWith('Right')) output.push(`text-align-last:${side('right')}`)
       else if (value.startsWith('Center')) output.push('text-align-last:center')
     } else if (value === 'ToBindingSide' || value === 'AwayFromBindingSide') {
-      const bindingStart = this.bookDirection === 'rtl' ? 'start' : 'start'
-      output.push(`text-align:${value === 'ToBindingSide' ? bindingStart : 'end'}`)
+      this.report.add(bucket, `Justification:${value}`, location)
     }
   }
 

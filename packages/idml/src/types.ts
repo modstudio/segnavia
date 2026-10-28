@@ -25,6 +25,7 @@ export interface IdmlSwatch {
 export interface IdmlFramePreference {
   columns: number
   gutter: number
+  location?: string
 }
 
 export interface IdmlStory {

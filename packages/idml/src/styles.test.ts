@@ -84,3 +84,89 @@ test('maps partial line keeps to orphans and widows', () => {
   mapper.styleClass('partial', 'paragraph')
   expect(mapper.css()).toContain('orphans:3;widows:4;break-before:column')
 })
+
+test('reports only active root gaps, non-root formatting gaps, and no style metadata', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [
+      style('root', '$ID/[No paragraph style]', {
+        RubyFlag: 'false',
+        KentenAlignment: 'None',
+        WarichuLines: '0',
+        RuleAbove: 'false',
+        EmitCss: 'true',
+        StyleUniqueId: 'metadata',
+      }),
+      style(
+        'section',
+        'Section',
+        {
+          RuleAbove: 'true',
+          RuleBelow: 'true',
+          ParagraphBorderOn: 'true',
+          Composer: 'HL Composer Optyca',
+          DropCapLines: '2',
+          TabList: '48',
+          FillTint: '80',
+          BaselineShift: '1',
+          KeyboardShortcut: '0 0',
+          NextStyle: 'section',
+        },
+        'root',
+      ),
+    ],
+    [],
+    report,
+    'rtl',
+  )
+  mapper.styleClass('section', 'paragraph')
+  mapper.css()
+  expect(report.data().unsupportedStyleProperties).toEqual({
+    BaselineShift: 1,
+    Composer: 1,
+    DropCapLines: 1,
+    FillTint: 1,
+    ParagraphBorderOn: 1,
+    RuleAbove: 1,
+    RuleBelow: 1,
+    TabList: 1,
+  })
+})
+
+test('reports binding-side alignment without emitting a static side', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [style('toward', 'Toward', { Justification: 'ToBindingSide' }), style('away', 'Away', { Justification: 'AwayFromBindingSide' })],
+    [],
+    report,
+    'rtl',
+  )
+  mapper.styleClass('toward', 'paragraph')
+  mapper.styleClass('away', 'paragraph')
+  const css = mapper.css()
+  expect(css).not.toContain('text-align')
+  expect(report.data().unsupportedStyleProperties).toEqual({
+    'Justification:AwayFromBindingSide': 1,
+    'Justification:ToBindingSide': 1,
+  })
+})
+
+test('corrects physical indents and alignment when paragraph direction overrides its style', () => {
+  const mapper = new StyleMapper(
+    [style('rtl', 'RTL', { ParagraphDirection: 'RightToLeftDirection', RightIndent: '52', Justification: 'RightAlign' })],
+    [],
+    new ReportCollector(),
+    'rtl',
+  )
+  const base = mapper.flattened('rtl', 'paragraph')
+  mapper.styleClass('rtl', 'paragraph')
+  const override = mapper.overrideClass(
+    { AppliedParagraphStyle: 'rtl', ParagraphDirection: 'LeftToRightDirection' },
+    base,
+    'ltr',
+    'Story#paragraph',
+    mapper.paragraphStyleDirection(base),
+  )
+  expect(override).toBe('idml-o-1')
+  expect(mapper.css()).toContain('.idml-o-1{padding-inline-end:52pt;text-align:end}')
+})

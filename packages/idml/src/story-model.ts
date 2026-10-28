@@ -1,5 +1,6 @@
 import { type Element, isTag } from 'domhandler'
-import type { IdmlFramePreference, IdmlStory, IdmlTextNode } from './types.ts'
+import type { FramePreferenceIndex } from './frame-preferences.ts'
+import type { IdmlStory, IdmlTextNode } from './types.ts'
 
 function localName(name: string): string {
   return name.includes(':') ? (name.split(':').at(-1) ?? name) : name
@@ -28,7 +29,7 @@ function textNode(node: Element, part: string, path: string): IdmlTextNode {
   }
 }
 
-export function parseStories(parts: { name: string; all: Element[] }[], framePreferences: Map<string, IdmlFramePreference>): IdmlStory[] {
+export function parseStories(parts: { name: string; all: Element[] }[], framePreferences: FramePreferenceIndex): IdmlStory[] {
   const result: IdmlStory[] = []
   const seen = new Set<string>()
   for (const part of parts) {
@@ -38,12 +39,13 @@ export function parseStories(parts: { name: string; all: Element[] }[], framePre
       seen.add(id)
       const rawDirection = element.attribs.StoryDirection
       const direction = rawDirection?.includes('RightToLeft') ? 'rtl' : rawDirection?.includes('LeftToRight') ? 'ltr' : undefined
+      const frame = framePreferences.preferred(id)
       result.push({
         id,
         part: part.name,
         root: textNode(element, part.name, `/Story[@Self=${id}]`),
         ...(direction ? { direction } : {}),
-        ...(framePreferences.get(id) ? { frame: framePreferences.get(id) } : {}),
+        ...(frame ? { frame } : {}),
       })
     }
   }

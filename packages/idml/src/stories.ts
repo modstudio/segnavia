@@ -9,7 +9,7 @@ const OMITTED = new Set(['TextFrame', 'Rectangle', 'Group', 'Polygon', 'Table', 
 const WRAPPERS = new Set(['HyperlinkTextSource', 'XMLElement', 'Change'])
 
 interface Token {
-  kind: 'text' | 'line' | 'paragraph'
+  kind: 'text' | 'paragraph'
   text?: string
   character?: IdmlTextNode
   location: string
@@ -110,7 +110,7 @@ function paragraphNode(
   const languageName = attributes.AppliedLanguage ?? flattened.AppliedLanguage
   const language = styles.language(languageName, paragraph.location)
   const paragraphClass = styles.styleClass(styleId, 'paragraph')
-  const overrideClass = styles.overrideClass(attributes, flattened, resolvedDirection, paragraph.location)
+  const overrideClass = styles.overrideClass(attributes, flattened, resolvedDirection, paragraph.location, styles.paragraphStyleDirection(flattened))
   const htmlAttributes: Record<string, string> = {}
   const className = classes(paragraphClass, overrideClass)
   if (className) htmlAttributes.class = className
@@ -122,10 +122,6 @@ function paragraphNode(
 
   const children: (Text | Element)[] = []
   for (const token of paragraphTokens) {
-    if (token.kind === 'line') {
-      children.push(new Element('br', {}, []))
-      continue
-    }
     if (token.kind !== 'text') continue
     children.push(...contentNodes(token, styles, resolvedDirection))
   }
