@@ -127,15 +127,20 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
   }
 }
 
-async function preparedDeckPrint(deck: Deck, options: BrowserPrintOptions): Promise<PrintFrameOptions> {
+export async function preparedDeckPrint(
+  deck: Deck,
+  options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
+): Promise<PrintFrameOptions> {
   const refusal = slotFillRefusal(deck.scripts, deck.slots, options.slots)
   if (refusal) throw refusal
   const slotWork = hasSlotWork(deck.slots, options.slots)
   const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
-  const notesFontCss = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, new AbortController().signal) : undefined
-  const printOptions = { ...options, notesFontCss }
+  const notesSheetFont =
+    options.notesSheetFont ??
+    (options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, new AbortController().signal) : undefined)
+  const printOptions = { ...options, notesSheetFont }
   const preparedDeck = {
     ...deck,
     slides: deck.slides.map((slide) =>
@@ -194,9 +199,12 @@ export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOpt
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
-  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, options))
+  const signal = new AbortController().signal
+  const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined
+  const preparedOptions = { ...options, notesSheetFont }
+  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, preparedOptions))
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
-    const prepared = await preparedDeckPrint(deck, { ...options, slots: copySlots })
+    const prepared = await preparedDeckPrint(deck, { ...preparedOptions, slots: copySlots })
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })

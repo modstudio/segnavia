@@ -254,6 +254,27 @@ test('deck PDF refuses a named notesFont with no FontSource before rendering', a
   expect(renders).toBe(0)
 })
 
+test('deck PDF refuses an empty notesFont before rendering', async () => {
+  let renders = 0
+  const rendering = renderDeckPdf(
+    deck,
+    { layout: 'notes', notesFont: '' },
+    {
+      renderPdf: async () => {
+        renders++
+        return onePage()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  await expect(rendering).rejects.toThrow(
+    'notes could not establish an app font name matching /^[a-z0-9-]+$/ (""); use a lowercase name of letters, digits and hyphens to clear this refusal.',
+  )
+  expect(renders).toBe(0)
+})
+
 test('deck PDF puts the named notes face in the notes head', async () => {
   const documents: string[] = []
   const serif = {

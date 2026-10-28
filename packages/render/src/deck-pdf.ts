@@ -109,7 +109,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
-  const notesFontCss = notesGeometry
+  const notesSheetFont = notesGeometry
     ? await fontCssForRender(
         resolveNotesFontCss(opts.notesFont, opts.fontSource ? { source: opts.fontSource } : undefined, services.signal ?? new AbortController().signal),
       )
@@ -120,7 +120,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
         scripts: true,
-        html: printableDeck(deck, { ...opts, css, notesFontCss, omitHtmlSlideFrames: true }),
+        html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)

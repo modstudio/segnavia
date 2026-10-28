@@ -104,12 +104,17 @@ export function notesSheetFontFamily(name: string | undefined): string {
   return `var(--segnavia-font-${name})`
 }
 
-export async function resolveNotesFontCss(name: string | undefined, fonts: FontsOptions | undefined, signal: AbortSignal): Promise<string> {
-  if (name === undefined) return ''
+export async function resolveNotesFontCss(
+  name: string | undefined,
+  fonts: FontsOptions | undefined,
+  signal: AbortSignal,
+): Promise<{ family: string; css: string }> {
+  if (name === undefined) return { family: DEFAULT_NOTES_FONT_FAMILY, css: '' }
+  requireAppFontName(name, NOTES_FONT_PLACE)
   const references: FontReference[] = [{ app: name }]
   if (!fonts) {
     refuseMissingFontSource(references, NOTES_FONT_PLACE)
-    return ''
+    return { family: notesSheetFontFamily(name), css: '' }
   }
-  return resolveFontReferences(references, fonts, signal, NOTES_FONT_PLACE)
+  return { family: notesSheetFontFamily(name), css: await resolveFontReferences(references, fonts, signal, NOTES_FONT_PLACE) }
 }
