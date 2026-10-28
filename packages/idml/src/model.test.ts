@@ -41,6 +41,9 @@ describe('idmlModel', () => {
       ['page-2', ['second']],
     ])
     expect(model.masterSpreads[0]?.id).toBe('master')
+    expect(model.masterSpreads[0]?.pages[0]?.frames).toEqual([
+      { id: 'master-story', story: 'master-story', bounds: { left: 20, top: 10, width: 10, height: 10 } },
+    ])
     expect(model.masterStoryIds).toEqual(['master-story'])
     expect(model.report?.unsupportedElements).toMatchObject({ Polygon: 1 })
     expect(model.report?.unsupportedElements).not.toHaveProperty('Story')

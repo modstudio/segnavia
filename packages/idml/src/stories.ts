@@ -1,4 +1,4 @@
-import { resolveDirection } from '@segnavia/format'
+import { BOOK_FURNITURE, MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
@@ -49,9 +49,10 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
   const terminal = (node: IdmlTextNode, character: IdmlTextNode | undefined): boolean => {
     if (node.name === 'Content') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
-    else if (node.name === '#processing-instruction') result.push({ kind: 'processing-instruction', text: node.text ?? '', location: node.location })
-    else if (node.name === 'TextVariableInstance') {
-      result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, location: node.location })
+    else if (node.name === '#processing-instruction') {
+      result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
+    } else if (node.name === 'TextVariableInstance') {
+      result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, character, location: node.location })
     } else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
     else if (node.name === 'Properties') return true
     else if (node.name === 'Change' && node.attributes.ChangeType !== undefined && !node.attributes.ChangeType.includes('Inserted')) {
@@ -86,28 +87,57 @@ function contentNodes(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl
 
 function matchedVariable(character: IdmlTextNode | undefined, variables: IdmlTextVariable[]): IdmlTextVariable | undefined {
   const style = character ? rangeAttributes(character).AppliedCharacterStyle : undefined
-  return variables.find((variable) => variable.type === 'MatchCharacterStyleType' && variable.appliedCharacterStyle === style)
+  return variables.find((variable) => variable.appliedCharacterStyle === style)
 }
 
-function furnitureNode(token: Token, variables: IdmlTextVariable[], master: boolean, report: ReportCollector): Element | undefined {
+const folioFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':folio'))
+const markFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':mark'))
+const markWhich = markFurniture?.fields.find((field) => field.key === 'which')
+
+function furnitureClass(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl'): string | undefined {
+  const characterAttributes = rangeAttributes(token.character)
+  const characterStyle = characterAttributes.AppliedCharacterStyle
+  return classes(
+    styles.styleClass(characterStyle, 'character'),
+    styles.overrideClass(characterAttributes, styles.flattened(characterStyle, 'character'), direction, token.character?.location ?? token.location),
+  )
+}
+
+function markNode(variable: IdmlTextVariable, className: string | undefined): Element | undefined {
+  if (!markFurniture) return undefined
+  const last = markWhich && 'choices' in markWhich ? markWhich.choices.find((choice) => choice === 'last') : undefined
+  const fallback = markWhich && 'default' in markWhich ? markWhich.default : undefined
+  return new Element(
+    'span',
+    {
+      [MOTIF_ATTRIBUTE]: markFurniture.key,
+      [motifFieldAttribute('name')]: variable.name,
+      [motifFieldAttribute('which')]: variable.searchStrategy === 'LastOnPage' ? (last ?? fallback ?? '') : (fallback ?? ''),
+      ...(className ? { class: className } : {}),
+    },
+    [],
+  )
+}
+
+function furnitureNode(
+  token: Token,
+  variables: IdmlTextVariable[],
+  master: boolean,
+  styles: StyleMapper,
+  direction: 'ltr' | 'rtl',
+  report: ReportCollector,
+): Element | undefined {
+  const className = furnitureClass(token, styles, direction)
   if (token.kind === 'processing-instruction') {
-    if (master && /\bACE\s+18\b/.test(token.text ?? '')) return new Element('span', { 'data-motif': 'segnavia:folio' }, [])
+    if (master && /\bACE\s+18\b/.test(token.text ?? '') && folioFurniture) {
+      return new Element('span', { [MOTIF_ATTRIBUTE]: folioFurniture.key, ...(className ? { class: className } : {}) }, [])
+    }
     report.add(report.unsupportedSpecialCharacters, token.text ?? 'processing instruction', token.location)
     return undefined
   }
   if (token.kind !== 'variable') return undefined
   const variable = variables.find((candidate) => candidate.id === token.variable)
-  if (master && variable?.type === 'MatchCharacterStyleType') {
-    return new Element(
-      'span',
-      {
-        'data-motif': 'segnavia:mark',
-        'data-motif-name': variable.name,
-        'data-motif-which': variable.searchStrategy === 'LastOnPage' ? 'last' : 'first',
-      },
-      [],
-    )
-  }
+  if (master && variable) return markNode(variable, className)
   report.add(report.unsupportedElements, variable ? `TextVariable:${variable.name}` : `TextVariableInstance:${token.variable ?? 'unknown'}`, token.location)
   return undefined
 }
@@ -138,7 +168,7 @@ function paragraphChildren(
       continue
     }
     marked = undefined
-    const furniture = furnitureNode(token, variables, master, report)
+    const furniture = furnitureNode(token, variables, master, styles, direction, report)
     if (furniture) children.push(furniture)
   }
   return children

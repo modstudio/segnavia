@@ -4,6 +4,13 @@ export interface IdmlFontUse {
   locations: string[]
 }
 
+export interface IdmlMixedMasterChapter {
+  chapter: string
+  side: 'recto' | 'verso'
+  masters: string[]
+  chosen: string
+}
+
 export interface IdmlReportData {
   unsupportedElements: Record<string, number>
   unsupportedStyleProperties: Record<string, number>
@@ -13,6 +20,7 @@ export interface IdmlReportData {
   spotColors: Record<string, number>
   locations: Record<string, string[]>
   fonts: IdmlFontUse[]
+  mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
 const BUCKET_NAMES = {
@@ -29,6 +37,7 @@ type BucketKey = keyof typeof BUCKET_NAMES
 export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
+  readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
     Map<string, number>
@@ -54,6 +63,7 @@ export class ReportCollector {
   }
 
   constructor(seed?: Partial<IdmlReportData>) {
+    this.mixedMasterChapters = [...(seed?.mixedMasterChapters ?? [])]
     for (const name of Object.keys(BUCKET_NAMES) as BucketKey[]) {
       for (const [key, count] of Object.entries(seed?.[name] ?? {})) this.buckets[name].set(key, count)
     }
@@ -93,6 +103,7 @@ export class ReportCollector {
       ...buckets,
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
+      mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }
 

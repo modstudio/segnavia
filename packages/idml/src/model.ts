@@ -1,6 +1,7 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
 import { FramePreferenceIndex, framePreference } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
+import { readMargin } from './margins.ts'
 import { type ParsedPart, parseParts } from './parse-parts.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
@@ -9,7 +10,6 @@ import { parseStyles, parseSwatches } from './styles.ts'
 import type {
   IdmlDocumentPreferences,
   IdmlFramePreference,
-  IdmlMargin,
   IdmlMasterFrame,
   IdmlMasterSpread,
   IdmlPage,
@@ -123,19 +123,6 @@ function frameBounds(element: Element, matrix: Transform): ReturnType<typeof bou
   return bounds(anchors)
 }
 
-function frameCenter(element: Element, matrix: Transform): Point | undefined {
-  const anchors = elements(element)
-    .map((candidate) => attribute(candidate, 'Anchor'))
-    .filter((value): value is string => value !== undefined)
-    .map((value) => value.trim().split(/\s+/).map(Number))
-    .filter((value): value is [number, number] => value.length === 2 && value.every(Number.isFinite))
-    .map((point) => apply(matrix, point))
-  if (anchors.length === 0) return undefined
-  const xs = anchors.map(([x]) => x)
-  const ys = anchors.map(([, y]) => y)
-  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]
-}
-
 function contains(area: Point[], [x, y]: Point): boolean {
   let inside = false
   for (let index = 0, previous = area.length - 1; index < area.length; previous = index, index += 1) {
@@ -149,7 +136,9 @@ function contains(area: Point[], [x, y]: Point): boolean {
 }
 
 interface FramePlacement {
+  id: string
   story: string
+  bounds?: { left: number; top: number; right: number; bottom: number }
   center?: Point
   preference?: IdmlFramePreference
 }
@@ -158,9 +147,16 @@ function framePlacement(element: Element, matrix: Transform, location: string): 
   const story = attribute(element, 'ParentStory')
   if (!story) return undefined
   const preference = framePreference(element, location)
+  const box = frameBounds(element, matrix)
   return {
+    id: attribute(element, 'Self') ?? story,
     story,
-    center: frameCenter(element, matrix),
+    ...(box
+      ? {
+          bounds: box,
+          center: [(box.left + box.right) / 2, (box.top + box.bottom) / 2] as Point,
+        }
+      : {}),
     ...(preference ? { preference } : {}),
   }
 }
@@ -201,46 +197,32 @@ function assignSides(pageElements: Element[], pages: IdmlPage[]): void {
   if (rightPage && right?.index !== left?.index) rightPage.side = 'right'
 }
 
-function pageMargin(element: Element | undefined): IdmlMargin {
-  if (!element) return { top: 0, bottom: 0, left: 0, right: 0 }
-  const margin = elements(element, 'MarginPreference')[0]
-  return {
-    top: numberAttribute(margin, 'Top', 0),
-    bottom: numberAttribute(margin, 'Bottom', 0),
-    left: numberAttribute(margin, 'Left', 0),
-    right: numberAttribute(margin, 'Right', 0),
-  }
-}
-
-function masterFrames(element: Element, pageElements: Element[], pages: IdmlPage[]): IdmlMasterFrame[][] {
+function masterFrames(frames: FramePlacement[], pageElements: Element[], pages: IdmlPage[]): IdmlMasterFrame[][] {
   const result = pages.map(() => [] as IdmlMasterFrame[])
   const areas = pageElements.map((candidate) => {
     const area = pageArea(candidate)
     return area ? bounds(area) : undefined
   })
-  for (const child of element.children) {
-    if (!isTag(child) || localName(child.name) !== 'TextFrame') continue
-    const story = attribute(child, 'ParentStory')
-    const absolute = frameBounds(child, transform(child))
-    if (!story || !absolute) continue
-    const center: Point = [(absolute.left + absolute.right) / 2, (absolute.top + absolute.bottom) / 2]
+  for (const frame of frames) {
+    const absolute = frame.bounds
+    if (!absolute || !frame.center) continue
     const index = pageElements.findIndex((candidate) => {
       const area = pageArea(candidate)
-      return area ? contains(area, center) : false
+      return area ? contains(area, frame.center as Point) : false
     })
     const area = areas[index]
     if (index < 0 || !area) continue
     result[index]?.push({
-      id: attribute(child, 'Self') ?? `${story}-${result[index]?.length ?? 0}`,
-      story,
+      id: frame.id,
+      story: frame.story,
       bounds: { left: absolute.left - area.left, top: absolute.top - area.top, width: absolute.right - absolute.left, height: absolute.bottom - absolute.top },
     })
   }
   return result
 }
 
-function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage[]): IdmlMasterSpread {
-  const frames = masterFrames(element, pageElements, pages)
+function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage[], placements: FramePlacement[]): IdmlMasterSpread {
+  const frames = masterFrames(placements, pageElements, pages)
   const prefix = attribute(element, 'NamePrefix') ?? ''
   const base = attribute(element, 'BaseName') ?? attribute(element, 'Name') ?? attribute(element, 'Self') ?? 'master'
   const name = prefix ? `${prefix}-${base}` : base
@@ -257,22 +239,25 @@ function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage
     id: attribute(element, 'Self') ?? base,
     name,
     ...(attribute(element, 'BasedOn') ? { basedOn: attribute(element, 'BasedOn') } : {}),
-    pages: pages.map((value, index) => ({ ...value, margin: pageMargin(pageElements[index]), frames: frames[index] ?? [] })),
+    pages: pages.map((value, index) => ({
+      ...value,
+      margin: readMargin(elements(pageElements[index] as Element, 'MarginPreference')[0]),
+      frames: frames[index] ?? [],
+    })),
     unmappedItems,
   }
 }
 
 function placeStories(
-  element: Element,
+  frames: FramePlacement[],
   pageElements: Element[],
   pages: IdmlPage[],
   report: ReportCollector,
   framePreferences: FramePreferenceIndex,
-  location: string,
 ): Set<string> {
   const areas = pageElements.map(pageArea)
   const frameStories = new Set<string>()
-  for (const frame of spreadFrames(element, location)) {
+  for (const frame of frames) {
     frameStories.add(frame.story)
     framePreferences.add(frame.story, frame.preference)
     const pageIndex = frame.center ? areas.findIndex((area) => area !== undefined && contains(area, frame.center as Point)) : -1
@@ -309,8 +294,9 @@ function spreads(
       const pageElements = elements(element, 'Page')
       const pages = pageElements.map(page)
       assignSides(pageElements, pages)
-      for (const story of placeStories(element, pageElements, pages, report, framePreferences, name)) frameStories.add(story)
-      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages) : { id, pages })
+      const frames = spreadFrames(element, name)
+      for (const story of placeStories(frames, pageElements, pages, report, framePreferences)) frameStories.add(story)
+      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages, frames) : { id, pages })
     }
   }
   return { values: result, frameStories }
@@ -369,12 +355,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
       pageHeight: numberAttribute(preference, 'PageHeight'),
       facingPages: boolAttribute(preference, 'FacingPages', true),
       binding: binding === 'RightToLeft' ? 'right-to-left' : 'left-to-right',
-      margin: {
-        top: numberAttribute(margin, 'Top', 0),
-        bottom: numberAttribute(margin, 'Bottom', 0),
-        left: numberAttribute(margin, 'Left', 0),
-        right: numberAttribute(margin, 'Right', 0),
-      },
+      margin: readMargin(margin),
     },
     spreads: spreadResult.values as IdmlSpread[],
     masterSpreads: masterResult.values as IdmlMasterSpread[],
