@@ -6,12 +6,13 @@ import type { Page as Tab } from 'playwright-core'
 import type { Profile, ProofTable } from '../../packages/render/src/color/index.ts'
 import { processColorResidues } from '../verify/gray-residue.ts'
 import { measureBars } from './bars.ts'
-import { EFFECT_REGION_THRESHOLD, EFFECTLESS_CSS, MEASUREMENT_CSS, SCALE } from './config.ts'
-import { alignmentOffset, difference, imageSize, modelPressRaster, proofImage, sideBySide, writeMask } from './image.ts'
+import { compareReaders } from './compare-readers.ts'
+import { EFFECTLESS_CSS, MEASUREMENT_CSS, SCALE } from './config.ts'
+import { difference, imageSize, modelPressRaster, proofImage, writeMask } from './image.ts'
 import { analyzePdf, trimPdf } from './pdf.ts'
-import { type PressRasterizer, pressGhostscript, pressPoppler, READERS, readerPath, validateReaderProfile } from './readers.ts'
+import { type PressRasterizer, pressGhostscript, pressPoppler } from './readers.ts'
 import { blendedRegionBoxes, type ComputedStyleFacts, regionMask } from './regions.ts'
-import type { Box, Difference, DocumentResult, ReaderResult, RegionResult, SizeMeasurement } from './types.ts'
+import type { Box, Difference, DocumentResult, SizeMeasurement } from './types.ts'
 
 export interface FidelitySession {
   renderer: Renderer
@@ -94,52 +95,7 @@ export interface FinishDocumentInput {
   bookId?: string
   pageIndex?: number
   faultControl?: boolean
-}
-
-async function compareReaders(
-  screen: string,
-  comparisonPdf: string,
-  directory: string,
-  size: { width: number; height: number },
-  regions: Array<{ name: string; box: Box }>,
-  expectedMarker: number,
-  executablePath: string,
-): Promise<ReaderResult[]> {
-  const readerDirectory = path.join(directory, 'readers')
-  const comparisonDirectory = path.join(directory, 'comparisons')
-  const readers: ReaderResult[] = await Promise.all(
-    READERS.map((reader) =>
-      reader.render(comparisonPdf, readerPath(readerDirectory, reader.id), size.width, size.height, { executablePath, markerInset: expectedMarker }),
-    ),
-  )
-  for (const reader of readers) validateReaderProfile(reader)
-  for (const reader of readers) {
-    if (!reader.worked || !reader.image) continue
-    reader.alignment = alignmentOffset(screen, reader.image, size.width, size.height, expectedMarker, expectedMarker)
-    if (!reader.alignment.passed) {
-      reader.worked = false
-      reader.error = reader.alignment.error
-      continue
-    }
-    reader.page = difference(screen, reader.image, size.width, size.height)
-    reader.regions = regions.map(({ name, box }) => {
-      const x = Math.max(0, box.x * SCALE)
-      const y = Math.max(0, box.y * SCALE)
-      const scaled = {
-        x,
-        y,
-        width: Math.max(0, Math.min(box.width * SCALE, size.width - x)),
-        height: Math.max(0, Math.min(box.height * SCALE, size.height - y)),
-      }
-      const result: RegionResult = { name, box: scaled, ...difference(screen, reader.image as string, size.width, size.height, scaled) }
-      if (result.mean > EFFECT_REGION_THRESHOLD.mean || result.p99 > EFFECT_REGION_THRESHOLD.p99) {
-        result.sideBySide = path.join(comparisonDirectory, `${reader.reader}-${name}.png`)
-        sideBySide(screen, reader.image as string, scaled, result.sideBySide)
-      }
-      return result
-    })
-  }
-  return readers
+  textWindow?: Box
 }
 
 interface PressMeasure {
@@ -286,6 +242,7 @@ export async function finishDocument(input: FinishDocumentInput): Promise<Docume
   const blendedMaskPixels = regionMask(blendedRegionBoxes(input.blendedFacts), size.width, size.height, SCALE)
   writeMask(blendedMaskPixels, blendedMask, size.width, size.height)
   const blendedFraction = blendedMaskPixels.reduce((count, value) => count + (value ? 1 : 0), 0) / blendedMaskPixels.length
+  if (input.kind === 'book' && !input.textWindow) throw new Error(`${input.id} has no body text window.`)
   const readers = await compareReaders(
     input.screen,
     input.comparisonPdf,
@@ -294,6 +251,7 @@ export async function finishDocument(input: FinishDocumentInput): Promise<Docume
     input.regions,
     input.expectedMarker,
     input.session.executablePath,
+    input.textWindow,
   )
   let cmyk: PressMeasure = { pressReason: input.pressFiles?.pressReason }
   let gray: GrayMeasure = { grayPressReason: input.pressFiles?.grayPressReason }

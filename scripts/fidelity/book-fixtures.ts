@@ -35,7 +35,7 @@ export async function bookFixtures(): Promise<BookFixture[]> {
   const english = await Bun.file(path.join(ROOT, 'fixtures/fidelity/control-book-en.html')).text()
   const hebrew = await Bun.file(path.join(ROOT, 'fixtures/fidelity/control-book-he.html')).text()
   return [
-    { id: ENGLISH_BOOK_ID, title: 'English control book', kind: 'control', book: Book.parse(controlBook('en', english)) },
-    { id: HEBREW_BOOK_ID, title: 'Hebrew control book', kind: 'control', book: Book.parse(controlBook('he', hebrew)) },
+    { id: ENGLISH_BOOK_ID, title: 'English control book', kind: 'book', book: Book.parse(controlBook('en', english)) },
+    { id: HEBREW_BOOK_ID, title: 'Hebrew control book', kind: 'book', book: Book.parse(controlBook('he', hebrew)) },
   ]
 }

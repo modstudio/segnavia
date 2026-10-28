@@ -183,6 +183,7 @@ async function measureBookPages(
         bookId: fixture.id,
         pageIndex: capture.index,
         faultControl: options.faultControl,
+        textWindow: capture.textWindow,
       }),
     )
   }
@@ -203,7 +204,7 @@ export async function renderBookFixtures(session: FidelitySession, directory: st
           .filter(([, bar]) => !bar.passed)
           .map(([id, bar]) => `${page.id} ${id}${bar.reason ? ` (${bar.reason})` : ''}`),
       )
-      throw new Error(`${fixture.title} failed the control bars: ${failed.join('; ')}.`)
+      throw new Error(`${fixture.title} failed the book bars: ${failed.join('; ')}.`)
     }
     documents.push(...pages)
   }

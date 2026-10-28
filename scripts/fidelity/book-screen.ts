@@ -14,6 +14,7 @@ export interface BookPaperCapture {
   bytes: Uint8Array
   regions: Array<{ name: string; box: Box }>
   blendedFacts: ComputedStyleFacts[]
+  textWindow: Box
 }
 
 export async function openBookBrowser(executablePath: string): Promise<Browser> {
@@ -49,6 +50,32 @@ export async function shiftTextWindowByOneLine(tab: Tab, pageIndex: number): Pro
     if (!pitch) throw new Error(`Paper ${index} has no measurable line pitch.`)
     for (const view of windows) view.style.insetBlockStart = `${Number.parseFloat(view.style.insetBlockStart || '0') + pitch}px`
   }, pageIndex)
+}
+
+async function paperTextWindow(tab: Tab, index: number, origin: { x: number; y: number }): Promise<Box> {
+  const box = await tab.evaluate(
+    ({ pageIndex, held }) => {
+      const paper = document.querySelector(`[data-segnavia-book-page="${pageIndex}"]`)
+      if (!paper) throw new Error(`The paginated view has no paper ${pageIndex}.`)
+      const windows = [...paper.querySelectorAll('[data-segnavia-window]')]
+      if (!windows.length) throw new Error(`Paper ${pageIndex} has no text window.`)
+      let x0 = Number.POSITIVE_INFINITY
+      let y0 = Number.POSITIVE_INFINITY
+      let x1 = Number.NEGATIVE_INFINITY
+      let y1 = Number.NEGATIVE_INFINITY
+      for (const node of windows) {
+        const next = node.getBoundingClientRect()
+        x0 = Math.min(x0, next.x - held.x)
+        y0 = Math.min(y0, next.y - held.y)
+        x1 = Math.max(x1, next.x - held.x + next.width)
+        y1 = Math.max(y1, next.y - held.y + next.height)
+      }
+      return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+    },
+    { pageIndex: index, held: origin },
+  )
+  if (!(box.width > 0 && box.height > 0)) throw new Error(`Paper ${index} has an empty text window.`)
+  return box
 }
 
 async function paperRegions(tab: Tab, index: number, origin: { x: number; y: number }): Promise<Array<{ name: string; box: Box }>> {
@@ -145,6 +172,7 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
         bytes,
         regions: await paperRegions(tab, held.index, origin),
         blendedFacts: await paperBlendedFacts(tab, held.index, origin),
+        textWindow: await paperTextWindow(tab, held.index, origin),
       })
     }
     return captures

@@ -3,16 +3,7 @@ import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
 import { EFFECT_REGION_THRESHOLD, SCALE } from '../verify/pixel-difference.ts'
 import { registrationPasses, worstRegistration } from './registration.ts'
-import type {
-  BarId,
-  BarThreshold,
-  Difference,
-  FixtureKind,
-  ReaderResult,
-  RegistrationMeasurement,
-  SizeMeasurement,
-  Threshold,
-} from './types.ts'
+import type { BarId, BarThreshold, Difference, FixtureKind, ReaderResult, RegistrationMeasurement, SizeMeasurement, Threshold } from './types.ts'
 
 export { EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from '../verify/pixel-difference.ts'
 
@@ -22,7 +13,7 @@ export const CSS_PX_PER_INCH = 96
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 // This regression ceiling sits just above the worst measured effects document.
 export const PRESS_BLEND_THRESHOLD = { mean: 10, p99: 90 }
-// Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723. The one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312. 0.15 sits about 2x above the unshifted maximum and about 2x below the fault minimum.
+// Search ±120 device px, more than one line pitch of 96. Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723. The one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312. 0.15 sits about 2x above the unshifted maximum and about 2x below the fault minimum.
 export const BOOK_REGISTRATION_TOLERANCE = 1
 export const BOOK_PROFILE_RESIDUAL_MAX = 0.15
 export const BOOK_REGISTRATION_SEARCH = 120
@@ -102,9 +93,7 @@ function bookRegistrationPasses(facts: BarFacts): boolean {
   const working = facts.readers.filter((reader) => reader.worked)
   return (
     working.length > 0 &&
-    working.every(
-      (reader) => reader.registration && registrationPasses(reader.registration, BOOK_REGISTRATION_TOLERANCE, BOOK_PROFILE_RESIDUAL_MAX),
-    )
+    working.every((reader) => reader.registration && registrationPasses(reader.registration, BOOK_REGISTRATION_TOLERANCE, BOOK_PROFILE_RESIDUAL_MAX))
   )
 }
 
@@ -126,10 +115,7 @@ function bookRegistrationReason(facts: BarFacts): string | undefined {
     .join('; ')
 }
 
-function registrationFormat(
-  measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined,
-  threshold: BarThreshold,
-): string {
+function registrationFormat(measured: Difference | SizeMeasurement | RegistrationMeasurement | undefined, threshold: BarThreshold): string {
   const value = measured as RegistrationMeasurement | undefined
   if (!('shift' in threshold)) throw new Error('A registration bar requires a shift/residual threshold.')
   const dy = value ? String(value.dy) : '—'

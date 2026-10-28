@@ -91,14 +91,7 @@ export function worstRegistration(items: RegistrationMeasurement[]): Registratio
   }))
 }
 
-export function measureRegistration(
-  left: Uint8Array,
-  right: Uint8Array,
-  width: number,
-  height: number,
-  box: Box,
-  search: number,
-): RegistrationMeasurement {
+export function measureRegistration(left: Uint8Array, right: Uint8Array, width: number, height: number, box: Box, search: number): RegistrationMeasurement {
   const y0 = Math.floor(box.y)
   const y1 = Math.ceil(box.y + box.height)
   const x0 = Math.floor(box.x)

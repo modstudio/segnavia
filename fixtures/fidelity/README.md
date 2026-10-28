@@ -50,14 +50,23 @@ rather than the screen-to-PDF match. The run refuses unless each paper's box
 is exactly that CSS size at scale 1 and each screenshot is that size times
 the suite scale.
 
-Each page is judged by the control bars. The PDF size bar is measured once on
-the whole book against its effectless counterpart and shown once for the book.
+Book pages are kind `book`. They are gated by line registration of the body
+text window (row and column ink profiles over ±120 device px: best |d| ≤ 1
+device px and nL1 at zero shift ≤ 0.15), by whole-page press and gray mean at
+the `PRESS_BLEND_THRESHOLD` mean, and by the size bar on the whole book PDF.
+Whole-page p99 is reported, not gated: on dense text it tracks glyph-edge
+anti-aliasing, not a geometric miss. Text color stays gated by `control-text`.
+Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723; the
+one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312.
+
+The PDF size bar is measured once on the whole book against its effectless
+counterpart and shown once for the book.
 
 `control-book-en-shifted` is a standing fault control: the same English book,
 with the text window of body page 02 shifted by one line pitch in a PDF-only
 `beforeOutput`. The screen is unshifted. Only that page is compared. The run
-fails if that page passes the press bar. The report labels it as a fault
-control and prints its press mean and p99 beside the passing pages.
+fails if that page passes the registration bar. The report labels it as a fault
+control, prints its registration numbers, and names the bars it fails.
 
 Set `SEGNAVIA_FIDELITY_OUT` to write runs somewhere other than `out/fidelity/`,
 for example a folder that outlives a throwaway worktree.
@@ -92,5 +101,7 @@ CMYK and grey; a blended mask over 1% also fails a control. Effects documents
 are judged on the whole page against the `PRESS_BLEND_THRESHOLD` regression
 ceiling (mean ≤ 10, p99 ≤ 90), while their blended mask remains report evidence.
 The effects regions still use `EFFECT_REGION_THRESHOLD` for effects documents;
-that bar is not applicable to controls. `PDF_SIZE_THRESHOLD` applies to every
-document.
+that bar is not applicable to controls or books. Book pages reuse the
+`PRESS_BLEND_THRESHOLD` mean and add the line-registration bar; p99 on a book
+page is evidence because on dense text it measures text density rather than
+fidelity. `PDF_SIZE_THRESHOLD` applies to every document.
