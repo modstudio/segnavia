@@ -42,6 +42,14 @@ is screenshotted. Page ids are `<book-id>/pNN` (two digits from 01). A
 page-count mismatch between screen papers and PDF pages fails the book and
 names both counts; no page is compared.
 
+The control books use a 6×9 in paper (576×864 CSS px). A whole number of CSS
+pixels keeps every paper's size and origin on the pixel grid at the suite
+scale, so the PDF raster is not resampled. A fractional paper (for example A5
+at 793.7 CSS px) is resampled when compared, which measures the rasterizer
+rather than the screen-to-PDF match. The run refuses unless each paper's box
+is exactly that CSS size at scale 1 and each screenshot is that size times
+the suite scale.
+
 Each page is judged by the control bars. The PDF size bar is measured once on
 the whole book against its effectless counterpart and shown once for the book.
 

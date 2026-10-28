@@ -118,10 +118,12 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
     )
     if (!papers.length) throw new Error('The paginated view produced no papers.')
     for (const held of papers) {
-      if (Math.abs(held.width - held.expectedWidth) > 0.5 || Math.abs(held.height - held.expectedHeight) > 0.5) {
+      if (Math.abs(held.width - held.expectedWidth) > 1e-3 || Math.abs(held.height - held.expectedHeight) > 1e-3) {
         throw new Error(`Paper ${held.index} rendered at ${held.width}×${held.height} CSS px; expected ${held.expectedWidth}×${held.expectedHeight} CSS px.`)
       }
     }
+    const rasterWidth = Math.round(paper.width * SCALE)
+    const rasterHeight = Math.round(paper.height * SCALE)
     const captures: BookPaperCapture[] = []
     for (const held of papers) {
       const locator = tab.locator(`[data-segnavia-book-page="${held.index}"]`)
@@ -129,9 +131,18 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
         const box = element.getBoundingClientRect()
         return { x: box.x, y: box.y }
       })
+      const bytes = new Uint8Array(await locator.screenshot({ type: 'png' }))
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      const width = view.getUint32(16)
+      const height = view.getUint32(20)
+      if (width !== rasterWidth || height !== rasterHeight) {
+        throw new Error(
+          `Paper ${held.index} screenshot is ${width}×${height} device px; expected ${rasterWidth}×${rasterHeight} (${held.expectedWidth}×${held.expectedHeight} CSS px at scale ${SCALE}).`,
+        )
+      }
       captures.push({
         index: held.index,
-        bytes: new Uint8Array(await locator.screenshot({ type: 'png' })),
+        bytes,
         regions: await paperRegions(tab, held.index, origin),
         blendedFacts: await paperBlendedFacts(tab, held.index, origin),
       })

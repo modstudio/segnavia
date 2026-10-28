@@ -12,7 +12,7 @@ export const FAULT_CONTROL_PAGE = 2
 export const BOOK_FACE_CSS =
   'html{font:16px/1.5 Arial,sans-serif;background:#fff;color:#111}html[lang="he"]{font-family:Arial,"Noto Sans Hebrew",sans-serif}[data-segnavia-book-page]{background:#fff}[data-segnavia-head],[data-segnavia-foot]{font-size:11px;line-height:1.3}'
 
-const page = { paper: 'a5' as const, margin: { top: 16, bottom: 18, inner: 16, outer: 12 } }
+const page = { paper: { width: 6, height: 9, unit: 'in' as const }, margin: { top: 16, bottom: 18, inner: 16, outer: 12 } }
 
 function filled(html: string, hebrew: boolean): string {
   if (!hebrew) return html
