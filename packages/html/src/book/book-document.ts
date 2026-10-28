@@ -172,10 +172,13 @@ function reservedIdIssues(section: BuiltSection): string[] {
   })
 }
 
+export const BOOK_COLUMN_MIN = 2
+export const BOOK_COLUMN_MAX = 4
+
 function columnsValueOk(value: string): boolean {
   if (!/^[0-9]+$/.test(value)) return false
   const count = Number(value)
-  return count >= 2 && count <= 4
+  return count >= BOOK_COLUMN_MIN && count <= BOOK_COLUMN_MAX
 }
 
 function columnIssues(section: BuiltSection): string[] {
@@ -183,7 +186,9 @@ function columnIssues(section: BuiltSection): string[] {
   return elements(section.node.children).flatMap((node) => {
     const value = node.attribs['data-columns']
     if (value === undefined || columnsValueOk(value)) return []
-    return [`The ${node.name} in ${where} could not establish data-columns ${JSON.stringify(value)}; set it to an integer from 2 to 4 to clear this`]
+    return [
+      `The ${node.name} in ${where} could not establish data-columns ${JSON.stringify(value)}; set it to an integer from ${BOOK_COLUMN_MIN} to ${BOOK_COLUMN_MAX} to clear this`,
+    ]
   })
 }
 

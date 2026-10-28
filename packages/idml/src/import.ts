@@ -2,15 +2,15 @@ import type { Book } from '@segnavia/format'
 import { modelToBook } from './map-book.ts'
 import { idmlModel } from './model.ts'
 import { refusal } from './refusal.ts'
+import { type IdmlReportData, ReportCollector } from './report.ts'
 import { readZip } from './zip.ts'
 
 const IDML_MIMETYPE = 'application/vnd.adobe.indesign-idml-package'
 
 export type IdmlImportOptions = Record<never, never>
 
-export interface IdmlImportReport {
+export interface IdmlImportReport extends IdmlReportData {
   partsRead: string[]
-  unsupportedElements: Record<string, number>
 }
 
 export interface IdmlImportResult {
@@ -31,5 +31,7 @@ export async function importIdml(bytes: Uint8Array, _options: IdmlImportOptions 
     throw refusal('the IDML designmap.xml entry is missing', 'add the required designmap.xml entry')
   }
   const model = idmlModel(entries)
-  return { book: modelToBook(model), report: { partsRead: model.partsRead, unsupportedElements: model.unsupportedElements } }
+  const collector = new ReportCollector(model.report)
+  const book = modelToBook(model, collector)
+  return { book, report: { partsRead: model.partsRead, ...collector.data() } }
 }

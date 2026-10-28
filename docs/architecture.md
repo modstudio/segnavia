@@ -32,8 +32,14 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. `format`, `html` and `idml` run anywhere. `idml`
 accepts package bytes, refuses unsupported ZIP forms and bounded-resource
-violations, and returns a validated `Book` plus a report of unmapped IDML
-elements. It never resolves linked resources or reaches the network. `frame` defines
+violations, and returns a validated `Book` plus an import report. Body stories
+become chapters, and the paragraph and character styles they use become
+`idml-*` classes in `Book.css`, with physical indents and alignment resolved
+to logical properties by each paragraph's direction. Single-column paragraphs
+in a multi-column frame carry `data-columns` within the bound `html` exports.
+The report names every unmapped element, style or override property, special
+character, language and spot color, with locations, and lists the fonts the
+styles reference. It never resolves linked resources or reaches the network. `frame` defines
 the custom elements, but its server-safe entry points are the single source
 of the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the

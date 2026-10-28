@@ -42,9 +42,10 @@ describe('idmlModel', () => {
     ])
     expect(model.masterSpreads[0]?.id).toBe('master')
     expect(model.masterStoryIds).toEqual(['master-story'])
-    expect(model.unsupportedElements).toMatchObject({ Polygon: 1, ParagraphStyleRange: 1, 'master story': 1 })
-    expect(model.unsupportedElements).not.toHaveProperty('Story')
-    expect(model.unsupportedElements).not.toHaveProperty('MasterSpread')
+    expect(model.report?.unsupportedElements).toMatchObject({ Polygon: 1, 'master story': 1 })
+    expect(model.report?.unsupportedElements).not.toHaveProperty('Story')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('MasterSpread')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('Group')
   })
 
   test('uses design-map order and reports spread parts omitted from the design map', () => {
@@ -60,7 +61,74 @@ describe('idmlModel', () => {
       { name: 'Spreads/first.xml', bytes: bytes('<Spread Self="first"><Page Self="page-1"/></Spread>') },
     ])
     expect(model.spreads.map((spread) => spread.id)).toEqual(['first', 'second'])
-    expect(model.unsupportedElements['unlisted spread part']).toBe(1)
+    expect(model.report?.unsupportedElements['unlisted spread part']).toBe(1)
+  })
+
+  test('selects a story frame from its most common multi-column preference', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes(
+          '<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/><idPkg:Spread src="Spreads/body.xml"/><idPkg:Story src="Stories/story.xml"/></Document>',
+        ),
+      },
+      {
+        name: 'Spreads/body.xml',
+        bytes: bytes(
+          '<Spread Self="body"><Page Self="page" GeometricBounds="0 0 100 100"/><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="1" TextColumnGutter="0"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="14"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="12"/></Properties></TextFrame><TextFrame ParentStory="story"><Properties><TextFramePreference TextColumnCount="2" TextColumnGutter="12"/></Properties></TextFrame></Spread>',
+        ),
+      },
+      { name: 'Stories/story.xml', bytes: bytes('<Story Self="story"/>') },
+    ])
+    expect(model.stories[0]?.frame).toMatchObject({ columns: 2, gutter: 12 })
+    expect(model.bodyFramePreferences).toHaveLength(3)
+  })
+
+  test('reads direction from StoryPreference and reports its active unmapped settings', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes('<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/></Document>'),
+      },
+      {
+        name: 'Stories/story.xml',
+        bytes: bytes(
+          '<Story Self="story" StoryDirection="RightToLeftDirection"><StoryPreference StoryDirection="lefttorightdirection" OpticalMarginAlignment="true" OpticalMarginSize="0"/></Story>',
+        ),
+      },
+    ])
+    expect(model.stories[0]?.direction).toBe('ltr')
+    expect(model.report?.unsupportedElements).toMatchObject({ 'StoryPreference:OpticalMarginAlignment': 1 })
+    expect(model.report?.unsupportedElements).not.toHaveProperty('StoryPreference:OpticalMarginSize')
+  })
+
+  test('censuses unmapped style and graphic resource siblings', () => {
+    const model = idmlModel([
+      {
+        name: 'designmap.xml',
+        bytes: bytes('<Document Self="doc"><DocumentPreference PageWidth="100" PageHeight="100"/></Document>'),
+      },
+      {
+        name: 'Resources/Styles.xml',
+        bytes: bytes(
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="p"><Properties><Leading>12</Leading></Properties></ParagraphStyle></RootParagraphStyleGroup><ObjectStyle/><TableStyle/><CellStyle/></idPkg:Styles>',
+        ),
+      },
+      {
+        name: 'Resources/Graphic.xml',
+        bytes: bytes('<idPkg:Graphic><Color Self="c"/><Gradient/><Tint/><MixedInk/><StrokeStyle/></idPkg:Graphic>'),
+      },
+    ])
+    expect(model.report?.unsupportedElements).toMatchObject({
+      ObjectStyle: 1,
+      TableStyle: 1,
+      CellStyle: 1,
+      Gradient: 1,
+      Tint: 1,
+      MixedInk: 1,
+      StrokeStyle: 1,
+    })
+    expect(model.report?.unsupportedElements).not.toHaveProperty('Leading')
   })
 
   test('refuses XML beyond the named depth cap', () => {
