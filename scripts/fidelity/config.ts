@@ -13,10 +13,10 @@ export const CSS_PX_PER_INCH = 96
 export const PRESS_COLOR_THRESHOLD = { mean: 3, p99: 30 }
 // This regression ceiling sits just above the worst measured effects document.
 export const PRESS_BLEND_THRESHOLD = { mean: 10, p99: 90 }
-// Search ±120 device px, more than one line pitch of 96. Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723. The one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312. 0.15 sits about 2x above the unshifted maximum and about 2x below the fault minimum.
+// Best shift is searched over ±12 device px, an eighth of a 96 px line pitch, so periodic lines cannot prefer a whole-line offset. That window catches sub-line drift of 2 to 12 px. residual0 at most 0.15 catches a larger miss, including a whole-line shift (measured 0.284–0.312). Unshifted pages measured nL1 at 0 at most 0.0723; 0.15 sits about 2× above that maximum and about 2× below the fault minimum.
 export const BOOK_REGISTRATION_TOLERANCE = 1
 export const BOOK_PROFILE_RESIDUAL_MAX = 0.15
-export const BOOK_REGISTRATION_SEARCH = 120
+export const BOOK_REGISTRATION_SEARCH = 12
 export const PDF_SIZE_THRESHOLD = { multiple: 3, absoluteBytes: 500_000 }
 export const ALIGNMENT_SEARCH_RADIUS = 16
 export const ALIGNMENT_TOLERANCE = 8

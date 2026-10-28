@@ -51,13 +51,15 @@ is exactly that CSS size at scale 1 and each screenshot is that size times
 the suite scale.
 
 Book pages are kind `book`. They are gated by line registration of the body
-text window (row and column ink profiles over ±120 device px: best |d| ≤ 1
-device px and nL1 at zero shift ≤ 0.15), by whole-page press and gray mean at
-the `PRESS_BLEND_THRESHOLD` mean, and by the size bar on the whole book PDF.
-Whole-page p99 is reported, not gated: on dense text it tracks glyph-edge
-anti-aliasing, not a geometric miss. Text color stays gated by `control-text`.
-Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most 0.0723; the
-one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312.
+text window (row and column ink profiles: best |d| over ±12 device px, an
+eighth of a 96 px line pitch, must be ≤ 1 device px; nL1 at zero shift ≤ 0.15),
+by whole-page press and gray mean at the `PRESS_BLEND_THRESHOLD` mean, and by
+the size bar on the whole book PDF. The ±12 search catches sub-line drift; nL1
+at zero catches a whole-line shift, which a wider search can prefer on
+periodic text. Whole-page p99 is reported, not gated: on dense text it tracks
+glyph-edge anti-aliasing, not a geometric miss. Text color stays gated by
+`control-text`. Unshifted pages measured best dy 0 or -1 with nL1 at 0 at most
+0.0723; the one-line fault measured dy 95-96 with nL1 at 0 of 0.284-0.312.
 
 The PDF size bar is measured once on the whole book against its effectless
 counterpart and shown once for the book.
