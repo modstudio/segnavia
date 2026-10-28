@@ -1,4 +1,5 @@
 import {
+  embedFunction,
   furnitureScript,
   heldPageNumber,
   openerPageIndex,
@@ -15,16 +16,12 @@ export const BOOK_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const BOOK_COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
 export const BOOK_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 
-function embeddedFunction(name: string, fn: { name: string; toString(): string }): string {
-  return `var ${fn.name}=${fn.toString()};var ${name}=${fn.name};`
-}
-
 export function embeddedComposerFunctions(): string {
-  return `${embeddedFunction('printedPageAt', printedPageAt)}
-${embeddedFunction('selectBookParent', selectBookParent)}
-${embeddedFunction('planBookPages', planBookPages)}
-${embeddedFunction('spreadSlots', spreadSlots)}
-${embeddedFunction('pageScale', pageScale)}`
+  return `${embedFunction('printedPageAt', printedPageAt)}
+${embedFunction('selectBookParent', selectBookParent)}
+${embedFunction('planBookPages', planBookPages)}
+${embedFunction('spreadSlots', spreadSlots)}
+${embedFunction('pageScale', pageScale)}`
 }
 
 export function composerScript(configJson: string): string {
@@ -35,10 +32,10 @@ var config=${configJson};
 ${paginateScript()}
 ${furnitureScript()}
 ${embeddedComposerFunctions()}
-${embeddedFunction('heldPageNumber', heldPageNumber)}
-${embeddedFunction('windowPageIndex', windowPageIndex)}
-${embeddedFunction('openerPageIndex', openerPageIndex)}
-${embeddedFunction('pageIndexForTarget', pageIndexForTarget)}
+${embedFunction('heldPageNumber', heldPageNumber)}
+${embedFunction('windowPageIndex', windowPageIndex)}
+${embedFunction('openerPageIndex', openerPageIndex)}
+${embedFunction('pageIndexForTarget', pageIndexForTarget)}
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
 var columnWidth=function(columns){if(columns<=1)return config.geometry.textWidth;return (config.geometry.textWidth-(columns-1)*config.geometry.columnGap)/columns;};

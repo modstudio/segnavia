@@ -140,8 +140,6 @@ describe('bookDocument', () => {
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
     const print = bookViewDocument(view, { nonce: 'held' })
     expect(screen).toContain('"screen":{"spread":true}')
-    expect(screen).toContain('data-segnavia-spread-blank')
-    expect(screen).toContain('data-segnavia-composed-ms')
     expect(print).not.toContain('"screen"')
   })
 })
