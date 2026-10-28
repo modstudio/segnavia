@@ -1,7 +1,5 @@
 import type { Browser } from 'playwright-core'
-import { RendererUnavailableError } from './errors.ts'
-
-const CLOSED = 'The renderer is closed; open a new one.'
+import { rendererClosed } from './errors.ts'
 
 export function keepBrowser(launch: () => Promise<Browser>): { browser(): Promise<Browser>; close(): Promise<void> } {
   let live: Browser | undefined
@@ -17,7 +15,7 @@ export function keepBrowser(launch: () => Promise<Browser>): { browser(): Promis
   }
 
   const browser = async (): Promise<Browser> => {
-    if (closed) throw new RendererUnavailableError(CLOSED)
+    if (closed) throw rendererClosed()
     if (live) return live
     if (!launching) {
       launching = launch()
@@ -27,7 +25,7 @@ export function keepBrowser(launch: () => Promise<Browser>): { browser(): Promis
         })
     }
     const instance = await launching
-    if (closed) throw new RendererUnavailableError(CLOSED)
+    if (closed) throw rendererClosed()
     return instance
   }
 

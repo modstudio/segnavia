@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { RendererUnavailableError } from './errors.ts'
+import { rendererClosed, RendererUnavailableError } from './errors.ts'
 import { renderQueue } from './render-queue.ts'
 
 test('admits up to the limit and queues the rest in order', async () => {
@@ -28,8 +28,8 @@ test('close refuses queued and later acquires and still accepts in-flight releas
   const queued = queue.acquire()
   queue.close()
   await expect(queued).rejects.toBeInstanceOf(RendererUnavailableError)
-  await expect(queued).rejects.toThrow('The renderer is closed; open a new one.')
-  await expect(queue.acquire()).rejects.toThrow('The renderer is closed; open a new one.')
+  await expect(queued).rejects.toThrow(rendererClosed().message)
+  await expect(queue.acquire()).rejects.toThrow(rendererClosed().message)
   queue.release()
   await expect(queue.acquire()).rejects.toBeInstanceOf(RendererUnavailableError)
 })

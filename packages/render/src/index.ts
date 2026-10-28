@@ -10,7 +10,7 @@ import { keepBrowser } from './browser-keeper.ts'
 import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { launchUnavailable, RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { launchUnavailable, relaunchUnavailable, RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -108,19 +108,20 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     let context: BrowserContext | undefined
     let instance: Browser | undefined
     let crashed = false
+    let settled = false
     const measureSlots = setup.slots && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
     try {
-      try {
-        instance = await keeper.browser()
-      } catch (error) {
-        if (error instanceof RendererUnavailableError) throw error
-        throw launchUnavailable(options.executablePath, error)
-      }
-      const browser = instance
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
         (async () => {
-          context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
+          instance = await keeper.browser().catch((error) => {
+            throw error instanceof RendererUnavailableError ? error : relaunchUnavailable(options.executablePath, error)
+          })
+          context = await instance.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
+          if (settled) {
+            await context.close().catch(() => {})
+            return undefined as T
+          }
           if (measureSlots) await installSlotFitCapture(context)
           await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
           await context.routeWebSocket('**/*', (socket) => socket.close())
@@ -148,6 +149,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     } catch (error) {
       throw renderFailure({ crashed, disconnected: instance ? !instance.isConnected() : false, closed, heapMb }, error)
     } finally {
+      settled = true
       await context?.close().catch(() => {})
     }
   }

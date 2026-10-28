@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { RenderRefusedError } from './errors.ts'
+import { rendererClosed, RenderRefusedError } from './errors.ts'
 import { RenderTimeoutError } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 
@@ -18,7 +18,7 @@ test('maps crash, close and disconnect and passes other errors through', () => {
       facts: { crashed: false, disconnected: false, closed: true, heapMb: 2048 },
       error: raw,
       name: 'RendererUnavailableError',
-      message: 'The renderer was closed during the render.',
+      message: rendererClosed().message,
     },
     {
       facts: { crashed: false, disconnected: true, closed: false, heapMb: 2048 },
@@ -36,7 +36,7 @@ test('maps crash, close and disconnect and passes other errors through', () => {
       facts: { crashed: false, disconnected: true, closed: true, heapMb: 64 },
       error: raw,
       name: 'RendererUnavailableError',
-      message: 'The renderer was closed during the render.',
+      message: rendererClosed().message,
     },
     { facts: { crashed: false, disconnected: false, closed: false, heapMb: 2048 }, error: timeout, same: timeout },
     { facts: { crashed: false, disconnected: false, closed: false, heapMb: 2048 }, error: refused, same: refused },

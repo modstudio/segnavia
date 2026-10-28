@@ -1,6 +1,4 @@
-import { RendererUnavailableError } from './errors.ts'
-
-const CLOSED = 'The renderer is closed; open a new one.'
+import { rendererClosed } from './errors.ts'
 
 export function renderQueue(limit: number): { acquire: () => Promise<void>; release: () => void; close: () => void } {
   let running = 0
@@ -8,7 +6,7 @@ export function renderQueue(limit: number): { acquire: () => Promise<void>; rele
   const waiting: Array<{ resolve: () => void; reject: (error: unknown) => void }> = []
 
   const acquire = (): Promise<void> => {
-    if (closed) return Promise.reject(new RendererUnavailableError(CLOSED))
+    if (closed) return Promise.reject(rendererClosed())
     if (running < limit) {
       running++
       return Promise.resolve()
@@ -30,7 +28,7 @@ export function renderQueue(limit: number): { acquire: () => Promise<void>; rele
 
   const close = () => {
     closed = true
-    const error = new RendererUnavailableError(CLOSED)
+    const error = rendererClosed()
     for (const waiter of waiting) waiter.reject(error)
     waiting.length = 0
   }

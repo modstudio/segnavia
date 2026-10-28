@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
 import type { Browser } from 'playwright-core'
 import { keepBrowser } from './browser-keeper.ts'
-import { RendererUnavailableError } from './errors.ts'
+import { rendererClosed, RendererUnavailableError } from './errors.ts'
 
 class FakeBrowser extends EventEmitter {
   closeCalls = 0
@@ -86,7 +86,7 @@ test('refuses after close', async () => {
   await keeper.browser()
   await keeper.close()
   await expect(keeper.browser()).rejects.toBeInstanceOf(RendererUnavailableError)
-  await expect(keeper.browser()).rejects.toThrow('The renderer is closed; open a new one.')
+  await expect(keeper.browser()).rejects.toThrow(rendererClosed().message)
 })
 
 test("close awaits the browser's close", async () => {
@@ -104,6 +104,26 @@ test("close awaits the browser's close", async () => {
   expect(finished).toBe(false)
   await done
   expect(finished).toBe(true)
+})
+
+test('close waits for an in-flight launch and closes that browser', async () => {
+  let finish!: (browser: Browser) => void
+  const fake = new FakeBrowser()
+  const keeper = keepBrowser(
+    () =>
+      new Promise<Browser>((resolve) => {
+        finish = resolve
+      }),
+  )
+  const pending = keeper.browser()
+  const closing = keeper.close()
+  finish(asBrowser(fake))
+  await expect(pending).rejects.toBeInstanceOf(RendererUnavailableError)
+  await expect(pending).rejects.toThrow(rendererClosed().message)
+  await closing
+  expect(fake.closeCalls).toBe(1)
+  await expect(keeper.browser()).rejects.toBeInstanceOf(RendererUnavailableError)
+  await expect(keeper.browser()).rejects.toThrow(rendererClosed().message)
 })
 
 test('does not relaunch for a disconnect after close', async () => {
