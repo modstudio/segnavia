@@ -59,11 +59,12 @@ const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים �
 function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
+  const kavana = hebrew ? 'כוונה א' : 'Intention A'
   const opening = hebrew ? 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ.' : 'The first morning of the voyage ran long against the wind.'
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 
 function chapterTwoHtml(hebrew: boolean): string {
@@ -99,6 +100,13 @@ function chapterFourHtml(hebrew: boolean): string {
 const designedCss =
   ':where(.designed-spread,.designed-leaf){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:24px;padding-inline:24px}:where(.designed-verso){background:#1a365d;color:#fff}:where(.designed-recto){background:#2c5282;color:#fff}:where(.designed-leaf){background:#edf2f7}:where(.designed-foot){text-align:center}:where(table){inline-size:100%;border-collapse:collapse}:where(th,td){border:1px solid;padding:4px}'
 
+const markHead = (edge: 'start' | 'end') =>
+  `<div class="haggadah-head"><span class="haggadah-kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="haggadah-siman haggadah-siman-${edge}" data-motif="segnavia:mark" data-motif-name="siman"></span></div>`
+
+const markParents = { recto: 'haggadah-recto', verso: 'haggadah-verso' } as const
+const haggadahHeadCss =
+  ':where(.haggadah-head){position:relative;block-size:100%;display:flex;align-items:center;justify-content:center}:where(.haggadah-siman){position:absolute}:where(.haggadah-siman-start){inset-inline-start:0}:where(.haggadah-siman-end){inset-inline-end:0}'
+
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
   const verso = hebrew ? 'גב השער' : 'Verso of the spread'
@@ -133,6 +141,8 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
   parentPages: [
+    { name: 'haggadah-recto', basedOn: 'segnavia:recto', head: markHead('end') },
+    { name: 'haggadah-verso', basedOn: 'segnavia:verso', head: markHead('start') },
     {
       name: 'ornament-foot',
       basedOn: 'segnavia:blank',
@@ -148,11 +158,11 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
   chapters: [
     designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew) },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: markParents },
     designedLeaf(hebrew),
-    { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew) },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
-    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
+    { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew), parents: markParents },
+    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew), parents: markParents },
+    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew), parents: markParents },
   ],
 })
 
@@ -304,6 +314,12 @@ export async function buildBookPdfs(
   site: string,
   bookPdf: (book: BookInput, options?: { css?: string }) => Promise<Uint8Array<ArrayBufferLike>>,
 ): Promise<void> {
+  for (const hebrew of [false, true]) {
+    const css = hebrew
+      ? `${alefCss()}${notoCss()}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
+      : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
+    writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css }))
+  }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
   await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
 }
@@ -322,8 +338,8 @@ export async function buildBookDemo(site: string): Promise<void> {
   for (const hebrew of [false, true]) {
     const book = Book.parse(paginatedFixture(hebrew))
     const css = hebrew
-      ? `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
-      : `${designedCss}:where(html){font:16px/1.5 Georgia,serif}`
+      ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
+      : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
     writeFileSync(

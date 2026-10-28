@@ -18,7 +18,7 @@ export interface PaginatedReport {
   clip: { midpoint: boolean }
   blocks: { extra: number; missing: number; shown: number }
   lines: { shifted: number; checked: number }
-  runningHead: { fromMark: boolean; carried: boolean; detail: string }
+  markHead: { complete: boolean; carried: boolean; values: { page: number; kavana: string; siman: string }[]; detail: string }
   direction: string | null
   ids: { unique: boolean; count: number; duplicates: string[] }
   spine: { page: number; distance: number; side: string }[]
@@ -251,15 +251,19 @@ export function inspectPaginatedBook(): PaginatedReport {
     return { shifted, checked }
   }
 
-  function runningHead() {
-    const heads = Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
-      .filter((page) => page.getAttribute('data-segnavia-role') === 'body')
-      .map((page) => page.querySelector('.segnavia-running-head')?.textContent?.trim() ?? '')
-    const marked = heads.filter((head) => head.includes('Mark') || head.includes('סימן'))
+  function markHead() {
+    const values = Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
+      .map((page) => ({
+        page: Number(page.getAttribute('data-segnavia-book-page')),
+        kavana: page.querySelector('.haggadah-kavana')?.textContent?.trim() ?? '',
+        siman: page.querySelector('.haggadah-siman')?.textContent?.trim() ?? '',
+      }))
+      .filter((head) => head.kavana !== '' || head.siman !== '')
     return {
-      fromMark: marked.length > 0,
-      carried: marked.length >= 2,
-      detail: heads.join('|'),
+      complete: values.length > 0 && values.every((head) => head.kavana !== '' && head.siman !== ''),
+      carried: values.filter((head) => head.kavana === values[0]?.kavana).length >= 2,
+      values,
+      detail: values.map((head) => `${head.page}:${head.kavana}:${head.siman}`).join('|'),
     }
   }
 
@@ -345,7 +349,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     clip: clip(),
     blocks: blocks(),
     lines: lineShift(),
-    runningHead: runningHead(),
+    markHead: markHead(),
     direction: document.documentElement.getAttribute('dir'),
     ids: uniqueIds(),
     spine: spine(),

@@ -10,13 +10,23 @@ export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
 export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
 export const BOOK_FURNITURE = [
-  { key: 'segnavia:folio', path: PRINTED_PAGE_FOLIO_PATH, value: 'folio', className: 'segnavia-folio', region: 'foot' },
+  { key: 'segnavia:folio', path: PRINTED_PAGE_FOLIO_PATH, value: 'folio', className: 'segnavia-folio', region: 'foot', fields: [] },
   {
     key: 'segnavia:running-head',
     path: PRINTED_PAGE_RUNNING_HEAD_PATH,
     value: 'runningHead',
     className: 'segnavia-running-head',
     region: 'head',
+    fields: [],
+  },
+  {
+    key: 'segnavia:mark',
+    className: 'segnavia-mark',
+    region: 'head',
+    fields: [
+      { key: 'name', required: true },
+      { key: 'which', choices: ['first', 'last'], default: 'first' },
+    ],
   },
 ] as const
 export type BookFurniture = (typeof BOOK_FURNITURE)[number]
