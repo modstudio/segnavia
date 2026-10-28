@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
+import type { Page } from 'playwright-core'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
 import { graphemes, type PdfPageText, pageTextRelation } from './page-text-relation.ts'
+import { inspectNoteViewGeometry, pageContainsNoteText } from './paginated-notes.ts'
 
 interface ClipRect {
   left: number
@@ -16,6 +18,7 @@ interface ScreenPageText {
   text: string
   paper: { width: number; height: number }
   clips: ClipRect[]
+  notes: string[]
 }
 
 interface PdfWord extends ClipRect {
@@ -81,6 +84,11 @@ function normalizedPageText(): ScreenPageText[] {
       clips: regions.map((region) => {
         const rect = region.getBoundingClientRect()
         return { left: rect.left - paper.left, top: rect.top - paper.top, right: rect.right - paper.left, bottom: rect.bottom - paper.top }
+      }),
+      notes: Array.from(page.querySelectorAll('[data-segnavia-page-note]')).map((view) => {
+        const id = view.getAttribute('data-segnavia-page-note') ?? ''
+        const galley = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-note="${id}"]`)
+        return galley?.textContent ?? ''
       }),
     }
   })
@@ -158,6 +166,13 @@ function pdfPageText(language: 'en' | 'he', screens: ScreenPageText[]): { pages:
   return { pages, dropped }
 }
 
+function missingNotePages(screens: ScreenPageText[], pages: PdfPageText[]): { page: number; note: string }[] {
+  return screens.flatMap((screen, index) => {
+    const pdfText = pages[index]?.text ?? ''
+    return screen.notes.flatMap((note) => (pageContainsNoteText(pdfText, note) ? [] : [{ page: index + 1, note: unpointed(note) }]))
+  })
+}
+
 async function spreadFacts(h: Harness, language: 'en' | 'he') {
   return h.page
     .frameLocator(`#book-screen-${language} iframe`)
@@ -204,6 +219,83 @@ async function verifyNonceAuthorizedAuthorScripts(h: Harness) {
     await h.page.frameLocator(`#${id} iframe`).locator('html[data-segnavia-author-script-ran]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
     const composed = await h.page.frameLocator(`#${id} iframe`).locator('html').getAttribute('data-segnavia-composed')
     h.check(`${id} author-script refusal check detects a nonce-authorized mutation`, composed !== null, String(composed))
+  }
+}
+
+async function verifyLargeBookComposition(check: Harness['check'], stressPage: Page) {
+  const screenTexts: Record<string, ScreenPageText[]> = {}
+  for (const language of ['en', 'he'] as const) {
+    const expectedPages = bboxPages(language).length
+    const frame = stressPage.frameLocator(`#book-large-${language} iframe`)
+    // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
+    // is mounting. Wait for the page count rendered into the matching PDF, without accepting that transient.
+    await waitForLargeBook(frame, expectedPages)
+    const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
+    if (failure) throw new Error(`book-large-${language} composition failed: ${failure}`)
+    const report = await frame.locator('html').evaluate(() => ({
+      pages: document.querySelectorAll('[data-segnavia-book-page]').length,
+      ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
+    }))
+    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
+    const geometry = await frame.locator('html').evaluate(inspectNoteViewGeometry)
+    check(
+      `book-large-${language} composes 300+ pages within the repagination bound`,
+      report.pages >= 300 && report.pages === expectedPages && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
+      JSON.stringify({ ...report, expectedPages, bound: REPAGINATE_BOUND_MS }),
+    )
+    check(
+      `book-large-${language} every page note's text ink lies in its view`,
+      geometry.views > 0 && geometry.outside === 0 && geometry.empty === 0,
+      geometry.detail,
+    )
+  }
+  for (const language of ['en', 'he'] as const) {
+    const pdf = pdfPageText(language, screenTexts[language] ?? [])
+    check(
+      `book-large-${language} has the PDF's page count`,
+      screenTexts[language]?.length === pdf.pages.length,
+      `${screenTexts[language]?.length ?? 0}/${pdf.pages.length} pages`,
+    )
+    const relations = (screenTexts[language] ?? []).map((screen, index) => pageTextRelation(screen.text, pdf.pages[index] ?? { text: '', graphemes: [] }))
+    const different = relations.findIndex(({ matches }) => !matches)
+    const skippedRuns: SkippedRun[] = relations.flatMap(({ skipped }, index) => skipped.map((text) => ({ page: index + 1, text })))
+    const longestSkippedRun = skippedRuns.reduce((longest, run) => Math.max(longest, graphemes(run.text).length), 0)
+    const skippedPageCounts = new Map<number, number>()
+    for (const { page } of skippedRuns) skippedPageCounts.set(page, (skippedPageCounts.get(page) ?? 0) + 1)
+    const skippedPages = [...skippedPageCounts].map(([page, count]) => ({ page, count }))
+    const excessPoints = relations.flatMap(({ excessPoints }, index) => (excessPoints ? [{ page: index + 1, points: excessPoints }] : []))
+    const relationDetail = {
+      pages: pdf.pages.length,
+      droppedPdfWords: pdf.dropped,
+      skippedRuns: skippedRuns.length,
+      longestSkippedRun,
+      skippedPages,
+      skippedExamples: skippedRuns.slice(0, 3),
+      excessPoints,
+    }
+    // The bounded-gap subsequence rule treats each bbox word as one run. It admits Poppler's clipped
+    // edge-glyph fragments while rejecting missing, reordered or misplaced text and leaked words over three graphemes.
+    check(
+      `book-large-${language} has the PDF's text on every page`,
+      different === -1,
+      different === -1
+        ? JSON.stringify(relationDetail)
+        : JSON.stringify({
+            page: different + 1,
+            screen: screenTexts[language]?.[different]?.text,
+            pdf: pdf.pages[different]?.text,
+            relation: relations[different],
+            ...relationDetail,
+          }),
+    )
+    const screens = screenTexts[language] ?? []
+    const missing = missingNotePages(screens, pdf.pages)
+    const noteCount = screens.reduce((count, screen) => count + screen.notes.length, 0)
+    check(
+      `book-large-${language} prints each page note's whole text`,
+      noteCount > 0 && missing.length === 0,
+      JSON.stringify({ noteCount, missing: missing.slice(0, 5) }),
+    )
   }
 }
 
@@ -277,65 +369,6 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
   if (!stressContext) throw new Error('The browser could not open an isolated large-book context.')
   const stressPage = await stressContext.newPage()
   await stressPage.goto(h.url('book-paginated-large.html'))
-  const screenTexts: Record<string, ScreenPageText[]> = {}
-  for (const language of ['en', 'he'] as const) {
-    const expectedPages = bboxPages(language).length
-    const frame = stressPage.frameLocator(`#book-large-${language} iframe`)
-    // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
-    // is mounting. Wait for the page count rendered into the matching PDF, without accepting that transient.
-    await waitForLargeBook(frame, expectedPages)
-    const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
-    if (failure) throw new Error(`book-large-${language} composition failed: ${failure}`)
-    const report = await frame.locator('html').evaluate(() => ({
-      pages: document.querySelectorAll('[data-segnavia-book-page]').length,
-      ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
-    }))
-    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
-    check(
-      `book-large-${language} composes 300+ pages within the repagination bound`,
-      report.pages >= 300 && report.pages === expectedPages && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
-      JSON.stringify({ ...report, expectedPages, bound: REPAGINATE_BOUND_MS }),
-    )
-  }
-  for (const language of ['en', 'he'] as const) {
-    const pdf = pdfPageText(language, screenTexts[language] ?? [])
-    check(
-      `book-large-${language} has the PDF's page count`,
-      screenTexts[language]?.length === pdf.pages.length,
-      `${screenTexts[language]?.length ?? 0}/${pdf.pages.length} pages`,
-    )
-    const relations = (screenTexts[language] ?? []).map((screen, index) => pageTextRelation(screen.text, pdf.pages[index] ?? { text: '', graphemes: [] }))
-    const different = relations.findIndex(({ matches }) => !matches)
-    const skippedRuns: SkippedRun[] = relations.flatMap(({ skipped }, index) => skipped.map((text) => ({ page: index + 1, text })))
-    const longestSkippedRun = skippedRuns.reduce((longest, run) => Math.max(longest, graphemes(run.text).length), 0)
-    const skippedPageCounts = new Map<number, number>()
-    for (const { page } of skippedRuns) skippedPageCounts.set(page, (skippedPageCounts.get(page) ?? 0) + 1)
-    const skippedPages = [...skippedPageCounts].map(([page, count]) => ({ page, count }))
-    const excessPoints = relations.flatMap(({ excessPoints }, index) => (excessPoints ? [{ page: index + 1, points: excessPoints }] : []))
-    const relationDetail = {
-      pages: pdf.pages.length,
-      droppedPdfWords: pdf.dropped,
-      skippedRuns: skippedRuns.length,
-      longestSkippedRun,
-      skippedPages,
-      skippedExamples: skippedRuns.slice(0, 3),
-      excessPoints,
-    }
-    // The bounded-gap subsequence rule treats each bbox word as one run. It admits Poppler's clipped
-    // edge-glyph fragments while rejecting missing, reordered or misplaced text and leaked words over three graphemes.
-    check(
-      `book-large-${language} has the PDF's text on every page`,
-      different === -1,
-      different === -1
-        ? JSON.stringify(relationDetail)
-        : JSON.stringify({
-            page: different + 1,
-            screen: screenTexts[language]?.[different]?.text,
-            pdf: pdf.pages[different]?.text,
-            relation: relations[different],
-            ...relationDetail,
-          }),
-    )
-  }
+  await verifyLargeBookComposition(check, stressPage)
   await stressContext.close()
 }

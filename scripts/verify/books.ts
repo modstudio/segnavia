@@ -13,6 +13,7 @@ import {
 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
@@ -139,6 +140,8 @@ async function verifyPaginatedBooks(h: Harness) {
       report.notes.length > 0 && report.notes.every((note) => note.ok),
       JSON.stringify(report.notes),
     )
+    const noteInk = await frame.evaluate(inspectNoteViewGeometry)
+    check(`${id} every page note's text ink lies in its view`, noteInk.views > 0 && noteInk.outside === 0 && noteInk.empty === 0, noteInk.detail)
     check(
       `${id} column windows keep the galley's lines, balanced to one line`,
       report.columns.lost === 0 && report.columns.repeated === 0 && report.columns.balanced,
