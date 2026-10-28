@@ -42,7 +42,7 @@ describe('idmlModel', () => {
     ])
     expect(model.masterSpreads[0]?.id).toBe('master')
     expect(model.masterStoryIds).toEqual(['master-story'])
-    expect(model.unsupportedElements).toMatchObject({ Polygon: 1, ParagraphStyleRange: 1, 'master story': 1 })
+    expect(model.unsupportedElements).toMatchObject({ Polygon: 1, 'master story': 1 })
     expect(model.unsupportedElements).not.toHaveProperty('Story')
     expect(model.unsupportedElements).not.toHaveProperty('MasterSpread')
   })

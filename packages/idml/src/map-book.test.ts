@@ -34,7 +34,7 @@ test('maps document setup and orders placeholder chapters by first page', () => 
   expect(book.page?.margin.inner).toBeCloseTo(40 * (25.4 / 72))
   expect(book.page?.margin.outer).toBeCloseTo(30 * (25.4 / 72))
   expect(book.chapters.map((chapter) => chapter.title)).toEqual(['later', 'earlier'])
-  expect(book.chapters[0]).toMatchObject({ html: '<p></p>' })
+  expect(book.chapters[0]).toMatchObject({ html: '<p><br></p>' })
 })
 
 test('maps left binding, asymmetric margins, and non-facing pages', () => {
