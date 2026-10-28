@@ -2,7 +2,7 @@
 // book as scaled pages and, with spread, direction-aware two-page spreads.
 
 import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format'
-import { sanitizeBookCss } from '@segnavia/html'
+import { bookStylesheet } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
@@ -26,7 +26,7 @@ export function bookFrame(view: BookView, css?: string, spread = false): { title
       nonce: newNonce(),
       dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
       lang: view.lang,
-      css: sanitizeBookCss(css, view.css, undefined).css,
+      css: bookStylesheet(css, view.css, undefined),
       relayKeys: false,
       reportHeight: false,
     }),

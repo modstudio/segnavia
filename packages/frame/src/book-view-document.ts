@@ -8,7 +8,7 @@ import {
   PX_PER_MM,
   resolveParentPages,
 } from '@segnavia/format'
-import { sanitizeBookCss } from '@segnavia/html'
+import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { frameDocument } from './bridge.ts'
 
@@ -63,7 +63,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     ...(options.screen ? { screen: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const bookCss = sanitizeBookCss(options.fontCss, view.css, options.css).css
+  const bookCss = bookStylesheet(options.fontCss, view.css, options.css)
   const css =
     `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
     `:where(html,body){margin:0!important;padding:0!important}` +

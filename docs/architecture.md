@@ -83,8 +83,8 @@ with `detail.message` when loading or validating an input fails.
 
 A book's optional `css` travels with its `BookView` and is sanitized before it
 is shown or printed. It never keeps an author data face; a host supplies book
-fonts through `FontSource` and checks the exported sanitizer's `removed` list at
-its own save edge, as it uses `findActiveContent` for HTML. Generated font CSS
+fonts through `FontSource` and checks `sanitizeBookCss(css).removed` at its own save
+edge, as it uses `findActiveContent` for HTML. Generated font CSS
 comes first, then book CSS, then the host render `css` option, so the host
 retains the final override in every render view.
 

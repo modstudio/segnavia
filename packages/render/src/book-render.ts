@@ -6,7 +6,7 @@ import {
   bookDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { type PreparedSlots, sanitizeBookCss } from '@segnavia/html'
+import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -48,7 +48,7 @@ function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marg
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
     lang: book.lang,
-    css: sanitizeBookCss(fontCss, book.css, css).css,
+    css: bookStylesheet(fontCss, book.css, css),
     relayKeys: false,
     reportHeight: false,
   })
