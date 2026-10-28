@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import type { AppFont, FontSource } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -128,4 +129,37 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       (error: unknown) => `${error instanceof Error ? error.name : 'unknown'}: ${error instanceof Error ? error.message : String(error)}`,
     )
   check('deckPdf refuses notes at maxSheets before output', limited.startsWith('RenderRefusedError:') && !reachedOutput, `${limited}, output=${reachedOutput}`)
+
+  const alefPath = path.resolve(import.meta.dirname, '../../fixtures/hebrew-notice/Alef-Regular.ttf')
+  const serif: AppFont = {
+    family: 'Body Serif',
+    faces: [{ family: 'Body Serif', data: readFileSync(alefPath), format: 'truetype' }],
+    generic: 'serif',
+  }
+  const fontSource: FontSource = {
+    font: async (name) => (name === 'serif' ? serif : undefined),
+  }
+  const namedFile = path.join(work, 'deck-notes-font.pdf')
+  writeFileSync(
+    namedFile,
+    await renderer.deckPdf(
+      {
+        title: 'Named notes font',
+        layout: 'fixed',
+        fit: 'contain',
+        frame: false,
+        size: { width: 1280, height: 720 },
+        scripts: 'refuse',
+        slides: [{ id: 'named', content: { kind: 'html', html: '<p>Named</p>' }, notes: 'Speaker notes in the named face.' }],
+      },
+      { layout: 'notes', notesFont: 'serif', fontSource },
+    ),
+  )
+  const fontRows = execFileSync('pdffonts', [namedFile], { encoding: 'utf8' })
+    .split('\n')
+    .slice(2)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const alef = fontRows.filter((row) => /(?:^|\+)Alef-Regular\s/.test(row))
+  check('deckPdf notes layout embeds the named FontSource face', alef.length >= 1, fontRows.join('; '))
 }

@@ -38,6 +38,10 @@ export interface PrintOptions {
   title?: string
   // Overrides the English "No speaker notes" placeholder in a mixed notes layout.
   labels?: { noSpeakerNotes?: string }
+  // App-font name for the notes sheet's number and notes text. printDeck and
+  // deckPdf resolve it through FontSource and embed the face in the notes head.
+  // With no name, the sheet uses sans-serif.
+  notesFont?: string
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
@@ -124,7 +128,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
 }
 
-export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
+export function printableDeck(deck: Deck, options: PrintOptions & { notesFontCss?: string } = {}): string {
   const { width, height } = deck.size
   if (options.imposition) {
     return printableDeckDocument(deck, { ...options, imposition: options.imposition }).html
@@ -138,6 +142,8 @@ export function printableDeck(deck: Deck, options: PrintOptions = {}): string {
     slideBody: (slide) => slideBody(deck, slide, options),
     title: options.title ?? deck.title,
     labels: options.labels,
+    notesFont: options.notesFont,
+    fontCss: options.notesFontCss,
   })
 }
 

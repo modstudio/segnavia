@@ -6,7 +6,7 @@
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
-import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
   type PrintablePagesOptions,
@@ -45,6 +45,7 @@ export interface PrintDialogOptions {
 
 export interface BrowserPrintOptions extends Omit<PrintOptions, 'slots'>, PrintDialogOptions {
   slots?: SlotPrintOptions
+  fonts?: FontsOptions
 }
 
 interface PrintFrameOptions extends PrintDialogOptions {
@@ -133,6 +134,8 @@ async function preparedDeckPrint(deck: Deck, options: BrowserPrintOptions): Prom
   const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
+  const notesFontCss = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, new AbortController().signal) : undefined
+  const printOptions = { ...options, notesFontCss }
   const preparedDeck = {
     ...deck,
     slides: deck.slides.map((slide) =>
@@ -140,10 +143,10 @@ async function preparedDeckPrint(deck: Deck, options: BrowserPrintOptions): Prom
     ),
   }
   if (options.imposition) {
-    const printable = printableDeckDocument(preparedDeck, { ...options, imposition: options.imposition })
+    const printable = printableDeckDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return { ...deck.size, html: printableDeck(preparedDeck, options), ...options, slots: resolvedSlots }
+  return { ...deck.size, html: printableDeck(preparedDeck, printOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(

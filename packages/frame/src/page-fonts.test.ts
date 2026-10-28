@@ -3,7 +3,16 @@ import type { AppFont, FontFace, FontSource } from '@segnavia/format'
 import { Imposition, Page as PageSchema } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 import { expandFramePage, shownPageDocument } from './motif-expansion.ts'
-import { expandedPagesFontCss, FontRefusedError, pageFontCss, resolveFontReferences, resolvePageFonts } from './page-fonts.ts'
+import {
+  DEFAULT_NOTES_FONT_FAMILY,
+  expandedPagesFontCss,
+  FontRefusedError,
+  notesSheetFontFamily,
+  pageFontCss,
+  resolveFontReferences,
+  resolveNotesFontCss,
+  resolvePageFonts,
+} from './page-fonts.ts'
 import { printablePagesDocument } from './print-document.ts'
 
 const data = new Uint8Array([0])
@@ -159,6 +168,34 @@ describe('resolveFontReferences', () => {
     await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
     await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(
       'page could not establish an app font name matching /^[a-z0-9-]+$/ ("x}body{"); use a lowercase name of letters, digits and hyphens to clear this refusal.',
+    )
+  })
+})
+
+describe('notes font', () => {
+  test('the default notes family is sans-serif and a named font uses its custom property', () => {
+    expect(DEFAULT_NOTES_FONT_FAMILY).toBe('sans-serif')
+    expect(notesSheetFontFamily(undefined)).toBe('sans-serif')
+    expect(notesSheetFontFamily('serif')).toBe('var(--segnavia-font-serif)')
+  })
+
+  test('resolveNotesFontCss writes the named face and refuses an unknown name', async () => {
+    expect(await resolveNotesFontCss(undefined, undefined, signal)).toBe('')
+    expect(await resolveNotesFontCss('serif', { source: source({ serif }) }, signal)).toBe(
+      fontCss({
+        app: new Map([['serif', serif]]),
+      }),
+    )
+    await expect(resolveNotesFontCss('missing', { source: source({ serif }) }, signal)).rejects.toThrow(FontRefusedError)
+    await expect(resolveNotesFontCss('missing', { source: source({ serif }) }, signal)).rejects.toThrow(
+      'notes could not establish app font "missing"; make that font available from the source to clear this refusal.',
+    )
+  })
+
+  test('resolveNotesFontCss refuses a named font with no FontSource', async () => {
+    await expect(resolveNotesFontCss('serif', undefined, signal)).rejects.toThrow(FontRefusedError)
+    await expect(resolveNotesFontCss('serif', undefined, signal)).rejects.toThrow(
+      'notes could not establish app font "serif"; supply a FontSource to clear this refusal.',
     )
   })
 })
