@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { pageIndexForTarget } from './paginate-target.ts'
+import { heldPageNumber, pageIndexForTarget } from './paginate-target.ts'
 
 const flowPage = (
   flow: string,
@@ -26,9 +26,20 @@ describe('pageIndexForTarget', () => {
   ]
 
   test('maps an id inside fixed page m of flow f to that page', () => {
-    expect(pageIndexForTarget(pages, { flow: 'art', designedPage: 1 })).toBe(3)
-    expect(pageIndexForTarget(pages, { flow: 'art', designedPage: 2 })).toBe(4)
-    expect(pageIndexForTarget(pages, { flow: 'art', designedPage: 3 })).toBeUndefined()
+    expect(pageIndexForTarget(pages, { flow: 'art', heldPage: 1 })).toBe(3)
+    expect(pageIndexForTarget(pages, { flow: 'art', heldPage: 2 })).toBe(4)
+    expect(pageIndexForTarget(pages, { flow: 'art', heldPage: 3 })).toBeUndefined()
+    expect(heldPageNumber(pages, 3)).toBe(1)
+    expect(heldPageNumber(pages, 4)).toBe(2)
+  })
+
+  test('maps an id inside a templated body page of flow f to that page', () => {
+    const lesson = [flowPage('lesson', 'blank', false, [], true), flowPage('lesson', 'body', true), flowPage('lesson', 'body', false)]
+    expect(pageIndexForTarget(lesson, { flow: 'lesson', heldPage: 1 })).toBe(1)
+    expect(pageIndexForTarget(lesson, { flow: 'lesson', heldPage: 2 })).toBe(2)
+    expect(pageIndexForTarget(lesson, { flow: 'lesson' })).toBe(1)
+    expect(heldPageNumber(lesson, 1)).toBe(1)
+    expect(heldPageNumber(lesson, 2)).toBe(2)
   })
 
   test('maps a windowed top to the page that holds it', () => {

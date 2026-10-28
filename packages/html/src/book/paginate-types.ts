@@ -48,7 +48,7 @@ interface PaginateFlowBase {
 
 export type PaginateFlow =
   | (PaginateFlowBase & { kind: 'front' | 'contents' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
-  | (PaginateFlowBase & { kind: 'fixed'; pages: number; sequence?: PaginateSequence })
+  | (PaginateFlowBase & { kind: 'fixed'; pages: number; sequence?: PaginateSequence; role?: 'fixed' | 'body' })
 
 export interface PaginateNote {
   id: string

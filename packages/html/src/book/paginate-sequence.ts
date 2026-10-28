@@ -138,17 +138,18 @@ export function paginateSequence(
   }
 
   function makeFixed(part: PaginateSequence, number: number, flow: PaginateFlow, opener: boolean, marks: PaginatePageMarks): PaginateBookPage {
+    const templated = flow.kind === 'fixed' && flow.role === 'body'
     return {
       kind: part,
       number,
       sequence: part,
       flow: flow.id,
-      role: 'fixed',
+      role: templated ? 'body' : 'fixed',
       windows: [],
       notes: [],
       blank: false,
       sectionOpening: opener,
-      ...(opener || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
+      ...((opener && !templated) || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
       ...flowParents(flow),
     }

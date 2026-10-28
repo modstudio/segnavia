@@ -4,17 +4,21 @@ export type PaginateTargetPage = Pick<PaginateBookPage, 'blank' | 'flow' | 'role
 
 export interface PaginateTarget {
   flow: string
-  designedPage?: number
+  heldPage?: number
   top?: number
 }
 
-export function designedPageIndex(pages: PaginateTargetPage[], flow: string, designedPage: number): number | undefined {
+export function heldPageNumber(pages: PaginateTargetPage[], index: number): number {
+  const page = pages[index]
+  if (!page) return 0
   let seen = 0
-  for (const [index, page] of pages.entries()) {
-    if (page.flow !== flow || page.role !== 'fixed') continue
+  for (let i = 0; i <= index; i++) {
+    const held = pages[i]
+    if (!held || held.flow !== page.flow || held.blank) continue
+    if (held.role !== 'fixed' && !(held.role === 'body' && held.windows.length === 0)) continue
     seen += 1
-    if (seen === designedPage) return index
   }
+  return seen
 }
 
 export function windowPageIndex(pages: PaginateTargetPage[], flow: string, top: number): number | undefined {
@@ -33,11 +37,16 @@ export function openerPageIndex(pages: PaginateTargetPage[], flow: string): numb
 }
 
 export function pageIndexForTarget(pages: PaginateTargetPage[], target: PaginateTarget): number | undefined {
-  const designed = target.designedPage
-  if (designed !== undefined && Number.isSafeInteger(designed) && designed > 0) return designedPageIndex(pages, target.flow, designed)
+  const held = target.heldPage
+  if (held !== undefined && Number.isSafeInteger(held) && held > 0) {
+    for (let index = 0; index < pages.length; index++) {
+      if (pages[index]?.flow === target.flow && heldPageNumber(pages, index) === held) return index
+    }
+    return undefined
+  }
   if (target.top !== undefined) {
-    const held = windowPageIndex(pages, target.flow, target.top)
-    if (held !== undefined) return held
+    const windowed = windowPageIndex(pages, target.flow, target.top)
+    if (windowed !== undefined) return windowed
   }
   return openerPageIndex(pages, target.flow)
 }

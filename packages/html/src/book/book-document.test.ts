@@ -257,6 +257,81 @@ describe('book document', () => {
     expect(bookDocument(book).sections.map((section) => section.id)).toEqual(['segnavia-chapter-1', 'segnavia-designed-1', 'segnavia-chapter-2'])
   })
 
+  test('emits templates and templated page region holders, and lists their title and headings', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        frontMatter: [{ kind: 'contents' }],
+        templates: [{ name: 'lesson', html: '<div data-region="heading"></div><div data-region="reading-text"></div>' }],
+        chapters: [
+          {
+            kind: 'templated',
+            title: 'Lessons',
+            template: 'lesson',
+            pages: [
+              { regions: { heading: '<h1 id="lesson-1">One</h1>', 'reading-text': '<p>Read</p>' } },
+              { template: 'lesson', regions: { heading: '<h2>Two</h2>' } },
+            ],
+          },
+          chapter('One'),
+        ],
+      }),
+    )
+    const result = bookDocument(book)
+    expect(result.sections.map((section) => ({ id: section.id, kind: section.kind }))).toEqual([
+      { id: 'segnavia-contents', kind: 'contents' },
+      { id: 'segnavia-templated-1', kind: 'templated' },
+      { id: 'segnavia-chapter-1', kind: 'chapter' },
+    ])
+    expect(result.html).toContain('data-segnavia-template="lesson"')
+    expect(result.html).toContain('data-segnavia-kind="templated"')
+    expect(result.html).toContain('data-segnavia-templated-page="1"')
+    expect(result.html).toContain('data-segnavia-templated-page="2"')
+    expect(result.html).toContain('data-template="lesson"')
+    expect(result.headings).toEqual([
+      { id: 'segnavia-templated-1', level: 1, text: 'Lessons', sectionId: 'segnavia-templated-1' },
+      { id: 'lesson-1', level: 1, text: 'One', sectionId: 'segnavia-templated-1' },
+      { id: 'segnavia-h-templated-1-2', level: 2, text: 'Two', sectionId: 'segnavia-templated-1' },
+      { id: 'segnavia-chapter-1', level: 1, text: 'One', sectionId: 'segnavia-chapter-1' },
+    ])
+  })
+
+  test('refuses a template data-region that is not an HTML name token', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        templates: [{ name: 'lesson', html: '<div data-region="reading text"></div>' }],
+        chapters: [chapter('One')],
+      }),
+    )
+    expect(bookDocument(book).issues).toEqual([
+      'template "lesson" marks region "reading text" which is not an HTML name token; use a letter followed by letters, digits, hyphens or underscores to clear this refusal',
+    ])
+  })
+
+  test('refuses a page that fills a region its template does not declare', () => {
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
+        chapters: [
+          {
+            kind: 'templated',
+            title: 'Lessons',
+            template: 'lesson',
+            pages: [{ regions: { heading: '<h1 id="one">One</h1>', extra: '<p>More</p>' } }],
+          },
+        ],
+      }),
+    )
+    expect(bookDocument(book).issues).toEqual([
+      'section Lessons page 1 fills region "extra" which template "lesson" does not declare; add that region to the template or remove the fill to clear this refusal',
+    ])
+  })
+
   test('writes geometry-only contents list layout for levels one through six', () => {
     const html = bookDocument(Book.parse(input({ frontMatter: [{ kind: 'contents' }] }))).html
     expect(html).toContain(':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}')

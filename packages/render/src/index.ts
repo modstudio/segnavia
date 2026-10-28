@@ -1,7 +1,7 @@
-import { type BookInput, type Deck, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { expandFramePages, type MotifsOptions } from '@segnavia/frame/motifs'
-import { type PrintOptions, printableDeck } from '@segnavia/frame/print-document'
+import { expandFramePages } from '@segnavia/frame/motifs'
+import { printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
@@ -11,7 +11,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import type { ImageOptions, OverflowEntry, ProofImageOptions, RenderOptions } from './options.ts'
+import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
@@ -22,8 +22,9 @@ import { finishPdf } from './pdf-finish.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
+import { PAGE_READY_BOUND_MS, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
-import { filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
+import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
@@ -47,34 +48,11 @@ export type {
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
+export { CONTAINER_ARGS, PAGE_READY_BOUND_MS, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+export { filledBook }
 
-export const RENDER_BOUND_MS = 60_000
-export const PAGE_READY_BOUND_MS = 10_000
 const FLUID_WIDTH = 1024
-export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
-
-export interface RendererOptions {
-  executablePath: string
-  args?: string[]
-  // At most this many renders at once; the rest wait their turn.
-  concurrency?: number
-  // Caps each page's JavaScript heap, for hosts rendering code they did not write.
-  jsHeapMb?: number
-}
-
-export type PagePdfOptions = RenderOptions & { motifs?: MotifsOptions }
-
-export interface Renderer {
-  bookPdf(book: BookInput, options?: RenderOptions): Promise<Uint8Array>
-  pagePdf(page: PageInput, options?: PagePdfOptions): Promise<Uint8Array>
-  pagesPdf(pages: PageInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
-  pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
-  deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
-  slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
-  proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
-  close(): Promise<void>
-}
 
 // Collapse the viewport because a growing document is never shorter than it.
 async function contentHeight(tab: Tab): Promise<number> {

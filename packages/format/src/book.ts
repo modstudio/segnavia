@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import { BookChapterEntry, BookFrontMatterEntry, bookParentIssues, isBookContents } from './book-section.ts'
+import { BookChapterEntry, BookFrontMatterEntry, BookTemplate, bookParentIssues, isBookContents } from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { bookParentPages, ParentPage } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
+import { Slots } from './slots.ts'
 
 export {
   BookChapterEntry,
@@ -14,12 +15,17 @@ export {
   BookOpens,
   BookSection,
   BookSectionParents,
+  BookTemplate,
   Chapter,
   DesignedPage,
   DesignedSection,
   isBookContents,
   isChapter,
   isDesignedSection,
+  isTemplatedSection,
+  REGION_NAME,
+  TemplatedPage,
+  TemplatedSection,
 } from './book-section.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
@@ -57,6 +63,8 @@ export const BookShape = z.object({
   frontMatter: z.array(BookFrontMatterEntry).default([]),
   chapters: z.array(BookChapterEntry).min(1),
   parentPages: z.array(ParentPage).default([]),
+  templates: z.array(BookTemplate).default([]),
+  slots: Slots.optional(),
   fonts: z.array(FontReference).optional(),
   numbering: z
     .object({

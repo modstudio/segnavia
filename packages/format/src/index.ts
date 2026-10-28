@@ -80,6 +80,7 @@ export {
   BookRunningHeadSource,
   BookSection,
   BookSectionParents,
+  BookTemplate,
   BookView,
   type BookViewInput,
   BookViewPagination,
@@ -89,8 +90,12 @@ export {
   isBookContents,
   isChapter,
   isDesignedSection,
+  isTemplatedSection,
   noteMarkerIssues,
+  REGION_NAME,
   resolveBookPagination,
+  TemplatedPage,
+  TemplatedSection,
 } from './book.ts'
 export {
   Annotation,

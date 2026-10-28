@@ -313,7 +313,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
-buildBookDemo(SITE)
+await buildBookDemo(SITE)
 buildPaperDemo(SITE)
 await buildSlotDemo(SITE)
 await buildDocumentDemo(ROOT, SITE)

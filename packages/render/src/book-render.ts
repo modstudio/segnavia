@@ -6,12 +6,14 @@ import {
   bookDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import type { PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
+import { preparedSlotsFor } from './slot-fill.ts'
 
 async function awaitBookComposition(tab: Tab): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
@@ -29,6 +31,7 @@ interface TabSetup {
   waitForReady: boolean
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
+  slots?: PreparedSlots
 }
 
 export interface BrowserBookDependencies {
@@ -76,6 +79,7 @@ function printBook(
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
       scripts: paginated || (!marginLayer && book.scripts === 'sandboxed'),
       html: srcdoc,
+      slots: preparedSlotsFor(book),
       waitForReady: !paginated && !marginLayer && book.scripts === 'sandboxed' && renderOptions.waitForPageReady !== false,
       boundMs: renderOptions.boundMs,
       beforeOutput: paginated

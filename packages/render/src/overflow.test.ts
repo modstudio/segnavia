@@ -1,5 +1,18 @@
 import { describe, expect, test } from 'bun:test'
-import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, type ScaleMeasurement, solveScale } from './overflow.ts'
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, regionOverflowContribution, type ScaleMeasurement, solveScale } from './overflow.ts'
+
+test('a region overflow mark becomes a page-and-region locator with its excess', () => {
+  expect(regionOverflowContribution('12:reading-text:48')).toEqual({
+    locator: 'page 12 region reading-text',
+    clippedStart: 0,
+    clippedEnd: 48,
+  })
+  expect(regionOverflowContribution('ג:table:3.5')).toEqual({
+    locator: 'page ג region table',
+    clippedStart: 0,
+    clippedEnd: 3.5,
+  })
+})
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {
   expect(

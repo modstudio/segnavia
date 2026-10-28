@@ -20,7 +20,7 @@ export interface BookPageFacts {
   sectionOpening: boolean
   folio?: string
   runningHead?: string
-  role?: BookPrintedPageRole
+  role?: BookPrintedPageRole | 'body'
   parents?: BookSectionParents
 }
 
@@ -80,7 +80,7 @@ export function selectBookParent(
   const named = fact.parents
   if (fact.blank) return { role: 'blank', parent: named?.blank ?? BOOK_PARENT_NAMES.blank, side: selected.side }
   if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? BOOK_PARENT_NAMES.blank, side: selected.side }
-  if (fact.sectionOpening) return { role: 'opener', parent: named?.opener ?? BOOK_PARENT_NAMES.opener, side: selected.side }
+  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? BOOK_PARENT_NAMES.opener, side: selected.side }
   if (selected.role === 'verso') return { role: 'verso', parent: named?.verso ?? selected.parent, side: selected.side }
   return { role: 'recto', parent: named?.recto ?? selected.parent, side: selected.side }
 }

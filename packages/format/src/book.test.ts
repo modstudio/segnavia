@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, isBookContents, isDesignedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
+import { Book, type BookInput, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
@@ -45,6 +45,7 @@ describe('book', () => {
       frontMatter: [],
       chapters: [chapter],
       parentPages: [],
+      templates: [],
       numbering: { frontMatter: 'roman-lower', body: 'arabic' },
       footnotes: { marker: 'symbols', restart: 'chapter' },
       endnotes: { marker: 'arabic', placement: 'book', title: 'Notes' },
@@ -232,5 +233,88 @@ describe('book', () => {
       ),
     )
     expect(pagination?.parents.map((parent) => parent.name)).toEqual(['segnavia:recto', 'segnavia:verso', 'segnavia:opener', 'segnavia:blank', 'ornament'])
+  })
+
+  test('templated sections parse with a template, per-page override and slots', () => {
+    const templated = {
+      kind: 'templated' as const,
+      title: 'Lessons',
+      template: 'lesson',
+      pages: [
+        { regions: { heading: '<h1>One</h1>', 'reading-text': '<p>Read</p>' } },
+        { template: 'lesson-alt', regions: { heading: '<h1>Two</h1>', 'reading-text': '<p>More</p>' } },
+      ],
+    }
+    const book = Book.parse(
+      input({
+        mode: 'paginated',
+        page,
+        templates: [
+          { name: 'lesson', html: '<div data-region="heading"></div><div data-region="reading-text"></div>' },
+          { name: 'lesson-alt', html: '<div data-region="heading"></div>', parents: { recto: 'ornament' } },
+        ],
+        parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank' }],
+        slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
+        chapters: [templated, chapter],
+      }),
+    )
+    const first = book.chapters[0]
+    expect(first !== undefined && isTemplatedSection(first)).toBe(true)
+    expect(first).toMatchObject({ kind: 'templated', title: 'Lessons', template: 'lesson', contents: true, pages: templated.pages })
+    expect(book.slots).toEqual([{ key: 'school', label: 'School', type: 'text', required: true, overflow: 'wrap' }])
+  })
+
+  test('a continuous book refuses a templated section', () => {
+    const result = Book.safeParse(
+      input({
+        templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
+        chapters: [{ kind: 'templated', template: 'lesson', pages: [{ regions: { heading: '<h1>One</h1>' } }] }, chapter],
+      }),
+    )
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['mode'],
+      message: "templated sections print in paginated mode; set mode: 'paginated' to clear this refusal",
+    })
+  })
+
+  test('an unknown template names the section and the name', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        chapters: [{ kind: 'templated', title: 'Lessons', template: 'missing', pages: [{ regions: { heading: '<h1>One</h1>' } }] }, chapter],
+      }),
+    )
+    expect(result.error?.issues[0]?.message).toContain('section Lessons')
+    expect(result.error?.issues[0]?.message).toContain('"missing"')
+    expect(result.error?.issues[0]?.message).toContain('add that template')
+  })
+
+  test('a region key that is not an HTML name token names the section, page and key', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
+        chapters: [{ kind: 'templated', title: 'Lessons', template: 'lesson', pages: [{ regions: { 'reading text': '<p>Read</p>' } }] }, chapter],
+      }),
+    )
+    expect(result.error?.issues[0]?.path).toEqual(['chapters', 0, 'pages', 0, 'regions', 'reading text'])
+    expect(result.error?.issues[0]?.message).toContain('section Lessons page 1 region "reading text"')
+    expect(result.error?.issues[0]?.message).toContain('HTML name token')
+  })
+
+  test('a template name that is not an HTML name token is refused', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        templates: [{ name: 'say "hi"', html: '<div data-region="heading"></div>' }],
+        chapters: [chapter],
+      }),
+    )
+    expect(result.error?.issues[0]?.path).toEqual(['templates', 0, 'name'])
+    expect(result.error?.issues[0]?.message).toContain('template "say "hi""')
+    expect(result.error?.issues[0]?.message).toContain('HTML name token')
   })
 })
