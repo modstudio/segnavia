@@ -33,7 +33,7 @@ import { type BookDocument, type BookDocumentOptions, type BookHeading, type Boo
 const CONTENTS_CSS =
   ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}'
 const PRINT_CSS = `${CONTENTS_CSS}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}`
-const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}`
+const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}:where([data-segnavia-galleys] img,[data-segnavia-window] img){max-block-size:var(--segnavia-text-height);max-inline-size:100%;block-size:auto;inline-size:auto}`
 
 function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
@@ -183,13 +183,27 @@ function columnIssues(section: BuiltSection): string[] {
   })
 }
 
+function endnotesHeading(book: Book): ReturnType<typeof element> {
+  const titleValue = book.endnotes.title
+  return element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
+}
+
 function endnotesSection(book: Book, paragraphs: ReturnType<typeof element>[], galley = false): BuiltSection {
   const id = 'segnavia-endnotes'
   const titleValue = book.endnotes.title
-  const titleNode = element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
   return {
     info: { id, kind: 'endnotes', title: titleValue, runningHead: titleValue },
-    node: sectionNode('endnotes', id, [titleNode, ...paragraphs], galley, titleValue),
+    node: sectionNode('endnotes', id, [endnotesHeading(book), ...paragraphs], galley, titleValue),
+  }
+}
+
+function chapterEndnotesSection(book: Book, chapter: Chapter, index: number, paragraphs: ReturnType<typeof element>[], galley: boolean): BuiltSection {
+  const id = `segnavia-endnotes-${index}`
+  const titleValue = book.endnotes.title
+  const runningHead = chapter.runningHead ?? chapter.title
+  return {
+    info: { id, kind: 'endnotes', title: titleValue, runningHead },
+    node: sectionNode('endnotes', id, [endnotesHeading(book), ...paragraphs], galley, runningHead, flowAttribs('any')),
   }
 }
 
@@ -303,6 +317,9 @@ function addChapters(book: Book, build: DocumentBuild): void {
       ...chapterHeadings(section, chapterNumber, book.contents.depth),
     )
     transformNotes(section.node, book, chapterNumber, build.notes, build.galley)
+    if (book.endnotes.placement !== 'chapter') continue
+    const paragraphs = build.notes.chapterEndnotes.get(chapterNumber) ?? []
+    if (paragraphs.length > 0) build.sections.push(chapterEndnotesSection(book, entry, chapterNumber, paragraphs, build.galley))
   }
 }
 
@@ -321,9 +338,11 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   addChapters(book, build)
   const { galley, notes, sections, headings, issues } = build
 
-  if (notes.endnotes) sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   if (book.endnotes.placement === 'chapter') {
-    issues.push('chapter endnotes are not supported yet in paginated mode; use book placement to clear this refusal')
+    const leftover = notes.chapterEndnotes.get(0) ?? []
+    if (leftover.length > 0) sections.push(endnotesSection(book, leftover, galley))
+  } else if (notes.endnotes) {
+    sections.push(endnotesSection(book, notes.endnoteParagraphs, galley))
   }
   if (contents) addContents(book, contents, headings, options)
 

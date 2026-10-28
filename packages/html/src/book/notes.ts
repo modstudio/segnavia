@@ -13,6 +13,7 @@ export interface NoteState {
   chapterFootnotes: Map<number, number>
   endnoteCount: number
   endnoteParagraphs: Element[]
+  chapterEndnotes: Map<number, Element[]>
   footnoteParagraphs: Element[]
 }
 
@@ -24,6 +25,7 @@ export function noteState(): NoteState {
     chapterFootnotes: new Map(),
     endnoteCount: 0,
     endnoteParagraphs: [],
+    chapterEndnotes: new Map(),
     footnoteParagraphs: [],
   }
 }
@@ -80,7 +82,7 @@ function transformFootnote(note: Element, book: Book, chapter: number, state: No
   state.footnotes = true
 }
 
-function transformEndnote(note: Element, book: Book, state: NoteState): void {
+function transformEndnote(note: Element, book: Book, chapter: number, state: NoteState): void {
   state.endnoteCount += 1
   const number = state.endnoteCount
   const noteId = `segnavia-en-${number}`
@@ -88,7 +90,11 @@ function transformEndnote(note: Element, book: Book, state: NoteState): void {
   const marker = noteMarker(number, book.endnotes.marker)
   const content = [...note.children]
   replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
-  state.endnoteParagraphs.push(noteParagraph('segnavia-endnote', noteId, refId, marker, content))
+  const paragraph = noteParagraph('segnavia-endnote', noteId, refId, marker, content)
+  state.endnoteParagraphs.push(paragraph)
+  const held = state.chapterEndnotes.get(chapter) ?? []
+  held.push(paragraph)
+  state.chapterEndnotes.set(chapter, held)
   state.endnotes = true
 }
 
@@ -99,6 +105,6 @@ export function transformNotes(root: Element, book: Book, chapter: number, state
   )
   for (const note of notes) {
     if (note.attribs['data-note'] === 'footnote') transformFootnote(note, book, chapter, state, blocks, galley)
-    else transformEndnote(note, book, state)
+    else transformEndnote(note, book, chapter, state)
   }
 }
