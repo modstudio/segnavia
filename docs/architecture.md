@@ -855,6 +855,12 @@ proxy. Author scripts run only when the page or deck allows them. A page that
 runs code must call `window.pageReady()`, unless the host passes
 `waitForPageReady: false`. Renders are bounded by `RENDER_BOUND_MS`, queued at
 the renderer's `concurrency`, and checked against the host's `limits`.
+Each context is already its own renderer process, so a page that exhausts
+memory or hangs takes down only itself. The renderer caps that heap at
+`DEFAULT_JS_HEAP_MB` megabytes (`jsHeapMb` to change it). A crashed page is
+refused as `RenderRefusedError`. If the browser process exits, in-flight
+renders fail as `RendererUnavailableError` and the next render relaunches it.
+A render after `close()` is refused.
 
 ## Data the host keeps
 

@@ -16,6 +16,7 @@ test('one deadline aborts slot preparation and releases its render permit', asyn
     },
   )
   await expect(result).rejects.toBeInstanceOf(RenderTimeoutError)
+  await expect(result).rejects.toThrow('Raise boundMs or simplify the page.')
   expect(receivedSignal?.aborted).toBe(true)
   expect(released).toBe(true)
 })
