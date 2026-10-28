@@ -20,6 +20,26 @@ export const REPAGINATE_BOUND_MS = 20_000
 
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
 
+interface ClipRect {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+interface ScreenPageText {
+  text: string
+  paper: { width: number; height: number }
+  clips: ClipRect[]
+}
+
+interface PdfWord extends ClipRect {
+  text: string
+  line: number
+  lineTop: number
+  lineInline: number
+}
+
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
   return h.page
     .frameLocator(`${frame} iframe`)
@@ -98,7 +118,7 @@ export async function verifyBooks(h: Harness) {
   await verifyWorkbooks(h)
 }
 
-function normalizedPageText() {
+function normalizedPageText(): ScreenPageText[] {
   const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   const inside = (inner: DOMRect, outer: DOMRect) => {
     const x = inner.left + inner.width / 2
@@ -108,7 +128,7 @@ function normalizedPageText() {
   const visibleNodeText = (node: Text): string => {
     const parent = node.parentElement
     if (parent?.closest('[data-segnavia-galley-source]')) return ''
-    const clip = parent?.closest('[data-segnavia-page-note],[data-segnavia-window],[data-segnavia-book-page]')
+    const clip = parent?.closest('[data-segnavia-head],[data-segnavia-window],[data-segnavia-page-note],[data-segnavia-foot],[data-segnavia-book-page]')
     const clipRect = clip?.getBoundingClientRect()
     if (!clipRect) return ''
     let text = ''
@@ -142,14 +162,87 @@ function normalizedPageText() {
       if (block !== 0) return block
       return direction === 'rtl' ? rightRect.right - leftRect.right : leftRect.left - rightRect.left
     })
-    return regions.map(regionText).join('')
+    const paper = page.getBoundingClientRect()
+    return {
+      text: regions.map(regionText).join(''),
+      paper: { width: paper.width, height: paper.height },
+      clips: regions.map((region) => {
+        const rect = region.getBoundingClientRect()
+        return { left: rect.left - paper.left, top: rect.top - paper.top, right: rect.right - paper.left, bottom: rect.bottom - paper.top }
+      }),
+    }
   })
 }
 
-function pdfPageText(language: 'en' | 'he'): string[] {
-  const pages = execFileSync('pdftotext', [path.join(SITE, `book-paginated-large-${language}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
-  if (unpointed(pages.at(-1) ?? '') === '') pages.pop()
-  return pages
+function decodeXml(value: string): string {
+  return value.replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'")
+}
+
+function bboxPages(language: 'en' | 'he'): { width: number; height: number; words: PdfWord[] }[] {
+  const file = path.join(SITE, `book-paginated-large-${language}.pdf`)
+  const xml = execFileSync('pdftotext', ['-bbox-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  return [...xml.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)].map((page) => {
+    let line = 0
+    const words: PdfWord[] = []
+    for (const match of (page[3] ?? '').matchAll(/<line xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>([\s\S]*?)<\/line>/g)) {
+      const lineInline = Number(match[1])
+      const lineTop = Number(match[2])
+      for (const word of (match[3] ?? '').matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([\s\S]*?)<\/word>/g)) {
+        words.push({
+          left: Number(word[1]),
+          top: Number(word[2]),
+          right: Number(word[3]),
+          bottom: Number(word[4]),
+          text: decodeXml(word[5] ?? ''),
+          line,
+          lineTop,
+          lineInline,
+        })
+      }
+      line++
+    }
+    return { width: Number(page[1]), height: Number(page[2]), words }
+  })
+}
+
+function pdfPageText(language: 'en' | 'he', screens: ScreenPageText[]): { pages: string[]; dropped: number } {
+  let dropped = 0
+  const pages = bboxPages(language).map((page, index) => {
+    const screen = screens[index]
+    if (!screen) return ''
+    const clips = screen.clips.map((clip) => ({
+      left: (clip.left / screen.paper.width) * page.width,
+      top: (clip.top / screen.paper.height) * page.height,
+      right: (clip.right / screen.paper.width) * page.width,
+      bottom: (clip.bottom / screen.paper.height) * page.height,
+    }))
+    const regions = clips.map(() => new Map<number, PdfWord[]>())
+    for (const word of page.words) {
+      const x = (word.left + word.right) / 2
+      const y = (word.top + word.bottom) / 2
+      const region = clips.findIndex((clip) => x >= clip.left && x <= clip.right && y >= clip.top && y <= clip.bottom)
+      if (region < 0) {
+        dropped++
+        continue
+      }
+      const line = regions[region]?.get(word.line) ?? []
+      line.push(word)
+      regions[region]?.set(word.line, line)
+    }
+    return regions
+      .flatMap((region) =>
+        [...region.values()]
+          .sort((left, right) => (left[0]?.lineTop ?? 0) - (right[0]?.lineTop ?? 0) || (left[0]?.lineInline ?? 0) - (right[0]?.lineInline ?? 0))
+          .map((line) =>
+            line
+              .sort((left, right) => (language === 'he' ? right.right - left.right : left.left - right.left))
+              .map((word) => (language === 'he' && /[\u0590-\u05ff]/.test(word.text) ? [...word.text].reverse().join('') : word.text))
+              .join(''),
+          ),
+      )
+      .join('')
+  })
+  return { pages, dropped }
 }
 
 async function spreadFacts(h: Harness, language: 'en' | 'he') {
@@ -215,7 +308,7 @@ async function verifyPaginatedBookElements(h: Harness) {
   check('the spread check detects a removed leading empty slot', !mutated.leadingRecto, JSON.stringify(mutated))
 
   await page.goto(h.url('book-paginated-large.html'))
-  const screenTexts: Record<string, string[]> = {}
+  const screenTexts: Record<string, ScreenPageText[]> = {}
   for (const language of ['en', 'he'] as const) {
     const frame = page.frameLocator(`#book-large-${language} iframe`)
     await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: REPAGINATE_BOUND_MS, state: 'attached' })
@@ -233,22 +326,22 @@ async function verifyPaginatedBookElements(h: Harness) {
     )
   }
   for (const language of ['en', 'he'] as const) {
-    const pdfTexts = pdfPageText(language)
+    const pdf = pdfPageText(language, screenTexts[language] ?? [])
     check(
       `book-large-${language} has the PDF's page count`,
-      screenTexts[language]?.length === pdfTexts.length,
-      `${screenTexts[language]?.length ?? 0}/${pdfTexts.length} pages`,
+      screenTexts[language]?.length === pdf.pages.length,
+      `${screenTexts[language]?.length ?? 0}/${pdf.pages.length} pages`,
     )
     const different =
       screenTexts[language]?.findIndex(
-        (text, index) => unpointed(text) !== unpointed(pdfTexts[index] ?? '') || pointMultiset(text) !== pointMultiset(pdfTexts[index] ?? ''),
+        (screen, index) => unpointed(screen.text) !== unpointed(pdf.pages[index] ?? '') || pointMultiset(screen.text) !== pointMultiset(pdf.pages[index] ?? ''),
       ) ?? -1
     check(
       `book-large-${language} has the PDF's text on every page`,
       different === -1,
       different === -1
-        ? `${pdfTexts.length} pages`
-        : JSON.stringify({ page: different + 1, screen: screenTexts[language]?.[different], pdf: pdfTexts[different] }),
+        ? `${pdf.pages.length} pages; dropped ${pdf.dropped} PDF words outside page clips`
+        : JSON.stringify({ page: different + 1, screen: screenTexts[language]?.[different]?.text, pdf: pdf.pages[different], dropped: pdf.dropped }),
     )
   }
 }
