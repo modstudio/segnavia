@@ -12,7 +12,7 @@ import { narrate, pacedProvider } from '@segnavia/voice'
 import { demoFlows, demoHost, observed } from '../fixtures/demo-app/host.ts'
 import { buildAuthoringDemo } from './build-authoring-demo.ts'
 import { buildBoardDemo } from './build-board-demo.ts'
-import { buildBookDemo, buildLargeBookPdfs } from './build-book-demo.ts'
+import { buildBookDemo, buildBookPdfs } from './build-book-demo.ts'
 import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
@@ -361,7 +361,7 @@ writeFileSync(
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
-  await buildLargeBookPdfs(SITE, (book) => renderer.bookPdf(book, { effects: false }))
+  await buildBookPdfs(SITE, (book, options) => renderer.bookPdf(book, { effects: false, ...options }))
   writeFileSync(path.join(OUT, 'deck.pdf'), await renderer.deckPdf(printable, { inline }))
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))
   writeFileSync(

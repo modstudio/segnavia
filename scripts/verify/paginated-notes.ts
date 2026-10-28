@@ -33,12 +33,18 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     return rects
   }
 
-  function distinctTops(rects: DOMRect[]) {
-    const tops: number[] = []
-    for (const rect of rects) {
-      if (!tops.some((top) => Math.abs(top - rect.top) < 0.5)) tops.push(rect.top)
+  function lineBoxes(element: Element, origin: number) {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const groups: Array<{ top: number; bottom: number }> = []
+    for (const rect of Array.from(range.getClientRects())) {
+      const top = rect.top - origin
+      const bottom = rect.bottom - origin
+      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
+      if (!found) groups.push({ top, bottom })
+      else if (bottom > found.bottom) found.bottom = bottom
     }
-    return tops.length
+    return groups.sort((left, right) => left.top - right.top)
   }
 
   const views = Array.from(document.querySelectorAll('[data-segnavia-page-note]'))
@@ -51,12 +57,16 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     const expected = Number(view.getAttribute('data-segnavia-note-lines'))
     const inside = rects.filter((rect) => containsRect(box, rect, 0.5))
     const spilled = rects.filter((rect) => intersectsRect(box, rect) && !containsRect(box, rect, 0.5))
-    const lines = distinctTops(inside)
+    const clone = view.querySelector('[data-segnavia-note]') ?? view.firstElementChild
+    const origin = clone?.getBoundingClientRect().top ?? box.top
+    const lines = clone ? lineBoxes(clone, origin).filter((line) => line.top + origin >= box.top - 0.5 && line.bottom + origin <= box.bottom + 0.5).length : 0
     if (rects.length === 0 || inside.length === 0) empty += 1
     if (!(expected >= 1) || spilled.length > 0 || lines !== expected) {
       outside += 1
       if (samples.length < 3) {
-        samples.push(`${view.getAttribute('data-segnavia-page-note') ?? ''}:inside ${inside.length} lines ${lines} expected ${expected} spilled ${spilled.length}`)
+        samples.push(
+          `${view.getAttribute('data-segnavia-page-note') ?? ''}:inside ${inside.length} lines ${lines} expected ${expected} spilled ${spilled.length}`,
+        )
       }
     }
   }

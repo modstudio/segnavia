@@ -5,6 +5,7 @@ import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-docu
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
+import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_CSS = `<style>
@@ -230,6 +231,14 @@ function workbookFixture(hebrew: boolean): BookInput {
   }
 }
 
+function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
+  const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
+  writeFileSync(
+    path.join(site, hebrew ? 'book-paginated-notes-he.html' : 'book-paginated-notes-en.html'),
+    paginatedBookDocument(Book.parse(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
+  )
+}
+
 function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   const oversize = Book.parse({
     title: hebrew ? 'ספר גדול' : 'The Oversize Book',
@@ -283,6 +292,22 @@ export async function buildLargeBookPdfs(site: string, render: (book: BookInput)
   }
 }
 
+export async function buildNoteCasePdfs(site: string, render: (book: BookInput, css: string) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
+  const hebrewFace = `${alefCss()}${notoCss()}`
+  for (const hebrew of [false, true]) {
+    const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
+    writeFileSync(path.join(site, `book-paginated-notes-${hebrew ? 'he' : 'en'}.pdf`), await render(noteCasesFixture(hebrew), css))
+  }
+}
+
+export async function buildBookPdfs(
+  site: string,
+  bookPdf: (book: BookInput, options?: { css?: string }) => Promise<Uint8Array<ArrayBufferLike>>,
+): Promise<void> {
+  await buildLargeBookPdfs(site, (book) => bookPdf(book))
+  await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
+}
+
 export async function buildBookDemo(site: string): Promise<void> {
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
@@ -310,6 +335,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(Book.parse(largePaginatedFixture(hebrew)), { nonce: newNonce() }),
     )
     writeOversizeBook(site, hebrew, css)
+    writeNoteCaseBook(site, hebrew, hebrewFace)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
     const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
@@ -338,6 +364,12 @@ export async function buildBookDemo(site: string): Promise<void> {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Large paginated book elements</title><style>
       html,body{margin:0}body{display:grid;grid-template-columns:1fr 1fr;gap:16px}segnavia-book{display:block;block-size:70vh}
     </style></head><body><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-he" src="book-paginated-large-he.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-paginated-notes.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated note cases</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-notes-en" sandbox="allow-scripts" src="book-paginated-notes-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-notes-he" sandbox="allow-scripts" src="book-paginated-notes-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-workbook.html'),

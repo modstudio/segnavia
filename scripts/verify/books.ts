@@ -13,6 +13,7 @@ import {
 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
@@ -225,6 +226,7 @@ async function verifyPaginatedBooks(h: Harness) {
   }
   const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))
   check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
+  await verifyNoteCaseBooks(h)
   await checkOversizeBooks(h)
 }
 
