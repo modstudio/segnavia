@@ -18,7 +18,7 @@ describe('CSS sanitizer', () => {
     const image = 'p{background:url(data:image/png;base64,AA==)}'
     const font = '@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}'
     expect(rules(image)).toEqual({ css: image, removed: [] })
-    expect(rules(font)).toEqual({ css: '', removed: ['url()'] })
+    expect(rules(font)).toEqual({ css: '', removed: ['data font'] })
     expect(rules(font, true)).toEqual({ css: font, removed: [] })
     expect(rules('p{src:url(data:font/woff2;base64,AA==)}', true)).toEqual({ css: 'p{}', removed: ['url()'] })
     expect(rules('p{background:url(data:image/avif;base64,AA==)}')).toEqual({ css: 'p{background:url(data:image/avif;base64,AA==)}', removed: [] })

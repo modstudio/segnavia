@@ -56,7 +56,7 @@ describe('sanitize', () => {
     const embedded = '<style>@font-face{font-family:Example;src:url(data:font/woff2;base64,AA==)}p{font-family:Example}</style>'
     const applicationFont = '<style>@font-face{font-family:Example;src:url(data:application/x-font-woff;base64,AA==)}</style>'
     const external = '<style>@font-face{font-family:Example;src:url(https://example.com/font.woff2)}p{color:red}</style>'
-    expect(findActiveContent(embedded)).toEqual(['<style> url()'])
+    expect(findActiveContent(embedded)).toEqual(['<style> data font'])
     expect(findActiveContent(embedded, { dataFonts: true })).toEqual([])
     expect(findActiveContent(applicationFont, { dataFonts: true })).toEqual([])
     expect(findActiveContent(external, { dataFonts: true })).toEqual(['<style> url()'])

@@ -136,20 +136,22 @@ function unsafeImageSet(list: CssToken[], start: number, close: number): boolean
   return false
 }
 
+function urlFinding(value: string, dataFonts: boolean, fontFace: boolean, finding = 'url()'): string | undefined {
+  if (DATA_IMAGE.test(value)) return undefined
+  if (fontFace && DATA_FONT.test(value)) return dataFonts ? undefined : 'data font'
+  return finding
+}
+
 function functionFinding(source: string, list: CssToken[], at: number, end: number, dataFonts: boolean, fontFace: boolean): string | undefined {
   const token = list[at]
   if (token?.kind === 'bad-url') return 'url()'
-  if (token?.kind === 'url') {
-    if (DATA_IMAGE.test(token.value) || (fontFace && dataFonts && DATA_FONT.test(token.value))) return undefined
-    return 'url()'
-  }
+  if (token?.kind === 'url') return urlFinding(token.value, dataFonts, fontFace)
   if (token?.kind !== 'function') return undefined
   const close = matchingClose(list, at, end)
   if (!FETCH_FUNCTION_SET.has(token.value)) return undefined
   if (token.value === 'image-set' || token.value === '-webkit-image-set') return unsafeImageSet(list, at, close) ? 'image-set()' : undefined
   const value = normalizedUrl(source.slice(token.end, close < end ? list[close]?.start : source.length))
-  if (DATA_IMAGE.test(value) || (fontFace && dataFonts && DATA_FONT.test(value))) return undefined
-  return `${token.value}()`
+  return urlFinding(value, dataFonts, fontFace, `${token.value}()`)
 }
 
 function findings(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, fontFace: boolean): string[] {
