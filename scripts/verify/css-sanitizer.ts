@@ -21,31 +21,39 @@ const CORPUS = [
 
 export async function verifyCssSanitizer(h: Harness) {
   const { page, check } = h
+  const corpusPage = await page.context().newPage()
   const requests: string[] = []
-  page.on('request', (request) => {
+  corpusPage.on('request', (request) => {
     const url = request.url()
     if (!url.startsWith('data:') && !url.startsWith('about:') && !url.startsWith('blob:')) requests.push(url)
   })
-  await page.route('**/*', (route) => route.abort())
+  await corpusPage.route('**/*', (route) => route.abort())
 
-  for (const dataFonts of [false, true]) {
-    for (const [index, source] of CORPUS.entries()) {
-      requests.length = 0
-      const isolated = source.replaceAll('probe.test/', `probe.test/${dataFonts ? 'fonts-on' : 'fonts-off'}/`)
-      await page.setContent(sanitize(`${isolated}<div class="q">fetch probe</div>`, { dataFonts }), { waitUntil: 'load' })
-      await page.waitForTimeout(20)
-      check(`CSS sanitizer corpus ${index + 1} makes no non-data request with dataFonts=${dataFonts}`, requests.length === 0, requests.join(', '))
+  try {
+    for (const dataFonts of [false, true]) {
+      for (const [index, source] of CORPUS.entries()) {
+        requests.length = 0
+        const isolated = source.replaceAll('probe.test/', `probe.test/${dataFonts ? 'fonts-on' : 'fonts-off'}/`)
+        await corpusPage.setContent(sanitize(`${isolated}<div class="q">fetch probe</div>`, { dataFonts }), { waitUntil: 'load' })
+        await corpusPage.waitForTimeout(20)
+        check(`CSS sanitizer corpus ${index + 1} makes no non-data request with dataFonts=${dataFonts}`, requests.length === 0, requests.join(', '))
+      }
     }
+
+    await corpusPage.setContent(sanitize('<style>#kept{color:rgb(1, 2, 3);font-weight:700}</style><p id="kept">kept</p>'))
+    const kept = await corpusPage.locator('#kept').evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { color: style.color, weight: style.fontWeight }
+    })
+    check('a safe rule is applied after sanitizing', kept.color === 'rgb(1, 2, 3)' && kept.weight === '700', JSON.stringify(kept))
+
+    await corpusPage.setContent(sanitize(CORPUS.at(-1) ?? ''))
+    const printSibling = await corpusPage.locator('#print-sibling').evaluate((element) => getComputedStyle(element).color)
+    check('a sibling stays inside its unmatched print media rule', printSibling !== 'rgb(4, 5, 6)', printSibling)
+  } finally {
+    await corpusPage.close()
   }
 
-  await page.setContent(sanitize('<style>#kept{color:rgb(1, 2, 3);font-weight:700}</style><p id="kept">kept</p>'))
-  const kept = await page.locator('#kept').evaluate((element) => {
-    const style = getComputedStyle(element)
-    return { color: style.color, weight: style.fontWeight }
-  })
-  check('a safe rule is applied after sanitizing', kept.color === 'rgb(1, 2, 3)' && kept.weight === '700', JSON.stringify(kept))
-
-  await page.setContent(sanitize(CORPUS.at(-1) ?? ''))
-  const printSibling = await page.locator('#print-sibling').evaluate((element) => getComputedStyle(element).color)
-  check('a sibling stays inside its unmatched print media rule', printSibling !== 'rgb(4, 5, 6)', printSibling)
+  const response = await page.goto(h.url('index.html'))
+  check('the shared page still loads after the CSS sanitizer check', response?.ok() === true, String(response?.status()))
 }
