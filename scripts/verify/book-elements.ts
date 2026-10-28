@@ -1,27 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import type { FrameLocator } from 'playwright-core'
-import type { Harness } from './harness.ts'
-import { SITE } from './harness.ts'
+import { REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
+import { type Harness, SITE } from './harness.ts'
 import { pointMultiset, unpointed } from './hebrew-text.ts'
-
-export const REPAGINATE_BOUND_MS = 20_000
-
-async function waitForLargeBook(frame: FrameLocator): Promise<void> {
-  const deadline = Date.now() + REPAGINATE_BOUND_MS
-  while (Date.now() < deadline) {
-    try {
-      const ready = await frame
-        .locator('html')
-        .evaluate((root) => root.hasAttribute('data-segnavia-compose-failure') || root.querySelectorAll('[data-segnavia-book-page]').length >= 300)
-      if (ready) return
-    } catch {
-      // The element replaces its sandboxed srcdoc frame after its large src view arrives.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25))
-  }
-  throw new Error(`The large book did not compose 300 pages or report a failure within ${REPAGINATE_BOUND_MS}ms.`)
-}
 
 interface ClipRect {
   left: number
@@ -336,10 +317,17 @@ export async function verifyPaginatedBookElements(h: Harness) {
   const mutated = await spreadFacts(h, 'en')
   check('the spread check detects a removed leading empty slot', !mutated.leadingRecto, JSON.stringify(mutated))
 
-  await page.goto(h.url('book-paginated-large.html'))
+  // Keep the regular book checks from retaining frame state in the 300-page stress run.
+  const stressContext = await page
+    .context()
+    .browser()
+    ?.newContext({ viewport: { width: 1280, height: 816 } })
+  if (!stressContext) throw new Error('The browser could not open an isolated large-book context.')
+  const stressPage = await stressContext.newPage()
+  await stressPage.goto(h.url('book-paginated-large.html'))
   const screenTexts: Record<string, ScreenPageText[]> = {}
   for (const language of ['en', 'he'] as const) {
-    const frame = page.frameLocator(`#book-large-${language} iframe`)
+    const frame = stressPage.frameLocator(`#book-large-${language} iframe`)
     // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
     // is mounting. Wait for the stress book's required 300th page, without accepting that transient.
     await waitForLargeBook(frame)
@@ -396,4 +384,5 @@ export async function verifyPaginatedBookElements(h: Harness) {
           }),
     )
   }
+  await stressContext.close()
 }
