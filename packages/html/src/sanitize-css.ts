@@ -1,11 +1,4 @@
-type TokenKind = 'at' | 'close' | 'function' | 'open' | 'semicolon' | 'string' | 'word'
-
-interface Token {
-  end: number
-  kind: TokenKind
-  start: number
-  value: string
-}
+import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
 
 export interface CssSanitizeResult {
   css: string
@@ -16,96 +9,6 @@ const DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp|svg\+xml)(?:[;,])/i
 const DATA_FONT = /^data:(?:font\/[^;,]+|application\/(?:x-)?font-[^;,]+)(?:[;,])/i
 const DECLARATION_AT_RULES = new Set(['counter-style', 'font-face', 'font-palette-values', 'page', 'property'])
 
-function escapeValue(source: string, at: number): [string, number] {
-  let end = at + 1
-  if (end >= source.length) return ['', end]
-  if (/[0-9a-f]/i.test(source[end] ?? '')) {
-    const start = end
-    while (end < source.length && end - start < 6 && /[0-9a-f]/i.test(source[end] ?? '')) end++
-    const point = Number.parseInt(source.slice(start, end), 16)
-    if (/\s/.test(source[end] ?? '')) end++
-    return [point === 0 || point > 0x10ffff ? '\ufffd' : String.fromCodePoint(point), end]
-  }
-  if (source[end] === '\n' || source[end] === '\r' || source[end] === '\f') return ['', end]
-  return [source[end] ?? '', end + 1]
-}
-
-function name(source: string, at: number): [string, number] {
-  let value = ''
-  let end = at
-  while (end < source.length) {
-    if (source.startsWith('/*', end)) {
-      const close = source.indexOf('*/', end + 2)
-      end = close < 0 ? source.length : close + 2
-      continue
-    }
-    const character = source[end] ?? ''
-    if (/[\w-]/.test(character) || character.charCodeAt(0) >= 0x80) {
-      value += character
-      end++
-      continue
-    }
-    if (character !== '\\') break
-    const escaped = escapeValue(source, end)
-    value += escaped[0]
-    end = escaped[1]
-  }
-  return [value.toLowerCase(), end]
-}
-
-function skipTrivia(source: string, at: number): number {
-  if (/\s/.test(source[at] ?? '')) return at + 1
-  if (!source.startsWith('/*', at)) return at
-  const close = source.indexOf('*/', at + 2)
-  return close < 0 ? source.length : close + 2
-}
-
-function stringToken(source: string, start: number): Token {
-  const quote = source[start] ?? ''
-  let at = start + 1
-  let value = ''
-  while (at < source.length && source[at] !== quote) {
-    if (source[at] === '\\') {
-      const escaped = escapeValue(source, at)
-      value += escaped[0]
-      at = escaped[1]
-    } else value += source[at++] ?? ''
-  }
-  if (source[at] === quote) at++
-  return { end: at, kind: 'string', start, value }
-}
-
-function tokenAt(source: string, at: number): Token {
-  const character = source[at] ?? ''
-  if (character === '"' || character === "'") return stringToken(source, at)
-  const offset = character === '@' ? 1 : 0
-  const nameStart = at + offset
-  const parsed = name(source, nameStart)
-  if (parsed[0]) {
-    const isFunction = offset === 0 && source[parsed[1]] === '('
-    const kind = offset === 1 ? 'at' : isFunction ? 'function' : 'word'
-    return { end: parsed[1] + (isFunction ? 1 : 0), kind, start: at, value: parsed[0] }
-  }
-  const kinds: Record<string, TokenKind> = { '{': 'open', '}': 'close', ';': 'semicolon', '(': 'open', '[': 'open', ')': 'close', ']': 'close' }
-  return { end: at + 1, kind: kinds[character] ?? 'word', start: at, value: character }
-}
-
-function tokens(source: string): Token[] {
-  const found: Token[] = []
-  let at = 0
-  while (at < source.length) {
-    const significant = skipTrivia(source, at)
-    if (significant !== at) {
-      at = significant
-      continue
-    }
-    const token = tokenAt(source, at)
-    found.push(token)
-    at = token.end
-  }
-  return found
-}
-
 function normalizedUrl(value: string, decodeEscapes = true): string {
   let normalized = ''
   for (let at = 0; at < value.length; ) {
@@ -113,7 +16,7 @@ function normalizedUrl(value: string, decodeEscapes = true): string {
       const close = value.indexOf('*/', at + 2)
       at = close < 0 ? value.length : close + 2
     } else if (decodeEscapes && value[at] === '\\') {
-      const escaped = escapeValue(value, at)
+      const escaped = cssEscape(value, at)
       normalized += escaped[0]
       at = escaped[1]
     } else normalized += value[at++] ?? ''
@@ -126,7 +29,44 @@ function normalizedUrl(value: string, decodeEscapes = true): string {
     .toLowerCase()
 }
 
-function matchingClose(list: Token[], open: number, limit = list.length): number {
+function decodedCss(source: string): string {
+  let decoded = ''
+  for (let at = 0; at < source.length; ) {
+    if (source[at] === '\\') {
+      const escaped = cssEscape(source, at)
+      decoded += escaped[0]
+      at = escaped[1]
+    } else decoded += source[at++] ?? ''
+  }
+  return decoded
+    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function allowedAuditData(value: string, dataFonts: boolean): boolean {
+  const argument = value.trimStart().replace(/^["']/, '')
+  return DATA_IMAGE.test(argument) || (dataFonts && DATA_FONT.test(argument))
+}
+
+function lexicalFindings(source: string, dataFonts: boolean): string[] {
+  const text = decodedCss(source)
+  const found: string[] = []
+  const constructs = /@import|(?:url|src|image-set)\(/gi
+  for (const match of text.matchAll(constructs)) {
+    const construct = match[0].toLowerCase()
+    const after = text.slice((match.index ?? 0) + construct.length)
+    if (construct === '@import') {
+      const argument = after.trimStart().replace(/^url\(\s*/, '')
+      if (!allowedAuditData(argument, dataFonts)) found.push('@import')
+    } else if (!allowedAuditData(after, dataFonts)) {
+      found.push(`${construct.slice(0, -1)}()`)
+    }
+  }
+  return [...new Set(found)]
+}
+
+function matchingClose(list: CssToken[], open: number, limit = list.length): number {
   let depth = 1
   for (let at = open + 1; at < limit; at++) {
     if (list[at]?.kind === 'open' || list[at]?.kind === 'function') depth++
@@ -135,7 +75,7 @@ function matchingClose(list: Token[], open: number, limit = list.length): number
   return limit
 }
 
-function unsafeImageSet(list: Token[], start: number, close: number): boolean {
+function unsafeImageSet(list: CssToken[], start: number, close: number): boolean {
   let depth = 0
   for (let at = start + 1; at < close; at++) {
     const token = list[at]
@@ -146,8 +86,13 @@ function unsafeImageSet(list: Token[], start: number, close: number): boolean {
   return false
 }
 
-function functionFinding(source: string, list: Token[], at: number, end: number, dataFonts: boolean, fontFace: boolean): string | undefined {
+function functionFinding(source: string, list: CssToken[], at: number, end: number, dataFonts: boolean, fontFace: boolean): string | undefined {
   const token = list[at]
+  if (token?.kind === 'bad-url') return 'url()'
+  if (token?.kind === 'url') {
+    if (DATA_IMAGE.test(token.value) || (fontFace && dataFonts && DATA_FONT.test(token.value))) return undefined
+    return 'url()'
+  }
   if (token?.kind !== 'function') return undefined
   const close = matchingClose(list, at, end)
   if (token.value === 'image-set' || token.value === '-webkit-image-set') return unsafeImageSet(list, at, close) ? 'image-set()' : undefined
@@ -157,7 +102,7 @@ function functionFinding(source: string, list: Token[], at: number, end: number,
   return `${token.value}()`
 }
 
-function findings(source: string, list: Token[], start: number, end: number, dataFonts: boolean, fontFace: boolean): string[] {
+function findings(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, fontFace: boolean): string[] {
   const found: string[] = []
   for (let at = start; at < end; at++) {
     const token = list[at]
@@ -168,7 +113,7 @@ function findings(source: string, list: Token[], start: number, end: number, dat
   return [...new Set(found)]
 }
 
-function boundary(list: Token[], start: number, end: number): number {
+function boundary(list: CssToken[], start: number, end: number): number {
   let depth = 0
   for (let at = start; at < end; at++) {
     const token = list[at]
@@ -186,7 +131,7 @@ interface CleanUnit {
   text: string
 }
 
-function cleanStatement(source: string, list: Token[], start: number, edge: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanStatement(source: string, list: CssToken[], start: number, edge: number, dataFonts: boolean, removed: string[]): CleanUnit {
   const first = list[start]
   const delimiter = list[edge]
   if (!first || !delimiter) return { character: source.length, next: edge, text: '' }
@@ -195,7 +140,7 @@ function cleanStatement(source: string, list: Token[], start: number, edge: numb
   return { character: delimiter.end, next: edge + 1, text: unsafe.length === 0 ? source.slice(first.start, delimiter.end) : '' }
 }
 
-function cleanBlockRule(source: string, list: Token[], start: number, edge: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanBlockRule(source: string, list: CssToken[], start: number, edge: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
   const first = list[start]
   const delimiter = list[edge]
   if (!first || !delimiter) return { character: source.length, next: end, text: '' }
@@ -221,7 +166,7 @@ function cleanBlockRule(source: string, list: Token[], start: number, edge: numb
   }
 }
 
-function cleanRuleUnit(source: string, list: Token[], start: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanRuleUnit(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
   const first = list[start]
   if (!first) return { character: source.length, next: end, text: '' }
   const edge = boundary(list, start, end)
@@ -236,7 +181,7 @@ function cleanRuleUnit(source: string, list: Token[], start: number, end: number
     : cleanBlockRule(source, list, start, edge, end, dataFonts, removed)
 }
 
-function cleanRules(source: string, list: Token[], start: number, end: number, dataFonts: boolean, removed: string[]): string {
+function cleanRules(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[]): string {
   let output = ''
   let character = start === 0 ? 0 : (list[start - 1]?.end ?? source.length)
   let at = start
@@ -255,7 +200,7 @@ function cleanRules(source: string, list: Token[], start: number, end: number, d
 
 function cleanDeclarationSegment(
   source: string,
-  list: Token[],
+  list: CssToken[],
   start: number,
   end: number,
   character: number,
@@ -273,7 +218,7 @@ function cleanDeclarationSegment(
   return [source.slice(character, list[start]?.start ?? finish), finish]
 }
 
-function declarationEnd(list: Token[], start: number, end: number): number {
+function declarationEnd(list: CssToken[], start: number, end: number): number {
   let depth = 0
   for (let at = start; at < end; at++) {
     const token = list[at]
@@ -284,11 +229,11 @@ function declarationEnd(list: Token[], start: number, end: number): number {
   return end
 }
 
-function isDeclaration(list: Token[], start: number): boolean {
+function isDeclaration(list: CssToken[], start: number): boolean {
   return list[start]?.value.startsWith('--') === true && list[start + 1]?.value === ':'
 }
 
-function cleanDeclarations(source: string, list: Token[], start: number, end: number, dataFonts: boolean, removed: string[], fontFace = false): string {
+function cleanDeclarations(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[], fontFace = false): string {
   let output = ''
   let character = start === 0 ? 0 : (list[start - 1]?.end ?? source.length)
   let at = start
@@ -315,14 +260,10 @@ function cleanDeclarations(source: string, list: Token[], start: number, end: nu
 }
 
 export function sanitizeCss(source: string, declarations: boolean, dataFonts: boolean): CssSanitizeResult {
-  const list = tokens(source)
+  const list = cssTokens(source)
   const removed: string[] = []
   const css = declarations ? cleanDeclarations(source, list, 0, list.length, dataFonts, removed) : cleanRules(source, list, 0, list.length, dataFonts, removed)
-  const auditTokens = tokens(css)
-  const auditRemoved: string[] = []
-  const audited = declarations
-    ? cleanDeclarations(css, auditTokens, 0, auditTokens.length, dataFonts, auditRemoved)
-    : cleanRules(css, auditTokens, 0, auditTokens.length, dataFonts, auditRemoved)
-  if (audited !== css) return { css: '', removed: [...new Set([...removed, ...auditRemoved])] }
+  const auditRemoved = lexicalFindings(css, dataFonts)
+  if (auditRemoved.length > 0) return { css: '', removed: [...new Set([...removed, ...auditRemoved])] }
   return { css, removed: [...new Set(removed)] }
 }

@@ -49,7 +49,7 @@ describe('sanitize', () => {
   test('comments cannot split a fetching function name', () => {
     const css = '<style>a{color:red;background:u/**/r/**/l(https://example.com/a.png)}</style>'
     expect(findActiveContent(css)).toEqual(['<style> url()'])
-    expect(sanitize(css)).toBe('<style>a{color:red;}</style>')
+    expect(sanitize(css)).toBe('<style></style>')
   })
 
   test('an author data font is a host option and an external face is always removed', () => {

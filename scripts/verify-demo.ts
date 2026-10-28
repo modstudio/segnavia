@@ -7,6 +7,7 @@ import { verifyBoard } from './verify/board.ts'
 import { verifyBooks } from './verify/books.ts'
 import { verifyCapture } from './verify/capture.ts'
 import { verifyComponents } from './verify/components.ts'
+import { verifyCssSanitizer } from './verify/css-sanitizer.ts'
 import { verifyDeckHost } from './verify/deck-host.ts'
 import { verifyDocuments } from './verify/documents.ts'
 import { openHarness } from './verify/harness.ts'
@@ -44,6 +45,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifySlots', run: () => verifySlots(h) },
   { name: 'verifyImageFit', run: () => verifyImageFit(h) },
   { name: 'verifyComponents', run: () => verifyComponents(h) },
+  { name: 'verifyCssSanitizer', run: () => verifyCssSanitizer(h) },
   { name: 'verifyDeckHost', run: () => verifyDeckHost(h) },
   { name: 'verifyMedia', run: () => verifyMedia(h) },
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
