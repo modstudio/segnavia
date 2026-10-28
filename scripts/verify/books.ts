@@ -120,17 +120,29 @@ function normalizedPageText() {
     }
     return text
   }
-  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
-    // Each paginated window holds a translated clone of its whole flow, so textContent includes
-    // text clipped off this page. Range geometry keeps only graphemes visibly inside its clip.
+  const regionText = (region: Element): string => {
     let text = ''
-    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT)
+    const walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT)
     let node = walker.nextNode() as Text | null
     while (node) {
       text += visibleNodeText(node)
       node = walker.nextNode() as Text | null
     }
     return text
+  }
+  return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
+    // Each paginated window holds a translated clone of its whole flow, so textContent includes
+    // text clipped off this page. Range geometry keeps only graphemes visibly inside its clip.
+    const direction = getComputedStyle(page).direction
+    const regions = Array.from(page.querySelectorAll('[data-segnavia-head],[data-segnavia-window],[data-segnavia-page-note],[data-segnavia-foot]'))
+    regions.sort((left, right) => {
+      const leftRect = left.getBoundingClientRect()
+      const rightRect = right.getBoundingClientRect()
+      const block = leftRect.top - rightRect.top
+      if (block !== 0) return block
+      return direction === 'rtl' ? rightRect.right - leftRect.right : leftRect.left - rightRect.left
+    })
+    return regions.map(regionText).join('')
   })
 }
 
