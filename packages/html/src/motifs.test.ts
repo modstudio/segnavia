@@ -35,6 +35,14 @@ describe('libraryMotifPlacementRefusal', () => {
 })
 
 describe('expandMotifs', () => {
+  test('keeps an author data font in a version only when opted in', async () => {
+    const font = '@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}'
+    const styled: Motif = { ...letterhead, versions: [{ lang: 'en', html: `<style>${font}</style><b data-live-value="name"></b>` }] }
+    const withData = { source: source({ styled }, async () => ({ name: 'held' })) }
+    expect((await expandMotifs('<div data-motif="styled"></div>', { ...options({ styled }), ...withData })).html).not.toContain('@font-face')
+    expect((await expandMotifs('<div data-motif="styled"></div>', { ...options({ styled }), ...withData, dataFonts: true })).html).toContain('@font-face')
+  })
+
   test('expands in place, sanitizes content, and sets language direction', async () => {
     const result = await expandMotifs('<section class="held" data-motif="letterhead">old</section>', options({ letterhead }))
     expect(result.html).toBe('<section class="held" data-motif="letterhead" lang="he" dir="ltr"><p>שלום</p></section>')

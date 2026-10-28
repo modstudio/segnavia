@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { sanitizeCss } from './sanitize-css.ts'
+import { lexicalFindings, sanitizeCss } from './sanitize-css.ts'
 
 const rules = (source: string, dataFonts = false) => sanitizeCss(source, false, dataFonts)
 const declarations = (source: string, dataFonts = false) => sanitizeCss(source, true, dataFonts)
@@ -21,6 +21,8 @@ describe('CSS sanitizer', () => {
     expect(rules(font)).toEqual({ css: '', removed: ['url()'] })
     expect(rules(font, true)).toEqual({ css: font, removed: [] })
     expect(rules('p{src:url(data:font/woff2;base64,AA==)}', true)).toEqual({ css: 'p{}', removed: ['url()'] })
+    expect(rules('p{background:url(data:image/avif;base64,AA==)}')).toEqual({ css: 'p{background:url(data:image/avif;base64,AA==)}', removed: [] })
+    expect(rules('p{background:url(data:image/jpg;base64,AA==)}')).toEqual({ css: 'p{background:url(data:image/jpg;base64,AA==)}', removed: [] })
   })
 
   test('decodes fetching names and URL values', () => {
@@ -47,11 +49,31 @@ describe('CSS sanitizer', () => {
     expect(rules(source)).toEqual({ css: '@media (min-width:1px){a{color:red;}b{color:blue}}p{font-weight:bold}', removed: ['url()'] })
   })
 
+  test('emits a parent close once after final nested units without semicolons', () => {
+    for (const source of [
+      '@font-feature-values X{@styleset{swash:1}}',
+      '@page{@top-center{content:"Page"}}',
+      '@media print{@page{@top-center{content:"Page"}}.sibling{color:red}}',
+      '@media (min-width:1px){@media (max-width:9px){.x{color:red} junk}.y{color:blue}}',
+    ]) {
+      expect(rules(source)).toEqual({ css: source, removed: [] })
+    }
+  })
+
+  test('keeps only image sets whose every item is an allowed data image', () => {
+    const kept = 'p{background:image-set(url(data:image/png;base64,AA==) 1x)}'
+    const removed = 'p{background:image-set("data:image/png;base64,AA==" 1x, "http://x/a.png" 2x)}'
+    expect(rules(kept)).toEqual({ css: kept, removed: [] })
+    expect(rules(removed)).toEqual({ css: 'p{}', removed: ['image-set()'] })
+    expect(lexicalFindings(removed, false)).toEqual(['image-set()'])
+  })
+
   test('the independent audit fails closed on every fetching spelling, including strings', () => {
     const cases = [
       ['p{content:"url(https://example.test/a.png)"}', 'url()'],
       ['p{content:"src(https://example.test/a.png)"}', 'src()'],
       ['p{content:"image-set(https://example.test/a.png)"}', 'image-set()'],
+      ['p{content:"-webkit-image-set(https://example.test/a.png)"}', 'image-set()'],
       ['p{content:"@import https://example.test/a.css"}', '@import'],
       [String.raw`p{content:"u\72l(https://example.test/a.png)"}`, 'url()'],
       ['p{content:"u/**/rl(https://example.test/a.png)"}', 'url()'],

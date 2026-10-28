@@ -5,9 +5,14 @@ export interface CssSanitizeResult {
   removed: string[]
 }
 
-const DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp|svg\+xml)(?:[;,])/i
+const DATA_IMAGE = /^data:image\//i
 const DATA_FONT = /^data:(?:font\/[^;,]+|application\/(?:x-)?font-[^;,]+)(?:[;,])/i
 const DECLARATION_AT_RULES = new Set(['counter-style', 'font-face', 'font-palette-values', 'page', 'property'])
+const FETCH_FUNCTIONS = ['url', 'src', 'image-set', '-webkit-image-set'] as const
+const FETCH_AT_KEYWORDS = ['import'] as const
+const FETCH_CONSTRUCT = new RegExp(`@(?:${FETCH_AT_KEYWORDS.join('|')})|(?:${FETCH_FUNCTIONS.join('|')})\\(`, 'gi')
+const FETCH_FUNCTION_SET = new Set<string>(FETCH_FUNCTIONS)
+const FETCH_AT_KEYWORD_SET = new Set<string>(FETCH_AT_KEYWORDS)
 
 function normalizedUrl(value: string, decodeEscapes = true): string {
   let normalized = ''
@@ -44,24 +49,69 @@ function decodedCss(source: string): string {
     .toLowerCase()
 }
 
+function functionArgument(value: string): string {
+  let depth = 1
+  let quote = ''
+  for (let at = 0; at < value.length; at++) {
+    const character = value[at] ?? ''
+    if (quote) {
+      if (character === quote) quote = ''
+      continue
+    }
+    if (character === '"' || character === "'") quote = character
+    else if (character === '(') depth++
+    else if (character === ')' && --depth === 0) return value.slice(0, at)
+  }
+  return value
+}
+
+function imageSetItems(value: string): string[] {
+  const items: string[] = []
+  let start = 0
+  let depth = 0
+  let quote = ''
+  for (let at = 0; at < value.length; at++) {
+    const character = value[at] ?? ''
+    if (quote) {
+      if (character === quote) quote = ''
+      continue
+    }
+    if (character === '"' || character === "'") quote = character
+    else if (character === '(') depth++
+    else if (character === ')') depth--
+    else if (character === ',' && depth === 0) {
+      items.push(value.slice(start, at))
+      start = at + 1
+    }
+  }
+  items.push(value.slice(start))
+  return items
+}
+
 function allowedAuditData(value: string, dataFonts: boolean): boolean {
-  const argument = value.trimStart().replace(/^["']/, '')
+  let argument = value.trimStart()
+  if (/^url\(/i.test(argument)) argument = functionArgument(argument.slice(argument.indexOf('(') + 1)).trimStart()
+  argument = argument.replace(/^["']/, '')
   return DATA_IMAGE.test(argument) || (dataFonts && DATA_FONT.test(argument))
 }
 
-function lexicalFindings(source: string, dataFonts: boolean): string[] {
+export function lexicalFindings(source: string, dataFonts: boolean): string[] {
   const text = decodedCss(source)
   const found: string[] = []
-  const constructs = /@import|(?:url|src|image-set)\(/gi
-  for (const match of text.matchAll(constructs)) {
+  for (const match of text.matchAll(FETCH_CONSTRUCT)) {
     const construct = match[0].toLowerCase()
     const after = text.slice((match.index ?? 0) + construct.length)
-    if (construct === '@import') {
-      const argument = after.trimStart().replace(/^url\(\s*/, '')
-      if (!allowedAuditData(argument, dataFonts)) found.push('@import')
-    } else if (!allowedAuditData(after, dataFonts)) {
-      found.push(`${construct.slice(0, -1)}()`)
+    if (construct.startsWith('@')) {
+      if (!allowedAuditData(after, dataFonts)) found.push(construct)
+      continue
     }
+    const name = construct.slice(0, -1)
+    const argument = functionArgument(after)
+    const allowed =
+      name === 'image-set' || name === '-webkit-image-set'
+        ? imageSetItems(argument).every((item) => allowedAuditData(item, dataFonts))
+        : allowedAuditData(argument, dataFonts)
+    if (!allowed) found.push(`${name === '-webkit-image-set' ? 'image-set' : name}()`)
   }
   return [...new Set(found)]
 }
@@ -95,8 +145,8 @@ function functionFinding(source: string, list: CssToken[], at: number, end: numb
   }
   if (token?.kind !== 'function') return undefined
   const close = matchingClose(list, at, end)
+  if (!FETCH_FUNCTION_SET.has(token.value)) return undefined
   if (token.value === 'image-set' || token.value === '-webkit-image-set') return unsafeImageSet(list, at, close) ? 'image-set()' : undefined
-  if (token.value !== 'url' && token.value !== 'src') return undefined
   const value = normalizedUrl(source.slice(token.end, close < end ? list[close]?.start : source.length))
   if (DATA_IMAGE.test(value) || (fontFace && dataFonts && DATA_FONT.test(value))) return undefined
   return `${token.value}()`
@@ -106,7 +156,7 @@ function findings(source: string, list: CssToken[], start: number, end: number, 
   const found: string[] = []
   for (let at = start; at < end; at++) {
     const token = list[at]
-    if (token?.kind === 'at' && token.value === 'import') found.push('@import')
+    if (token?.kind === 'at' && FETCH_AT_KEYWORD_SET.has(token.value)) found.push(`@${token.value}`)
     const finding = functionFinding(source, list, at, end, dataFonts, fontFace)
     if (finding) found.push(finding)
   }
@@ -171,6 +221,11 @@ function cleanRuleUnit(source: string, list: CssToken[], start: number, end: num
   if (!first) return { character: source.length, next: end, text: '' }
   const edge = boundary(list, start, end)
   const delimiter = list[edge]
+  if (edge >= end && delimiter?.kind === 'close') {
+    const unsafe = findings(source, list, start, end, dataFonts, false)
+    if (unsafe.length > 0) removed.push(...unsafe)
+    return { character: delimiter.start, next: end, text: unsafe.length === 0 ? source.slice(first.start, delimiter.start) : '' }
+  }
   if (!delimiter) {
     const unsafe = findings(source, list, start, end, dataFonts, false)
     if (unsafe.length > 0) removed.push(...unsafe)

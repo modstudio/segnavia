@@ -56,10 +56,20 @@ describe('sanitize', () => {
     const embedded = '<style>@font-face{font-family:Example;src:url(data:font/woff2;base64,AA==)}p{font-family:Example}</style>'
     const applicationFont = '<style>@font-face{font-family:Example;src:url(data:application/x-font-woff;base64,AA==)}</style>'
     const external = '<style>@font-face{font-family:Example;src:url(https://example.com/font.woff2)}p{color:red}</style>'
+    expect(findActiveContent(embedded)).toEqual(['<style> url()'])
+    expect(findActiveContent(embedded, { dataFonts: true })).toEqual([])
+    expect(findActiveContent(applicationFont, { dataFonts: true })).toEqual([])
+    expect(findActiveContent(external, { dataFonts: true })).toEqual(['<style> url()'])
     expect(sanitize(embedded)).toBe('<style>p{font-family:Example}</style>')
     expect(sanitize(embedded, { dataFonts: true })).toBe(embedded)
     expect(sanitize(applicationFont, { dataFonts: true })).toBe(applicationFont)
     expect(sanitize(external, { dataFonts: true })).toBe('<style>p{color:red}</style>')
+  })
+
+  test('a style element cleans its joined text children', () => {
+    const html = '<style>p{color:red}<!-- split -->q{background:url(https://example.com/a.png)}</style>'
+    expect(findActiveContent(html)).toEqual(['<style> url()'])
+    expect(sanitize(html)).toBe('<style>p{color:red}<!-- split -->q{}</style>')
   })
 
   test('an inline style loses only an unsafe declaration', () => {
@@ -85,6 +95,12 @@ describe('sanitize', () => {
 })
 
 describe('bindings', () => {
+  test('keeps an author data font through fill only when opted in', () => {
+    const html = '<style>@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}</style><p data-demo-value="name"></p>'
+    expect(fill(html, { prefix, data: { name: 'held' } }).html).not.toContain('@font-face')
+    expect(fill(html, { prefix, data: { name: 'held' }, dataFonts: true }).html).toContain('@font-face')
+  })
+
   test('a repeat reads its item, and ../ reads the page around it', () => {
     const html = `<ul><li data-demo-each="rows"><b data-demo-value="name"></b> of <i data-demo-value="../title"></i></li></ul>`
     const { html: out } = fill(html, { prefix, data: { title: 'T', rows: [{ name: 'a' }, { name: 'b' }] } })

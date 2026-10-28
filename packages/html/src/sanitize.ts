@@ -29,7 +29,9 @@ export const REFUSED_ELEMENTS = new Set([
 const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransform', 'animatemotion', 'foreignobject'])
 const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action'])
 const URL_ATTRIBUTES = new Set(['href', 'xlink:href', 'src', 'srcset', 'poster', 'background', 'data', 'cite', 'longdesc', 'ping'])
-const DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp|svg\+xml)(?:[;,])/i
+const DATA_IMAGE_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
+const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
+const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
 
 export interface SanitizeOptions {
   // https origins a link may point at; any other link is removed.
@@ -101,7 +103,7 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>)
       return false
     }
   }
-  if (attribute === 'srcset') return /^data:image\/(?:png|jpeg|gif|webp|svg\+xml)(?:;[^,]*)?,[^,]*$/i.test(url)
+  if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
   if (attribute === 'src' || attribute === 'poster') return DATA_IMAGE.test(url)
   return false
 }
@@ -160,8 +162,11 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
 
 function cleanStyleElement(element: Element, dataFonts: boolean): void {
   if (element.name.toLowerCase() !== 'style') return
-  const child = element.children.find((candidate) => 'data' in candidate)
-  if (child && 'data' in child) child.data = sanitizeCss(child.data, false, dataFonts).css
+  const children = element.children.filter((candidate) => 'data' in candidate)
+  const child = children[0]
+  if (!child || !('data' in child)) return
+  child.data = sanitizeCss(styleText(element), false, dataFonts).css
+  for (const extra of children.slice(1)) if ('data' in extra) extra.data = ''
 }
 
 function cleanAttributes(element: Element, allowed: ReadonlySet<string>, keepScripts: boolean, dataFonts: boolean): void {

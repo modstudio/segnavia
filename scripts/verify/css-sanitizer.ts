@@ -15,6 +15,8 @@ const CORPUS = [
   `<p id="kept" style="color:rgb(1, 2, 3);content:'a\n;background:url(http://probe.test/badattr.png);x:'">kept</p>`,
   '<style>@media (min-width:1px){.q{background:url(http://probe.test/nested.png)}#kept{color:rgb(1, 2, 3)}}</style><p id="kept">kept</p>',
   '<style>.q{background:url(data:image/png;base64,AA==)}#kept{color:rgb(1, 2, 3)}</style><p id="kept">kept</p>',
+  '<style>.q{background:image-set(url(data:image/png;base64,AA==) 1x)}#kept{color:rgb(1, 2, 3)}</style><p id="kept">kept</p>',
+  '<style>@media print{@page{@top-center{content:"Page"}}#print-sibling{color:rgb(4, 5, 6)}}</style><p id="print-sibling">print sibling</p>',
 ] as const
 
 export async function verifyCssSanitizer(h: Harness) {
@@ -43,7 +45,7 @@ export async function verifyCssSanitizer(h: Harness) {
   })
   check('a safe rule is applied after sanitizing', kept.color === 'rgb(1, 2, 3)' && kept.weight === '700', JSON.stringify(kept))
 
-  const dataFont = '<style>@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}#kept{color:rgb(1, 2, 3)}</style><p id="kept">kept</p>'
-  check('dataFonts=false removes an author data font', !sanitize(dataFont).includes('@font-face'))
-  check('dataFonts=true keeps an author data font', sanitize(dataFont, { dataFonts: true }).includes('@font-face'))
+  await page.setContent(sanitize(CORPUS.at(-1) ?? ''))
+  const printSibling = await page.locator('#print-sibling').evaluate((element) => getComputedStyle(element).color)
+  check('a sibling stays inside its unmatched print media rule', printSibling !== 'rgb(4, 5, 6)', printSibling)
 }

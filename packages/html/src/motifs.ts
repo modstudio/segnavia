@@ -25,6 +25,7 @@ export interface ExpandMotifsOptions {
   scripts: Scripts
   prefix: string
   linkOrigins?: Iterable<string>
+  dataFonts?: boolean
   signal: AbortSignal
   deferPaths?: Iterable<string>
 }
@@ -171,6 +172,7 @@ async function fillVersion(html: string, placement: MotifPlacement, element: Ele
     prefix: state.options.prefix,
     data: data ?? {},
     linkOrigins: state.options.linkOrigins,
+    dataFonts: state.options.dataFonts,
     registerHrefOrigins: true,
     deferPaths: state.options.deferPaths,
   })
@@ -246,7 +248,7 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
   const lang = choice.version.lang
   const fields = Object.fromEntries(Object.entries(values).filter(([key]) => key !== 'lang'))
   const placement = { key: motif.key, revision: motif.revision, lang, fields }
-  let versionHtml = sanitize(choice.version.html, { linkOrigins: state.options.linkOrigins })
+  let versionHtml = sanitize(choice.version.html, { linkOrigins: state.options.linkOrigins, dataFonts: state.options.dataFonts })
   if (bound && !state.validateOnly) {
     const filled = await fillVersion(versionHtml, placement, element, state)
     if (filled === undefined) return
