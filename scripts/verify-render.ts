@@ -25,9 +25,11 @@ import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyPressRender } from './verify/press-render.ts'
+import { verifyRenderContainment } from './verify/render-containment.ts'
 import { verifyScriptFaces } from './verify/script-faces.ts'
 
 const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const jsHeapMb = 128
 const FACE = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
 const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`
 let failures = 0
@@ -54,7 +56,7 @@ await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
 const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 const output = path.resolve(import.meta.dirname, '../out')
 
-const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb: 128 })
+const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
   const ready = await refusal(
@@ -373,6 +375,7 @@ try {
     run.ok && existsSync(path.join(shots, 'node.button.webp')) && existsSync(path.join(shots, 'node.button.annotated.webp')),
     run.results[0]?.error,
   )
+  await verifyRenderContainment(renderer, check, jsHeapMb)
 } finally {
   await renderer.close()
   server.close()

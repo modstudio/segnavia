@@ -6,10 +6,11 @@ import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
+import { keepBrowser } from './browser-keeper.ts'
 import { captureImage } from './capture-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+import { launchUnavailable, RenderRefusedError, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -22,7 +23,9 @@ import { finishPdf } from './pdf-finish.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
-import { PAGE_READY_BOUND_MS, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { renderFailure } from './render-failure.ts'
+import { renderQueue } from './render-queue.ts'
+import { DEFAULT_JS_HEAP_MB, PAGE_READY_BOUND_MS, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
@@ -48,7 +51,15 @@ export type {
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
-export { CONTAINER_ARGS, PAGE_READY_BOUND_MS, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+export {
+  CONTAINER_ARGS,
+  DEFAULT_JS_HEAP_MB,
+  PAGE_READY_BOUND_MS,
+  type PagePdfOptions,
+  RENDER_BOUND_MS,
+  type Renderer,
+  type RendererOptions,
+} from './renderer.ts'
 export { filledBook }
 
 const FLUID_WIDTH = 1024
@@ -64,30 +75,21 @@ async function contentHeight(tab: Tab): Promise<number> {
 }
 
 export async function openRenderer(options: RendererOptions): Promise<Renderer> {
-  let browser: Browser
-  try {
-    browser = await chromium.launch({
+  const heapMb = options.jsHeapMb ?? DEFAULT_JS_HEAP_MB
+  const keeper = keepBrowser(() =>
+    chromium.launch({
       executablePath: options.executablePath,
-      args: [...(options.args ?? []), ...NO_NETWORK_ARGS, ...(options.jsHeapMb ? [`--js-flags=--max-old-space-size=${options.jsHeapMb}`] : [])],
-    })
+      args: [...(options.args ?? []), ...NO_NETWORK_ARGS, `--js-flags=--max-old-space-size=${heapMb}`],
+    }),
+  )
+  try {
+    await keeper.browser()
   } catch (error) {
-    throw new RendererUnavailableError(`Chromium at ${options.executablePath} could not start: ${(error as Error).message}`)
+    throw launchUnavailable(options.executablePath, error)
   }
-  const limit = options.concurrency ?? 2
-  let running = 0
-  const waiting: Array<() => void> = []
-  const acquire = (): Promise<void> => {
-    if (running < limit) {
-      running++
-      return Promise.resolve()
-    }
-    return new Promise<void>((resolve) => waiting.push(resolve))
-  }
-  const release = () => {
-    const next = waiting.shift()
-    if (next) next()
-    else running--
-  }
+  let closed = false
+  const queue = renderQueue(options.concurrency ?? 2)
+  const { acquire, release } = queue
 
   async function withTab<T>(
     setup: {
@@ -104,16 +106,28 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     body: (tab: Tab) => Promise<T>,
   ): Promise<T> {
     let context: BrowserContext | undefined
+    let instance: Browser | undefined
+    let crashed = false
+    let settled = false
     const measureSlots = setup.slots && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
     try {
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
         (async () => {
+          const browser = await keeper.browser().catch((error) => Promise.reject(relaunchUnavailable(options.executablePath, error)))
+          instance = browser
           context = await browser.newContext({ viewport: setup.viewport, deviceScaleFactor: setup.scale ?? 1, javaScriptEnabled: setup.scripts, offline: true })
+          if (settled) {
+            await context.close().catch(() => {})
+            return undefined as T
+          }
           if (measureSlots) await installSlotFitCapture(context)
           await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
           await context.routeWebSocket('**/*', (socket) => socket.close())
           const tab = await context.newPage()
+          tab.on('crash', () => {
+            crashed = true
+          })
           let ready: (() => void) | undefined
           const readyPromise = new Promise<void>((resolve) => {
             ready = resolve
@@ -131,7 +145,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           return body(tab)
         })(),
       )
+    } catch (error) {
+      throw renderFailure({ crashed, disconnected: instance ? !instance.isConnected() : false, closed, heapMb }, error)
     } finally {
+      settled = true
       await context?.close().catch(() => {})
     }
   }
@@ -371,7 +388,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       )
     },
 
-    close: () => browser.close(),
+    async close() {
+      closed = true
+      queue.close()
+      await keeper.close()
+    },
   }
   return renderer
 }

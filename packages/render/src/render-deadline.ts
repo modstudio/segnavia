@@ -10,7 +10,7 @@ export interface RenderDeadline {
 export async function withinBound<T>(ms: number, work: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const bound = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new RenderTimeoutError(`The render did not finish within ${ms / 1000}s.`)), ms)
+    timer = setTimeout(() => reject(new RenderTimeoutError(`The render did not finish within ${ms / 1000}s. Raise boundMs or simplify the page.`)), ms)
   })
   try {
     return await Promise.race([work, bound])
@@ -25,7 +25,7 @@ export async function withinRenderDeadline<T>(boundMs: number, work: (deadline: 
   let timer: ReturnType<typeof setTimeout> | undefined
   const bound = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      const error = new RenderTimeoutError(`The render did not finish within ${boundMs / 1000}s.`)
+      const error = new RenderTimeoutError(`The render did not finish within ${boundMs / 1000}s. Raise boundMs or simplify the page.`)
       controller.abort(error)
       reject(error)
     }, boundMs)

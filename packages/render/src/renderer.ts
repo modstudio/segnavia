@@ -5,6 +5,7 @@ import type { ImageOptions, ProofImageOptions, RenderOptions } from './options.t
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
+export const DEFAULT_JS_HEAP_MB = 2048
 export const CONTAINER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 
 export interface RendererOptions {
@@ -12,7 +13,7 @@ export interface RendererOptions {
   args?: string[]
   // At most this many renders at once; the rest wait their turn.
   concurrency?: number
-  // Caps each page's JavaScript heap, for hosts rendering code they did not write.
+  // Caps each renderer process's JavaScript heap in megabytes. Defaults to DEFAULT_JS_HEAP_MB.
   jsHeapMb?: number
 }
 

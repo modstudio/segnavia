@@ -19,6 +19,9 @@ const tab = {
   screenshot() {
     return Promise.resolve(new Uint8Array([4, 5, 6]))
   },
+  on() {
+    return tab
+  },
 }
 const context = {
   route() {
@@ -36,6 +39,10 @@ const browser = {
   newContext: () => Promise.resolve(context),
   close() {
     return Promise.resolve()
+  },
+  isConnected: () => true,
+  on() {
+    return browser
   },
 }
 
