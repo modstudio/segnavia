@@ -1,0 +1,164 @@
+import { type Book, PX_PER_MM } from '@segnavia/format'
+import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, bookViewDocument } from '@segnavia/frame/book-document'
+import { newNonce } from '@segnavia/frame/bridge'
+import { bookView } from '@segnavia/html'
+import { type Browser, chromium, type Page as Tab } from 'playwright-core'
+import { SCALE } from './config.ts'
+import { type ComputedStyleFacts, computedStyleFacts, fidelityRegions, offsetBoxes } from './regions.ts'
+import type { Box } from './types.ts'
+
+const OFFLINE_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
+
+export interface BookPaperCapture {
+  index: number
+  bytes: Uint8Array
+  regions: Array<{ name: string; box: Box }>
+  blendedFacts: ComputedStyleFacts[]
+  textWindow: Box
+}
+
+export async function openBookBrowser(executablePath: string): Promise<Browser> {
+  return chromium.launch({ executablePath, args: OFFLINE_ARGS })
+}
+
+function paperCssSize(book: Book): { width: number; height: number } {
+  const view = bookView(book)
+  if (!view.pagination) throw new Error('A paginated book view needs pagination; supply a paginated Book to clear this refusal.')
+  return { width: view.pagination.paper.width * PX_PER_MM, height: view.pagination.paper.height * PX_PER_MM }
+}
+
+async function awaitComposed(tab: Tab): Promise<void> {
+  await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
+    composed: BOOK_COMPOSED_ATTRIBUTE,
+    failed: BOOK_FAILURE_ATTRIBUTE,
+  })
+  const failure = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE)
+  if (failure) throw new Error(failure)
+}
+
+export async function shiftTextWindowByOneLine(tab: Tab, pageIndex: number): Promise<void> {
+  await tab.evaluate((index) => {
+    const paper = document.querySelector(`[data-segnavia-book-page="${index}"]`)
+    if (!paper) throw new Error(`The fault control has no paper ${index}.`)
+    const windows = [...paper.querySelectorAll<HTMLElement>('[data-segnavia-window]')]
+    const sample = windows[0]?.querySelector('p, h1, li') ?? windows[0]
+    if (!sample) throw new Error(`Paper ${index} has no text window to shift.`)
+    const style = getComputedStyle(sample)
+    const rects = [...sample.getClientRects()]
+    const fromLines = rects[0] && rects[1] ? rects[1].top - rects[0].top : 0
+    const pitch = [Number.parseFloat(style.lineHeight), fromLines, rects[0]?.height ?? 0, Number.parseFloat(style.fontSize)].find((value) => value > 0)
+    if (!pitch) throw new Error(`Paper ${index} has no measurable line pitch.`)
+    for (const view of windows) view.style.insetBlockStart = `${Number.parseFloat(view.style.insetBlockStart || '0') + pitch}px`
+  }, pageIndex)
+}
+
+async function paperTextWindow(tab: Tab, index: number, origin: { x: number; y: number }): Promise<Box> {
+  const box = await tab.evaluate(
+    ({ pageIndex, held }) => {
+      const paper = document.querySelector(`[data-segnavia-book-page="${pageIndex}"]`)
+      if (!paper) throw new Error(`The paginated view has no paper ${pageIndex}.`)
+      const windows = [...paper.querySelectorAll('[data-segnavia-window]')]
+      if (!windows.length) throw new Error(`Paper ${pageIndex} has no text window.`)
+      let x0 = Number.POSITIVE_INFINITY
+      let y0 = Number.POSITIVE_INFINITY
+      let x1 = Number.NEGATIVE_INFINITY
+      let y1 = Number.NEGATIVE_INFINITY
+      for (const node of windows) {
+        const next = node.getBoundingClientRect()
+        x0 = Math.min(x0, next.x - held.x)
+        y0 = Math.min(y0, next.y - held.y)
+        x1 = Math.max(x1, next.x - held.x + next.width)
+        y1 = Math.max(y1, next.y - held.y + next.height)
+      }
+      return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+    },
+    { pageIndex: index, held: origin },
+  )
+  if (!(box.width > 0 && box.height > 0)) throw new Error(`Paper ${index} has an empty text window.`)
+  return box
+}
+
+export async function captureBookPapers(browser: Browser, book: Book, css: string): Promise<BookPaperCapture[]> {
+  const view = bookView(book)
+  if (!view.pagination) throw new Error('A paginated book view needs pagination; supply a paginated Book to clear this refusal.')
+  const paper = paperCssSize(book)
+  const html = bookViewDocument(view, { nonce: newNonce(), css, screen: { spread: false }, printBackground: true })
+  const context = await browser.newContext({
+    viewport: { width: Math.ceil(paper.width) + 96, height: Math.ceil(paper.height) + 96 },
+    deviceScaleFactor: SCALE,
+    javaScriptEnabled: true,
+    offline: true,
+  })
+  try {
+    await context.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')))
+    await context.routeWebSocket('**/*', (socket) => socket.close())
+    const tab = await context.newPage()
+    await tab.setContent(html, { waitUntil: 'load' })
+    await awaitComposed(tab)
+    const papers = await tab.evaluate(
+      ({ expectedWidth, expectedHeight }) =>
+        [...document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]')].map((node) => {
+          const box = node.getBoundingClientRect()
+          return {
+            index: Number(node.getAttribute('data-segnavia-book-page')),
+            width: box.width,
+            height: box.height,
+            expectedWidth,
+            expectedHeight,
+          }
+        }),
+      { expectedWidth: paper.width, expectedHeight: paper.height },
+    )
+    if (!papers.length) throw new Error('The paginated view produced no papers.')
+    for (const held of papers) {
+      if (Math.abs(held.width - held.expectedWidth) > 1e-3 || Math.abs(held.height - held.expectedHeight) > 1e-3) {
+        throw new Error(`Paper ${held.index} rendered at ${held.width}×${held.height} CSS px; expected ${held.expectedWidth}×${held.expectedHeight} CSS px.`)
+      }
+    }
+    const rasterWidth = Math.round(paper.width * SCALE)
+    const rasterHeight = Math.round(paper.height * SCALE)
+    const captures: BookPaperCapture[] = []
+    for (const held of papers) {
+      const locator = tab.locator(`[data-segnavia-book-page="${held.index}"]`)
+      const bytes = new Uint8Array(await locator.screenshot({ type: 'png' }))
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      const width = view.getUint32(16)
+      const height = view.getUint32(20)
+      if (width !== rasterWidth || height !== rasterHeight) {
+        throw new Error(
+          `Paper ${held.index} screenshot is ${width}×${height} device px; expected ${rasterWidth}×${rasterHeight} (${held.expectedWidth}×${held.expectedHeight} CSS px at scale ${SCALE}).`,
+        )
+      }
+      // Screenshot scrolls the paper into view; measure geometry after that so the origin matches the raster.
+      const origin = await locator.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return { x: box.x, y: box.y }
+      })
+      const textWindow = await paperTextWindow(tab, held.index, origin)
+      if (
+        textWindow.x + textWindow.width <= 0 ||
+        textWindow.y + textWindow.height <= 0 ||
+        textWindow.x >= held.expectedWidth ||
+        textWindow.y >= held.expectedHeight
+      ) {
+        throw new Error(
+          `Paper ${held.index} text window at ${textWindow.x},${textWindow.y} ${textWindow.width}×${textWindow.height} CSS px does not overlap the ${held.expectedWidth}×${held.expectedHeight} paper.`,
+        )
+      }
+      const regions = await fidelityRegions(locator)
+      const blendedFacts = await computedStyleFacts(locator)
+      offsetBoxes(regions, origin.x, origin.y)
+      offsetBoxes(blendedFacts, origin.x, origin.y)
+      captures.push({
+        index: held.index,
+        bytes,
+        regions,
+        blendedFacts,
+        textWindow,
+      })
+    }
+    return captures
+  } finally {
+    await context.close().catch(() => {})
+  }
+}

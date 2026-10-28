@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream, PDFRef } from 'pdf-lib'
 import type { PdfAnalysis, PdfImage } from './types.ts'
 
@@ -93,6 +94,21 @@ export async function trimPdf(source: string, destination: string): Promise<void
     page.setCropBox(box.x, box.y, box.width, box.height)
   }
   await Bun.write(destination, await document.save())
+}
+
+export async function splitPdfPages(source: string, directory: string, name: string): Promise<string[]> {
+  const document = await PDFDocument.load(await Bun.file(source).arrayBuffer())
+  const paths: string[] = []
+  for (let index = 0; index < document.getPageCount(); index++) {
+    const single = await PDFDocument.create()
+    const [page] = await single.copyPages(document, [index])
+    if (!page) throw new Error(`PDF page ${index + 1} could not be copied from ${source}.`)
+    single.addPage(page)
+    const destination = path.join(directory, `${name}-p${String(index + 1).padStart(2, '0')}.pdf`)
+    await Bun.write(destination, await single.save())
+    paths.push(destination)
+  }
+  return paths
 }
 
 export async function normalizeCropBox(source: string, destination: string): Promise<void> {

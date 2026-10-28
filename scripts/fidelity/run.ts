@@ -1,44 +1,23 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { type PageInput, Print, printBoxes } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'
 import { printCss } from '../../packages/render/src/page-paper.ts'
-import { processColorResidues } from '../verify/gray-residue.ts'
-import { measureBars } from './bars.ts'
-import {
-  ACCEPTANCE_BARS,
-  chromiumPath,
-  EFFECT_REGION_THRESHOLD,
-  EFFECTLESS_CSS,
-  EXPECTED_MARKER_POSITION,
-  fixtures,
-  MEASUREMENT_CSS,
-  OUTPUT_ROOT,
-  ROOT,
-  SCALE,
-} from './config.ts'
+import { renderBookFixtures } from './book-run.ts'
+import { booksFail } from './book-verdict.ts'
+import { ACCEPTANCE_BARS, chromiumPath, EXPECTED_MARKER_POSITION, fixtures, MEASUREMENT_CSS, OUTPUT_ROOT, ROOT, SCALE } from './config.ts'
 import { bleedViewport, trimRasterBox } from './geometry.ts'
-import { alignmentOffset, cropImage, difference, imageSize, modelPressRaster, proofImage, proofTable, sideBySide, writeMask } from './image.ts'
-import { analyzePdf, trimPdf } from './pdf.ts'
+import { cropImage, proofTable } from './image.ts'
+import { type FidelitySession, finishDocument, prepareEffectless } from './measure-document.ts'
+import { trimPdf } from './pdf.ts'
 import { measurePosterLayout } from './poster-evidence.ts'
-import {
-  pressDisplayProfile,
-  pressGhostscript,
-  pressGhostscriptSettings,
-  pressPoppler,
-  pressRasterizer,
-  pressRasterizerEngine,
-  READERS,
-  readerPath,
-  validateReaderProfile,
-} from './readers.ts'
-import { blendedRegionBoxes, type ComputedStyleFacts, computedStyleFacts, offsetBoxes, regionMask } from './regions.ts'
+import { pressDisplayProfile, pressGhostscriptSettings, pressRasterizer, pressRasterizerEngine } from './readers.ts'
+import { type ComputedStyleFacts, computedStyleFacts, fidelityRegions, offsetBoxes } from './regions.ts'
 import { writeSummary } from './report.ts'
-import type { Box, Difference, DocumentResult, FidelityRun, PosterEvidence, ReaderResult, RegionResult } from './types.ts'
+import type { Box, DocumentResult, FidelityRun, PosterEvidence } from './types.ts'
 
 const label = (process.argv[2] ?? 'baseline').replace(/[^a-zA-Z0-9._-]+/g, '-')
 const commit = execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
@@ -57,6 +36,19 @@ const grayProfilePath = process.env.SEGNAVIA_FIDELITY_GRAY_PROFILE ?? (existsSyn
 const grayProfileBytes = grayProfilePath ? new Uint8Array(readFileSync(grayProfilePath)) : undefined
 const grayTable = grayProfileBytes ? proofTable(grayProfileBytes) : undefined
 const selectedPressRasterizer = pressRasterizer()
+const session: FidelitySession = {
+  renderer,
+  executablePath,
+  profilePath,
+  profileBytes,
+  profile,
+  table,
+  grayProfilePath,
+  grayProfileBytes,
+  grayTable,
+  selectedPressRasterizer,
+  defaultGrayProfile,
+}
 let posterEvidence: PosterEvidence | undefined
 
 interface ScreenReference {
@@ -80,49 +72,12 @@ function screenReference(page: PageInput): ScreenReference {
   }
 }
 
-async function prepareEffectless(tab: Tab): Promise<void> {
-  await tab.evaluate((effectlessCss) => {
-    const firstColor = (paint: string): string | undefined => paint.match(/rgba?\([^)]*\)/)?.[0]
-    const flattenBackground = (element: HTMLElement, pseudo?: '::before' | '::after'): void => {
-      const paint = getComputedStyle(element, pseudo).backgroundImage
-      if (!paint.includes('gradient(')) return
-      element.classList.add(pseudo === '::before' ? 'fidelity-flat-before' : pseudo === '::after' ? 'fidelity-flat-after' : 'fidelity-flat-gradient')
-      element.style.setProperty('--fidelity-flat-color', firstColor(paint) ?? 'transparent')
-    }
-    const gradientColor = (paint: string): string => {
-      const id = paint.match(/url\(["']?#([^"')]+)["']?\)/)?.[1]
-      const stop = id ? document.querySelector(`#${CSS.escape(id)} stop`) : undefined
-      return stop ? getComputedStyle(stop).stopColor : '#000'
-    }
-    const flattenSvgPaint = (element: SVGElement, property: 'fill' | 'stroke', className: string): void => {
-      const paint = getComputedStyle(element)[property]
-      if (!paint.startsWith('url(')) return
-      element.classList.add(className)
-      element.style.setProperty(`--fidelity-flat-${property}`, gradientColor(paint))
-    }
-    for (const element of document.querySelectorAll<HTMLElement>('*')) {
-      flattenBackground(element)
-      flattenBackground(element, '::before')
-      flattenBackground(element, '::after')
-      if (element instanceof SVGElement) {
-        flattenSvgPaint(element, 'fill', 'fidelity-flat-fill')
-        flattenSvgPaint(element, 'stroke', 'fidelity-flat-stroke')
-      }
-    }
-    const style = document.createElement('style')
-    style.textContent = effectlessCss
-    document.head.append(style)
-  }, EFFECTLESS_CSS)
-}
-
 try {
   for (const fixture of await fixtures()) {
     console.log(`Rendering ${fixture.title}`)
     const documentDirectory = path.join(directory, fixture.id)
-    const readerDirectory = path.join(documentDirectory, 'readers')
-    const comparisonDirectory = path.join(documentDirectory, 'comparisons')
-    mkdirSync(readerDirectory, { recursive: true })
-    mkdirSync(comparisonDirectory, { recursive: true })
+    mkdirSync(path.join(documentDirectory, 'readers'), { recursive: true })
+    mkdirSync(path.join(documentDirectory, 'comparisons'), { recursive: true })
     const screen = path.join(documentDirectory, 'screen.png')
     const pdf = path.join(documentDirectory, `${fixture.id}.pdf`)
     const effectlessPdf = path.join(documentDirectory, `${fixture.id}-effectless.pdf`)
@@ -134,17 +89,11 @@ try {
     const screenBytes = await renderer.pageImage(reference.page, {
       scale: SCALE,
       css: reference.css,
-      beforeOutput: async (tab) => {
+      beforeOutput: async (tab: Tab) => {
         if (reference.crop) await tab.emulateMedia({ media: 'print' })
-        regions.push(
-          ...(await tab.locator('[data-fidelity]').evaluateAll((elements) =>
-            elements.map((element) => {
-              const box = element.getBoundingClientRect()
-              return { name: element.getAttribute('data-fidelity') ?? 'unnamed', box: { x: box.x, y: box.y, width: box.width, height: box.height } }
-            }),
-          )),
-        )
-        blendedFacts = await computedStyleFacts(tab)
+        const root = tab.locator('html')
+        regions.push(...(await fidelityRegions(root)))
+        blendedFacts = await computedStyleFacts(root)
       },
     })
     let rasterEffects = 0
@@ -165,186 +114,40 @@ try {
     await Bun.write(pdf, pdfBytes)
     await Bun.write(effectlessPdf, effectlessPdfBytes)
     await trimPdf(pdf, comparisonPdf)
-    const size = await imageSize(screen)
-    const blendedMask = path.join(documentDirectory, 'blended-mask.png')
-    const blendedMaskPixels = regionMask(blendedRegionBoxes(blendedFacts), size.width, size.height, SCALE)
-    writeMask(blendedMaskPixels, blendedMask, size.width, size.height)
-    const blendedFraction = blendedMaskPixels.reduce((count, value) => count + (value ? 1 : 0), 0) / blendedMaskPixels.length
-    const croppedBleed = reference.crop?.x ?? 0
-    const expectedMarker = Math.round(EXPECTED_MARKER_POSITION - croppedBleed)
-    const readers: ReaderResult[] = await Promise.all(
-      READERS.map((reader) =>
-        reader.render(comparisonPdf, readerPath(readerDirectory, reader.id), size.width, size.height, { executablePath, markerInset: expectedMarker }),
-      ),
-    )
-    for (const reader of readers) validateReaderProfile(reader)
-    for (const reader of readers) {
-      if (!reader.worked || !reader.image) continue
-      reader.alignment = alignmentOffset(screen, reader.image, size.width, size.height, expectedMarker, expectedMarker)
-      if (!reader.alignment.passed) {
-        reader.worked = false
-        reader.error = reader.alignment.error
-        continue
-      }
-      reader.page = difference(screen, reader.image, size.width, size.height)
-      reader.regions = regions.map(({ name, box }) => {
-        const x = Math.max(0, box.x * SCALE)
-        const y = Math.max(0, box.y * SCALE)
-        const scaled = {
-          x,
-          y,
-          width: Math.max(0, Math.min(box.width * SCALE, size.width - x)),
-          height: Math.max(0, Math.min(box.height * SCALE, size.height - y)),
-        }
-        const result: RegionResult = { name, box: scaled, ...difference(screen, reader.image as string, size.width, size.height, scaled) }
-        if (result.mean > EFFECT_REGION_THRESHOLD.mean || result.p99 > EFFECT_REGION_THRESHOLD.p99) {
-          result.sideBySide = path.join(comparisonDirectory, `${reader.reader}-${name}.png`)
-          sideBySide(screen, reader.image as string, scaled, result.sideBySide)
-        }
-        return result
-      })
-    }
-    let pressPdf: string | undefined
-    let pressProof: string | undefined
-    let pressRaster: string | undefined
-    let pressDifference: Difference | undefined
-    let pressReason: string | undefined
-    if (profilePath && profileBytes && profile && table) {
-      pressPdf = path.join(documentDirectory, `${fixture.id}-press.pdf`)
-      const pressComparisonPdf = path.join(documentDirectory, 'press-comparison.pdf')
-      pressProof = path.join(documentDirectory, 'screen-proof.png')
-      pressRaster = path.join(documentDirectory, 'press.png')
-      try {
-        await Bun.write(
-          pressPdf,
-          await renderer.pagesPdf([fixture.page], {
-            css: MEASUREMENT_CSS,
-            press: { profile: profileBytes },
-          }),
-        )
-        await trimPdf(pressPdf, pressComparisonPdf)
-        proofImage(screen, pressProof, size.width, size.height, table, profile)
-        if (selectedPressRasterizer === 'ghostscript') {
-          const deviceRaster = `${pressRaster}.device.tiff`
-          try {
-            const rendered = await pressGhostscript(pressComparisonPdf, deviceRaster, size.width, size.height, profilePath, 'cmyk')
-            if (rendered.worked) {
-              await modelPressRaster(deviceRaster, pressRaster, size.width, size.height, profile)
-              pressDifference = difference(pressProof, pressRaster, size.width, size.height)
-            } else pressReason = rendered.error ?? 'Ghostscript did not render the press PDF.'
-          } finally {
-            await unlink(deviceRaster).catch(() => {})
-          }
-        } else {
-          const rendered = await pressPoppler(pressComparisonPdf, pressRaster, size.width, size.height, profilePath, 'cmyk')
-          if (rendered.worked) {
-            pressDifference = difference(pressProof, pressRaster, size.width, size.height)
-          } else pressReason = rendered.error ?? 'Poppler did not render the press PDF.'
-        }
-      } catch (error) {
-        pressReason = error instanceof Error ? error.message : String(error)
-        pressPdf = undefined
-        pressProof = undefined
-        pressRaster = undefined
-      }
-    } else {
-      pressReason = 'SEGNAVIA_FIDELITY_PROFILE was not set.'
-    }
-    let grayPressPdf: string | undefined
-    let grayPressProof: string | undefined
-    let grayPressRaster: string | undefined
-    let grayPressDifference: Difference | undefined
-    let grayPressResidues: number | undefined
-    let grayPressResidueErrors: string[] | undefined
-    let grayPressReason: string | undefined
-    if (grayProfilePath && grayProfileBytes && grayTable) {
-      grayPressPdf = path.join(documentDirectory, `${fixture.id}-press-gray.pdf`)
-      const grayPressComparisonPdf = path.join(documentDirectory, 'press-gray-comparison.pdf')
-      grayPressProof = path.join(documentDirectory, 'screen-proof-gray.png')
-      grayPressRaster = path.join(documentDirectory, 'press-gray.png')
-      try {
-        const grayPdfBytes = await renderer.pagesPdf([fixture.page], {
-          css: MEASUREMENT_CSS,
-          press: { profile: grayProfileBytes },
-        })
-        await Bun.write(grayPressPdf, grayPdfBytes)
-        const residues = await processColorResidues(grayPdfBytes)
-        grayPressResidues = residues.found.length
-        grayPressResidueErrors = residues.errors
-        await trimPdf(grayPressPdf, grayPressComparisonPdf)
-        proofImage(screen, grayPressProof, size.width, size.height, grayTable)
-        const rendered = await pressPoppler(grayPressComparisonPdf, grayPressRaster, size.width, size.height, grayProfilePath, 'gray')
-        if (rendered.worked) {
-          grayPressDifference = difference(grayPressProof, grayPressRaster, size.width, size.height)
-        } else grayPressReason = rendered.error ?? 'Poppler did not render the gray press PDF.'
-      } catch (error) {
-        grayPressReason = error instanceof Error ? error.message : String(error)
-        grayPressPdf = undefined
-        grayPressProof = undefined
-        grayPressRaster = undefined
-      }
-    } else {
-      grayPressReason = `SEGNAVIA_FIDELITY_GRAY_PROFILE was not set and ${defaultGrayProfile} does not exist.`
-    }
-    const regionResults = readers.flatMap((reader) => reader.regions ?? [])
-    const worstRegion = regionResults.reduce((worst, region) => ({ mean: Math.max(worst.mean, region.mean), p99: Math.max(worst.p99, region.p99) }), {
-      mean: 0,
-      p99: 0,
-    })
-    const sizeMeasurement = {
-      pdfBytes: pdfBytes.byteLength,
-      effectlessPdfBytes: effectlessPdfBytes.byteLength,
-      multiple: pdfBytes.byteLength / effectlessPdfBytes.byteLength,
-      rasterEffects,
-    }
-    documents.push({
-      id: fixture.id,
-      title: fixture.title,
-      kind: fixture.kind,
-      pdf,
-      pdfBytes: pdfBytes.byteLength,
-      effectlessPdf,
-      effectlessPdfBytes: effectlessPdfBytes.byteLength,
-      screen,
-      width: size.width,
-      height: size.height,
-      comparisonBox: {
-        screen: reference.description,
-        readers: 'PDF TrimBox',
-      },
-      analysis: await analyzePdf(pdf),
-      readers,
-      pressPdf,
-      pressProof,
-      pressRaster,
-      pressDifference,
-      pressReason,
-      grayPressPdf,
-      grayPressProof,
-      grayPressRaster,
-      grayPressDifference,
-      grayPressResidues,
-      grayPressResidueErrors,
-      grayPressReason,
-      blendedMask,
-      blendedFraction,
-      rasterEffects,
-      bars: measureBars({
+    documents.push(
+      await finishDocument({
+        id: fixture.id,
+        title: fixture.title,
         kind: fixture.kind,
-        blendedFraction,
-        readers,
-        worstRegion,
-        pressDifference,
-        pressReason,
-        grayPressDifference,
-        grayPressResidues,
-        grayPressResidueErrors,
-        grayPressReason,
-        size: sizeMeasurement,
+        directory: documentDirectory,
+        screen,
+        pdf,
+        pdfBytes: pdfBytes.byteLength,
+        effectlessPdf,
+        effectlessPdfBytes: effectlessPdfBytes.byteLength,
+        comparisonPdf,
+        comparisonBox: {
+          screen: reference.description,
+          readers: 'PDF TrimBox',
+        },
+        regions,
+        blendedFacts,
+        rasterEffects,
+        expectedMarker: Math.round(EXPECTED_MARKER_POSITION - (reference.crop?.x ?? 0)),
+        size: {
+          pdfBytes: pdfBytes.byteLength,
+          effectlessPdfBytes: effectlessPdfBytes.byteLength,
+          multiple: pdfBytes.byteLength / effectlessPdfBytes.byteLength,
+          rasterEffects,
+        },
+        session,
+        page: fixture.page,
       }),
-    })
+    )
     await Bun.write(path.join(directory, 'partial.json'), `${JSON.stringify(documents, null, 2)}\n`)
   }
+  documents.push(...(await renderBookFixtures(session, directory)))
+  await Bun.write(path.join(directory, 'partial.json'), `${JSON.stringify(documents, null, 2)}\n`)
   const poster = (await fixtures()).find((fixture) => fixture.id === 'poster')
   if (!poster) throw new Error('Poster fixture missing.')
   posterEvidence = await measurePosterLayout(renderer, directory, poster.page)
@@ -386,3 +189,4 @@ const run: FidelityRun = {
 }
 await writeSummary(run, directory)
 console.log(`Fidelity report: ${path.join(directory, 'summary.md')}`)
+if (booksFail(documents)) process.exitCode = 1

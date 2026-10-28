@@ -1,4 +1,4 @@
-import type { Page as Tab } from 'playwright-core'
+import type { Locator } from 'playwright-core'
 import type { Box } from './types.ts'
 
 export interface ComputedStyleFacts {
@@ -83,8 +83,8 @@ export function blendedRegionBoxes(facts: ComputedStyleFacts[]): Box[] {
   })
 }
 
-export async function computedStyleFacts(tab: Tab): Promise<ComputedStyleFacts[]> {
-  return tab.locator('*').evaluateAll((elements) =>
+export async function computedStyleFacts(root: Locator): Promise<ComputedStyleFacts[]> {
+  return root.locator('xpath=descendant-or-self::*').evaluateAll((elements) =>
     elements.map((element) => {
       const box = element.getBoundingClientRect()
       const style = getComputedStyle(element)
@@ -100,6 +100,18 @@ export async function computedStyleFacts(tab: Tab): Promise<ComputedStyleFacts[]
         textShadow: style.textShadow,
         mask: style.getPropertyValue('mask') || style.getPropertyValue('-webkit-mask'),
         maskImage: style.getPropertyValue('mask-image') || style.getPropertyValue('-webkit-mask-image'),
+      }
+    }),
+  )
+}
+
+export async function fidelityRegions(root: Locator): Promise<Array<{ name: string; box: Box }>> {
+  return root.locator('[data-fidelity]').evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect()
+      return {
+        name: element.getAttribute('data-fidelity') ?? 'unnamed',
+        box: { x: box.x, y: box.y, width: box.width, height: box.height },
       }
     }),
   )

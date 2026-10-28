@@ -7,6 +7,11 @@ describe('press acceptance', () => {
     expect(judgePress('control', difference)).toBeFalse()
     expect(judgePress('effects', difference)).toBeTrue()
   })
+
+  test('book pages gate press on mean only', () => {
+    expect(judgePress('book', { mean: 5, p99: 163 })).toBeTrue()
+    expect(judgePress('book', { mean: 11, p99: 0 })).toBeFalse()
+  })
 })
 
 test('a backdrop raster exempts only the size multiple', () => {
