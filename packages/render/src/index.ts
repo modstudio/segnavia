@@ -252,7 +252,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const renderer: Renderer = {
     bookPdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        return renderBrowserBookPdf(input, await renderOptionsWithBookFonts(input, opts, deadline.signal), {
+        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(input, opts, deadline.signal)
+        return renderBrowserBookPdf(input, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
             withTab({ ...setup, deadline }, async (tab) => {
               const captures = await prepareBackdropRasters(tab, opts.effects)
@@ -264,7 +265,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         })
       })
     },
-
     async pagePdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []

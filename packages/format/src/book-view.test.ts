@@ -4,6 +4,7 @@ import { BookView, jsonSchemas } from './index.ts'
 describe('book view', () => {
   test('parses a minimal view with scripts refused', () => {
     expect(BookView.parse({ html: '<main>Book</main>' })).toEqual({ html: '<main>Book</main>', scripts: 'refuse' })
+    expect(BookView.parse({ html: '<main class="lead">Book</main>', css: '.lead{color:purple}' }).css).toBe('.lead{color:purple}')
   })
 
   test('parses all book metadata', () => {

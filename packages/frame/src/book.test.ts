@@ -108,6 +108,15 @@ describe('book element input', () => {
     expect(named.srcdoc).not.toContain("script-src 'nonce-")
   })
 
+  test('sanitizes book CSS and places it after generated fonts', () => {
+    const rendered = bookFrame(
+      { html: '<main class="lead">Book</main>', css: '.lead{color:purple;background:url(https://example.test/ink.png)}', scripts: 'refuse' },
+      '@font-face{font-family:Held;src:url(data:font/woff2;base64,AA==)}',
+    )
+    expect(rendered.srcdoc).not.toContain('example.test')
+    expect(rendered.srcdoc.indexOf('@font-face')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple;}'))
+  })
+
   test('a paginated frame uses the composer and carries the spread setting', () => {
     const pagination = {
       paper: { width: 148, height: 210 },
@@ -123,8 +132,13 @@ describe('book element input', () => {
       contents: { pageNumbers: true, depth: 2 },
       runningHead: { recto: 'title' as const, verso: 'title' as const },
     }
-    const rendered = bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, undefined, true)
+    const rendered = bookFrame(
+      { html: '<main class="lead" data-segnavia-galleys></main>', css: '.lead{color:purple}', scripts: 'refuse', pagination },
+      '.font-marker{font-family:Held}',
+      true,
+    )
     expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+    expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
 })
 
