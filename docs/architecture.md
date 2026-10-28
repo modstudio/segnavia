@@ -4,6 +4,8 @@
 
 ```
 format  ◄── html          (universal: browser and server)
+  ▲       ▲
+  └── idml ┘              (universal: IDML package import)
   ▲
   ├── frame               (browser; svg, timeline, bridge, fit and print-document are server-safe)
   │     ▲
@@ -28,7 +30,10 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
 `architecture.ts` declares each package's runtime and imports, and
-`bun run check` enforces it. `format` and `html` run anywhere. `frame` defines
+`bun run check` enforces it. `format`, `html` and `idml` run anywhere. `idml`
+accepts package bytes, refuses unsupported ZIP forms and bounded-resource
+violations, and returns a validated `Book` plus a report of unmapped IDML
+elements. It never resolves linked resources or reaches the network. `frame` defines
 the custom elements, but its server-safe entry points are the single source
 of the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the
@@ -49,7 +54,7 @@ hit-testing and grid or row arrangement live in universal
 without loading an element.
 A board's unbounded surface is its canvas, while a slide's canvas is bounded.
 
-The seven packages are built as ESM JavaScript and declarations with tsdown;
+The eight packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so

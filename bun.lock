@@ -9,6 +9,7 @@
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
+        "@segnavia/idml": "workspace:*",
         "@segnavia/react": "workspace:*",
         "@segnavia/render": "workspace:*",
         "@segnavia/voice": "workspace:*",
@@ -65,6 +66,17 @@
         "domhandler": "^5.0.3",
         "htmlparser2": "^10.0.0",
         "qrcode-generator": "2.0.4",
+      },
+    },
+    "packages/idml": {
+      "name": "@segnavia/idml",
+      "version": "0.27.0",
+      "dependencies": {
+        "@segnavia/format": "workspace:*",
+        "@segnavia/html": "workspace:*",
+        "dom-serializer": "^2.0.0",
+        "domhandler": "^5.0.3",
+        "htmlparser2": "^10.0.0",
       },
     },
     "packages/react": {
@@ -230,6 +242,8 @@
     "@segnavia/frame": ["@segnavia/frame@workspace:packages/frame"],
 
     "@segnavia/html": ["@segnavia/html@workspace:packages/html"],
+
+    "@segnavia/idml": ["@segnavia/idml@workspace:packages/idml"],
 
     "@segnavia/react": ["@segnavia/react@workspace:packages/react"],
 

@@ -4,12 +4,21 @@ import { selectChangedTests } from './changed.ts'
 
 describe('changed test selection', () => {
   test('a format change selects format and all of its dependents', () => {
-    expect(selectChangedTests(['packages/format/src/index.ts'], PACKAGES).packages).toEqual(['format', 'html', 'frame', 'react', 'voice', 'render', 'capture'])
+    expect(selectChangedTests(['packages/format/src/index.ts'], PACKAGES).packages).toEqual([
+      'format',
+      'html',
+      'idml',
+      'frame',
+      'react',
+      'voice',
+      'render',
+      'capture',
+    ])
   })
 
   test('both paths of a package move select their packages and dependents', () => {
     expect(selectChangedTests(['packages/html/src/moved.ts', 'packages/voice/src/moved.ts'], PACKAGES)).toEqual({
-      packages: ['html', 'frame', 'react', 'voice', 'render', 'capture'],
+      packages: ['html', 'idml', 'frame', 'react', 'voice', 'render', 'capture'],
       scripts: true,
       packageChecks: false,
     })

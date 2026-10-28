@@ -31,6 +31,7 @@
     "@segnavia/render": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",
+    "@segnavia/idml": "workspace:*",
     "@segnavia/react": "workspace:*",
     "pdf-lib": "^1.17.1"
   },

@@ -1,0 +1,35 @@
+{
+  "name": "@segnavia/idml",
+  "version": "0.27.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modstudio/segnavia.git",
+    "directory": "packages/idml"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "@segnavia/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@segnavia/format": "workspace:*",
+    "@segnavia/html": "workspace:*",
+    "dom-serializer": "^2.0.0",
+    "domhandler": "^5.0.3",
+    "htmlparser2": "^10.0.0"
+  }
+}
