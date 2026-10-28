@@ -61,7 +61,8 @@ function chapterOneHtml(hebrew: boolean): string {
   const opening = hebrew ? 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ.' : 'The first morning of the voyage ran long against the wind.'
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
-  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${longNote(hebrew)}</span></p><p${pointed}>${body}</p>`
+  const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
+  return `<h1>${title}</h1><p><span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${longNote(hebrew)}</span>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 
 function chapterTwoHtml(hebrew: boolean): string {
@@ -69,7 +70,8 @@ function chapterTwoHtml(hebrew: boolean): string {
   const lead = hebrew ? 'הטקסט המלא נמשך על פני העמוד.' : 'A full-width paragraph opens the chapter on its own line of the page.'
   const mid = hebrew ? 'שוב רוחב מלא בין העמודות.' : 'Full width returns between the column runs.'
   const close = hebrew ? 'סוף המעבר בין העמודות.' : 'The chapter closes after the column run is cut by a page break.'
-  return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}</p>`
+  const end = hebrew ? 'מקור לפרק השני.' : 'The source for the second chapter.'
+  return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}<span data-note="endnote">${end}</span></p>`
 }
 
 function chapterThreeHtml(hebrew: boolean): string {
@@ -77,11 +79,19 @@ function chapterThreeHtml(hebrew: boolean): string {
   const lead = hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
   const note = hebrew ? 'הערה קצרה.' : 'A short note.'
   const body = hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
-  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="2400"><rect width="240" height="2400" fill="#2b6cb0"/><text x="16" y="64" fill="#fff" font-size="28">${hebrew ? 'תמונה' : 'Image'}</text></svg>`,
+  )
+  const image = `<img alt="${hebrew ? 'תמונה גבוהה' : 'A tall image'}" src="data:image/svg+xml,${svg}">`
+  const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
+  const letters = hebrew ? 'אבגדהוזחטיכלמנסעפצקרשת' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const rows = Array.from({ length: 40 }, (_, index) => `<tr><td>${letters[index % letters.length]}</td><td>${index + 1}</td></tr>`).join('')
+  const table = `<table${hebrew ? ' dir="rtl"' : ''}><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`
+  return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p>${image}<p>${body}</p>${table}`
 }
 
 const designedCss =
-  ':where(.designed-spread,.designed-leaf){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:24px;padding-inline:24px}:where(.designed-verso){background:#1a365d;color:#fff}:where(.designed-recto){background:#2c5282;color:#fff}:where(.designed-leaf){background:#edf2f7}:where(.designed-foot){text-align:center}'
+  ':where(.designed-spread,.designed-leaf){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:24px;padding-inline:24px}:where(.designed-verso){background:#1a365d;color:#fff}:where(.designed-recto){background:#2c5282;color:#fff}:where(.designed-leaf){background:#edf2f7}:where(.designed-foot){text-align:center}:where(table){inline-size:100%;border-collapse:collapse}:where(th,td){border:1px solid;padding:4px}'
 
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
@@ -114,6 +124,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   lang: hebrew ? 'he' : 'en',
   page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 }, columnGap: 5 },
   rectoOpenings: true,
+  endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
   parentPages: [
     {
@@ -210,6 +221,20 @@ function workbookFixture(hebrew: boolean): BookInput {
   }
 }
 
+function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
+  const oversize = Book.parse({
+    title: hebrew ? 'ספר גדול' : 'The Oversize Book',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    chapters: [{ title: hebrew ? 'פרק' : 'Chapter', html: `<pre style="font-size:900px;line-height:1;margin:0">${hebrew ? 'א' : 'X'}</pre>` }],
+  })
+  writeFileSync(
+    path.join(site, hebrew ? 'book-paginated-oversize-he.html' : 'book-paginated-oversize-en.html'),
+    paginatedBookDocument(oversize, { nonce: newNonce(), css }),
+  )
+}
+
 export async function buildBookDemo(site: string): Promise<void> {
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
@@ -228,6 +253,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       : `${designedCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(book)))
+    writeOversizeBook(site, hebrew, css)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
     const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })

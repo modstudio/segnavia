@@ -38,6 +38,8 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('--segnavia-text-height')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
     expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())
   })
 

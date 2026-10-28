@@ -159,6 +159,15 @@ function fixtures(): PaginateBookInput[] {
         },
       ],
     }),
+    input({
+      settings,
+      flows: [
+        flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)], 'One'),
+        { ...flow('c1-notes', 'endnotes', [block('text', 'p', 1, 2, 6, 0)], 'One'), opens: 'any' },
+        flow('c2', 'chapter', [block('text', 'p', 2, 1, 3, 0)], 'Two'),
+      ],
+    }),
+    input({ flows: [flow('c1', 'chapter', [block('text', 'pre', 1, 1, 1, 0, { lines: [{ top: 0, bottom: 80 }] })])] }),
   ]
 }
 
@@ -329,18 +338,16 @@ describe('paginateBook', () => {
     }
   })
 
-  test('chapter endnotes paginate like text', () => {
-    const body = block('text', 'p', 1, 1, 2, 0)
-    const endnotes = block('text', 'p', 1, 2, 3, 20)
-    const pages = paginateBook(
-      input({
-        settings: { ...settings, rectoOpenings: false, endnotePlacement: 'chapter' },
-        flows: [flow('c1', 'chapter', [body, endnotes], 'One')],
-      }),
-    ).pages
-    expect(pages).toHaveLength(1)
-    expect(pages[0]?.windows).toEqual([win('c1', 0, 50, 0)])
-    expect(pages[0]?.notes).toEqual([])
+  test('an oversized pre is refused by tag, chapter and position', () => {
+    const result = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'pre', 1, 1, 1, 0, { lines: [{ top: 0, bottom: 80 }] })])] }))
+    expect(result.pages).toEqual([])
+    expect(result.refusals).toEqual([
+      {
+        tag: 'pre',
+        position: { chapter: 1, block: 1 },
+        message: 'The pre at chapter 1 block 1 could not establish a fit in the text area; shorten it or increase the text-area height to clear this refusal.',
+      },
+    ])
   })
 
   test('front matter is planned after contents and gets a trailing blank', () => {
