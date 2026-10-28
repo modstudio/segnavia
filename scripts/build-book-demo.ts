@@ -248,7 +248,7 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
   // Regular paginated fixtures exercise continued notes. This stress fixture keeps a real short
   // footnote because Poppler reports clipped continuation fragments as in-clip bbox words.
   const footnote = hebrew ? 'הערה קצרה לספר הגדול.' : 'A short footnote for the large book.'
-  const chapters = Array.from({ length: 40 }, (_, cycle) => {
+  const chapters = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
     const number = cycle * 3
     return [
       { title: `${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, html: chapterOneHtml(hebrew, footnote) },

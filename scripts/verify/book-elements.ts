@@ -279,10 +279,11 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
   await stressPage.goto(h.url('book-paginated-large.html'))
   const screenTexts: Record<string, ScreenPageText[]> = {}
   for (const language of ['en', 'he'] as const) {
+    const expectedPages = bboxPages(language).length
     const frame = stressPage.frameLocator(`#book-large-${language} iframe`)
     // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
-    // is mounting. Wait for the stress book's required 300th page, without accepting that transient.
-    await waitForLargeBook(frame)
+    // is mounting. Wait for the page count rendered into the matching PDF, without accepting that transient.
+    await waitForLargeBook(frame, expectedPages)
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`book-large-${language} composition failed: ${failure}`)
     const report = await frame.locator('html').evaluate(() => ({
@@ -292,8 +293,8 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
     screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
     check(
       `book-large-${language} composes 300+ pages within the repagination bound`,
-      report.pages >= 300 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
-      JSON.stringify({ ...report, bound: REPAGINATE_BOUND_MS }),
+      report.pages >= 300 && report.pages === expectedPages && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
+      JSON.stringify({ ...report, expectedPages, bound: REPAGINATE_BOUND_MS }),
     )
   }
   for (const language of ['en', 'he'] as const) {
