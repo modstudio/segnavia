@@ -72,6 +72,10 @@ with the text window of body page 02 shifted by one line pitch in a PDF-only
 fails if that page passes the registration bar. The report labels it as a fault
 control, prints its registration numbers, and names the bars it fails.
 
+The run exits non-zero when a book page fails a bar or the fault control
+passes. Page fixtures are reported in the summary and never change the exit
+code.
+
 Set `SEGNAVIA_FIDELITY_OUT` to write runs somewhere other than `out/fidelity/`,
 for example a folder that outlives a throwaway worktree.
 

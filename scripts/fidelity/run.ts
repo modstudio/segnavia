@@ -7,7 +7,7 @@ import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'
 import { printCss } from '../../packages/render/src/page-paper.ts'
 import { renderBookFixtures } from './book-run.ts'
-import { faultControlProvesShift } from './book-verdict.ts'
+import { booksFail } from './book-verdict.ts'
 import { ACCEPTANCE_BARS, chromiumPath, EXPECTED_MARKER_POSITION, fixtures, MEASUREMENT_CSS, OUTPUT_ROOT, ROOT, SCALE } from './config.ts'
 import { bleedViewport, trimRasterBox } from './geometry.ts'
 import { cropImage, proofTable } from './image.ts'
@@ -189,12 +189,4 @@ const run: FidelityRun = {
 }
 await writeSummary(run, directory)
 console.log(`Fidelity report: ${path.join(directory, 'summary.md')}`)
-if (
-  documents.some(
-    (document) =>
-      (document.faultControl && !faultControlProvesShift(document)) ||
-      (!document.faultControl && Object.values(document.bars).some((bar) => bar.applicable !== false && !bar.passed)),
-  )
-) {
-  process.exitCode = 1
-}
+if (booksFail(documents)) process.exitCode = 1

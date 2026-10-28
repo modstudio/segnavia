@@ -15,6 +15,14 @@ export function faultControlProvesShift(page: DocumentResult): boolean {
   return Boolean(page.faultControl) && !page.bars.registration.passed && page.bars.registration.measured !== undefined
 }
 
+// Page fixtures are reported, not gated, so only book pages and the fault control decide the exit code.
+export function booksFail(documents: DocumentResult[]): boolean {
+  return documents.some((document) => {
+    if (document.faultControl) return !faultControlProvesShift(document)
+    return document.bookId !== undefined && failedBookBars(document).length > 0
+  })
+}
+
 export function faultControlFailure(page: DocumentResult): string | undefined {
   if (!page.faultControl) return undefined
   if (page.bars.registration.passed) {
