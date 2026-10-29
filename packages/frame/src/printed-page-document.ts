@@ -14,6 +14,7 @@ import {
 } from '@segnavia/format'
 import { printedPageAt } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
+import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
@@ -31,32 +32,6 @@ interface Geometry {
   textWidth: number
   textHeight: number
   firstHeight: number
-}
-
-export interface LayoutSample {
-  inlineSize: number
-  paperSize: number
-  scrollWidth: number
-}
-
-export type LayoutSettleDecision = 'settled' | 'wait-for-layout' | 'sample-again' | 'refuse'
-
-export function decideLayoutSettle(
-  sample: LayoutSample,
-  previous: LayoutSample | undefined,
-  configured: Pick<Geometry, 'paperWidth' | 'textWidth'>,
-  elapsedMs: number,
-  boundMs: number,
-): LayoutSettleDecision {
-  if (elapsedMs >= boundMs) return 'refuse'
-  if (sample.paperSize === 0 || sample.inlineSize === 0) return 'wait-for-layout'
-  const widthsMatch = Math.abs(sample.inlineSize - configured.textWidth) <= 0.5 && Math.abs(sample.paperSize - configured.paperWidth) <= 0.5
-  const repeated =
-    previous !== undefined &&
-    sample.inlineSize === previous.inlineSize &&
-    sample.paperSize === previous.paperSize &&
-    sample.scrollWidth === previous.scrollWidth
-  return widthsMatch && repeated ? 'settled' : 'sample-again'
 }
 
 function geometry(page: Page, parents: ResolvedParentPage[], width: number, height: number): Geometry {
@@ -140,10 +115,6 @@ function pageParts(html: string): { head: string; body: string } {
   const safeHead = [...head.matchAll(/<(?:style\b[^>]*>[\s\S]*?<\/style\s*|link\b[^>]*|meta\b[^>]*)>/gi)].map((match) => match[0]).join('')
   return { head: safeHead, body }
 }
-
-// This leaves half of the default SLIDES_READY_DEADLINE_MS for the outer print
-// measurement to receive the composed height after layout settles.
-const LAYOUT_SETTLE_MS = 2000
 
 function composerScript(configJson: string): string {
   return `(function(){
