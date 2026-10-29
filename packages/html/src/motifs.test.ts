@@ -21,6 +21,18 @@ const letterhead: Motif = {
   fonts: [{ app: 'Body' }],
 }
 
+const bilingual: Motif = {
+  key: 'bilingual',
+  revision: '1',
+  label: 'Bilingual',
+  fields: [],
+  versions: [
+    { lang: 'en', html: '<p>English</p>' },
+    { lang: 'he', html: '<p>עברית</p>' },
+  ],
+  fonts: [],
+}
+
 describe('libraryMotifPlacementRefusal', () => {
   test.each(['<div DATA-MOTIF="segnavia:x"></div>', '<div data-motif=segnavia:x></div>', "<div data-motif='segnavia:x'></div>"])(
     'parses reserved placements in %s',
@@ -35,6 +47,44 @@ describe('libraryMotifPlacementRefusal', () => {
 })
 
 describe('expandMotifs', () => {
+  test.each([
+    '<html lang=he><body><div data-motif="bilingual"></div></body></html>',
+    '<html lang="he"><body><div data-motif="bilingual"></div></body></html>',
+    '<html lang=\' he \'><body><div data-motif="bilingual"></div></body></html>',
+  ])('uses the page language for expansion and refusal checks in %s', async (html) => {
+    const motifOptions = options({ bilingual })
+    const result = await expandMotifs(html, motifOptions)
+    expect(result.placed).toEqual([{ key: 'bilingual', revision: '1', version: 1, lang: 'he', fields: {} }])
+    expect(await motifPlacementRefusals(html, motifOptions)).toEqual([])
+  })
+
+  test('prefers an explicit language to the page language', async () => {
+    const html = '<html lang="he"><body><div data-motif="bilingual"></div></body></html>'
+    const motifOptions = options({ bilingual }, { lang: 'en' })
+    const result = await expandMotifs(html, motifOptions)
+    expect(result.placed).toEqual([{ key: 'bilingual', revision: '1', version: 0, lang: 'en', fields: {} }])
+    expect(await motifPlacementRefusals(html, motifOptions)).toEqual([])
+  })
+
+  test.each(['', '  '])('uses the page language when the explicit language is empty (%j)', async (lang) => {
+    const html = '<html lang="he"><body><div data-motif="bilingual"></div></body></html>'
+    const motifOptions = options({ bilingual }, { lang })
+    const result = await expandMotifs(html, motifOptions)
+    expect(result.placed).toEqual([{ key: 'bilingual', revision: '1', version: 1, lang: 'he', fields: {} }])
+    expect(await motifPlacementRefusals(html, motifOptions)).toEqual([])
+  })
+
+  test.each(['<html><body><div data-motif="bilingual"></div></body></html>', '<html lang="  "><body><div data-motif="bilingual"></div></body></html>'])(
+    'still refuses a multi-language motif when the page language is absent in %s',
+    async (html) => {
+      const motifOptions = options({ bilingual })
+      await expect(expandMotifs(html, motifOptions)).rejects.toThrow('no language was supplied and the motif has more than one language')
+      expect(await motifPlacementRefusals(html, motifOptions)).toEqual([
+        expect.stringContaining('no language was supplied and the motif has more than one language'),
+      ])
+    },
+  )
+
   test('keeps an author data font in a version only when opted in', async () => {
     const font = '@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}'
     const styled: Motif = { ...letterhead, versions: [{ lang: 'en', html: `<style>${font}</style><b data-live-value="name"></b>` }] }

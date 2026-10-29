@@ -1,5 +1,5 @@
 import { type FontReference, type MotifSource, type Page, PRINTED_PAGE_CONTEXT, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type ExpandedMotifs, expandMotifs, hasMotifPlacement, libraryMotifPlacementRefusal, MotifRefusedError } from '@segnavia/html'
+import { documentLanguage, type ExpandedMotifs, expandMotifs, hasMotifPlacement, libraryMotifPlacementRefusal, MotifRefusedError } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
@@ -43,10 +43,11 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
     if (refusal) throw refusal
     return { page, fonts: [] }
   }
+  const lang = page.lang?.trim() || documentLanguage(page.html)
   const result = await expandMotifs(page.html, {
     source: motifs.source,
     pins: motifs.pins,
-    lang: page.lang,
+    lang,
     scripts: page.scripts,
     prefix: 'slot',
     linkOrigins: motifs.linkOrigins,
@@ -61,7 +62,7 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
             await expandMotifs(html, {
               source: motifs.source,
               pins: motifs.pins,
-              lang: page.lang,
+              lang,
               scripts: page.scripts,
               prefix: 'slot',
               linkOrigins: motifs.linkOrigins,

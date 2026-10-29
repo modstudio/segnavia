@@ -156,6 +156,34 @@ describe('printedPageDocument', () => {
     await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
   })
 
+  test('uses the page document language for a motif in a parent region', async () => {
+    const placed = Page.parse({
+      ...page,
+      html: '<html lang="he"><body><p>Body</p></body></html>',
+      lang: undefined,
+      printedPages: {
+        ...page.printedPages,
+        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', head: '<header data-motif="bilingual"></header>' }],
+        rules: { every: 'body' },
+      },
+    })
+    const source = {
+      motif: async () => ({
+        key: 'bilingual',
+        revision: 'one',
+        label: 'Bilingual',
+        fields: [],
+        fonts: [],
+        versions: [
+          { lang: 'en', html: '<span>English</span>' },
+          { lang: 'he', html: '<span>עברית</span>' },
+        ],
+      }),
+    }
+    const expanded = await expandFramePage(placed, { source }, new AbortController().signal)
+    expect(expanded.page.printedPages?.parents[0]?.head).toContain('<span>עברית</span>')
+  })
+
   test('refuses a reserved library motif placed in a parent page', async () => {
     const placed = Page.parse({
       ...page,
