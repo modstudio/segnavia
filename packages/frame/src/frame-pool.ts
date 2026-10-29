@@ -357,7 +357,6 @@ export class FramePool {
     if (existing) {
       existing.dispose()
       existing.canvas.replaceWith(canvas)
-      controller.forgetContent(slide.id)
     } else if (mount) this.host.append(canvas)
     return canvas
   }
