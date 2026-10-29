@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
-import { verifyBookLayoutSwitching } from './book-layout-elements.ts'
+import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
@@ -208,21 +208,6 @@ async function spreadFacts(h: Harness, language: 'en' | 'he') {
           Math.abs(plannedRect.height - paper.height) < 0.5,
       }
     })
-}
-
-async function verifyNonceAuthorizedAuthorScripts(h: Harness) {
-  for (const language of ['en', 'he'] as const) {
-    const id = `book-screen-${language}`
-    await h.page.locator(`#${id} iframe[data-segnavia-book-layout="pages"]`).evaluate((frame: HTMLIFrameElement) => {
-      const nonce = frame.srcdoc.match(/<script nonce="([^"]+)"/)?.[1]
-      if (!nonce) throw new Error(`${frame.title} has no bridge nonce.`)
-      frame.srcdoc = frame.srcdoc.replace('<script data-segnavia-author-script>', `<script data-segnavia-author-script nonce="${nonce}">`)
-    })
-    const frame = h.page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
-    await frame.locator('html[data-segnavia-author-script-ran]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
-    const composed = await frame.locator('html').getAttribute('data-segnavia-composed')
-    h.check(`${id} author-script refusal check detects a nonce-authorized mutation`, composed !== null, String(composed))
-  }
 }
 
 async function verifyLargeBookComposition(check: Harness['check'], stressPage: Page) {
