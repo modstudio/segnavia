@@ -8,17 +8,22 @@ import { idmlDirection, localName } from './xml.ts'
 function textNode(node: Element, part: string, path: string): IdmlTextNode {
   const children: IdmlTextNode[] = []
   let childIndex = 0
+  const content = localName(node.name) === 'Content'
   for (const child of node.children) {
     childIndex += 1
     if (isTag(child)) children.push(textNode(child, part, `${path}/${localName(child.name)}[${childIndex}]`))
-    else if (child.type === 'directive') {
+    else if (child.type === 'text' && content && child.data) {
+      children.push({ name: '#text', attributes: {}, text: child.data, children: [], location: `${part}${path}#text${childIndex}` })
+    } else if (child.type === 'directive') {
       children.push({ name: '#processing-instruction', attributes: {}, text: child.data, children: [], location: `${part}${path}#pi${childIndex}` })
     }
   }
-  const directText = node.children
-    .filter((child) => child.type === 'text')
-    .map((child) => child.data)
-    .join('')
+  const directText = content
+    ? ''
+    : node.children
+        .filter((child) => child.type === 'text')
+        .map((child) => child.data)
+        .join('')
   return {
     name: localName(node.name),
     attributes: { ...node.attribs },

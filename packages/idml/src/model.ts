@@ -58,7 +58,8 @@ function boolAttribute(element: Element, name: string, fallback: boolean): boole
 function page(element: Element): IdmlPage {
   const id = attribute(element, 'Self')
   if (!id) throw refusal('an IDML Page has no Self identifier', 'give every Page a Self identifier')
-  return { id, appliedMaster: attribute(element, 'AppliedMaster'), stories: [], side: 'single' }
+  const showMasterItems = boolAttribute(element, 'ShowMasterItems', true)
+  return { id, appliedMaster: attribute(element, 'AppliedMaster'), ...(showMasterItems ? {} : { showMasterItems }), stories: [], side: 'single' }
 }
 
 function assignSides(pageElements: Element[], pages: IdmlPage[]): void {
@@ -120,6 +121,7 @@ function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage
     id: attribute(element, 'Self') ?? base,
     name,
     ...(attribute(element, 'BasedOn') ? { basedOn: attribute(element, 'BasedOn') } : {}),
+    ...(boolAttribute(element, 'ShowMasterItems', true) ? {} : { showMasterItems: false }),
     pages: pages.map((value, index) => ({
       ...value,
       margin: readMargin(elements(pageElements[index] as Element, 'MarginPreference')[0]),

@@ -177,7 +177,7 @@ describe('idmlModel', () => {
       {
         name: 'MasterSpreads/h.xml',
         bytes: bytes(
-          '<MasterSpread Self="h" NamePrefix="H" BaseName="Book" BasedOn="base"><Page Self="left" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 -100 0"><MarginPreference Top="10" Bottom="11" Left="12" Right="13"/></Page><Page Self="right" GeometricBounds="0 0 100 100"><MarginPreference Top="20" Bottom="21" Left="22" Right="23"/></Page><TextFrame Self="head" ParentStory="running" ItemTransform="1 0 0 1 -100 0"><PathGeometry><PathPointType Anchor="10 2"/><PathPointType Anchor="30 7"/></PathGeometry></TextFrame></MasterSpread>',
+          '<MasterSpread Self="h" NamePrefix="H" BaseName="Book" BasedOn="base" ShowMasterItems="false"><Page Self="left" ShowMasterItems="false" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 -100 0"><MarginPreference Top="10" Bottom="11" Left="12" Right="13"/></Page><Page Self="right" GeometricBounds="0 0 100 100"><MarginPreference Top="20" Bottom="21" Left="22" Right="23"/></Page><TextFrame Self="head" ParentStory="running" ItemTransform="1 0 0 1 -100 0"><PathGeometry><PathPointType Anchor="10 2"/><PathPointType Anchor="30 7"/></PathGeometry></TextFrame></MasterSpread>',
         ),
       },
       { name: 'Stories/r.xml', bytes: bytes('<Story Self="running"/>') },
@@ -186,9 +186,11 @@ describe('idmlModel', () => {
       id: 'h',
       name: 'H-Book',
       basedOn: 'base',
+      showMasterItems: false,
       pages: [
         {
           side: 'left',
+          showMasterItems: false,
           margin: { top: 10, bottom: 11, left: 12, right: 13 },
           frames: [{ id: 'head', story: 'running', bounds: { left: 10, top: 2, width: 20, height: 5 } }],
         },

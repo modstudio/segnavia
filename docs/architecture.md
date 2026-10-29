@@ -35,7 +35,12 @@ accepts package bytes, refuses unsupported ZIP forms and bounded-resource
 violations, and returns a validated `Book` plus an import report. Body stories
 become chapters, and the paragraph and character styles they use become
 `idml-*` classes in `Book.css`, with physical indents and alignment resolved
-to logical properties by each paragraph's direction. Single-column paragraphs
+to logical properties by each paragraph's direction. When one master applies
+another, the importer recursively places the matching recto or verso base
+master boxes beneath the applying master's boxes. It composes these regions
+during import because format parent-page inheritance replaces a head or foot
+rather than merging its boxes; `basedOn` remains available for parent margins.
+Single-column paragraphs
 in a multi-column frame carry `data-columns` within the bound `html` exports.
 Text frames anchored inline in story text become inline-block `idml-anchored`
 spans at their source position, with their nested paragraphs represented as
