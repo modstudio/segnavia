@@ -2,6 +2,7 @@ import type { Harness } from './harness.ts'
 
 interface SelectionPage extends HTMLElement {
   page: unknown
+  slots: unknown
   readSelection(): Promise<{ text: string; pageText: string }>
   showUrl(url: string): void
 }
@@ -32,6 +33,26 @@ export async function verifySelection(h: Harness) {
     }
     mount('selection-sandboxed').page = { html: '<p>Script-enabled</p>', scripts: 'sandboxed' }
     mount('selection-url').showUrl('ticket-page.html')
+    const replacement = mount('selection-replacement')
+    let releaseAsset!: (value: string) => void
+    replacement.slots = {
+      fill: { id: 'filled', values: { image: { asset: 'held' }, text: 'Filled document text' } },
+      resolveAsset: () =>
+        new Promise<string>((resolve) => {
+          releaseAsset = resolve
+        }),
+    }
+    replacement.page = {
+      html: '<p data-slot-value="text">Unfilled document text</p><img data-slot-src="image">',
+      scripts: 'refuse',
+      slots: [
+        { key: 'text', label: 'Text', type: 'text' },
+        { key: 'image', label: 'Image', type: 'image' },
+      ],
+    }
+    Object.assign(window as typeof window & Record<string, unknown>, {
+      releaseSelectionAsset: () => releaseAsset('data:image/gif;base64,R0lGODlhAQABAAAAACw='),
+    })
   })
 
   const immediate = await page.evaluate(
@@ -42,6 +63,14 @@ export async function verifySelection(h: Harness) {
     immediate.pageText.includes('Immediate page text'),
     JSON.stringify(immediate),
   )
+
+  const replacement = page.locator('#selection-replacement')
+  const unfilled = await replacement.evaluate((element: SelectionPage) => element.readSelection())
+  check('the held slot page first reports its unfilled document', unfilled.pageText.includes('Unfilled document text'), JSON.stringify(unfilled))
+  await page.evaluate(() => (window as typeof window & { releaseSelectionAsset(): void }).releaseSelectionAsset())
+  await page.waitForFunction(() => document.querySelector<HTMLIFrameElement>('#selection-replacement iframe')?.srcdoc.includes('data:image/gif;base64'))
+  const filled = await replacement.evaluate((element: SelectionPage) => element.readSelection())
+  check('a selection read after a held slot fill uses the replacing document', filled.pageText.includes('Filled document text'), JSON.stringify(filled))
 
   const emptyFrame = await (await page.locator('#selection-empty iframe').elementHandle())?.contentFrame()
   if (!emptyFrame) throw new Error('The empty-selection page did not mount its frame.')

@@ -188,6 +188,29 @@ test('a selection read between slot documents posts only after the filled docume
   harness.restore()
 })
 
+test('a selection read after a slot replacement waits for the replacing document to load and report ready', async () => {
+  const harness = selectionHarness()
+  const asset = loadSlottedPage(harness)
+  const frame = harness.frame()
+  frame.load()
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
+
+  asset.resolve('data:image/png;base64,AAAA')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(frame.srcdoc).toContain('data:image/png;base64,AAAA')
+  const pending = harness.page.readSelection()
+  expect(frame.posts).toEqual([])
+
+  frame.load()
+  expect(frame.posts).toEqual([])
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
+  expect(frame.posts).toHaveLength(1)
+  const { id } = frame.posts[0] as { id: number }
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.selection, id, text: '', pageText: 'Filled' })
+  expect(await pending).toEqual({ text: '', pageText: 'Filled' })
+  harness.restore()
+})
+
 test('a ready before the current document load is ignored', async () => {
   const harness = selectionHarness()
   harness.page.load({ html: '<p>Page</p>', scripts: 'refuse' })
