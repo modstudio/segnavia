@@ -14,7 +14,7 @@ import {
 } from '@segnavia/format'
 import { type ChildNode, type Document, isTag } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
-import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions } from './book-flow.ts'
+import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
   type BuiltSection,
   collectHeadings,
@@ -339,8 +339,7 @@ function addChapters(book: Book, build: DocumentBuild): void {
 }
 
 export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
-  const requestedBuild = options.build ?? (book.mode === 'paginated' ? 'galley' : 'print')
-  const buildIssue = book.mode === 'continuous' && requestedBuild !== 'print' ? `a continuous book cannot use the ${requestedBuild} build` : undefined
+  const { build: requestedBuild, issue: buildIssue } = resolveBookBuild(book, options.build)
   const build: DocumentBuild = {
     build: requestedBuild,
     notes: noteState(),

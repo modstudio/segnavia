@@ -54,6 +54,13 @@ function flowCss(book: Book): string {
   return `${CONTENTS_CSS}:where([data-segnavia-flow]){container-type:inline-size}:where([data-columns]){column-gap:${gap}px}${columns}:where([data-segnavia-flow-page]){inline-size:100%;container-type:inline-size;margin-inline:0}:where([data-segnavia-flow-page-size]){position:relative;inline-size:100cqi;block-size:calc(100cqi * var(--segnavia-paper-ratio));overflow:hidden}:where([data-segnavia-flow-paper]){position:absolute;inset-block-start:0;inset-inline-start:0;inline-size:var(--segnavia-paper-inline);block-size:var(--segnavia-paper-block);overflow:hidden;zoom:var(--segnavia-flow-scale,calc(100cqi / var(--segnavia-paper-inline)))}:where([data-segnavia-flow-text]){position:absolute;inset-block-start:var(--segnavia-text-block-start);inset-inline-start:var(--segnavia-text-inline-start);inline-size:var(--segnavia-text-inline);block-size:var(--segnavia-text-block);container-type:inline-size}${columnFallbacks(gap)}`
 }
 
+// A paginated book defaults to its galley and may also build its flow; a continuous book has only its print build.
+export function resolveBookBuild(book: Book, requested: BookBuild | undefined): { build: BookBuild; issue?: string } {
+  const build = requested ?? (book.mode === 'paginated' ? 'galley' : 'print')
+  if (book.mode === 'paginated' || build === 'print') return { build }
+  return { build, issue: `a continuous book cannot use the ${build} build; request the print build, or make the book paginated with a page to clear this` }
+}
+
 export function bookDocumentCss(book: Book, build: BookBuild): string {
   if (build === 'galley') return GALLEY_CSS
   return build === 'flow' ? flowCss(book) : PRINT_CSS

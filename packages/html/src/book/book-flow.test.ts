@@ -61,7 +61,11 @@ describe('book flow', () => {
 
   test('refuses flow-only builds for a continuous book by build name', () => {
     const book = Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }] })
-    expect(bookDocument(book, { build: 'galley' }).issues).toContain('a continuous book cannot use the galley build')
-    expect(bookDocument(book, { build: 'flow' }).issues).toContain('a continuous book cannot use the flow build')
+    expect(bookDocument(book, { build: 'galley' }).issues).toContain(
+      'a continuous book cannot use the galley build; request the print build, or make the book paginated with a page to clear this',
+    )
+    expect(bookDocument(book, { build: 'flow' }).issues).toContain(
+      'a continuous book cannot use the flow build; request the print build, or make the book paginated with a page to clear this',
+    )
   })
 })
