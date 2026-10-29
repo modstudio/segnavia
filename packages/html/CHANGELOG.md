@@ -1,5 +1,14 @@
 # @segnavia/html
 
+## 0.30.0
+
+### Patch Changes
+
+- 0246112: Use a page's own language to choose motif versions when no language option is supplied.
+- 677a43a: Accept a variable font's weight range on a host-supplied face. Refuse `bolder` and `lighter` as face weights.
+- Updated dependencies [677a43a]
+  - @segnavia/format@0.30.0
+
 ## 0.29.0
 
 ### Minor Changes

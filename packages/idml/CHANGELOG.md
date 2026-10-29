@@ -1,5 +1,18 @@
 # @segnavia/idml
 
+## 0.30.0
+
+### Minor Changes
+
+- 9c7de65: Map applied IDML master spreads to Book parent pages with running marks and folios.
+
+### Patch Changes
+
+- Updated dependencies [0246112]
+- Updated dependencies [677a43a]
+  - @segnavia/html@0.30.0
+  - @segnavia/format@0.30.0
+
 ## 0.29.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @segnavia/frame
 
+## 0.30.0
+
+### Patch Changes
+
+- 0246112: Use a page's own language to choose motif versions when no language option is supplied.
+- Updated dependencies [0246112]
+- Updated dependencies [677a43a]
+  - @segnavia/html@0.30.0
+  - @segnavia/format@0.30.0
+
 ## 0.29.0
 
 ### Patch Changes
