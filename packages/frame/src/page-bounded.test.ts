@@ -13,30 +13,9 @@ function style() {
   }
 }
 
-class TestElement extends EventTarget {
-  private attributes = new Set<string>()
-  clientWidth = 0
-  dataset: Record<string, string> = {}
-  style = style()
-
-  hasAttribute(name: string) {
-    return this.attributes.has(name)
-  }
-
-  toggleAttribute(name: string, force?: boolean) {
-    const oldValue = this.attributes.has(name) ? '' : null
-    const present = force ?? !this.attributes.has(name)
-    if (present) this.attributes.add(name)
-    else this.attributes.delete(name)
-    if ((present ? '' : null) !== oldValue)
-      void (this as unknown as { attributeChangedCallback(name: string, oldValue: string | null, value: string | null): void }).attributeChangedCallback(
-        name,
-        oldValue,
-        present ? '' : null,
-      )
-    return present
-  }
-}
+// Another test file may have loaded page.ts against its own HTMLElement stub,
+// so every element member the harness needs is set on the instance.
+class TestElement extends EventTarget {}
 
 Object.assign(globalThis, {
   HTMLElement: TestElement,
@@ -54,6 +33,18 @@ function pageHarness(size: Page['size'], bounded = false) {
     clientWidth: { configurable: true, value: 200 },
     dataset: { configurable: true, value: {} },
     style: { configurable: true, value: style() },
+  })
+  const attributes = new Set<string>()
+  Object.assign(page, {
+    hasAttribute: (name: string) => attributes.has(name),
+    toggleAttribute(name: string, force?: boolean) {
+      const oldValue = attributes.has(name) ? '' : null
+      const present = force ?? !attributes.has(name)
+      if (present) attributes.add(name)
+      else attributes.delete(name)
+      if ((present ? '' : null) !== oldValue) void page.attributeChangedCallback(name, oldValue, present ? '' : null)
+      return present
+    },
   })
   const sheet = { style: style() }
   const frame = { contentWindow: {} }
