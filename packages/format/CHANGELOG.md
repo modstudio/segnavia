@@ -1,5 +1,12 @@
 # @segnavia/format
 
+## 0.37.0
+
+### Minor Changes
+
+- b8c262d: `@segnavia/format` lets a paginated book view carry its continuous HTML build.
+  `@segnavia/html` adds named print, galley and flow document builds with responsive columns, scaled held pages, continuous notes and shared position keys.
+
 ## 0.36.0
 
 ## 0.35.0

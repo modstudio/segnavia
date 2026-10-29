@@ -1,5 +1,18 @@
 # @segnavia/html
 
+## 0.37.0
+
+### Minor Changes
+
+- b8c262d: `@segnavia/format` lets a paginated book view carry its continuous HTML build.
+  `@segnavia/html` adds named print, galley and flow document builds with responsive columns, scaled held pages, continuous notes and shared position keys.
+
+### Patch Changes
+
+- bf40e80: A heading or keep-with-next block that ends its chapter now stays on the page it fits instead of moving to a page of its own.
+- Updated dependencies [b8c262d]
+  - @segnavia/format@0.37.0
+
 ## 0.36.0
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @segnavia/react
 
+## 0.37.0
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [cb5669b]
+  - @segnavia/frame@0.37.0
+
 ## 0.36.0
 
 ### Patch Changes

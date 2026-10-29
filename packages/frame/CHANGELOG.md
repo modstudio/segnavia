@@ -1,5 +1,19 @@
 # @segnavia/frame
 
+## 0.37.0
+
+### Minor Changes
+
+- cb5669b: Let paginated book elements switch between pages and flow while keeping the reader's place.
+
+### Patch Changes
+
+- A stage frame whose bridge-ready wait timed out is replaced on the slide's next resolution, even with the same reuseKey, and a late ready recovers it.
+- Updated dependencies [b8c262d]
+- Updated dependencies [bf40e80]
+  - @segnavia/format@0.37.0
+  - @segnavia/html@0.37.0
+
 ## 0.36.0
 
 ### Minor Changes
