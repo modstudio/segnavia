@@ -1,7 +1,8 @@
 import { type Element, isTag } from 'domhandler'
 import type { FontMapper } from './fonts.ts'
+import { paragraphBoxDeclarations } from './paragraph-box.ts'
 import type { ReportCollector } from './report.ts'
-import { stylePropertyMapping } from './style-mappings.ts'
+import { STYLE_PROPERTY_MAPPINGS, stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
@@ -136,11 +137,37 @@ function resolvedFontProperties(changed: Record<string, string>, resolved: Recor
   }
 }
 
+const PARAGRAPH_BOX_PROPERTIES = [
+  'SpaceBefore',
+  'SpaceAfter',
+  'LeftIndent',
+  'RightIndent',
+  ...Object.keys(STYLE_PROPERTY_MAPPINGS).filter((name) => name.startsWith('ParagraphShading')),
+]
+
+function paragraphBoxOverrideProperties(
+  changed: Record<string, string>,
+  resolved: Record<string, string>,
+  base: Record<string, string>,
+): Record<string, string> {
+  const touchesBox = Object.keys(changed).some((name) => PARAGRAPH_BOX_PROPERTIES.includes(name))
+  const hasShading = [base.ParagraphShadingOn, resolved.ParagraphShadingOn].some((value) => value?.trim().toLowerCase() === 'true')
+  if (!touchesBox || !hasShading) return changed
+  const output = { ...changed }
+  for (const name of PARAGRAPH_BOX_PROPERTIES) {
+    if (resolved[name] !== undefined) output[name] = resolved[name]
+  }
+  return output
+}
+
 export class StyleMapper {
   private readonly byId: Map<string, IdmlStyle>
   private readonly classes = new Map<string, string>()
   private readonly used = new Set<string>()
-  private readonly overrides = new Map<string, { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string }>()
+  private readonly overrides = new Map<
+    string,
+    { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string; resetShading: boolean }
+  >()
   private readonly reportedStyleProperties = new Set<string>()
 
   constructor(
@@ -187,10 +214,12 @@ export class StyleMapper {
     location: string,
     styleDirection?: 'ltr' | 'rtl',
   ): string | undefined {
-    const changed = Object.fromEntries(
+    let changed = Object.fromEntries(
       Object.entries(values).filter(([name, value]) => stylePropertyMapping(name)?.kind !== 'non-formatting' && value !== base[name]),
     )
     const resolved = { ...base, ...values }
+    const resetShading = base.ParagraphShadingOn?.trim().toLowerCase() === 'true' && values.ParagraphShadingOn?.trim().toLowerCase() === 'false'
+    changed = paragraphBoxOverrideProperties(changed, resolved, base)
     for (const name of reportableStyleProperties(changed, resolved)) {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
@@ -204,11 +233,11 @@ export class StyleMapper {
       }
     }
     if (Object.keys(cssProperties).length === 0) return undefined
-    const key = JSON.stringify(Object.entries(cssProperties).sort(([a], [b]) => a.localeCompare(b))) + directionValue
+    const key = JSON.stringify(Object.entries(cssProperties).sort(([a], [b]) => a.localeCompare(b))) + directionValue + resetShading
     const found = this.overrides.get(key)
     if (found) return found.name
     const name = `idml-o-${this.overrides.size + 1}`
-    this.overrides.set(key, { name, properties: cssProperties, direction: directionValue, location })
+    this.overrides.set(key, { name, properties: cssProperties, direction: directionValue, location, resetShading })
     return name
   }
 
@@ -242,17 +271,17 @@ export class StyleMapper {
       this.reportUnmappedStyleProperties(style)
       this.report.font(values.AppliedFont, values.FontStyle, style.location)
       const dir = style.kind === 'paragraph' ? this.paragraphStyleDirection(values) : this.bookDirection
-      const declarations = this.declarations(values, dir, style.location)
+      const declarations = this.declarations(values, dir, style.location, this.report.unsupportedStyleProperties, false)
       rules.push(`.${name}{${declarations}}`)
     }
     for (const value of this.overrides.values()) {
-      const declarations = this.declarations(value.properties, value.direction, value.location, this.report.unsupportedOverrideProperties)
+      const declarations = this.declarations(value.properties, value.direction, value.location, this.report.unsupportedOverrideProperties, value.resetShading)
       if (declarations) rules.push(`.${value.name}{${declarations}}`)
     }
     return rules.join('')
   }
 
-  private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported = this.report.unsupportedStyleProperties): string {
+  private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported: Map<string, number>, resetShading: boolean): string {
     const output: string[] = []
     output.push(...(this.fonts?.declarations(values.AppliedFont, values.FontStyle, location) ?? []))
     const mapped = new Set(Object.keys(values).filter((name) => stylePropertyMapping(name)?.kind === 'css'))
@@ -266,13 +295,10 @@ export class StyleMapper {
     else pt('Leading', 'line-height')
     const tracking = Number(values.Tracking)
     if (mapped.has('Tracking') && Number.isFinite(tracking)) output.push(`letter-spacing:${tracking / 1000}em`)
-    pt('SpaceBefore', 'margin-block-start')
-    pt('SpaceAfter', 'margin-block-end')
     pt('FirstLineIndent', 'text-indent')
-    const startIndent = dir === 'rtl' ? 'RightIndent' : 'LeftIndent'
-    const endIndent = dir === 'rtl' ? 'LeftIndent' : 'RightIndent'
-    pt(startIndent, 'padding-inline-start')
-    pt(endIndent, 'padding-inline-end')
+    output.push(
+      ...paragraphBoxDeclarations({ values, mapped, resetShading, direction: dir, swatches: this.swatches, report: this.report, unsupported, location }),
+    )
     textDeclarations(values, mapped, output)
     if (mapped.has('Justification')) this.justification(values.Justification, dir, output, location, unsupported)
     if (hasCssMapping(mapped, 'keeps')) this.keeps(values, output)

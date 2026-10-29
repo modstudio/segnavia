@@ -1,5 +1,5 @@
 import { applyTransform, itemTransform, placementBounds, pointValue } from './placements.ts'
-import { formatRoundedNumber } from './positioned-box.ts'
+import { formatRoundedNumber, logicalCornerRadii } from './positioned-box.ts'
 import { flattenedStyle } from './styles.ts'
 import type { IdmlAnchoredFrame, IdmlStory, IdmlStyle, IdmlTextNode } from './types.ts'
 
@@ -68,12 +68,9 @@ export function parseAnchoredFrames(stories: IdmlStory[], styles: IdmlStyle[]): 
 function cornerDeclarations(frame: IdmlAnchoredFrame, direction: 'ltr' | 'rtl'): string[] {
   const corners = frame.corners
   if (!corners) return []
-  const values =
-    direction === 'rtl'
-      ? [corners.topRight, corners.topLeft, corners.bottomRight, corners.bottomLeft]
-      : [corners.topLeft, corners.topRight, corners.bottomLeft, corners.bottomRight]
-  const properties = ['border-start-start-radius', 'border-start-end-radius', 'border-end-start-radius', 'border-end-end-radius']
-  return values.flatMap((value, index) => (value === undefined ? [] : [`${properties[index]}:${formatRoundedNumber(value)}pt`]))
+  return Object.entries(logicalCornerRadii(corners, direction)).flatMap(([property, value]) =>
+    value === undefined ? [] : [`${property}:${formatRoundedNumber(value)}pt`],
+  )
 }
 
 export function anchoredFrameStyle(frame: IdmlAnchoredFrame, resolveColor: (color: string) => string | undefined, direction: 'ltr' | 'rtl'): string {

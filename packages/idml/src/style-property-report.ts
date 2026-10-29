@@ -89,7 +89,6 @@ const SWITCHED_GROUPS: SwitchedGroup[] = [
   { matches: (name) => name.startsWith('RuleAbove'), enabled: (values) => truthy(values.RuleAbove), reportAs: 'RuleAbove' },
   { matches: (name) => name.startsWith('RuleBelow'), enabled: (values) => truthy(values.RuleBelow), reportAs: 'RuleBelow' },
   { matches: (name) => name.startsWith('ParagraphBorder'), enabled: (values) => truthy(values.ParagraphBorderOn), reportAs: 'ParagraphBorderOn' },
-  { matches: (name) => name.startsWith('ParagraphShading'), enabled: (values) => truthy(values.ParagraphShadingOn), reportAs: 'ParagraphShadingOn' },
   { matches: (name) => name.startsWith('Underline'), enabled: (values) => truthy(values.Underline) || values.Underline === 'Underline', reportAs: 'Underline' },
   {
     matches: (name) => name.startsWith('StrikeThrough') || name.startsWith('StrikeThru'),
@@ -145,6 +144,16 @@ function isHyphenationProperty(name: string): boolean {
   return name.startsWith('Hyphenat') || name === 'HyphenWeight' || name === 'ProviderHyphenationStyle'
 }
 
+function alwaysHandledElsewhere(name: string): boolean {
+  return isHyphenationProperty(name) || JUSTIFICATION_SETTINGS.has(name) || ['EmptyGrepStyles', 'EmptyNestedStyles', 'EmptyLineStyles'].includes(name)
+}
+
+const COLLECTION_PROPERTIES = new Set(['AllGREPStyles', 'AllNestedStyles', 'AllLineStyles', 'TabList'])
+
+function isCollectionProperty(name: string): boolean {
+  return COLLECTION_PROPERTIES.has(name)
+}
+
 function groupedProperties(names: string[], resolved: Record<string, string>): string[] {
   const output: string[] = []
   if (names.some(isHyphenationProperty) && truthy(resolved.Hyphenation)) output.push('Hyphenation')
@@ -158,9 +167,9 @@ function groupedProperties(names: string[], resolved: Record<string, string>): s
 
 function reportableProperty(name: string, value: string, resolved: Record<string, string>, root: boolean): string | undefined {
   if (stylePropertyMapping(name)) return undefined
-  if (isHyphenationProperty(name) || JUSTIFICATION_SETTINGS.has(name)) return undefined
-  if (['EmptyGrepStyles', 'EmptyNestedStyles', 'EmptyLineStyles'].includes(name)) return undefined
-  if (['AllGREPStyles', 'AllNestedStyles', 'AllLineStyles'].includes(name) || name === 'TabList') return hasEntries(value) ? name : undefined
+  if (alwaysHandledElsewhere(name)) return undefined
+  if (isCollectionProperty(name)) return hasEntries(value) ? name : undefined
+  if (name.startsWith('ParagraphShading')) return truthy(resolved.ParagraphShadingOn) && activeIdmlValue(value) ? name : undefined
   const switched = SWITCHED_GROUPS.find((group) => group.matches(name))
   if (switched) return switched.enabled(resolved) ? switched.reportAs : undefined
   const cjkOnly = CJK_PREFIXES.some((prefix) => name.startsWith(prefix)) || CJK_PROPERTIES.has(name)
