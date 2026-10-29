@@ -131,7 +131,7 @@ describe('controller content refresh', () => {
     second.resolve({ kind: 'url', src: 'latest.html' })
     expect(await later).toBe('refreshed')
     first.resolve({ kind: 'url', src: 'stale.html' })
-    expect(await earlier).toBe('superseded')
+    expect(await earlier).toBe('refreshed')
     expect(controller.state.content).toEqual({ kind: 'url', src: 'latest.html' })
   })
 
@@ -141,7 +141,7 @@ describe('controller content refresh', () => {
     const content = controller.state.content
     let changes = 0
     controller.addEventListener('change', () => changes++)
-    expect(await controller.refreshContent()).toBe('superseded')
+    expect(await controller.refreshContent()).toBe('refreshed')
     expect(controller.state.content).toBe(content)
     expect(changes).toBe(0)
   })

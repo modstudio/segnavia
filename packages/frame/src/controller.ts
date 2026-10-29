@@ -20,7 +20,7 @@ export class DeckController extends EventTarget {
   private clock: Clock | null = null
   private cancel: (() => void) | null = null
   private shows = 0
-  private refreshes = 0
+  private refreshing: Promise<'refreshed' | 'superseded' | 'failed'> | null = null
   private shots = new Map<string, Promise<PublishedShot>>()
   private prefetched = new Map<string, Promise<ResolvedContent>>()
   private lastCue = ''
@@ -85,7 +85,6 @@ export class DeckController extends EventTarget {
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
   }
-
   async [internalDeckLoad](input: Deck): Promise<void> {
     await this.loadDeck(input, undefined, true)
   }
@@ -101,14 +100,12 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, ...loaded }
     await this.show(loaded.index)
   }
-
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
     if (index !== this.current.index) await runNavigationGuard(this)
     await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
-
   contentFor(index: number): Promise<ResolvedContent> {
     const slide = this.current.deck?.slides[index]
     if (!slide) return Promise.reject(new RangeError(`Slide ${index + 1} is outside the deck.`))
@@ -121,29 +118,34 @@ export class DeckController extends EventTarget {
     return ready
   }
 
-  async refreshContent(): Promise<'refreshed' | 'superseded' | 'failed'> {
-    const refresh = ++this.refreshes
-    if (!this.options.resolveSlide) return 'superseded'
+  refreshContent(): Promise<'refreshed' | 'superseded' | 'failed'> {
+    if (!this.options.resolveSlide) return Promise.resolve('refreshed')
     const { index, slide } = this.current
-    if (!slide) return 'superseded'
+    if (!slide) return Promise.resolve('superseded')
     const shown = this.shows
-    let content: ResolvedContent
-    try {
-      content = await this.resolveFresh(slide, index)
-    } catch (error) {
-      if (refresh !== this.refreshes || shown !== this.shows || index !== this.current.index) return 'superseded'
-      this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
-      return 'failed'
-    }
-    if (refresh !== this.refreshes || shown !== this.shows || index !== this.current.index) return 'superseded'
-    this.current = { ...this.current, content }
-    return 'refreshed'
+    let refreshing!: Promise<'refreshed' | 'superseded' | 'failed'>
+    refreshing = (async () => {
+      let content: ResolvedContent
+      try {
+        content = await this.resolveFresh(slide, index)
+      } catch (error) {
+        if (shown !== this.shows || index !== this.current.index) return 'superseded'
+        if (refreshing !== this.refreshing) return this.refreshing ?? 'superseded'
+        this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
+        return 'failed'
+      }
+      if (shown !== this.shows || index !== this.current.index) return 'superseded'
+      if (refreshing !== this.refreshing) return this.refreshing ?? 'superseded'
+      this.current = { ...this.current, content }
+      return 'refreshed'
+    })()
+    this.refreshing = refreshing
+    return refreshing
   }
 
   forgetContent(slideId: string) {
     this.prefetched.delete(slideId)
   }
-
   present(element: HTMLElement) {
     if (this.presented === element) return
     this.stopPresenting()
@@ -170,7 +172,6 @@ export class DeckController extends EventTarget {
     this.pause()
     this.dispatchEvent(new CustomEvent('end'))
   }
-
   async previous(): Promise<void> {
     if (this.current.index > 0) await this.go(this.current.index - 1)
   }
@@ -262,7 +263,6 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
-    this.refreshes++
     this.stopClock()
     let content: ResolvedContent
     try {

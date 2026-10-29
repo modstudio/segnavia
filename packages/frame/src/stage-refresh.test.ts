@@ -106,3 +106,33 @@ test('rebuilding while the shown slide is an incoming mounted frame refreshes it
   expect(resolutions).toBe(2)
   expect(rendered).toEqual(['pending-2.html'])
 })
+
+test('two stages rebuilding one controller both use the latest refresh', async () => {
+  const earlier = Promise.withResolvers<{ kind: 'url'; src: string }>()
+  const later = Promise.withResolvers<{ kind: 'url'; src: string }>()
+  let resolutions = 0
+  const controller = new DeckController({
+    hash: null,
+    resolveSlide: () => {
+      resolutions++
+      if (resolutions === 2) return earlier.promise
+      if (resolutions === 3) return later.promise
+      return { kind: 'url', src: 'shown.html' }
+    },
+  })
+  await controller.load({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
+  const first = stageHarness(controller)
+  const second = stageHarness(controller)
+  first.stage.update(controller.state)
+  second.stage.update(controller.state)
+
+  Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'slots')?.set?.call(first.stage, undefined)
+  Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'slots')?.set?.call(second.stage, undefined)
+  later.resolve({ kind: 'url', src: 'latest.html' })
+  await Bun.sleep(0)
+  earlier.resolve({ kind: 'url', src: 'stale.html' })
+  await Bun.sleep(0)
+
+  expect(first.rendered).toEqual(['shown.html', 'latest.html'])
+  expect(second.rendered).toEqual(['shown.html', 'latest.html'])
+})
