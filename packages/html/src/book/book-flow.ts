@@ -1,9 +1,11 @@
 import { type Book, PX_PER_MM, sheetMm } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
-import type { BuiltSection } from './book-held.ts'
+import type { BookBuild } from './types.ts'
 
 export const BOOK_FLOW_COLUMN_MIN_PX = 240
+export const BOOK_COLUMN_MIN = 2
+export const BOOK_COLUMN_MAX = 4
 
 // The front/body selectors here agree with bookPrintPart, the source of print membership.
 const CONTENTS_CSS =
@@ -17,7 +19,8 @@ export interface BookFlowPageGeometry {
   textInline: number
   textBlock: number
   marginBlockStart: number
-  marginInlineStart: number
+  marginInlineStartRecto: number
+  marginInlineStartVerso: number
 }
 
 export function bookFlowPageGeometry(book: Book): BookFlowPageGeometry | undefined {
@@ -29,12 +32,13 @@ export function bookFlowPageGeometry(book: Book): BookFlowPageGeometry | undefin
     textInline: (paper.width - book.page.margin.inner - book.page.margin.outer) * PX_PER_MM,
     textBlock: (paper.height - book.page.margin.top - book.page.margin.bottom) * PX_PER_MM,
     marginBlockStart: book.page.margin.top * PX_PER_MM,
-    marginInlineStart: book.page.margin.inner * PX_PER_MM,
+    marginInlineStartRecto: book.page.margin.inner * PX_PER_MM,
+    marginInlineStartVerso: book.page.margin.outer * PX_PER_MM,
   }
 }
 
 function columnFallbacks(gap: number): string {
-  return [2, 3, 4]
+  return Array.from({ length: BOOK_COLUMN_MAX - BOOK_COLUMN_MIN + 1 }, (_, index) => index + BOOK_COLUMN_MIN)
     .map((count) => {
       const threshold = count * BOOK_FLOW_COLUMN_MIN_PX + (count - 1) * gap
       return `@container (max-width:${threshold}px){:where([data-columns="${count}"]){column-count:1}}`
@@ -44,16 +48,20 @@ function columnFallbacks(gap: number): string {
 
 function flowCss(book: Book): string {
   const gap = (book.page?.columnGap ?? 0) * PX_PER_MM
-  return `${CONTENTS_CSS}:where([data-segnavia-flow]){container-type:inline-size}:where([data-columns]){column-gap:${gap}px}:where([data-columns="2"]){column-count:2}:where([data-columns="3"]){column-count:3}:where([data-columns="4"]){column-count:4}:where([data-segnavia-flow-page]){inline-size:100%;container-type:inline-size;margin-inline:0}:where([data-segnavia-flow-page-size]){position:relative;inline-size:100cqi;block-size:calc(100cqi * var(--segnavia-paper-block) / var(--segnavia-paper-inline));overflow:hidden}:where([data-segnavia-flow-paper]){position:absolute;inset-block-start:0;inset-inline-start:0;inline-size:var(--segnavia-paper-inline);block-size:var(--segnavia-paper-block);overflow:hidden;zoom:calc(100cqi / var(--segnavia-paper-inline))}:where([data-segnavia-flow-text]){position:absolute;inset-block-start:var(--segnavia-text-block-start);inset-inline-start:var(--segnavia-text-inline-start);inline-size:var(--segnavia-text-inline);block-size:var(--segnavia-text-block)}${columnFallbacks(gap)}`
+  const columns = Array.from({ length: BOOK_COLUMN_MAX - BOOK_COLUMN_MIN + 1 }, (_, index) => index + BOOK_COLUMN_MIN)
+    .map((count) => `:where([data-columns="${count}"]){column-count:${count}}`)
+    .join('')
+  return `${CONTENTS_CSS}:where([data-segnavia-flow]){container-type:inline-size}:where([data-columns]){column-gap:${gap}px}${columns}:where([data-segnavia-flow-page]){inline-size:100%;container-type:inline-size;margin-inline:0}:where([data-segnavia-flow-page-size]){position:relative;inline-size:100cqi;block-size:calc(100cqi * var(--segnavia-paper-ratio));overflow:hidden}:where([data-segnavia-flow-paper]){position:absolute;inset-block-start:0;inset-inline-start:0;inline-size:var(--segnavia-paper-inline);block-size:var(--segnavia-paper-block);overflow:hidden;zoom:var(--segnavia-flow-scale,calc(100cqi / var(--segnavia-paper-inline)))}:where([data-segnavia-flow-text]){position:absolute;inset-block-start:var(--segnavia-text-block-start);inset-inline-start:var(--segnavia-text-inline-start);inline-size:var(--segnavia-text-inline);block-size:var(--segnavia-text-block);container-type:inline-size}${columnFallbacks(gap)}`
 }
 
-export function bookDocumentCss(book: Book, galley: boolean): string {
-  if (galley) return GALLEY_CSS
-  return book.mode === 'paginated' ? flowCss(book) : PRINT_CSS
+export function bookDocumentCss(book: Book, build: BookBuild): string {
+  if (build === 'galley') return GALLEY_CSS
+  return build === 'flow' ? flowCss(book) : PRINT_CSS
 }
 
-export function flowPageStyle(geometry: BookFlowPageGeometry): string {
-  return `--segnavia-paper-inline:${geometry.paperInline}px;--segnavia-paper-block:${geometry.paperBlock}px;--segnavia-text-inline:${geometry.textInline}px;--segnavia-text-block:${geometry.textBlock}px;--segnavia-text-block-start:${geometry.marginBlockStart}px;--segnavia-text-inline-start:${geometry.marginInlineStart}px`
+export function flowPageStyle(geometry: BookFlowPageGeometry, recto: boolean): string {
+  const marginInlineStart = recto ? geometry.marginInlineStartRecto : geometry.marginInlineStartVerso
+  return `--segnavia-paper-inline:${geometry.paperInline}px;--segnavia-paper-block:${geometry.paperBlock}px;--segnavia-paper-ratio:${geometry.paperBlock / geometry.paperInline};--segnavia-text-inline:${geometry.textInline}px;--segnavia-text-block:${geometry.textBlock}px;--segnavia-text-block-start:${geometry.marginBlockStart}px;--segnavia-text-inline-start:${marginInlineStart}px`
 }
 
 export function bookBlockPosition(flowId: string, block: number, suffix?: string): string {
@@ -64,11 +72,17 @@ function isFootnoteBlock(node: Element): boolean {
   return (node.attribs.class ?? '').split(/\s+/).includes('segnavia-footnotes')
 }
 
-export function markBlockPositions(sections: BuiltSection[]): void {
+interface PositionSection {
+  info: { id: string }
+  node: { children: Element['children'] }
+}
+
+export function markBlockPositions(sections: PositionSection[]): void {
   for (const section of sections) {
     let position = 0
     for (const child of section.node.children) {
       if (!isTag(child)) continue
+      if (child.name === 'style' || child.name === 'script') continue
       if (isFootnoteBlock(child)) {
         child.attribs['data-segnavia-position'] = bookBlockPosition(section.info.id, position, 'footnotes')
         continue

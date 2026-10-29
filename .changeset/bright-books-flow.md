@@ -4,4 +4,4 @@
 ---
 
 `@segnavia/format` lets a paginated book view carry its continuous HTML build.
-`@segnavia/html` builds that flowing view with responsive columns, scaled held pages, continuous notes and shared position keys.
+`@segnavia/html` adds named print, galley and flow document builds with responsive columns, scaled held pages, continuous notes and shared position keys.

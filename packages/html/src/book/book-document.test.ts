@@ -98,16 +98,16 @@ describe('book document', () => {
   test('inserts requested blank pages immediately before their sections', () => {
     const result = bookDocument(Book.parse(input()), { blankBefore: ['segnavia-chapter-2'] }).html
     expect(result).toContain(
-      '</section><div class="segnavia-blank" aria-hidden="true"></div><section class="segnavia-section segnavia-chapter" id="segnavia-chapter-2" data-segnavia-flow="segnavia-chapter-2">',
+      '</section><div class="segnavia-blank" aria-hidden="true"></div><section class="segnavia-section segnavia-chapter" id="segnavia-chapter-2">',
     )
+    for (const css of ['@media print', ':where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}']) expect(result).toContain(css)
+    for (const attribute of ['data-segnavia-flow', 'data-segnavia-position']) expect(result).not.toContain(attribute)
   })
-
   test('reports an issue when both used note kinds share a marker', () => {
     const html = '<p><span data-note="footnote">f</span><span data-note="endnote">e</span></p>'
     const result = bookDocument(Book.parse(input({ chapters: [chapter('One', html)], footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } })))
     expect(result.issues).toEqual(['footnote and endnote markers are both arabic; the two must differ when both kinds are used'])
   })
-
   test('reports duplicate listed heading ids and collisions with generated ids by section', () => {
     const repeated = bookDocument(Book.parse(input({ chapters: [chapter('One', '<h2 id="topic">First</h2>'), chapter('Two', '<h2 id="topic">Second</h2>')] })))
     expect(repeated.issues).toEqual([
