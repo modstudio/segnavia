@@ -1,21 +1,11 @@
 import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
-import { FrameEntry, type FrameReadinessOptions } from './frame-entry.ts'
+import { FrameEntry } from './frame-entry.ts'
+import type { PoolOptions } from './frame-pool-options.ts'
 import type { FrameTitle } from './frame-title.ts'
-import type { PreparedSlots } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
-import { type HostTransition, type TurnTransition, transitionFor } from './transition.ts'
-
-interface PoolOptions extends FrameReadinessOptions {
-  neighbors: boolean
-  css: string
-  csp: string
-  frameTitle: FrameTitle
-  transition?: HostTransition
-  reducedMotion: boolean
-  slots?: PreparedSlots
-}
+import { type TurnTransition, transitionFor } from './transition.ts'
 
 interface PendingTurn {
   id: string
@@ -77,6 +67,9 @@ export class FramePool {
     const canvas = this.entries.get(slideId)?.canvas
     if (!canvas?.matches('.segnavia-stage__canvas[data-active]')) return null
     return canvas.querySelector('iframe')
+  }
+  hasMountedFrame(slideId: string): boolean {
+    return this.entries.get(slideId)?.canvas.isConnected === true
   }
 
   waitForActiveFrame(frame: HTMLIFrameElement, ready: () => void): () => void {

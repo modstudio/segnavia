@@ -181,6 +181,7 @@ test('stage renders the current slide when slot resolution finishes after naviga
   const first = { deck, content: { kind: 'html', html: '<p>First</p>' }, index: 0, playing: false, word: null, shown: null, direction: 'ltr' }
   const current = { ...first, content: { kind: 'html', html: '<p>Current</p>' }, index: 1 }
   const rendered: unknown[] = []
+  let rebuildStage = () => {}
   const stage = {
     isConnected: true,
     slotPreparation: undefined,
@@ -190,7 +191,9 @@ test('stage renders the current slide when slot resolution finishes after naviga
     resolvedSlots: undefined,
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions | undefined,
     attached: { state: first },
+    frameRebuilder: { rebuild: () => rebuildStage() },
     pool: {
+      hasMountedFrame: () => false,
       clear() {},
       update(state: unknown) {
         rendered.push(state)
@@ -204,8 +207,10 @@ test('stage renders the current slide when slot resolution finishes after naviga
     frameTitle: () => '',
     room: {},
     querySelector: () => null,
+    rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
+  rebuildStage = () => stage.update(stage.attached.state)
   stage.update(first)
   stage.attached.state = current
   asset.resolve('data:image/png;base64,AAAA')
@@ -228,6 +233,7 @@ test('stage invalidates a pending fill when slot options are removed', async () 
   })
   let renders = 0
   const reports: unknown[] = []
+  let rebuildStage = () => {}
   const stage = {
     isConnected: true,
     slotPreparation: undefined,
@@ -243,7 +249,9 @@ test('stage invalidates a pending fill when slot options are removed', async () 
       report: (report: unknown) => reports.push(report),
     } as SlotsOptions | undefined,
     attached: { state: state(deck) },
+    frameRebuilder: { rebuild: () => rebuildStage() },
     pool: {
+      hasMountedFrame: () => false,
       clear() {},
       update() {
         renders++
@@ -256,8 +264,10 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     cspExtra: '',
     frameTitle: () => '',
     querySelector: () => null,
+    rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
+  rebuildStage = () => stage.update(stage.attached.state)
   stage.update(stage.attached.state)
   stage.attached.state = state(deck)
   Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'slots')?.set?.call(stage, undefined)

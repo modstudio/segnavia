@@ -1,12 +1,16 @@
-import { type Deck, PublishedShot, type Slide } from '@segnavia/format'
+import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
-import { assertValidCues } from './controller-cues.ts'
+import { emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
-import { captionsPolicy, playerOptionState, referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
+import { prefetchControllerNeighbors, syncControllerHash } from './controller-navigation.ts'
+import { captionsPolicy, playerOptionState } from './controller-options.ts'
+import { handleControllerPageKey } from './controller-page-key.ts'
+import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
+import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { internalDeckLoad } from './deck-load-origin.ts'
-import { hashSlideIndex, neighborWindow } from './deck-window.ts'
-import { type DeckAction, isEditableLetterShortcut, isEditableTarget, keyAction } from './keys.ts'
+import { hashSlideIndex } from './deck-window.ts'
+import { type DeckAction, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
 import { parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
 import { defaultSchedule, hasWindow } from './schedule.ts'
@@ -20,6 +24,7 @@ export class DeckController extends EventTarget {
   private clock: Clock | null = null
   private cancel: (() => void) | null = null
   private shows = 0
+  private refreshing: Promise<ContentRefreshResult> | null = null
   private shots = new Map<string, Promise<PublishedShot>>()
   private prefetched = new Map<string, Promise<ResolvedContent>>()
   private lastCue = ''
@@ -27,7 +32,6 @@ export class DeckController extends EventTarget {
   private bodyOverflow = ''
   private listening = false
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
-
   constructor(options: ControllerOptions = {}) {
     super()
     this.options = { hash: 'slide-', keys: 'stage', ...options }
@@ -82,7 +86,6 @@ export class DeckController extends EventTarget {
     if (!response.ok) throw new Error(`The deck at ${url} answered ${response.status}.`)
     await this.load(await response.json(), url)
   }
-
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
   }
@@ -102,7 +105,6 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, ...loaded }
     await this.show(loaded.index)
   }
-
   async go(index: number): Promise<void> {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
@@ -120,6 +122,27 @@ export class DeckController extends EventTarget {
       this.prefetched.set(slide.id, ready)
     }
     return ready
+  }
+
+  refreshContent(): Promise<ContentRefreshResult> {
+    if (!this.options.resolveSlide) return Promise.resolve('refreshed')
+    const { index, slide } = this.current
+    if (!slide) return Promise.resolve('superseded')
+    const shown = this.shows
+    let refreshing!: Promise<ContentRefreshResult>
+    refreshing = refreshControllerContent(
+      index,
+      slide,
+      (candidate, candidateIndex) => this.resolveFresh(candidate, candidateIndex),
+      () => shown === this.shows && index === this.current.index,
+      () => (refreshing === this.refreshing ? undefined : this.refreshing),
+      (content) => {
+        this.current = { ...this.current, content }
+      },
+      this,
+    )
+    this.refreshing = refreshing
+    return refreshing
   }
 
   forgetContent(slideId: string) {
@@ -272,11 +295,7 @@ export class DeckController extends EventTarget {
     return true
   }
   private prefetch() {
-    const deck = this.current.deck
-    if (!this.options.prefetch || !deck) return
-    for (const index of neighborWindow(this.current.index, deck.slides.length)) {
-      if (index !== this.current.index) void this.contentFor(index)
-    }
+    prefetchControllerNeighbors(this.options.prefetch, this.current.deck, this.current.index, (index) => this.contentFor(index))
   }
 
   private resolve(slide: Slide, index: number): Promise<ResolvedContent> {
@@ -285,25 +304,7 @@ export class DeckController extends EventTarget {
     return ready ?? this.resolveFresh(slide, index)
   }
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
-    const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
-    if (content.kind === 'shot') {
-      assertValidCues(slide, content.shot.annotations.length)
-      if (slide.content.kind !== 'shot-ref') return content
-      return referenceOverrides(content, slide.content)
-    }
-    if (content.kind !== 'shot-ref') return content
-    const href = this.url(content.href)
-    let published = this.shots.get(href)
-    if (!published) {
-      published = fetch(href).then(async (response) => {
-        if (!response.ok) throw new Error(`The shot at ${href} answered ${response.status}.`)
-        return PublishedShot.parse(await response.json())
-      })
-      this.shots.set(href, published)
-    }
-    const { src, shot } = await published
-    assertValidCues(slide, shot.annotations.length)
-    return resolvedPublishedShot(new URL(src, href).href, shot, content)
+    return resolveFreshContent(slide, index, this.options.resolveSlide, (path) => this.url(path), this.shots)
   }
 
   url(path: string): string {
@@ -368,12 +369,7 @@ export class DeckController extends EventTarget {
   }
 
   private emit() {
-    this.dispatchEvent(new CustomEvent('change', { detail: this.current }))
-    const cue = this.current.shown === null ? 'all' : this.current.shown.join(',')
-    if (cue !== this.lastCue) {
-      this.lastCue = cue
-      this.dispatchEvent(new CustomEvent('cue', { detail: { annotations: this.current.shown } }))
-    }
+    this.lastCue = emitControllerState(this, this.current, this.lastCue)
   }
 
   private hashIndex(deck: Deck): number | null {
@@ -383,16 +379,8 @@ export class DeckController extends EventTarget {
 
   private onHash = () => {
     const deck = this.current.deck
-    const index = deck ? this.hashIndex(deck) : null
-    if (index !== null && index !== this.current.index) void this.go(index).catch(() => {})
+    syncControllerHash(this, deck ? this.hashIndex(deck) : null)
   }
 
-  private onPageKey = (event: KeyboardEvent) => {
-    if (event.defaultPrevented) return
-    const target = event.target
-    const action = keyAction(event.key, this.current.direction)
-    if (isEditableLetterShortcut(event.key, target)) return
-    if ((action === 'next' || action === 'previous') && isEditableTarget(target)) return
-    if (this.key(event.key)) event.preventDefault()
-  }
+  private onPageKey = (event: KeyboardEvent) => handleControllerPageKey(this, event)
 }
