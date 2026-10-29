@@ -13,6 +13,7 @@ export interface PaginatedReport {
   repeated: number
   notes: { id: string; ok: boolean }[]
   columns: { balanced: boolean; lost: number; repeated: number }
+  columnFit: { checked: number; outside: number; detail: string }
   furniture: { blanksHaveNone: boolean; openersHaveNoHead: boolean; bodyHasFolio: boolean }
   contents: { matches: boolean; detail: string }
   clip: { midpoint: boolean }
@@ -133,6 +134,23 @@ export function inspectPaginatedBook(): PaginatedReport {
 
   function columns() {
     return { balanced: columnsBalanced(), ...columnCoverage() }
+  }
+
+  function columnFit() {
+    const details: string[] = []
+    let checked = 0
+    let outside = 0
+    for (const view of Array.from(document.querySelectorAll('[data-segnavia-window]'))) {
+      const block = view.querySelector('[data-column-fit-check]')
+      if (!block) continue
+      checked += 1
+      const windowBox = view.getBoundingClientRect()
+      const blockBox = block.getBoundingClientRect()
+      const fits = blockBox.left >= windowBox.left - 0.5 && blockBox.right <= windowBox.right + 0.5
+      if (!fits) outside += 1
+      details.push(`${view.getAttribute('data-column')}:${(blockBox.left - windowBox.left).toFixed(2)}:${(windowBox.right - blockBox.right).toFixed(2)}`)
+    }
+    return { checked, outside, detail: details.join('|') }
   }
 
   function furniture() {
@@ -364,6 +382,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     repeated: counted.repeated,
     notes: notes(),
     columns: columns(),
+    columnFit: columnFit(),
     furniture: furniture(),
     contents: contents(),
     clip: clip(),
