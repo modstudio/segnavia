@@ -6,7 +6,7 @@ import { FramePool } from './frame-pool.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 
 type Listener = () => void
-type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent }
+type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent; connected?: boolean }
 
 class TestElement {
   className = ''
@@ -139,7 +139,7 @@ function harness(contents: ResolvedContent[], timeout = 10) {
   const errors: Error[] = []
   const events: FrameEvent[] = []
   const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
-    mounted: (slideId, content) => events.push({ kind: 'mounted', slideId, content }),
+    mounted: (slideId, content) => events.push({ kind: 'mounted', slideId, content, connected: host.querySelectorAll('iframe').length > events.length }),
     released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
   })
   const controller = {
@@ -355,11 +355,11 @@ test('shown-slide frame selection waits for load and bridge readiness', () => {
   expect(urlReady).toBeTrue()
 })
 
-test('a pending turn has a mounted frame for its incoming slide', () => {
+test('a pending turn mounts its incoming slide after attaching its frame', () => {
   Object.assign(window, { clearTimeout, setTimeout })
   const one = { kind: 'url' as const, src: 'one.html' }
   const two = { kind: 'url' as const, src: 'two.html' }
-  const { pool, controller, options } = harness([one, two])
+  const { pool, controller, options, events } = harness([one, two])
   options.reducedMotion = false
   options.transition = { kind: 'fade', duration: 100 }
   pool.update(state(0, one), controller, options)
@@ -368,6 +368,7 @@ test('a pending turn has a mounted frame for its incoming slide', () => {
 
   expect(pool.shownFrame('two')).toBeNull()
   expect(pool.hasMountedFrame('two')).toBeTrue()
+  expect(events.filter(({ kind }) => kind === 'mounted').map(({ connected }) => connected)).toEqual([true, true])
   pool.clear()
 })
 

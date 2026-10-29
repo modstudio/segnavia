@@ -178,6 +178,7 @@ export class FramePool {
     const slide = state.slide
     if (!slide || !state.content) return
     this.turn++
+    const mountAfterAttach = !this.entries.has(slide.id)
     const incoming = this.add(state.index, state.content, state, controller, options, false)
     if (!incoming) return
     const entry = this.entries.get(slide.id)
@@ -186,8 +187,8 @@ export class FramePool {
     this.retain(state, fromIndex, options.neighbors)
     this.sync(state, options.frameTitle)
     if (!incoming.isConnected) this.host.append(incoming)
+    if (mountAfterAttach) this.frameEvents.mounted(entry.id, entry.content)
   }
-
   private beginSwap(
     id: string,
     visibleId: string,
@@ -366,10 +367,9 @@ export class FramePool {
       existing.canvas.replaceWith(canvas)
       this.frameEvents.released(existing.id, existing.content)
     } else if (mount) this.host.append(canvas)
-    this.frameEvents.mounted(entry.id, entry.content)
+    if (existing || mount) this.frameEvents.mounted(entry.id, entry.content)
     return canvas
   }
-
   private remove(id: string, entry: FrameEntry) {
     entry.dispose()
     entry.canvas.remove()
