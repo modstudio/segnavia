@@ -24,6 +24,45 @@ export interface IdmlFont {
 }
 
 export type IdmlFontMap = (font: IdmlFont) => FontReferenceInput | undefined
+export type IdmlAssetMap = (uri: string) => string | undefined
+
+export type IdmlPoint = [number, number]
+export interface IdmlBounds {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+export interface IdmlPathPoint {
+  anchor: IdmlPoint
+  left: IdmlPoint
+  right: IdmlPoint
+}
+export interface IdmlPolygon {
+  paths: { open: boolean; points: IdmlPathPoint[] }[]
+  fill: string
+  stroke?: { color: string; weight: number }
+  location: string
+}
+export interface IdmlArtPlacement {
+  bounds: IdmlBounds
+  polygons: IdmlPolygon[]
+  location: string
+}
+export interface IdmlFramePlacement {
+  bounds: IdmlBounds
+  story: string
+  location: string
+}
+export interface IdmlLinkPlacement {
+  bounds: IdmlBounds
+  uri: string
+  location: string
+}
+export interface IdmlUnmappedPlacement {
+  name: string
+  location: string
+}
 
 export interface IdmlSwatch {
   id: string
@@ -73,6 +112,10 @@ export interface IdmlPage {
   appliedMaster?: string
   stories: string[]
   side?: 'left' | 'right' | 'single'
+  bodyFrames?: IdmlFramePlacement[]
+  art?: IdmlArtPlacement[]
+  links?: IdmlLinkPlacement[]
+  unmapped?: IdmlUnmappedPlacement[]
 }
 export interface IdmlSpread {
   id: string

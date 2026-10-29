@@ -11,6 +11,11 @@ export interface IdmlMixedMasterChapter {
   chosen: string
 }
 
+export interface IdmlLinkUse {
+  uri: string
+  locations: string[]
+}
+
 export interface IdmlReportData {
   unsupportedElements: Record<string, number>
   unsupportedStyleProperties: Record<string, number>
@@ -21,6 +26,7 @@ export interface IdmlReportData {
   locations: Record<string, string[]>
   fonts: IdmlFontUse[]
   unmappedFonts: IdmlFontUse[]
+  links: IdmlLinkUse[]
   mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
@@ -43,6 +49,7 @@ export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
   readonly unmappedFonts = new Map<string, IdmlFontUse>()
+  readonly links = new Map<string, IdmlLinkUse>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
@@ -78,6 +85,7 @@ export class ReportCollector {
     for (const font of seed?.unmappedFonts ?? []) {
       for (const location of font.locations) this.unmappedFont(font.appliedFont, font.fontStyle, location)
     }
+    for (const link of seed?.links ?? []) for (const location of link.locations) this.link(link.uri, location)
   }
 
   add(bucket: Map<string, number>, name: string, location: string, count = 1): void {
@@ -103,6 +111,12 @@ export class ReportCollector {
     this.record(this.unmappedFonts, appliedFont, fontStyle, location)
   }
 
+  link(uri: string, location: string): void {
+    const found = this.links.get(uri) ?? { uri, locations: [] }
+    if (!found.locations.includes(location)) found.locations.push(location)
+    this.links.set(uri, found)
+  }
+
   private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
     const key = fontUseKey(appliedFont, fontStyle)
     const found = target.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
@@ -121,6 +135,7 @@ export class ReportCollector {
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
       unmappedFonts: [...this.unmappedFonts.values()],
+      links: [...this.links.values()],
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }

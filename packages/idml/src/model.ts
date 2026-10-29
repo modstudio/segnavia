@@ -1,9 +1,10 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
 import { parseFonts } from './fonts.ts'
-import { FramePreferenceIndex, framePreference } from './frame-preferences.ts'
+import { FramePreferenceIndex } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
 import { readMargin } from './margins.ts'
 import { type ParsedPart, parseParts } from './parse-parts.ts'
+import { placementBounds as bounds, contains, type FramePlacement, pageArea, placeOpenerItems, spreadPlacements } from './placements.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
 import { parseStories } from './story-model.ts'
@@ -81,110 +82,6 @@ function page(element: Element): IdmlPage {
   return { id, appliedMaster: attribute(element, 'AppliedMaster'), stories: [], side: 'single' }
 }
 
-type Transform = [number, number, number, number, number, number]
-type Point = [number, number]
-
-const IDENTITY: Transform = [1, 0, 0, 1, 0, 0]
-
-function transform(element: Element): Transform {
-  const values = (attribute(element, 'ItemTransform') ?? '').trim().split(/\s+/).map(Number)
-  return values.length === 6 && values.every(Number.isFinite) ? (values as Transform) : IDENTITY
-}
-
-function compose(parent: Transform, child: Transform): Transform {
-  const [a, b, c, d, x, y] = parent
-  const [e, f, g, h, u, v] = child
-  return [a * e + c * f, b * e + d * f, a * g + c * h, b * g + d * h, a * u + c * v + x, b * u + d * v + y]
-}
-
-function apply(value: Transform, point: Point): Point {
-  return [value[0] * point[0] + value[2] * point[1] + value[4], value[1] * point[0] + value[3] * point[1] + value[5]]
-}
-
-function pageArea(element: Element): Point[] | undefined {
-  const bounds = (attribute(element, 'GeometricBounds') ?? '').trim().split(/\s+/).map(Number)
-  if (bounds.length !== 4 || !bounds.every(Number.isFinite)) return undefined
-  const [top, left, bottom, right] = bounds as [number, number, number, number]
-  const matrix = transform(element)
-  return [apply(matrix, [left, top]), apply(matrix, [right, top]), apply(matrix, [right, bottom]), apply(matrix, [left, bottom])]
-}
-
-function bounds(points: Point[]): { left: number; top: number; right: number; bottom: number } | undefined {
-  if (points.length === 0) return undefined
-  const xs = points.map(([x]) => x)
-  const ys = points.map(([, y]) => y)
-  return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) }
-}
-
-function frameBounds(element: Element, matrix: Transform): ReturnType<typeof bounds> {
-  const anchors = elements(element)
-    .map((candidate) => attribute(candidate, 'Anchor'))
-    .filter((value): value is string => value !== undefined)
-    .map((value) => value.trim().split(/\s+/).map(Number))
-    .filter((value): value is [number, number] => value.length === 2 && value.every(Number.isFinite))
-    .map((point) => apply(matrix, point))
-  return bounds(anchors)
-}
-
-function contains(area: Point[], [x, y]: Point): boolean {
-  let inside = false
-  for (let index = 0, previous = area.length - 1; index < area.length; previous = index, index += 1) {
-    const [xi, yi] = area[index] as Point
-    const [xj, yj] = area[previous] as Point
-    if (yi === yj && y === yi && x >= Math.min(xi, xj) && x <= Math.max(xi, xj)) return true
-    const crosses = yi > y !== yj > y && x <= ((xj - xi) * (y - yi)) / (yj - yi) + xi
-    if (crosses) inside = !inside
-  }
-  return inside
-}
-
-interface FramePlacement {
-  id: string
-  story: string
-  bounds?: { left: number; top: number; right: number; bottom: number }
-  center?: Point
-  preference?: IdmlFramePreference
-}
-
-function framePlacement(element: Element, matrix: Transform, location: string): FramePlacement | undefined {
-  const story = attribute(element, 'ParentStory')
-  if (!story) return undefined
-  const preference = framePreference(element, location)
-  const box = frameBounds(element, matrix)
-  return {
-    id: attribute(element, 'Self') ?? story,
-    story,
-    ...(box
-      ? {
-          bounds: box,
-          center: [(box.left + box.right) / 2, (box.top + box.bottom) / 2] as Point,
-        }
-      : {}),
-    ...(preference ? { preference } : {}),
-  }
-}
-
-function spreadFrames(spread: Element, location: string): FramePlacement[] {
-  const result: FramePlacement[] = []
-  const pending = [...spread.children].reverse().map((node) => ({ node, matrix: IDENTITY }))
-  while (pending.length > 0) {
-    const current = pending.pop()
-    if (!current || !isTag(current.node)) continue
-    const name = localName(current.node.name)
-    if (name === 'Page' || name === 'Spread' || name === 'MasterSpread') continue
-    const matrix = name === 'Group' || name === 'TextFrame' ? compose(current.matrix, transform(current.node)) : current.matrix
-    if (name === 'TextFrame') {
-      const placement = framePlacement(current.node, matrix, `${location}#TextFrame[${result.length + 1}]`)
-      if (placement) result.push(placement)
-      continue
-    }
-    for (let index = current.node.children.length - 1; index >= 0; index -= 1) {
-      pending.push({ node: current.node.children[index] as AnyNode, matrix })
-    }
-  }
-  return result
-}
-
 function assignSides(pageElements: Element[], pages: IdmlPage[]): void {
   if (pages.length < 2) return
   const centers = pageElements.map((element) => {
@@ -208,10 +105,11 @@ function masterFrames(frames: FramePlacement[], pageElements: Element[], pages: 
   })
   for (const frame of frames) {
     const absolute = frame.bounds
-    if (!absolute || !frame.center) continue
+    const center = frame.center
+    if (!absolute || !center) continue
     const index = pageElements.findIndex((candidate) => {
       const area = pageArea(candidate)
-      return area ? contains(area, frame.center as Point) : false
+      return area ? contains(area, center) : false
     })
     const area = areas[index]
     if (index < 0 || !area) continue
@@ -263,7 +161,8 @@ function placeStories(
   for (const frame of frames) {
     frameStories.add(frame.story)
     framePreferences.add(frame.story, frame.preference)
-    const pageIndex = frame.center ? areas.findIndex((area) => area !== undefined && contains(area, frame.center as Point)) : -1
+    const center = frame.center
+    const pageIndex = center ? areas.findIndex((area) => area !== undefined && contains(area, center)) : -1
     const target = pages[pageIndex]
     if (target && !target.stories.includes(frame.story)) target.stories.push(frame.story)
     else if (pageIndex < 0) report.add(report.unsupportedElements, 'TextFrame off page', frame.story)
@@ -297,9 +196,10 @@ function spreads(
       const pageElements = elements(element, 'Page')
       const pages = pageElements.map(page)
       assignSides(pageElements, pages)
-      const frames = spreadFrames(element, name)
-      for (const story of placeStories(frames, pageElements, pages, report, framePreferences)) frameStories.add(story)
-      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages, frames) : { id, pages })
+      const placements = spreadPlacements(element, name)
+      for (const story of placeStories(placements.frames, pageElements, pages, report, framePreferences)) frameStories.add(story)
+      if (kind === 'Spread') placeOpenerItems(placements, pageElements, pages)
+      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages, placements.frames) : { id, pages })
     }
   }
   return { values: result, frameStories }

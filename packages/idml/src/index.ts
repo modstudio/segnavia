@@ -17,5 +17,5 @@ export type {
   IdmlSpread,
   IdmlStory,
 } from './model.ts'
-export type { IdmlFontUse, IdmlReportData } from './report.ts'
-export type { IdmlFont, IdmlFontMap } from './types.ts'
+export type { IdmlFontUse, IdmlLinkUse, IdmlReportData } from './report.ts'
+export type { IdmlAssetMap, IdmlFont, IdmlFontMap } from './types.ts'
