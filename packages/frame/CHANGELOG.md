@@ -1,5 +1,18 @@
 # @segnavia/frame
 
+## 0.35.0
+
+### Minor Changes
+
+- d7f664c: Read the refused-script current slide selection from a stage.
+
+### Patch Changes
+
+- d4b912b: Resolve a neighbor slide afresh when its frame is rebuilt after eviction.
+- 1009802: Resolve the shown slide afresh when its stage frames are rebuilt.
+  - @segnavia/format@0.35.0
+  - @segnavia/html@0.35.0
+
 ## 0.34.0
 
 ### Minor Changes
