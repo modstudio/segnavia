@@ -1,6 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import { animationReport } from './animation-timing.ts'
-import { bridgeForHost, frameDocument, MESSAGE, messageFrom, newNonce, PRINT_BACKGROUND_RESOURCE_LIMIT, RELAYED_KEYS, slotFitMessageData } from './bridge.ts'
+import {
+  bridgeForHost,
+  frameDocument,
+  MESSAGE,
+  messageFrom,
+  newNonce,
+  PRINT_BACKGROUND_RESOURCE_LIMIT,
+  RELAYED_KEYS,
+  SELECTION_TEXT_LIMIT,
+  selectionMessage,
+  slotFitMessageData,
+} from './bridge.ts'
 
 function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
   const messages: unknown[] = []
@@ -84,6 +95,14 @@ describe('frame document', () => {
     expect(html).toContain("new CustomEvent('segnavia:print'")
   })
 
+  test('only refused-script documents answer a parent selection request', () => {
+    const refused = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
+    expect(refused).toContain(MESSAGE.selectionRequest)
+    expect(refused).toContain('e.source===parent')
+    expect(frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })).not.toContain(MESSAGE.selectionRequest)
+    expect(bridgeForHost()).not.toContain(MESSAGE.selectionRequest)
+  })
+
   test('the emitted bridge uses the shared animation calculation', async () => {
     expect(bridgeForHost({ reportHeight: false })).toContain(animationReport.toString())
     const messages: unknown[] = []
@@ -115,6 +134,7 @@ describe('frame document', () => {
     expect(html.match(/decodeURIComponent/g)).toHaveLength(2)
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
     expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([
+      MESSAGE.selection,
       MESSAGE.animation,
       MESSAGE.slotFit,
       MESSAGE.key,
@@ -324,6 +344,28 @@ describe('frame document', () => {
     expect(messageFrom({ source, data: { type: MESSAGE.slotFit, slots: { name: 'fit' } } } as MessageEvent, frame)).toEqual({
       type: MESSAGE.slotFit,
       slots: { name: 'fit' },
+    })
+  })
+
+  test('selection messages match their frame and request and bound both strings', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    const event = (data: unknown, eventSource: MessageEventSource | null = source) => ({ source: eventSource, data }) as MessageEvent
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'whole page' }), frame, 7)).toEqual({
+      selection: { text: 'phrase', pageText: 'whole page' },
+    })
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: '', pageText: 'whole page' }), frame, 7)).toEqual({
+      selection: { text: '', pageText: 'whole page' },
+    })
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'whole page' }, {} as Window), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 8, text: 'phrase', pageText: 'whole page' }), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 1, pageText: 'whole page' }), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 1 }), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'x'.repeat(SELECTION_TEXT_LIMIT + 1), pageText: 'whole page' }), frame, 7)).toEqual({
+      oversize: true,
+    })
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'x'.repeat(SELECTION_TEXT_LIMIT + 1) }), frame, 7)).toEqual({
+      oversize: true,
     })
   })
 })

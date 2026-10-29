@@ -38,6 +38,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     loadGeneration: 0,
     slotPreparation: undefined as AbortController | undefined,
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions,
+    cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     mount() {
       iframe = { srcdoc: '' }

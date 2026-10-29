@@ -22,6 +22,7 @@ import { verifyPlayerLayout } from './verify/player-layout.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
+import { verifySelection } from './verify/selection.ts'
 import { verifySlots } from './verify/slots.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
 import { parseVerifyShard, sectionsForShard, unlistedSections, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
@@ -40,6 +41,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyPaperPicker', run: () => verifyPaperPicker(h) },
   { name: 'verifyDocuments', run: () => verifyDocuments(h) },
   { name: 'verifyRtl', run: () => verifyRtl(h) },
+  { name: 'verifySelection', run: () => verifySelection(h) },
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },
   { name: 'verifySlots', run: () => verifySlots(h) },

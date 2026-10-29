@@ -11,12 +11,13 @@
 
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { frameDocument, MESSAGE, messageFrom, newNonce, type PageSelection, SELECTION_TEXT_LIMIT, selectionMessage } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
+export const SELECTION_REPLY_MS = 2000
 
 export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src']
@@ -32,6 +33,11 @@ export class SegnaviaPage extends HTMLElement {
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
+  private hostServed = false
+  private frameReady = false
+  private selectionId = 0
+  private selectionRequests = new Set<(reason: Error) => void>()
+  private selectionReadyRequests = new Set<() => void>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -66,11 +72,13 @@ export class SegnaviaPage extends HTMLElement {
 
   set page(value: PageInput | Page | null | undefined) {
     if (value == null) {
+      this.cancelSelectionRequests()
       this.cancelSlotPreparation()
       this.loadGeneration++
       this.resolvedSlots = undefined
       this.slotFrame = undefined
       this.pageValue = null
+      this.hostServed = false
       this.contentHeight = 0
       this.replaceChildren()
       this.style.removeProperty('height')
@@ -89,6 +97,7 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     window.removeEventListener('message', this.onMessage)
     this.resize.disconnect()
@@ -103,6 +112,8 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
+    this.cancelSelectionRequests()
+    this.hostServed = false
     this.cancelSlotPreparation()
     this.resolvedSlots = undefined
     this.slotFrame = undefined
@@ -156,6 +167,8 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   showUrl(url: string, size: Page['size'] = 'fluid') {
+    this.cancelSelectionRequests()
+    this.hostServed = true
     this.cancelSlotPreparation()
     this.loadGeneration++
     this.resolvedSlots = undefined
@@ -165,7 +178,54 @@ export class SegnaviaPage extends HTMLElement {
     this.fit()
   }
 
+  readSelection(): Promise<PageSelection> {
+    const page = this.page
+    const frame = this.querySelector('iframe')
+    const frameWindow = frame?.contentWindow
+    if (!page || !frame || !frameWindow)
+      return Promise.reject(new Error('Cannot read the selection because no page is shown or no frame is mounted. Show a page before reading its selection.'))
+    if (this.hostServed)
+      return Promise.reject(
+        new Error('Cannot read the selection from a host-served document. Load a page whose author scripts are refused instead of using showUrl.'),
+      )
+    if (page.scripts !== 'refuse')
+      return Promise.reject(
+        new Error(
+          'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
+        ),
+      )
+    this.selectionId = (this.selectionId % Number.MAX_SAFE_INTEGER) + 1
+    const id = this.selectionId
+    return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout>
+      const post = () => frameWindow.postMessage({ type: MESSAGE.selectionRequest, id }, '*')
+      const finish = (result: PageSelection | Error) => {
+        window.removeEventListener('message', onMessage)
+        clearTimeout(timer)
+        this.selectionRequests.delete(replaced)
+        this.selectionReadyRequests.delete(post)
+        result instanceof Error ? reject(result) : resolve(result)
+      }
+      const replaced = (reason: Error) => finish(reason)
+      const onMessage = (event: MessageEvent) => {
+        const result = selectionMessage(event, frame, id)
+        if (result && 'selection' in result) finish(result.selection)
+        else if (result && 'oversize' in result)
+          finish(new Error(`Cannot read the selection because its reply is longer than the ${SELECTION_TEXT_LIMIT}-unit limit. Shorten the page or selection.`))
+      }
+      window.addEventListener('message', onMessage)
+      this.selectionRequests.add(replaced)
+      timer = setTimeout(
+        () => finish(new Error(`Cannot read the selection because the page did not send a valid reply within ${SELECTION_REPLY_MS} ms. Try again.`)),
+        SELECTION_REPLY_MS,
+      )
+      if (this.frameReady) post()
+      else this.selectionReadyRequests.add(post)
+    })
+  }
+
   private mount(page: Page): HTMLIFrameElement {
+    this.frameReady = false
     this.pageValue = page
     this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
@@ -188,6 +248,11 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = undefined
   }
 
+  private cancelSelectionRequests() {
+    const reason = new Error('Cannot read the selection because the page changed before it replied. Read the selection from the current page.')
+    for (const cancel of [...this.selectionRequests]) cancel(reason)
+  }
+
   private fit() {
     const page = this.page
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -204,6 +269,11 @@ export class SegnaviaPage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
+    if (message?.type === MESSAGE.ready) {
+      this.frameReady = true
+      for (const post of [...this.selectionReadyRequests]) post()
+      this.selectionReadyRequests.clear()
+    }
     const page = this.page
     if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
       this.resolvedSlots?.mergeFit(message.slots)

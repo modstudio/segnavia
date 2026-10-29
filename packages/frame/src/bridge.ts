@@ -19,7 +19,11 @@ export const MESSAGE = {
   freeze: 'segnavia:freeze',
   release: 'segnavia:release',
   inspect: 'segnavia:inspect',
+  selectionRequest: 'segnavia:selection-request',
+  selection: 'segnavia:selection',
 } as const
+
+export const SELECTION_TEXT_LIMIT = 1_000_000
 
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
 
@@ -74,6 +78,10 @@ export interface FrameOptions {
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
   const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
+  const selection =
+    options.scripts === 'refuse'
+      ? `window.addEventListener('message',function(e){var data=e.data;if(e.source===parent&&data&&data.type==='${MESSAGE.selectionRequest}'&&typeof data.id==='number'&&isFinite(data.id)){post({type:'${MESSAGE.selection}',id:data.id,text:String(getSelection?getSelection():''),pageText:(document.body||document.documentElement).innerText});}});`
+      : ''
   const print =
     options.printAtMs === undefined
       ? ''
@@ -116,6 +124,7 @@ var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.p
   return `(function(){
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
+${selection}
 ${print}
 ${printBackground}
 var liveAt=null;
@@ -249,6 +258,21 @@ export function messageFrom(
   )
     return { type: MESSAGE.animation, animated: data.animated, lengthMs: data.lengthMs }
   return null
+}
+
+export interface PageSelection {
+  text: string
+  pageText: string
+}
+
+export type SelectionMessage = { selection: PageSelection } | { oversize: true }
+
+export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): SelectionMessage | null {
+  if (event.source !== frame?.contentWindow) return null
+  const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
+  if (data?.type !== MESSAGE.selection || data.id !== id || typeof data.text !== 'string' || typeof data.pageText !== 'string') return null
+  if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return { oversize: true }
+  return { selection: { text: data.text, pageText: data.pageText } }
 }
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
