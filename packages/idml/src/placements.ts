@@ -1,25 +1,13 @@
 import { type AnyNode, type Element, isTag } from 'domhandler'
 import { framePreference } from './frame-preferences.ts'
-import type { IdmlBounds, IdmlFramePreference, IdmlLinkPlacement, IdmlPage, IdmlPolygon, IdmlUnmappedPlacement } from './types.ts'
-import { localName } from './xml.ts'
+import type { ReportCollector } from './report.ts'
+import type { IdmlBounds, IdmlFramePreference, IdmlPage, IdmlPolygon, IdmlUnmappedPlacement } from './types.ts'
+import { GRAPHIC_ELEMENTS, SHAPE_ELEMENTS } from './unsupported-elements.ts'
+import { attribute, elements, localName } from './xml.ts'
 
 type Transform = [number, number, number, number, number, number]
 type Point = [number, number]
 const IDENTITY: Transform = [1, 0, 0, 1, 0, 0]
-
-function elements(root: AnyNode, name?: string): Element[] {
-  const found: Element[] = []
-  const pending: AnyNode[] = [root]
-  while (pending.length > 0) {
-    const node = pending.pop()
-    if (!node) continue
-    if (isTag(node) && (!name || localName(node.name) === name)) found.push(node)
-    if ('children' in node) for (let index = node.children.length - 1; index >= 0; index -= 1) pending.push(node.children[index] as AnyNode)
-  }
-  return found
-}
-
-const attribute = (element: Element, name: string): string | undefined => element.attribs[name]
 
 function transform(element: Element): Transform {
   const values = (attribute(element, 'ItemTransform') ?? '').trim().split(/\s+/).map(Number)
@@ -87,8 +75,11 @@ interface PolygonPlacement {
   center: Point
   group: string
 }
-interface LinkPlacement extends IdmlLinkPlacement {
-  center: Point
+interface LinkPlacement {
+  bounds?: IdmlBounds
+  center?: Point
+  uri: string
+  location: string
 }
 interface UnmappedPlacement extends IdmlUnmappedPlacement {
   center?: Point
@@ -157,7 +148,7 @@ function polygonPlacement(element: Element, matrix: Transform, location: string,
 }
 
 function linkedUri(element: Element): string | undefined {
-  const graphic = elements(element).find((candidate) => ['Image', 'PDF', 'EPS', 'ImportedPage', 'SVG'].includes(localName(candidate.name)))
+  const graphic = elements(element).find((candidate) => (GRAPHIC_ELEMENTS as readonly string[]).includes(localName(candidate.name)))
   return graphic
     ? elements(graphic, 'Link')
         .map((link) => attribute(link, 'LinkResourceURI'))
@@ -168,10 +159,11 @@ function linkedUri(element: Element): string | undefined {
 function collectShape(result: SpreadPlacements, element: Element, name: string, matrix: Transform, location: string, group?: string): void {
   const box = frameBounds(element, matrix)
   const uri = linkedUri(element)
-  if (uri && box) result.links.push({ bounds: box, center: centered(box), uri, location })
+  if (uri) result.links.push({ ...(box ? { bounds: box, center: centered(box) } : {}), uri, location })
   else if (name === 'Polygon') {
     const polygon = polygonPlacement(element, matrix, location, group ?? attribute(element, 'Self') ?? location)
     if (polygon) result.polygons.push(polygon)
+    else result.unmapped.push({ name, location, ...(box ? { center: centered(box) } : {}) })
   } else result.unmapped.push({ name, location, ...(box ? { center: centered(box) } : {}) })
 }
 
@@ -181,13 +173,11 @@ function collectTerminal(result: SpreadPlacements, element: Element, name: strin
     if (frame) result.frames.push(frame)
     return true
   }
-  if (['Polygon', 'Rectangle', 'Oval'].includes(name)) {
+  if ((SHAPE_ELEMENTS as readonly string[]).includes(name)) {
     collectShape(result, element, name, matrix, location, group)
     return true
   }
-  if (name !== 'GraphicLine') return false
-  collectShape(result, element, name, matrix, location)
-  return true
+  return false
 }
 
 export function spreadPlacements(spread: Element, location: string): SpreadPlacements {
@@ -199,9 +189,7 @@ export function spreadPlacements(spread: Element, location: string): SpreadPlace
     if (!current || !isTag(current.node)) continue
     const name = localName(current.node.name)
     if (name === 'Page' || name === 'Spread' || name === 'MasterSpread') continue
-    const matrix = ['Group', 'TextFrame', 'Polygon', 'Rectangle', 'Oval', 'GraphicLine'].includes(name)
-      ? compose(current.matrix, transform(current.node))
-      : current.matrix
+    const matrix = ['Group', 'TextFrame', ...SHAPE_ELEMENTS].includes(name) ? compose(current.matrix, transform(current.node)) : current.matrix
     const itemLocation = `${location}#${name}[${++sequence}]`
     const group = name === 'Group' ? (current.group ?? attribute(current.node, 'Self') ?? itemLocation) : current.group
     if (collectTerminal(result, current.node, name, matrix, itemLocation, group)) continue
@@ -262,7 +250,7 @@ function placeArt(polygons: PolygonPlacement[], pageIndex: (center?: Point) => n
   }
 }
 
-export function placeOpenerItems(placements: SpreadPlacements, pageElements: Element[], pages: IdmlPage[]): void {
+export function attachPlacements(placements: SpreadPlacements, pageElements: Element[], pages: IdmlPage[], report: ReportCollector): void {
   const pageAreas = pageElements.map(pageArea)
   const areas = pageAreas.map((points) => (points ? placementBounds(points) : undefined))
   const pageIndex = (center: Point | undefined) => (center ? pageAreas.findIndex((area) => area !== undefined && contains(area, center)) : -1)
@@ -272,10 +260,18 @@ export function placeOpenerItems(placements: SpreadPlacements, pageElements: Ele
     const index = pageIndex(link.center)
     const area = areas[index]
     const page = pages[index]
-    if (area && page) page.links = [...(page.links ?? []), { ...link, bounds: relativeBounds(link.bounds, area) }]
+    if (area && page && link.bounds) page.links = [...(page.links ?? []), { ...link, bounds: relativeBounds(link.bounds, area) }]
+    else {
+      report.link(link.uri, link.location)
+      report.add(report.unsupportedElements, 'link', link.location)
+    }
   }
   for (const item of placements.unmapped) {
     const page = pages[pageIndex(item.center)]
     if (page) page.unmapped = [...(page.unmapped ?? []), { name: item.name, location: item.location }]
+    else report.add(report.unsupportedElements, item.name, item.location)
+  }
+  for (const item of placements.polygons) {
+    if (pageIndex(item.center) < 0) report.add(report.unsupportedElements, 'polygon art group', item.polygon.location)
   }
 }

@@ -3,6 +3,7 @@ import type { FontMapper } from './fonts.ts'
 import type { ReportCollector } from './report.ts'
 import { stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
+import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
 import { idmlDirection, localName } from './xml.ts'
 
@@ -257,7 +258,7 @@ export class StyleMapper {
     if (mapped.has('StartParagraph') && values.StartParagraph && values.StartParagraph !== 'Anywhere') {
       this.report.add(unsupported, `StartParagraph:${values.StartParagraph}`, location)
     }
-    const color = mapped.has('FillColor') ? this.color(values.FillColor, location) : undefined
+    const color = mapped.has('FillColor') ? resolveSwatchColor(values.FillColor, this.swatches, this.report, location, 'text') : undefined
     if (color) output.push(`color:${color}`)
     return output.join(';')
   }
@@ -312,23 +313,5 @@ export class StyleMapper {
       if (Number.isInteger(first) && first > 0) output.push(`orphans:${first}`)
       if (Number.isInteger(last) && last > 0) output.push(`widows:${last}`)
     }
-  }
-
-  private color(id: string | undefined, location: string): string | undefined {
-    if (!id || id.endsWith('/None')) return undefined
-    if (id.endsWith('/Black')) return '#000'
-    if (id.endsWith('/Paper')) return '#fff'
-    const swatch = this.swatches.find((value) => value.id === id || value.name === id)
-    if (!swatch) return undefined
-    if (swatch.model === 'spot') {
-      this.report.add(this.report.spotColors, swatch.name, location)
-      return undefined
-    }
-    if (swatch.model === 'rgb' && swatch.values?.length === 3) return `rgb(${swatch.values.join(' ')})`
-    if (swatch.model === 'cmyk' && swatch.values?.length === 4) {
-      const [c, m, y, k] = swatch.values.map((value) => value / 100) as [number, number, number, number]
-      return `rgb(${Math.round(255 * (1 - c) * (1 - k))} ${Math.round(255 * (1 - m) * (1 - k))} ${Math.round(255 * (1 - y) * (1 - k))})`
-    }
-    return undefined
   }
 }

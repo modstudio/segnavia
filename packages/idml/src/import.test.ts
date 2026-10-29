@@ -241,9 +241,9 @@ describe('importIdml', () => {
       },
       { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
       { name: 'Resources/Graphic.xml', content: '<idPkg:Graphic><Color Self="Color/Red" Name="Red" Space="RGB" ColorValue="255 0 0"/></idPkg:Graphic>' },
-      { name: 'Stories/body-1.xml', content: '<Story Self="body-1"><ParagraphStyleRange><Content>Body one</Content></ParagraphStyleRange></Story>' },
+      { name: 'Stories/body-1.xml', content: '<Story Self="body-1"><ParagraphStyleRange><Content>Body one is longer</Content></ParagraphStyleRange></Story>' },
       { name: 'Stories/header-1.xml', content: '<Story Self="header-1"><ParagraphStyleRange><Content>Header one</Content></ParagraphStyleRange></Story>' },
-      { name: 'Stories/body-2.xml', content: '<Story Self="body-2"><ParagraphStyleRange><Content>Body two</Content></ParagraphStyleRange></Story>' },
+      { name: 'Stories/body-2.xml', content: '<Story Self="body-2"><ParagraphStyleRange><Content>Body two is longer</Content></ParagraphStyleRange></Story>' },
       { name: 'Stories/header-2.xml', content: '<Story Self="header-2"><ParagraphStyleRange><Content>Header two</Content></ParagraphStyleRange></Story>' },
     ])
     const calls: string[] = []
@@ -266,6 +266,7 @@ describe('importIdml', () => {
     expect(firstHtml).toContain('d="M0 0C10 0 30 40 40 40C40 40 0 0 0 0Z"')
     expect(firstHtml).toContain('<svg><path d="M0 0"/></svg>')
     expect(firstHtml).not.toContain('<script>')
+    expect(result.report.strippedAssetContent['file:/ornament.ai']).toEqual(expect.arrayContaining([expect.stringContaining('script')]))
     expect(calls).toEqual(['file:/ornament.ai'])
     expect(result.report.links).toEqual([{ uri: 'file:/ornament.ai', locations: expect.any(Array) }])
     expect(result.report.links[0]?.locations).toHaveLength(2)
@@ -278,15 +279,20 @@ describe('importIdml', () => {
       { name: 'designmap.xml', content: designmap },
       {
         name: 'Spreads/Spread_s.xml',
-        content: `<Spread Self="s"><Page Self="p" GeometricBounds="0 0 100 100"/>${frame('body', 0)}<Rectangle><PathGeometry><PathPointType Anchor="20 20"/><PathPointType Anchor="40 40"/></PathGeometry><SVG><Link LinkResourceURI="https://example.invalid/art.svg"/></SVG></Rectangle></Spread>`,
+        content: `<Spread Self="s"><Page Self="p" AppliedMaster="m" GeometricBounds="0 0 100 100"/>${frame('body', 0)}<Rectangle><PathGeometry><PathPointType Anchor="20 20"/><PathPointType Anchor="40 40"/></PathGeometry><SVG><Link LinkResourceURI="https://example.invalid/art.svg"/></SVG></Rectangle></Spread>`,
       },
-      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'MasterSpreads/MasterSpread_m.xml',
+        content:
+          '<MasterSpread Self="m"><Page Self="mp" GeometricBounds="0 0 100 100"><MarginPreference Top="10" Bottom="10" Left="25" Right="15"/></Page></MasterSpread>',
+      },
       { name: 'Stories/body.xml', content: '<Story Self="body"><ParagraphStyleRange><Content>Body</Content></ParagraphStyleRange></Story>' },
     ])
     const result = await importIdml(bytes)
     const chapter = result.book.chapters[0]
     const html = chapter && 'html' in chapter ? chapter.html : ''
-    expect(html).toContain('inline-size:20pt;block-size:20pt"></div>')
+    expect(html).toContain('inset-inline-start:-5pt;inline-size:20pt')
+    expect(html).toContain('block-size:20pt"></div>')
     expect(result.report.links[0]?.uri).toBe('https://example.invalid/art.svg')
   })
 })

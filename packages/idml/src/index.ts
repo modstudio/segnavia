@@ -1,5 +1,5 @@
 export { IDML_FONT_WEIGHTS, idmlFontStyle } from './fonts.ts'
-export { type IdmlImportOptions, type IdmlImportReport, type IdmlImportResult, importIdml } from './import.ts'
+export { type IdmlImportReport, type IdmlImportResult, importIdml } from './import.ts'
 export {
   IDML_LIMITS,
   MAX_IDML_ENTRIES,
@@ -18,4 +18,4 @@ export type {
   IdmlStory,
 } from './model.ts'
 export type { IdmlFontUse, IdmlLinkUse, IdmlReportData } from './report.ts'
-export type { IdmlAssetMap, IdmlFont, IdmlFontMap } from './types.ts'
+export type { IdmlAssetMap, IdmlFont, IdmlFontMap, IdmlImportOptions } from './types.ts'

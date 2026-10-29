@@ -1,10 +1,10 @@
-import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
+import { type Element, isTag } from 'domhandler'
 import { parseFonts } from './fonts.ts'
 import { FramePreferenceIndex } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
 import { readMargin } from './margins.ts'
 import { type ParsedPart, parseParts } from './parse-parts.ts'
-import { placementBounds as bounds, contains, type FramePlacement, pageArea, placeOpenerItems, spreadPlacements } from './placements.ts'
+import { attachPlacements, placementBounds as bounds, contains, type FramePlacement, pageArea, type SpreadPlacements, spreadPlacements } from './placements.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
 import { parseStories } from './story-model.ts'
@@ -22,8 +22,8 @@ import type {
   IdmlSwatch,
   IdmlTextVariable,
 } from './types.ts'
-import { collectUnsupportedElements } from './unsupported-elements.ts'
-import { localName, numberAttribute } from './xml.ts'
+import { collectUnsupportedElements, GRAPHIC_ELEMENTS, SHAPE_ELEMENTS } from './unsupported-elements.ts'
+import { attribute, elements, localName, numberAttribute } from './xml.ts'
 import type { ZipEntry } from './zip.ts'
 
 export type { IdmlDocumentPreferences, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlSpread, IdmlStory } from './types.ts'
@@ -42,30 +42,6 @@ export interface IdmlModel {
   bodyFramePreferences?: IdmlFramePreference[]
   textVariables?: IdmlTextVariable[]
   report?: IdmlReportData
-}
-
-function elements(root: AnyNode | Document, name?: string): Element[] {
-  const found: Element[] = []
-  const pending: (AnyNode | Document)[] = [root]
-  while (pending.length > 0) {
-    const node = pending.pop()
-    if (!node) continue
-    if (isTag(node)) {
-      if (!name || localName(node.name) === name) found.push(node)
-    }
-    if ('children' in node) {
-      for (let index = node.children.length - 1; index >= 0; index -= 1) pending.push(node.children[index] as AnyNode)
-    }
-  }
-  return found
-}
-
-function attribute(element: Element, ...names: string[]): string | undefined {
-  for (const name of names) {
-    const value = element.attribs[name]
-    if (value !== undefined) return value
-  }
-  return undefined
 }
 
 function boolAttribute(element: Element, name: string, fallback: boolean): boolean {
@@ -122,8 +98,8 @@ function masterFrames(frames: FramePlacement[], pageElements: Element[], pages: 
   return result
 }
 
-function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage[], placements: FramePlacement[]): IdmlMasterSpread {
-  const frames = masterFrames(placements, pageElements, pages)
+function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage[], placements: SpreadPlacements): IdmlMasterSpread {
+  const frames = masterFrames(placements.frames, pageElements, pages)
   const prefix = attribute(element, 'NamePrefix') ?? ''
   const base = attribute(element, 'BaseName') ?? attribute(element, 'Name') ?? attribute(element, 'Self') ?? 'master'
   const name = prefix ? `${prefix}-${base}` : base
@@ -131,7 +107,8 @@ function masterSpread(element: Element, pageElements: Element[], pages: IdmlPage
   const unmappedItems = element.children.flatMap((child) => {
     if (!isTag(child)) return []
     const type = localName(child.name)
-    if (type === 'Page' || type === 'Properties') return []
+    if (type === 'Page' || type === 'Properties' || type === 'Group' || type === 'Link') return []
+    if ((SHAPE_ELEMENTS as readonly string[]).includes(type) || (GRAPHIC_ELEMENTS as readonly string[]).includes(type)) return []
     const id = attribute(child, 'Self') ?? type
     if (type === 'TextFrame' && frameIds.has(id)) return []
     return [{ type, id }]
@@ -198,8 +175,8 @@ function spreads(
       assignSides(pageElements, pages)
       const placements = spreadPlacements(element, name)
       for (const story of placeStories(placements.frames, pageElements, pages, report, framePreferences)) frameStories.add(story)
-      if (kind === 'Spread') placeOpenerItems(placements, pageElements, pages)
-      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages, placements.frames) : { id, pages })
+      attachPlacements(placements, pageElements, pages, report)
+      result.push(kind === 'MasterSpread' ? masterSpread(element, pageElements, pages, placements) : { id, pages })
     }
   }
   return { values: result, frameStories }

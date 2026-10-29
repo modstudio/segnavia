@@ -340,6 +340,7 @@ test('reports a mixed-master chapter as structured data and breaks ties by page 
     css: '',
     mappedStories: new Set(),
     parentFor: (master, role) => `${master}-${role}`,
+    marginFor: () => model.preferences.margin,
   }
   const report = new ReportCollector()
   expect(chapterParents('body', model, mapping, report)).toEqual({ opener: 'a-recto', verso: 'a-verso' })

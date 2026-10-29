@@ -25,6 +25,10 @@ export interface IdmlFont {
 
 export type IdmlFontMap = (font: IdmlFont) => FontReferenceInput | undefined
 export type IdmlAssetMap = (uri: string) => string | undefined
+export interface IdmlImportOptions {
+  font?: IdmlFontMap
+  asset?: IdmlAssetMap
+}
 
 export type IdmlPoint = [number, number]
 export interface IdmlBounds {

@@ -45,7 +45,7 @@ describe('idmlModel', () => {
       { id: 'master-story', story: 'master-story', bounds: { left: 20, top: 10, width: 10, height: 10 } },
     ])
     expect(model.masterStoryIds).toEqual(['master-story'])
-    expect(model.report?.unsupportedElements).not.toHaveProperty('Polygon')
+    expect(model.report?.unsupportedElements).toMatchObject({ Polygon: 1 })
     expect(model.report?.unsupportedElements).not.toHaveProperty('Story')
     expect(model.report?.unsupportedElements).not.toHaveProperty('MasterSpread')
     expect(model.report?.unsupportedElements).not.toHaveProperty('Group')
