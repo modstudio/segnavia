@@ -118,6 +118,21 @@ function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
   return { counts, events, pool, reload, show }
 }
 
+test('a pooled url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
+  const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one' }
+  const two = { kind: 'url' as const, src: 'ticket-2', reuseKey: 'two' }
+  const { pool, controller, options, events } = harness([one, two])
+  pool.update(state(0, one), controller, options)
+  await Promise.resolve()
+  for (const frame of pool.frames()) (frame as unknown as TestElement).dispatch('load')
+  const original = pool.frames()[0]
+  pool.update(state(1, two), controller, options)
+  const beforeReuse = events.length
+  pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
+  expect(pool.frames().find((frame) => frame.closest('[data-slide-id="one"]'))).toBe(original)
+  expect(events).toHaveLength(beforeReuse)
+})
+
 test('a ready url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
   const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
   const { pool, controller, options, events } = harness([one])
