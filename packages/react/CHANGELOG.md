@@ -1,5 +1,13 @@
 # @segnavia/react
 
+## 0.32.0
+
+### Patch Changes
+
+- 95b63be: Let a fluid page take a host-sized box and scroll inside its own frame with `bounded`.
+- Updated dependencies [95b63be]
+  - @segnavia/frame@0.32.0
+
 ## 0.31.0
 
 ### Patch Changes

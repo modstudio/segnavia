@@ -1,5 +1,17 @@
 # @segnavia/idml
 
+## 0.32.0
+
+### Minor Changes
+
+- 7e2829c: Import opener title blocks from polygon art, separate header stories, and host-mapped linked SVG assets.
+- d58171d: Map IDML font families and faces through a synchronous host seam into Book font references and CSS.
+
+### Patch Changes
+
+- @segnavia/format@0.32.0
+- @segnavia/html@0.32.0
+
 ## 0.31.0
 
 ### Patch Changes
