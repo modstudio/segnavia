@@ -270,11 +270,11 @@ test('a superseded neighbor resolution produces no lifecycle event', async () =>
   const selected = { kind: 'url' as const, src: 'selected.html' }
   const pending = Promise.withResolvers<ResolvedContent>()
   const { controller, events, options, pool } = harness([shown, superseded])
-  controller.contentFor = async () => pending.promise
+  controller.contentFor = () => pending.promise
   pool.update(state(0, shown), controller, options)
   pool.update(state(1, selected), controller, options)
   pending.resolve(superseded)
-  await Promise.resolve()
+  await Bun.sleep(0)
   expect(events.some((event) => event.content === superseded)).toBeFalse()
 })
 
