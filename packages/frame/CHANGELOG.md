@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- ed79d4a: Let hosts read the current selection and page text from script-refusing `segnavia-page` documents.
+- ed79d4a: Let hosts read the current selection and page text from script-refusing `segnavia-page` documents. `SegnaviaPage` gains `readSelection()`, and `@segnavia/frame` exports `PageSelection` and `SELECTION_REPLY_MS`; `@segnavia/frame/bridge` exports `selectionMessage`, `SelectionMessage` and `SELECTION_TEXT_LIMIT`.
 
 ### Patch Changes
 
