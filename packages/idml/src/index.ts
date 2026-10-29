@@ -18,4 +18,4 @@ export type {
   IdmlStory,
 } from './model.ts'
 export type { IdmlFontUse, IdmlReportData } from './report.ts'
-export type { IdmlFont } from './types.ts'
+export type { IdmlFont, IdmlFontMap } from './types.ts'

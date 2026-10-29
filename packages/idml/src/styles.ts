@@ -173,7 +173,7 @@ export class StyleMapper {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
     if (changed.AppliedFont !== undefined || changed.FontStyle !== undefined) this.report.font(resolved.AppliedFont, resolved.FontStyle, location)
-    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => ['css', 'font'].includes(stylePropertyMapping(name)?.kind ?? '')))
+    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => stylePropertyMapping(name)?.kind === 'css'))
     Object.assign(cssProperties, resolvedFontProperties(changed, resolved))
     if (styleDirection && styleDirection !== directionValue) {
       for (const name of ['LeftIndent', 'RightIndent']) cssProperties[name] = base[name] ?? '0'

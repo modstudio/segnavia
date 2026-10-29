@@ -35,6 +35,10 @@ const BUCKET_NAMES = {
 
 type BucketKey = keyof typeof BUCKET_NAMES
 
+export function fontUseKey(appliedFont: string, fontStyle: string | undefined): string {
+  return `${appliedFont}\u0000${fontStyle ?? ''}`
+}
+
 export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
@@ -92,17 +96,18 @@ export class ReportCollector {
 
   font(appliedFont: string | undefined, fontStyle: string | undefined, location: string): void {
     if (!appliedFont) return
-    const key = `${appliedFont}\u0000${fontStyle ?? ''}`
-    const found = this.fonts.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
-    if (found.locations.length < 5 && !found.locations.includes(location)) found.locations.push(location)
-    this.fonts.set(key, found)
+    this.record(this.fonts, appliedFont, fontStyle, location)
   }
 
   unmappedFont(appliedFont: string, fontStyle: string | undefined, location: string): void {
-    const key = `${appliedFont}\u0000${fontStyle ?? ''}`
-    const found = this.unmappedFonts.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
+    this.record(this.unmappedFonts, appliedFont, fontStyle, location)
+  }
+
+  private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
+    const key = fontUseKey(appliedFont, fontStyle)
+    const found = target.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
     if (found.locations.length < 5 && !found.locations.includes(location)) found.locations.push(location)
-    this.unmappedFonts.set(key, found)
+    target.set(key, found)
   }
 
   data(): IdmlReportData {

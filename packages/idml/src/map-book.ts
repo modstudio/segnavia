@@ -1,4 +1,4 @@
-import { Book, type FontReferenceInput, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
@@ -8,7 +8,7 @@ import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
-import type { IdmlFont } from './types.ts'
+import type { IdmlFontMap } from './types.ts'
 import { matchVariables } from './variables.ts'
 
 function orderedStories(model: IdmlModel): IdmlStory[] {
@@ -45,11 +45,7 @@ export function refuseActiveBookHtml(chapters: { html: string }[], parents: Pare
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
-export function modelToBook(
-  model: IdmlModel,
-  report = new ReportCollector(model.report),
-  options: { font?: (font: IdmlFont) => FontReferenceInput | undefined } = {},
-): SegnaviaBook {
+export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report), options: { font?: IdmlFontMap } = {}): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'

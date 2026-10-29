@@ -1,8 +1,8 @@
-import { type FontReference, type FontReferenceInput, FontReferenceInput as FontReferenceInputSchema } from '@segnavia/format'
+import { type FontReference, FontReferenceInput as FontReferenceInputSchema } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { refusal } from './refusal.ts'
-import type { ReportCollector } from './report.ts'
-import type { IdmlFont } from './types.ts'
+import { fontUseKey, type ReportCollector } from './report.ts'
+import type { IdmlFont, IdmlFontMap } from './types.ts'
 import { localName } from './xml.ts'
 
 export const IDML_FONT_WEIGHTS: Readonly<Record<string, number>> = {
@@ -44,7 +44,8 @@ export function parseFonts(roots: Element[]): IdmlFont[] {
     })
 }
 
-function css(reference: FontReference): string {
+// Writes the form that fontReferenceRefusals in @segnavia/html accepts.
+function fontFamilyValue(reference: FontReference): string {
   return 'app' in reference ? `var(--segnavia-font-${reference.app})` : `${JSON.stringify(reference.local)}, var(--segnavia-font-${reference.fallback})`
 }
 
@@ -54,7 +55,7 @@ export class FontMapper {
 
   constructor(
     private readonly fonts: IdmlFont[],
-    private readonly map: ((font: IdmlFont) => FontReferenceInput | undefined) | undefined,
+    private readonly map: IdmlFontMap | undefined,
     private readonly report: ReportCollector,
   ) {}
 
@@ -63,7 +64,7 @@ export class FontMapper {
     const reference = this.resolve(family, style, location)
     const face = idmlFontStyle(style)
     return [
-      ...(reference ? [`font-family:${css(reference)}`] : []),
+      ...(reference ? [`font-family:${fontFamilyValue(reference)}`] : []),
       ...(face.weight === undefined ? [] : [`font-weight:${face.weight}`]),
       ...(face.style ? [`font-style:${face.style}`] : []),
     ]
@@ -74,7 +75,7 @@ export class FontMapper {
   }
 
   private resolve(family: string, style: string | undefined, location: string): FontReference | undefined {
-    const key = `${family}\u0000${style ?? ''}`
+    const key = fontUseKey(family, style)
     if (this.cache.has(key)) {
       if (!this.cache.get(key)) this.report.unmappedFont(family, style, location)
       return this.cache.get(key)

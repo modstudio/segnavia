@@ -65,7 +65,7 @@ describe('importIdml', () => {
       {
         name: 'Resources/Styles.xml',
         content:
-          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" ParagraphDirection="RightToLeftDirection" AppliedLanguage="$ID/Hebrew"/><ParagraphStyle Self="body" Name="Body" BasedOn="root" PointSize="12" SpanColumnType="SingleColumn" AppliedFont="Hebrew Face" FontStyle="Color" RuleAbove="true"/></RootParagraphStyleGroup></idPkg:Styles>',
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" ParagraphDirection="RightToLeftDirection" AppliedLanguage="$ID/Hebrew"/><ParagraphStyle Self="body" Name="Body" BasedOn="root" PointSize="12" SpanColumnType="SingleColumn" AppliedFont="Hebrew Face" FontStyle="Regular" RuleAbove="true"/></RootParagraphStyleGroup></idPkg:Styles>',
       },
       {
         name: 'Resources/Graphic.xml',
@@ -85,10 +85,10 @@ describe('importIdml', () => {
     expect(chapter.html).toContain('&lt;script&gt;שלום')
     expect(result.book.css).toContain('font-size:12pt')
     expect(result.book.css).not.toContain('font-family')
-    expect(result.book.css).not.toContain('font-weight')
+    expect(result.book.css).toContain('font-weight:400')
     expect(result.book.css).not.toContain('font-style')
-    expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Color' }])
-    expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Color' }])
+    expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
+    expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unsupportedElements).toMatchObject({ Table: 1 })
     expect(result.report.unsupportedStyleProperties).toMatchObject({ RuleAbove: 1 })
     expect(result.report.locations['element:Table']).toBeDefined()
@@ -121,17 +121,17 @@ describe('importIdml', () => {
     const result = await importIdml(bytes, {
       font(font) {
         calls.push(font)
-        return font.family === 'Display Face' ? { local: 'Installed Display', fallback: 'serif' } : { app: 'body' }
+        return font.family === 'Display Face' ? { local: 'Installed Display', fallback: 'body' } : { app: 'body' }
       },
     })
     expect(calls).toEqual([
       { family: 'Book Face', style: 'Semi Bold', postscriptName: 'BookFace-SemiBold' },
       { family: 'Display Face', style: 'Bold Italic', postscriptName: 'Display-BoldItalic' },
     ])
-    expect(result.book.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'serif' }, { app: 'serif' }])
+    expect(result.book.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }])
     expect(result.book.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
-    expect(result.book.css).toContain('font-family:"Installed Display", var(--segnavia-font-serif);font-weight:700;font-style:italic')
-    expect(fontReferenceRefusals(`<style>${result.book.css}</style>`, result.book.fonts ?? [], new Set(['body', 'serif']))).toEqual([])
+    expect(result.book.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
+    expect(fontReferenceRefusals(`<style>${result.book.css}</style>`, result.book.fonts ?? [], new Set(['body']))).toEqual([])
   })
 
   test('refuses an invalid host font answer by font name', async () => {

@@ -1,15 +1,15 @@
-import type { Book, FontReferenceInput } from '@segnavia/format'
+import type { Book } from '@segnavia/format'
 import { modelToBook } from './map-book.ts'
 import { idmlModel } from './model.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
-import type { IdmlFont } from './types.ts'
+import type { IdmlFontMap } from './types.ts'
 import { readZip } from './zip.ts'
 
 const IDML_MIMETYPE = 'application/vnd.adobe.indesign-idml-package'
 
 export interface IdmlImportOptions {
-  font?: (font: IdmlFont) => FontReferenceInput | undefined
+  font?: IdmlFontMap
 }
 
 export interface IdmlImportReport extends IdmlReportData {
