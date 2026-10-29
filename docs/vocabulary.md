@@ -6,7 +6,7 @@ something else.
 
 | Term | Meaning |
 |---|---|
-| **Page** | Self-contained HTML at any size, designed for viewing on screen: fluid (the viewer's width, as tall as its content), a fixed width and height, or a fixed width that grows with its content. |
+| **Page** | Self-contained HTML at any size, designed for viewing on screen: fluid (the viewer's width, normally as tall as its content, or host-sized and internally scrolling with `fill`), a fixed width and height, or a fixed width that grows with its content. |
 | **Print** | An optional setting on a page: a paper (named or custom, in mm, inches or points), an orientation, margins, bleed, safe area and marks. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
 | **Named paper** | A trim preset: `letter`, `legal`, `tabloid`, `a0`–`a6`, `dl`, `half-letter`, `business-card-us`, `business-card-eu`, `business-card-square-us`, `business-card-slim-us`, `postcard-4x6`, `postcard-5x7`, `postcard-6x9`, `postcard-6x11`, `card-square-4in`, `rack-card-4x9`, `rack-card-3.5x8.5`, `poster-12x18`, `poster-16x20`, `poster-18x24` or `poster-24x36`. Names carry a size or region because printers use “standard”, “large” and “euro” for different sizes. |
 | **Trim** | The finished size of a printed page after cutting. It is the print setting's paper. |

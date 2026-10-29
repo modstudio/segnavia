@@ -10,6 +10,7 @@ import { verifyComponents } from './verify/components.ts'
 import { verifyCssSanitizer } from './verify/css-sanitizer.ts'
 import { verifyDeckHost } from './verify/deck-host.ts'
 import { verifyDocuments } from './verify/documents.ts'
+import { verifyFillAndScroll } from './verify/fill-and-scroll.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
@@ -42,6 +43,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyDocuments', run: () => verifyDocuments(h) },
   { name: 'verifyRtl', run: () => verifyRtl(h) },
   { name: 'verifySelection', run: () => verifySelection(h) },
+  { name: 'verifyFillAndScroll', run: () => verifyFillAndScroll(h) },
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },
   { name: 'verifySlots', run: () => verifySlots(h) },

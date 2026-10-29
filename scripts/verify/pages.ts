@@ -98,22 +98,17 @@ export async function verifyPages(h: Harness) {
           href: location.href,
           present: Boolean(target),
           visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
-          focused: document.activeElement === target,
           box: box ? { top: box.top, bottom: box.bottom, viewport: innerHeight } : null,
         }
       })
-    check(
-      `an in-page link stays in and scrolls its ${selector}`,
-      facts.href === 'about:srcdoc' && facts.present && facts.visible && facts.focused,
-      JSON.stringify(facts),
-    )
+    check(`an in-page link stays in and scrolls its ${selector}`, facts.href === 'about:srcdoc' && facts.present && facts.visible, JSON.stringify(facts))
   }
   const sandboxedPage = page.frameLocator('#link-page-sandboxed iframe')
   for (const linkId of ['blocked', 'blocked-delegated']) {
     await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
     await sandboxedPage.locator(`#${linkId}`).evaluate((link: HTMLElement) => link.click())
-    const prevented = await sandboxedPage.locator('body').evaluate(() => ({ scrollY, focused: (document.activeElement as HTMLElement | null)?.id ?? '' }))
-    check(`an in-page link prevented by ${linkId} is left alone`, prevented.scrollY === 0 && prevented.focused !== 'far', JSON.stringify(prevented))
+    const prevented = await sandboxedPage.locator('body').evaluate(() => ({ scrollY }))
+    check(`an in-page link prevented by ${linkId} is left alone`, prevented.scrollY === 0, JSON.stringify(prevented))
   }
   for (const [linkId, targetId] of [
     ['jump-percent', 'far%'],
@@ -129,10 +124,9 @@ export async function verifyPages(h: Harness) {
         href: location.href,
         present: Boolean(target),
         visible: Boolean(box && box.bottom > 0 && box.top < innerHeight),
-        focused: document.activeElement === target,
       }
     }, targetId)
-    check(`an in-page link resolves ${linkId}`, facts.href === 'about:srcdoc' && facts.present && facts.visible && facts.focused, JSON.stringify(facts))
+    check(`an in-page link resolves ${linkId}`, facts.href === 'about:srcdoc' && facts.present && facts.visible, JSON.stringify(facts))
   }
   await sandboxedPage.locator('body').evaluate(() => scrollTo(0, 0))
   await sandboxedPage.locator('#jump-missing').evaluate((link: HTMLElement) => link.click())

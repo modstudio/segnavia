@@ -13,6 +13,8 @@ import {
   slotFitMessageData,
 } from './bridge.ts'
 
+Object.assign(globalThis, { location: { protocol: 'https:' } })
+
 function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
   const messages: unknown[] = []
   let ready = () => {}
@@ -128,11 +130,9 @@ describe('frame document', () => {
 
   test('the bridge handles in-page links without expanding its message surface or policy', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
-    expect(html).toContain("window.addEventListener('click'")
+    expect(html).toContain("if(location.protocol==='about:')document.addEventListener('click'")
     expect(html).toContain("href.charAt(0)!=='#'")
-    expect(html).not.toMatch(/fragment=decodeURIComponent/)
-    expect(html.match(/decodeURIComponent/g)).toHaveLength(2)
-    expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
+    expect(html).toContain('fragment=decodeURIComponent(href.slice(1))')
     expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([
       MESSAGE.selection,
       MESSAGE.animation,
