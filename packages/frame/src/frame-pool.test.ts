@@ -4,121 +4,11 @@ import type { DeckController, DeckState, ResolvedContent } from './controller.ts
 import { initialDeckState } from './controller-types.ts'
 import { FramePool } from './frame-pool.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
+import { installFramePoolTestDocument, FramePoolTestElement as TestElement } from './frame-pool-test-element.ts'
 
-type Listener = () => void
 type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent; connected?: boolean }
 
-class TestElement {
-  className = ''
-  dataset: Record<string, string> = {}
-  style = { setProperty() {}, removeProperty() {} }
-  title = ''
-  inert = false
-  isConnected = false
-  contentWindow: Record<string, never> | null = null
-  private children: TestElement[] = []
-  private listeners = new Map<string, Listener[]>()
-  private parent: TestElement | null = null
-
-  constructor(readonly tagName: string) {
-    if (tagName === 'iframe') this.contentWindow = {}
-  }
-
-  append(child: TestElement) {
-    child.parent = this
-    child.connect(this.isConnected)
-    this.children.push(child)
-  }
-
-  replaceChildren() {
-    for (const child of this.children) child.connect(false)
-    this.children = []
-  }
-
-  replaceWith(replacement: TestElement) {
-    if (!this.parent) return
-    const index = this.parent.children.indexOf(this)
-    this.connect(false)
-    replacement.parent = this.parent
-    replacement.connect(this.parent.isConnected)
-    this.parent.children[index] = replacement
-    this.parent = null
-  }
-
-  remove() {
-    if (!this.parent) return
-    this.parent.children = this.parent.children.filter((child) => child !== this)
-    this.parent = null
-    this.connect(false)
-  }
-
-  setAttribute(name: string, value: string) {
-    if (name.startsWith('data-')) this.dataset[dataKey(name)] = value
-  }
-
-  removeAttribute(name: string) {
-    if (name.startsWith('data-')) delete this.dataset[dataKey(name)]
-  }
-
-  toggleAttribute(name: string, force: boolean) {
-    if (force) this.setAttribute(name, '')
-    else this.removeAttribute(name)
-  }
-
-  addEventListener(name: string, listener: Listener) {
-    this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener])
-  }
-
-  dispatch(name: string) {
-    for (const listener of this.listeners.get(name) ?? []) listener()
-  }
-
-  querySelector(selector: string): TestElement | null {
-    return this.querySelectorAll(selector)[0] ?? null
-  }
-
-  querySelectorAll(selector: string): TestElement[] {
-    if (selector.includes(' ')) {
-      const [parent, child] = selector.split(' ')
-      return this.descendants()
-        .filter((candidate) => candidate.matches(parent ?? ''))
-        .flatMap((candidate) => candidate.querySelectorAll(child ?? ''))
-    }
-    return this.descendants().filter((candidate) => candidate.matches(selector))
-  }
-
-  closest(selector: string): TestElement | null {
-    const slideId = selector.match(/^\[data-slide-id="(.+)"\]$/)?.[1]
-    let candidate: TestElement | null = this
-    while (candidate) {
-      if (slideId && candidate.dataset.slideId === slideId) return candidate
-      candidate = candidate.parent
-    }
-    return null
-  }
-
-  private descendants(): TestElement[] {
-    return this.children.flatMap((child) => [child, ...child.descendants()])
-  }
-
-  private matches(selector: string): boolean {
-    if (selector === 'iframe') return this.tagName === 'iframe'
-    if (!selector.startsWith('.segnavia-stage__canvas')) return false
-    if (this.className !== 'segnavia-stage__canvas') return false
-    return !selector.includes('[data-active]') || 'active' in this.dataset
-  }
-
-  private connect(value: boolean) {
-    this.isConnected = value
-    for (const child of this.children) child.connect(value)
-  }
-}
-
-function dataKey(attribute: string) {
-  return attribute.slice(5).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
-}
-
-Object.assign(globalThis, { document: { createElement: (name: string) => new TestElement(name) }, window: {} })
+installFramePoolTestDocument()
 
 const deck = Deck.parse({
   title: 'Frames',
@@ -139,7 +29,13 @@ function harness(contents: ResolvedContent[], timeout = 10) {
   const errors: Error[] = []
   const events: FrameEvent[] = []
   const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
-    mounted: (slideId, content) => events.push({ kind: 'mounted', slideId, content, connected: host.querySelectorAll('iframe').length > events.length }),
+    mounted: (slideId, content) =>
+      events.push({
+        kind: 'mounted',
+        slideId,
+        content,
+        connected: host.querySelectorAll('iframe').some((frame) => frame.closest(`[data-slide-id="${slideId}"]`)?.isConnected),
+      }),
     released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
   })
   const controller = {
