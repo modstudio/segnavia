@@ -14,6 +14,7 @@ import {
 } from '@segnavia/format'
 import { type ChildNode, type Document, isTag } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
+import { bookDocumentCss, bookFlowPageGeometry, markBlockPositions } from './book-flow.ts'
 import {
   type BuiltSection,
   collectHeadings,
@@ -29,12 +30,6 @@ import {
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
-
-// The front/body selectors here agree with bookPrintPart, the source of print membership.
-const CONTENTS_CSS =
-  ':where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where(.segnavia-contents-entry[data-level="2"]){padding-inline-start:1em}:where(.segnavia-contents-entry[data-level="3"]){padding-inline-start:2em}:where(.segnavia-contents-entry[data-level="4"]){padding-inline-start:3em}:where(.segnavia-contents-entry[data-level="5"]){padding-inline-start:4em}:where(.segnavia-contents-entry[data-level="6"]){padding-inline-start:5em}'
-const PRINT_CSS = `${CONTENTS_CSS}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}:where(.segnavia-blank){break-after:page}:where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}}`
-const GALLEY_CSS = `${CONTENTS_CSS}:where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}:where([data-segnavia-galleys] img,[data-segnavia-window] img,[data-segnavia-page-note] img){display:block;max-block-size:var(--segnavia-text-height);max-inline-size:100%;block-size:auto;inline-size:auto}`
 
 function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
@@ -97,7 +92,7 @@ function appendDesigned(
   issues: string[],
   notesOwner = 0,
 ) {
-  const held = designedSection(entry, id, kind, galley, book.contents.depth)
+  const held = designedSection(entry, id, kind, galley, book.contents.depth, galley ? undefined : bookFlowPageGeometry(book))
   appendHeld(held.built, held.headings, [], book, notes, galley, sections, headings, issues, notesOwner)
 }
 
@@ -114,7 +109,7 @@ function appendTemplated(
   issues: string[],
   notesOwner = 0,
 ) {
-  const held = templatedSection(entry, id, kind, galley, book.contents.depth)
+  const held = templatedSection(entry, id, kind, galley, book.contents.depth, templates, galley ? undefined : bookFlowPageGeometry(book))
   appendHeld(held.built, held.headings, undeclaredRegionIssues(entry, id, templates), book, notes, galley, sections, headings, issues, notesOwner)
 }
 
@@ -349,7 +344,7 @@ function addChapters(book: Book, build: DocumentBuild): void {
 
 export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
   const build: DocumentBuild = {
-    galley: book.mode === 'paginated',
+    galley: options.galley ?? book.mode === 'paginated',
     notes: noteState(),
     sections: [],
     headings: [],
@@ -370,19 +365,24 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     sections.push(endnotesSection(book, endnotesInOrder(notes), galley, 'segnavia-endnotes', book.endnotes.title))
   }
   if (contents) addContents(book, contents, headings, options)
+  markBlockPositions(sections)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind) === options.part)
   const document = parse('') as Document
   document.children = galley
     ? [
-        element('style', {}, [text(GALLEY_CSS)]),
+        element('style', {}, [text(bookDocumentCss(book, galley))]),
         element('div', { 'data-segnavia-galleys': '' }, [
           ...templateHolders(book.templates),
           ...visible.map((section) => section.node),
           ...(notes.footnoteParagraphs.length > 0 ? [notesGalley(notes.footnoteParagraphs)] : []),
         ]),
       ]
-    : [element('style', {}, [text(PRINT_CSS)]), ...(options.targets ? [targetLinks(visible)] : []), ...withBlankPages(visible, options.blankBefore)]
+    : [
+        element('style', {}, [text(bookDocumentCss(book, galley))]),
+        ...(options.targets ? [targetLinks(visible)] : []),
+        ...withBlankPages(visible, options.blankBefore),
+      ]
   linkChildren(document)
   return {
     html: serialize(document),

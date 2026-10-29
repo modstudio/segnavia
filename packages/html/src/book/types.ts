@@ -4,6 +4,7 @@ export interface BookDocumentOptions {
   part?: 'front' | 'body'
   crossLinks?: boolean
   targets?: boolean
+  galley?: boolean
 }
 
 export interface BookSectionInfo {

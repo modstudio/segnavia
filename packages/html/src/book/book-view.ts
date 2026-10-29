@@ -18,5 +18,9 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
 export function bookView(book: Book): BookView {
   const document = bookDocument(book)
   if (document.issues.length > 0) throw new Error(`The book cannot be shown: ${document.issues.join('; ')}.`)
-  return bookViewFromHtml(book, document.html)
+  const view = bookViewFromHtml(book, document.html)
+  if (book.mode !== 'paginated') return view
+  const flow = bookDocument(book, { galley: false })
+  if (flow.issues.length > 0) throw new Error(`The book cannot be shown: ${flow.issues.join('; ')}.`)
+  return { ...view, flow: flow.html }
 }
