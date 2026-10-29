@@ -11,6 +11,11 @@ export interface IdmlMixedMasterChapter {
   chosen: string
 }
 
+export interface IdmlLinkUse {
+  uri: string
+  locations: string[]
+}
+
 export interface IdmlReportData {
   unsupportedElements: Record<string, number>
   unsupportedStyleProperties: Record<string, number>
@@ -21,6 +26,8 @@ export interface IdmlReportData {
   locations: Record<string, string[]>
   fonts: IdmlFontUse[]
   unmappedFonts: IdmlFontUse[]
+  links: IdmlLinkUse[]
+  strippedAssetContent: Record<string, string[]>
   mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
@@ -43,6 +50,8 @@ export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
   readonly unmappedFonts = new Map<string, IdmlFontUse>()
+  readonly links = new Map<string, IdmlLinkUse>()
+  readonly strippedAssetContent = new Map<string, string[]>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
@@ -74,9 +83,17 @@ export class ReportCollector {
       for (const [key, count] of Object.entries(seed?.[name] ?? {})) this.buckets[name].set(key, count)
     }
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
+    this.seedKeyedRecords(seed)
+  }
+
+  private seedKeyedRecords(seed?: Partial<IdmlReportData>): void {
     for (const font of seed?.fonts ?? []) this.font(font.appliedFont, font.fontStyle, font.locations[0] ?? 'Resources/Styles.xml')
     for (const font of seed?.unmappedFonts ?? []) {
       for (const location of font.locations) this.unmappedFont(font.appliedFont, font.fontStyle, location)
+    }
+    for (const link of seed?.links ?? []) for (const location of link.locations) this.link(link.uri, location)
+    for (const [uri, findings] of Object.entries(seed?.strippedAssetContent ?? {})) {
+      for (const finding of findings) this.strippedAsset(uri, finding)
     }
   }
 
@@ -103,11 +120,27 @@ export class ReportCollector {
     this.record(this.unmappedFonts, appliedFont, fontStyle, location)
   }
 
+  link(uri: string, location: string): void {
+    const found = this.links.get(uri) ?? { uri, locations: [] }
+    this.recordLocation(found.locations, location)
+    this.links.set(uri, found)
+  }
+
+  strippedAsset(uri: string, finding: string): void {
+    const found = this.strippedAssetContent.get(uri) ?? []
+    this.recordLocation(found, finding)
+    this.strippedAssetContent.set(uri, found)
+  }
+
   private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
     const key = fontUseKey(appliedFont, fontStyle)
     const found = target.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
-    if (found.locations.length < 5 && !found.locations.includes(location)) found.locations.push(location)
+    this.recordLocation(found.locations, location)
     target.set(key, found)
+  }
+
+  private recordLocation(target: string[], location: string): void {
+    if (target.length < 5 && !target.includes(location)) target.push(location)
   }
 
   data(): IdmlReportData {
@@ -121,6 +154,8 @@ export class ReportCollector {
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
       unmappedFonts: [...this.unmappedFonts.values()],
+      links: [...this.links.values()],
+      strippedAssetContent: Object.fromEntries([...this.strippedAssetContent].sort(([a], [b]) => a.localeCompare(b))),
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }

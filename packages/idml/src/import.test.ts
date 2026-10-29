@@ -225,4 +225,74 @@ describe('importIdml', () => {
     expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-mark="Siman">')
     expect(result.report.unsupportedElements).not.toHaveProperty('master story')
   })
+
+  test('claims opener headers, keeps page art separate, measures RTL, and sanitizes each linked asset once', async () => {
+    const openerMap = designmap.replace('PageBinding="LeftToRight"', 'PageBinding="RightToLeft"')
+    const polygon = (x: number) =>
+      `<Group ItemTransform="2 0 0 2 ${x} 0"><Polygon FillColor="Color/Red" ItemTransform="1 0 0 1 2 3"><PathGeometry><GeometryPathType PathOpen="false"><PathPointArray><PathPointType Anchor="10 20" LeftDirection="10 20" RightDirection="15 20"/><PathPointType Anchor="30 40" LeftDirection="25 40" RightDirection="30 40"/></PathPointArray></GeometryPathType></PathGeometry></Polygon></Group>`
+    const linked = (x: number) =>
+      `<Rectangle ItemTransform="1 0 0 1 ${x} 0"><PathGeometry><PathPointType Anchor="40 20"/><PathPointType Anchor="60 40"/></PathGeometry><Image><Link LinkResourceURI="file:/ornament.ai"/></Image></Rectangle>`
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: openerMap.replace('</Document>', '<idPkg:Graphic src="Resources/Graphic.xml"/></Document>') },
+      {
+        name: 'Spreads/Spread_s.xml',
+        content: `<Spread Self="s"><Page Self="p1" GeometricBounds="0 0 100 100"/><Page Self="p2" GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 100 0"/>${frame('header-1', 0)}<TextFrame ParentStory="body-1"><Properties><TextFramePreference TextColumnCount="2"/></Properties><PathGeometry><PathPointType Anchor="10 10"/><PathPointType Anchor="90 90"/></PathGeometry></TextFrame>${polygon(0)}${linked(0)}<Rectangle><PathGeometry><PathPointType Anchor="70 20"/><PathPointType Anchor="80 30"/></PathGeometry></Rectangle><Oval><PathGeometry><PathPointType Anchor="80 20"/><PathPointType Anchor="90 30"/></PathGeometry></Oval>${frame('header-2', 100)}<TextFrame ParentStory="body-2" ItemTransform="1 0 0 1 100 0"><Properties><TextFramePreference TextColumnCount="2"/></Properties><PathGeometry><PathPointType Anchor="10 10"/><PathPointType Anchor="90 90"/></PathGeometry></TextFrame>${polygon(100)}${linked(100)}</Spread>`,
+      },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      { name: 'Resources/Graphic.xml', content: '<idPkg:Graphic><Color Self="Color/Red" Name="Red" Space="RGB" ColorValue="255 0 0"/></idPkg:Graphic>' },
+      { name: 'Stories/body-1.xml', content: '<Story Self="body-1"><ParagraphStyleRange><Content>Body one is longer</Content></ParagraphStyleRange></Story>' },
+      { name: 'Stories/header-1.xml', content: '<Story Self="header-1"><ParagraphStyleRange><Content>Header one</Content></ParagraphStyleRange></Story>' },
+      { name: 'Stories/body-2.xml', content: '<Story Self="body-2"><ParagraphStyleRange><Content>Body two is longer</Content></ParagraphStyleRange></Story>' },
+      { name: 'Stories/header-2.xml', content: '<Story Self="header-2"><ParagraphStyleRange><Content>Header two</Content></ParagraphStyleRange></Story>' },
+    ])
+    const calls: string[] = []
+    const result = await importIdml(bytes, {
+      asset(uri) {
+        calls.push(uri)
+        return '<svg><script>bad()</script><path d="M0 0"/></svg>'
+      },
+    })
+    expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
+    const first = result.book.chapters[0]
+    const second = result.book.chapters[1]
+    const firstHtml = first && 'html' in first ? first.html : ''
+    const secondHtml = second && 'html' in second ? second.html : ''
+    expect(firstHtml.startsWith('<div class="idml-title-block"')).toBe(true)
+    expect(firstHtml).toContain('Header one')
+    expect(firstHtml).not.toContain('Header two')
+    expect(secondHtml).toContain('Header two')
+    expect(firstHtml).toContain('inset-inline-start:296pt')
+    expect(firstHtml).toContain('d="M0 0C10 0 30 40 40 40C40 40 0 0 0 0Z"')
+    expect(firstHtml).toContain('<svg><path d="M0 0"/></svg>')
+    expect(firstHtml).not.toContain('<script>')
+    expect(result.report.strippedAssetContent['file:/ornament.ai']).toEqual(expect.arrayContaining([expect.stringContaining('script')]))
+    expect(calls).toEqual(['file:/ornament.ai'])
+    expect(result.report.links).toEqual([{ uri: 'file:/ornament.ai', locations: expect.any(Array) }])
+    expect(result.report.links[0]?.locations).toHaveLength(2)
+    expect(result.report.unsupportedElements).toMatchObject({ Rectangle: 1, Oval: 1 })
+  })
+
+  test('keeps an unresolved opener link as an empty sized slot', async () => {
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: designmap },
+      {
+        name: 'Spreads/Spread_s.xml',
+        content: `<Spread Self="s"><Page Self="p" AppliedMaster="m" GeometricBounds="0 0 100 100"/>${frame('body', 0)}<Rectangle><PathGeometry><PathPointType Anchor="20 20"/><PathPointType Anchor="40 40"/></PathGeometry><SVG><Link LinkResourceURI="https://example.invalid/art.svg"/></SVG></Rectangle></Spread>`,
+      },
+      {
+        name: 'MasterSpreads/MasterSpread_m.xml',
+        content:
+          '<MasterSpread Self="m"><Page Self="mp" GeometricBounds="0 0 100 100"><MarginPreference Top="10" Bottom="10" Left="25" Right="15"/></Page></MasterSpread>',
+      },
+      { name: 'Stories/body.xml', content: '<Story Self="body"><ParagraphStyleRange><Content>Body</Content></ParagraphStyleRange></Story>' },
+    ])
+    const result = await importIdml(bytes)
+    const chapter = result.book.chapters[0]
+    const html = chapter && 'html' in chapter ? chapter.html : ''
+    expect(html).toContain('inset-inline-start:-5pt;inline-size:20pt')
+    expect(html).toContain('block-size:20pt"></div>')
+    expect(result.report.links[0]?.uri).toBe('https://example.invalid/art.svg')
+  })
 })

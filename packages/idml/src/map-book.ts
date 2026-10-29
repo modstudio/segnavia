@@ -4,11 +4,13 @@ import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
 import { chapterParents, mapMasters } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
+import { mapOpeners } from './openers.ts'
+import { reportPlacements } from './placement-report.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
-import type { IdmlFontMap } from './types.ts'
+import type { IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
 
 function orderedStories(model: IdmlModel): IdmlStory[] {
@@ -45,7 +47,7 @@ export function refuseActiveBookHtml(chapters: { html: string }[], parents: Pare
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
-export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report), options: { font?: IdmlFontMap } = {}): SegnaviaBook {
+export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report), options: IdmlImportOptions = {}): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
@@ -59,10 +61,14 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     story,
     mapped: storyHtml({ ...story, textVariables: matchedVariables }, styles, report, bookDirection, bookLanguage),
   }))
-  const chapters = mapped.map(({ story, mapped: value }) => {
-    const parents = chapterParents(story.id, model, masters, report)
-    return { title: story.id, html: value.html, ...(parents ? { parents } : {}) }
-  })
+  const openers = mapOpeners(model, mapped, masters, report, options.asset)
+  reportPlacements(model, openers.consumedPages, report)
+  const chapters = mapped
+    .filter(({ story }) => !openers.claimed.has(story.id))
+    .map(({ story, mapped: value }) => {
+      const parents = chapterParents(story.id, model, masters, report)
+      return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+    })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)

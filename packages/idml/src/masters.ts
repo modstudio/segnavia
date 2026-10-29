@@ -1,13 +1,14 @@
-import { BOOK_PARENT_NAMES, type BookSectionParents, MM_PER_PT, type ParentPage, type ParentPageMargin } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, type ParentPage, type ParentPageMargin } from '@segnavia/format'
 import serialize from 'dom-serializer'
 import { Element } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
 import { logicalMargin } from './margins.ts'
 import type { IdmlModel } from './model.ts'
+import { positionedBoxStyle } from './positioned-box.ts'
 import type { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
+import type { IdmlBounds, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
 
 export const IDML_NONE_MASTER = 'n'
 
@@ -17,6 +18,7 @@ export interface MasterMapping {
   bookMargin?: ParentPageMargin
   parentFor(master: string | undefined, role: 'recto' | 'verso', location: string): string
   mappedStories: Set<string>
+  marginFor(page: IdmlPage, ordinal?: number): IdmlMargin
 }
 
 const slug = (value: string) =>
@@ -24,8 +26,6 @@ const slug = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'master'
-const mm = (points: number) => `${Number((points * MM_PER_PT).toFixed(6))}mm`
-
 function roleFor(page: IdmlPage, rtl: boolean, ordinal?: number): 'recto' | 'verso' {
   if (!page.side || page.side === 'single') return (ordinal ?? 0) % 2 === 0 ? 'recto' : 'verso'
   return page.side === (rtl ? 'left' : 'right') ? 'recto' : 'verso'
@@ -78,11 +78,21 @@ function regionHtml(master: IdmlMasterSpread, page: IdmlMasterPage, region: 'hea
     )
     const nodes = parseDocument(mapped.html, { xmlMode: false }).children
     boxes.push(new Element('div', { class: className }, nodes))
-    const right = frame.bounds.left + frame.bounds.width
-    const inlineStart = context.rtl ? context.model.preferences.pageWidth - page.margin.right - right : frame.bounds.left - page.margin.left
     const blockStart = region === 'head' ? frame.bounds.top : frame.bounds.top - (context.model.preferences.pageHeight - page.margin.bottom)
+    const bounds: IdmlBounds = {
+      left: frame.bounds.left,
+      top: blockStart,
+      right: frame.bounds.left + frame.bounds.width,
+      bottom: blockStart + frame.bounds.height,
+    }
     context.css.push(
-      `:where(.${className}){position:absolute;inset-inline-start:${mm(inlineStart)};inline-size:${mm(frame.bounds.width)};inset-block-start:${mm(blockStart)};block-size:${mm(frame.bounds.height)}}`,
+      `:where(.${className}){${positionedBoxStyle(bounds, {
+        pageWidth: context.model.preferences.pageWidth,
+        margin: page.margin,
+        rtl: context.rtl,
+        blockOrigin: 0,
+        unit: 'mm',
+      })}}`,
     )
     context.mappedStories.add(frame.story)
   }
@@ -211,7 +221,12 @@ export function mapMasters(model: IdmlModel, variables: IdmlTextVariable[], styl
     report.addOnce(report.unsupportedElements, `applied master unknown:${masterId}`, location)
     return role === 'recto' ? BOOK_PARENT_NAMES.recto : BOOK_PARENT_NAMES.verso
   }
-  return { parents, css: css.join(''), bookMargin: appliedBookMargin(model, applied, report), parentFor, mappedStories }
+  const marginFor = (page: IdmlPage, ordinal?: number): IdmlMargin => {
+    const master = page.appliedMaster ? byId.get(page.appliedMaster) : undefined
+    const resolved = master ? masterPage(master, roleFor(page, rtl, ordinal), rtl) : undefined
+    return resolved?.margin ?? model.preferences.margin
+  }
+  return { parents, css: css.join(''), bookMargin: appliedBookMargin(model, applied, report), parentFor, mappedStories, marginFor }
 }
 
 interface PageUse {

@@ -2,6 +2,9 @@ import type { Element } from 'domhandler'
 import type { ReportCollector } from './report.ts'
 import { localName } from './xml.ts'
 
+export const SHAPE_ELEMENTS = ['Polygon', 'Rectangle', 'Oval', 'GraphicLine'] as const
+export const GRAPHIC_ELEMENTS = ['Image', 'PDF', 'EPS', 'ImportedPage', 'SVG'] as const
+
 const MAPPED_ELEMENTS = new Set([
   'Document',
   'DocumentPreference',
@@ -12,6 +15,9 @@ const MAPPED_ELEMENTS = new Set([
   'Story',
   'TextFrame',
   'Group',
+  ...SHAPE_ELEMENTS,
+  ...GRAPHIC_ELEMENTS,
+  'Link',
   'TextFramePreference',
   'PathGeometry',
   'GeometryPathType',
