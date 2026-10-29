@@ -2,7 +2,7 @@ import type { ContentValue } from './content-value.ts'
 
 export interface FrameReadinessOptions {
   bridgeReadyTimeoutMs: number
-  reportError: (error: Error) => void
+  reportSlideError: (slideId: string, message: string) => void
 }
 
 export class FrameEntry {
@@ -27,10 +27,9 @@ export class FrameEntry {
     if (this.value.content.kind === 'url' && this.value.content.bridge && !this.ready) {
       this.readyTimeout = setTimeout(() => {
         this.readyTimeout = undefined
-        options.reportError(
-          new Error(
-            `Slide "${this.id}" loaded a document that did not report ready within ${options.bridgeReadyTimeoutMs} ms; serve the document with Segnavia's bridge, or drop bridge: true.`,
-          ),
+        options.reportSlideError(
+          this.id,
+          `Slide "${this.id}" loaded a document that did not report ready within ${options.bridgeReadyTimeoutMs} ms; serve the document with Segnavia's bridge, or drop bridge: true.`,
         )
       }, options.bridgeReadyTimeoutMs)
     }

@@ -20,6 +20,7 @@ import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
+import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
@@ -267,7 +268,10 @@ export class SegnaviaStage extends HTMLElement {
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
       slots: this.resolvedSlots,
       bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
-      reportError: (error) => this.dispatchEvent(new ErrorEvent('error', { error, message: error.message })),
+      reportSlideError: (slideId, message) => {
+        const error = new SlideFrameError(message, slideId, this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1)
+        this.dispatchEvent(new ErrorEvent('error', { error, message }))
+      },
     })
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
