@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { ResolvedContent } from './controller.ts'
-import { stageSelectionRefusal } from './stage-selection.ts'
+import { shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 
 const html = { kind: 'html', html: '<p>Page</p>' } as const
 const url = { kind: 'url', src: 'page.html' } as const
@@ -27,5 +27,11 @@ test('stage selection refuses undeclared host-served documents', () => {
 
 test('stage selection refuses slides without a bridge', () => {
   const image = { kind: 'image', src: 'page.png', alt: '' } as ResolvedContent
-  expect(stageSelectionRefusal(image, 'refuse', true)?.message).toContain('current slide has no bridge')
+  expect(stageSelectionRefusal(image, 'refuse', false)?.message).toContain('current slide has no bridge')
+})
+
+test('the shown script policy applies the authoring refusal once', () => {
+  expect(shownScripts('sandboxed', false)).toBe('sandboxed')
+  expect(shownScripts('sandboxed', true)).toBe('refuse')
+  expect(shownScripts('refuse', true)).toBe('refuse')
 })

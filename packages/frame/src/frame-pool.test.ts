@@ -294,11 +294,11 @@ test('bridge-declared url frames report missing ready and accept ready from thei
   expect(ready.errors).toEqual([])
 })
 
-test('active frame selection waits for load and bridge readiness', () => {
+test('shown-slide frame selection waits for load and bridge readiness', () => {
   const html = { kind: 'html' as const, html: '<p>Slide</p>' }
   const htmlHarness = harness([html])
   htmlHarness.pool.update(state(0, html), htmlHarness.controller, htmlHarness.options)
-  const htmlFrame = htmlHarness.pool.activeFrame() as unknown as TestElement
+  const htmlFrame = htmlHarness.pool.shownFrame('one') as unknown as TestElement
   let htmlReady = false
   htmlHarness.pool.waitForActiveFrame(htmlFrame as unknown as HTMLIFrameElement, () => {
     htmlReady = true
@@ -310,7 +310,7 @@ test('active frame selection waits for load and bridge readiness', () => {
   const url = { kind: 'url' as const, src: 'slide.html', bridge: true as const, scripts: 'refuse' as const }
   const urlHarness = harness([url])
   urlHarness.pool.update(state(0, url), urlHarness.controller, urlHarness.options)
-  const urlFrame = urlHarness.pool.activeFrame() as unknown as TestElement
+  const urlFrame = urlHarness.pool.shownFrame('one') as unknown as TestElement
   let urlReady = false
   urlHarness.pool.waitForActiveFrame(urlFrame as unknown as HTMLIFrameElement, () => {
     urlReady = true

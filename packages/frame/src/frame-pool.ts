@@ -57,11 +57,7 @@ export class FramePool {
     this.cancelPending()
     const indexes = frameWindow(state.index, deck.slides.length, options.neighbors, deck.scripts)
     const wanted = new Set(indexes.map((index) => deck.slides[index]?.id))
-    for (const [id, entry] of this.entries) {
-      if (!wanted.has(id)) {
-        this.remove(id, entry)
-      }
-    }
+    for (const [id, entry] of this.entries) if (!wanted.has(id)) this.remove(id, entry)
     this.add(state.index, state.content, state, controller, options)
     this.sync(state, options.frameTitle)
     this.mountWindow(state, controller, options, reloaded)
@@ -74,6 +70,13 @@ export class FramePool {
 
   activeFrame(): HTMLIFrameElement | null {
     return this.host.querySelector<HTMLIFrameElement>('.segnavia-stage__canvas[data-active] iframe')
+  }
+
+  shownFrame(slideId: string): HTMLIFrameElement | null {
+    if (this.pending && this.pending.visibleId !== slideId) return null
+    const canvas = this.entries.get(slideId)?.canvas
+    if (!canvas?.matches('.segnavia-stage__canvas[data-active]')) return null
+    return canvas.querySelector('iframe')
   }
 
   waitForActiveFrame(frame: HTMLIFrameElement, ready: () => void): () => void {
