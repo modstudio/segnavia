@@ -59,6 +59,7 @@ function pageHarness() {
         if (tag === 'iframe')
           return {
             title: '',
+            addEventListener() {},
             setAttribute() {},
           }
         return {

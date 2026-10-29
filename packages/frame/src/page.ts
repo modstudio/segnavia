@@ -39,8 +39,11 @@ export class SegnaviaPage extends HTMLElement {
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
   private hostServed = false
+  private documentGeneration = 0
+  private loadedGeneration: number | undefined
   private frameReady = false
   private selectionRequests = new Set<(reason: Error) => void>()
+  private postedSelectionRequests = new Set<(reason: Error) => void>()
   private selectionReadyRequests = new Set<() => void>()
 
   get bounded(): boolean {
@@ -155,11 +158,15 @@ export class SegnaviaPage extends HTMLElement {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
-      iframe.srcdoc = shownPageDocument(shownPage, resolved, {
-        nonce: newNonce(),
-        css: `${fontCss}${this.css}`,
-        csp: this.cspExtra || undefined,
-      })
+      this.cancelPostedSelectionRequests()
+      this.writeDocument(
+        iframe,
+        shownPageDocument(shownPage, resolved, {
+          nonce: newNonce(),
+          css: `${fontCss}${this.css}`,
+          csp: this.cspExtra || undefined,
+        }),
+      )
     }
     const report = (error: unknown) => {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
@@ -172,15 +179,18 @@ export class SegnaviaPage extends HTMLElement {
         this.fit()
         return
       }
-      iframe.srcdoc = frameDocument(page.html, {
-        scripts: page.scripts,
-        nonce: newNonce(),
-        dir: page.dir,
-        lang: page.lang,
-        css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
-        csp: this.cspExtra || undefined,
-        relayKeys: false,
-      })
+      this.writeDocument(
+        iframe,
+        frameDocument(page.html, {
+          scripts: page.scripts,
+          nonce: newNonce(),
+          dir: page.dir,
+          lang: page.lang,
+          css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
+          csp: this.cspExtra || undefined,
+          relayKeys: false,
+        }),
+      )
       const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
       if (refusal) report(refusal)
       else if (hasSlotWork(page.slots, this.slotOptions))
@@ -224,28 +234,38 @@ export class SegnaviaPage extends HTMLElement {
           'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
         ),
       )
+    let posted = false
+    let cancelPosted: ((reason: Error) => void) | undefined
     const request = requestSelection(
       frame,
       (post) => {
-        if (this.frameReady) {
+        const postCurrent = () => {
+          posted = true
           post()
+          if (cancelPosted) this.postedSelectionRequests.add(cancelPosted)
+        }
+        if (this.frameReady) {
+          postCurrent()
           return () => {}
         }
-        this.selectionReadyRequests.add(post)
-        return () => this.selectionReadyRequests.delete(post)
+        this.selectionReadyRequests.add(postCurrent)
+        return () => this.selectionReadyRequests.delete(postCurrent)
       },
       'page',
     )
+    cancelPosted = request.cancel
+    if (posted) this.postedSelectionRequests.add(request.cancel)
     this.selectionRequests.add(request.cancel)
     void request.promise.then(
-      () => this.selectionRequests.delete(request.cancel),
-      () => this.selectionRequests.delete(request.cancel),
+      () => this.finishSelectionRequest(request.cancel),
+      () => this.finishSelectionRequest(request.cancel),
     )
     return request.promise
   }
 
   private mount(page: Page): HTMLIFrameElement {
     this.frameReady = false
+    this.loadedGeneration = undefined
     this.pageValue = page
     this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
@@ -273,6 +293,29 @@ export class SegnaviaPage extends HTMLElement {
     for (const cancel of [...this.selectionRequests]) cancel(reason)
   }
 
+  private cancelPostedSelectionRequests() {
+    const reason = new Error('Cannot read the selection because the page changed before it replied. Read the selection from the current page.')
+    for (const cancel of [...this.postedSelectionRequests]) cancel(reason)
+  }
+
+  private finishSelectionRequest(cancel: (reason: Error) => void) {
+    this.selectionRequests.delete(cancel)
+    this.postedSelectionRequests.delete(cancel)
+  }
+
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
+    const generation = ++this.documentGeneration
+    this.frameReady = false
+    iframe.addEventListener(
+      'load',
+      () => {
+        if (generation === this.documentGeneration) this.loadedGeneration = generation
+      },
+      { once: true },
+    )
+    iframe.srcdoc = srcdoc
+  }
+
   private fit() {
     const page = this.page
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -298,7 +341,7 @@ export class SegnaviaPage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
-    if (message?.type === MESSAGE.ready) {
+    if (message?.type === MESSAGE.ready && this.loadedGeneration === this.documentGeneration) {
       this.frameReady = true
       for (const post of [...this.selectionReadyRequests]) post()
       this.selectionReadyRequests.clear()
