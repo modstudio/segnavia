@@ -1,5 +1,16 @@
 # @segnavia/frame
 
+## 0.32.0
+
+### Minor Changes
+
+- 95b63be: Let a fluid page take a host-sized box and scroll inside its own frame with `bounded`.
+
+### Patch Changes
+
+- @segnavia/format@0.32.0
+- @segnavia/html@0.32.0
+
 ## 0.31.0
 
 ### Minor Changes
