@@ -1,5 +1,13 @@
 # @segnavia/react
 
+## 0.33.0
+
+### Patch Changes
+
+- 87881d0: Let a host give each page frame its own accessible name with `label`.
+- Updated dependencies [87881d0]
+  - @segnavia/frame@0.33.0
+
 ## 0.32.0
 
 ### Patch Changes
