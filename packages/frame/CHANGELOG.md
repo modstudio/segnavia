@@ -1,5 +1,18 @@
 # @segnavia/frame
 
+## 0.36.0
+
+### Minor Changes
+
+- 042a9fb: Dispatch stage events when a slide frame mounts and releases.
+- 6a625f8: Expose a slide's id and current deck index on bridge-readiness stage errors.
+
+### Patch Changes
+
+- 229288f: Keep page selection reads with the current frame document when slot filling replaces its contents.
+  - @segnavia/format@0.36.0
+  - @segnavia/html@0.36.0
+
 ## 0.35.0
 
 ### Minor Changes
