@@ -4,25 +4,30 @@ import { type TestZipEntry, testZip } from './zip.test-helper.ts'
 
 const mimetype = 'application/vnd.adobe.indesign-idml-package'
 
-function page(id: string, x: number, appliedMaster?: string, showMasterItems?: boolean): string {
+function page(id: string, x: number, appliedMaster?: string, showMasterItems?: boolean, margin = 10): string {
   const applied = appliedMaster ? ` AppliedMaster="${appliedMaster}"` : ''
   const show = showMasterItems === false ? ' ShowMasterItems="false"' : ''
-  return `<Page Self="${id}"${applied}${show} GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 ${x} 0"><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/></Page>`
+  return `<Page Self="${id}"${applied}${show} GeometricBounds="0 0 100 100" ItemTransform="1 0 0 1 ${x} 0"><MarginPreference Top="${margin}" Bottom="${margin}" Left="${margin}" Right="${margin}"/></Page>`
 }
 
 function headFrame(id: string, story: string, x: number): string {
   return `<TextFrame Self="${id}" ParentStory="${story}" ItemTransform="1 0 0 1 ${x} 0"><PathGeometry><PathPointType Anchor="20 2"/><PathPointType Anchor="80 8"/></PathGeometry></TextFrame>`
 }
 
-function story(id: string, text: string, folio = false): TestZipEntry {
-  const marker = folio ? '<?ACE 18?>' : ''
+function story(id: string, text: string, folio: 'nested' | 'sibling' | false = false): TestZipEntry {
+  const content = folio === 'nested' ? `<Content>${text}<?ACE 18?></Content>` : `<Content>${text}</Content>${folio === 'sibling' ? '<?ACE 18?>' : ''}`
   return {
     name: `Stories/${id}.xml`,
-    content: `<Story Self="${id}"><ParagraphStyleRange><CharacterStyleRange><Content>${text}</Content>${marker}</CharacterStyleRange></ParagraphStyleRange></Story>`,
+    content: `<Story Self="${id}"><ParagraphStyleRange><CharacterStyleRange>${content}</CharacterStyleRange></ParagraphStyleRange></Story>`,
   }
 }
 
-async function masterPackage(masters: { id: string; xml: string }[], applied: string, stories: TestZipEntry[]): Promise<Uint8Array> {
+async function masterPackage(
+  masters: { id: string; xml: string }[],
+  applied: string,
+  stories: TestZipEntry[],
+  bodyShowMasterItems = true,
+): Promise<Uint8Array> {
   const masterSources = masters.map(({ id }) => `<idPkg:MasterSpread src="MasterSpreads/${id}.xml"/>`).join('')
   const designmap = `<Document Self="masters"><DocumentPreference PageWidth="100" PageHeight="100" FacingPages="true" PageBinding="LeftToRight"/><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/><idPkg:Spread src="Spreads/body.xml"/>${masterSources}</Document>`
   return testZip([
@@ -30,7 +35,7 @@ async function masterPackage(masters: { id: string; xml: string }[], applied: st
     { name: 'designmap.xml', content: designmap },
     {
       name: 'Spreads/body.xml',
-      content: `<Spread Self="body">${page('body-left', 0, applied)}${page('body-right', 100, applied)}${headFrame('body-frame', 'body-story', 0)}</Spread>`,
+      content: `<Spread Self="body">${page('body-left', 0, applied, bodyShowMasterItems)}${page('body-right', 100, applied)}${headFrame('body-frame', 'body-story', 0)}</Spread>`,
     },
     ...masters.map(({ id, xml }) => ({ name: `MasterSpreads/${id}.xml`, content: xml })),
     story('body-story', 'Body'),
@@ -43,7 +48,7 @@ const baseMaster = {
   xml: `<MasterSpread Self="base" Name="Base">${page('base-left', 0)}${page('base-right', 100)}${headFrame('base-left-frame', 'base-left-story', 0)}${headFrame('base-right-frame', 'base-right-story', 100)}</MasterSpread>`,
 }
 
-const baseStories = [story('base-left-story', 'Base verso', true), story('base-right-story', 'Base recto', true)]
+const baseStories = [story('base-left-story', 'Base verso', 'nested'), story('base-right-story', 'Base recto', 'nested')]
 
 test('composes matching page-level base folios below a master own marks', async () => {
   const child = {
@@ -134,7 +139,8 @@ test('continues to compose and link a spread-level base', async () => {
   }
   const result = await importIdml(
     await masterPackage([baseMaster, child], 'spread-child', [
-      ...baseStories,
+      story('base-left-story', 'Base verso', 'sibling'),
+      story('base-right-story', 'Base recto', 'sibling'),
       story('spread-left-story', 'Own verso'),
       story('spread-right-story', 'Own recto'),
     ]),
@@ -148,4 +154,73 @@ test('continues to compose and link a spread-level base', async () => {
   expect(result.book.parentPages[2]?.basedOn).toBe('idml-base-recto')
   const head = result.book.parentPages[2]?.head ?? ''
   expect(head.indexOf('Base recto')).toBeLessThan(head.indexOf('Own recto'))
+})
+
+test('positions inherited boxes against the applying master margins', async () => {
+  const wideBase = {
+    id: 'wide-base',
+    xml: `<MasterSpread Self="wide-base" Name="Wide Base">${page('wide-left', 0, undefined, undefined, 40)}${page('wide-right', 100, undefined, undefined, 40)}${headFrame('wide-left-frame', 'wide-left-story', 0)}${headFrame('wide-right-frame', 'wide-right-story', 100)}</MasterSpread>`,
+  }
+  const child = {
+    id: 'narrow-child',
+    xml: `<MasterSpread Self="narrow-child" Name="Narrow Child">${page('narrow-left', 0, 'wide-base')}${page('narrow-right', 100, 'wide-base')}</MasterSpread>`,
+  }
+  const result = await importIdml(
+    await masterPackage([wideBase, child], 'narrow-child', [story('wide-left-story', 'Verso'), story('wide-right-story', 'Recto')]),
+  )
+  expect(result.book.css).toContain(
+    ':where(.idml-master-frame-1){position:absolute;inset-inline-start:3.527778mm;inline-size:21.166667mm;inset-block-start:0.705556mm;block-size:2.116667mm}',
+  )
+})
+
+test('shadows a spread base when pages apply another master with no head', async () => {
+  const empty = {
+    id: 'empty',
+    xml: `<MasterSpread Self="empty" Name="Empty">${page('empty-left', 0)}${page('empty-right', 100)}</MasterSpread>`,
+  }
+  const child = {
+    id: 'shadow',
+    xml: `<MasterSpread Self="shadow" Name="Shadow" BasedOn="base">${page('shadow-left', 0, 'empty')}${page('shadow-right', 100, 'empty')}</MasterSpread>`,
+  }
+  const result = await importIdml(await masterPackage([baseMaster, empty, child], 'shadow', baseStories))
+  const shadow = result.book.parentPages.find((parent) => parent.name === 'idml-shadow-recto')
+  expect(shadow?.head).toBe('<div class="idml-master-region"></div>')
+  expect(shadow?.head).not.toContain('Base recto')
+})
+
+test('shadows a spread base when master items are disabled', async () => {
+  const child = {
+    id: 'hidden-spread-base',
+    xml: `<MasterSpread Self="hidden-spread-base" Name="Hidden Spread Base" BasedOn="base" ShowMasterItems="false">${page('hidden-base-left', 0)}${page('hidden-base-right', 100)}</MasterSpread>`,
+  }
+  const result = await importIdml(await masterPackage([baseMaster, child], 'hidden-spread-base', baseStories))
+  const hidden = result.book.parentPages.find((parent) => parent.name === 'idml-hidden-spread-base-recto')
+  expect(hidden?.head).toBe('<div class="idml-master-region"></div>')
+  expect(hidden?.head).not.toContain('Base recto')
+})
+
+test('reports unknown page-level bases and off-region frames in consumed bases', async () => {
+  const unknown = {
+    id: 'unknown-child',
+    xml: `<MasterSpread Self="unknown-child" Name="Unknown Child">${page('unknown-left', 0, 'missing')}${page('unknown-right', 100, 'missing')}</MasterSpread>`,
+  }
+  const unknownResult = await importIdml(await masterPackage([unknown], 'unknown-child', []))
+  expect(unknownResult.report.unsupportedElements['master base unknown:missing']).toBe(2)
+  expect(unknownResult.report.locations['element:master base unknown:missing']).toEqual(['Unknown Child#unknown-right', 'Unknown Child#unknown-left'])
+
+  const offRegionBase = {
+    id: 'off-region-base',
+    xml: `<MasterSpread Self="off-region-base" Name="Off Region Base">${page('off-base-page', 0)}<TextFrame Self="off-frame" ParentStory="off-story"><PathGeometry><PathPointType Anchor="20 20"/><PathPointType Anchor="80 80"/></PathGeometry></TextFrame></MasterSpread>`,
+  }
+  const child = {
+    id: 'off-child',
+    xml: `<MasterSpread Self="off-child" Name="Off Child">${page('off-child-page', 0, 'off-region-base')}</MasterSpread>`,
+  }
+  const offResult = await importIdml(await masterPackage([offRegionBase, child], 'off-child', [story('off-story', 'Off region')]))
+  expect(offResult.report.locations['element:master TextFrame']).toEqual(['Off Region Base#off-frame'])
+})
+
+test('reports document pages that disable master items', async () => {
+  const result = await importIdml(await masterPackage([baseMaster], 'base', baseStories, false))
+  expect(result.report.locations['element:Page ShowMasterItems']).toEqual(['body-left'])
 })
