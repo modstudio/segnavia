@@ -5,6 +5,7 @@
 
 import { verifyBoard } from './verify/board.ts'
 import { verifyBooks } from './verify/books.ts'
+import { verifyBoundedPage } from './verify/bounded-page.ts'
 import { verifyCapture } from './verify/capture.ts'
 import { verifyComponents } from './verify/components.ts'
 import { verifyCssSanitizer } from './verify/css-sanitizer.ts'
@@ -42,6 +43,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyDocuments', run: () => verifyDocuments(h) },
   { name: 'verifyRtl', run: () => verifyRtl(h) },
   { name: 'verifySelection', run: () => verifySelection(h) },
+  { name: 'verifyBoundedPage', run: () => verifyBoundedPage(h) },
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },
   { name: 'verifySlots', run: () => verifySlots(h) },

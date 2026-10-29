@@ -1,9 +1,12 @@
 // <segnavia-page>: shows one page in a sandboxed frame. A fluid page takes
-// the element's width and grows to its content's height; a fixed page is
+// the element's width and grows to its content's height; with `bounded`, it takes
+// the element's host-sized box and scrolls inside its frame. A fixed page is
 // scaled to fit the element's width; a fixed width that grows does both. It
 // brings no appearance, only that geometry, which a host can override.
 //
-// Attributes: src (page JSON), unstyled (bring no styles at all). Properties: page, css, cspExtra, slots, motifs, fonts. `showUrl`
+// Attributes: src (page JSON), bounded (fluid pages take their box), unstyled
+// (bring no styles at all). Properties: page, bounded, css, cspExtra, slots,
+// motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
@@ -20,7 +23,7 @@ const PLACEHOLDER_HEIGHT = 150
 export const SELECTION_REPLY_MS = 2000
 
 export class SegnaviaPage extends HTMLElement {
-  static observedAttributes = ['src']
+  static observedAttributes = ['src', 'bounded']
   css = ''
   cspExtra = ''
   private pageValue: Page | null = null
@@ -38,6 +41,14 @@ export class SegnaviaPage extends HTMLElement {
   private selectionId = 0
   private selectionRequests = new Set<(reason: Error) => void>()
   private selectionReadyRequests = new Set<() => void>()
+
+  get bounded(): boolean {
+    return this.hasAttribute('bounded')
+  }
+
+  set bounded(value: boolean) {
+    this.toggleAttribute('bounded', value)
+  }
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -103,10 +114,14 @@ export class SegnaviaPage extends HTMLElement {
     this.resize.disconnect()
   }
 
-  async attributeChangedCallback(_: string, __: string | null, src: string | null) {
-    if (!src) return
-    const response = await fetch(new URL(src, location.href))
-    if (!response.ok) throw new Error(`The page at ${src} answered ${response.status}.`)
+  async attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'bounded') {
+      this.fit()
+      return
+    }
+    if (!value) return
+    const response = await fetch(new URL(value, location.href))
+    if (!response.ok) throw new Error(`The page at ${value} answered ${response.status}.`)
     this.load(await response.json())
   }
 
@@ -257,6 +272,15 @@ export class SegnaviaPage extends HTMLElement {
     const page = this.page
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
+    const fluidBounded = typeof page.size !== 'object' && this.bounded
+    if (fluidBounded) {
+      sheet.style.height = '100%'
+      sheet.style.removeProperty('transform')
+      this.style.removeProperty('height')
+      if (this.contentHeight) this.dataset.height = String(this.contentHeight)
+      else delete this.dataset.height
+      return
+    }
     const width = typeof page.size === 'object' ? page.size.width : null
     const scale = width === null ? 1 : Math.min(1, this.clientWidth / width)
     const height = this.contentHeight || PLACEHOLDER_HEIGHT

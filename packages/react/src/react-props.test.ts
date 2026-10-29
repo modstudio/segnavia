@@ -49,6 +49,14 @@ describe('React element prop wiring', () => {
     expect(labels).toBe(1)
   })
 
+  test('reflects the page bounded boolean as an attribute', () => {
+    const element = new FakeElement()
+    syncElementProps(ELEMENTS.page, element as unknown as HTMLElement, { bounded: true }, {})
+    expect(element.attributes.get('bounded')).toBe('')
+    syncElementProps(ELEMENTS.page, element as unknown as HTMLElement, { bounded: false }, { bounded: true })
+    expect(element.attributes.has('bounded')).toBe(false)
+  })
+
   test.each([
     [ELEMENTS.page, 'page'],
     [ELEMENTS.thumbnail, 'page'],
