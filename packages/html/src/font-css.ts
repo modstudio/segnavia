@@ -42,7 +42,8 @@ function isCssWeightNumber(value: string): boolean {
 
 function isCssWeight(value: FontFace['weight']): boolean {
   if (value === undefined) return true
-  if (typeof value === 'number') return Number.isInteger(value) && value >= 1 && value <= 1000
+  if (typeof value === 'number') return Number.isInteger(value) && isCssWeightNumber(String(value))
+  if (typeof value !== 'string') return false
   if (CSS_WEIGHT_KEYWORD.test(value) || isCssWeightNumber(value)) return true
   const range = value.split(' ')
   const low = range[0]

@@ -114,6 +114,15 @@ describe('fontCss', () => {
     )
   })
 
+  test('writes accepted keyword and numeric-string face weights', () => {
+    expect(fontCss({ app: new Map(), local: [face({ family: 'Bold Face', weight: 'bold' })] })).toBe(
+      '@font-face{font-family:"Bold Face";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:bold;font-style:normal;font-display:block}',
+    )
+    expect(fontCss({ app: new Map(), local: [face({ family: 'Numeric Face', weight: '700' })] })).toBe(
+      '@font-face{font-family:"Numeric Face";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:700;font-style:normal;font-display:block}',
+    )
+  })
+
   test('refuses a face weight, style or format that is not a CSS descriptor', () => {
     const weightMessage =
       "The face \"Face\" could not establish a CSS font-weight; supply a number 1-1000, two such numbers low then high, or 'normal' or 'bold' to clear this refusal."
@@ -135,6 +144,16 @@ describe('fontCss', () => {
       '100-900',
     ] as const) {
       const malformed = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: invalid })] })
+      expect(malformed).toThrow(FontCssRefusedError)
+      expect(malformed).toThrow(weightMessage)
+    }
+    for (const invalid of [0, 1001, 400.5]) {
+      const malformed = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: invalid })] })
+      expect(malformed).toThrow(FontCssRefusedError)
+      expect(malformed).toThrow(weightMessage)
+    }
+    for (const invalid of [null, {}, ['100 900']]) {
+      const malformed = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: invalid as unknown as FontFace['weight'] })] })
       expect(malformed).toThrow(FontCssRefusedError)
       expect(malformed).toThrow(weightMessage)
     }
