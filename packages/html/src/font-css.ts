@@ -10,7 +10,7 @@ export class FontCssRefusedError extends Error {
   }
 }
 
-const CSS_WEIGHT_KEYWORD = /^(?:normal|bold|bolder|lighter)$/
+const CSS_WEIGHT_KEYWORD = /^(?:normal|bold)$/
 const CSS_WEIGHT_NUMBER = /^(?:[1-9]\d{0,2}|1000)$/
 
 function mimeType(format: FontFormat): string {
@@ -36,10 +36,19 @@ function faceRefusal(font: FontFace, problem: string, remedy: string): FontCssRe
   return new FontCssRefusedError(`The face ${JSON.stringify(font.family)} could not establish ${problem}; ${remedy} to clear this refusal.`)
 }
 
+function isCssWeightNumber(value: string): boolean {
+  return CSS_WEIGHT_NUMBER.test(value)
+}
+
 function isCssWeight(value: FontFace['weight']): boolean {
   if (value === undefined) return true
-  if (typeof value === 'number') return Number.isInteger(value) && value >= 1 && value <= 1000
-  return CSS_WEIGHT_KEYWORD.test(value) || (CSS_WEIGHT_NUMBER.test(value) && Number(value) >= 1 && Number(value) <= 1000)
+  if (typeof value === 'number') return Number.isInteger(value) && isCssWeightNumber(String(value))
+  if (typeof value !== 'string') return false
+  if (CSS_WEIGHT_KEYWORD.test(value) || isCssWeightNumber(value)) return true
+  const range = value.split(' ')
+  const low = range[0]
+  const high = range[1]
+  return range.length === 2 && low !== undefined && high !== undefined && isCssWeightNumber(low) && isCssWeightNumber(high) && Number(low) <= Number(high)
 }
 
 function isFontFormat(value: FontFace['format']): value is FontFormat {
@@ -67,7 +76,7 @@ function validatedFace(font: FontFace): FontFace {
     throw faceRefusal(font, `a font format that is one of ${FONT_FORMATS.join(', ')}`, `supply one of ${FONT_FORMATS.join(', ')}`)
   }
   if (!isCssWeight(font.weight)) {
-    throw faceRefusal(font, 'a CSS font-weight', 'supply a number 1-1000 or a CSS weight keyword')
+    throw faceRefusal(font, 'a CSS font-weight', "supply a number 1-1000, two such numbers low then high, or 'normal' or 'bold'")
   }
   if (font.style !== undefined && font.style !== 'normal' && font.style !== 'italic') {
     throw faceRefusal(font, "a font-style of 'normal' or 'italic'", "supply 'normal' or 'italic'")
