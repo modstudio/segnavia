@@ -4,9 +4,9 @@
 // scaled to fit the element's width; a fixed width that grows does both. It
 // brings no appearance, only that geometry, which a host can override.
 //
-// Attributes: src (page JSON), bounded (fluid pages take their box), unstyled
-// (bring no styles at all). Properties: page, bounded, css, cspExtra, slots,
-// motifs, fonts. `showUrl`
+// Attributes: src (page JSON), label (the frame's accessible name), bounded
+// (fluid pages take their box), unstyled (bring no styles at all). Properties:
+// page, label, bounded, css, cspExtra, slots, motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
@@ -23,7 +23,7 @@ const PLACEHOLDER_HEIGHT = 150
 export const SELECTION_REPLY_MS = 2000
 
 export class SegnaviaPage extends HTMLElement {
-  static observedAttributes = ['src', 'bounded']
+  static observedAttributes = ['src', 'bounded', 'label']
   css = ''
   cspExtra = ''
   private pageValue: Page | null = null
@@ -48,6 +48,15 @@ export class SegnaviaPage extends HTMLElement {
 
   set bounded(value: boolean) {
     this.toggleAttribute('bounded', value)
+  }
+
+  get label(): string {
+    return this.getAttribute('label') ?? ''
+  }
+
+  set label(value: string | null | undefined) {
+    if (value == null || value === '') this.removeAttribute('label')
+    else this.setAttribute('label', value)
   }
 
   get slots(): SlotsOptions | undefined {
@@ -117,6 +126,11 @@ export class SegnaviaPage extends HTMLElement {
   async attributeChangedCallback(name: string, _: string | null, value: string | null) {
     if (name === 'bounded') {
       this.fit()
+      return
+    }
+    if (name === 'label') {
+      const iframe = this.querySelector<HTMLIFrameElement>('iframe')
+      if (iframe) iframe.title = value || 'Page'
       return
     }
     if (!value) return
@@ -252,7 +266,7 @@ export class SegnaviaPage extends HTMLElement {
     sheet.style.width = typeof page.size === 'object' ? `${page.size.width}px` : '100%'
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
-    iframe.title = 'Page'
+    iframe.title = this.label || 'Page'
     sheet.append(iframe)
     this.replaceChildren(sheet)
     return iframe

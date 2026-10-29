@@ -57,6 +57,14 @@ describe('React element prop wiring', () => {
     expect(element.attributes.has('bounded')).toBe(false)
   })
 
+  test('reflects the page label as an attribute', () => {
+    const element = new FakeElement()
+    syncElementProps(ELEMENTS.page, element as unknown as HTMLElement, { label: 'Notice' }, {})
+    expect(element.attributes.get('label')).toBe('Notice')
+    syncElementProps(ELEMENTS.page, element as unknown as HTMLElement, { label: undefined }, { label: 'Notice' })
+    expect(element.attributes.has('label')).toBe(false)
+  })
+
   test.each([
     [ELEMENTS.page, 'page'],
     [ELEMENTS.thumbnail, 'page'],
