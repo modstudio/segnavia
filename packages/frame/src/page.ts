@@ -14,13 +14,15 @@
 
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce, type PageSelection, SELECTION_TEXT_LIMIT, selectionMessage } from './bridge.ts'
+import { frameDocument, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
-export const SELECTION_REPLY_MS = 2000
+
+export { SELECTION_REPLY_MS } from './selection-request.ts'
 
 export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src', 'bounded', 'label']
@@ -38,7 +40,6 @@ export class SegnaviaPage extends HTMLElement {
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
   private hostServed = false
   private frameReady = false
-  private selectionId = 0
   private selectionRequests = new Set<(reason: Error) => void>()
   private selectionReadyRequests = new Set<() => void>()
 
@@ -223,34 +224,24 @@ export class SegnaviaPage extends HTMLElement {
           'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
         ),
       )
-    this.selectionId = (this.selectionId % Number.MAX_SAFE_INTEGER) + 1
-    const id = this.selectionId
-    return new Promise((resolve, reject) => {
-      let timer: ReturnType<typeof setTimeout>
-      const post = () => frameWindow.postMessage({ type: MESSAGE.selectionRequest, id }, '*')
-      const finish = (result: PageSelection | Error) => {
-        window.removeEventListener('message', onMessage)
-        clearTimeout(timer)
-        this.selectionRequests.delete(replaced)
-        this.selectionReadyRequests.delete(post)
-        result instanceof Error ? reject(result) : resolve(result)
-      }
-      const replaced = (reason: Error) => finish(reason)
-      const onMessage = (event: MessageEvent) => {
-        const result = selectionMessage(event, frame, id)
-        if (result && 'selection' in result) finish(result.selection)
-        else if (result && 'oversize' in result)
-          finish(new Error(`Cannot read the selection because its reply is longer than the ${SELECTION_TEXT_LIMIT}-unit limit. Shorten the page or selection.`))
-      }
-      window.addEventListener('message', onMessage)
-      this.selectionRequests.add(replaced)
-      timer = setTimeout(
-        () => finish(new Error(`Cannot read the selection because the page did not send a valid reply within ${SELECTION_REPLY_MS} ms. Try again.`)),
-        SELECTION_REPLY_MS,
-      )
-      if (this.frameReady) post()
-      else this.selectionReadyRequests.add(post)
-    })
+    const request = requestSelection(
+      frame,
+      (post) => {
+        if (this.frameReady) {
+          post()
+          return () => {}
+        }
+        this.selectionReadyRequests.add(post)
+        return () => this.selectionReadyRequests.delete(post)
+      },
+      'page',
+    )
+    this.selectionRequests.add(request.cancel)
+    void request.promise.then(
+      () => this.selectionRequests.delete(request.cancel),
+      () => this.selectionRequests.delete(request.cancel),
+    )
+    return request.promise
   }
 
   private mount(page: Page): HTMLIFrameElement {

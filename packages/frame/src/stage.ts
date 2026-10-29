@@ -13,15 +13,17 @@
 
 import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { animationMessage, MESSAGE, messageFrom } from './bridge.ts'
+import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
+import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
@@ -42,7 +44,7 @@ export class SegnaviaStage extends HTMLElement {
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
-  private pool = new FramePool(this, () => this.measure())
+  private pool = new FramePool(this, () => this.poolChanged())
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
@@ -51,12 +53,14 @@ export class SegnaviaStage extends HTMLElement {
   private slotDeck: DeckState['deck'] = null
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
+  private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
 
   set slots(value: SlotsOptions | undefined) {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotGeneration++
     this.slotOptions = value
@@ -117,6 +121,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   set controller(controller: DeckController | null) {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotGeneration++
     this.slotDeck = null
@@ -148,6 +153,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotDeck = null
     this.resolvedSlots = undefined
@@ -176,7 +182,11 @@ export class SegnaviaStage extends HTMLElement {
     if (value) this.loadSource()
   }
 
-  private onChange = (event: Event) => this.update((event as CustomEvent<DeckState>).detail)
+  private onChange = (event: Event) => {
+    const state = (event as CustomEvent<DeckState>).detail
+    this.cancelSelectionRequestsExcept(state.slide?.id)
+    this.update(state)
+  }
 
   private loadSource() {
     const src = this.getAttribute('src')
@@ -187,6 +197,22 @@ export class SegnaviaStage extends HTMLElement {
       this.controller = this.owned
     }
     void this.owned.loadUrl(src)
+  }
+
+  readSelection(): Promise<PageSelection> {
+    const state = this.attached?.state
+    const slideId = state?.slide?.id
+    const frame = slideId ? this.pool.shownFrame(slideId) : null
+    const scripts = state?.deck ? shownScripts(state.deck.scripts, this.authoringRefusesScripts) : null
+    const refusal = stageSelectionRefusal(state?.content ?? null, scripts, frame !== null)
+    if (refusal || !frame) return Promise.reject(refusal)
+    const request = requestSelection(frame, (post) => this.pool.waitForActiveFrame(frame, post), 'slide')
+    this.selectionRequests.set(request.cancel, { frame, slideId: slideId as string })
+    void request.promise.then(
+      () => this.selectionRequests.delete(request.cancel),
+      () => this.selectionRequests.delete(request.cancel),
+    )
+    return request.promise
   }
 
   private update(state: DeckState) {
@@ -226,7 +252,8 @@ export class SegnaviaStage extends HTMLElement {
     if (!this.resolvedSlots) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
-    const shownState = this.authoringRefusesScripts && deck.scripts !== 'refuse' ? { ...state, deck: { ...deck, scripts: 'refuse' as const } } : state
+    const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
+    const shownState = scripts === deck.scripts ? state : { ...state, deck: { ...deck, scripts } }
     this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,
       css: this.css,
@@ -300,6 +327,27 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private onResize = () => this.measure()
+
+  private poolChanged() {
+    const active = this.pool.activeFrame()
+    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
+    for (const [cancel, { frame }] of this.selectionRequests) {
+      if (frame !== active) cancel(reason)
+    }
+    this.measure()
+  }
+
+  private cancelSelectionRequests() {
+    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
+    for (const cancel of [...this.selectionRequests.keys()]) cancel(reason)
+  }
+
+  private cancelSelectionRequestsExcept(slideId: string | undefined) {
+    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
+    for (const [cancel, request] of this.selectionRequests) {
+      if (request.slideId !== slideId) cancel(reason)
+    }
+  }
 
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()

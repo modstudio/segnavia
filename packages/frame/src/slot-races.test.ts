@@ -231,6 +231,7 @@ test('stage invalidates a pending fill when slot options are removed', async () 
   const stage = {
     isConnected: true,
     slotPreparation: undefined,
+    cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaStage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     slotDeck: null,
     slotGeneration: 0,

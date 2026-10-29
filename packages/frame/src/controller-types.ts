@@ -5,6 +5,7 @@ type FormatResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
 export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {
   reuseKey?: string
   bridge?: true
+  scripts?: 'refuse'
 }
 
 export type ResolvedContent = Exclude<FormatResolvedContent, { kind: 'url' }> | ResolvedUrlContent

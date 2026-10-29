@@ -6,6 +6,10 @@ interface SelectionPage extends HTMLElement {
   showUrl(url: string): void
 }
 
+interface SelectionStage extends HTMLElement {
+  readSelection(): Promise<{ text: string; pageText: string }>
+}
+
 export async function verifySelection(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('page.html'))
@@ -88,4 +92,19 @@ export async function verifySelection(h: Harness) {
     }
   })
   check('a host-served page refuses selection reads by name', urlRefusal.includes('host-served document') && urlRefusal.includes('showUrl'), urlRefusal)
+
+  const stageSelection = await page.evaluate(async () => {
+    const stage = document.createElement('segnavia-stage') as SelectionStage
+    const deck = {
+      title: 'Selection',
+      scripts: 'refuse',
+      slides: [{ id: 'selection', content: { kind: 'html', html: '<p>Shown slide text</p>' } }],
+    }
+    stage.setAttribute('hash', 'off')
+    stage.setAttribute('src', URL.createObjectURL(new Blob([JSON.stringify(deck)], { type: 'application/json' })))
+    document.body.append(stage)
+    while (!stage.querySelector('iframe')) await new Promise(requestAnimationFrame)
+    return stage.readSelection()
+  })
+  check('a stage reads the selection from its shown refused-script slide', stageSelection.pageText.includes('Shown slide text'), JSON.stringify(stageSelection))
 }
