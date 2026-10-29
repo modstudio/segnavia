@@ -77,9 +77,12 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   while the bridge still runs. Never add `allow-same-origin`.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
-  a ready signal, an animation report and a bounded slot-fit report. Slot fit
-  is safe because filled items refuse author scripts, leaving only the
-  nonce-authorized bridge able to post from a filled frame.
+  a ready signal, an animation report, a bounded slot-fit report and, on a
+  refused-script page, a bounded selection reply to a request from its host.
+  Slot fit is safe because filled items refuse author scripts, leaving only
+  the nonce-authorized bridge able to post from a filled frame. A selection
+  request is answered only where author scripts are refused, so only the
+  nonce-authorized bridge can post the reply.
 - Rendering is offline. Never let a render reach the network.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.

@@ -10,6 +10,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyPlayer',
   'verifyPlayerLayout',
   'verifyRtl',
+  'verifySelection',
   'verifyDeckHost',
   'verifyPages',
   'verifyBoard',

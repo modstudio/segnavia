@@ -35,7 +35,7 @@ export { HEADLESS_ELEMENT_NAMES, HEADLESS_ELEMENTS } from './headless-elements.t
 export { type DeckAction, keyAction } from './keys.ts'
 export type { BoardLabels } from './labels.ts'
 export type { MotifsOptions } from './motif-expansion.ts'
-export { SegnaviaPage } from './page.ts'
+export { type PageSelection, SELECTION_REPLY_MS, SegnaviaPage } from './page.ts'
 export { FontRefusedError, type FontsOptions } from './page-fonts.ts'
 export { SegnaviaPaper } from './paper.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'

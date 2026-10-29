@@ -92,7 +92,8 @@ only the presentation scale and does not paginate again. Paginated print uses
 the server-safe `@segnavia/frame/book-document` entry, which embeds
 `paginateScript()` under the bridge nonce. Contents and note links are ordinary
 in-page anchors handled inside the frame, and the bridge carries only its
-existing key, height and ready messages.
+existing key, height and ready messages unless its parent requests the bounded
+selection reply available to refused-script documents.
 
 The element emits `ready` when that bridge message arrives and emits `error`
 with `detail.message` when loading or validating an input fails.
@@ -109,6 +110,7 @@ retains the final override in every render view.
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
 | `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |
+| `readSelection()` | `<segnavia-page>` | The reader's current selection string and the page's `innerText` from a page whose author scripts are refused. The bridge answers only a request from its parent. Both strings keep their document order without reordering for direction. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, page `<segnavia-thumbnail>` views, live board page and paper items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Decks, slides and books do not expand motif placements. |
 | `Page.printedPages` | `pagePdf`, `pagesPdf` and browser `printPages` | Named parent pages supply inherited head and foot motif regions plus logical margins. Rules choose first, last, recto, verso or default furniture for each printed page. The frame composer measures Chromium multicol fragmentation and builds exact paper boxes; motif data remains host-expanded while the composer supplies the reserved formatted `printedPage.number` and `printedPage.total` context. Composition waits for fonts and images, and printing waits for the composer; a failure, an unready browser frame or more than `PRINTED_PAGE_LIMIT` papers is refused. Browser print first measures the composed page count, then lays out one sandboxed frame per printed paper, each composing only its numbered paper. A page with printed pages must refuse scripts and carry print paper without bleed, marks or `print.margin`. Furniture taller than its region is reported as overflow. Printed pages accept only an identity imposition: one full-paper cell at the page's own paper, with no margins, gaps, bleed, marks, skip, fold or second side. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
@@ -629,10 +631,13 @@ deterministic integration paths. The outer print document contains no inline
 script: host-context code paginates notes and places natural images after
 readiness, so a strict host content security policy cannot disable either.
 
-The frame bridge sends only five kinds of messages to its host: a relayed key,
-height, readiness, animation timing and slot fit. A filled item's author
-scripts are refused, so only the nonce-authorized bridge can send its bounded
-slot-fit record. A non-default text-slot overflow is marked on its bound
+The frame bridge sends a relayed key, height, readiness, animation timing and
+slot fit to its host. A host sends `segnavia:selection-request`, and the bridge
+answers its parent with `segnavia:selection`, containing the reader's selection
+string and the page's `innerText`, only on a refused-script page. Both bounded
+strings retain document order without reordering for direction. A filled
+item's author scripts are refused, so only the nonce-authorized bridge can send
+its bounded slot-fit record. A non-default text-slot overflow is marked on its bound
 element as `data-slot-overflow="<percent-encoded key>:<mode>[:<minimum px>]"`.
 After images and fonts settle, the bridge applies truncation or shrinking,
 measures the element's own inline and block overflow, and reports one worst

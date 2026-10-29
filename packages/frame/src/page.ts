@@ -11,12 +11,14 @@
 
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { frameDocument, MESSAGE, messageFrom, newNonce, type PageSelection, SELECTION_TEXT_LIMIT, selectionMessage } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
+export const SELECTION_REPLY_MS = 2000
+export type { PageSelection } from './bridge.ts'
 
 export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src']
@@ -32,6 +34,9 @@ export class SegnaviaPage extends HTMLElement {
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
+  private hostServed = false
+  private selectionId = 0
+  private selectionRequests = new Set<(reason: Error) => void>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -66,11 +71,13 @@ export class SegnaviaPage extends HTMLElement {
 
   set page(value: PageInput | Page | null | undefined) {
     if (value == null) {
+      this.cancelSelectionRequests?.()
       this.cancelSlotPreparation()
       this.loadGeneration++
       this.resolvedSlots = undefined
       this.slotFrame = undefined
       this.pageValue = null
+      this.hostServed = false
       this.contentHeight = 0
       this.replaceChildren()
       this.style.removeProperty('height')
@@ -103,6 +110,8 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
+    this.cancelSelectionRequests?.()
+    this.hostServed = false
     this.cancelSlotPreparation()
     this.resolvedSlots = undefined
     this.slotFrame = undefined
@@ -156,6 +165,8 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   showUrl(url: string, size: Page['size'] = 'fluid') {
+    this.cancelSelectionRequests?.()
+    this.hostServed = true
     this.cancelSlotPreparation()
     this.loadGeneration++
     this.resolvedSlots = undefined
@@ -163,6 +174,60 @@ export class SegnaviaPage extends HTMLElement {
     const iframe = this.mount(Page.parse({ html: '', size }))
     iframe.src = new URL(url, location.href).href
     this.fit()
+  }
+
+  readSelection(): Promise<PageSelection> {
+    const page = this.page
+    const frame = this.querySelector('iframe')
+    const frameWindow = frame?.contentWindow
+    if (!page || !frame || !frameWindow)
+      return Promise.reject(new Error('Cannot read the selection because no page is shown or no frame is mounted. Show a page before reading its selection.'))
+    if (this.hostServed)
+      return Promise.reject(
+        new Error('Cannot read the selection from a host-served document. Load a page whose author scripts are refused instead of using showUrl.'),
+      )
+    if (page.scripts !== 'refuse')
+      return Promise.reject(
+        new Error(
+          'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
+        ),
+      )
+    this.selectionId = (this.selectionId % Number.MAX_SAFE_INTEGER) + 1
+    const id = this.selectionId
+    return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout>
+      const finish = (result: PageSelection | Error) => {
+        window.removeEventListener('message', onMessage)
+        clearTimeout(timer)
+        this.selectionRequests.delete(replaced)
+        result instanceof Error ? reject(result) : resolve(result)
+      }
+      const replaced = (reason: Error) => finish(reason)
+      const onMessage = (event: MessageEvent) => {
+        const result = selectionMessage(event, frame, id)
+        if (result) {
+          finish(result)
+          return
+        }
+        const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
+        if (
+          event.source === frameWindow &&
+          data?.type === MESSAGE.selection &&
+          data.id === id &&
+          typeof data.text === 'string' &&
+          typeof data.pageText === 'string' &&
+          (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT)
+        )
+          finish(new Error(`Cannot read the selection because its reply is longer than the ${SELECTION_TEXT_LIMIT}-unit limit. Shorten the page or selection.`))
+      }
+      window.addEventListener('message', onMessage)
+      this.selectionRequests.add(replaced)
+      timer = setTimeout(
+        () => finish(new Error(`Cannot read the selection because the page did not send a valid reply within ${SELECTION_REPLY_MS} ms. Try again.`)),
+        SELECTION_REPLY_MS,
+      )
+      frameWindow.postMessage({ type: MESSAGE.selectionRequest, id }, '*')
+    })
   }
 
   private mount(page: Page): HTMLIFrameElement {
@@ -186,6 +251,11 @@ export class SegnaviaPage extends HTMLElement {
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
+  }
+
+  private cancelSelectionRequests() {
+    const reason = new Error('Cannot read the selection because the page changed before it replied. Read the selection from the current page.')
+    for (const cancel of [...this.selectionRequests]) cancel(reason)
   }
 
   private fit() {
