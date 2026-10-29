@@ -77,6 +77,13 @@ export class FramePool {
     return this.host.querySelector<HTMLIFrameElement>('.segnavia-stage__canvas[data-active] iframe')
   }
 
+  waitForActiveFrame(frame: HTMLIFrameElement, ready: () => void): () => void {
+    for (const entry of this.entries.values()) {
+      if (entry.canvas.querySelector('iframe') === frame) return entry.waitForSelection(ready)
+    }
+    return () => {}
+  }
+
   markReady(source: MessageEventSource | null) {
     for (const entry of this.entries.values()) {
       const frame = entry.canvas.querySelector('iframe')

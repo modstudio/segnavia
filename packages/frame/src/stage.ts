@@ -13,15 +13,17 @@
 
 import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { animationMessage, MESSAGE, messageFrom } from './bridge.ts'
+import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
+import { stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
@@ -42,7 +44,7 @@ export class SegnaviaStage extends HTMLElement {
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
-  private pool = new FramePool(this, () => this.measure())
+  private pool = new FramePool(this, () => this.poolChanged())
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
@@ -51,6 +53,7 @@ export class SegnaviaStage extends HTMLElement {
   private slotDeck: DeckState['deck'] = null
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
+  private selectionRequests = new Map<(reason: Error) => void, HTMLIFrameElement>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -117,6 +120,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   set controller(controller: DeckController | null) {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotGeneration++
     this.slotDeck = null
@@ -148,6 +152,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotDeck = null
     this.resolvedSlots = undefined
@@ -187,6 +192,21 @@ export class SegnaviaStage extends HTMLElement {
       this.controller = this.owned
     }
     void this.owned.loadUrl(src)
+  }
+
+  readSelection(): Promise<PageSelection> {
+    const state = this.attached?.state
+    const frame = this.pool.activeFrame()
+    const shownScripts = this.authoringRefusesScripts && state?.deck?.scripts !== 'refuse' ? 'refuse' : (state?.deck?.scripts ?? null)
+    const refusal = stageSelectionRefusal(state?.content ?? null, shownScripts, frame !== null)
+    if (refusal || !frame) return Promise.reject(refusal)
+    const request = requestSelection(frame, (post) => this.pool.waitForActiveFrame(frame, post), 'slide')
+    this.selectionRequests.set(request.cancel, frame)
+    void request.promise.then(
+      () => this.selectionRequests.delete(request.cancel),
+      () => this.selectionRequests.delete(request.cancel),
+    )
+    return request.promise
   }
 
   private update(state: DeckState) {
@@ -300,6 +320,20 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private onResize = () => this.measure()
+
+  private poolChanged() {
+    const active = this.pool.activeFrame()
+    const reason = new Error('Cannot read the selection because the slide changed before it replied. Read the selection from the current slide.')
+    for (const [cancel, frame] of this.selectionRequests) {
+      if (frame !== active) cancel(reason)
+    }
+    this.measure()
+  }
+
+  private cancelSelectionRequests() {
+    const reason = new Error('Cannot read the selection because the slide changed before it replied. Read the selection from the current slide.')
+    for (const cancel of [...this.selectionRequests.keys()]) cancel(reason)
+  }
 
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
