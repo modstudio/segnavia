@@ -41,7 +41,6 @@ export class FrameEntry {
   }
 
   markReady() {
-    if (this.ready === 'failed') return
     this.ready = 'ready'
     this.cancelReadyTimeout()
     this.releaseSelectionWaiters()

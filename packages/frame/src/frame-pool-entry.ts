@@ -29,7 +29,7 @@ export function addFrame({ entries, events, host, index, content, state, control
   if (!deck || !slide) return null
   const existing = entries.get(slide.id)
   const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, pool.css, pool.csp)
-  if (existing && canReuseFrame(existing.ready, existing.value, comparable)) return existing.canvas
+  if (existing && canReuseFrame({ readiness: existing.ready, sameResolution: existing.content === content }, existing.value, comparable)) return existing.canvas
   const entry = new FrameEntry(slide.id, comparable, content)
   const canvas = stageCanvas(controller, deck, slide, index, content, pool.css, pool.csp, pool.frameTitle, () => entry.markLoaded(pool), pool.slots)
   entry.canvas = canvas
@@ -43,8 +43,13 @@ export function addFrame({ entries, events, host, index, content, state, control
   return canvas
 }
 
-export function canReuseFrame(readiness: FrameReadiness, current: ContentValue, next: ContentValue): boolean {
-  return readiness !== 'failed' && sameContent(current, next)
+interface FrameReuseState {
+  readiness: FrameReadiness
+  sameResolution: boolean
+}
+
+export function canReuseFrame(state: FrameReuseState, current: ContentValue, next: ContentValue): boolean {
+  return sameContent(current, next) && (state.readiness !== 'failed' || state.sameResolution)
 }
 
 export function removeFrame(entries: Map<string, FrameEntry>, controller: DeckController | null, events: FrameEvents, id: string, entry: FrameEntry) {
