@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
 import { verifyBookLayoutSwitching } from './book-layout-elements.ts'
+import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
@@ -311,6 +312,13 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await page.goto(h.url('book-paginated.html'))
+  const printStyle: Record<string, BookPageStyleFacts> = {}
+  for (const language of ['en', 'he'] as const) {
+    const frame = page.frameLocator(`#book-paginated-${language}`)
+    await frame.locator('html[data-segnavia-composed]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
+    printStyle[language] = await frame.locator('html').evaluate(bookPageStyleFacts)
+  }
   await page.addInitScript(() => {
     const messages: Array<{ id: string; data: unknown }> = []
     Object.defineProperty(window, '__bookMessages', { value: messages })
@@ -337,6 +345,13 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
     if (failure) throw new Error(`${id} composition failed: ${failure}`)
     const authorMark = await frame.locator('html').getAttribute('data-segnavia-author-script-ran')
     check(`${id} composes with author scripts refused`, authorMark === null, String(authorMark))
+    await frame.locator('[data-segnavia-pages] [data-segnavia-window] img').first().waitFor({ state: 'attached' })
+    await frame.locator('[data-segnavia-pages] .segnavia-contents-entry[data-level="2"]').first().waitFor({ state: 'attached' })
+    const screenStyle = await frame.locator('html').evaluate(bookPageStyleFacts)
+    const reference = printStyle[language]
+    if (!reference) throw new Error(`${id} has no print-style reference.`)
+    for (const comparison of bookPageStyleComparisons(reference, screenStyle))
+      check(`${id} ${comparison.name}`, comparison.matches, JSON.stringify(comparison.detail))
   }
 
   await verifyBookLayoutSwitching(h)
