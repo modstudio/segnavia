@@ -14,6 +14,7 @@ Object.assign(globalThis, {
 
 const { DeckController } = await import('./controller.ts')
 const { EMPTY_SLOTS } = await import('./slot-render.ts')
+const { StageFrameRebuilder } = await import('./stage-rebuild.ts')
 const { SegnaviaStage } = await import('./stage.ts')
 
 function stageHarness(controller: InstanceType<typeof DeckController>, mountedFrame = true) {
@@ -22,7 +23,6 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
   const stage = {
     isConnected: true,
     attached: controller,
-    rebuildGeneration: 0,
     slotPreparation: undefined,
     slotDeck: controller.state.deck,
     slotGeneration: 0,
@@ -49,9 +49,16 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaStage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
-    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, controllerUnchanged: boolean): void }).rebuild,
     update: (SegnaviaStage.prototype as unknown as { update(state: DeckState): void }).update,
   }
+  Object.assign(stage, {
+    frameRebuilder: new StageFrameRebuilder(
+      stage.pool,
+      () => stage.attached,
+      () => stage.isConnected,
+      (state) => stage.update(state),
+    ),
+  })
   return { rendered, stage }
 }
 

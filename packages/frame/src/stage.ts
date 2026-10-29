@@ -23,7 +23,7 @@ import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
-import { stageRebuildAction } from './stage-rebuild.ts'
+import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
@@ -54,7 +54,12 @@ export class SegnaviaStage extends HTMLElement {
   private slotDeck: DeckState['deck'] = null
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
-  private rebuildGeneration = 0
+  private frameRebuilder = new StageFrameRebuilder(
+    this.pool,
+    () => this.attached,
+    () => this.isConnected,
+    (state) => this.update(state),
+  )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
 
   get slots(): SlotsOptions | undefined {
@@ -133,7 +138,7 @@ export class SegnaviaStage extends HTMLElement {
     if (this.isConnected) controller?.connectWindow()
     else controller?.disconnectWindow()
     controller?.addEventListener('change', this.onChange)
-    this.rebuild(controller, controllerUnchanged)
+    this.frameRebuilder.rebuild(controller, controllerUnchanged)
     // Styled components pointing at this stage with `for` connect on this.
     this.dispatchEvent(new CustomEvent('segnavia-controller', { bubbles: true, composed: true }))
   }
@@ -354,24 +359,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   private rebuildFrames() {
-    this.rebuild(this.attached, true)
-  }
-
-  private rebuild(controller: DeckController | null, controllerUnchanged: boolean) {
-    const generation = ++this.rebuildGeneration
-    const slideId = controller?.state.slide?.id
-    const shownFrameMounted = Boolean(slideId && this.pool.hasMountedFrame(slideId))
-    const action = stageRebuildAction(controllerUnchanged, shownFrameMounted, Boolean(controller?.resolveSlide))
-    this.pool.clear()
-    if (!controller?.state.deck) return
-    if (action === 'update') {
-      this.update(controller.state)
-      return
-    }
-    void controller.refreshContent().then((result) => {
-      if (result === 'superseded' || generation !== this.rebuildGeneration || !this.isConnected || this.attached !== controller) return
-      this.update(controller.state)
-    })
+    this.frameRebuilder.rebuild(this.attached, true)
   }
 
   freezeAuthoringFrame(slideId: string, atMs: number) {

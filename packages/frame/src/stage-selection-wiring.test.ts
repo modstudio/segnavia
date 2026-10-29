@@ -98,6 +98,7 @@ function harness(scripts: 'refuse' | 'sandboxed' = 'refuse') {
       cancelPending() {},
       releaseWaits() {},
     },
+    frameRebuilder: { rebuild() {} },
     update() {},
   })
   const dispatch = (source: unknown, data: unknown) => {
