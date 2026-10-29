@@ -37,6 +37,22 @@ it, including that `package.json` and the manifest agree. Its rules:
 - A boundary that is not in `architecture.ts` is not a boundary. Add the rule
   there before relying on it.
 
+## Model before branching
+
+Behavior follows from a model of the real thing; outcomes are computed from
+it, never special-cased. Every conditional that picks a behavior raises a
+question: what fact does this branch stand for, and where does that fact
+belong in the model? Usually the answer moves the branch into data: a field,
+a setting, a computed value, a table.
+
+When several conditions combine, step back before writing them. Name the
+dimensions the cases vary along, write out the matrix of their combinations,
+and model the dimensions, so the code reads the model instead of listing
+cases. A note's numbering and its placement are two settings, not two kinds
+of note; a document variant is a selection over named parts, not a set of
+toggles. A branch that resists being modeled means a concept is missing:
+find it rather than hard-coding the case.
+
 ## Code
 
 - Policy is a pure function over plain values. An adapter gathers facts and
