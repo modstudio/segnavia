@@ -2,19 +2,21 @@ import { BOOK_FURNITURE, MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection 
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
+import { parseDocument } from 'htmlparser2'
 import type { ReportCollector } from './report.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
+import type { IdmlAnchoredFrame, IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
 
-const OMITTED = new Set(['TextFrame', 'Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note'])
+const OMITTED = new Set(['Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note'])
 const WRAPPERS = new Set(['HyperlinkTextSource', 'XMLElement', 'Change'])
 
 interface Token {
-  kind: 'text' | 'paragraph' | 'variable' | 'processing-instruction'
+  kind: 'text' | 'paragraph' | 'variable' | 'processing-instruction' | 'anchored'
   text?: string
   character?: IdmlTextNode
   location: string
   variable?: string
+  anchored?: IdmlAnchoredFrame
 }
 
 export interface StoryHtmlInput {
@@ -31,6 +33,12 @@ export interface StoryHtmlResult {
   gutter?: number
 }
 
+export interface StoryHtmlOptions {
+  anchoredFrames?: Map<string, IdmlAnchoredFrame>
+  anchored?: (frame: IdmlAnchoredFrame) => string | undefined
+  inlineParagraphs?: boolean
+}
+
 function classes(...values: (string | undefined)[]): string | undefined {
   const joined = values.filter(Boolean).join(' ')
   return joined || undefined
@@ -44,8 +52,13 @@ function rangeAttributes(node: IdmlTextNode | undefined): Record<string, string>
   return result
 }
 
-function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
+function tokens(root: IdmlTextNode, report: ReportCollector, options: StoryHtmlOptions): Token[] {
   const result: Token[] = []
+  const addAnchored = (node: IdmlTextNode): void => {
+    const anchored = options.anchoredFrames?.get(node.location)
+    if (anchored) result.push({ kind: 'anchored', anchored, location: node.location })
+    else report.add(report.unsupportedElements, node.name, node.location)
+  }
   const terminal = (node: IdmlTextNode, character: IdmlTextNode | undefined): boolean => {
     if (node.name === 'Content') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
@@ -53,7 +66,8 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
       result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
     } else if (node.name === 'TextVariableInstance') {
       result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, character, location: node.location })
-    } else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
+    } else if (node.name === 'TextFrame') addAnchored(node)
+    else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
     else if (node.name === 'Properties') return true
     else if (node.name === 'Change' && node.attributes.ChangeType !== undefined && !node.attributes.ChangeType.includes('Inserted')) {
       report.add(report.unsupportedElements, 'Change', node.location)
@@ -149,6 +163,7 @@ function paragraphChildren(
   direction: 'ltr' | 'rtl',
   variables: IdmlTextVariable[],
   master: boolean,
+  options: StoryHtmlOptions,
 ): (Text | Element)[] {
   const children: (Text | Element)[] = []
   let marked: { variable: IdmlTextVariable; node: Element } | undefined
@@ -168,6 +183,14 @@ function paragraphChildren(
       continue
     }
     marked = undefined
+    if (token.kind === 'anchored' && token.anchored) {
+      const html = options.anchored?.(token.anchored)
+      if (html)
+        children.push(
+          ...parseDocument(html, { xmlMode: false }).children.filter((child): child is Text | Element => child instanceof Text || child instanceof Element),
+        )
+      continue
+    }
     const furniture = furnitureNode(token, variables, master, styles, direction, report)
     if (furniture) children.push(furniture)
   }
@@ -195,6 +218,7 @@ function paragraphNode(
   frame: IdmlFramePreference | undefined,
   variables: IdmlTextVariable[],
   master: boolean,
+  options: StoryHtmlOptions,
 ): Element {
   const attributes = rangeAttributes(paragraph)
   const styleId = attributes.AppliedParagraphStyle
@@ -224,9 +248,13 @@ function paragraphNode(
   }
   if (span === 'SplitColumns') report.add(report.unsupportedStyleProperties, 'SpanColumnType:SplitColumns', paragraph.location)
 
-  const children = paragraphChildren(paragraphTokens, styles, report, resolvedDirection, variables, master)
+  const children = paragraphChildren(paragraphTokens, styles, report, resolvedDirection, variables, master, options)
   if (children.length === 0) children.push(new Element('br', {}, []))
-  return new Element('p', htmlAttributes, children)
+  return new Element(
+    options.inlineParagraphs ? 'span' : 'p',
+    options.inlineParagraphs ? { ...htmlAttributes, style: 'display:block' } : htmlAttributes,
+    children,
+  )
 }
 
 export function storyHtml(
@@ -235,8 +263,12 @@ export function storyHtml(
   report: ReportCollector,
   bookDirection: 'ltr' | 'rtl',
   bookLanguage: string | undefined,
+  options: StoryHtmlOptions = {},
 ): StoryHtmlResult {
-  if (!story.root) return { html: serialize(new Element('p', {}, [new Element('br', {}, [])]), { xmlMode: false, encodeEntities: 'utf8' }) }
+  if (!story.root) {
+    const empty = new Element(options.inlineParagraphs ? 'span' : 'p', options.inlineParagraphs ? { style: 'display:block' } : {}, [new Element('br', {}, [])])
+    return { html: serialize(empty, { xmlMode: false, encodeEntities: 'utf8' }) }
+  }
   const paragraphs: Element[] = []
   const paragraphRanges: IdmlTextNode[] = []
   const collectParagraphs = (node: IdmlTextNode): void => {
@@ -245,7 +277,7 @@ export function storyHtml(
   }
   collectParagraphs(story.root)
   for (const paragraph of paragraphRanges) {
-    const all = tokens(paragraph, report)
+    const all = tokens(paragraph, report, options)
     let current: Token[] = []
     const flush = () => {
       paragraphs.push(
@@ -260,6 +292,7 @@ export function storyHtml(
           story.frame,
           story.textVariables ?? [],
           story.master ?? false,
+          options,
         ),
       )
       current = []
@@ -270,6 +303,10 @@ export function storyHtml(
     }
     if (current.length > 0 || all.length === 0 || all.at(-1)?.kind !== 'paragraph') flush()
   }
-  if (paragraphs.length === 0) paragraphs.push(new Element('p', {}, [new Element('br', {}, [])]))
+  if (paragraphs.length === 0) {
+    paragraphs.push(
+      new Element(options.inlineParagraphs ? 'span' : 'p', options.inlineParagraphs ? { style: 'display:block' } : {}, [new Element('br', {}, [])]),
+    )
+  }
   return { html: serialize(paragraphs, { xmlMode: false, encodeEntities: 'utf8' }), ...(story.frame ? { gutter: story.frame.gutter } : {}) }
 }

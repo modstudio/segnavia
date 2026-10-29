@@ -37,6 +37,11 @@ become chapters, and the paragraph and character styles they use become
 `idml-*` classes in `Book.css`, with physical indents and alignment resolved
 to logical properties by each paragraph's direction. Single-column paragraphs
 in a multi-column frame carry `data-columns` within the bound `html` exports.
+Text frames anchored inline in story text become inline-block `idml-anchored`
+spans at their source position, with their nested paragraphs represented as
+block-displayed spans so paragraph HTML remains valid. Anchored-only stories do
+not become chapters; unsupported anchor positions and nesting beyond three
+levels are reported.
 For facing-page documents, `rectoOpenings` is on only when at least one emitted
 chapter has a source page and every such chapter's first source page is a recto.
 Chapters without a source page and claimed title-block headers are excluded, and

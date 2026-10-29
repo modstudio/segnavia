@@ -1,5 +1,6 @@
 import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
+import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
@@ -9,12 +10,13 @@ import { mapOpeners } from './openers.ts'
 import { reportPlacements } from './placement-report.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
-import { storyHtml } from './stories.ts'
+import { type StoryHtmlResult, storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
+import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
 
-function orderedStories(model: IdmlModel): IdmlStory[] {
+function orderedStories(model: IdmlModel, anchoredOnly = new Set<string>()): IdmlStory[] {
   const order = new Map<string, number>()
   for (const spread of model.spreads) {
     for (const page of spread.pages) {
@@ -23,7 +25,7 @@ function orderedStories(model: IdmlModel): IdmlStory[] {
   }
   const masterStories = new Set(model.masterStoryIds)
   return model.stories
-    .filter((story) => !masterStories.has(story.id))
+    .filter((story) => !masterStories.has(story.id) && !anchoredOnly.has(story.id))
     .sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
 }
 
@@ -56,13 +58,51 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection, fonts)
   const matchedVariables = matchVariables(model.textVariables ?? [], report)
   const bookLanguage = styles.rootLanguage()
-  const stories = orderedStories(model)
   const storyPages = storyPageUses(model)
-  const masters = mapMasters(model, matchedVariables, styles, report)
-  const mapped = stories.map((story) => ({
-    story,
-    mapped: storyHtml({ ...story, textVariables: matchedVariables }, styles, report, bookDirection, bookLanguage),
-  }))
+  const anchoredStoryIds = new Set((model.anchoredFrames ?? []).map((frame) => frame.story))
+  const anchoredOnly = new Set([...anchoredStoryIds].filter((story) => !storyPages.has(story)))
+  const stories = orderedStories(model, anchoredOnly)
+  const storyById = new Map(model.stories.map((story) => [story.id, story]))
+  const frameByLocation = new Map((model.anchoredFrames ?? []).map((frame) => [frame.location, frame]))
+  const renderStory = (story: IdmlStory, depth = 0, ancestors = new Set([story.id]), master = false): StoryHtmlResult =>
+    storyHtml({ ...story, textVariables: matchedVariables, master }, styles, report, bookDirection, bookLanguage, {
+      anchoredFrames: frameByLocation,
+      inlineParagraphs: depth > 0,
+      anchored: (frame): string | undefined => {
+        if (frame.position !== 'InlinePosition') {
+          report.add(report.unsupportedElements, `TextFrame anchored:${frame.position}`, frame.location)
+          return undefined
+        }
+        if (ancestors.has(frame.story)) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:cycle', frame.location)
+          return undefined
+        }
+        if (storyPages.has(frame.story)) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:InlinePosition', frame.location)
+          return undefined
+        }
+        if (depth >= 3) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:depth', frame.location)
+          return undefined
+        }
+        if (frame.width === undefined) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:missing geometry', frame.location)
+          return undefined
+        }
+        const nested = storyById.get(frame.story)
+        if (!nested) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:missing story', frame.location)
+          return undefined
+        }
+        const nestedAncestors = new Set(ancestors)
+        nestedAncestors.add(frame.story)
+        const html = renderStory(nested, depth + 1, nestedAncestors, master).html
+        const style = anchoredFrameStyle(frame, (color) => resolveSwatchColor(color, model.swatches ?? [], report, frame.location, 'fill'), bookDirection)
+        return `<span class="idml-anchored" style="${style}">${html}</span>`
+      },
+    })
+  const masters = mapMasters(model, matchedVariables, styles, report, (story) => renderStory(story, 0, new Set([story.id]), true))
+  const mapped = stories.map((story) => ({ story, mapped: renderStory(story) }))
   const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset)
   reportPlacements(model, openers.consumedPages, report)
   const emitted = mapped.filter(({ story }) => !openers.claimed.has(story.id))

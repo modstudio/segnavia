@@ -1,4 +1,5 @@
 import { type Element, isTag } from 'domhandler'
+import { parseAnchoredFrames } from './anchored-frames.ts'
 import { parseFonts } from './fonts.ts'
 import { FramePreferenceIndex } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
@@ -10,6 +11,7 @@ import { type IdmlReportData, ReportCollector } from './report.ts'
 import { parseStories } from './story-model.ts'
 import { parseStyles, parseSwatches } from './styles.ts'
 import type {
+  IdmlAnchoredFrame,
   IdmlDocumentPreferences,
   IdmlFont,
   IdmlFramePreference,
@@ -34,6 +36,7 @@ export interface IdmlModel {
   spreads: IdmlSpread[]
   masterSpreads: IdmlMasterSpread[]
   stories: IdmlStory[]
+  anchoredFrames?: IdmlAnchoredFrame[]
   masterStoryIds: string[]
   partsRead: string[]
   styles?: IdmlStyle[]
@@ -228,6 +231,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
   const spreadResult = spreads(parts, 'Spread', spreadSources(designmap, 'Spread'), report, framePreferences)
   const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), report, new FramePreferenceIndex())
   const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
+  const stories = parseStories(parts, framePreferences, report)
   return {
     id: attribute(document, 'Self') ?? 'IDML document',
     preferences: {
@@ -239,7 +243,11 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     },
     spreads: spreadResult.values as IdmlSpread[],
     masterSpreads: masterResult.values as IdmlMasterSpread[],
-    stories: parseStories(parts, framePreferences, report),
+    stories,
+    anchoredFrames: parseAnchoredFrames(
+      stories,
+      parts.flatMap((part) => part.all),
+    ),
     bodyFramePreferences: framePreferences.values(),
     textVariables: textVariables(designmap),
     masterStoryIds,

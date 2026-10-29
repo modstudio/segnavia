@@ -89,6 +89,23 @@ export interface IdmlStory {
   frame?: IdmlFramePreference
 }
 
+export interface IdmlAnchoredFrame {
+  hostStory: string
+  story: string
+  location: string
+  width?: number
+  position: string
+  anchorYoffset?: number
+  fill?: string
+  stroke?: { color: string; weight: number }
+  corners?: {
+    topLeft?: number
+    topRight?: number
+    bottomLeft?: number
+    bottomRight?: number
+  }
+}
+
 export interface IdmlTextVariable {
   id: string
   name: string
