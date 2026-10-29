@@ -11,7 +11,7 @@ export interface IdmlTextNode {
 export interface IdmlStyle {
   id: string
   name: string
-  kind: 'paragraph' | 'character'
+  kind: 'paragraph' | 'character' | 'object'
   basedOn?: string
   properties: Record<string, string>
   location: string
@@ -90,7 +90,6 @@ export interface IdmlStory {
 }
 
 export interface IdmlAnchoredFrame {
-  hostStory: string
   story: string
   location: string
   width?: number

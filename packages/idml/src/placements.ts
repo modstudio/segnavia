@@ -9,9 +9,13 @@ type Transform = [number, number, number, number, number, number]
 type Point = [number, number]
 const IDENTITY: Transform = [1, 0, 0, 1, 0, 0]
 
-function transform(element: Element): Transform {
-  const values = (attribute(element, 'ItemTransform') ?? '').trim().split(/\s+/).map(Number)
+export function itemTransform(value: string | undefined): Transform {
+  const values = (value ?? '').trim().split(/\s+/).map(Number)
   return values.length === 6 && values.every(Number.isFinite) ? (values as Transform) : IDENTITY
+}
+
+function transform(element: Element): Transform {
+  return itemTransform(attribute(element, 'ItemTransform'))
 }
 
 function compose(parent: Transform, child: Transform): Transform {
@@ -20,8 +24,13 @@ function compose(parent: Transform, child: Transform): Transform {
   return [a * e + c * f, b * e + d * f, a * g + c * h, b * g + d * h, a * u + c * v + x, b * u + d * v + y]
 }
 
-function apply(value: Transform, point: Point): Point {
+export function applyTransform(value: Transform, point: Point): Point {
   return [value[0] * point[0] + value[2] * point[1] + value[4], value[1] * point[0] + value[3] * point[1] + value[5]]
+}
+
+export function pointValue(value: string | undefined, fallback?: Point): Point | undefined {
+  const values = (value ?? '').trim().split(/\s+/).map(Number)
+  return values.length === 2 && values.every(Number.isFinite) ? (values as Point) : fallback
 }
 
 export function pageArea(element: Element): Point[] | undefined {
@@ -29,7 +38,12 @@ export function pageArea(element: Element): Point[] | undefined {
   if (value.length !== 4 || !value.every(Number.isFinite)) return undefined
   const [top, left, bottom, right] = value as [number, number, number, number]
   const matrix = transform(element)
-  return [apply(matrix, [left, top]), apply(matrix, [right, top]), apply(matrix, [right, bottom]), apply(matrix, [left, bottom])]
+  return [
+    applyTransform(matrix, [left, top]),
+    applyTransform(matrix, [right, top]),
+    applyTransform(matrix, [right, bottom]),
+    applyTransform(matrix, [left, bottom]),
+  ]
 }
 
 export function placementBounds(points: Point[]): IdmlBounds | undefined {
@@ -45,7 +59,7 @@ function frameBounds(element: Element, matrix: Transform): IdmlBounds | undefine
     .filter((value): value is string => value !== undefined)
     .map((value) => value.trim().split(/\s+/).map(Number))
     .filter((value): value is Point => value.length === 2 && value.every(Number.isFinite))
-    .map((point) => apply(matrix, point))
+    .map((point) => applyTransform(matrix, point))
   return placementBounds(anchors)
 }
 
@@ -110,8 +124,7 @@ function framePlacement(element: Element, matrix: Transform, location: string): 
 }
 
 function pointAttribute(element: Element, name: string, fallback?: Point): Point | undefined {
-  const values = (attribute(element, name) ?? '').trim().split(/\s+/).map(Number)
-  return values.length === 2 && values.every(Number.isFinite) ? (values as Point) : fallback
+  return pointValue(attribute(element, name), fallback)
 }
 
 function polygonPlacement(element: Element, matrix: Transform, location: string, group: string): PolygonPlacement | undefined {
@@ -121,9 +134,9 @@ function polygonPlacement(element: Element, matrix: Transform, location: string,
       return anchor
         ? [
             {
-              anchor: apply(matrix, anchor),
-              left: apply(matrix, pointAttribute(candidate, 'LeftDirection', anchor) as Point),
-              right: apply(matrix, pointAttribute(candidate, 'RightDirection', anchor) as Point),
+              anchor: applyTransform(matrix, anchor),
+              left: applyTransform(matrix, pointAttribute(candidate, 'LeftDirection', anchor) as Point),
+              right: applyTransform(matrix, pointAttribute(candidate, 'RightDirection', anchor) as Point),
             },
           ]
         : []

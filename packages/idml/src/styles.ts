@@ -9,6 +9,7 @@ import { idmlDirection, localName } from './xml.ts'
 
 const PARAGRAPH_ROOT = '$ID/[No paragraph style]'
 const CHARACTER_ROOT = '$ID/[No character style]'
+const OBJECT_ROOT = '$ID/[None]'
 function text(element: Element): string {
   return element.children
     .map((child) => ('data' in child ? child.data : isTag(child) ? text(child) : ''))
@@ -29,7 +30,7 @@ function properties(element: Element): Record<string, string> {
 
 export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
   const result: IdmlStyle[] = []
-  for (const kind of ['ParagraphStyle', 'CharacterStyle'] as const) {
+  for (const kind of ['ParagraphStyle', 'CharacterStyle', 'ObjectStyle'] as const) {
     for (const element of roots.filter((candidate) => localName(candidate.name) === kind)) {
       const values = properties(element)
       const id = values.Self
@@ -37,7 +38,7 @@ export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
       result.push({
         id,
         name: values.Name ?? id.split('/').at(-1) ?? id,
-        kind: kind === 'ParagraphStyle' ? 'paragraph' : 'character',
+        kind: kind === 'ParagraphStyle' ? 'paragraph' : kind === 'CharacterStyle' ? 'character' : 'object',
         ...(values.BasedOn ? { basedOn: values.BasedOn } : {}),
         properties: Object.fromEntries(Object.entries(values).filter(([name]) => !['Self', 'Name', 'BasedOn'].includes(name))),
         location: `${part}#${id}`,
@@ -62,7 +63,36 @@ export function parseSwatches(roots: Element[]): IdmlSwatch[] {
 }
 
 function rootName(kind: IdmlStyle['kind']): string {
-  return kind === 'paragraph' ? PARAGRAPH_ROOT : CHARACTER_ROOT
+  return kind === 'paragraph' ? PARAGRAPH_ROOT : kind === 'character' ? CHARACTER_ROOT : OBJECT_ROOT
+}
+
+function findStyle(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle | undefined {
+  if (!id) return undefined
+  const exact = styles.find((style) => style.id === id)
+  if (exact?.kind === kind) return exact
+  return styles.find((style) => style.kind === kind && (style.name === id || style.id.endsWith(`/${id}`)))
+}
+
+function rootStyle(styles: IdmlStyle[], kind: IdmlStyle['kind']): IdmlStyle | undefined {
+  return styles.find((style) => style.kind === kind && (style.name === rootName(kind) || style.id.endsWith(`/${rootName(kind)}`)))
+}
+
+function styleChain(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle[] {
+  const root = rootStyle(styles, kind)
+  const chain: IdmlStyle[] = []
+  const seen = new Set<string>()
+  let current = findStyle(styles, id, kind)
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id)
+    chain.unshift(current)
+    current = findStyle(styles, current.basedOn, kind)
+  }
+  if (root && !chain.includes(root)) chain.unshift(root)
+  return chain
+}
+
+export function flattenedStyle(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): Record<string, string> {
+  return Object.assign({}, ...styleChain(styles, id, kind).map((style) => style.properties))
 }
 
 function slug(value: string): string {
@@ -123,6 +153,7 @@ export class StyleMapper {
     this.byId = new Map(styles.map((style) => [style.id, style]))
     const taken = new Set<string>()
     for (const style of styles) {
+      if (style.kind === 'object') continue
       const prefix = style.kind === 'paragraph' ? 'idml-p-' : 'idml-c-'
       const base = `${prefix}${slug(style.name)}`
       let candidate = base
@@ -134,21 +165,11 @@ export class StyleMapper {
   }
 
   flattened(id: string | undefined, kind: IdmlStyle['kind']): Record<string, string> {
-    return Object.assign({}, ...this.styleChain(id, kind).map((style) => style.properties))
+    return flattenedStyle([...this.byId.values()], id, kind)
   }
 
   private styleChain(id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle[] {
-    const root = this.rootStyle(kind)
-    const chain: IdmlStyle[] = []
-    const seen = new Set<string>()
-    let current = this.findStyle(id, kind)
-    while (current && !seen.has(current.id)) {
-      seen.add(current.id)
-      chain.unshift(current)
-      current = this.findStyle(current.basedOn, kind)
-    }
-    if (root && !chain.includes(root)) chain.unshift(root)
-    return chain
+    return styleChain([...this.byId.values()], id, kind)
   }
 
   styleClass(id: string | undefined, _kind: IdmlStyle['kind']): string | undefined {
@@ -264,14 +285,11 @@ export class StyleMapper {
   }
 
   private findStyle(id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle | undefined {
-    if (!id) return undefined
-    const exact = this.byId.get(id)
-    if (exact?.kind === kind) return exact
-    return [...this.byId.values()].find((style) => style.kind === kind && (style.name === id || style.id.endsWith(`/${id}`)))
+    return findStyle([...this.byId.values()], id, kind)
   }
 
   private rootStyle(kind: IdmlStyle['kind']): IdmlStyle | undefined {
-    return [...this.byId.values()].find((style) => style.kind === kind && (style.name === rootName(kind) || style.id.endsWith(`/${rootName(kind)}`)))
+    return rootStyle([...this.byId.values()], kind)
   }
 
   private reportUnmappedStyleProperties(style: IdmlStyle): void {

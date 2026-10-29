@@ -5,7 +5,7 @@ import { Element, Text } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
 import type { ReportCollector } from './report.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlAnchoredFrame, IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
+import type { IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
 
 const OMITTED = new Set(['Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note'])
 const WRAPPERS = new Set(['HyperlinkTextSource', 'XMLElement', 'Change'])
@@ -16,7 +16,6 @@ interface Token {
   character?: IdmlTextNode
   location: string
   variable?: string
-  anchored?: IdmlAnchoredFrame
 }
 
 export interface StoryHtmlInput {
@@ -34,8 +33,7 @@ export interface StoryHtmlResult {
 }
 
 export interface StoryHtmlOptions {
-  anchoredFrames?: Map<string, IdmlAnchoredFrame>
-  anchored?: (frame: IdmlAnchoredFrame) => string | undefined
+  anchored?: (location: string, direction: 'ltr' | 'rtl') => string | undefined
   inlineParagraphs?: boolean
 }
 
@@ -52,13 +50,8 @@ function rangeAttributes(node: IdmlTextNode | undefined): Record<string, string>
   return result
 }
 
-function tokens(root: IdmlTextNode, report: ReportCollector, options: StoryHtmlOptions): Token[] {
+function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
   const result: Token[] = []
-  const addAnchored = (node: IdmlTextNode): void => {
-    const anchored = options.anchoredFrames?.get(node.location)
-    if (anchored) result.push({ kind: 'anchored', anchored, location: node.location })
-    else report.add(report.unsupportedElements, node.name, node.location)
-  }
   const terminal = (node: IdmlTextNode, character: IdmlTextNode | undefined): boolean => {
     if (node.name === 'Content') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
@@ -66,7 +59,7 @@ function tokens(root: IdmlTextNode, report: ReportCollector, options: StoryHtmlO
       result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
     } else if (node.name === 'TextVariableInstance') {
       result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, character, location: node.location })
-    } else if (node.name === 'TextFrame') addAnchored(node)
+    } else if (node.name === 'TextFrame') result.push({ kind: 'anchored', location: node.location })
     else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
     else if (node.name === 'Properties') return true
     else if (node.name === 'Change' && node.attributes.ChangeType !== undefined && !node.attributes.ChangeType.includes('Inserted')) {
@@ -183,12 +176,13 @@ function paragraphChildren(
       continue
     }
     marked = undefined
-    if (token.kind === 'anchored' && token.anchored) {
-      const html = options.anchored?.(token.anchored)
+    if (token.kind === 'anchored') {
+      const html = options.anchored?.(token.location, direction)
       if (html)
         children.push(
           ...parseDocument(html, { xmlMode: false }).children.filter((child): child is Text | Element => child instanceof Text || child instanceof Element),
         )
+      else if (!options.anchored) report.add(report.unsupportedElements, 'TextFrame', token.location)
       continue
     }
     const furniture = furnitureNode(token, variables, master, styles, direction, report)
@@ -277,7 +271,7 @@ export function storyHtml(
   }
   collectParagraphs(story.root)
   for (const paragraph of paragraphRanges) {
-    const all = tokens(paragraph, report, options)
+    const all = tokens(paragraph, report)
     let current: Token[] = []
     const flush = () => {
       paragraphs.push(

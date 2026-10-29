@@ -13,7 +13,7 @@ import { ReportCollector } from './report.ts'
 import { type StoryHtmlResult, storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
-import type { IdmlImportOptions } from './types.ts'
+import type { IdmlAnchoredFrame, IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
 
 function orderedStories(model: IdmlModel, anchoredOnly = new Set<string>()): IdmlStory[] {
@@ -44,6 +44,15 @@ function bodyColumnGap(model: IdmlModel, stories: IdmlStory[], report: ReportCol
   return selected
 }
 
+function anchoredFrameIssue(frame: IdmlAnchoredFrame, storyPages: { has(story: string): boolean }, depth: number, ancestors: Set<string>): string | undefined {
+  if (frame.position !== 'InlinePosition') return frame.position
+  if (ancestors.has(frame.story)) return 'cycle'
+  if (storyPages.has(frame.story)) return 'InlinePosition'
+  if (depth >= 3) return 'depth'
+  if (frame.width === undefined) return 'missing geometry'
+  return undefined
+}
+
 export function refuseActiveBookHtml(chapters: { html: string }[], parents: ParentPage[]): void {
   const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => [parent.head ?? '', parent.foot ?? ''])].join('')
   const active = findActiveContent(html)
@@ -66,27 +75,19 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const frameByLocation = new Map((model.anchoredFrames ?? []).map((frame) => [frame.location, frame]))
   const renderStory = (story: IdmlStory, depth = 0, ancestors = new Set([story.id]), master = false): StoryHtmlResult =>
     storyHtml({ ...story, textVariables: matchedVariables, master }, styles, report, bookDirection, bookLanguage, {
-      anchoredFrames: frameByLocation,
       inlineParagraphs: depth > 0,
-      anchored: (frame): string | undefined => {
-        if (frame.position !== 'InlinePosition') {
-          report.add(report.unsupportedElements, `TextFrame anchored:${frame.position}`, frame.location)
+      anchored: (location, direction): string | undefined => {
+        const frame = frameByLocation.get(location)
+        if (!frame) {
+          report.add(report.unsupportedElements, 'TextFrame', location)
           return undefined
         }
-        if (ancestors.has(frame.story)) {
-          report.add(report.unsupportedElements, 'TextFrame anchored:cycle', frame.location)
-          return undefined
+        if (frame.position === 'InlinePosition' && frame.anchorYoffset !== undefined && frame.anchorYoffset !== 0) {
+          report.add(report.unsupportedElements, 'TextFrame anchored:AnchorYoffset', frame.location)
         }
-        if (storyPages.has(frame.story)) {
-          report.add(report.unsupportedElements, 'TextFrame anchored:InlinePosition', frame.location)
-          return undefined
-        }
-        if (depth >= 3) {
-          report.add(report.unsupportedElements, 'TextFrame anchored:depth', frame.location)
-          return undefined
-        }
-        if (frame.width === undefined) {
-          report.add(report.unsupportedElements, 'TextFrame anchored:missing geometry', frame.location)
+        const issue = anchoredFrameIssue(frame, storyPages, depth, ancestors)
+        if (issue) {
+          report.add(report.unsupportedElements, `TextFrame anchored:${issue}`, frame.location)
           return undefined
         }
         const nested = storyById.get(frame.story)
@@ -97,7 +98,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
         const nestedAncestors = new Set(ancestors)
         nestedAncestors.add(frame.story)
         const html = renderStory(nested, depth + 1, nestedAncestors, master).html
-        const style = anchoredFrameStyle(frame, (color) => resolveSwatchColor(color, model.swatches ?? [], report, frame.location, 'fill'), bookDirection)
+        const style = anchoredFrameStyle(frame, (color) => resolveSwatchColor(color, model.swatches ?? [], report, frame.location, 'fill'), direction)
         return `<span class="idml-anchored" style="${style}">${html}</span>`
       },
     })

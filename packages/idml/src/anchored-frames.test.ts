@@ -6,10 +6,27 @@ import { testZip } from './zip.test-helper.ts'
 
 const mimetype = 'application/vnd.adobe.indesign-idml-package'
 const path = '<PathGeometry><PathPointType Anchor="0 0"/><PathPointType Anchor="82.456 10.6"/></PathGeometry>'
-const paragraph = (content: string) => `<ParagraphStyleRange><CharacterStyleRange>${content}</CharacterStyleRange></ParagraphStyleRange>`
+const paragraph = (content: string, attributes = '') =>
+  `<ParagraphStyleRange ${attributes}><CharacterStyleRange>${content}</CharacterStyleRange></ParagraphStyleRange>`
 const frame = (story: string, setting = '', extra = '') =>
   `<TextFrame ParentStory="${story}" ${extra}>${setting ? `<Properties><AnchoredObjectSetting ${setting}/></Properties>` : ''}${path}</TextFrame>`
-const story = (id: string, content: string) => ({ name: `Stories/Story_${id}.xml`, content: `<Story Self="${id}">${paragraph(content)}</Story>` })
+const story = (id: string, content: string, paragraphAttributes = '') => ({
+  name: `Stories/Story_${id}.xml`,
+  content: `<Story Self="${id}">${paragraph(content, paragraphAttributes)}</Story>`,
+})
+
+const boxResources = [
+  {
+    name: 'Resources/Styles.xml',
+    content:
+      '<idPkg:Styles><RootObjectStyleGroup><ObjectStyle Self="ObjectStyle/Base" FillColor="Color/Red"/><ObjectStyle Self="ObjectStyle/Label" BasedOn="ObjectStyle/Base" TopLeftCornerOption="RoundedCorner" TopLeftCornerRadius="4" StrokeWeight="1.5" StrokeColor="Color/Blue"/></RootObjectStyleGroup></idPkg:Styles>',
+  },
+  {
+    name: 'Resources/Graphic.xml',
+    content:
+      '<idPkg:Graphic><Color Self="Color/Red" Name="Red" Model="Process" Space="RGB" ColorValue="240 10 20"/><Color Self="Color/Blue" Name="Blue" Model="Process" Space="RGB" ColorValue="10 20 240"/></idPkg:Graphic>',
+  },
+]
 
 async function imported(stories: { name: string; content: string }[], spreadStories: string[] = ['host'], resources: { name: string; content: string }[] = []) {
   const placed = spreadStories.map((id, index) => `<TextFrame ParentStory="${id}" ItemTransform="1 0 0 1 ${index * 100} 0">${path}</TextFrame>`).join('')
@@ -68,18 +85,35 @@ test('maps an anchored frame object-style fill onto its inline box', async () =>
   const result = await imported(
     [story('host', frame('label', '', 'AppliedObjectStyle="ObjectStyle/Label"')), story('label', '<Content>filled</Content>')],
     ['host'],
-    [
-      {
-        name: 'Resources/Styles.xml',
-        content: '<idPkg:Styles><RootObjectStyleGroup><ObjectStyle Self="ObjectStyle/Label" FillColor="Color/Red"/></RootObjectStyleGroup></idPkg:Styles>',
-      },
-      {
-        name: 'Resources/Graphic.xml',
-        content: '<idPkg:Graphic><Color Self="Color/Red" Name="Red" Model="Process" Space="RGB" ColorValue="240 10 20"/></idPkg:Graphic>',
-      },
-    ],
+    boxResources,
   )
-  expect(chapterHtml(result)).toContain('background:rgb(240 10 20)')
+  const html = chapterHtml(result)
+  expect(html).toContain('background:rgb(240 10 20)')
+  expect(html).toContain('border:1.5pt solid rgb(10 20 240)')
+  expect(html).toContain('border-start-start-radius:4pt')
+})
+
+test('maps physical object-style corners against the host paragraph direction', async () => {
+  const result = await imported(
+    [story('host', frame('label', '', 'AppliedObjectStyle="ObjectStyle/Label"'), 'ParagraphDirection="RightToLeftDirection"'), story('label', 'rtl')],
+    ['host'],
+    boxResources,
+  )
+  const html = chapterHtml(result)
+  expect(html).toContain('border-start-end-radius:4pt')
+  expect(html).not.toContain('border-start-start-radius:4pt')
+})
+
+test('applies the frame transform to the inline size', async () => {
+  const result = await imported([story('host', frame('label', '', 'ItemTransform="2 0 0 2 0 0"')), story('label', 'scaled')])
+  expect(chapterHtml(result)).toContain('inline-size:164.91pt')
+})
+
+test('reports a nonzero anchor offset and keeps baseline alignment', async () => {
+  const result = await imported([story('host', frame('label', 'AnchoredPosition="InlinePosition" AnchorYoffset="3"')), story('label', 'offset')])
+  expect(chapterHtml(result)).toContain('vertical-align:baseline')
+  expect(result.report.unsupportedElements['TextFrame anchored:AnchorYoffset']).toBe(1)
+  expect(result.report.locations['element:TextFrame anchored:AnchorYoffset']?.[0]).toContain('Stories/Story_host.xml')
 })
 
 test('bounds nested anchored stories and reports cycles', async () => {
