@@ -35,8 +35,11 @@ accepts package bytes, refuses unsupported ZIP forms and bounded-resource
 violations, and returns a validated `Book` plus an import report. Body stories
 become chapters, and the paragraph and character styles they use become
 `idml-*` classes in `Book.css`, with physical indents and alignment resolved
-to logical properties by each paragraph's direction. Single-column paragraphs
-in a multi-column frame carry `data-columns` within the bound `html` exports.
+to logical properties by each paragraph's direction. Paragraph shading uses
+the resolved swatch and tint, and expands its logical padding while reducing
+the matching margins so its offsets do not move the text. Single-column
+paragraphs in a multi-column frame carry `data-columns` within the bound `html`
+exports.
 Text frames anchored inline in story text become inline-block `idml-anchored`
 spans at their source position, with their nested paragraphs represented as
 block-displayed spans so paragraph HTML remains valid. Anchored-only stories do

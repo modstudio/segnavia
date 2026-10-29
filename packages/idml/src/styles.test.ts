@@ -50,6 +50,109 @@ test('maps physical alignment and hanging indents to logical sides', () => {
   expect(mapper.css()).toContain('.idml-p-ltr{text-indent:-5pt;padding-inline-start:20pt;text-align:start}')
 })
 
+test('maps RTL paragraph shading with tint, offsets, and rounded corners', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [
+      style('shade', 'Shade', {
+        ParagraphDirection: 'RightToLeftDirection',
+        SpaceBefore: '4',
+        SpaceAfter: '3',
+        RightIndent: '10',
+        LeftIndent: '20',
+        ParagraphShadingOn: 'true',
+        ParagraphShadingColor: 'gray',
+        ParagraphShadingTint: '10',
+        ParagraphShadingTopOffset: '0.5',
+        ParagraphShadingBottomOffset: '0.5',
+        ParagraphShadingLeftOffset: '0.8',
+        ParagraphShadingRightOffset: '0.3',
+        ParagraphShadingTopLeftCornerOption: 'RoundedCorner',
+        ParagraphShadingTopLeftCornerRadius: '2',
+        ParagraphShadingTopRightCornerOption: 'RoundedCorner',
+        ParagraphShadingTopRightCornerRadius: '2',
+        ParagraphShadingBottomLeftCornerOption: 'RoundedCorner',
+        ParagraphShadingBottomLeftCornerRadius: '2',
+        ParagraphShadingBottomRightCornerOption: 'RoundedCorner',
+        ParagraphShadingBottomRightCornerRadius: '2',
+        ParagraphShadingWidth: 'Column',
+        ParagraphShadingTopOrigin: 'AscentTopOrigin',
+        ParagraphShadingBottomOrigin: 'DescentBottomOrigin',
+        ParagraphShadingClipToFrame: 'false',
+        ParagraphShadingSuppressPrinting: 'false',
+      }),
+    ],
+    [{ id: 'gray', name: 'Gray', model: 'rgb', values: [100, 110, 120] }],
+    report,
+    'rtl',
+  )
+  mapper.styleClass('shade', 'paragraph')
+  const css = mapper.css()
+  expect(css).toContain('margin-block-start:3.5pt;margin-block-end:2.5pt;padding-block-start:0.5pt;padding-block-end:0.5pt')
+  expect(css).toContain('padding-inline-start:10.3pt;padding-inline-end:20.8pt;margin-inline-start:-0.3pt;margin-inline-end:-0.8pt')
+  expect(css).toContain('background-color:color-mix(in srgb, rgb(100 110 120) 10%, #fff)')
+  expect(css).toContain('border-start-end-radius:2pt;border-start-start-radius:2pt;border-end-end-radius:2pt;border-end-start-radius:2pt')
+  expect(sanitizeBookCss(css).removed).toEqual([])
+  expect(report.data().unsupportedStyleProperties).toEqual({})
+})
+
+test('uses the plain shading color for full and unspecified tint', () => {
+  const mapper = new StyleMapper(
+    [
+      style('full', 'Full', { ParagraphShadingOn: 'true', ParagraphShadingColor: 'Color/Black', ParagraphShadingTint: '100' }),
+      style('none', 'None', { ParagraphShadingOn: 'true', ParagraphShadingColor: 'Color/Black', ParagraphShadingTint: '-1' }),
+    ],
+    [],
+    new ReportCollector(),
+    'ltr',
+  )
+  mapper.styleClass('full', 'paragraph')
+  mapper.styleClass('none', 'paragraph')
+  expect(mapper.css().match(/background-color:#000/g)).toHaveLength(2)
+})
+
+test('reports unresolved shading colors and unsupported text-width shading', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [style('missing', 'Missing', { ParagraphShadingOn: 'true', ParagraphShadingColor: 'Color/Missing', ParagraphShadingWidth: 'Text' })],
+    [],
+    report,
+    'ltr',
+  )
+  mapper.styleClass('missing', 'paragraph')
+  expect(mapper.css()).not.toContain('background-color')
+  expect(report.data().unsupportedStyleProperties).toEqual({ 'FillColor:Color/Missing': 1, ParagraphShadingWidth: 1 })
+})
+
+test('reports shading options that do not have CSS equivalents', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [
+      style('options', 'Options', {
+        ParagraphShadingOn: 'true',
+        ParagraphShadingColor: 'Color/Black',
+        ParagraphShadingTopLeftCornerOption: 'BevelCorner',
+        ParagraphShadingTopOrigin: 'LeadingTopOrigin',
+        ParagraphShadingBottomOrigin: 'BaselineBottomOrigin',
+        ParagraphShadingClipToFrame: 'true',
+        ParagraphShadingSuppressPrinting: 'true',
+      }),
+    ],
+    [],
+    report,
+    'ltr',
+  )
+  mapper.styleClass('options', 'paragraph')
+  mapper.css()
+  expect(report.data().unsupportedStyleProperties).toEqual({
+    ParagraphShadingBottomOrigin: 1,
+    ParagraphShadingClipToFrame: 1,
+    ParagraphShadingSuppressPrinting: 1,
+    ParagraphShadingTopLeftCornerOption: 1,
+    ParagraphShadingTopOrigin: 1,
+  })
+})
+
 test('maps keeps and deduplicates equal local override property sets', () => {
   const report = new ReportCollector()
   const mapper = new StyleMapper(

@@ -1,5 +1,6 @@
 import { type Element, isTag } from 'domhandler'
 import type { FontMapper } from './fonts.ts'
+import { paragraphBoxDeclarations } from './paragraph-shading.ts'
 import type { ReportCollector } from './report.ts'
 import { stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
@@ -266,13 +267,8 @@ export class StyleMapper {
     else pt('Leading', 'line-height')
     const tracking = Number(values.Tracking)
     if (mapped.has('Tracking') && Number.isFinite(tracking)) output.push(`letter-spacing:${tracking / 1000}em`)
-    pt('SpaceBefore', 'margin-block-start')
-    pt('SpaceAfter', 'margin-block-end')
     pt('FirstLineIndent', 'text-indent')
-    const startIndent = dir === 'rtl' ? 'RightIndent' : 'LeftIndent'
-    const endIndent = dir === 'rtl' ? 'LeftIndent' : 'RightIndent'
-    pt(startIndent, 'padding-inline-start')
-    pt(endIndent, 'padding-inline-end')
+    output.push(...paragraphBoxDeclarations({ values, mapped, direction: dir, swatches: this.swatches, report: this.report, unsupported, location }))
     textDeclarations(values, mapped, output)
     if (mapped.has('Justification')) this.justification(values.Justification, dir, output, location, unsupported)
     if (hasCssMapping(mapped, 'keeps')) this.keeps(values, output)
