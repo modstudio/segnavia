@@ -1,16 +1,13 @@
 import { BOOK_PARENT_NAMES, type BookSectionParents, type ParentPage, type ParentPageMargin } from '@segnavia/format'
-import serialize from 'dom-serializer'
-import { Element } from 'domhandler'
-import { parseDocument } from 'htmlparser2'
 import { logicalMargin } from './margins.ts'
+import { IDML_NONE_MASTER, masterPage, type ParentBuildContext, pageSideForRole, regionHtml } from './master-regions.ts'
 import type { IdmlModel } from './model.ts'
-import { positionedBoxStyle } from './positioned-box.ts'
 import type { ReportCollector } from './report.ts'
-import { type StoryHtmlResult, storyHtml } from './stories.ts'
+import type { StoryHtmlResult } from './stories.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlBounds, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
+import type { IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
 
-export const IDML_NONE_MASTER = 'n'
+export { IDML_NONE_MASTER } from './master-regions.ts'
 
 export interface MasterMapping {
   parents: ParentPage[]
@@ -31,75 +28,13 @@ function roleFor(page: IdmlPage, rtl: boolean, ordinal?: number): 'recto' | 'ver
   return page.side === (rtl ? 'left' : 'right') ? 'recto' : 'verso'
 }
 
-function masterPage(master: IdmlMasterSpread, role: 'recto' | 'verso', rtl: boolean): IdmlMasterPage | undefined {
-  if (master.pages.length === 1) return master.pages[0]
-  const side = role === 'recto' ? (rtl ? 'left' : 'right') : rtl ? 'right' : 'left'
-  return master.pages.find((page) => page.side === side)
-}
-
 function parentName(master: IdmlMasterSpread, role: 'recto' | 'verso'): string {
   return `idml-${slug(master.name)}-${master.pages.length === 1 ? 'recto' : role}`
 }
 
-function frameRegion(page: IdmlMasterPage, frame: IdmlMasterPage['frames'][number], height: number): 'head' | 'foot' | undefined {
-  const bottom = frame.bounds.top + frame.bounds.height
-  if (bottom <= page.margin.top) return 'head'
-  if (frame.bounds.top >= height - page.margin.bottom) return 'foot'
-  return undefined
-}
-
-interface ParentBuildContext {
-  model: IdmlModel
-  variables: IdmlTextVariable[]
-  styles: StyleMapper
-  report: ReportCollector
-  rtl: boolean
-  stories: Map<string, IdmlStory>
-  mappedStories: Set<string>
-  css: string[]
-  renderStory?: (story: IdmlStory) => StoryHtmlResult
-}
-
-function regionHtml(master: IdmlMasterSpread, page: IdmlMasterPage, region: 'head' | 'foot', context: ParentBuildContext): string | undefined {
-  const boxes: Element[] = []
-  for (const frame of page.frames) {
-    if (frameRegion(page, frame, context.model.preferences.pageHeight) !== region) continue
-    const story = context.stories.get(frame.story)
-    if (!story) {
-      context.report.add(context.report.unsupportedElements, 'master story missing', `${master.name}#${frame.id}`)
-      continue
-    }
-    const className = `idml-master-frame-${context.css.length}`
-    const mapped = context.renderStory
-      ? context.renderStory(story)
-      : storyHtml({ ...story, textVariables: context.variables, master: true }, context.styles, context.report, context.rtl ? 'rtl' : 'ltr', undefined)
-    const nodes = parseDocument(mapped.html, { xmlMode: false }).children
-    boxes.push(new Element('div', { class: className }, nodes))
-    const blockStart = region === 'head' ? frame.bounds.top : frame.bounds.top - (context.model.preferences.pageHeight - page.margin.bottom)
-    const bounds: IdmlBounds = {
-      left: frame.bounds.left,
-      top: blockStart,
-      right: frame.bounds.left + frame.bounds.width,
-      bottom: blockStart + frame.bounds.height,
-    }
-    context.css.push(
-      `:where(.${className}){${positionedBoxStyle(bounds, {
-        pageWidth: context.model.preferences.pageWidth,
-        margin: page.margin,
-        rtl: context.rtl,
-        blockOrigin: 0,
-        unit: 'mm',
-      })}}`,
-    )
-    context.mappedStories.add(frame.story)
-  }
-  if (boxes.length === 0) return undefined
-  return serialize(new Element('div', { class: 'idml-master-region' }, boxes), { xmlMode: false, encodeEntities: 'utf8' })
-}
-
 function pageSide(page: IdmlMasterPage, role: 'recto' | 'verso', rtl: boolean): 'left' | 'right' {
   if (page.side === 'left' || page.side === 'right') return page.side
-  return role === 'recto' ? (rtl ? 'left' : 'right') : rtl ? 'right' : 'left'
+  return pageSideForRole(role, rtl)
 }
 
 function buildParent(
@@ -111,13 +46,11 @@ function buildParent(
   const page = masterPage(master, role, context.rtl)
   if (!page) return undefined
   const base = master.basedOn ? byId.get(master.basedOn) : undefined
-  const head = regionHtml(master, page, 'head', context)
-  const foot = regionHtml(master, page, 'foot', context)
-  for (const frame of page.frames) {
-    if (!frameRegion(page, frame, context.model.preferences.pageHeight)) {
-      context.report.add(context.report.unsupportedElements, 'master TextFrame', `${master.name}#${frame.id}`)
-    }
-  }
+  const shadowsSpreadBase = Boolean(
+    base && ((page.appliedMaster && page.appliedMaster !== IDML_NONE_MASTER) || master.showMasterItems === false || page.showMasterItems === false),
+  )
+  const head = regionHtml(master, page, role, 'head', byId, context, shadowsSpreadBase)
+  const foot = regionHtml(master, page, role, 'foot', byId, context, shadowsSpreadBase)
   return {
     name: parentName(master, role),
     ...(base ? { basedOn: parentName(base, role) } : {}),
@@ -156,7 +89,8 @@ function emittedMasters(model: IdmlModel, applied: Set<string>): IdmlMasterSprea
   const byId = new Map(model.masterSpreads.map((master) => [master.id, master]))
   const emitted = new Set(applied)
   for (const id of emitted) {
-    const basedOn = byId.get(id)?.basedOn
+    const master = byId.get(id)
+    const basedOn = master?.basedOn
     if (basedOn) emitted.add(basedOn)
   }
   return model.masterSpreads.filter((master) => emitted.has(master.id))
@@ -195,6 +129,7 @@ export function mapMasters(
   for (const spread of model.spreads) {
     for (const page of spread.pages) {
       const id = page.appliedMaster
+      if (page.showMasterItems === false) report.addOnce(report.unsupportedElements, 'Page ShowMasterItems', page.id)
       if (id && id !== IDML_NONE_MASTER && !byId.has(id)) {
         report.addOnce(report.unsupportedElements, `applied master unknown:${id}`, page.id)
       }

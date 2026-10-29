@@ -130,6 +130,7 @@ export interface IdmlDocumentPreferences {
 export interface IdmlPage {
   id: string
   appliedMaster?: string
+  showMasterItems?: boolean
   stories: string[]
   side?: 'left' | 'right' | 'single'
   bodyFrames?: IdmlFramePlacement[]
@@ -154,6 +155,7 @@ export interface IdmlMasterSpread {
   id: string
   name: string
   basedOn?: string
+  showMasterItems?: boolean
   pages: IdmlMasterPage[]
   unmappedItems: { type: string; id: string }[]
 }

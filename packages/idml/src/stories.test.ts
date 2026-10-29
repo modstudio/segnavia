@@ -1,7 +1,11 @@
 import { expect, test } from 'bun:test'
 import { findActiveContent, sanitize } from '@segnavia/html'
+import { Element } from 'domhandler'
+import { parseDocument } from 'htmlparser2'
+import { FramePreferenceIndex } from './frame-preferences.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
+import { parseStories } from './story-model.ts'
 import { StyleMapper } from './styles.ts'
 import type { IdmlStyle, IdmlTextNode } from './types.ts'
 
@@ -19,6 +23,18 @@ const paragraphStyle: IdmlStyle = {
   kind: 'paragraph',
   properties: { ParagraphDirection: 'RightToLeftDirection', AppliedLanguage: '$ID/Hebrew', SpanColumnType: 'SingleColumn' },
   location: 'Styles#p',
+}
+
+function parsedStory(content: string, report: ReportCollector): IdmlTextNode {
+  const document = parseDocument(
+    `<Story Self="master"><ParagraphStyleRange><CharacterStyleRange>${content}</CharacterStyleRange></ParagraphStyleRange></Story>`,
+    { xmlMode: true },
+  )
+  const story = document.children.find((child): child is Element => child instanceof Element)
+  if (!story) throw new Error('test story did not parse')
+  const parsed = parseStories([{ name: 'Stories/master.xml', all: [story] }], new FramePreferenceIndex(), report)[0]?.root
+  if (!parsed) throw new Error('test story model was not built')
+  return parsed
 }
 
 test('splits paragraphs at nested Br nodes, preserves line separators, and escapes content', () => {
@@ -134,6 +150,26 @@ test('reports a body processing instruction as a special character', () => {
   const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
   const root = node('Story', [node('ParagraphStyleRange', [node('#processing-instruction', [], {}, '?ACE 7?')])])
   storyHtml({ id: 'special', root }, styles, report, 'rtl', undefined)
+  expect(report.data().unsupportedSpecialCharacters).toEqual({ '?ACE 7?': 1 })
+})
+
+test('maps a page-number processing instruction nested in master Content', () => {
+  const report = new ReportCollector()
+  const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
+  const root = parsedStory('<Content><?ACE 18?></Content>', report)
+  const result = storyHtml({ id: 'master', root, master: true }, styles, report, 'rtl', undefined)
+  expect(result.html).toContain('data-motif="segnavia:folio"')
+})
+
+test('preserves text and processing instruction order inside Content', () => {
+  const report = new ReportCollector()
+  const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
+  const root = parsedStory('<Content>A<?ACE 18?>B</Content>', report)
+  const result = storyHtml({ id: 'master', root, master: true }, styles, report, 'rtl', undefined)
+  expect(result.html).toMatch(/A.*data-motif="segnavia:folio".*B/)
+
+  const unknownRoot = parsedStory('<Content><?ACE 7?></Content>', report)
+  storyHtml({ id: 'unknown', root: unknownRoot, master: true }, styles, report, 'rtl', undefined)
   expect(report.data().unsupportedSpecialCharacters).toEqual({ '?ACE 7?': 1 })
 })
 

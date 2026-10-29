@@ -53,7 +53,7 @@ function rangeAttributes(node: IdmlTextNode | undefined): Record<string, string>
 function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
   const result: Token[] = []
   const terminal = (node: IdmlTextNode, character: IdmlTextNode | undefined): boolean => {
-    if (node.name === 'Content') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
+    if (node.name === '#text') result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
     else if (node.name === '#processing-instruction') {
       result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
@@ -68,6 +68,11 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
     return true
   }
   const walk = (node: IdmlTextNode, character?: IdmlTextNode) => {
+    if (node.name === 'Content') {
+      if (node.children.length === 0) result.push({ kind: 'text', text: node.text ?? '', character, location: node.location })
+      else for (const child of node.children) walk(child, character)
+      return
+    }
     if (terminal(node, character)) return
     const nextCharacter = node.name === 'CharacterStyleRange' ? node : character
     if (WRAPPERS.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
