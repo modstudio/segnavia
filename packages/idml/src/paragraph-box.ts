@@ -8,6 +8,7 @@ type Direction = 'ltr' | 'rtl'
 interface ParagraphBoxOptions {
   values: Record<string, string>
   mapped: Set<string>
+  resetShading: boolean
   direction: Direction
   swatches: IdmlSwatch[]
   report: ReportCollector
@@ -131,12 +132,11 @@ function reportUnmappedOptions(options: ParagraphBoxOptions): void {
 }
 
 export function paragraphBoxDeclarations(options: ParagraphBoxOptions): string[] {
-  const { values, mapped, swatches, report, unsupported, location } = options
+  const { values, swatches, report, unsupported, location } = options
   const output: string[] = []
   const shaded = enabled(values.ParagraphShadingOn)
-  const reset = mapped.has('ParagraphShadingOn') && values.ParagraphShadingOn === 'false'
-  boxDeclarations(options, shaded, reset, output)
-  if (reset) {
+  boxDeclarations(options, shaded, options.resetShading, output)
+  if (options.resetShading) {
     output.push('background-color:transparent')
     for (const property of Object.keys(logicalCornerRadii({ topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 }, options.direction))) {
       points(output, property, 0)

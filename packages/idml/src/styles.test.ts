@@ -166,6 +166,17 @@ test('maps paragraph spacing and indents without shading', () => {
   expect(css).not.toContain('background-color')
 })
 
+test('does not reset shading for a plain style with shading disabled', () => {
+  const mapper = new StyleMapper(
+    [style('plain', 'Plain', { ParagraphShadingOn: 'false', SpaceBefore: '4', LeftIndent: '10' })],
+    [],
+    new ReportCollector(),
+    'ltr',
+  )
+  mapper.styleClass('plain', 'paragraph')
+  expect(mapper.css()).toBe('.idml-p-plain{margin-block-start:4pt;padding-inline-start:10pt}')
+})
+
 test('composes shaded paragraph box values in local overrides', () => {
   const report = new ReportCollector()
   const base = {
