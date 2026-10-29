@@ -4,7 +4,26 @@ import { SegnaviaBook } from './book.ts'
 export function reflectedBookElement() {
   const book = new SegnaviaBook()
   const attributes = new Map<string, string>()
-  ;(book as unknown as { querySelector: () => null }).querySelector = () => null
+  const frames: Array<HTMLIFrameElement & { srcdoc: string }> = []
+  ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }, layout?: string | null) => HTMLIFrameElement }).mountFrame = (
+    rendered,
+    layout = null,
+  ) =>
+    ({
+      ...rendered,
+      dataset: layout ? { segnaviaBookLayout: layout } : {},
+      hidden: false,
+      style: {},
+      contentWindow: { postMessage() {} },
+      setAttribute() {},
+    }) as unknown as HTMLIFrameElement
+  ;(book as unknown as { replaceChildren: (...held: HTMLIFrameElement[]) => void }).replaceChildren = (...held) => frames.splice(0, frames.length, ...held)
+  ;(book as unknown as { append: (held: HTMLIFrameElement) => void }).append = (held) => frames.push(held)
+  ;(book as unknown as { querySelector: (selector: string) => HTMLIFrameElement | null }).querySelector = (selector) => {
+    const layout = selector.match(/data-segnavia-book-layout="(pages|flow)"/)?.[1]
+    return frames.find((frame) => !layout || frame.dataset.segnaviaBookLayout === layout) ?? null
+  }
+  ;(book as unknown as { querySelectorAll: () => HTMLIFrameElement[] }).querySelectorAll = () => frames
   ;(book as unknown as { setAttribute: (name: string, value: string) => void }).setAttribute = (name, value) => {
     const previous = attributes.get(name) ?? null
     attributes.set(name, value)
@@ -16,7 +35,7 @@ export function reflectedBookElement() {
     void book.attributeChangedCallback(name, previous, null)
   }
   ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => attributes.has(name)
-  return { book, attributes }
+  return { book, attributes, frames }
 }
 
 export function switchableBookView(): BookViewInput {

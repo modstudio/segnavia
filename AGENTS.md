@@ -104,10 +104,12 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
   a ready signal, an animation report and a bounded slot-fit report. The host
-  checks selection replies against a size bound. A refused-script page answers
-  exactly two inbound message types from its parent: a selection request, and
-  `segnavia:book-layout` in a paginated book screen. The book-layout message is
-  accepted only when `layout` is exactly `pages` or `flow`.
+  checks selection replies against a size bound. A paginated book frame reports
+  `segnavia:book-place` only with a position key parsed by the book model and at
+  most 256 characters. A refused-script page answers exactly two inbound message
+  types from its parent: a selection request, and `segnavia:book-layout` in a
+  paginated book frame. The book-layout message is accepted only when `layout`
+  is exactly `pages` or `flow` and `place` is absent or obeys that same bound.
   Slot fit is safe because filled items refuse author scripts, leaving only
   the nonce-authorized bridge able to post from a filled frame.
 - Rendering is offline. Never let a render reach the network.

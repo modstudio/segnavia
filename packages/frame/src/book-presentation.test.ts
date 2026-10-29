@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bookPlace, bookPlaceOffset, pageScale, spreadSlots } from './book-presentation.ts'
+import { BOOK_PLACE_KEY_LIMIT, bookPlace, bookPlaceKey, bookPlaceOffset, pageScale, spreadSlots } from './book-presentation.ts'
 
 describe('book place', () => {
   test('uses the first block crossing or following the viewport top', () => {
@@ -37,6 +37,14 @@ describe('book place', () => {
     expect(bookPlaceOffset(blocks, 'chapter:1:footnotes')).toBe(50)
     expect(bookPlaceOffset(blocks, 'chapter:0')).toBe(30)
     expect(bookPlaceOffset(blocks, 'front:0')).toBe(0)
+  })
+
+  test('accepts only bounded position keys', () => {
+    expect(bookPlaceKey('chapter:2')).toBe('chapter:2')
+    expect(bookPlaceKey('chapter:2:footnotes')).toBe('chapter:2:footnotes')
+    expect(bookPlaceKey('chapter')).toBeUndefined()
+    expect(bookPlaceKey(2)).toBeUndefined()
+    expect(bookPlaceKey(`${'x'.repeat(BOOK_PLACE_KEY_LIMIT)}:2`)).toBeUndefined()
   })
 })
 

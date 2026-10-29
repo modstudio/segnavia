@@ -116,13 +116,13 @@ millimeters, direction, number systems, recto openings, orphans and widows,
 default parent pages, endnote placement, contents settings and running-head
 choices). A continuous view has neither. The frame library validates that view and
 shows it in one internally scrolling sandboxed frame. A continuous view scrolls
-as one document. A paginated screen composes its galley while the flow build
-remains inert in `template[data-segnavia-flow-build]`, then instantiates it in
-`[data-segnavia-flow-view]` beside `[data-segnavia-pages]`. Build styles are
-scoped to their own view. Only the displayed view holds working ids, so contents
-and note links keep their ordinary fragment behavior. The screen matches
-`data-segnavia-position` blocks to keep the first block crossing the viewport
-top in place. `bookDocument` models its output as a `print`, `galley` or
+as one document. A paginated screen uses separate sandboxed documents for pages
+and flow, so each build's author CSS and ids apply natively only to that view.
+The pages document composes its galley as usual. The flow document is created
+on the first switch to flow, or at mount when flow is the initial layout, and
+stays mounted while hidden after that. Each document reports its bounded
+`data-segnavia-position` at the viewport top, and the element sends that place
+to the incoming document to keep it in view. `bookDocument` models its output as a `print`, `galley` or
 `flow` build: continuous books default to print, paginated books default to a
 galley, and only paginated books may request flow. A paginated view uses the same composer as paginated print,
 then scales its paper-sized pages to the frame's width. Its `spread` boolean
@@ -679,9 +679,10 @@ The frame bridge sends a relayed key, height, readiness, animation timing and
 slot fit to its host. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound.
 On a refused-script page the bridge answers a `segnavia:selection-request` from
-its parent. A paginated book screen also accepts `segnavia:book-layout` only
-from its parent and only when `layout` is exactly `pages` or `flow`; it produces
-no outbound message. The selection request's `segnavia:selection` reply contains the reader's selection string and the
+its parent. A paginated book frame also accepts `segnavia:book-layout` only
+from its parent, only when `layout` is exactly `pages` or `flow`, and only when
+`place` is absent or a parsed position key of at most 256 characters. It reports
+`segnavia:book-place` with the same bounded key. The selection request's `segnavia:selection` reply contains the reader's selection string and the
 page's `innerText`. Both strings retain document order without reordering for
 direction. A filled
 item's author scripts are refused, so only the nonce-authorized bridge can send

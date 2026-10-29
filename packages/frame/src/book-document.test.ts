@@ -12,6 +12,7 @@ import {
 } from '@segnavia/html'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
+import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
 
 const book = Book.parse({
@@ -139,23 +140,28 @@ describe('bookDocument', () => {
         runningHead: { recto: 'title' as const, verso: 'title' as const },
       },
     }
-    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true, layout: 'pages' } })
+    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
+    const flow = flowViewDocument(view, { nonce: 'held' })
     const print = bookViewDocument(view, { nonce: 'held' })
-    expect(screen).toContain('"screen":{"spread":true,"layout":"pages"}')
-    expect(screen).toContain('<template data-segnavia-flow-build>')
-    expect(screen).toContain('@scope ([data-segnavia-flow-view])')
-    expect(screen).toContain('@scope (:root) to ([data-segnavia-flow-view]){.first-build-style{color:red}}')
-    expect(screen).toContain('@scope (:root) to ([data-segnavia-flow-view]){.second-build-style{color:blue}}')
-    expect(screen.indexOf('<template data-segnavia-flow-build>')).toBeLessThan(screen.indexOf('var composeStarted='))
-    expect(screen).toContain('event.source===parent')
-    expect(screen).toContain(`data.type==='${MESSAGE.bookLayout}'`)
-    expect(screen).toContain('BOOK_LAYOUTS.indexOf(data.layout)>=0')
-    expect(screen).toContain(
-      '@media print{:where([data-segnavia-galley-source],[data-segnavia-flow-view]){display:none!important}:where([data-segnavia-pages]){display:grid!important}}',
-    )
+    expect(screen).toContain('"screen":{"spread":true}')
+    expect(screen).toContain('<style>.first-build-style{color:red}</style>')
+    expect(screen).toContain('<style>.second-build-style{color:blue}</style>')
+    expect(screen).not.toContain('<template data-segnavia-flow-build>')
+    expect(screen).not.toContain('data-segnavia-flow-view')
+    expect(screen).toContain('event.source!==parent')
+    expect(screen).toContain(`data.type!=='${MESSAGE.bookLayout}'`)
+    expect(screen).toContain('BOOK_LAYOUTS.indexOf(data.layout)<0')
+    expect(screen).toContain('data.place!==undefined&&place===undefined')
+    expect(screen).toContain(`type:'${MESSAGE.bookPlace}'`)
+    expect(flow).toContain(view.flow)
+    expect(flow).not.toContain(view.html)
+    expect(flow).toContain('event.source!==parent')
+    expect(flow).toContain('BOOK_LAYOUTS.indexOf(data.layout)<0')
+    expect(flow).toContain('data.place!==undefined&&place===undefined')
     expect(print).not.toContain('"screen"')
     expect(print).not.toContain('<template data-segnavia-flow-build>')
     expect(print).not.toContain(MESSAGE.bookLayout)
+    expect(print).not.toContain(MESSAGE.bookPlace)
     expect(print).not.toContain('BOOK_LAYOUTS.indexOf(data.layout)')
   })
 

@@ -10,7 +10,7 @@ import {
 } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
-import type { BookLayout } from './book-presentation.ts'
+import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument } from './bridge.ts'
 
 export interface PaginatedDocumentOptions {
@@ -18,12 +18,7 @@ export interface PaginatedDocumentOptions {
   fontCss?: string
   css?: string
   printBackground?: boolean
-  screen?: { spread: boolean; layout: BookLayout }
-}
-
-function scopedBuildStyle(html: string, root: string, limit?: string): string {
-  const boundary = limit ? ` to (${limit})` : ''
-  return html.replace(/<style>([\s\S]*?)<\/style>/gi, (_tag, css: string) => `<style>@scope (${root})${boundary}{${css}}</style>`)
+  screen?: { spread: boolean }
 }
 
 function px(value: number): number {
@@ -77,11 +72,9 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
     `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
-    `@media print{:where([data-segnavia-galley-source],[data-segnavia-flow-view]){display:none!important}:where([data-segnavia-pages]){display:grid!important}}` +
+    `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
     bookCss
-  const galley = options.screen ? scopedBuildStyle(view.html, ':root', '[data-segnavia-flow-view]') : view.html
-  const flow = options.screen && view.flow ? `<template data-segnavia-flow-build>${scopedBuildStyle(view.flow, '[data-segnavia-flow-view]')}</template>` : ''
-  const body = `${galley}${flow}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
+  const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
@@ -92,5 +85,19 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     reportHeight: false,
     readyAfterAttribute: BOOK_COMPOSED_ATTRIBUTE,
     printBackground: options.printBackground,
+  })
+}
+
+export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css'>): string {
+  if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
+  const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document')}`
+  return frameDocument(`${view.flow}<script nonce="${options.nonce}">${script}</script>`, {
+    scripts: 'refuse',
+    nonce: options.nonce,
+    dir: view.pagination.direction,
+    lang: view.lang,
+    css: bookStylesheet(options.fontCss, view.css, options.css),
+    relayKeys: false,
+    reportHeight: false,
   })
 }

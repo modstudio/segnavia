@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { bookFrame, SegnaviaBook } from './book.ts'
-import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
+import { reflectedBookElement } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -139,7 +139,7 @@ describe('book element input', () => {
       '.font-marker{font-family:Held}',
       true,
     )
-    expect(rendered.srcdoc).toContain('"screen":{"spread":true,"layout":"pages"}')
+    expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
 
@@ -160,34 +160,6 @@ describe('book element input', () => {
     expect(attributes.get('layout')).toBe('flow')
     expect(errors).toEqual(['Unknown book layout "grid"; accepted layouts are "pages" and "flow".'])
   })
-
-  test('a layout change after readiness posts exactly one bounded message to the frame', async () => {
-    const { book } = reflectedBookElement()
-    const messages: Array<{ value: unknown; origin: string }> = []
-    const frame = {
-      contentWindow: {
-        postMessage(value: unknown, origin: string) {
-          messages.push({ value, origin })
-        },
-      },
-    }
-    ;(book as unknown as { querySelector: () => typeof frame }).querySelector = () => frame
-    ;(book as unknown as { mountFrame: () => void }).mountFrame = () => {}
-    book.view = switchableBookView()
-    ;(book as unknown as { frameReady: boolean }).frameReady = true
-    await book.attributeChangedCallback('layout', null, 'flow')
-    expect(messages).toEqual([{ value: { type: 'segnavia:book-layout', layout: 'flow' }, origin: '*' }])
-  })
-
-  test('a layout change before readiness remounts with that starting layout', async () => {
-    const mounted: Array<{ title: string; srcdoc: string }> = []
-    const { book } = reflectedBookElement()
-    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
-    book.view = switchableBookView()
-    await book.attributeChangedCallback('layout', null, 'flow')
-    expect(mounted).toHaveLength(2)
-    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":false,"layout":"flow"}')
-  })
 })
 
 describe('book fonts', () => {
@@ -200,7 +172,11 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined, layout: 'pages' | 'flow') => void }).mountFrames = (
+      view,
+      css,
+      layout,
+    ) => mounted.push(bookFrame(view, css, spread, layout))
     book.dispatchEvent = ((event: Event) => {
       if (event.type === 'error') errors.push((event as CustomEvent).detail)
       return true
@@ -241,7 +217,7 @@ describe('book fonts', () => {
 
     expect(errors).toEqual([])
     expect(mounted.at(-1)?.title).toBe('Latest')
-    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true,"layout":"pages"}')
+    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true}')
   })
 
   test('toggling spread during a source fetch leaves that fetch to mount its book', async () => {
@@ -256,7 +232,11 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined, layout: 'pages' | 'flow') => void }).mountFrames = (
+      view,
+      css,
+      layout,
+    ) => mounted.push(bookFrame(view, css, spread, layout))
     book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
     book.view = { html: '<main>Initial</main>', title: 'Initial' }
     await Promise.resolve()
