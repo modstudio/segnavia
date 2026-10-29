@@ -72,7 +72,7 @@ function columnFitChapter(hebrew: boolean) {
   const padded = 'The tide turned against the hull and the lanterns of the harbor receded into a thin gold line. '.repeat(8)
   return {
     title,
-    html: `<h1>${title}</h1><p dir="ltr" data-columns="2" data-column-fit-check style="padding-inline-start:20pt;padding-inline-end:5pt">${padded}</p>`,
+    html: `<h1>${title}</h1><p dir="ltr" data-columns="2" data-column-fit-check style="margin-inline-start:6pt;margin-inline-end:4pt;padding-inline-start:20pt;padding-inline-end:5pt">${padded}</p>`,
   }
 }
 

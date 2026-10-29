@@ -135,20 +135,21 @@ export function inspectPaginatedBook(): PaginatedReport {
   function columns() {
     return { balanced: columnsBalanced(), ...columnCoverage() }
   }
-
   function columnFit() {
     const details: string[] = []
-    let checked = 0
-    let outside = 0
+    let checked = 0,
+      outside = 0
     for (const view of Array.from(document.querySelectorAll('[data-segnavia-window]'))) {
       const block = view.querySelector('[data-column-fit-check]')
       if (!block) continue
       checked += 1
       const windowBox = view.getBoundingClientRect()
       const blockBox = block.getBoundingClientRect()
-      const fits = blockBox.left >= windowBox.left - 0.5 && blockBox.right <= windowBox.right + 0.5
-      if (!fits) outside += 1
-      details.push(`${view.getAttribute('data-column')}:${(blockBox.left - windowBox.left).toFixed(2)}:${(windowBox.right - blockBox.right).toFixed(2)}`)
+      const style = getComputedStyle(block)
+      const margins = (Number.parseFloat(style.marginInlineStart) || 0) + (Number.parseFloat(style.marginInlineEnd) || 0)
+      if (blockBox.left < windowBox.left - 0.5 || blockBox.right > windowBox.right + 0.5 || Math.abs(blockBox.width + margins - windowBox.width) > 0.5)
+        outside += 1
+      details.push(`${view.getAttribute('data-column')}:${(blockBox.width + margins - windowBox.width).toFixed(2)}`)
     }
     return { checked, outside, detail: details.join('|') }
   }
