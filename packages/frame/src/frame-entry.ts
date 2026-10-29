@@ -1,4 +1,5 @@
 import type { ContentValue } from './content-value.ts'
+import type { ResolvedContent } from './controller.ts'
 
 export interface FrameReadinessOptions {
   bridgeReadyTimeoutMs: number
@@ -16,6 +17,7 @@ export class FrameEntry {
   constructor(
     readonly id: string,
     readonly value: ContentValue,
+    readonly content: ResolvedContent,
   ) {}
 
   markLoaded(options: FrameReadinessOptions) {

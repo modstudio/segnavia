@@ -1,10 +1,9 @@
 import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
-import { FrameEntry } from './frame-entry.ts'
+import type { FrameEntry } from './frame-entry.ts'
+import { addFrame, type FrameEvents, removeFrame, syncFrames } from './frame-pool-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
-import type { FrameTitle } from './frame-title.ts'
-import { stageCanvas } from './stage-content.ts'
 import { type TurnTransition, transitionFor } from './transition.ts'
 
 interface PendingTurn {
@@ -24,6 +23,7 @@ export class FramePool {
   constructor(
     private host: HTMLElement,
     private changed: () => void,
+    private frameEvents: FrameEvents,
   ) {}
 
   clear() {
@@ -68,6 +68,7 @@ export class FramePool {
     if (!canvas?.matches('.segnavia-stage__canvas[data-active]')) return null
     return canvas.querySelector('iframe')
   }
+
   hasMountedFrame(slideId: string): boolean {
     return this.entries.get(slideId)?.canvas.isConnected === true
   }
@@ -174,6 +175,7 @@ export class FramePool {
     const slide = state.slide
     if (!slide || !state.content) return
     this.turn++
+    const mountAfterAttach = !this.entries.has(slide.id)
     const incoming = this.add(state.index, state.content, state, controller, options, false)
     if (!incoming) return
     const entry = this.entries.get(slide.id)
@@ -182,6 +184,7 @@ export class FramePool {
     this.retain(state, fromIndex, options.neighbors)
     this.sync(state, options.frameTitle)
     if (!incoming.isConnected) this.host.append(incoming)
+    if (mountAfterAttach) this.frameEvents.mounted(entry.id, entry.content)
   }
 
   private beginSwap(
@@ -334,58 +337,25 @@ export class FramePool {
   }
 
   private add(index: number, content: ResolvedContent, state: DeckState, controller: DeckController, options: PoolOptions, mount = true): HTMLElement | null {
-    const deck = state.deck
-    const slide = deck?.slides[index]
-    if (!deck || !slide) return null
-    const existing = this.entries.get(slide.id)
-    const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
-    if (existing && sameContent(existing.value, comparable)) return existing.canvas
-    const entry = new FrameEntry(slide.id, comparable)
-    const canvas = stageCanvas(
-      controller,
-      deck,
-      slide,
+    return addFrame({
+      entries: this.entries,
+      events: this.frameEvents,
+      host: this.host,
       index,
       content,
-      options.css,
-      options.csp,
-      options.frameTitle,
-      () => {
-        entry.markLoaded(options)
-      },
-      options.slots,
-    )
-    entry.canvas = canvas
-    this.entries.set(slide.id, entry)
-    if (existing) {
-      existing.dispose()
-      existing.canvas.replaceWith(canvas)
-    } else if (mount) this.host.append(canvas)
-    return canvas
+      state,
+      controller,
+      pool: options,
+      mount,
+    })
   }
 
   private remove(id: string, entry: FrameEntry) {
-    entry.dispose()
-    entry.canvas.remove()
-    this.entries.delete(id)
-    this.controller?.forgetContent(id)
+    removeFrame(this.entries, this.controller, this.frameEvents, id, entry)
   }
 
-  private sync(state: DeckState, frameTitle: FrameTitle) {
-    const deck = state.deck
-    if (!deck || !state.slide) return
-    for (const [index, slide] of deck.slides.entries()) {
-      const canvas = this.entries.get(slide.id)?.canvas
-      if (!canvas) continue
-      const incoming = slide.id === this.pending?.id
-      const visible = this.pending ? slide.id === this.pending.visibleId : slide.id === state.slide.id
-      canvas.toggleAttribute('data-active', visible)
-      canvas.toggleAttribute('data-incoming', incoming)
-      canvas.setAttribute('aria-hidden', String(!visible))
-      canvas.inert = !visible
-      const frame = canvas.querySelector('iframe')
-      if (frame) frame.title = frameTitle(deck.title, index + 1)
-    }
+  private sync(state: DeckState, frameTitle: PoolOptions['frameTitle']) {
+    syncFrames(this.entries, this.pending, state, frameTitle)
   }
 }
 

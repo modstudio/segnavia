@@ -23,6 +23,7 @@ import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
+import { stageFrameEvents } from './stage-frame-events.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
@@ -46,7 +47,7 @@ export class SegnaviaStage extends HTMLElement {
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
-  private pool = new FramePool(this, () => this.poolChanged())
+  private pool = new FramePool(this, () => this.poolChanged(), stageFrameEvents(this))
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
@@ -165,7 +166,7 @@ export class SegnaviaStage extends HTMLElement {
     this.slotDeck = null
     this.resolvedSlots = undefined
     this.pool.cancelPending()
-    this.pool.releaseWaits()
+    this.pool.clear()
     this.removeEventListener('keydown', this.onKey)
     window.removeEventListener('message', this.onMessage)
     window.removeEventListener('resize', this.onResize)
