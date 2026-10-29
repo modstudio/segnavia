@@ -89,6 +89,10 @@ export class FramePool {
     this.pending = null
   }
 
+  releaseWaits() {
+    for (const entry of this.entries.values()) entry.releaseReadinessWait()
+  }
+
   private updateTurn(state: DeckState, controller: DeckController, options: PoolOptions): boolean {
     const deck = state.deck
     const slide = state.slide

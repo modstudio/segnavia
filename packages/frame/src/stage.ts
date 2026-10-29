@@ -152,6 +152,7 @@ export class SegnaviaStage extends HTMLElement {
     this.slotDeck = null
     this.resolvedSlots = undefined
     this.pool.cancelPending()
+    this.pool.releaseWaits()
     this.removeEventListener('keydown', this.onKey)
     window.removeEventListener('message', this.onMessage)
     window.removeEventListener('resize', this.onResize)

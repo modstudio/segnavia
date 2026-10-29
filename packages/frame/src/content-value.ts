@@ -1,5 +1,5 @@
 import type { Scripts } from '@segnavia/format'
-import type { ResolvedContent } from './controller.ts'
+import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
   content: ResolvedContent
@@ -27,11 +27,11 @@ export function sameContent(left: ContentValue, right: ContentValue): boolean {
   return sameValue(left, right)
 }
 
-function hasReuseKey(content: ResolvedContent): content is Extract<ResolvedContent, { kind: 'url' }> & { reuseKey: string } {
+function hasReuseKey(content: ResolvedContent): content is ResolvedUrlContent & { reuseKey: string } {
   return content.kind === 'url' && typeof content.reuseKey === 'string'
 }
 
-function comparableUrl(content: Extract<ResolvedContent, { kind: 'url' }>, useKey: boolean) {
+function comparableUrl(content: ResolvedUrlContent, useKey: boolean) {
   const { src, reuseKey, ...rest } = content
   return useKey ? { ...rest, reuseKey } : { ...rest, src }
 }

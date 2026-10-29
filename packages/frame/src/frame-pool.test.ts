@@ -201,3 +201,13 @@ test('url frames without a bridge declaration and removed frames do not report r
   expect(unbridged.errors).toEqual([])
   expect(removed.errors).toEqual([])
 })
+
+test('released readiness waits do not report errors', async () => {
+  const content = { kind: 'url' as const, src: 'slide.html', bridge: true as const }
+  const released = harness([content], 2)
+  released.pool.update(state(0, content), released.controller, released.options)
+  ;(released.pool.frames()[0] as unknown as TestElement).dispatch('load')
+  released.pool.releaseWaits()
+  await Bun.sleep(5)
+  expect(released.errors).toEqual([])
+})

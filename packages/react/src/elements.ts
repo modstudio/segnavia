@@ -74,7 +74,7 @@ export const ELEMENTS = {
   ),
   stage: element<SegnaviaStage, StageProps, typeof HEADLESS_ELEMENTS.stage>(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'frameTitle', 'transition', 'reserve', 'slots'],
+    ['controller', 'css', 'cspExtra', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots'],
     {
       onSegnaviaController: 'segnavia-controller',
       onSegnaviaFit: 'segnavia-fit',

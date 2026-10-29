@@ -39,6 +39,10 @@ export class FrameEntry {
     this.cancelReadyTimeout()
   }
 
+  releaseReadinessWait() {
+    this.cancelReadyTimeout()
+  }
+
   dispose() {
     this.cancelReadyTimeout()
     this.loadWaiters.clear()

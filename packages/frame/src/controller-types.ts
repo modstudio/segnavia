@@ -2,7 +2,7 @@ import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@se
 import type { Clock } from './clock.ts'
 
 type FormatResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
-type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {
+export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {
   reuseKey?: string
   bridge?: true
 }

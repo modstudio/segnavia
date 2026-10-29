@@ -66,6 +66,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   controller?: DeckController | null
   css?: string
   cspExtra?: string
+  bridgeReadyTimeoutMs?: SegnaviaStage['bridgeReadyTimeoutMs']
   frameTitle?: SegnaviaStage['frameTitle']
   transition?: HostTransition
   reserve?: StageReserve
