@@ -1,5 +1,6 @@
-import { annotationCueIssues, type Deck, PublishedShot, type Slide } from '@segnavia/format'
+import { type Deck, PublishedShot, type Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
+import { assertValidCues } from './controller-cues.ts'
 import { stateForDeckLoad } from './controller-load.ts'
 import { captionsPolicy, playerOptionState, referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
@@ -119,6 +120,10 @@ export class DeckController extends EventTarget {
       this.prefetched.set(slide.id, ready)
     }
     return ready
+  }
+
+  forgetContent(slideId: string) {
+    this.prefetched.delete(slideId)
   }
 
   present(element: HTMLElement) {
@@ -282,7 +287,7 @@ export class DeckController extends EventTarget {
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
     const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
     if (content.kind === 'shot') {
-      this.assertCues(slide, content.shot.annotations.length)
+      assertValidCues(slide, content.shot.annotations.length)
       if (slide.content.kind !== 'shot-ref') return content
       return referenceOverrides(content, slide.content)
     }
@@ -297,13 +302,8 @@ export class DeckController extends EventTarget {
       this.shots.set(href, published)
     }
     const { src, shot } = await published
-    this.assertCues(slide, shot.annotations.length)
+    assertValidCues(slide, shot.annotations.length)
     return resolvedPublishedShot(new URL(src, href).href, shot, content)
-  }
-
-  private assertCues(slide: Slide, annotationCount: number) {
-    const issues = annotationCueIssues(slide.narration, annotationCount)
-    if (issues.length > 0) throw new Error(`Slide "${slide.id}" has invalid cues: ${issues.join('; ')}.`)
   }
 
   url(path: string): string {
