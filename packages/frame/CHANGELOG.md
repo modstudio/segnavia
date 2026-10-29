@@ -1,5 +1,17 @@
 # @segnavia/frame
 
+## 0.31.0
+
+### Minor Changes
+
+- ed79d4a: Let hosts read the current selection and page text from script-refusing `segnavia-page` documents. `SegnaviaPage` gains `readSelection()`, and `@segnavia/frame` exports `PageSelection` and `SELECTION_REPLY_MS`; `@segnavia/frame/bridge` exports `selectionMessage`, `SelectionMessage` and `SELECTION_TEXT_LIMIT`.
+
+### Patch Changes
+
+- d84b337: Wait for parent-page frame geometry to settle by elapsed time before composing printed pages.
+  - @segnavia/format@0.31.0
+  - @segnavia/html@0.31.0
+
 ## 0.30.0
 
 ### Patch Changes
