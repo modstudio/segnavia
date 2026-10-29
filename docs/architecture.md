@@ -231,9 +231,9 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    transparent.
 3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
-   the policy admits only the bridge's nonce. In an `srcdoc` frame, the bridge
-   handles same-document link clicks by scrolling inside the frame and posts
-   nothing for them; otherwise `#id` resolves against the parent's URL.
+   the policy admits only the bridge's nonce. The bridge handles in-page link
+   clicks inside the frame and relays nothing for them: with `base-uri 'none'`,
+   an `srcdoc` frame otherwise resolves `#id` against its parent's URL.
 4. `slideDurationMs` adds `beforeMs`, narration duration and `afterMs`, or
    reads `holdMs` for an unnarrated slide. Without either narration or a hold
    the slide is untimed. `deckTimeline` gives every slide its start and

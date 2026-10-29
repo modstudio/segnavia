@@ -154,17 +154,18 @@ else if(mode==='refuse'){state=fits(element)?'fit':'overflowed';}else{continue;}
 if(unlaid&&slotFitTries<40){slotFitTries++;var retry=function(){slotFit(done);};if(!window.requestAnimationFrame){setTimeout(retry,50);return;}var finished=false;var finish=function(){if(finished)return;finished=true;retry();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});return;}
 post({type:'${MESSAGE.slotFit}',slots:slots});if(done)done();};
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
-if(location.protocol==='about:')document.addEventListener('click',function(e){
-if(e.defaultPrevented)return;
+window.addEventListener('click',function(e){
+if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var link=e.target;while(link&&link.tagName!=='A')link=link.parentElement;
-if(!link)return;
+if(!link||link.hasAttribute('target')||link.hasAttribute('download'))return;
 var href=link.getAttribute('href');if(!href||href.charAt(0)!=='#')return;
-var fragment;try{fragment=decodeURIComponent(href.slice(1));}catch(error){e.preventDefault();return;}
-e.preventDefault();
-if(fragment===''||fragment.toLowerCase()==='top'){scrollTo(0,0);return;}
+var fragment=decodeFragment(href.slice(1));
 var target=document.getElementById(fragment);
 if(!target){var named=document.getElementsByTagName('a');for(var i=0;i<named.length;i++){if(named[i].getAttribute('name')===fragment){target=named[i];break;}}}
+e.preventDefault();
+if(!target&&(fragment===''||fragment.toLowerCase()==='top')){scrollTo(0,0);return;}
 if(!target)return;target.scrollIntoView();
+if(target.focus){target.focus({preventScroll:true});if(document.activeElement!==target){if(!target.hasAttribute('tabindex'))target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}}
 });
 ${
   options.reportHeight === false

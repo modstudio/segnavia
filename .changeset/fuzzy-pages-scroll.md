@@ -2,4 +2,4 @@
 '@segnavia/frame': minor
 ---
 
-Let fluid pages fill a host-sized box and scroll same-document links inside srcdoc frames.
+Let a fluid page fill a host-sized box and scroll inside its own frame with `fill`.
