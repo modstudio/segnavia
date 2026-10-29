@@ -48,24 +48,12 @@ Object.assign(globalThis, {
 
 const { SegnaviaPage } = await import('./page.ts')
 
-function pageHarness(size: Page['size'], fill = false) {
+function pageHarness(size: Page['size'], bounded = false) {
   const page = new SegnaviaPage()
-  const attributes = new Set<string>()
   Object.defineProperties(page, {
     clientWidth: { configurable: true, value: 200 },
     dataset: { configurable: true, value: {} },
     style: { configurable: true, value: style() },
-  })
-  Object.assign(page, {
-    hasAttribute: (name: string) => attributes.has(name),
-    toggleAttribute(name: string, force?: boolean) {
-      const oldValue = attributes.has(name) ? '' : null
-      const present = force ?? !attributes.has(name)
-      if (present) attributes.add(name)
-      else attributes.delete(name)
-      if ((present ? '' : null) !== oldValue) void page.attributeChangedCallback(name, oldValue, present ? '' : null)
-      return present
-    },
   })
   const sheet = { style: style() }
   const frame = { contentWindow: {} }
@@ -73,7 +61,7 @@ function pageHarness(size: Page['size'], fill = false) {
   ;(page as unknown as { contentHeight: number }).contentHeight = typeof size === 'object' && size.height !== 'auto' ? size.height : 0
   ;(page as unknown as { querySelector(selector: string): unknown }).querySelector = (selector) =>
     selector === '.segnavia-page__sheet' ? sheet : selector === 'iframe' ? frame : null
-  if (fill) page.fill = true
+  if (bounded) page.bounded = true
   return {
     page,
     sheet,
@@ -87,7 +75,7 @@ function pageHarness(size: Page['size'], fill = false) {
   }
 }
 
-test('fill keeps a measured fluid page in the host-sized box', () => {
+test('bounded keeps a measured fluid page in the host-sized box', () => {
   const { page, sheet, height } = pageHarness('fluid', true)
   expect(page.dataset.height).toBeUndefined()
   height(640)
@@ -97,7 +85,7 @@ test('fill keeps a measured fluid page in the host-sized box', () => {
   expect(page.dataset).toMatchObject({ height: '640', measured: '' })
 })
 
-test('a fluid page grows to its measured content without fill', () => {
+test('a fluid page grows to its measured content without bounded', () => {
   const { page, sheet, height } = pageHarness('fluid')
   height(640)
   expect(sheet.style.height).toBe('640px')
@@ -105,22 +93,22 @@ test('a fluid page grows to its measured content without fill', () => {
   expect(page.dataset.height).toBe('640')
 })
 
-test('a fixed page ignores fill and keeps scaling', () => {
+test('a fixed page ignores bounded and keeps scaling', () => {
   const { page, sheet } = pageHarness({ width: 400, height: 300 }, true)
   expect(sheet.style.height).toBe('300px')
   expect(sheet.style.transform).toBe('scale(0.5)')
   expect(page.style.height).toBe('150px')
 })
 
-test('toggling fill refits the same fluid frame without reloading it', () => {
+test('toggling bounded refits the same fluid frame without reloading it', () => {
   const { page, frame, height } = pageHarness('fluid')
   height(640)
   const mounted = page.querySelector('iframe')
-  page.fill = true
-  expect(page.fill).toBe(true)
+  page.bounded = true
+  expect(page.bounded).toBe(true)
   expect(page.style.height).toBe('')
-  page.fill = false
-  expect(page.fill).toBe(false)
+  page.bounded = false
+  expect(page.bounded).toBe(false)
   expect(page.style.height).toBe('640px')
   expect(page.querySelector('iframe')).toBe(mounted)
   expect(page.querySelector('iframe') as unknown).toBe(frame)

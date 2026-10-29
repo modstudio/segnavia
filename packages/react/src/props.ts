@@ -120,6 +120,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
   src?: string
+  bounded?: boolean
   unstyled?: boolean
 }
 
