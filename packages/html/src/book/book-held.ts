@@ -11,8 +11,9 @@ import {
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
-import { element, textContent } from './dom.ts'
-import type { BookHeading, BookSectionInfo } from './types.ts'
+import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
+import { element, linkChildren, textContent } from './dom.ts'
+import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
 export interface BuiltSection {
   info: BookSectionInfo
@@ -34,14 +35,21 @@ export function sectionNode(
   kind: BookSectionInfo['kind'],
   id: string,
   children: ChildNode[] = [],
-  galley = false,
+  build: BookBuild,
   runningHead?: string,
   extra: Record<string, string> = {},
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
-  if (galley) attribs['data-segnavia-flow'] = id
-  if (galley && runningHead !== undefined) attribs['data-running-head'] = runningHead
+  if (build !== 'print') attribs['data-segnavia-flow'] = id
+  if (build === 'galley' && runningHead !== undefined) attribs['data-running-head'] = runningHead
   return element('section', attribs, children)
+}
+
+function flowPage(page: number, kind: 'designed' | 'templated', children: ChildNode[], geometry: BookFlowPageGeometry, recto: boolean) {
+  const paper = element('div', { 'data-segnavia-flow-paper': '' }, children)
+  return element('figure', { [`data-segnavia-${kind}-page`]: String(page), 'data-segnavia-flow-page': '', style: flowPageStyle(geometry, recto) }, [
+    element('div', { 'data-segnavia-flow-page-size': '' }, [paper]),
+  ])
 }
 
 export function collectHeadings(
@@ -72,8 +80,9 @@ export function designedSection(
   entry: DesignedSection,
   id: string,
   kind: 'front' | 'designed',
-  galley: boolean,
+  build: BookBuild,
   depth: number,
+  geometry?: BookFlowPageGeometry,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(entry.opens, entry.parents, {
     'data-segnavia-kind': 'fixed',
@@ -81,15 +90,18 @@ export function designedSection(
   })
   const headings: BookHeading[] = []
   const generated = { n: 0 }
+  const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
     const document = parse(page.html)
     headings.push(...heldHeadings(document.children, id, depth, generated))
-    return element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
+    return build === 'flow' && geometry
+      ? flowPage(offset + 1, 'designed', document.children, geometry, offset % 2 === 0 ? firstRecto : !firstRecto)
+      : element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
   })
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, galley, runningHead, extra) },
+    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }
@@ -170,8 +182,10 @@ export function templatedSection(
   entry: TemplatedSection,
   id: string,
   kind: 'front' | 'templated',
-  galley: boolean,
+  build: BookBuild,
   depth: number,
+  templates?: Map<string, BookTemplate>,
+  geometry?: BookFlowPageGeometry,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(entry.opens, entry.parents, {
     'data-segnavia-kind': 'templated',
@@ -180,19 +194,34 @@ export function templatedSection(
   })
   const headings: BookHeading[] = []
   const generated = { n: 0 }
+  const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
     const name = page.template ?? entry.template
+    const regionChildren = new Map<string, ChildNode[]>()
     const regions = Object.entries(page.regions).map(([region, html]) => {
       const document = parse(html)
       headings.push(...heldHeadings(document.children, id, depth, generated))
+      regionChildren.set(region, document.children)
       return element('div', { 'data-region': region, hidden: '' }, document.children)
     })
+    if (build === 'flow' && geometry) {
+      const template = templates?.get(name)
+      const document = parse(template?.html ?? '')
+      for (const [region, children] of regionChildren) {
+        const target = elements(document.children).find((node) => node.attribs['data-region'] === region)
+        if (!target) continue
+        target.children = children
+        linkChildren(target)
+      }
+      const text = element('div', { 'data-segnavia-flow-text': '', 'data-template': name }, document.children)
+      return flowPage(offset + 1, 'templated', [text], geometry, offset % 2 === 0 ? firstRecto : !firstRecto)
+    }
     return element('div', { 'data-segnavia-templated-page': String(offset + 1), 'data-template': name, hidden: '' }, regions)
   })
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, galley, runningHead, extra) },
+    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }

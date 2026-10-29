@@ -4,7 +4,10 @@ export interface BookDocumentOptions {
   part?: 'front' | 'body'
   crossLinks?: boolean
   targets?: boolean
+  build?: BookBuild
 }
+
+export type BookBuild = 'print' | 'galley' | 'flow'
 
 export interface BookSectionInfo {
   id: string

@@ -19,6 +19,7 @@ describe('bookView', () => {
     expect(view.scripts).toBe('refuse')
     expect(view.css).toBe('.lead{color:purple}')
     expect(view.pagination).toBeUndefined()
+    expect(view.flow).toBeUndefined()
   })
 
   test('adds resolved pagination values for a paginated book', () => {
@@ -35,6 +36,8 @@ describe('bookView', () => {
     )
     expect(view.html).toContain('data-segnavia-flow="segnavia-chapter-1"')
     expect(view.html).toContain('data-segnavia-galleys')
+    expect(view.flow).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(view.flow).not.toContain('data-segnavia-galleys')
     expect(view.pagination).toMatchObject({
       paper: { width: 148, height: 210 },
       margin: page.margin,

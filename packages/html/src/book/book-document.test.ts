@@ -41,8 +41,8 @@ describe('book document', () => {
       { id: 'kept', level: 2, text: 'Alpha', sectionId: 'segnavia-chapter-1' },
       { id: 'segnavia-h-1-2', level: 3, text: 'Beta', sectionId: 'segnavia-chapter-1' },
     ])
-    expect(result.html).toContain('<h1>Author chapter title</h1>')
-    expect(result.html).toContain('<h2 id="kept">')
+    expect(result.html).toMatch(/<h1[^>]*>Author chapter title<\/h1>/)
+    expect(result.html).toMatch(/<h2 id="kept"[^>]*>/)
     expect(result.html).not.toContain('href="#segnavia-h-1-3"')
   })
 
@@ -69,7 +69,7 @@ describe('book document', () => {
       '<p>A<span data-note="footnote">first</span> B<span data-note="footnote"><i>second</i></span></p><ul><li>C<span data-note="footnote">third</span></li></ul>'
     const result = bookDocument(Book.parse(input({ chapters: [chapter('One', html)] }))).html
     expect(result).toMatch(
-      /<p>A<sup[\s\S]*?<\/p><div class="segnavia-footnotes"><p class="segnavia-footnote"[^>]*>[\s\S]*?first<\/p><p class="segnavia-footnote"[^>]*>[\s\S]*?<i>second<\/i><\/p><\/div>/,
+      /<p[^>]*>A<sup[\s\S]*?<\/p><div class="segnavia-footnotes"[^>]*><p class="segnavia-footnote"[^>]*>[\s\S]*?first<\/p><p class="segnavia-footnote"[^>]*>[\s\S]*?<i>second<\/i><\/p><\/div>/,
     )
     expect(result).toMatch(/<li>C<sup[\s\S]*?<div class="segnavia-footnotes">[\s\S]*?third[\s\S]*?<\/div><\/li>/)
     expect(result.match(/class="segnavia-footnotes"/g)).toHaveLength(2)
@@ -78,8 +78,8 @@ describe('book document', () => {
   test('collects endnotes in a titled section with links in both directions', () => {
     const result = bookDocument(Book.parse(input({ chapters: [chapter('One', '<p>Text<span data-note="endnote"><em>Source</em></span></p>')] }))).html
     expect(result).toContain('<a id="segnavia-enref-1" href="#segnavia-en-1"><bdi>1</bdi></a>')
-    expect(result).toContain('<h1 class="segnavia-endnotes-title" dir="ltr">Notes</h1>')
-    expect(result).toContain('<p class="segnavia-endnote" id="segnavia-en-1"><a href="#segnavia-enref-1"><bdi>1</bdi></a> <em>Source</em></p>')
+    expect(result).toMatch(/<h1 class="segnavia-endnotes-title" dir="ltr"[^>]*>Notes<\/h1>/)
+    expect(result).toMatch(/<p class="segnavia-endnote" id="segnavia-en-1"[^>]*><a href="#segnavia-enref-1"><bdi>1<\/bdi><\/a> <em>Source<\/em><\/p>/)
   })
 
   test('fills contents page numbers only when enabled', () => {
@@ -100,14 +100,14 @@ describe('book document', () => {
     expect(result).toContain(
       '</section><div class="segnavia-blank" aria-hidden="true"></div><section class="segnavia-section segnavia-chapter" id="segnavia-chapter-2">',
     )
+    for (const css of ['@media print', ':where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}']) expect(result).toContain(css)
+    for (const attribute of ['data-segnavia-flow', 'data-segnavia-position']) expect(result).not.toContain(attribute)
   })
-
   test('reports an issue when both used note kinds share a marker', () => {
     const html = '<p><span data-note="footnote">f</span><span data-note="endnote">e</span></p>'
     const result = bookDocument(Book.parse(input({ chapters: [chapter('One', html)], footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } })))
     expect(result.issues).toEqual(['footnote and endnote markers are both arabic; the two must differ when both kinds are used'])
   })
-
   test('reports duplicate listed heading ids and collisions with generated ids by section', () => {
     const repeated = bookDocument(Book.parse(input({ chapters: [chapter('One', '<h2 id="topic">First</h2>'), chapter('Two', '<h2 id="topic">Second</h2>')] })))
     expect(repeated.issues).toEqual([
@@ -195,7 +195,7 @@ describe('book document', () => {
 
   test("uses a Hebrew book's resolved endnotes title and direction", () => {
     const result = bookDocument(Book.parse(input({ lang: 'he', chapters: [chapter('א', '<p><span data-note="endnote">ה</span></p>')] })))
-    expect(result.html).toContain('<h1 class="segnavia-endnotes-title" dir="rtl">הערות</h1>')
+    expect(result.html).toMatch(/<h1 class="segnavia-endnotes-title" dir="rtl"[^>]*>הערות<\/h1>/)
     expect(result.sections.at(-1)?.title).toBe('הערות')
   })
 

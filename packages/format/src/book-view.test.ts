@@ -8,8 +8,9 @@ describe('book view', () => {
   })
 
   test('parses all book metadata', () => {
-    expect(BookView.parse({ html: '<main>ספר</main>', title: 'ספר', dir: 'rtl', lang: 'he', scripts: 'sandboxed' })).toEqual({
+    expect(BookView.parse({ html: '<main>ספר</main>', flow: '<main>זרימה</main>', title: 'ספר', dir: 'rtl', lang: 'he', scripts: 'sandboxed' })).toEqual({
       html: '<main>ספר</main>',
+      flow: '<main>זרימה</main>',
       title: 'ספר',
       dir: 'rtl',
       lang: 'he',
@@ -22,6 +23,9 @@ describe('book view', () => {
     expect(BookView.safeParse({ html: 3 }).success).toBe(false)
     expect(BookView.safeParse({ html: '', dir: 'sideways' }).success).toBe(false)
     expect(BookView.safeParse({ html: '', scripts: 'allow' }).success).toBe(false)
+    const invalidFlow = BookView.safeParse({ html: '', flow: 3 })
+    expect(invalidFlow.success).toBe(false)
+    if (!invalidFlow.success) expect(invalidFlow.error.issues[0]?.path).toEqual(['flow'])
   })
 
   test('parses an optional pagination object', () => {
@@ -47,5 +51,6 @@ describe('book view', () => {
     expect(schema.required).toEqual(['html'])
     expect(schema.properties).toHaveProperty('scripts')
     expect(schema.properties).toHaveProperty('pagination')
+    expect(schema.properties).toHaveProperty('flow')
   })
 })
