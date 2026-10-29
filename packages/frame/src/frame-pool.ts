@@ -1,12 +1,13 @@
-import { type ContentValue, comparableContent, sameContent } from './content-value.ts'
+import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
+import { FrameEntry, type FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
 import { type HostTransition, type TurnTransition, transitionFor } from './transition.ts'
 
-interface PoolOptions {
+interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
   css: string
   csp: string
@@ -23,30 +24,6 @@ interface PendingTurn {
   cancel: () => void
 }
 
-class FrameEntry {
-  canvas!: HTMLElement
-  loaded = false
-  private loadWaiters = new Set<() => void>()
-
-  constructor(readonly value: ContentValue) {}
-
-  markLoaded() {
-    if (this.loaded) return
-    this.loaded = true
-    for (const waiter of this.loadWaiters) waiter()
-    this.loadWaiters.clear()
-  }
-
-  waitForLoad(waiter: () => void): () => void {
-    if (this.loaded) {
-      waiter()
-      return () => {}
-    }
-    this.loadWaiters.add(waiter)
-    return () => this.loadWaiters.delete(waiter)
-  }
-}
-
 export class FramePool {
   private entries = new Map<string, FrameEntry>()
   private turn = 0
@@ -61,6 +38,7 @@ export class FramePool {
   clear() {
     this.cancelPending()
     this.turn++
+    for (const entry of this.entries.values()) entry.dispose()
     this.entries.clear()
     this.deck = null
     this.host.replaceChildren()
@@ -80,6 +58,7 @@ export class FramePool {
     const wanted = new Set(indexes.map((index) => deck.slides[index]?.id))
     for (const [id, entry] of this.entries) {
       if (!wanted.has(id)) {
+        entry.dispose()
         entry.canvas.remove()
         this.entries.delete(id)
       }
@@ -96,6 +75,13 @@ export class FramePool {
 
   activeFrame(): HTMLIFrameElement | null {
     return this.host.querySelector<HTMLIFrameElement>('.segnavia-stage__canvas[data-active] iframe')
+  }
+
+  markReady(source: MessageEventSource | null) {
+    for (const entry of this.entries.values()) {
+      const frame = entry.canvas.querySelector('iframe')
+      if (frame?.contentWindow === source) entry.markReady()
+    }
   }
 
   cancelPending() {
@@ -280,6 +266,7 @@ export class FramePool {
         } else if (!reused) {
           settled = true
           cleanup()
+          entry.dispose()
           incoming.remove()
           this.entries.delete(id)
         } else {
@@ -337,6 +324,7 @@ export class FramePool {
     if (this.pending) wanted.add(this.pending.id)
     for (const [id, entry] of this.entries) {
       if (!wanted.has(id)) {
+        entry.dispose()
         entry.canvas.remove()
         this.entries.delete(id)
       }
@@ -350,7 +338,7 @@ export class FramePool {
     const existing = this.entries.get(slide.id)
     const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     if (existing && sameContent(existing.value, comparable)) return existing.canvas
-    const entry = new FrameEntry(comparable)
+    const entry = new FrameEntry(slide.id, comparable)
     const canvas = stageCanvas(
       controller,
       deck,
@@ -361,14 +349,16 @@ export class FramePool {
       options.csp,
       options.frameTitle,
       () => {
-        entry.markLoaded()
+        entry.markLoaded(options)
       },
       options.slots,
     )
     entry.canvas = canvas
     this.entries.set(slide.id, entry)
-    if (existing) existing.canvas.replaceWith(canvas)
-    else if (mount) this.host.append(canvas)
+    if (existing) {
+      existing.dispose()
+      existing.canvas.replaceWith(canvas)
+    } else if (mount) this.host.append(canvas)
     return canvas
   }
 

@@ -35,6 +35,7 @@ export class SegnaviaStage extends HTMLElement {
   // Styles applied inside every slide, such as a host's house style.
   css = ''
   cspExtra = ''
+  bridgeReadyTimeoutMs = 10_000
   private owned: DeckController | null = null
   private attached: DeckController | null = null
   frameTitle: FrameTitle = defaultFrameTitle
@@ -233,6 +234,8 @@ export class SegnaviaStage extends HTMLElement {
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
       slots: this.resolvedSlots,
+      bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
+      reportError: (error) => this.dispatchEvent(new ErrorEvent('error', { error, message: error.message })),
     })
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
@@ -290,6 +293,7 @@ export class SegnaviaStage extends HTMLElement {
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
     const message = messageFrom(event, this.pool.frames())
+    if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }

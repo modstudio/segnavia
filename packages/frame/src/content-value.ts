@@ -20,7 +20,20 @@ export function comparableContent(
 }
 
 export function sameContent(left: ContentValue, right: ContentValue): boolean {
+  if (left.content.kind === 'url' && right.content.kind === 'url') {
+    const useKey = hasReuseKey(left.content) && hasReuseKey(right.content)
+    return sameValue({ ...left, content: comparableUrl(left.content, useKey) }, { ...right, content: comparableUrl(right.content, useKey) })
+  }
   return sameValue(left, right)
+}
+
+function hasReuseKey(content: ResolvedContent): content is Extract<ResolvedContent, { kind: 'url' }> & { reuseKey: string } {
+  return content.kind === 'url' && typeof content.reuseKey === 'string'
+}
+
+function comparableUrl(content: Extract<ResolvedContent, { kind: 'url' }>, useKey: boolean) {
+  const { src, reuseKey, ...rest } = content
+  return useKey ? { ...rest, reuseKey } : { ...rest, src }
 }
 
 function sameValue(left: unknown, right: unknown): boolean {

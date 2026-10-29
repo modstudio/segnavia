@@ -48,4 +48,13 @@ describe('resolved content values', () => {
       ),
     ).toBe(true)
   })
+
+  test('uses a shared url reuse key instead of the resolved address', () => {
+    const comparable = (src: string, reuseKey?: string) => comparableContent({ kind: 'url', src, reuseKey }, (path) => path, 'refuse', '', '')
+    expect(sameContent(comparable('first.html', 'slide-v1'), comparable('second.html', 'slide-v1'))).toBe(true)
+    expect(sameContent(comparable('same.html', 'slide-v1'), comparable('same.html', 'slide-v2'))).toBe(false)
+    expect(sameContent(comparable('same.html', 'slide-v1'), comparable('same.html'))).toBe(true)
+    expect(sameContent(comparable('first.html', 'slide-v1'), comparable('second.html'))).toBe(false)
+    expect(sameContent(comparable('same.html', 'slide-v1'), comparable('same.html', 'slide-v1'))).toBe(true)
+  })
 })
