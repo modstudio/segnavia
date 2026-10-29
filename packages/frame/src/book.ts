@@ -4,7 +4,7 @@
 import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { BOOK_LAYOUTS, type BookLayout, bookPlaceKey } from './book-presentation.ts'
+import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
@@ -49,11 +49,13 @@ export class SegnaviaBook extends HTMLElementBase {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
   private currentLayout: BookLayout = 'pages'
+  private shownLayout: BookLayout = 'pages'
   private requestedLayout: BookLayout = 'pages'
   private readyLayouts = new Set<BookLayout>()
   private pendingLayouts = new Set<BookLayout>()
   private places = new Map<BookLayout, string>()
   private switchPlaces = new Map<BookLayout, string | undefined>()
+  private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
   private reflectingLayout = false
   private loadGeneration = 0
@@ -71,6 +73,7 @@ export class SegnaviaBook extends HTMLElementBase {
   disconnectedCallback() {
     window.removeEventListener('message', this.onMessage)
     this.readyLayouts.clear()
+    this.cancelLayoutHandoff()
     ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
@@ -199,15 +202,34 @@ export class SegnaviaBook extends HTMLElementBase {
       return
     }
     if (layout === this.currentLayout) return
-    const outgoing = this.currentLayout
+    const previousLayout = this.currentLayout
+    const outgoing = this.shownLayout
     this.currentLayout = layout
     if (this.loadController) return
+    this.cancelLayoutHandoff()
+    this.pendingLayouts.delete(previousLayout)
+    this.switchPlaces.delete(previousLayout)
     let frame = this.layoutFrame(layout)
     if (!frame && layout === 'flow') frame = this.mountLayoutFrame('flow')
-    this.showLayoutFrame(layout)
+    if (layout === outgoing) {
+      this.showLayoutFrame(layout)
+      return
+    }
+    this.showLayoutFrame(outgoing)
     this.pendingLayouts.add(layout)
     this.switchPlaces.set(layout, this.places.get(outgoing))
-    if (frame && this.readyLayouts.has(layout)) this.postLayout(frame, layout, this.switchPlaces.get(layout))
+    const outgoingFrame = this.layoutFrame(outgoing)
+    if (outgoingFrame && this.readyLayouts.has(outgoing)) {
+      const place = this.places.get(outgoing)
+      this.layoutHandoff = {
+        from: outgoing,
+        to: layout,
+        timer: setTimeout(() => this.finishLayoutHandoff(layout), 100),
+      }
+      outgoingFrame.contentWindow?.postMessage(bookLayoutMessage(layout, place), '*')
+      return
+    }
+    this.finishLayoutHandoff(layout)
   }
 
   private reportError(reason: unknown) {
@@ -216,6 +238,7 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   private dropFrame() {
+    this.cancelLayoutHandoff()
     this.readyLayouts.clear()
     this.pendingLayouts.clear()
     this.places.clear()
@@ -265,6 +288,7 @@ export class SegnaviaBook extends HTMLElementBase {
       frame.hidden = !shown
       frame.style.display = shown ? 'block' : 'none'
     }
+    this.shownLayout = layout
   }
 
   private mountLayoutFrame(layout: BookLayout): HTMLIFrameElement | null {
@@ -272,7 +296,6 @@ export class SegnaviaBook extends HTMLElementBase {
     if (!view?.pagination || (layout === 'flow' && !view.flow)) return null
     const frame = this.mountFrame(bookFrame(view, this.resolvedFontCss, this.spread, layout), layout)
     this.append(frame)
-    this.showLayoutFrame(this.currentLayout)
     return frame
   }
 
@@ -292,10 +315,24 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   private postLayout(frame: HTMLIFrameElement, layout: BookLayout, place?: string) {
-    const message = place === undefined ? { type: MESSAGE.bookLayout, layout } : { type: MESSAGE.bookLayout, layout, place }
-    frame.contentWindow?.postMessage(message, '*')
+    frame.contentWindow?.postMessage(bookLayoutMessage(layout, place), '*')
     this.pendingLayouts.delete(layout)
     this.switchPlaces.delete(layout)
+  }
+
+  private cancelLayoutHandoff() {
+    if (!this.layoutHandoff) return
+    clearTimeout(this.layoutHandoff.timer)
+    this.layoutHandoff = null
+  }
+
+  private finishLayoutHandoff(layout: BookLayout, place = this.switchPlaces.get(layout)) {
+    if (layout !== this.currentLayout) return
+    this.cancelLayoutHandoff()
+    this.switchPlaces.set(layout, place)
+    this.showLayoutFrame(layout)
+    const frame = this.layoutFrame(layout)
+    if (frame && this.readyLayouts.has(layout)) this.postLayout(frame, layout, place)
   }
 
   private mount() {
@@ -332,24 +369,27 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   private onMessage = (event: MessageEvent) => {
-    for (const frame of this.querySelectorAll<HTMLIFrameElement>('iframe')) {
-      const message = messageFrom(event, frame)
-      if (!message) continue
-      const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
-      if (message.type === MESSAGE.bookPlace && layout) {
-        const key = bookPlaceKey((message as { key?: unknown }).key)
-        if (key !== undefined) this.places.set(layout, key)
-        return
+    const frames = Array.from(this.querySelectorAll<HTMLIFrameElement>('iframe'))
+    const frame = frames.find((held) => messageFrom(event, held))
+    if (!frame) return
+    const message = messageFrom(event, frame)
+    if (!message) return
+    const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
+    if (message.type === MESSAGE.bookPlace && layout) {
+      const key = bookPlaceKey((message as { key?: unknown }).key)
+      if (key !== undefined) {
+        this.places.set(layout, key)
+        if (this.layoutHandoff?.from === layout) this.finishLayoutHandoff(this.layoutHandoff.to, key)
       }
-      if (message.type !== MESSAGE.ready) return
-      if (!layout) {
-        this.dispatchEvent(new Event('ready'))
-        return
-      }
-      this.readyLayouts.add(layout)
-      if (this.pendingLayouts.has(layout)) this.postLayout(frame, layout, this.switchPlaces.get(layout))
-      if (layout === this.currentLayout) this.dispatchEvent(new Event('ready'))
       return
     }
+    if (message.type !== MESSAGE.ready) return
+    if (!layout) {
+      this.dispatchEvent(new Event('ready'))
+      return
+    }
+    this.readyLayouts.add(layout)
+    if (this.pendingLayouts.has(layout) && this.layoutHandoff?.to !== layout) this.postLayout(frame, layout, this.switchPlaces.get(layout))
+    if (layout === this.currentLayout && layout === this.shownLayout) this.dispatchEvent(new Event('ready'))
   }
 }

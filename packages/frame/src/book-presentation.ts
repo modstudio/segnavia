@@ -53,6 +53,10 @@ export function bookPlaceKey(value: unknown): string | undefined {
   return typeof value === 'string' && value.length <= BOOK_PLACE_KEY_LIMIT && parseBookPositionKey(value) ? value : undefined
 }
 
+export function bookLayoutMessage(layout: BookLayout, place?: string) {
+  return place === undefined ? { type: MESSAGE.bookLayout, layout } : { type: MESSAGE.bookLayout, layout, place }
+}
+
 export function embeddedBookPresentationFunctions(): string {
   return `${embedFunction('parseBookPositionKey', parseBookPositionKey)}
 ${embedFunction('bookPlace', bookPlace)}
@@ -69,7 +73,7 @@ var reportBookPlace=function(){var key=bookPlace(visibleBookBlocks());if(bookPla
 var bookPlacePending=false;var scheduleBookPlace=function(){if(bookPlacePending)return;bookPlacePending=true;setTimeout(function(){bookPlacePending=false;reportBookPlace();},50);};
 var settleBookPlace=function(key){scrollTo(0,key?bookPlaceOffset(targetBookBlocks(),key):0);var report=function(){if(window.requestAnimationFrame)window.requestAnimationFrame(reportBookPlace);else setTimeout(reportBookPlace,0);};if(window.requestAnimationFrame)window.requestAnimationFrame(report);else setTimeout(report,0);};
 window.addEventListener('scroll',scheduleBookPlace,{passive:true});
-window.addEventListener('message',function(event){var data=event.data;if(event.source!==parent||!data||data.type!=='${MESSAGE.bookLayout}'||BOOK_LAYOUTS.indexOf(data.layout)<0)return;var place=data.place===undefined?undefined:bookPlaceKey(data.place);if(data.place!==undefined&&place===undefined)return;settleBookPlace(place);});
+window.addEventListener('message',function(event){var data=event.data;if(event.source!==parent||!data||data.type!=='${MESSAGE.bookLayout}'||BOOK_LAYOUTS.indexOf(data.layout)<0)return;var place=data.place===undefined?undefined:bookPlaceKey(data.place);if(data.place!==undefined&&place===undefined)return;reportBookPlace();var settle=function(){settleBookPlace(place);};if(window.requestAnimationFrame)window.requestAnimationFrame(settle);else setTimeout(settle,0);});
 settleBookPlace();`
 }
 

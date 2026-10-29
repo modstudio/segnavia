@@ -108,6 +108,42 @@ describe('book layout lifecycle', () => {
     expect(frames[1]?.srcdoc).not.toContain('data-segnavia-galleys')
   })
 
+  test('a ready layout reports its current place before the target is shown', () => {
+    const { book, frames } = reflectedBookElement()
+    const pagesMessages: unknown[] = []
+    const flowMessages: unknown[] = []
+    ;(book as unknown as { dispatchEvent: () => boolean }).dispatchEvent = () => true
+    book.view = switchableBookView()
+    const pages = frames[0]
+    if (!pages) throw new Error('pages frame was not mounted')
+    Object.defineProperty(pages, 'contentWindow', {
+      configurable: true,
+      value: { postMessage: (value: unknown) => pagesMessages.push(value) },
+    })
+    ;(book as unknown as { readyLayouts: Set<string> }).readyLayouts.add('pages')
+
+    book.layout = 'flow'
+    const flow = frames[1]
+    if (!flow) throw new Error('flow frame was not mounted')
+    expect(frames.filter((frame) => !frame.hidden).map((frame) => frame.dataset.segnaviaBookLayout)).toEqual(['pages'])
+    expect(pagesMessages).toEqual([{ type: 'segnavia:book-layout', layout: 'flow' }])
+
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: pages.contentWindow,
+      data: { type: 'segnavia:book-place', key: 'chapter:3' },
+    } as unknown as MessageEvent)
+    expect(frames.filter((frame) => !frame.hidden).map((frame) => frame.dataset.segnaviaBookLayout)).toEqual(['flow'])
+    Object.defineProperty(flow, 'contentWindow', {
+      configurable: true,
+      value: { postMessage: (value: unknown) => flowMessages.push(value) },
+    })
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: flow.contentWindow,
+      data: { type: 'segnavia:ready' },
+    } as unknown as MessageEvent)
+    expect(flowMessages).toEqual([{ type: 'segnavia:book-layout', layout: 'flow', place: 'chapter:3' }])
+  })
+
   test('a switch to flow while fonts resolve shows flow after they resolve', async () => {
     const { book, frames } = reflectedBookElement()
     ;(book as unknown as { dispatchEvent: () => boolean }).dispatchEvent = () => true
