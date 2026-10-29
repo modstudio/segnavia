@@ -5,10 +5,30 @@ import type { Harness } from './harness.ts'
 
 export async function verifyPages(h: Harness) {
   const { page, check } = h
+  const measureCharacterPositions = (frame: string, selector: string, indexes: [number, number]): Promise<[number, number][]> =>
+    page
+      .frameLocator(`#${frame} iframe`)
+      .locator(selector)
+      .evaluateAll((elements, positions) => {
+        return elements.map((element) => {
+          const text = element.firstChild as Text
+          const length = text.textContent?.length ?? 0
+          return positions.map((position) => {
+            const index = position < 0 ? length + position : position
+            const range = document.createRange()
+            range.setStart(text, index)
+            range.setEnd(text, index + 1)
+            return range.getBoundingClientRect().left
+          })
+        })
+      }, indexes) as Promise<[number, number][]>
   await page.goto(h.url('page.html'))
   await page
     .waitForFunction(
-      () => ['#fluid', '#rtl', '#rtl-div', '#fixed', '#postcard'].every((id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined),
+      () =>
+        ['#fluid', '#rtl', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#fixed', '#postcard'].every(
+          (id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined,
+        ),
       null,
       {
         timeout: 10000,
@@ -35,38 +55,20 @@ export async function verifyPages(h: Harness) {
   check('direction and language reach the page', rtl === 'rtl he', rtl)
   // An English sentence on a right to left page is still left to right: its
   // full stop renders after its last word, to the right of its first letter.
-  const order = await page
-    .frameLocator('#rtl iframe')
-    .locator('p')
-    .evaluate((p) => {
-      const text = p.firstChild as Text
-      const at = (index: number) => {
-        const range = document.createRange()
-        range.setStart(text, index)
-        range.setEnd(text, index + 1)
-        return range.getBoundingClientRect().left
-      }
-      return { first: at(0), stop: at((text.textContent ?? '').length - 1) }
-    })
-  check('an English paragraph on a right-to-left page keeps its full stop on the right', order.stop > order.first, JSON.stringify(order))
-  const containerOrder = await page
-    .frameLocator('#rtl-div iframe')
-    .locator('div, section, article, aside, address')
-    .evaluateAll((containers) => {
-      return containers.map((container) => {
-        const text = container.firstChild as Text
-        const at = (index: number) => {
-          const range = document.createRange()
-          range.setStart(text, index)
-          range.setEnd(text, index + 1)
-          return range.getBoundingClientRect().left
-        }
-        return { tag: container.tagName.toLowerCase(), first: at(0), stop: at((text.textContent ?? '').length - 1) }
-      })
-    })
+  const order = (await measureCharacterPositions('rtl', 'p', [0, -1]))[0]
+  check('an English paragraph on a right-to-left page keeps its full stop on the right', order !== undefined && order[1] > order[0], JSON.stringify(order))
+  const declaredOrder = (await measureCharacterPositions('rtl-own-dir', 'p', [5, -1]))[0]
+  check(
+    'a left-to-right paragraph opening in Hebrew keeps its full stop to the right of its English text',
+    declaredOrder !== undefined && declaredOrder[1] > declaredOrder[0],
+    JSON.stringify(declaredOrder),
+  )
+  const emptyOrder = (await measureCharacterPositions('rtl-empty-dir', 'p', [5, -1]))[0]
+  check('a paragraph with an empty dir follows its first strong letter', emptyOrder !== undefined && emptyOrder[1] < emptyOrder[0], JSON.stringify(emptyOrder))
+  const containerOrder = await measureCharacterPositions('rtl-div', 'div, section, article, aside, address', [0, -1])
   check(
     'English text directly in common containers on a right-to-left page keeps its full stop on the right',
-    containerOrder.length === 5 && containerOrder.every((order) => order.stop > order.first),
+    containerOrder.length === 5 && containerOrder.every((order) => order[1] > order[0]),
     JSON.stringify(containerOrder),
   )
   const fixed = await page.locator('#fixed iframe').evaluate((frame) => {

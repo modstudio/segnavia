@@ -148,10 +148,12 @@ refused-script document, a selection reply crosses in answer to a request from
 its parent.
 
 **Every block of text takes its own direction.** A page's `dir` lays out the
-page, but each paragraph, heading and list item reads in the direction of its
-first letter (`BLOCK_DIRECTION_CSS`). An English sentence on a right-to-left
-page keeps its full stop on the right, and aligns to its own start. The rule
-has zero specificity, so a host's CSS or an author's `dir` always wins.
+page, but each paragraph, heading and list item without its own valid `dir`
+reads in the direction of its first letter (`BLOCK_DIRECTION_CSS`). An English
+sentence on a right-to-left page keeps its full stop on the right, and aligns
+to its own start. A block with its own valid `dir` is excluded because the
+user-agent `[dir]` rule loses to any author rule. The frame rule has zero
+specificity, so a host's CSS can override it.
 
 **Height reports are batched with a timer.** A browser may stop animation
 frames in a cross-origin frame that is off screen. A report batched on an
