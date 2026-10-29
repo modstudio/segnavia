@@ -6,7 +6,7 @@ import { logicalMargin } from './margins.ts'
 import type { IdmlModel } from './model.ts'
 import { positionedBoxStyle } from './positioned-box.ts'
 import type { ReportCollector } from './report.ts'
-import { storyHtml } from './stories.ts'
+import { type StoryHtmlResult, storyHtml } from './stories.ts'
 import type { StyleMapper } from './styles.ts'
 import type { IdmlBounds, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
 
@@ -57,6 +57,7 @@ interface ParentBuildContext {
   stories: Map<string, IdmlStory>
   mappedStories: Set<string>
   css: string[]
+  renderStory?: (story: IdmlStory) => StoryHtmlResult
 }
 
 function regionHtml(master: IdmlMasterSpread, page: IdmlMasterPage, region: 'head' | 'foot', context: ParentBuildContext): string | undefined {
@@ -69,13 +70,9 @@ function regionHtml(master: IdmlMasterSpread, page: IdmlMasterPage, region: 'hea
       continue
     }
     const className = `idml-master-frame-${context.css.length}`
-    const mapped = storyHtml(
-      { ...story, textVariables: context.variables, master: true },
-      context.styles,
-      context.report,
-      context.rtl ? 'rtl' : 'ltr',
-      undefined,
-    )
+    const mapped = context.renderStory
+      ? context.renderStory(story)
+      : storyHtml({ ...story, textVariables: context.variables, master: true }, context.styles, context.report, context.rtl ? 'rtl' : 'ltr', undefined)
     const nodes = parseDocument(mapped.html, { xmlMode: false }).children
     boxes.push(new Element('div', { class: className }, nodes))
     const blockStart = region === 'head' ? frame.bounds.top : frame.bounds.top - (context.model.preferences.pageHeight - page.margin.bottom)
@@ -182,7 +179,13 @@ function appliedBookMargin(model: IdmlModel, applied: Set<string>, report: Repor
   return logicalMargin(first, model.preferences.binding === 'right-to-left' ? 'left' : 'right')
 }
 
-export function mapMasters(model: IdmlModel, variables: IdmlTextVariable[], styles: StyleMapper, report: ReportCollector): MasterMapping {
+export function mapMasters(
+  model: IdmlModel,
+  variables: IdmlTextVariable[],
+  styles: StyleMapper,
+  report: ReportCollector,
+  renderStory?: (story: IdmlStory) => StoryHtmlResult,
+): MasterMapping {
   const rtl = model.preferences.binding === 'right-to-left'
   const applied = new Set(
     model.spreads.flatMap((spread) => spread.pages.map((page) => page.appliedMaster).filter((id): id is string => Boolean(id && id !== IDML_NONE_MASTER))),
@@ -208,6 +211,7 @@ export function mapMasters(model: IdmlModel, variables: IdmlTextVariable[], styl
     stories: new Map(model.stories.map((story) => [story.id, story])),
     mappedStories,
     css,
+    renderStory,
   }
   const parents = buildParents(masters, byId, context)
   if (model.spreads.some((spread) => spread.pages.some((page) => !page.appliedMaster || page.appliedMaster === IDML_NONE_MASTER))) {

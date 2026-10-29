@@ -1,4 +1,5 @@
 import { type Element, isTag } from 'domhandler'
+import { parseAnchoredFrames } from './anchored-frames.ts'
 import { parseFonts } from './fonts.ts'
 import { FramePreferenceIndex } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
@@ -10,6 +11,7 @@ import { type IdmlReportData, ReportCollector } from './report.ts'
 import { parseStories } from './story-model.ts'
 import { parseStyles, parseSwatches } from './styles.ts'
 import type {
+  IdmlAnchoredFrame,
   IdmlDocumentPreferences,
   IdmlFont,
   IdmlFramePreference,
@@ -34,6 +36,7 @@ export interface IdmlModel {
   spreads: IdmlSpread[]
   masterSpreads: IdmlMasterSpread[]
   stories: IdmlStory[]
+  anchoredFrames?: IdmlAnchoredFrame[]
   masterStoryIds: string[]
   partsRead: string[]
   styles?: IdmlStyle[]
@@ -228,6 +231,8 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
   const spreadResult = spreads(parts, 'Spread', spreadSources(designmap, 'Spread'), report, framePreferences)
   const masterResult = spreads(parts, 'MasterSpread', spreadSources(designmap, 'MasterSpread'), report, new FramePreferenceIndex())
   const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
+  const stories = parseStories(parts, framePreferences, report)
+  const styles = parts.flatMap((part) => (part.name.endsWith('/Styles.xml') || part.name === 'Resources/Styles.xml' ? parseStyles(part.all, part.name) : []))
   return {
     id: attribute(document, 'Self') ?? 'IDML document',
     preferences: {
@@ -239,12 +244,13 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     },
     spreads: spreadResult.values as IdmlSpread[],
     masterSpreads: masterResult.values as IdmlMasterSpread[],
-    stories: parseStories(parts, framePreferences, report),
+    stories,
+    anchoredFrames: parseAnchoredFrames(stories, styles),
     bodyFramePreferences: framePreferences.values(),
     textVariables: textVariables(designmap),
     masterStoryIds,
     partsRead: parts.map((part) => part.name),
-    styles: parts.flatMap((part) => (part.name.endsWith('/Styles.xml') || part.name === 'Resources/Styles.xml' ? parseStyles(part.all, part.name) : [])),
+    styles,
     fonts: parts.flatMap((part) => (part.name.endsWith('/Fonts.xml') || part.name === 'Resources/Fonts.xml' ? parseFonts(part.all) : [])),
     swatches: parts.flatMap((part) => (part.name.endsWith('/Graphic.xml') || part.name === 'Resources/Graphic.xml' ? parseSwatches(part.all) : [])),
     report: report.data(),
