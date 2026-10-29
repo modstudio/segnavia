@@ -172,11 +172,8 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined, layout: 'pages' | 'flow') => void }).mountFrames = (
-      view,
-      css,
-      layout,
-    ) => mounted.push(bookFrame(view, css, spread, layout))
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
+      mounted.push(bookFrame(view, css, spread, book.layout))
     book.dispatchEvent = ((event: Event) => {
       if (event.type === 'error') errors.push((event as CustomEvent).detail)
       return true
@@ -232,11 +229,8 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined, layout: 'pages' | 'flow') => void }).mountFrames = (
-      view,
-      css,
-      layout,
-    ) => mounted.push(bookFrame(view, css, spread, layout))
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
+      mounted.push(bookFrame(view, css, spread, book.layout))
     book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
     book.view = { html: '<main>Initial</main>', title: 'Initial' }
     await Promise.resolve()

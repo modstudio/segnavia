@@ -108,6 +108,19 @@ describe('book layout lifecycle', () => {
     expect(frames[1]?.srcdoc).not.toContain('data-segnavia-galleys')
   })
 
+  test('a switch to flow while fonts resolve shows flow after they resolve', async () => {
+    const { book, frames } = reflectedBookElement()
+    ;(book as unknown as { dispatchEvent: () => boolean }).dispatchEvent = () => true
+    Object.defineProperty(book, 'isConnected', { configurable: true, value: true })
+    ;(book as unknown as { fontOptions: unknown }).fontOptions = { source: { kind: 'none' } }
+    book.view = switchableBookView()
+    await book.attributeChangedCallback('layout', null, 'flow')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const shown = frames.filter((frame) => !frame.hidden).map((frame) => frame.dataset.segnaviaBookLayout)
+    expect(book.layout).toBe('flow')
+    expect(shown).toEqual(['flow'])
+  })
+
   test('place reports are accepted only from their frame with a bounded position key', () => {
     const { book, frames } = reflectedBookElement()
     book.view = switchableBookView()

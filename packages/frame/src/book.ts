@@ -201,7 +201,7 @@ export class SegnaviaBook extends HTMLElementBase {
     if (layout === this.currentLayout) return
     const outgoing = this.currentLayout
     this.currentLayout = layout
-    if (this.sourceLoadController) return
+    if (this.loadController) return
     let frame = this.layoutFrame(layout)
     if (!frame && layout === 'flow') frame = this.mountLayoutFrame('flow')
     this.showLayoutFrame(layout)
@@ -276,7 +276,8 @@ export class SegnaviaBook extends HTMLElementBase {
     return frame
   }
 
-  private mountFrames(view: BookView, css: string | undefined, layout: BookLayout) {
+  private mountFrames(view: BookView, css: string | undefined) {
+    const layout = this.currentLayout
     this.dropFrame()
     this.resolvedFontCss = css
     if (!view.pagination) {
@@ -300,7 +301,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private mount() {
     const view = this.currentView
     if (!view) return
-    const layout = this.showRequestedLayout(view)
+    this.showRequestedLayout(view)
     const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
     if (!this.fontOptions) {
       try {
@@ -309,7 +310,7 @@ export class SegnaviaBook extends HTMLElementBase {
         this.reportError(reason)
         return
       }
-      this.mountFrames(view, undefined, layout)
+      this.mountFrames(view, undefined)
       return
     }
     const generation = this.loadGeneration
@@ -319,7 +320,7 @@ export class SegnaviaBook extends HTMLElementBase {
     void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
       .then((css) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrames(view, css, layout)
+        this.mountFrames(view, css)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return
