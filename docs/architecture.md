@@ -632,10 +632,12 @@ script: host-context code paginates notes and places natural images after
 readiness, so a strict host content security policy cannot disable either.
 
 The frame bridge sends a relayed key, height, readiness, animation timing and
-slot fit to its host. A host sends `segnavia:selection-request`, and the bridge
-answers its parent with `segnavia:selection`, containing the reader's selection
-string and the page's `innerText`, only on a refused-script page. Both bounded
-strings retain document order without reordering for direction. A filled
+slot fit to its host. The host checks selection replies against a size bound.
+The bridge answers exactly one inbound message type, a
+`segnavia:selection-request` from its parent, and only on a refused-script page;
+its `segnavia:selection` reply contains the reader's selection string and the
+page's `innerText`. Both strings retain document order without reordering for
+direction. A filled
 item's author scripts are refused, so only the nonce-authorized bridge can send
 its bounded slot-fit record. A non-default text-slot overflow is marked on its bound
 element as `data-slot-overflow="<percent-encoded key>:<mode>[:<minimum px>]"`.

@@ -16,6 +16,9 @@ export async function verifySelection(h: Harness) {
       document.body.append(element)
       return element
     }
+    const immediate = mount('selection-immediate')
+    immediate.page = { html: '<p>Immediate page text</p>', scripts: 'refuse' }
+    ;(window as typeof window & { immediateSelection: Promise<{ text: string; pageText: string }> }).immediateSelection = immediate.readSelection()
     mount('selection-empty').page = { html: '<p>Plain page text</p>', scripts: 'refuse' }
     mount('selection-rtl').page = {
       html: '<p id="hebrew">בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ׃</p>',
@@ -24,8 +27,17 @@ export async function verifySelection(h: Harness) {
       lang: 'he',
     }
     mount('selection-sandboxed').page = { html: '<p>Script-enabled</p>', scripts: 'sandboxed' }
-    mount('selection-url').showUrl('ticket-frame.html')
+    mount('selection-url').showUrl('ticket-page.html')
   })
+
+  const immediate = await page.evaluate(
+    () => (window as typeof window & { immediateSelection: Promise<{ text: string; pageText: string }> }).immediateSelection,
+  )
+  check(
+    'a selection read made before bridge readiness waits for the ready message',
+    immediate.pageText.includes('Immediate page text'),
+    JSON.stringify(immediate),
+  )
 
   const emptyFrame = await (await page.locator('#selection-empty iframe').elementHandle())?.contentFrame()
   if (!emptyFrame) throw new Error('The empty-selection page did not mount its frame.')

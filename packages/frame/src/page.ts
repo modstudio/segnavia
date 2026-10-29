@@ -18,7 +18,6 @@ import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from '
 
 const PLACEHOLDER_HEIGHT = 150
 export const SELECTION_REPLY_MS = 2000
-export type { PageSelection } from './bridge.ts'
 
 export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src']
@@ -35,8 +34,10 @@ export class SegnaviaPage extends HTMLElement {
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
   private hostServed = false
+  private frameReady = false
   private selectionId = 0
   private selectionRequests = new Set<(reason: Error) => void>()
+  private selectionReadyRequests = new Set<() => void>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -71,7 +72,7 @@ export class SegnaviaPage extends HTMLElement {
 
   set page(value: PageInput | Page | null | undefined) {
     if (value == null) {
-      this.cancelSelectionRequests?.()
+      this.cancelSelectionRequests()
       this.cancelSlotPreparation()
       this.loadGeneration++
       this.resolvedSlots = undefined
@@ -96,6 +97,7 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     window.removeEventListener('message', this.onMessage)
     this.resize.disconnect()
@@ -110,7 +112,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
-    this.cancelSelectionRequests?.()
+    this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()
     this.resolvedSlots = undefined
@@ -165,7 +167,7 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   showUrl(url: string, size: Page['size'] = 'fluid') {
-    this.cancelSelectionRequests?.()
+    this.cancelSelectionRequests()
     this.hostServed = true
     this.cancelSlotPreparation()
     this.loadGeneration++
@@ -196,28 +198,19 @@ export class SegnaviaPage extends HTMLElement {
     const id = this.selectionId
     return new Promise((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout>
+      const post = () => frameWindow.postMessage({ type: MESSAGE.selectionRequest, id }, '*')
       const finish = (result: PageSelection | Error) => {
         window.removeEventListener('message', onMessage)
         clearTimeout(timer)
         this.selectionRequests.delete(replaced)
+        this.selectionReadyRequests.delete(post)
         result instanceof Error ? reject(result) : resolve(result)
       }
       const replaced = (reason: Error) => finish(reason)
       const onMessage = (event: MessageEvent) => {
         const result = selectionMessage(event, frame, id)
-        if (result) {
-          finish(result)
-          return
-        }
-        const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
-        if (
-          event.source === frameWindow &&
-          data?.type === MESSAGE.selection &&
-          data.id === id &&
-          typeof data.text === 'string' &&
-          typeof data.pageText === 'string' &&
-          (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT)
-        )
+        if (result && 'selection' in result) finish(result.selection)
+        else if (result && 'oversize' in result)
           finish(new Error(`Cannot read the selection because its reply is longer than the ${SELECTION_TEXT_LIMIT}-unit limit. Shorten the page or selection.`))
       }
       window.addEventListener('message', onMessage)
@@ -226,11 +219,13 @@ export class SegnaviaPage extends HTMLElement {
         () => finish(new Error(`Cannot read the selection because the page did not send a valid reply within ${SELECTION_REPLY_MS} ms. Try again.`)),
         SELECTION_REPLY_MS,
       )
-      frameWindow.postMessage({ type: MESSAGE.selectionRequest, id }, '*')
+      if (this.frameReady) post()
+      else this.selectionReadyRequests.add(post)
     })
   }
 
   private mount(page: Page): HTMLIFrameElement {
+    this.frameReady = false
     this.pageValue = page
     this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
@@ -274,6 +269,11 @@ export class SegnaviaPage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
+    if (message?.type === MESSAGE.ready) {
+      this.frameReady = true
+      for (const post of [...this.selectionReadyRequests]) post()
+      this.selectionReadyRequests.clear()
+    }
     const page = this.page
     if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
       this.resolvedSlots?.mergeFit(message.slots)

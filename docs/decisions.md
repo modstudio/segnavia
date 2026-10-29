@@ -142,8 +142,10 @@ relayed to it live in the page's own document and realm, and the script can
 replace the child frame with its own.
 
 **Messages are trusted by `event.source` only.** A sandboxed frame's
-`origin` is `"null"` and proves nothing. Only a paging key's name, a height
-and a ready signal cross.
+`origin` is `"null"` and proves nothing. A paging key's name, a height, a ready
+signal, an animation report and a bounded slot-fit report cross. On a
+refused-script document, a selection reply crosses in answer to a request from
+its parent.
 
 **Every block of text takes its own direction.** A page's `dir` lays out the
 page, but each paragraph, heading and list item reads in the direction of its

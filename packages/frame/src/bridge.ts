@@ -265,12 +265,14 @@ export interface PageSelection {
   pageText: string
 }
 
-export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): PageSelection | null {
+export type SelectionMessage = { selection: PageSelection } | { oversize: true }
+
+export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): SelectionMessage | null {
   if (event.source !== frame?.contentWindow) return null
   const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
   if (data?.type !== MESSAGE.selection || data.id !== id || typeof data.text !== 'string' || typeof data.pageText !== 'string') return null
-  if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return null
-  return { text: data.text, pageText: data.pageText }
+  if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return { oversize: true }
+  return { selection: { text: data.text, pageText: data.pageText } }
 }
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'

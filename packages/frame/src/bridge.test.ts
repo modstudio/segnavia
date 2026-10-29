@@ -352,16 +352,20 @@ describe('frame document', () => {
     const frame = { contentWindow: source } as HTMLIFrameElement
     const event = (data: unknown, eventSource: MessageEventSource | null = source) => ({ source: eventSource, data }) as MessageEvent
     expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'whole page' }), frame, 7)).toEqual({
-      text: 'phrase',
-      pageText: 'whole page',
+      selection: { text: 'phrase', pageText: 'whole page' },
     })
     expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: '', pageText: 'whole page' }), frame, 7)).toEqual({
-      text: '',
-      pageText: 'whole page',
+      selection: { text: '', pageText: 'whole page' },
     })
     expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'whole page' }, {} as Window), frame, 7)).toBeNull()
     expect(selectionMessage(event({ type: MESSAGE.selection, id: 8, text: 'phrase', pageText: 'whole page' }), frame, 7)).toBeNull()
     expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 1, pageText: 'whole page' }), frame, 7)).toBeNull()
-    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'x'.repeat(SELECTION_TEXT_LIMIT + 1) }), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 1 }), frame, 7)).toBeNull()
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'x'.repeat(SELECTION_TEXT_LIMIT + 1), pageText: 'whole page' }), frame, 7)).toEqual({
+      oversize: true,
+    })
+    expect(selectionMessage(event({ type: MESSAGE.selection, id: 7, text: 'phrase', pageText: 'x'.repeat(SELECTION_TEXT_LIMIT + 1) }), frame, 7)).toEqual({
+      oversize: true,
+    })
   })
 })
