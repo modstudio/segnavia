@@ -37,10 +37,11 @@ become chapters, and the paragraph and character styles they use become
 `idml-*` classes in `Book.css`, with physical indents and alignment resolved
 to logical properties by each paragraph's direction. Single-column paragraphs
 in a multi-column frame carry `data-columns` within the bound `html` exports.
-For facing-page documents, `rectoOpenings` is on only when every emitted
-chapter's first source page is a recto; claimed title-block headers are excluded,
-and verso-opening chapters are named in the import report. Single-sided imports
-leave it off.
+For facing-page documents, `rectoOpenings` is on only when at least one emitted
+chapter has a source page and every such chapter's first source page is a recto.
+Chapters without a source page and claimed title-block headers are excluded, and
+verso-opening chapters are named in the import report. Single-sided imports leave
+it off.
 Applied master spreads become mirrored parent pages. Margin text frames become
 positioned head or foot boxes, Match Character Style variables become marks,
 and auto page-number characters become folios. When every applied master

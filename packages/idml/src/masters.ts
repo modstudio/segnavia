@@ -229,43 +229,49 @@ export function mapMasters(model: IdmlModel, variables: IdmlTextVariable[], styl
   return { parents, css: css.join(''), bookMargin: appliedBookMargin(model, applied, report), parentFor, mappedStories, marginFor }
 }
 
-interface PageUse {
+export interface PageUse {
   page: IdmlPage
   ordinal: number
 }
 
 export interface StoryOpening {
   page: IdmlPage
-  ordinal: number
   role: 'recto' | 'verso'
 }
 
-export function openingPage(story: string, model: IdmlModel): StoryOpening | undefined {
-  const rtl = model.preferences.binding === 'right-to-left'
+export function storyPageUses(model: IdmlModel): Map<string, PageUse[]> {
+  const result = new Map<string, PageUse[]>()
   let ordinal = 0
   for (const spread of model.spreads) {
     for (const page of spread.pages) {
-      if (page.stories.includes(story)) return { page, ordinal, role: roleFor(page, rtl, ordinal) }
+      for (const story of page.stories) result.set(story, [...(result.get(story) ?? []), { page, ordinal }])
       ordinal += 1
     }
   }
-  return undefined
+  return result
 }
 
-export function chapterParents(story: string, model: IdmlModel, mapping: MasterMapping, report: ReportCollector): BookSectionParents | undefined {
+export function openingPage(story: string, model: IdmlModel, pages: Map<string, PageUse[]>): StoryOpening | undefined {
   const rtl = model.preferences.binding === 'right-to-left'
-  const first = openingPage(story, model)
+  const first = pages.get(story)?.[0]
+  return first ? { page: first.page, role: roleFor(first.page, rtl, first.ordinal) } : undefined
+}
+
+export function chapterParents(
+  story: string,
+  model: IdmlModel,
+  pages: Map<string, PageUse[]>,
+  mapping: MasterMapping,
+  report: ReportCollector,
+): BookSectionParents | undefined {
+  const rtl = model.preferences.binding === 'right-to-left'
+  const uses = pages.get(story)
+  const first = uses?.[0]
   if (!first) return undefined
-  const pages: PageUse[] = []
-  let ordinal = 0
-  for (const spread of model.spreads)
-    for (const page of spread.pages) {
-      if (page.stories.includes(story)) pages.push({ page, ordinal })
-      ordinal += 1
-    }
-  const result: BookSectionParents = { opener: mapping.parentFor(first.page.appliedMaster, first.role, first.page.id) }
+  const firstRole = roleFor(first.page, rtl, first.ordinal)
+  const result: BookSectionParents = { opener: mapping.parentFor(first.page.appliedMaster, firstRole, first.page.id) }
   for (const role of ['recto', 'verso'] as const) {
-    const candidates = pages.slice(1).filter((entry) => roleFor(entry.page, rtl, entry.ordinal) === role)
+    const candidates = uses.slice(1).filter((entry) => roleFor(entry.page, rtl, entry.ordinal) === role)
     if (candidates.length === 0) continue
     const counts = new Map<string, number>()
     for (const entry of candidates) {

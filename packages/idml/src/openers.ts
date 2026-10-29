@@ -1,5 +1,5 @@
 import { findActiveContent, sanitize } from '@segnavia/html'
-import type { MasterMapping } from './masters.ts'
+import type { MasterMapping, PageUse } from './masters.ts'
 import type { IdmlModel } from './model.ts'
 import { formatRoundedNumber, positionedBoxStyle } from './positioned-box.ts'
 import type { ReportCollector } from './report.ts'
@@ -12,26 +12,9 @@ export interface MappedStory {
   mapped: StoryHtmlResult
 }
 
-interface PageUse {
-  page: IdmlPage
-  ordinal: number
-}
-
 interface PositionedHeader {
   frame: IdmlFramePlacement
   html: string
-}
-
-function firstPages(model: IdmlModel): Map<string, PageUse> {
-  const result = new Map<string, PageUse>()
-  let ordinal = 0
-  for (const spread of model.spreads) {
-    for (const page of spread.pages) {
-      for (const story of page.stories) if (!result.has(story)) result.set(story, { page, ordinal })
-      ordinal += 1
-    }
-  }
-  return result
 }
 
 function storyFramePages(model: IdmlModel): Map<string, Set<string>> {
@@ -157,8 +140,15 @@ function claimHeaders(
   return headers
 }
 
-export function mapOpeners(model: IdmlModel, stories: MappedStory[], masters: MasterMapping, report: ReportCollector, asset?: IdmlAssetMap): OpenerMapping {
-  const first = firstPages(model)
+export function mapOpeners(
+  model: IdmlModel,
+  stories: MappedStory[],
+  pages: Map<string, PageUse[]>,
+  masters: MasterMapping,
+  report: ReportCollector,
+  asset?: IdmlAssetMap,
+): OpenerMapping {
+  const first = new Map([...pages].flatMap(([story, uses]) => (uses[0] ? [[story, uses[0]] as const] : [])))
   const framePages = storyFramePages(model)
   const byId = new Map(stories.map((entry) => [entry.story.id, entry]))
   const claimed = new Set<string>()

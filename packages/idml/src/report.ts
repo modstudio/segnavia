@@ -42,6 +42,8 @@ const BUCKET_NAMES = {
 } as const
 
 type BucketKey = keyof typeof BUCKET_NAMES
+const KEYED_RECORD_NAMES = ['strippedAssetContent', 'versoOpenings'] as const
+type KeyedRecordName = (typeof KEYED_RECORD_NAMES)[number]
 
 export function fontUseKey(appliedFont: string, fontStyle: string | undefined): string {
   return `${appliedFont}\u0000${fontStyle ?? ''}`
@@ -94,11 +96,10 @@ export class ReportCollector {
       for (const location of font.locations) this.unmappedFont(font.appliedFont, font.fontStyle, location)
     }
     for (const link of seed?.links ?? []) for (const location of link.locations) this.link(link.uri, location)
-    for (const [uri, findings] of Object.entries(seed?.strippedAssetContent ?? {})) {
-      for (const finding of findings) this.strippedAsset(uri, finding)
-    }
-    for (const [story, pages] of Object.entries(seed?.versoOpenings ?? {})) {
-      for (const page of pages) this.versoOpening(story, page)
+    for (const name of KEYED_RECORD_NAMES) {
+      for (const [key, locations] of Object.entries(seed?.[name] ?? {})) {
+        for (const location of locations) this.recordKeyed(this[name], key, location)
+      }
     }
   }
 
@@ -132,15 +133,17 @@ export class ReportCollector {
   }
 
   strippedAsset(uri: string, finding: string): void {
-    const found = this.strippedAssetContent.get(uri) ?? []
-    this.recordLocation(found, finding)
-    this.strippedAssetContent.set(uri, found)
+    this.recordKeyed(this.strippedAssetContent, uri, finding)
   }
 
   versoOpening(story: string, page: string): void {
-    const found = this.versoOpenings.get(story) ?? []
-    this.recordLocation(found, page)
-    this.versoOpenings.set(story, found)
+    this.recordKeyed(this.versoOpenings, story, page)
+  }
+
+  private recordKeyed(target: Map<string, string[]>, key: string, location: string): void {
+    const found = target.get(key) ?? []
+    this.recordLocation(found, location)
+    target.set(key, found)
   }
 
   private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
@@ -160,14 +163,16 @@ export class ReportCollector {
       IdmlReportData,
       BucketKey
     >
+    const keyedRecords = Object.fromEntries(
+      KEYED_RECORD_NAMES.map((name) => [name, Object.fromEntries([...this[name]].sort(([a], [b]) => a.localeCompare(b)))]),
+    ) as Pick<IdmlReportData, KeyedRecordName>
     return {
       ...buckets,
+      ...keyedRecords,
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
       unmappedFonts: [...this.unmappedFonts.values()],
       links: [...this.links.values()],
-      strippedAssetContent: Object.fromEntries([...this.strippedAssetContent].sort(([a], [b]) => a.localeCompare(b))),
-      versoOpenings: Object.fromEntries([...this.versoOpenings].sort(([a], [b]) => a.localeCompare(b))),
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }
