@@ -29,6 +29,7 @@ export class FramePool {
   private turn = 0
   private deck: DeckState['deck'] = null
   private pending: PendingTurn | null = null
+  private controller: DeckController | null = null
 
   constructor(
     private host: HTMLElement,
@@ -38,8 +39,7 @@ export class FramePool {
   clear() {
     this.cancelPending()
     this.turn++
-    for (const entry of this.entries.values()) entry.dispose()
-    this.entries.clear()
+    for (const [id, entry] of this.entries) this.remove(id, entry)
     this.deck = null
     this.host.replaceChildren()
   }
@@ -47,6 +47,7 @@ export class FramePool {
   update(state: DeckState, controller: DeckController, options: PoolOptions) {
     const deck = state.deck
     if (!deck || !state.slide || !state.content) return
+    this.controller = controller
     const reloaded = deck !== this.deck
     this.deck = deck
     if (this.updateTurn(state, controller, options)) {
@@ -58,9 +59,7 @@ export class FramePool {
     const wanted = new Set(indexes.map((index) => deck.slides[index]?.id))
     for (const [id, entry] of this.entries) {
       if (!wanted.has(id)) {
-        entry.dispose()
-        entry.canvas.remove()
-        this.entries.delete(id)
+        this.remove(id, entry)
       }
     }
     this.add(state.index, state.content, state, controller, options)
@@ -277,9 +276,7 @@ export class FramePool {
         } else if (!reused) {
           settled = true
           cleanup()
-          entry.dispose()
-          incoming.remove()
-          this.entries.delete(id)
+          this.remove(id, entry)
         } else {
           settled = true
           cleanup()
@@ -335,9 +332,7 @@ export class FramePool {
     if (this.pending) wanted.add(this.pending.id)
     for (const [id, entry] of this.entries) {
       if (!wanted.has(id)) {
-        entry.dispose()
-        entry.canvas.remove()
-        this.entries.delete(id)
+        this.remove(id, entry)
       }
     }
   }
@@ -371,6 +366,13 @@ export class FramePool {
       existing.canvas.replaceWith(canvas)
     } else if (mount) this.host.append(canvas)
     return canvas
+  }
+
+  private remove(id: string, entry: FrameEntry) {
+    entry.dispose()
+    entry.canvas.remove()
+    this.entries.delete(id)
+    this.controller?.forgetContent(id)
   }
 
   private sync(state: DeckState, frameTitle: FrameTitle) {

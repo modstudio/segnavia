@@ -142,6 +142,7 @@ function harness(contents: ResolvedContent[], timeout = 10) {
     state: state(0, contents[0] as ResolvedContent),
     url: (path: string) => new URL(path, 'https://example.test/').href,
     contentFor: async (index: number) => contents[index] as ResolvedContent,
+    forgetContent: () => {},
   } as unknown as DeckController
   const options = {
     neighbors: true,
@@ -155,6 +156,64 @@ function harness(contents: ResolvedContent[], timeout = 10) {
   return { host, pool, controller, options, errors }
 }
 
+function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
+  const host = new TestElement('host')
+  host.isConnected = true
+  const pool = new FramePool(host as unknown as HTMLElement, () => {})
+  const counts = new Map<string, number>()
+  const prefetched = new Map<string, Promise<ResolvedContent>>()
+  let slides = initialDeck
+  const resolveFresh = (index: number): ResolvedContent => {
+    const id = slides.slides[index]?.id as string
+    const count = (counts.get(id) ?? 0) + 1
+    counts.set(id, count)
+    return { kind: 'url', src: `${id}-${count}.html` }
+  }
+  const contentFor = (index: number) => {
+    const id = slides.slides[index]?.id as string
+    let ready = prefetched.get(id)
+    if (!ready) {
+      ready = Promise.resolve(resolveFresh(index))
+      prefetched.set(id, ready)
+    }
+    return ready
+  }
+  let controllerState = initialDeckState()
+  const controller = {
+    get state() {
+      return controllerState
+    },
+    url: (path: string) => new URL(path, 'https://example.test/').href,
+    contentFor,
+    forgetContent: (id: string) => prefetched.delete(id),
+  } as unknown as DeckController
+  const options = {
+    neighbors: true,
+    css: '',
+    csp: '',
+    frameTitle: () => '',
+    reducedMotion: true,
+    bridgeReadyTimeoutMs: 10,
+    reportError: () => {},
+  }
+  const show = async (index: number) => {
+    const id = slides.slides[index]?.id as string
+    const ready = prefetched.get(id)
+    prefetched.delete(id)
+    const content = await (ready ?? Promise.resolve(resolveFresh(index)))
+    controllerState = { ...initialDeckState(), deck: slides, index, slide: slides.slides[index] ?? null, content }
+    pool.update(controllerState, controller, options)
+    await Promise.resolve()
+    for (const frame of pool.frames()) (frame as unknown as TestElement).dispatch('load')
+  }
+  const reload = async (nextDeck: ReturnType<typeof Deck.parse>, index: number) => {
+    prefetched.clear()
+    slides = nextDeck
+    await show(index)
+  }
+  return { counts, pool, reload, show }
+}
+
 test('a pooled url frame survives a fresh src with the same reuse key', async () => {
   const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one' }
   const two = { kind: 'url' as const, src: 'ticket-2', reuseKey: 'two' }
@@ -166,6 +225,55 @@ test('a pooled url frame survives a fresh src with the same reuse key', async ()
   pool.update(state(1, two), controller, options)
   pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
   expect(pool.frames().find((frame) => frame.closest('[data-slide-id="one"]'))).toBe(original)
+})
+
+test('an evicted neighbor resolves afresh when its frame is rebuilt', async () => {
+  const slides = Deck.parse({
+    title: 'Six frames',
+    scripts: 'refuse',
+    slides: Array.from({ length: 6 }, (_, index) => ({
+      id: `slide-${index + 1}`,
+      content: { kind: 'url' as const, src: `slide-${index + 1}.html` },
+    })),
+  })
+  const { counts, pool, show } = countingHarness(slides)
+
+  await show(3)
+  await show(4)
+  await show(3)
+
+  expect(counts.get('slide-3')).toBe(2)
+  const rebuilt = pool.frames().find((frame) => frame.closest('[data-slide-id="slide-3"]')) as unknown as TestElement
+  expect((rebuilt as unknown as { src: string }).src).toBe('https://example.test/slide-3-2.html')
+  expect(counts.get('slide-5')).toBe(1)
+})
+
+test('replacing a neighbor keeps the resolution used by its new frame cached', async () => {
+  const slides = Deck.parse({
+    title: 'Six frames',
+    scripts: 'refuse',
+    slides: Array.from({ length: 6 }, (_, index) => ({
+      id: `slide-${index + 1}`,
+      content: { kind: 'url' as const, src: `slide-${index + 1}.html` },
+    })),
+  })
+  const reloaded = Deck.parse({
+    title: 'Six reloaded frames',
+    scripts: 'refuse',
+    slides: Array.from({ length: 6 }, (_, index) => ({
+      id: `slide-${index + 1}`,
+      content: { kind: 'url' as const, src: `reloaded-${index + 1}.html` },
+    })),
+  })
+  const { counts, pool, reload, show } = countingHarness(slides)
+
+  await show(3)
+  await reload(reloaded, 3)
+  const replaced = pool.frames().find((frame) => frame.closest('[data-slide-id="slide-5"]')) as unknown as TestElement
+  expect((replaced as unknown as { src: string }).src).toBe('https://example.test/slide-5-2.html')
+  await show(4)
+
+  expect(counts.get('slide-5')).toBe(2)
 })
 
 test('bridge-declared url frames report missing ready and accept ready from their own window', async () => {
