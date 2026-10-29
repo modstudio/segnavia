@@ -20,6 +20,7 @@ export interface IdmlReportData {
   spotColors: Record<string, number>
   locations: Record<string, string[]>
   fonts: IdmlFontUse[]
+  unmappedFonts: IdmlFontUse[]
   mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
@@ -34,9 +35,14 @@ const BUCKET_NAMES = {
 
 type BucketKey = keyof typeof BUCKET_NAMES
 
+export function fontUseKey(appliedFont: string, fontStyle: string | undefined): string {
+  return `${appliedFont}\u0000${fontStyle ?? ''}`
+}
+
 export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
+  readonly unmappedFonts = new Map<string, IdmlFontUse>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
@@ -69,6 +75,9 @@ export class ReportCollector {
     }
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
     for (const font of seed?.fonts ?? []) this.font(font.appliedFont, font.fontStyle, font.locations[0] ?? 'Resources/Styles.xml')
+    for (const font of seed?.unmappedFonts ?? []) {
+      for (const location of font.locations) this.unmappedFont(font.appliedFont, font.fontStyle, location)
+    }
   }
 
   add(bucket: Map<string, number>, name: string, location: string, count = 1): void {
@@ -87,10 +96,18 @@ export class ReportCollector {
 
   font(appliedFont: string | undefined, fontStyle: string | undefined, location: string): void {
     if (!appliedFont) return
-    const key = `${appliedFont}\u0000${fontStyle ?? ''}`
-    const found = this.fonts.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
+    this.record(this.fonts, appliedFont, fontStyle, location)
+  }
+
+  unmappedFont(appliedFont: string, fontStyle: string | undefined, location: string): void {
+    this.record(this.unmappedFonts, appliedFont, fontStyle, location)
+  }
+
+  private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
+    const key = fontUseKey(appliedFont, fontStyle)
+    const found = target.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
     if (found.locations.length < 5 && !found.locations.includes(location)) found.locations.push(location)
-    this.fonts.set(key, found)
+    target.set(key, found)
   }
 
   data(): IdmlReportData {
@@ -103,6 +120,7 @@ export class ReportCollector {
       ...buckets,
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
+      unmappedFonts: [...this.unmappedFonts.values()],
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }

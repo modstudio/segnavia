@@ -1,3 +1,5 @@
+import type { FontReferenceInput } from '@segnavia/format'
+
 export interface IdmlTextNode {
   name: string
   attributes: Record<string, string>
@@ -14,6 +16,14 @@ export interface IdmlStyle {
   properties: Record<string, string>
   location: string
 }
+
+export interface IdmlFont {
+  family: string
+  style?: string
+  postscriptName?: string
+}
+
+export type IdmlFontMap = (font: IdmlFont) => FontReferenceInput | undefined
 
 export interface IdmlSwatch {
   id: string

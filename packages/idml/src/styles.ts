@@ -1,4 +1,5 @@
 import { type Element, isTag } from 'domhandler'
+import type { FontMapper } from './fonts.ts'
 import type { ReportCollector } from './report.ts'
 import { stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
@@ -96,11 +97,19 @@ function textDeclarations(values: Record<string, string>, mapped: Set<string>, o
   if (mapped.has('Underline') && (values.Underline === 'true' || values.Underline === 'Underline')) output.push('text-decoration-line:underline')
 }
 
+function resolvedFontProperties(changed: Record<string, string>, resolved: Record<string, string>): Record<string, string> {
+  if (changed.AppliedFont === undefined && changed.FontStyle === undefined) return {}
+  return {
+    ...(resolved.AppliedFont === undefined ? {} : { AppliedFont: resolved.AppliedFont }),
+    ...(resolved.FontStyle === undefined ? {} : { FontStyle: resolved.FontStyle }),
+  }
+}
+
 export class StyleMapper {
   private readonly byId: Map<string, IdmlStyle>
   private readonly classes = new Map<string, string>()
   private readonly used = new Set<string>()
-  private readonly overrides = new Map<string, { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl' }>()
+  private readonly overrides = new Map<string, { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string }>()
   private readonly reportedStyleProperties = new Set<string>()
 
   constructor(
@@ -108,6 +117,7 @@ export class StyleMapper {
     private readonly swatches: IdmlSwatch[],
     private readonly report: ReportCollector,
     private readonly bookDirection: 'ltr' | 'rtl',
+    private readonly fonts?: FontMapper,
   ) {
     this.byId = new Map(styles.map((style) => [style.id, style]))
     const taken = new Set<string>()
@@ -164,6 +174,7 @@ export class StyleMapper {
     }
     if (changed.AppliedFont !== undefined || changed.FontStyle !== undefined) this.report.font(resolved.AppliedFont, resolved.FontStyle, location)
     const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => stylePropertyMapping(name)?.kind === 'css'))
+    Object.assign(cssProperties, resolvedFontProperties(changed, resolved))
     if (styleDirection && styleDirection !== directionValue) {
       for (const name of ['LeftIndent', 'RightIndent']) cssProperties[name] = base[name] ?? '0'
       for (const name of ['Justification']) {
@@ -175,7 +186,7 @@ export class StyleMapper {
     const found = this.overrides.get(key)
     if (found) return found.name
     const name = `idml-o-${this.overrides.size + 1}`
-    this.overrides.set(key, { name, properties: cssProperties, direction: directionValue })
+    this.overrides.set(key, { name, properties: cssProperties, direction: directionValue, location })
     return name
   }
 
@@ -213,7 +224,7 @@ export class StyleMapper {
       rules.push(`.${name}{${declarations}}`)
     }
     for (const value of this.overrides.values()) {
-      const declarations = this.declarations(value.properties, value.direction, value.name, this.report.unsupportedOverrideProperties)
+      const declarations = this.declarations(value.properties, value.direction, value.location, this.report.unsupportedOverrideProperties)
       if (declarations) rules.push(`.${value.name}{${declarations}}`)
     }
     return rules.join('')
@@ -221,6 +232,7 @@ export class StyleMapper {
 
   private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported = this.report.unsupportedStyleProperties): string {
     const output: string[] = []
+    output.push(...(this.fonts?.declarations(values.AppliedFont, values.FontStyle, location) ?? []))
     const mapped = new Set(Object.keys(values).filter((name) => stylePropertyMapping(name)?.kind === 'css'))
     const pt = (name: string, property: string) => {
       if (!mapped.has(name)) return
