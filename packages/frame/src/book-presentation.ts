@@ -1,3 +1,5 @@
+import { parseBookPositionKey } from '@segnavia/html'
+
 export const BOOK_LAYOUTS = ['pages', 'flow'] as const
 
 export type BookLayout = (typeof BOOK_LAYOUTS)[number]
@@ -13,18 +15,6 @@ export interface BookBlockTarget {
   top: number
 }
 
-interface PositionKey {
-  flow: string
-  index: number
-  footnotes: boolean
-}
-
-export function bookPositionKey(value: string): PositionKey | undefined {
-  const match = /^(.*):(\d+)(:footnotes)?$/.exec(value)
-  if (!match?.[1] || !match[2]) return undefined
-  return { flow: match[1], index: Number(match[2]), footnotes: match[3] !== undefined }
-}
-
 export function bookPlace(blocks: VisibleBookBlock[]): string | undefined {
   return blocks.find((block) => block.bottom > 0)?.key
 }
@@ -33,15 +23,15 @@ export function bookPlaceOffset(blocks: BookBlockTarget[], key: string): number 
   const exact = blocks.find((block) => block.key === key)
   if (exact) return exact.top
 
-  const wanted = bookPositionKey(key)
+  const wanted = parseBookPositionKey(key)
   if (!wanted) return 0
   let sameFlow: BookBlockTarget | undefined
   const flowOrder: string[] = []
   for (const block of blocks) {
-    const held = bookPositionKey(block.key)
+    const held = parseBookPositionKey(block.key)
     if (!held) continue
     if (!flowOrder.includes(held.flow)) flowOrder.push(held.flow)
-    const preceding = held.index < wanted.index || (wanted.footnotes && held.index === wanted.index && !held.footnotes)
+    const preceding = held.index < wanted.index || (wanted.suffix !== undefined && held.index === wanted.index && held.suffix === undefined)
     if (held.flow === wanted.flow && preceding) sameFlow = block
   }
   if (sameFlow) return sameFlow.top
@@ -50,7 +40,7 @@ export function bookPlaceOffset(blocks: BookBlockTarget[], key: string): number 
   if (flowIndex < 1) return 0
   let earlier: BookBlockTarget | undefined
   for (const block of blocks) {
-    const held = bookPositionKey(block.key)
+    const held = parseBookPositionKey(block.key)
     if (held && flowOrder.indexOf(held.flow) < flowIndex) earlier = block
   }
   return earlier?.top ?? 0

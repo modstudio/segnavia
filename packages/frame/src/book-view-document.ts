@@ -23,7 +23,7 @@ export interface PaginatedDocumentOptions {
 
 function scopedBuildStyle(html: string, root: string, limit?: string): string {
   const boundary = limit ? ` to (${limit})` : ''
-  return html.replace(/<style>([\s\S]*?)<\/style>/i, (_tag, css: string) => `<style>@scope (${root})${boundary}{${css}}</style>`)
+  return html.replace(/<style>([\s\S]*?)<\/style>/gi, (_tag, css: string) => `<style>@scope (${root})${boundary}{${css}}</style>`)
 }
 
 function px(value: number): number {
@@ -77,11 +77,11 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
     `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
-    `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
+    `@media print{:where([data-segnavia-galley-source],[data-segnavia-flow-view]){display:none!important}:where([data-segnavia-pages]){display:grid!important}}` +
     bookCss
   const galley = options.screen ? scopedBuildStyle(view.html, ':root', '[data-segnavia-flow-view]') : view.html
   const flow = options.screen && view.flow ? `<template data-segnavia-flow-build>${scopedBuildStyle(view.flow, '[data-segnavia-flow-view]')}</template>` : ''
-  const body = `${galley}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const body = `${galley}${flow}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

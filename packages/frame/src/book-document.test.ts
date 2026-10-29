@@ -12,6 +12,7 @@ import {
 } from '@segnavia/html'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
+import { MESSAGE } from './bridge.ts'
 
 const book = Book.parse({
   title: 'Book',
@@ -120,7 +121,7 @@ describe('bookDocument', () => {
 
   test('builds a screen document from a paginated view without changing the print document', () => {
     const view = {
-      html: '<main data-segnavia-galleys>Held</main>',
+      html: '<style>.first-build-style{color:red}</style><main data-segnavia-galleys>Held<style>.second-build-style{color:blue}</style></main>',
       flow: '<style>:where([data-segnavia-flow]){color:green}</style><section id="chapter" data-segnavia-flow="chapter">Flow</section>',
       scripts: 'refuse' as const,
       pagination: {
@@ -143,9 +144,19 @@ describe('bookDocument', () => {
     expect(screen).toContain('"screen":{"spread":true,"layout":"pages"}')
     expect(screen).toContain('<template data-segnavia-flow-build>')
     expect(screen).toContain('@scope ([data-segnavia-flow-view])')
+    expect(screen).toContain('@scope (:root) to ([data-segnavia-flow-view]){.first-build-style{color:red}}')
+    expect(screen).toContain('@scope (:root) to ([data-segnavia-flow-view]){.second-build-style{color:blue}}')
     expect(screen.indexOf('<template data-segnavia-flow-build>')).toBeLessThan(screen.indexOf('var composeStarted='))
+    expect(screen).toContain('event.source===parent')
+    expect(screen).toContain(`data.type==='${MESSAGE.bookLayout}'`)
+    expect(screen).toContain('BOOK_LAYOUTS.indexOf(data.layout)>=0')
+    expect(screen).toContain(
+      '@media print{:where([data-segnavia-galley-source],[data-segnavia-flow-view]){display:none!important}:where([data-segnavia-pages]){display:grid!important}}',
+    )
     expect(print).not.toContain('"screen"')
     expect(print).not.toContain('<template data-segnavia-flow-build>')
+    expect(print).not.toContain(MESSAGE.bookLayout)
+    expect(print).not.toContain('BOOK_LAYOUTS.indexOf(data.layout)')
   })
 
   test('places sanitized book CSS between generated fonts and host CSS', () => {

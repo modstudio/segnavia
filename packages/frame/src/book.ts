@@ -50,6 +50,8 @@ export class SegnaviaBook extends HTMLElementBase {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
   private currentLayout: BookLayout = 'pages'
+  private requestedLayout: BookLayout = 'pages'
+  private mountedLayout: BookLayout | null = null
   private frameReady = false
   private reflectingLayout = false
   private loadGeneration = 0
@@ -66,6 +68,7 @@ export class SegnaviaBook extends HTMLElementBase {
 
   disconnectedCallback() {
     window.removeEventListener('message', this.onMessage)
+    this.frameReady = false
     ++this.loadGeneration
     this.loadController?.abort()
     this.loadController = null
@@ -93,6 +96,7 @@ export class SegnaviaBook extends HTMLElementBase {
       if (this.latestInput !== 'view') {
         this.latestInput = 'src'
         this.currentView = null
+        this.dropFrame()
         this.replaceChildren()
       }
       return
@@ -179,9 +183,21 @@ export class SegnaviaBook extends HTMLElementBase {
       this.reflectingLayout = false
       return
     }
+    this.requestedLayout = layout
+    if (!this.currentView?.pagination) {
+      this.currentLayout = layout
+      return
+    }
+    if (layout === 'flow' && !this.currentView.flow) {
+      this.reportError(new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
+      this.reflectingLayout = true
+      if (previous === null) this.removeAttribute('layout')
+      else this.setAttribute('layout', previous)
+      this.reflectingLayout = false
+      return
+    }
     if (layout === this.currentLayout) return
     this.currentLayout = layout
-    if (!this.currentView?.pagination || !this.currentView.flow) return
     if (this.sourceLoadController) return
     const frame = this.querySelector('iframe')
     if (this.frameReady && frame?.contentWindow) {
@@ -199,8 +215,35 @@ export class SegnaviaBook extends HTMLElementBase {
     this.dispatchEvent(new CustomEvent('error', { detail: { message } }))
   }
 
-  private mountFrame(rendered: { title: string; srcdoc: string }) {
+  private dropFrame() {
     this.frameReady = false
+    this.mountedLayout = null
+  }
+
+  private showRequestedLayout(view: BookView): BookLayout {
+    if (!view.pagination) return 'pages'
+    if (!view.flow) {
+      if (this.currentLayout !== 'pages') {
+        this.currentLayout = 'pages'
+        this.reflectingLayout = true
+        this.setAttribute('layout', 'pages')
+        this.reflectingLayout = false
+      }
+      return 'pages'
+    }
+    const layout = this.requestedLayout
+    if (layout !== this.currentLayout) {
+      this.currentLayout = layout
+      this.reflectingLayout = true
+      this.setAttribute('layout', layout)
+      this.reflectingLayout = false
+    }
+    return layout
+  }
+
+  private mountFrame(rendered: { title: string; srcdoc: string }, layout: BookLayout | null = null) {
+    this.dropFrame()
+    this.mountedLayout = layout
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.title = rendered.title
@@ -211,6 +254,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private mount() {
     const view = this.currentView
     if (!view) return
+    const layout = this.showRequestedLayout(view)
     const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
     if (!this.fontOptions) {
       try {
@@ -219,7 +263,7 @@ export class SegnaviaBook extends HTMLElementBase {
         this.reportError(reason)
         return
       }
-      this.mountFrame(bookFrame(view, undefined, this.spread, this.layout))
+      this.mountFrame(bookFrame(view, undefined, this.spread, layout), view.pagination ? layout : null)
       return
     }
     const generation = this.loadGeneration
@@ -229,7 +273,7 @@ export class SegnaviaBook extends HTMLElementBase {
     void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
       .then((css) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrame(bookFrame(view, css, this.spread, this.layout))
+        this.mountFrame(bookFrame(view, css, this.spread, layout), view.pagination ? layout : null)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return
@@ -243,6 +287,11 @@ export class SegnaviaBook extends HTMLElementBase {
   private onMessage = (event: MessageEvent) => {
     if (messageFrom(event, this.querySelector('iframe'))?.type !== MESSAGE.ready) return
     this.frameReady = true
+    const frame = this.querySelector('iframe')
+    if (this.currentView?.pagination && this.currentView.flow && this.mountedLayout !== this.currentLayout && frame?.contentWindow) {
+      frame.contentWindow.postMessage({ type: MESSAGE.bookLayout, layout: this.currentLayout }, '*')
+      this.mountedLayout = this.currentLayout
+    }
     this.dispatchEvent(new Event('ready'))
   }
 }
