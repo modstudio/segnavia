@@ -1,4 +1,5 @@
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
+import { parseFonts } from './fonts.ts'
 import { FramePreferenceIndex, framePreference } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
 import { readMargin } from './margins.ts'
@@ -9,6 +10,7 @@ import { parseStories } from './story-model.ts'
 import { parseStyles, parseSwatches } from './styles.ts'
 import type {
   IdmlDocumentPreferences,
+  IdmlFont,
   IdmlFramePreference,
   IdmlMasterFrame,
   IdmlMasterSpread,
@@ -34,6 +36,7 @@ export interface IdmlModel {
   masterStoryIds: string[]
   partsRead: string[]
   styles?: IdmlStyle[]
+  fonts?: IdmlFont[]
   swatches?: IdmlSwatch[]
   bodyFramePreferences?: IdmlFramePreference[]
   textVariables?: IdmlTextVariable[]
@@ -365,6 +368,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
     masterStoryIds,
     partsRead: parts.map((part) => part.name),
     styles: parts.flatMap((part) => (part.name.endsWith('/Styles.xml') || part.name === 'Resources/Styles.xml' ? parseStyles(part.all, part.name) : [])),
+    fonts: parts.flatMap((part) => (part.name.endsWith('/Fonts.xml') || part.name === 'Resources/Fonts.xml' ? parseFonts(part.all) : [])),
     swatches: parts.flatMap((part) => (part.name.endsWith('/Graphic.xml') || part.name === 'Resources/Graphic.xml' ? parseSwatches(part.all) : [])),
     report: report.data(),
   }

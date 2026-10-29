@@ -15,6 +15,12 @@ export interface IdmlStyle {
   location: string
 }
 
+export interface IdmlFont {
+  family: string
+  style?: string
+  postscriptName?: string
+}
+
 export interface IdmlSwatch {
   id: string
   name: string

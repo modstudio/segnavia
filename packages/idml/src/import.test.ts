@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { fontReferenceRefusals } from '@segnavia/html'
 import { importIdml } from './import.ts'
 import { testZip } from './zip.test-helper.ts'
 
@@ -64,7 +65,7 @@ describe('importIdml', () => {
       {
         name: 'Resources/Styles.xml',
         content:
-          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" ParagraphDirection="RightToLeftDirection" AppliedLanguage="$ID/Hebrew"/><ParagraphStyle Self="body" Name="Body" BasedOn="root" PointSize="12" SpanColumnType="SingleColumn" AppliedFont="Hebrew Face" FontStyle="Regular" RuleAbove="true"/></RootParagraphStyleGroup></idPkg:Styles>',
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" ParagraphDirection="RightToLeftDirection" AppliedLanguage="$ID/Hebrew"/><ParagraphStyle Self="body" Name="Body" BasedOn="root" PointSize="12" SpanColumnType="SingleColumn" AppliedFont="Hebrew Face" FontStyle="Color" RuleAbove="true"/></RootParagraphStyleGroup></idPkg:Styles>',
       },
       {
         name: 'Resources/Graphic.xml',
@@ -82,11 +83,76 @@ describe('importIdml', () => {
     expect(result.book).toMatchObject({ dir: 'ltr', lang: 'he', page: { columnGap: 12 * (25.4 / 72) } })
     expect(chapter.html).toContain('class="idml-p-body" dir="rtl" data-columns="2"')
     expect(chapter.html).toContain('&lt;script&gt;שלום')
-    expect(result.book.css).toContain('.idml-p-body{font-size:12pt}')
-    expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
+    expect(result.book.css).toContain('font-size:12pt')
+    expect(result.book.css).not.toContain('font-family')
+    expect(result.book.css).not.toContain('font-weight')
+    expect(result.book.css).not.toContain('font-style')
+    expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Color' }])
+    expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Color' }])
     expect(result.report.unsupportedElements).toMatchObject({ Table: 1 })
     expect(result.report.unsupportedStyleProperties).toMatchObject({ RuleAbove: 1 })
     expect(result.report.locations['element:Table']).toBeDefined()
+  })
+
+  test('maps local and app fonts into Book references and style and override CSS once per face', async () => {
+    const styledMap = designmap.replace('</Document>', '<idPkg:Styles src="Resources/Styles.xml"/><idPkg:Fonts src="Resources/Fonts.xml"/></Document>')
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: styledMap },
+      { name: 'Spreads/Spread_s.xml', content: `<Spread Self="s"><Page Self="p" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>` },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content:
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="body" Name="Body" AppliedFont="Book Face" FontStyle="Semi Bold"/></RootParagraphStyleGroup><RootCharacterStyleGroup><CharacterStyle Self="body-char" Name="Body Character" AppliedFont="Book Face" FontStyle="Semi Bold"/></RootCharacterStyleGroup></idPkg:Styles>',
+      },
+      {
+        name: 'Resources/Fonts.xml',
+        content:
+          '<idPkg:Fonts><FontFamily Name="Book Face"><Font FontFamily="Book Face" FontStyleName="Semi Bold" PostScriptName="BookFace-SemiBold"/></FontFamily><FontFamily Name="Display Face"><Font FontFamily="Display Face" FontStyleName="Bold Italic" PostScriptName="Display-BoldItalic"/></FontFamily></idPkg:Fonts>',
+      },
+      {
+        name: 'Stories/Story_story.xml',
+        content:
+          '<Story Self="story"><ParagraphStyleRange AppliedParagraphStyle="body"><CharacterStyleRange AppliedCharacterStyle="body-char"><Content>Body</Content></CharacterStyleRange><CharacterStyleRange AppliedFont="Display Face" FontStyle="Bold Italic"><Content>Display</Content></CharacterStyleRange></ParagraphStyleRange></Story>',
+      },
+    ])
+    const calls: unknown[] = []
+    const result = await importIdml(bytes, {
+      font(font) {
+        calls.push(font)
+        return font.family === 'Display Face' ? { local: 'Installed Display', fallback: 'serif' } : { app: 'body' }
+      },
+    })
+    expect(calls).toEqual([
+      { family: 'Book Face', style: 'Semi Bold', postscriptName: 'BookFace-SemiBold' },
+      { family: 'Display Face', style: 'Bold Italic', postscriptName: 'Display-BoldItalic' },
+    ])
+    expect(result.book.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'serif' }, { app: 'serif' }])
+    expect(result.book.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
+    expect(result.book.css).toContain('font-family:"Installed Display", var(--segnavia-font-serif);font-weight:700;font-style:italic')
+    expect(fontReferenceRefusals(`<style>${result.book.css}</style>`, result.book.fonts ?? [], new Set(['body', 'serif']))).toEqual([])
+  })
+
+  test('refuses an invalid host font answer by font name', async () => {
+    const styledMap = designmap.replace('</Document>', '<idPkg:Styles src="Resources/Styles.xml"/></Document>')
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      { name: 'designmap.xml', content: styledMap },
+      { name: 'Spreads/Spread_s.xml', content: `<Spread Self="s"><Page Self="p" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>` },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content: '<idPkg:Styles><ParagraphStyle Self="body" Name="Body" AppliedFont="Book Face" FontStyle="Regular"/></idPkg:Styles>',
+      },
+      {
+        name: 'Stories/Story_story.xml',
+        content: '<Story Self="story"><ParagraphStyleRange AppliedParagraphStyle="body"><Content>Words</Content></ParagraphStyleRange></Story>',
+      },
+    ])
+    await expect(importIdml(bytes, { font: () => ({ local: 'Book Face', fallback: 'Not Valid' }) as never })).rejects.toThrow(
+      'host font mapping for "Book Face" style "Regular" is invalid',
+    )
   })
 
   test('reads based-on, font and leading values from a style Properties child', async () => {

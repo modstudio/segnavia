@@ -20,6 +20,7 @@ export interface IdmlReportData {
   spotColors: Record<string, number>
   locations: Record<string, string[]>
   fonts: IdmlFontUse[]
+  unmappedFonts: IdmlFontUse[]
   mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
@@ -37,6 +38,7 @@ type BucketKey = keyof typeof BUCKET_NAMES
 export class ReportCollector {
   readonly locations = new Map<string, string[]>()
   readonly fonts = new Map<string, IdmlFontUse>()
+  readonly unmappedFonts = new Map<string, IdmlFontUse>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
@@ -69,6 +71,9 @@ export class ReportCollector {
     }
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
     for (const font of seed?.fonts ?? []) this.font(font.appliedFont, font.fontStyle, font.locations[0] ?? 'Resources/Styles.xml')
+    for (const font of seed?.unmappedFonts ?? []) {
+      for (const location of font.locations) this.unmappedFont(font.appliedFont, font.fontStyle, location)
+    }
   }
 
   add(bucket: Map<string, number>, name: string, location: string, count = 1): void {
@@ -93,6 +98,13 @@ export class ReportCollector {
     this.fonts.set(key, found)
   }
 
+  unmappedFont(appliedFont: string, fontStyle: string | undefined, location: string): void {
+    const key = `${appliedFont}\u0000${fontStyle ?? ''}`
+    const found = this.unmappedFonts.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
+    if (found.locations.length < 5 && !found.locations.includes(location)) found.locations.push(location)
+    this.unmappedFonts.set(key, found)
+  }
+
   data(): IdmlReportData {
     const record = (values: Map<string, number>) => Object.fromEntries([...values].sort(([a], [b]) => a.localeCompare(b)))
     const buckets = Object.fromEntries((Object.keys(BUCKET_NAMES) as BucketKey[]).map((name) => [name, record(this.buckets[name])])) as Pick<
@@ -103,6 +115,7 @@ export class ReportCollector {
       ...buckets,
       locations: Object.fromEntries([...this.locations].sort(([a], [b]) => a.localeCompare(b))),
       fonts: [...this.fonts.values()],
+      unmappedFonts: [...this.unmappedFonts.values()],
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }

@@ -1,5 +1,6 @@
-import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, type FontReferenceInput, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
+import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
 import { chapterParents, mapMasters } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
@@ -7,6 +8,7 @@ import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
+import type { IdmlFont } from './types.ts'
 import { matchVariables } from './variables.ts'
 
 function orderedStories(model: IdmlModel): IdmlStory[] {
@@ -43,11 +45,16 @@ export function refuseActiveBookHtml(chapters: { html: string }[], parents: Pare
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
-export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report)): SegnaviaBook {
+export function modelToBook(
+  model: IdmlModel,
+  report = new ReportCollector(model.report),
+  options: { font?: (font: IdmlFont) => FontReferenceInput | undefined } = {},
+): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
-  const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection)
+  const fonts = new FontMapper(model.fonts ?? [], options.font, report)
+  const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection, fonts)
   const matchedVariables = matchVariables(model.textVariables ?? [], report)
   const bookLanguage = styles.rootLanguage()
   const stories = orderedStories(model)
@@ -64,6 +71,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${styles.css()}${masters.css}`
+  const bookFonts = fonts.bookFonts()
   return Book.parse({
     title: model.id,
     mode: 'paginated',
@@ -75,6 +83,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     dir: bookDirection,
     ...(bookLanguage ? { lang: bookLanguage } : {}),
     ...(css ? { css } : {}),
+    ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}),
     rectoOpenings: preferences.facingPages,
     parentPages: masters.parents,
     chapters,

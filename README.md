@@ -18,7 +18,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 |---|---|
 | The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, a helper turning a host's slide rows into a deck, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
-| An IDML package read into a validated Book: document setup, master parent pages with marks and folios, and story text with paragraph and character styles, columns, direction, language, and keeps; unmapped elements, properties, characters, languages, colors, fonts, and locations are reported; linked files are never fetched | `@segnavia/idml` |
+| An IDML package read into a validated Book: document setup, master parent pages with marks and folios, story text and styles, and host-mapped local or app font references; unmapped elements, properties, characters, languages, colors, fonts, and locations are reported; linked files are never fetched | `@segnavia/idml` |
 | Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, segmented or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
 | Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
 | The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
