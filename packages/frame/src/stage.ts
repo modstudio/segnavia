@@ -54,6 +54,7 @@ export class SegnaviaStage extends HTMLElement {
   private slotDeck: DeckState['deck'] = null
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
+  private rebuildGeneration = 0
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
 
   get slots(): SlotsOptions | undefined {
@@ -66,7 +67,7 @@ export class SegnaviaStage extends HTMLElement {
     this.slotGeneration++
     this.slotOptions = value
     this.slotDeck = null
-    this.rebuild(this.attached, true)
+    this.rebuildFrames()
   }
 
   setAuthoringScriptsRefused(refused: boolean) {
@@ -121,8 +122,7 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   set controller(controller: DeckController | null) {
-    const sameController = controller === this.attached
-    const shownFrameMounted = this.shownFrameMounted(controller)
+    const controllerUnchanged = controller === this.attached
     this.cancelSelectionRequests()
     this.cancelSlotPreparation()
     this.slotGeneration++
@@ -133,7 +133,7 @@ export class SegnaviaStage extends HTMLElement {
     if (this.isConnected) controller?.connectWindow()
     else controller?.disconnectWindow()
     controller?.addEventListener('change', this.onChange)
-    this.rebuild(controller, sameController, shownFrameMounted)
+    this.rebuild(controller, controllerUnchanged)
     // Styled components pointing at this stage with `for` connect on this.
     this.dispatchEvent(new CustomEvent('segnavia-controller', { bubbles: true, composed: true }))
   }
@@ -238,12 +238,12 @@ export class SegnaviaStage extends HTMLElement {
           .then((resolved) => {
             if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
             this.resolvedSlots = resolved
-            this.rebuild(this.attached, true)
+            this.rebuildFrames()
           })
           .catch((error) => {
             if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
             this.resolvedSlots = EMPTY_SLOTS
-            this.rebuild(this.attached, true)
+            this.rebuildFrames()
             this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
           })
       }
@@ -353,17 +353,25 @@ export class SegnaviaStage extends HTMLElement {
     this.slotPreparation = undefined
   }
 
-  private shownFrameMounted(controller: DeckController | null): boolean {
-    const slideId = controller?.state.slide?.id
-    return Boolean(slideId && this.pool.shownFrame(slideId))
+  private rebuildFrames() {
+    this.rebuild(this.attached, true)
   }
 
-  private rebuild(controller: DeckController | null, sameController: boolean, shownFrameMounted = this.shownFrameMounted(controller)) {
-    const action = stageRebuildAction(sameController, shownFrameMounted, Boolean(controller?.resolveSlide))
+  private rebuild(controller: DeckController | null, controllerUnchanged: boolean) {
+    const generation = ++this.rebuildGeneration
+    const slideId = controller?.state.slide?.id
+    const shownFrameMounted = Boolean(slideId && this.pool.hasMountedFrame(slideId))
+    const action = stageRebuildAction(controllerUnchanged, shownFrameMounted, Boolean(controller?.resolveSlide))
     this.pool.clear()
     if (!controller?.state.deck) return
-    if (action === 'refresh') void controller.refreshContent().catch(() => {})
-    else this.update(controller.state)
+    if (action === 'update') {
+      this.update(controller.state)
+      return
+    }
+    void controller.refreshContent().then((result) => {
+      if (result === 'superseded' || generation !== this.rebuildGeneration || !this.isConnected || this.attached !== controller) return
+      this.update(controller.state)
+    })
   }
 
   freezeAuthoringFrame(slideId: string, atMs: number) {

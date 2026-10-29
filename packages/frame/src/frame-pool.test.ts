@@ -3,6 +3,7 @@ import { Deck } from '@segnavia/format'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { initialDeckState } from './controller-types.ts'
 import { FramePool } from './frame-pool.ts'
+import type { PoolOptions } from './frame-pool-options.ts'
 
 type Listener = () => void
 
@@ -144,7 +145,7 @@ function harness(contents: ResolvedContent[], timeout = 10) {
     contentFor: async (index: number) => contents[index] as ResolvedContent,
     forgetContent: () => {},
   } as unknown as DeckController
-  const options = {
+  const options: PoolOptions = {
     neighbors: true,
     css: '',
     csp: '',
@@ -319,6 +320,22 @@ test('shown-slide frame selection waits for load and bridge readiness', () => {
   expect(urlReady).toBeFalse()
   urlHarness.pool.markReady(urlFrame.contentWindow as unknown as MessageEventSource)
   expect(urlReady).toBeTrue()
+})
+
+test('a pending turn has a mounted frame for its incoming slide', () => {
+  Object.assign(window, { clearTimeout, setTimeout })
+  const one = { kind: 'url' as const, src: 'one.html' }
+  const two = { kind: 'url' as const, src: 'two.html' }
+  const { pool, controller, options } = harness([one, two])
+  options.reducedMotion = false
+  options.transition = { kind: 'fade', duration: 100 }
+  pool.update(state(0, one), controller, options)
+  ;(controller as unknown as { state: DeckState }).state = state(1, two)
+  pool.update(controller.state, controller, options)
+
+  expect(pool.shownFrame('two')).toBeNull()
+  expect(pool.hasMountedFrame('two')).toBeTrue()
+  pool.clear()
 })
 
 test('url frames without a bridge declaration and removed frames do not report readiness errors', async () => {

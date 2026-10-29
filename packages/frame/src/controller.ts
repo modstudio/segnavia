@@ -20,6 +20,7 @@ export class DeckController extends EventTarget {
   private clock: Clock | null = null
   private cancel: (() => void) | null = null
   private shows = 0
+  private refreshes = 0
   private shots = new Map<string, Promise<PublishedShot>>()
   private prefetched = new Map<string, Promise<ResolvedContent>>()
   private lastCue = ''
@@ -27,7 +28,6 @@ export class DeckController extends EventTarget {
   private bodyOverflow = ''
   private listening = false
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
-
   constructor(options: ControllerOptions = {}) {
     super()
     this.options = { hash: 'slide-', keys: 'stage', ...options }
@@ -82,7 +82,6 @@ export class DeckController extends EventTarget {
     if (!response.ok) throw new Error(`The deck at ${url} answered ${response.status}.`)
     await this.load(await response.json(), url)
   }
-
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
   }
@@ -122,21 +121,23 @@ export class DeckController extends EventTarget {
     return ready
   }
 
-  async refreshContent(): Promise<void> {
-    if (!this.options.resolveSlide) return
+  async refreshContent(): Promise<'refreshed' | 'superseded' | 'failed'> {
+    const refresh = ++this.refreshes
+    if (!this.options.resolveSlide) return 'superseded'
     const { index, slide } = this.current
-    if (!slide) return
+    if (!slide) return 'superseded'
     const shown = this.shows
     let content: ResolvedContent
     try {
       content = await this.resolveFresh(slide, index)
     } catch (error) {
-      if (shown !== this.shows || index !== this.current.index) return
-      navigationError(this, this.current.playing, index, error)
+      if (refresh !== this.refreshes || shown !== this.shows || index !== this.current.index) return 'superseded'
+      this.dispatchEvent(new CustomEvent('error', { detail: { index, message: error instanceof Error ? error.message : String(error) } }))
+      return 'failed'
     }
-    if (shown !== this.shows || index !== this.current.index) return
+    if (refresh !== this.refreshes || shown !== this.shows || index !== this.current.index) return 'superseded'
     this.current = { ...this.current, content }
-    this.emit()
+    return 'refreshed'
   }
 
   forgetContent(slideId: string) {
@@ -261,6 +262,7 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
+    this.refreshes++
     this.stopClock()
     let content: ResolvedContent
     try {

@@ -190,8 +190,9 @@ test('stage renders the current slide when slot resolution finishes after naviga
     resolvedSlots: undefined,
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions | undefined,
     attached: { state: first },
+    rebuildGeneration: 0,
     pool: {
-      shownFrame: () => null,
+      hasMountedFrame: () => false,
       clear() {},
       update(state: unknown) {
         rendered.push(state)
@@ -205,8 +206,8 @@ test('stage renders the current slide when slot resolution finishes after naviga
     frameTitle: () => '',
     room: {},
     querySelector: () => null,
-    shownFrameMounted: (SegnaviaStage.prototype as unknown as { shownFrameMounted(controller: unknown): boolean }).shownFrameMounted,
-    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, sameController: boolean): void }).rebuild,
+    rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
+    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, controllerUnchanged: boolean): void }).rebuild,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
   stage.update(first)
@@ -246,8 +247,9 @@ test('stage invalidates a pending fill when slot options are removed', async () 
       report: (report: unknown) => reports.push(report),
     } as SlotsOptions | undefined,
     attached: { state: state(deck) },
+    rebuildGeneration: 0,
     pool: {
-      shownFrame: () => null,
+      hasMountedFrame: () => false,
       clear() {},
       update() {
         renders++
@@ -260,8 +262,8 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     cspExtra: '',
     frameTitle: () => '',
     querySelector: () => null,
-    shownFrameMounted: (SegnaviaStage.prototype as unknown as { shownFrameMounted(controller: unknown): boolean }).shownFrameMounted,
-    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, sameController: boolean): void }).rebuild,
+    rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
+    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, controllerUnchanged: boolean): void }).rebuild,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
   stage.update(stage.attached.state)
