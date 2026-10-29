@@ -1,5 +1,18 @@
 # @segnavia/frame
 
+## 0.34.0
+
+### Minor Changes
+
+- a99558e: Reuse resolved URL frames by a stable key and report bridge-declared documents that do not become ready.
+
+### Patch Changes
+
+- 64125e7: Fit padded and bordered column blocks within their paginated windows.
+- 99902dc: Let a block's own `dir` override the frame's first-letter direction default.
+  - @segnavia/format@0.34.0
+  - @segnavia/html@0.34.0
+
 ## 0.33.0
 
 ### Minor Changes
