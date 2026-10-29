@@ -79,7 +79,7 @@ export function paginateKeeps(
   }
 
   function rewindHeading(held: PaginateUnit[], last: PaginateUnit, following: PaginateUnit | undefined): PaginateUnit[] | undefined {
-    const other = !following || !sameBlock(following.block, last.block)
+    const other = following && !sameBlock(following.block, last.block)
     if (!keepWithNext(last.block) || countOf(held, last.block) !== last.block.lines.length || !other) return undefined
     return kept(dropBlock(held, last.block))
   }
@@ -88,7 +88,8 @@ export function paginateKeeps(
   for (let pass = 0; pass < 8; pass += 1) {
     const last = result[result.length - 1]
     if (!last) return result
-    const nextResult = rewindTogether(result, last) ?? rewindOrphans(result, last) ?? rewindWidows(result, last) ?? rewindHeading(result, last, next)
+    const following = placed[result.length] ?? next
+    const nextResult = rewindTogether(result, last) ?? rewindOrphans(result, last) ?? rewindWidows(result, last) ?? rewindHeading(result, last, following)
     if (!nextResult) return result
     result = nextResult
   }
