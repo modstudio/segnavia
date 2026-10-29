@@ -1,8 +1,8 @@
 import { type Element, isTag } from 'domhandler'
 import type { FontMapper } from './fonts.ts'
-import { paragraphBoxDeclarations } from './paragraph-shading.ts'
+import { paragraphBoxDeclarations } from './paragraph-box.ts'
 import type { ReportCollector } from './report.ts'
-import { stylePropertyMapping } from './style-mappings.ts'
+import { STYLE_PROPERTY_MAPPINGS, stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
@@ -137,6 +137,29 @@ function resolvedFontProperties(changed: Record<string, string>, resolved: Recor
   }
 }
 
+const PARAGRAPH_BOX_PROPERTIES = [
+  'SpaceBefore',
+  'SpaceAfter',
+  'LeftIndent',
+  'RightIndent',
+  ...Object.keys(STYLE_PROPERTY_MAPPINGS).filter((name) => name.startsWith('ParagraphShading')),
+]
+
+function paragraphBoxOverrideProperties(
+  changed: Record<string, string>,
+  resolved: Record<string, string>,
+  base: Record<string, string>,
+): Record<string, string> {
+  const touchesBox = Object.keys(changed).some((name) => PARAGRAPH_BOX_PROPERTIES.includes(name))
+  const hasShading = [base.ParagraphShadingOn, resolved.ParagraphShadingOn].some((value) => value?.trim().toLowerCase() === 'true')
+  if (!touchesBox || !hasShading) return changed
+  const output = { ...changed }
+  for (const name of PARAGRAPH_BOX_PROPERTIES) {
+    if (resolved[name] !== undefined) output[name] = resolved[name]
+  }
+  return output
+}
+
 export class StyleMapper {
   private readonly byId: Map<string, IdmlStyle>
   private readonly classes = new Map<string, string>()
@@ -188,10 +211,11 @@ export class StyleMapper {
     location: string,
     styleDirection?: 'ltr' | 'rtl',
   ): string | undefined {
-    const changed = Object.fromEntries(
+    let changed = Object.fromEntries(
       Object.entries(values).filter(([name, value]) => stylePropertyMapping(name)?.kind !== 'non-formatting' && value !== base[name]),
     )
     const resolved = { ...base, ...values }
+    changed = paragraphBoxOverrideProperties(changed, resolved, base)
     for (const name of reportableStyleProperties(changed, resolved)) {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }

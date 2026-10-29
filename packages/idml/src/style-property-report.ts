@@ -148,6 +148,12 @@ function alwaysHandledElsewhere(name: string): boolean {
   return isHyphenationProperty(name) || JUSTIFICATION_SETTINGS.has(name) || ['EmptyGrepStyles', 'EmptyNestedStyles', 'EmptyLineStyles'].includes(name)
 }
 
+const COLLECTION_PROPERTIES = new Set(['AllGREPStyles', 'AllNestedStyles', 'AllLineStyles', 'TabList'])
+
+function isCollectionProperty(name: string): boolean {
+  return COLLECTION_PROPERTIES.has(name)
+}
+
 function groupedProperties(names: string[], resolved: Record<string, string>): string[] {
   const output: string[] = []
   if (names.some(isHyphenationProperty) && truthy(resolved.Hyphenation)) output.push('Hyphenation')
@@ -162,7 +168,7 @@ function groupedProperties(names: string[], resolved: Record<string, string>): s
 function reportableProperty(name: string, value: string, resolved: Record<string, string>, root: boolean): string | undefined {
   if (stylePropertyMapping(name)) return undefined
   if (alwaysHandledElsewhere(name)) return undefined
-  if (['AllGREPStyles', 'AllNestedStyles', 'AllLineStyles'].includes(name) || name === 'TabList') return hasEntries(value) ? name : undefined
+  if (isCollectionProperty(name)) return hasEntries(value) ? name : undefined
   if (name.startsWith('ParagraphShading')) return truthy(resolved.ParagraphShadingOn) && activeIdmlValue(value) ? name : undefined
   const switched = SWITCHED_GROUPS.find((group) => group.matches(name))
   if (switched) return switched.enabled(resolved) ? switched.reportAs : undefined
