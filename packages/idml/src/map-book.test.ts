@@ -132,7 +132,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
             margin: { top: 10, bottom: 11, left: 12, right: 13 },
             frames: [
               { id: 'fl', story: 'head-left', bounds: { left: 30, top: 2, width: 20, height: 5 } },
-              { id: 'fle', story: 'head-left-edge', bounds: { left: 55, top: 1, width: 10, height: 6 } },
+              { id: 'edge', story: 'head-left-edge', bounds: { left: 55, top: 1, width: 10, height: 6 } },
             ],
           },
           {
