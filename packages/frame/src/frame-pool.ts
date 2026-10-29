@@ -13,7 +13,10 @@ interface PendingTurn {
   running: boolean
   cancel: () => void
 }
-
+interface FrameEvents {
+  mounted: (slideId: string, content: ResolvedContent) => void
+  released: (slideId: string, content: ResolvedContent) => void
+}
 export class FramePool {
   private entries = new Map<string, FrameEntry>()
   private turn = 0
@@ -24,6 +27,7 @@ export class FramePool {
   constructor(
     private host: HTMLElement,
     private changed: () => void,
+    private frameEvents: FrameEvents,
   ) {}
 
   clear() {
@@ -340,7 +344,7 @@ export class FramePool {
     const existing = this.entries.get(slide.id)
     const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     if (existing && sameContent(existing.value, comparable)) return existing.canvas
-    const entry = new FrameEntry(slide.id, comparable)
+    const entry = new FrameEntry(slide.id, comparable, content)
     const canvas = stageCanvas(
       controller,
       deck,
@@ -360,7 +364,9 @@ export class FramePool {
     if (existing) {
       existing.dispose()
       existing.canvas.replaceWith(canvas)
+      this.frameEvents.released(existing.id, existing.content)
     } else if (mount) this.host.append(canvas)
+    this.frameEvents.mounted(entry.id, entry.content)
     return canvas
   }
 
@@ -369,6 +375,7 @@ export class FramePool {
     entry.canvas.remove()
     this.entries.delete(id)
     this.controller?.forgetContent(id)
+    this.frameEvents.released(entry.id, entry.content)
   }
 
   private sync(state: DeckState, frameTitle: FrameTitle) {

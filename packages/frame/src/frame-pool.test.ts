@@ -6,6 +6,7 @@ import { FramePool } from './frame-pool.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 
 type Listener = () => void
+type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent }
 
 class TestElement {
   className = ''
@@ -117,9 +118,7 @@ function dataKey(attribute: string) {
   return attribute.slice(5).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
 }
 
-Object.assign(globalThis, {
-  document: { createElement: (name: string) => new TestElement(name) },
-})
+Object.assign(globalThis, { document: { createElement: (name: string) => new TestElement(name) }, window: {} })
 
 const deck = Deck.parse({
   title: 'Frames',
@@ -138,7 +137,11 @@ function harness(contents: ResolvedContent[], timeout = 10) {
   const host = new TestElement('host')
   host.isConnected = true
   const errors: Error[] = []
-  const pool = new FramePool(host as unknown as HTMLElement, () => {})
+  const events: FrameEvent[] = []
+  const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
+    mounted: (slideId, content) => events.push({ kind: 'mounted', slideId, content }),
+    released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
+  })
   const controller = {
     state: state(0, contents[0] as ResolvedContent),
     url: (path: string) => new URL(path, 'https://example.test/').href,
@@ -154,13 +157,17 @@ function harness(contents: ResolvedContent[], timeout = 10) {
     bridgeReadyTimeoutMs: timeout,
     reportSlideError: (_slideId: string, message: string) => errors.push(new Error(message)),
   }
-  return { host, pool, controller, options, errors }
+  return { host, pool, controller, options, errors, events }
 }
 
 function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
   const host = new TestElement('host')
   host.isConnected = true
-  const pool = new FramePool(host as unknown as HTMLElement, () => {})
+  const events: FrameEvent[] = []
+  const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
+    mounted: (slideId, content) => events.push({ kind: 'mounted', slideId, content }),
+    released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
+  })
   const counts = new Map<string, number>()
   const prefetched = new Map<string, Promise<ResolvedContent>>()
   let slides = initialDeck
@@ -212,20 +219,22 @@ function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
     slides = nextDeck
     await show(index)
   }
-  return { counts, pool, reload, show }
+  return { counts, events, pool, reload, show }
 }
 
-test('a pooled url frame survives a fresh src with the same reuse key', async () => {
+test('a pooled url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
   const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one' }
   const two = { kind: 'url' as const, src: 'ticket-2', reuseKey: 'two' }
-  const { pool, controller, options } = harness([one, two])
+  const { pool, controller, options, events } = harness([one, two])
   pool.update(state(0, one), controller, options)
   await Promise.resolve()
   for (const frame of pool.frames()) (frame as unknown as TestElement).dispatch('load')
   const original = pool.frames()[0]
   pool.update(state(1, two), controller, options)
+  const beforeReuse = events.length
   pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
   expect(pool.frames().find((frame) => frame.closest('[data-slide-id="one"]'))).toBe(original)
+  expect(events).toHaveLength(beforeReuse)
 })
 
 test('an evicted neighbor resolves afresh when its frame is rebuilt', async () => {
@@ -237,7 +246,7 @@ test('an evicted neighbor resolves afresh when its frame is rebuilt', async () =
       content: { kind: 'url' as const, src: `slide-${index + 1}.html` },
     })),
   })
-  const { counts, pool, show } = countingHarness(slides)
+  const { counts, events, pool, show } = countingHarness(slides)
 
   await show(3)
   await show(4)
@@ -247,6 +256,26 @@ test('an evicted neighbor resolves afresh when its frame is rebuilt', async () =
   const rebuilt = pool.frames().find((frame) => frame.closest('[data-slide-id="slide-3"]')) as unknown as TestElement
   expect((rebuilt as unknown as { src: string }).src).toBe('https://example.test/slide-3-2.html')
   expect(counts.get('slide-5')).toBe(1)
+  const first = events.find((event) => event.kind === 'mounted' && event.slideId === 'slide-3') as FrameEvent
+  expect(events.find((event) => event.kind === 'released' && event.slideId === 'slide-3')?.content).toBe(first.content)
+  pool.clear()
+  const mounts = events.filter((event) => event.kind === 'mounted')
+  expect(events.filter((event) => event.kind === 'released')).toHaveLength(mounts.length)
+  for (const mount of mounts) expect(events.filter((event) => event.kind === 'released' && event.content === mount.content)).toHaveLength(1)
+})
+
+test('a superseded neighbor resolution produces no lifecycle event', async () => {
+  const shown = { kind: 'url' as const, src: 'shown.html' }
+  const superseded = { kind: 'url' as const, src: 'superseded.html' }
+  const selected = { kind: 'url' as const, src: 'selected.html' }
+  const pending = Promise.withResolvers<ResolvedContent>()
+  const { controller, events, options, pool } = harness([shown, superseded])
+  controller.contentFor = async () => pending.promise
+  pool.update(state(0, shown), controller, options)
+  pool.update(state(1, selected), controller, options)
+  pending.resolve(superseded)
+  await Promise.resolve()
+  expect(events.some((event) => event.content === superseded)).toBeFalse()
 })
 
 test('replacing a neighbor keeps the resolution used by its new frame cached', async () => {
@@ -266,7 +295,7 @@ test('replacing a neighbor keeps the resolution used by its new frame cached', a
       content: { kind: 'url' as const, src: `reloaded-${index + 1}.html` },
     })),
   })
-  const { counts, pool, reload, show } = countingHarness(slides)
+  const { counts, events, pool, reload, show } = countingHarness(slides)
 
   await show(3)
   await reload(reloaded, 3)
@@ -275,6 +304,10 @@ test('replacing a neighbor keeps the resolution used by its new frame cached', a
   await show(4)
 
   expect(counts.get('slide-5')).toBe(2)
+  const slideFive = events.filter((event) => event.slideId === 'slide-5')
+  expect(slideFive.map((event) => event.kind)).toEqual(['mounted', 'released', 'mounted'])
+  expect(slideFive[1]?.content).toBe(slideFive[0]?.content)
+  expect(slideFive[2]?.content).not.toBe(slideFive[0]?.content)
 })
 
 test('bridge-declared url frames report missing ready and accept ready from their own window', async () => {

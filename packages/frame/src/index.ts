@@ -42,6 +42,7 @@ export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDial
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
 export { SlideFrameError } from './slide-frame-error.ts'
 export { SegnaviaStage, type StageReserve } from './stage.ts'
+export type { StageFrameDetail } from './stage-frame-events.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
 export { SegnaviaThumbnail } from './thumbnail.ts'
 export { deckTimeline, momentAt, phaseBounds, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'

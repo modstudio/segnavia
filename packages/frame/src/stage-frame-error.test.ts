@@ -56,7 +56,7 @@ test('a neighbor bridge-ready timeout reports its slide id and current deck inde
       update(shown: DeckState, _controller: DeckController, options: PoolOptions) {
         expect(shown.index).toBe(1)
         expect(options.neighbors).toBeTrue()
-        const entry = new FrameEntry('failed-neighbor', { content: failedContent, scripts: 'refuse', css: '', cspExtra: '' })
+        const entry = new FrameEntry('failed-neighbor', { content: failedContent, scripts: 'refuse', css: '', cspExtra: '' }, failedContent)
         entry.markLoaded(options)
       },
     },
