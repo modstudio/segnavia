@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { printedPageAt } from '@segnavia/html'
+import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
 
@@ -41,6 +42,8 @@ describe('printedPageDocument', () => {
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(`performance.now()-startedAt,${LAYOUT_SETTLE_MS}`)
   })
 
   test('keeps whole-document head resources beside a flow holding only body children', () => {
@@ -72,7 +75,8 @@ describe('printedPageDocument', () => {
     const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
     expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
     expect(html).toContain('var channel=new MessageChannel()')
-    expect(html).toContain('current===last')
+    expect(html).toContain("decision==='wait-for-layout'")
+    expect(html).toContain('setTimeout(sample,0)')
     expect(html).toContain('"expectedCount":3')
     expect(html).toContain('the composed page count changed from ')
   })
