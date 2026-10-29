@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { animationReport } from './animation-timing.ts'
 import {
+  BLOCK_DIRECTION_CSS,
   bridgeForHost,
   frameDocument,
   MESSAGE,
@@ -154,6 +155,14 @@ describe('frame document', () => {
   test('block direction comes before the host style, so the host can override it', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', css: 'p{unicode-bidi:normal}' })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
+  })
+
+  test('block direction leaves an own dir alone and keeps zero specificity', () => {
+    const selector = BLOCK_DIRECTION_CSS.slice(0, BLOCK_DIRECTION_CSS.indexOf('{'))
+    expect(selector).toBe(
+      ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir]))',
+    )
+    expect(selector.match(/:where\(/g)).toHaveLength(1)
   })
 
   test('print documents measure slot overflow after the layout wait and before ready', () => {

@@ -187,12 +187,12 @@ function escapeAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-// Each block of text reads in the direction of its own first letter, so an
-// English sentence on a right-to-left page keeps its full stop on the right.
-// The page's own dir still lays out the page and decides a block with no
-// letters. Zero specificity, so an author's dir or CSS always wins.
+// A block with its own dir keeps that direction. Every other block reads in
+// the direction of its first letter, so English on a right-to-left page keeps
+// its full stop on the right. The page's dir still lays out the page and
+// decides a block with no letters. Zero specificity lets author CSS override.
 export const BLOCK_DIRECTION_CSS =
-  ':where(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address){unicode-bidi:plaintext}'
+  ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir])){unicode-bidi:plaintext}'
 
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the

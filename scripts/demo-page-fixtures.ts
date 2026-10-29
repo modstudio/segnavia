@@ -45,6 +45,13 @@ export const hebrewPage: PageInput = {
   lang: 'he',
 }
 
+export const ownDirectionPage: PageInput = {
+  html: '<p dir="ltr">שלום This sentence stays left to right.</p>',
+  size: { width: 600, height: 'auto' },
+  dir: 'rtl',
+  lang: 'he',
+}
+
 export const rightToLeftDivPage: PageInput = {
   html: [
     '<div>English text directly in a div.</div>',

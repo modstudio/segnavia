@@ -8,7 +8,10 @@ export async function verifyPages(h: Harness) {
   await page.goto(h.url('page.html'))
   await page
     .waitForFunction(
-      () => ['#fluid', '#rtl', '#rtl-div', '#fixed', '#postcard'].every((id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined),
+      () =>
+        ['#fluid', '#rtl', '#rtl-own-dir', '#rtl-div', '#fixed', '#postcard'].every(
+          (id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined,
+        ),
       null,
       {
         timeout: 10000,
@@ -49,6 +52,25 @@ export async function verifyPages(h: Harness) {
       return { first: at(0), stop: at((text.textContent ?? '').length - 1) }
     })
   check('an English paragraph on a right-to-left page keeps its full stop on the right', order.stop > order.first, JSON.stringify(order))
+  const declaredOrder = await page
+    .frameLocator('#rtl-own-dir iframe')
+    .locator('p')
+    .evaluate((p) => {
+      const text = p.firstChild as Text
+      const content = text.textContent ?? ''
+      const at = (index: number) => {
+        const range = document.createRange()
+        range.setStart(text, index)
+        range.setEnd(text, index + 1)
+        return range.getBoundingClientRect().left
+      }
+      return { firstEnglish: at(content.indexOf('T')), stop: at(content.length - 1) }
+    })
+  check(
+    'a left-to-right paragraph opening in Hebrew keeps its full stop to the right of its English text',
+    declaredOrder.stop > declaredOrder.firstEnglish,
+    JSON.stringify(declaredOrder),
+  )
   const containerOrder = await page
     .frameLocator('#rtl-div iframe')
     .locator('div, section, article, aside, address')
