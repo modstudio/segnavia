@@ -18,7 +18,7 @@ import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
 const PAGINATED_INNER_PX = 18 * PX_PER_MM
-const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit'])
+const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit', 'segnavia:book-place'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
   return h.page

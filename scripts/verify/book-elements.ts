@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
+import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
+import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
@@ -175,7 +177,7 @@ function missingNotePages(screens: ScreenPageText[], pages: PdfPageText[]): { pa
 
 async function spreadFacts(h: Harness, language: 'en' | 'he') {
   return h.page
-    .frameLocator(`#book-screen-${language} iframe`)
+    .frameLocator(`#book-screen-${language} iframe[data-segnavia-book-layout="pages"]`)
     .locator('html')
     .evaluate(() => {
       const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
@@ -206,20 +208,6 @@ async function spreadFacts(h: Harness, language: 'en' | 'he') {
           Math.abs(plannedRect.height - paper.height) < 0.5,
       }
     })
-}
-
-async function verifyNonceAuthorizedAuthorScripts(h: Harness) {
-  for (const language of ['en', 'he'] as const) {
-    const id = `book-screen-${language}`
-    await h.page.locator(`#${id} iframe`).evaluate((frame: HTMLIFrameElement) => {
-      const nonce = frame.srcdoc.match(/<script nonce="([^"]+)"/)?.[1]
-      if (!nonce) throw new Error(`${frame.title} has no bridge nonce.`)
-      frame.srcdoc = frame.srcdoc.replace('<script data-segnavia-author-script>', `<script data-segnavia-author-script nonce="${nonce}">`)
-    })
-    await h.page.frameLocator(`#${id} iframe`).locator('html[data-segnavia-author-script-ran]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
-    const composed = await h.page.frameLocator(`#${id} iframe`).locator('html').getAttribute('data-segnavia-composed')
-    h.check(`${id} author-script refusal check detects a nonce-authorized mutation`, composed !== null, String(composed))
-  }
 }
 
 async function verifyLargeBookComposition(check: Harness['check'], stressPage: Page) {
@@ -310,30 +298,59 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await page.goto(h.url('book-paginated.html'))
+  const printStyle: Record<string, BookPageStyleFacts> = {}
+  for (const language of ['en', 'he'] as const) {
+    const frame = page.frameLocator(`#book-paginated-${language}`)
+    await frame.locator('html[data-segnavia-composed]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
+    printStyle[language] = await frame.locator('html').evaluate(bookPageStyleFacts)
+  }
   await page.addInitScript(() => {
     const messages: Array<{ id: string; data: unknown }> = []
     Object.defineProperty(window, '__bookMessages', { value: messages })
+    window.addEventListener(
+      'ready',
+      (event) => {
+        if (event.target instanceof HTMLElement && event.target.tagName === 'SEGNAVIA-BOOK') event.target.setAttribute('data-segnavia-book-ready', '')
+      },
+      true,
+    )
     window.addEventListener('message', (event) => {
       for (const id of ['book-screen-en', 'book-screen-he']) {
-        const frame = document.querySelector(`#${id} iframe`) as HTMLIFrameElement | null
-        if (frame?.contentWindow === event.source) messages.push({ id, data: event.data })
+        const frames = document.querySelectorAll<HTMLIFrameElement>(`#${id} iframe`)
+        if ([...frames].some((frame) => frame.contentWindow === event.source)) messages.push({ id, data: event.data })
       }
     })
   })
   await page.goto(h.url('book-paginated-screen.html'))
   for (const language of ['en', 'he'] as const) {
     const id = `book-screen-${language}`
-    const frame = page.frameLocator(`#${id} iframe`)
+    const frame = page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
     await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`${id} composition failed: ${failure}`)
     const authorMark = await frame.locator('html').getAttribute('data-segnavia-author-script-ran')
     check(`${id} composes with author scripts refused`, authorMark === null, String(authorMark))
+    await frame.locator('[data-segnavia-pages] [data-segnavia-window] img').first().waitFor({ state: 'attached' })
+    await frame.locator('[data-segnavia-pages] .segnavia-contents-entry[data-level="2"]').first().waitFor({ state: 'attached' })
+    const screenStyle = await frame.locator('html').evaluate(bookPageStyleFacts)
+    const reference = printStyle[language]
+    if (!reference) throw new Error(`${id} has no print-style reference.`)
+    for (const comparison of bookPageStyleComparisons(reference, screenStyle))
+      check(`${id} ${comparison.name}`, comparison.matches, JSON.stringify(comparison.detail))
   }
 
-  await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
+  await verifyBookLayoutSwitching(h)
+
+  await page
+    .frameLocator('#book-screen-he iframe[data-segnavia-book-layout="pages"]')
+    .locator('[data-segnavia-spread-blank]')
+    .waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))
-  await page.frameLocator('#book-screen-en iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
+  await page
+    .frameLocator('#book-screen-en iframe[data-segnavia-book-layout="pages"]')
+    .locator('[data-segnavia-spread-blank]')
+    .waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   const bookMessages = await page.evaluate(() =>
     (window as unknown as { __bookMessages: Array<{ id: string; data: unknown }> }).__bookMessages.map(({ id, data }) => ({ id, data })),
   )
@@ -354,7 +371,7 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
       JSON.stringify(positions),
     )
   }
-  const englishFrame = page.frameLocator('#book-screen-en iframe')
+  const englishFrame = page.frameLocator('#book-screen-en iframe[data-segnavia-book-layout="pages"]')
   await englishFrame.locator('[data-segnavia-spread-blank]').evaluate((element) => element.remove())
   const mutated = await spreadFacts(h, 'en')
   check('the spread check detects a removed leading empty slot', !mutated.leadingRecto, JSON.stringify(mutated))

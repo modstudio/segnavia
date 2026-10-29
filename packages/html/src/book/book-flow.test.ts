@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, PX_PER_MM } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
-import { BOOK_FLOW_COLUMN_MIN_PX } from './book-flow.ts'
+import { BOOK_FLOW_COLUMN_MIN_PX, bookBlockPosition, parseBookPositionKey } from './book-flow.ts'
 
 describe('book flow', () => {
+  test('reads the position keys written for ordinary and suffixed blocks', () => {
+    expect(parseBookPositionKey(bookBlockPosition('chapter:held', 3))).toEqual({ flow: 'chapter:held', index: 3 })
+    expect(parseBookPositionKey(bookBlockPosition('chapter:held', 3, 'footnotes'))).toEqual({ flow: 'chapter:held', index: 3, suffix: 'footnotes' })
+    expect(parseBookPositionKey('missing-index')).toBeUndefined()
+  })
   test('shows held pages, responsive columns and continuous notes with the galley positions', () => {
     const book = Book.parse({
       title: 'Book',

@@ -75,6 +75,18 @@ export function bookBlockPosition(flowId: string, block: number, suffix?: string
   return `${flowId}:${block}${suffix ? `:${suffix}` : ''}`
 }
 
+export interface BookPositionKey {
+  flow: string
+  index: number
+  suffix?: string
+}
+
+export function parseBookPositionKey(value: string): BookPositionKey | undefined {
+  const match = /^(.*):(\d+)(?::([^:]+))?$/.exec(value)
+  if (!match?.[1] || !match[2]) return undefined
+  return { flow: match[1], index: Number(match[2]), ...(match[3] ? { suffix: match[3] } : {}) }
+}
+
 function isFootnoteBlock(node: Element): boolean {
   return (node.attribs.class ?? '').split(/\s+/).includes('segnavia-footnotes')
 }

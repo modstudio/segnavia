@@ -21,6 +21,8 @@ export const MESSAGE = {
   inspect: 'segnavia:inspect',
   selectionRequest: 'segnavia:selection-request',
   selection: 'segnavia:selection',
+  bookLayout: 'segnavia:book-layout',
+  bookPlace: 'segnavia:book-place',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
@@ -247,6 +249,7 @@ export function messageFrom(
   const data = event.data as { type?: unknown; key?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown; slots?: unknown }
   if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
     return { type: MESSAGE.key, key: data.key }
+  if (data?.type === MESSAGE.bookPlace && typeof data.key === 'string') return { type: MESSAGE.bookPlace, key: data.key }
   if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
   if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
   const fit = slotFitMessageData(data)

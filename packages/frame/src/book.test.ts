@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { bookFrame, SegnaviaBook } from './book.ts'
+import { reflectedBookElement } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -12,6 +13,7 @@ function element() {
   let clears = 0
   ;(book as unknown as { mount: () => void }).mount = () => mounts++
   ;(book as unknown as { replaceChildren: () => void }).replaceChildren = () => clears++
+  ;(book as unknown as { querySelector: () => null }).querySelector = () => null
   return { book, mounts: () => mounts, clears: () => clears }
 }
 
@@ -140,6 +142,24 @@ describe('book element input', () => {
     expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
+
+  test('the layout attribute and property reflect accepted values and refuse an unknown value by name', () => {
+    const { book, attributes } = reflectedBookElement()
+    const errors: string[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      return true
+    }) as typeof book.dispatchEvent
+
+    expect(book.layout).toBe('pages')
+    book.layout = 'flow'
+    expect(book.layout).toBe('flow')
+    expect(attributes.get('layout')).toBe('flow')
+    ;(book as unknown as { setAttribute: (name: string, value: string) => void }).setAttribute('layout', 'grid')
+    expect(book.layout).toBe('flow')
+    expect(attributes.get('layout')).toBe('flow')
+    expect(errors).toEqual(['Unknown book layout "grid"; accepted layouts are "pages" and "flow".'])
+  })
 })
 
 describe('book fonts', () => {
@@ -152,7 +172,8 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
+      mounted.push(bookFrame(view, css, spread, book.layout))
     book.dispatchEvent = ((event: Event) => {
       if (event.type === 'error') errors.push((event as CustomEvent).detail)
       return true
@@ -208,7 +229,8 @@ describe('book fonts', () => {
     const book = new SegnaviaBook()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
-    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
+      mounted.push(bookFrame(view, css, spread, book.layout))
     book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
     book.view = { html: '<main>Initial</main>', title: 'Initial' }
     await Promise.resolve()
