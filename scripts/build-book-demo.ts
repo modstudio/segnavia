@@ -15,12 +15,10 @@ const alefCss = () => {
   const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/Alef-Regular.ttf')).toString('base64')
   return `@font-face{font-family:Alef;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
 }
-
 const notoCss = () => {
   const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')).toString('base64')
   return `@font-face{font-family:NotoSerifHebrew;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
 }
-
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
@@ -42,7 +40,6 @@ const fixture = (hebrew: boolean): BookInput => ({
     },
   ],
 })
-
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
@@ -50,12 +47,9 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const markSpan = mark ? `<span data-mark="${mark}">${hebrew ? 'סימן ב' : 'Mark B'}</span> ` : ''
   return `<p data-columns="2">${markSpan}${words.repeat(lines)}</p>`
 }
-
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
-
 const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
-
 function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
@@ -66,13 +60,20 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
   return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
-
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
   const lead = hebrew ? 'הטקסט המלא נמשך על פני העמוד.' : 'A full-width paragraph opens the chapter on its own line of the page.'
   const mid = hebrew ? 'שוב רוחב מלא בין העמודות.' : 'Full width returns between the column runs.'
   const close = hebrew ? 'סוף המעבר בין העמודות.' : 'The chapter closes after the column run is cut by a page break.'
   return `<h1>${title}</h1><p>${lead}</p>${columnRun(hebrew, 8, 'siman')}<p>${mid}</p>${columnRun(hebrew, 22)}<p>${close}</p>`
+}
+function columnFitChapter(hebrew: boolean) {
+  const title = hebrew ? 'בדיקת עמודות' : 'Column Fit'
+  const padded = 'The tide turned against the hull and the lanterns of the harbor receded into a thin gold line. '.repeat(8)
+  return {
+    title,
+    html: `<h1>${title}</h1><p dir="ltr" data-columns="2" data-column-fit-check style="margin-inline-start:6pt;margin-inline-end:4pt;padding-inline-start:20pt;padding-inline-end:5pt">${padded}</p>`,
+  }
 }
 
 function chapterThreeHtml(hebrew: boolean): string {
@@ -164,6 +165,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew), parents: markParents },
     { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
     { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
+    columnFitChapter(hebrew),
   ],
 })
 

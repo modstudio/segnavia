@@ -191,6 +191,7 @@ async function verifyPaginatedBooks(h: Harness) {
       report.columns.lost === 0 && report.columns.repeated === 0 && report.columns.balanced,
       JSON.stringify(report.columns),
     )
+    check(`${id} padded column blocks stay inside every window`, report.columnFit.checked > 0 && report.columnFit.outside === 0, report.columnFit.detail)
     check(
       `${id} blanks have no furniture and openers have no running head`,
       report.furniture.blanksHaveNone && report.furniture.openersHaveNoHead && report.furniture.bodyHasFolio,
