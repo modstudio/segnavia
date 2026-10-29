@@ -124,6 +124,7 @@ async function collectWindows(frame: Frame): Promise<InkWindow[]> {
       const children = blocks.map((index) => flow.children[index]).filter((child): child is Element => child !== undefined)
       const runIndex = columns > 1 ? blocks.find((index) => Number(flow.children[index]?.getAttribute('data-columns')) === columns) : undefined
       const run = runIndex === undefined ? undefined : flow.children[runIndex]
+      if (run?.hasAttribute('data-column-fit-check')) continue
       const runBox = run?.getBoundingClientRect()
       const scaledExtents = scaledExtentsFor(children, flowBox.top)
       windows.push({
