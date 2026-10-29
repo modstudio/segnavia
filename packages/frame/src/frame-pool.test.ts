@@ -152,7 +152,7 @@ function harness(contents: ResolvedContent[], timeout = 10) {
     frameTitle: () => '',
     reducedMotion: true,
     bridgeReadyTimeoutMs: timeout,
-    reportError: (error: Error) => errors.push(error),
+    reportSlideError: (_slideId: string, message: string) => errors.push(new Error(message)),
   }
   return { host, pool, controller, options, errors }
 }
@@ -195,7 +195,7 @@ function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
     frameTitle: () => '',
     reducedMotion: true,
     bridgeReadyTimeoutMs: 10,
-    reportError: () => {},
+    reportSlideError: () => {},
   }
   const show = async (index: number) => {
     const id = slides.slides[index]?.id as string
