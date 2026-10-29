@@ -1,8 +1,8 @@
-import { comparableContent, sameContent } from './content-value.ts'
+import { comparableContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
 import type { FrameEntry } from './frame-entry.ts'
-import { addFrame, type FrameEvents, removeFrame, syncFrames } from './frame-pool-entry.ts'
+import { addFrame, canReuseFrame, type FrameEvents, removeFrame, syncFrames } from './frame-pool-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 import { type TurnTransition, transitionFor } from './transition.ts'
 
@@ -103,7 +103,7 @@ export class FramePool {
     if (this.pending?.id === slide.id) {
       const pending = this.entries.get(slide.id)
       const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
-      if (pending && sameContent(pending.value, value)) return true
+      if (pending && canReuseFrame({ readiness: pending.ready, sameResolution: pending.content === state.content }, pending.value, value)) return true
     }
     this.cancelPending()
     const active = this.host.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
@@ -122,7 +122,9 @@ export class FramePool {
     })
     const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
     const existing = this.entries.get(slide.id)
-    const reused = deck.scripts === 'refuse' && Boolean(existing && sameContent(existing.value, value))
+    const reused =
+      deck.scripts === 'refuse' &&
+      Boolean(existing && canReuseFrame({ readiness: existing.ready, sameResolution: existing.content === state.content }, existing.value, value))
     const ready = reused && existing?.loaded === true
     if (transition.kind === 'none') {
       if (deck.scripts === 'sandboxed') return this.updateSandboxed(state, controller, options)
@@ -143,7 +145,12 @@ export class FramePool {
     if (activeId && activeId !== slide.id) {
       const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp)
       const pending = this.entries.get(slide.id)
-      if (this.pending?.id === slide.id && pending && sameContent(pending.value, value)) return true
+      if (
+        this.pending?.id === slide.id &&
+        pending &&
+        canReuseFrame({ readiness: pending.ready, sameResolution: pending.content === state.content }, pending.value, value)
+      )
+        return true
       this.cancelPending()
       this.startSwap(
         state,

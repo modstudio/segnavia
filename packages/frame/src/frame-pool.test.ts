@@ -133,6 +133,92 @@ test('a pooled url frame survives a fresh src with the same reuse key without li
   expect(events).toHaveLength(beforeReuse)
 })
 
+test('a ready url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
+  const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const { pool, controller, options, events } = harness([one])
+  pool.update(state(0, one), controller, options)
+  await Promise.resolve()
+  const frame = pool.frames()[0] as unknown as TestElement
+  frame.dispatch('load')
+  pool.markReady(frame.contentWindow as unknown as MessageEventSource)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  const beforeReuse = events.length
+  pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
+  expect(pool.frames()[0]).toBe(original)
+  expect(events).toHaveLength(beforeReuse)
+})
+
+test('a url frame that failed to report ready is replaced on its next resolution', async () => {
+  const first = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const retry = { ...first, src: 'ticket-2' }
+  const { pool, controller, options, events } = harness([first], 2)
+  pool.update(state(0, first), controller, options)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  ;(original as unknown as TestElement).dispatch('load')
+  await Bun.sleep(5)
+
+  expect(pool.frames()[0]).toBe(original)
+  expect(pool.shownFrame('one')).toBe(original)
+  expect(original.isConnected).toBeTrue()
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([])
+
+  pool.update(state(0, retry), controller, options)
+
+  expect(pool.frames()[0]).not.toBe(original)
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([{ kind: 'released', slideId: 'one', content: first }])
+})
+
+test('a url frame that failed to report ready survives rerenders of the same resolution', async () => {
+  const content = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const { pool, controller, options, errors, events } = harness([content], 2)
+  pool.update(state(0, content), controller, options)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  ;(original as unknown as TestElement).dispatch('load')
+  await Bun.sleep(5)
+
+  pool.update(state(0, content), controller, options)
+  pool.update(state(0, content), controller, options)
+
+  expect(pool.frames()[0]).toBe(original)
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([])
+  expect(errors).toHaveLength(1)
+})
+
+test('a late ready recovers a url frame after its readiness timeout', async () => {
+  const content = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const { pool, controller, options } = harness([content], 2)
+  pool.update(state(0, content), controller, options)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  ;(original as unknown as TestElement).dispatch('load')
+  await Bun.sleep(5)
+  let selectionReady = false
+  pool.waitForActiveFrame(original, () => {
+    selectionReady = true
+  })
+  expect(selectionReady).toBeFalse()
+
+  pool.markReady((original as unknown as TestElement).contentWindow as unknown as MessageEventSource)
+
+  expect(selectionReady).toBeTrue()
+  pool.update(state(0, content), controller, options)
+  expect(pool.frames()[0]).toBe(original)
+})
+
+test('a failed url frame is replaced by a fresh resolution with the same reusable content', async () => {
+  const first = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const retry = { ...first }
+  const { pool, controller, options, events } = harness([first], 2)
+  pool.update(state(0, first), controller, options)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  ;(original as unknown as TestElement).dispatch('load')
+  await Bun.sleep(5)
+
+  pool.update(state(0, retry), controller, options)
+
+  expect(pool.frames()[0]).not.toBe(original)
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([{ kind: 'released', slideId: 'one', content: first }])
+})
+
 test('an evicted neighbor resolves afresh when its frame is rebuilt', async () => {
   const slides = Deck.parse({
     title: 'Six frames',
