@@ -1,5 +1,17 @@
 # @segnavia/frame
 
+## 0.31.0
+
+### Minor Changes
+
+- ed79d4a: Let hosts read the current selection and page text from script-refusing `segnavia-page` documents.
+
+### Patch Changes
+
+- d84b337: Wait for parent-page frame geometry to settle by elapsed time before composing printed pages.
+  - @segnavia/format@0.31.0
+  - @segnavia/html@0.31.0
+
 ## 0.30.0
 
 ### Patch Changes
