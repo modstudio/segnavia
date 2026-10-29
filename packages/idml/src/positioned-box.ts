@@ -6,6 +6,26 @@ export function formatRoundedNumber(value: number, digits = 2): string {
   return String(Object.is(rounded, -0) ? 0 : rounded)
 }
 
+export interface PhysicalCornerRadii<T> {
+  topLeft?: T
+  topRight?: T
+  bottomLeft?: T
+  bottomRight?: T
+}
+
+export function logicalCornerRadii<T>(corners: PhysicalCornerRadii<T>, direction: 'ltr' | 'rtl'): Record<string, T | undefined> {
+  const start = direction === 'rtl' ? corners.topRight : corners.topLeft
+  const end = direction === 'rtl' ? corners.topLeft : corners.topRight
+  const endStart = direction === 'rtl' ? corners.bottomRight : corners.bottomLeft
+  const endEnd = direction === 'rtl' ? corners.bottomLeft : corners.bottomRight
+  return {
+    'border-start-start-radius': start,
+    'border-start-end-radius': end,
+    'border-end-start-radius': endStart,
+    'border-end-end-radius': endEnd,
+  }
+}
+
 export interface PositionedBoxOptions {
   pageWidth: number
   margin: IdmlMargin
