@@ -53,6 +53,16 @@ of note; a document variant is a selection over named parts, not a set of
 toggles. A branch that resists being modeled means a concept is missing:
 find it rather than hard-coding the case.
 
+## Design research
+
+A design starts with research into how others meet the same need: layout
+engines, typesetting systems, paged-media renderers and design platforms
+such as InDesign. The research is for ideas, and for the problems those
+tools ran into. It is not a template. The design is our own: what this
+library builds may exist nowhere else, and its model follows from the real
+thing, never from another tool's API. The design names what each source
+suggested and whether we took it.
+
 ## Code
 
 - Policy is a pure function over plain values. An adapter gathers facts and
