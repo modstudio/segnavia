@@ -157,12 +157,11 @@ describe('frame document', () => {
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
   })
 
-  test('block direction leaves an own dir alone and keeps zero specificity', () => {
+  test('block direction leaves a valid own dir alone and keeps zero specificity', () => {
     const selector = BLOCK_DIRECTION_CSS.slice(0, BLOCK_DIRECTION_CSS.indexOf('{'))
     expect(selector).toBe(
-      ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir]))',
+      ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir="ltr" i],[dir="rtl" i],[dir="auto" i]))',
     )
-    expect(selector.match(/:where\(/g)).toHaveLength(1)
   })
 
   test('print documents measure slot overflow after the layout wait and before ready', () => {

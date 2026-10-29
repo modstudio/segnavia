@@ -52,6 +52,13 @@ export const ownDirectionPage: PageInput = {
   lang: 'he',
 }
 
+export const emptyDirectionPage: PageInput = {
+  html: '<p dir="">שלום This sentence follows its first letter.</p>',
+  size: { width: 600, height: 'auto' },
+  dir: 'rtl',
+  lang: 'he',
+}
+
 export const rightToLeftDivPage: PageInput = {
   html: [
     '<div>English text directly in a div.</div>',

@@ -266,8 +266,9 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
 Every place the library writes or lays out text follows the text's own
 direction:
 
-- **Blocks in a frame** keep their own `dir`; otherwise they take the direction
-  of their first strong letter (`BLOCK_DIRECTION_CSS`), under the page's `dir`.
+- **Blocks in a frame** keep their own valid `dir`; otherwise they take the
+  direction of their first strong letter (`BLOCK_DIRECTION_CSS`), under the
+  page's `dir`.
 - **Filled-in values** are isolated (`dir="auto"`), so a value in one
   direction cannot reorder the sentence around it.
 - **Captions** follow the narration's `dir`, else its `lang`, else its text.
