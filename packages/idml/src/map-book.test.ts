@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { bookDocument } from '@segnavia/html'
 import { modelToBook, refuseActiveBookHtml } from './map-book.ts'
-import { chapterParents, type MasterMapping } from './masters.ts'
+import { chapterParents, type MasterMapping, storyPageUses } from './masters.ts'
 import type { IdmlModel } from './model.ts'
 import { ReportCollector } from './report.ts'
 import type { IdmlTextNode } from './types.ts'
@@ -343,6 +343,6 @@ test('reports a mixed-master chapter as structured data and breaks ties by page 
     marginFor: () => model.preferences.margin,
   }
   const report = new ReportCollector()
-  expect(chapterParents('body', model, mapping, report)).toEqual({ opener: 'a-recto', verso: 'a-verso' })
+  expect(chapterParents('body', model, storyPageUses(model), mapping, report)).toEqual({ opener: 'a-recto', verso: 'a-verso' })
   expect(report.data().mixedMasterChapters).toEqual([{ chapter: 'body', side: 'verso', masters: ['a', 'b'], chosen: 'a' }])
 })

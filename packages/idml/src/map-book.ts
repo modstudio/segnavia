@@ -1,8 +1,9 @@
 import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
+import { chapterOpenings } from './chapter-openings.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
-import { chapterParents, mapMasters } from './masters.ts'
+import { chapterParents, mapMasters, openingPage, storyPageUses } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { mapOpeners } from './openers.ts'
 import { reportPlacements } from './placement-report.ts'
@@ -56,19 +57,25 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const matchedVariables = matchVariables(model.textVariables ?? [], report)
   const bookLanguage = styles.rootLanguage()
   const stories = orderedStories(model)
+  const storyPages = storyPageUses(model)
   const masters = mapMasters(model, matchedVariables, styles, report)
   const mapped = stories.map((story) => ({
     story,
     mapped: storyHtml({ ...story, textVariables: matchedVariables }, styles, report, bookDirection, bookLanguage),
   }))
-  const openers = mapOpeners(model, mapped, masters, report, options.asset)
+  const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset)
   reportPlacements(model, openers.consumedPages, report)
-  const chapters = mapped
-    .filter(({ story }) => !openers.claimed.has(story.id))
-    .map(({ story, mapped: value }) => {
-      const parents = chapterParents(story.id, model, masters, report)
-      return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
-    })
+  const emitted = mapped.filter(({ story }) => !openers.claimed.has(story.id))
+  const openings = emitted.flatMap(({ story }) => {
+    const opening = openingPage(story.id, model, storyPages)
+    return opening ? [{ story: story.id, page: opening.page.id, role: opening.role }] : []
+  })
+  const openingPolicy = chapterOpenings(openings, preferences.facingPages)
+  for (const opening of openingPolicy.verso) report.versoOpening(opening.story, opening.page)
+  const chapters = emitted.map(({ story, mapped: value }) => {
+    const parents = chapterParents(story.id, model, storyPages, masters, report)
+    return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+  })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
@@ -86,7 +93,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     ...(bookLanguage ? { lang: bookLanguage } : {}),
     ...(css ? { css } : {}),
     ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}),
-    rectoOpenings: preferences.facingPages,
+    rectoOpenings: openingPolicy.rectoOpenings,
     parentPages: masters.parents,
     chapters,
   })
