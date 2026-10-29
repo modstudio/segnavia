@@ -34,6 +34,14 @@ describe('book layout lifecycle', () => {
     } as unknown as MessageEvent)
 
     expect(messages).toEqual([{ type: 'segnavia:book-layout', layout: 'flow' }])
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: frame.contentWindow,
+      data: { type: 'segnavia:ready' },
+    } as unknown as MessageEvent)
+    expect(messages).toEqual([
+      { type: 'segnavia:book-layout', layout: 'flow' },
+      { type: 'segnavia:book-layout', layout: 'flow' },
+    ])
   })
 
   test('a missing flow view refuses flow but preserves the request for a later capable view', () => {
@@ -58,5 +66,28 @@ describe('book layout lifecycle', () => {
     expect(book.layout).toBe('flow')
     expect(attributes.get('layout')).toBe('flow')
     expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":false,"layout":"flow"}')
+  })
+
+  test('a flow request made before a flowless view arrives is refused and preserved', () => {
+    const { book, attributes } = reflectedBookElement()
+    const errors: string[] = []
+    ;(book as unknown as { mountFrame: () => void }).mountFrame = () => {}
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      return true
+    }) as typeof book.dispatchEvent
+
+    book.layout = 'flow'
+    const withoutFlow = switchableBookView()
+    delete withoutFlow.flow
+    book.view = withoutFlow
+
+    expect(book.layout as string).toBe('pages')
+    expect(attributes.get('layout')).toBe('pages')
+    expect(errors).toEqual(['This book has no flow view; supply a view built with its flow to use layout "flow".'])
+
+    book.view = switchableBookView()
+    expect(book.layout).toBe('flow')
+    expect(attributes.get('layout')).toBe('flow')
   })
 })

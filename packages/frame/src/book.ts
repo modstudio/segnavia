@@ -223,6 +223,9 @@ export class SegnaviaBook extends HTMLElementBase {
   private showRequestedLayout(view: BookView): BookLayout {
     if (!view.pagination) return 'pages'
     if (!view.flow) {
+      if (this.requestedLayout === 'flow') {
+        this.reportError(new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
+      }
       if (this.currentLayout !== 'pages') {
         this.currentLayout = 'pages'
         this.reflectingLayout = true
@@ -290,7 +293,6 @@ export class SegnaviaBook extends HTMLElementBase {
     const frame = this.querySelector('iframe')
     if (this.currentView?.pagination && this.currentView.flow && this.mountedLayout !== this.currentLayout && frame?.contentWindow) {
       frame.contentWindow.postMessage({ type: MESSAGE.bookLayout, layout: this.currentLayout }, '*')
-      this.mountedLayout = this.currentLayout
     }
     this.dispatchEvent(new Event('ready'))
   }
