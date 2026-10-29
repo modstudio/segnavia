@@ -118,19 +118,39 @@ function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
   return { counts, events, pool, reload, show }
 }
 
-test('a pooled url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
-  const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one' }
-  const two = { kind: 'url' as const, src: 'ticket-2', reuseKey: 'two' }
-  const { pool, controller, options, events } = harness([one, two])
+test('a ready url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
+  const one = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const { pool, controller, options, events } = harness([one])
   pool.update(state(0, one), controller, options)
   await Promise.resolve()
-  for (const frame of pool.frames()) (frame as unknown as TestElement).dispatch('load')
-  const original = pool.frames()[0]
-  pool.update(state(1, two), controller, options)
+  const frame = pool.frames()[0] as unknown as TestElement
+  frame.dispatch('load')
+  pool.markReady(frame.contentWindow as unknown as MessageEventSource)
+  const original = pool.frames()[0] as HTMLIFrameElement
   const beforeReuse = events.length
   pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
-  expect(pool.frames().find((frame) => frame.closest('[data-slide-id="one"]'))).toBe(original)
+  expect(pool.frames()[0]).toBe(original)
   expect(events).toHaveLength(beforeReuse)
+})
+
+test('a url frame that failed to report ready is replaced on its next resolution', async () => {
+  const first = { kind: 'url' as const, src: 'ticket-1', reuseKey: 'one', bridge: true as const }
+  const retry = { ...first, src: 'ticket-2' }
+  const { pool, controller, options, events } = harness([first], 2)
+  pool.update(state(0, first), controller, options)
+  const original = pool.frames()[0] as HTMLIFrameElement
+  ;(original as unknown as TestElement).dispatch('load')
+  await Bun.sleep(5)
+
+  expect(pool.frames()[0]).toBe(original)
+  expect(pool.shownFrame('one')).toBe(original)
+  expect(original.isConnected).toBeTrue()
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([])
+
+  pool.update(state(0, retry), controller, options)
+
+  expect(pool.frames()[0]).not.toBe(original)
+  expect(events.filter(({ kind }) => kind === 'released')).toEqual([{ kind: 'released', slideId: 'one', content: first }])
 })
 
 test('an evicted neighbor resolves afresh when its frame is rebuilt', async () => {

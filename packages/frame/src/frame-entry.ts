@@ -6,10 +6,12 @@ export interface FrameReadinessOptions {
   reportSlideError: (slideId: string, message: string) => void
 }
 
+export type FrameReadiness = 'waiting' | 'ready' | 'failed'
+
 export class FrameEntry {
   canvas!: HTMLElement
   loaded = false
-  private ready = false
+  ready: FrameReadiness = 'waiting'
   private readyTimeout: ReturnType<typeof setTimeout> | undefined
   private loadWaiters = new Set<() => void>()
   private selectionWaiters = new Set<() => void>()
@@ -26,9 +28,10 @@ export class FrameEntry {
     for (const waiter of this.loadWaiters) waiter()
     this.loadWaiters.clear()
     this.releaseSelectionWaiters()
-    if (this.value.content.kind === 'url' && this.value.content.bridge && !this.ready) {
+    if (this.value.content.kind === 'url' && this.value.content.bridge && this.ready === 'waiting') {
       this.readyTimeout = setTimeout(() => {
         this.readyTimeout = undefined
+        this.ready = 'failed'
         options.reportSlideError(
           this.id,
           `Slide "${this.id}" loaded a document that did not report ready within ${options.bridgeReadyTimeoutMs} ms; serve the document with Segnavia's bridge, or drop bridge: true.`,
@@ -38,7 +41,8 @@ export class FrameEntry {
   }
 
   markReady() {
-    this.ready = true
+    if (this.ready === 'failed') return
+    this.ready = 'ready'
     this.cancelReadyTimeout()
     this.releaseSelectionWaiters()
   }
@@ -78,7 +82,7 @@ export class FrameEntry {
   }
 
   private selectionReady(): boolean {
-    return this.loaded && (this.value.content.kind !== 'url' || !this.value.content.bridge || this.ready)
+    return this.loaded && (this.value.content.kind !== 'url' || !this.value.content.bridge || this.ready === 'ready')
   }
 
   private cancelReadyTimeout() {
