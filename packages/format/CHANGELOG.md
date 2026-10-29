@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.30.0
+
+### Patch Changes
+
+- 677a43a: Accept a variable font's weight range on a host-supplied face. Refuse `bolder` and `lighter` as face weights.
+
 ## 0.29.0
 
 ## 0.28.0
