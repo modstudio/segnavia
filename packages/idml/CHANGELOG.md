@@ -1,5 +1,19 @@
 # @segnavia/idml
 
+## 0.34.0
+
+### Minor Changes
+
+- 7e2f884: Compose inherited master-page furniture into imported heads and feet.
+- 0bd398a: Render IDML paragraph shading colors, tints, offsets, and rounded corners.
+- 8e42c2c: Render inline anchored text frames in their host stories and keep anchored-only stories out of the chapter list.
+
+### Patch Changes
+
+- 2710068: Derive recto-only chapter openings from the pages where imported chapters begin.
+  - @segnavia/format@0.34.0
+  - @segnavia/html@0.34.0
+
 ## 0.33.0
 
 ### Patch Changes
