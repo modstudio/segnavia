@@ -191,6 +191,7 @@ test('stage renders the current slide when slot resolution finishes after naviga
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions | undefined,
     attached: { state: first },
     pool: {
+      shownFrame: () => null,
       clear() {},
       update(state: unknown) {
         rendered.push(state)
@@ -204,6 +205,8 @@ test('stage renders the current slide when slot resolution finishes after naviga
     frameTitle: () => '',
     room: {},
     querySelector: () => null,
+    shownFrameMounted: (SegnaviaStage.prototype as unknown as { shownFrameMounted(controller: unknown): boolean }).shownFrameMounted,
+    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, sameController: boolean): void }).rebuild,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
   stage.update(first)
@@ -244,6 +247,7 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     } as SlotsOptions | undefined,
     attached: { state: state(deck) },
     pool: {
+      shownFrame: () => null,
       clear() {},
       update() {
         renders++
@@ -256,6 +260,8 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     cspExtra: '',
     frameTitle: () => '',
     querySelector: () => null,
+    shownFrameMounted: (SegnaviaStage.prototype as unknown as { shownFrameMounted(controller: unknown): boolean }).shownFrameMounted,
+    rebuild: (SegnaviaStage.prototype as unknown as { rebuild(controller: unknown, sameController: boolean): void }).rebuild,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
   stage.update(stage.attached.state)

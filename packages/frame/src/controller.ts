@@ -1,8 +1,8 @@
-import { type Deck, PublishedShot, type Slide } from '@segnavia/format'
+import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
-import { assertValidCues } from './controller-cues.ts'
 import { stateForDeckLoad } from './controller-load.ts'
-import { captionsPolicy, playerOptionState, referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
+import { captionsPolicy, playerOptionState } from './controller-options.ts'
+import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { internalDeckLoad } from './deck-load-origin.ts'
 import { hashSlideIndex, neighborWindow } from './deck-window.ts'
@@ -120,6 +120,23 @@ export class DeckController extends EventTarget {
       this.prefetched.set(slide.id, ready)
     }
     return ready
+  }
+
+  async refreshContent(): Promise<void> {
+    if (!this.options.resolveSlide) return
+    const { index, slide } = this.current
+    if (!slide) return
+    const shown = this.shows
+    let content: ResolvedContent
+    try {
+      content = await this.resolveFresh(slide, index)
+    } catch (error) {
+      if (shown !== this.shows || index !== this.current.index) return
+      navigationError(this, this.current.playing, index, error)
+    }
+    if (shown !== this.shows || index !== this.current.index) return
+    this.current = { ...this.current, content }
+    this.emit()
   }
 
   forgetContent(slideId: string) {
@@ -285,25 +302,7 @@ export class DeckController extends EventTarget {
     return ready ?? this.resolveFresh(slide, index)
   }
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
-    const content = this.options.resolveSlide ? await this.options.resolveSlide(slide, index) : slide.content
-    if (content.kind === 'shot') {
-      assertValidCues(slide, content.shot.annotations.length)
-      if (slide.content.kind !== 'shot-ref') return content
-      return referenceOverrides(content, slide.content)
-    }
-    if (content.kind !== 'shot-ref') return content
-    const href = this.url(content.href)
-    let published = this.shots.get(href)
-    if (!published) {
-      published = fetch(href).then(async (response) => {
-        if (!response.ok) throw new Error(`The shot at ${href} answered ${response.status}.`)
-        return PublishedShot.parse(await response.json())
-      })
-      this.shots.set(href, published)
-    }
-    const { src, shot } = await published
-    assertValidCues(slide, shot.annotations.length)
-    return resolvedPublishedShot(new URL(src, href).href, shot, content)
+    return resolveFreshContent(slide, index, this.options.resolveSlide, (path) => this.url(path), this.shots)
   }
 
   url(path: string): string {
