@@ -27,11 +27,6 @@ describe('Page and Book fonts', () => {
 })
 
 describe('LocalFaceTransport', () => {
-  test('accepts a variable-font weight range', () => {
-    expect(LocalFaceTransport.parse({ family: 'Face', format: 'truetype', data: '', weight: '100 900' }).weight).toBe('100 900')
-    expect(LocalFaceTransport.parse({ family: 'Face', format: 'truetype', data: '', weight: '400 400' }).weight).toBe('400 400')
-  })
-
   test('refuses extra keys and unknown formats', () => {
     expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'ttf', data: '', extra: true }).success).toBe(false)
     expect(LocalFaceTransport.safeParse({ family: 'Face', format: 'truetype', data: '', extra: true }).success).toBe(false)

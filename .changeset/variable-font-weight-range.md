@@ -1,8 +1,6 @@
 ---
 '@segnavia/format': patch
 '@segnavia/html': patch
-'@segnavia/frame': patch
-'@segnavia/render': patch
 ---
 
-Accept a variable font's weight range on a host-supplied face.
+Accept a variable font's weight range on a host-supplied face. Refuse `bolder` and `lighter` as face weights.

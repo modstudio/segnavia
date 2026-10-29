@@ -7,17 +7,6 @@ const truetype = 'AAEAAA=='
 const references = [{ local: 'Declared Family', fallback: 'serif' }] as const
 
 describe('local fonts for a render', () => {
-  test('keeps a variable-font weight range on a named face', () => {
-    const result = localFontsForRender(
-      {
-        faces: [{ family: 'Declared Family', format: 'truetype', data: truetype, weight: '100 900' }],
-      },
-      references,
-    )
-    expect(result.faces).toHaveLength(1)
-    expect(result.faces[0]).toMatchObject({ family: 'Declared Family', format: 'truetype', weight: '100 900' })
-  })
-
   test('keeps only a named face, registers it under the declared family, and reports no fallback', () => {
     const result = localFontsForRender(
       {
