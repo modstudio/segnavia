@@ -17,6 +17,12 @@ const { SegnaviaStage } = await import('./stage.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { SegnaviaPaper } = await import('./paper.ts')
 const { thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+const writeDocument = (SegnaviaPage.prototype as unknown as { writeDocument(iframe: HTMLIFrameElement, srcdoc: string): void }).writeDocument
+const resetDocumentReadiness = (SegnaviaPage.prototype as unknown as { resetDocumentReadiness(): void }).resetDocumentReadiness
+
+function pageFrame() {
+  return { srcdoc: '', addEventListener() {} }
+}
 
 test('page fast path and expanded print path refuse the same reserved motif placement', async () => {
   const iframe = { srcdoc: '' }
@@ -51,7 +57,7 @@ test('page fast path and expanded print path refuse the same reserved motif plac
 })
 
 test('page keeps authored HTML and reports a refused fill for a scripted item', () => {
-  let iframe = { srcdoc: '' }
+  let iframe = pageFrame()
   const errors: Error[] = []
   const page = {
     isConnected: true,
@@ -59,9 +65,12 @@ test('page keeps authored HTML and reports a refused fill for a scripted item', 
     slotPreparation: undefined,
     slotOptions: { fill: { id: 'x', values: { name: 'Filled' } } } as SlotsOptions,
     cancelSelectionRequests() {},
+    cancelPostedSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    resetDocumentReadiness,
+    writeDocument,
     mount() {
-      iframe = { srcdoc: '' }
+      iframe = pageFrame()
       return iframe
     },
     querySelector: () => iframe,
@@ -84,7 +93,7 @@ test('page keeps authored HTML and reports a refused fill for a scripted item', 
 })
 
 test('page expands a data-free motif before refusing a scripted page fill without showing author HTML', async () => {
-  const iframe = { srcdoc: '' }
+  const iframe = pageFrame()
   const errors: Error[] = []
   const page = {
     isConnected: true,
@@ -97,7 +106,10 @@ test('page expands a data-free motif before refusing a scripted page fill withou
       },
     },
     cancelSelectionRequests() {},
+    cancelPostedSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    resetDocumentReadiness,
+    writeDocument,
     mount: () => iframe,
     querySelector: () => iframe,
     fit() {},
@@ -120,7 +132,7 @@ test('page expands a data-free motif before refusing a scripted page fill withou
 })
 
 test('page assigns a motif-expanded document once expansion succeeds', async () => {
-  const iframe = { srcdoc: '' }
+  const iframe = pageFrame()
   const page = {
     isConnected: true,
     loadGeneration: 0,
@@ -131,7 +143,10 @@ test('page assigns a motif-expanded document once expansion succeeds', async () 
       },
     },
     cancelSelectionRequests() {},
+    cancelPostedSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    resetDocumentReadiness,
+    writeDocument,
     mount: () => iframe,
     querySelector: () => iframe,
     fit() {},

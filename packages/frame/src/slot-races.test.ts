@@ -32,16 +32,17 @@ const assetSlot = [{ key: 'logo', label: 'Logo', type: 'image' as const, require
 
 test('page keeps its pending fill when replacement input is refused', async () => {
   const asset = deferred<string>()
-  let iframe = { srcdoc: '' }
+  let iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
   const page = {
     isConnected: true,
     loadGeneration: 0,
     slotPreparation: undefined as AbortController | undefined,
+    postedSelectionRequests: new Set(),
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions,
     cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     mount() {
-      iframe = { srcdoc: '' }
+      iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
       return iframe
     },
     querySelector: () => iframe,
@@ -51,6 +52,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
   }
+  Object.setPrototypeOf(page, SegnaviaPage.prototype)
   page.load({ html: '<img data-slot-src="logo">', slots: assetSlot })
   const generation = page.loadGeneration
   const preparation = page.slotPreparation
@@ -66,7 +68,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
 
 test('page ignores slot fit from a filled frame after loading an unfilled sandboxed page', async () => {
   const reports: Array<{ slots: Record<string, string> }> = []
-  let iframe = { srcdoc: '', contentWindow: {} }
+  let iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
   const page = new SegnaviaPage() as unknown as {
     load(input: unknown): void
     slots: SlotsOptions | undefined
@@ -79,7 +81,7 @@ test('page ignores slot fit from a filled frame after loading an unfilled sandbo
     } as SlotsOptions | undefined,
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     mount() {
-      iframe = { srcdoc: '', contentWindow: {} }
+      iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
       return iframe
     },
     querySelector: () => iframe,

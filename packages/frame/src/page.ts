@@ -21,6 +21,10 @@ import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
+const PAGE_CHANGED_SELECTION = 'Cannot read the selection because the page changed before it replied. Read the selection from the current page.'
+
+type SelectionCancellation = (reason: Error) => void
+type PostedSelectionRequest = { cancel?: SelectionCancellation }
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
@@ -39,8 +43,11 @@ export class SegnaviaPage extends HTMLElement {
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
   private hostServed = false
+  private documentWrites = 0
+  private loadedDocument: number | undefined
   private frameReady = false
-  private selectionRequests = new Set<(reason: Error) => void>()
+  private selectionRequests = new Set<SelectionCancellation>()
+  private postedSelectionRequests = new Set<PostedSelectionRequest>()
   private selectionReadyRequests = new Set<() => void>()
 
   get bounded(): boolean {
@@ -155,11 +162,15 @@ export class SegnaviaPage extends HTMLElement {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
-      iframe.srcdoc = shownPageDocument(shownPage, resolved, {
-        nonce: newNonce(),
-        css: `${fontCss}${this.css}`,
-        csp: this.cspExtra || undefined,
-      })
+      this.cancelPostedSelectionRequests()
+      this.writeDocument(
+        iframe,
+        shownPageDocument(shownPage, resolved, {
+          nonce: newNonce(),
+          css: `${fontCss}${this.css}`,
+          csp: this.cspExtra || undefined,
+        }),
+      )
     }
     const report = (error: unknown) => {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
@@ -172,15 +183,18 @@ export class SegnaviaPage extends HTMLElement {
         this.fit()
         return
       }
-      iframe.srcdoc = frameDocument(page.html, {
-        scripts: page.scripts,
-        nonce: newNonce(),
-        dir: page.dir,
-        lang: page.lang,
-        css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
-        csp: this.cspExtra || undefined,
-        relayKeys: false,
-      })
+      this.writeDocument(
+        iframe,
+        frameDocument(page.html, {
+          scripts: page.scripts,
+          nonce: newNonce(),
+          dir: page.dir,
+          lang: page.lang,
+          css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
+          csp: this.cspExtra || undefined,
+          relayKeys: false,
+        }),
+      )
       const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
       if (refusal) report(refusal)
       else if (hasSlotWork(page.slots, this.slotOptions))
@@ -204,6 +218,7 @@ export class SegnaviaPage extends HTMLElement {
     this.resolvedSlots = undefined
     this.slotFrame = undefined
     const iframe = this.mount(Page.parse({ html: '', size }))
+    // Host-served documents do not track readiness because readSelection refuses them.
     iframe.src = new URL(url, location.href).href
     this.fit()
   }
@@ -224,28 +239,34 @@ export class SegnaviaPage extends HTMLElement {
           'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
         ),
       )
+    const postedRequest: PostedSelectionRequest = {}
     const request = requestSelection(
       frame,
       (post) => {
-        if (this.frameReady) {
+        const postCurrent = () => {
+          this.postedSelectionRequests.add(postedRequest)
           post()
+        }
+        if (this.frameReady) {
+          postCurrent()
           return () => {}
         }
-        this.selectionReadyRequests.add(post)
-        return () => this.selectionReadyRequests.delete(post)
+        this.selectionReadyRequests.add(postCurrent)
+        return () => this.selectionReadyRequests.delete(postCurrent)
       },
       'page',
     )
+    postedRequest.cancel = request.cancel
     this.selectionRequests.add(request.cancel)
     void request.promise.then(
-      () => this.selectionRequests.delete(request.cancel),
-      () => this.selectionRequests.delete(request.cancel),
+      () => this.finishSelectionRequest(request.cancel),
+      () => this.finishSelectionRequest(request.cancel),
     )
     return request.promise
   }
 
   private mount(page: Page): HTMLIFrameElement {
-    this.frameReady = false
+    this.resetDocumentReadiness()
     this.pageValue = page
     this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
@@ -269,8 +290,41 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   private cancelSelectionRequests() {
-    const reason = new Error('Cannot read the selection because the page changed before it replied. Read the selection from the current page.')
-    for (const cancel of [...this.selectionRequests]) cancel(reason)
+    this.cancelSelections(this.selectionRequests)
+  }
+
+  private cancelPostedSelectionRequests() {
+    this.cancelSelections([...this.postedSelectionRequests].flatMap(({ cancel }) => (cancel ? [cancel] : [])))
+  }
+
+  private cancelSelections(requests: Iterable<SelectionCancellation>) {
+    const reason = new Error(PAGE_CHANGED_SELECTION)
+    for (const cancel of [...requests]) cancel(reason)
+  }
+
+  private finishSelectionRequest(cancel: SelectionCancellation) {
+    this.selectionRequests.delete(cancel)
+    for (const request of this.postedSelectionRequests) {
+      if (request.cancel === cancel) this.postedSelectionRequests.delete(request)
+    }
+  }
+
+  private resetDocumentReadiness() {
+    this.frameReady = false
+    this.loadedDocument = undefined
+  }
+
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
+    const written = ++this.documentWrites
+    this.resetDocumentReadiness()
+    iframe.addEventListener(
+      'load',
+      () => {
+        if (written === this.documentWrites) this.loadedDocument = written
+      },
+      { once: true },
+    )
+    iframe.srcdoc = srcdoc
   }
 
   private fit() {
@@ -298,7 +352,7 @@ export class SegnaviaPage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
-    if (message?.type === MESSAGE.ready) {
+    if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       for (const post of [...this.selectionReadyRequests]) post()
       this.selectionReadyRequests.clear()
