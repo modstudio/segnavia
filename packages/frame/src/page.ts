@@ -315,12 +315,12 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
-    const document = ++this.documentWrites
+    const written = ++this.documentWrites
     this.resetDocumentReadiness()
     iframe.addEventListener(
       'load',
       () => {
-        if (document === this.documentWrites) this.loadedDocument = document
+        if (written === this.documentWrites) this.loadedDocument = written
       },
       { once: true },
     )
