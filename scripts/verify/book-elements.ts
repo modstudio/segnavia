@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
+import { verifyBookLayoutSwitching } from './book-layout-elements.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
@@ -313,6 +314,13 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
   await page.addInitScript(() => {
     const messages: Array<{ id: string; data: unknown }> = []
     Object.defineProperty(window, '__bookMessages', { value: messages })
+    window.addEventListener(
+      'ready',
+      (event) => {
+        if (event.target instanceof HTMLElement && event.target.tagName === 'SEGNAVIA-BOOK') event.target.setAttribute('data-segnavia-book-ready', '')
+      },
+      true,
+    )
     window.addEventListener('message', (event) => {
       for (const id of ['book-screen-en', 'book-screen-he']) {
         const frame = document.querySelector(`#${id} iframe`) as HTMLIFrameElement | null
@@ -330,6 +338,8 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
     const authorMark = await frame.locator('html').getAttribute('data-segnavia-author-script-ran')
     check(`${id} composes with author scripts refused`, authorMark === null, String(authorMark))
   }
+
+  await verifyBookLayoutSwitching(h)
 
   await page.frameLocator('#book-screen-he iframe').locator('[data-segnavia-spread-blank]').waitFor({ timeout: LARGE_BOOK_WAIT_MS })
   await page.locator('#book-screen-en').evaluate((element) => element.setAttribute('spread', ''))

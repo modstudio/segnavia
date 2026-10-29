@@ -121,6 +121,7 @@ describe('bookDocument', () => {
   test('builds a screen document from a paginated view without changing the print document', () => {
     const view = {
       html: '<main data-segnavia-galleys>Held</main>',
+      flow: '<style>:where([data-segnavia-flow]){color:green}</style><section id="chapter" data-segnavia-flow="chapter">Flow</section>',
       scripts: 'refuse' as const,
       pagination: {
         paper: { width: 148, height: 210 },
@@ -137,10 +138,14 @@ describe('bookDocument', () => {
         runningHead: { recto: 'title' as const, verso: 'title' as const },
       },
     }
-    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
+    const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true, layout: 'pages' } })
     const print = bookViewDocument(view, { nonce: 'held' })
-    expect(screen).toContain('"screen":{"spread":true}')
+    expect(screen).toContain('"screen":{"spread":true,"layout":"pages"}')
+    expect(screen).toContain('<template data-segnavia-flow-build>')
+    expect(screen).toContain('@scope ([data-segnavia-flow-view])')
+    expect(screen.indexOf('<template data-segnavia-flow-build>')).toBeLessThan(screen.indexOf('var composeStarted='))
     expect(print).not.toContain('"screen"')
+    expect(print).not.toContain('<template data-segnavia-flow-build>')
   })
 
   test('places sanitized book CSS between generated fonts and host CSS', () => {

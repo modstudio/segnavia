@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { bookFrame, SegnaviaBook } from './book.ts'
+import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -12,6 +13,7 @@ function element() {
   let clears = 0
   ;(book as unknown as { mount: () => void }).mount = () => mounts++
   ;(book as unknown as { replaceChildren: () => void }).replaceChildren = () => clears++
+  ;(book as unknown as { querySelector: () => null }).querySelector = () => null
   return { book, mounts: () => mounts, clears: () => clears }
 }
 
@@ -137,8 +139,54 @@ describe('book element input', () => {
       '.font-marker{font-family:Held}',
       true,
     )
-    expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+    expect(rendered.srcdoc).toContain('"screen":{"spread":true,"layout":"pages"}')
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
+  })
+
+  test('the layout attribute and property reflect accepted values and refuse an unknown value by name', () => {
+    const { book, attributes } = reflectedBookElement()
+    const errors: string[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      return true
+    }) as typeof book.dispatchEvent
+
+    expect(book.layout).toBe('pages')
+    book.layout = 'flow'
+    expect(book.layout).toBe('flow')
+    expect(attributes.get('layout')).toBe('flow')
+    ;(book as unknown as { setAttribute: (name: string, value: string) => void }).setAttribute('layout', 'grid')
+    expect(book.layout).toBe('flow')
+    expect(attributes.get('layout')).toBe('flow')
+    expect(errors).toEqual(['Unknown book layout "grid"; accepted layouts are "pages" and "flow".'])
+  })
+
+  test('a layout change after readiness posts exactly one bounded message to the frame', async () => {
+    const { book } = reflectedBookElement()
+    const messages: Array<{ value: unknown; origin: string }> = []
+    const frame = {
+      contentWindow: {
+        postMessage(value: unknown, origin: string) {
+          messages.push({ value, origin })
+        },
+      },
+    }
+    ;(book as unknown as { querySelector: () => typeof frame }).querySelector = () => frame
+    ;(book as unknown as { mountFrame: () => void }).mountFrame = () => {}
+    book.view = switchableBookView()
+    ;(book as unknown as { frameReady: boolean }).frameReady = true
+    await book.attributeChangedCallback('layout', null, 'flow')
+    expect(messages).toEqual([{ value: { type: 'segnavia:book-layout', layout: 'flow' }, origin: '*' }])
+  })
+
+  test('a layout change before readiness remounts with that starting layout', async () => {
+    const mounted: Array<{ title: string; srcdoc: string }> = []
+    const { book } = reflectedBookElement()
+    ;(book as unknown as { mountFrame: (rendered: { title: string; srcdoc: string }) => void }).mountFrame = (rendered) => mounted.push(rendered)
+    book.view = switchableBookView()
+    await book.attributeChangedCallback('layout', null, 'flow')
+    expect(mounted).toHaveLength(2)
+    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":false,"layout":"flow"}')
   })
 })
 
@@ -193,7 +241,7 @@ describe('book fonts', () => {
 
     expect(errors).toEqual([])
     expect(mounted.at(-1)?.title).toBe('Latest')
-    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true}')
+    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true,"layout":"pages"}')
   })
 
   test('toggling spread during a source fetch leaves that fetch to mount its book', async () => {

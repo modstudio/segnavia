@@ -22,7 +22,7 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 | Layer | What it is | Appearance |
 |---|---|---|
 | `DeckController` | All behavior: slides, play, seek, per-slide clocks, cues, viewer settings, keys in reading direction, exact and clamped `#slide-N` links, neighbor content, reload identity, and in-window presentation. Events: `change`, `slide`, `cue`, `error`, `end`, `exit`. Its clock and scheduler can be swapped, so the gate tests it; the `clock` option now receives `(slide, audio)` instead of `(narration, audio)`. | None: it renders nothing. |
-| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-book>` | Light DOM elements that show one slide, one page, one paper of imposed pages, or one book in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. A fluid page normally grows to its content; its `bounded` boolean attribute and property instead keep the host-sized element box and let the frame scroll, while fixed pages ignore `bounded`. A host names the page frame with `label`. Image and shot content chooses `contain`, `cover`, `width` or annotation-aware `focus` fit, with a slide setting overriding the deck default. A book is continuous by default, shows paginated books as scaled pages, and uses direction-aware two-page spreads with `spread`. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
+| `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-book>` | Light DOM elements that show one slide, one page, one paper of imposed pages, or one book in sandboxed frames. A stage scales to its box or the available window and can keep its neighboring slides mounted. A fluid page normally grows to its content; its `bounded` boolean attribute and property instead keep the host-sized element box and let the frame scroll, while fixed pages ignore `bounded`. A host names the page frame with `label`. Image and shot content chooses `contain`, `cover`, `width` or annotation-aware `focus` fit, with a slide setting overriding the deck default. A book is continuous by default. Paginated books use reflected `layout="pages"` by default or `layout="flow"`, keep the top reading position when that layout changes, and use direction-aware two-page spreads with `spread` in pages layout. Continuous books ignore `layout`. | Only geometry, in `BASE_CSS`, every rule inside `:where()` with zero specificity. Colors are custom properties with plain defaults. |
 | Styled components (`@segnavia/frame/controls`) | `<segnavia-play>`, `<segnavia-step>`, `<segnavia-track>`, `<segnavia-counter>`, `<segnavia-time>`, `<segnavia-mute>`, `<segnavia-captions>`, `<segnavia-caption>`, `<segnavia-notes>`, `<segnavia-fullscreen>` and `<segnavia-paper-picker>`: each a finished piece. Player controls connect by `for`, `controller` or the nearest ancestor. The paper picker owns no storage; its `value` is a print setting and it emits `change` for the host to persist. | Their own, each in a shadow root. Every color reads a `--segnavia-*` property first and falls back to `light-dark()`, so a host's accent and `color-scheme` reach them. |
 | `<segnavia-item-settings>` (`@segnavia/frame/item-settings`) | A standalone panel of named sections that a host places anywhere. `addSection({ id, label, render(container, context) })` adds a section and returns a disposer. The built-in Fields section appears when the element has slot declarations: a fill switcher, one input per declared type, source override, and live warnings from `SlotReport`. `slideSettingsSection(authoring)` supplies the current deck slide's settings as a host-added Slide section. `attachItemSettings` wires host writes. | Geometry only, in `:where()`. Colors and the controls' corner radius (`--segnavia-radius`, square when unset) are `--segnavia-*` custom properties with plain defaults. |
 | `<segnavia-player>` (`@segnavia/frame/player`) | The finished player: a two-row control bar around a stage, with time, notes, captions, sound, presentation, translatable labels and host chrome slots. `playback` and `captions` override the deck; `presentation` is `window` by default, or `native` or `off`. Its default `fit="contain"` keeps the whole player in the visible viewport when possible; `fit="width"` sizes from its inline space alone and `fit="height"` fits the stage inside a host-provided definite height. `controls="below"` keeps caption and controls after the slide; `controls="overlay"` places them over it. Presentation always keeps its existing height-fitted layout. | Its layout, plus the components' look; `theme` sets its `color-scheme`. |
@@ -116,7 +116,13 @@ millimeters, direction, number systems, recto openings, orphans and widows,
 default parent pages, endnote placement, contents settings and running-head
 choices). A continuous view has neither. The frame library validates that view and
 shows it in one internally scrolling sandboxed frame. A continuous view scrolls
-as one document. `bookDocument` models its output as a `print`, `galley` or
+as one document. A paginated screen composes its galley while the flow build
+remains inert in `template[data-segnavia-flow-build]`, then instantiates it in
+`[data-segnavia-flow-view]` beside `[data-segnavia-pages]`. Build styles are
+scoped to their own view. Only the displayed view holds working ids, so contents
+and note links keep their ordinary fragment behavior. The screen matches
+`data-segnavia-position` blocks to keep the first block crossing the viewport
+top in place. `bookDocument` models its output as a `print`, `galley` or
 `flow` build: continuous books default to print, paginated books default to a
 galley, and only paginated books may request flow. A paginated view uses the same composer as paginated print,
 then scales its paper-sized pages to the frame's width. Its `spread` boolean
@@ -672,9 +678,10 @@ readiness, so a strict host content security policy cannot disable either.
 The frame bridge sends a relayed key, height, readiness, animation timing and
 slot fit to its host. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound.
-The bridge answers exactly one inbound message type, a
-`segnavia:selection-request` from its parent, and only on a refused-script page;
-its `segnavia:selection` reply contains the reader's selection string and the
+On a refused-script page the bridge answers a `segnavia:selection-request` from
+its parent. A paginated book screen also accepts `segnavia:book-layout` only
+from its parent and only when `layout` is exactly `pages` or `flow`; it produces
+no outbound message. The selection request's `segnavia:selection` reply contains the reader's selection string and the
 page's `innerText`. Both strings retain document order without reordering for
 direction. A filled
 item's author scripts are refused, so only the nonce-authorized bridge can send

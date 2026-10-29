@@ -82,7 +82,7 @@ export async function captureBookPapers(browser: Browser, book: Book, css: strin
   const view = bookView(book)
   if (!view.pagination) throw new Error('A paginated book view needs pagination; supply a paginated Book to clear this refusal.')
   const paper = paperCssSize(book)
-  const html = bookViewDocument(view, { nonce: newNonce(), css, screen: { spread: false }, printBackground: true })
+  const html = bookViewDocument(view, { nonce: newNonce(), css, screen: { spread: false, layout: 'pages' }, printBackground: true })
   const context = await browser.newContext({
     viewport: { width: Math.ceil(paper.width) + 96, height: Math.ceil(paper.height) + 96 },
     deviceScaleFactor: SCALE,

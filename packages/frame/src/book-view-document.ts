@@ -10,6 +10,7 @@ import {
 } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
+import type { BookLayout } from './book-presentation.ts'
 import { frameDocument } from './bridge.ts'
 
 export interface PaginatedDocumentOptions {
@@ -17,7 +18,11 @@ export interface PaginatedDocumentOptions {
   fontCss?: string
   css?: string
   printBackground?: boolean
-  screen?: { spread: boolean }
+  screen?: { spread: boolean; layout: BookLayout }
+}
+
+function scopedBuildStyle(html: string, root: string): string {
+  return html.replace(/<style>([\s\S]*?)<\/style>/i, (_tag, css: string) => `<style>@scope (${root}){${css}}</style>`)
 }
 
 function px(value: number): number {
@@ -73,7 +78,9 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
     bookCss
-  const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const galley = options.screen ? scopedBuildStyle(view.html, '[data-segnavia-galleys]') : view.html
+  const flow = options.screen && view.flow ? `<template data-segnavia-flow-build>${scopedBuildStyle(view.flow, '[data-segnavia-flow-view]')}</template>` : ''
+  const body = `${galley}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

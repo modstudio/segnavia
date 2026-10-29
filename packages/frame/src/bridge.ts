@@ -21,6 +21,7 @@ export const MESSAGE = {
   inspect: 'segnavia:inspect',
   selectionRequest: 'segnavia:selection-request',
   selection: 'segnavia:selection',
+  bookLayout: 'segnavia:book-layout',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
