@@ -234,8 +234,28 @@ interface PageUse {
   ordinal: number
 }
 
+export interface StoryOpening {
+  page: IdmlPage
+  ordinal: number
+  role: 'recto' | 'verso'
+}
+
+export function openingPage(story: string, model: IdmlModel): StoryOpening | undefined {
+  const rtl = model.preferences.binding === 'right-to-left'
+  let ordinal = 0
+  for (const spread of model.spreads) {
+    for (const page of spread.pages) {
+      if (page.stories.includes(story)) return { page, ordinal, role: roleFor(page, rtl, ordinal) }
+      ordinal += 1
+    }
+  }
+  return undefined
+}
+
 export function chapterParents(story: string, model: IdmlModel, mapping: MasterMapping, report: ReportCollector): BookSectionParents | undefined {
   const rtl = model.preferences.binding === 'right-to-left'
+  const first = openingPage(story, model)
+  if (!first) return undefined
   const pages: PageUse[] = []
   let ordinal = 0
   for (const spread of model.spreads)
@@ -243,10 +263,7 @@ export function chapterParents(story: string, model: IdmlModel, mapping: MasterM
       if (page.stories.includes(story)) pages.push({ page, ordinal })
       ordinal += 1
     }
-  const first = pages[0]
-  if (!first) return undefined
-  const firstRole = roleFor(first.page, rtl, first.ordinal)
-  const result: BookSectionParents = { opener: mapping.parentFor(first.page.appliedMaster, firstRole, first.page.id) }
+  const result: BookSectionParents = { opener: mapping.parentFor(first.page.appliedMaster, first.role, first.page.id) }
   for (const role of ['recto', 'verso'] as const) {
     const candidates = pages.slice(1).filter((entry) => roleFor(entry.page, rtl, entry.ordinal) === role)
     if (candidates.length === 0) continue

@@ -28,6 +28,7 @@ export interface IdmlReportData {
   unmappedFonts: IdmlFontUse[]
   links: IdmlLinkUse[]
   strippedAssetContent: Record<string, string[]>
+  versoOpenings: Record<string, string[]>
   mixedMasterChapters: IdmlMixedMasterChapter[]
 }
 
@@ -52,6 +53,7 @@ export class ReportCollector {
   readonly unmappedFonts = new Map<string, IdmlFontUse>()
   readonly links = new Map<string, IdmlLinkUse>()
   readonly strippedAssetContent = new Map<string, string[]>()
+  readonly versoOpenings = new Map<string, string[]>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
@@ -95,6 +97,9 @@ export class ReportCollector {
     for (const [uri, findings] of Object.entries(seed?.strippedAssetContent ?? {})) {
       for (const finding of findings) this.strippedAsset(uri, finding)
     }
+    for (const [story, pages] of Object.entries(seed?.versoOpenings ?? {})) {
+      for (const page of pages) this.versoOpening(story, page)
+    }
   }
 
   add(bucket: Map<string, number>, name: string, location: string, count = 1): void {
@@ -132,6 +137,12 @@ export class ReportCollector {
     this.strippedAssetContent.set(uri, found)
   }
 
+  versoOpening(story: string, page: string): void {
+    const found = this.versoOpenings.get(story) ?? []
+    this.recordLocation(found, page)
+    this.versoOpenings.set(story, found)
+  }
+
   private record(target: Map<string, IdmlFontUse>, appliedFont: string, fontStyle: string | undefined, location: string): void {
     const key = fontUseKey(appliedFont, fontStyle)
     const found = target.get(key) ?? { appliedFont, ...(fontStyle ? { fontStyle } : {}), locations: [] }
@@ -156,6 +167,7 @@ export class ReportCollector {
       unmappedFonts: [...this.unmappedFonts.values()],
       links: [...this.links.values()],
       strippedAssetContent: Object.fromEntries([...this.strippedAssetContent].sort(([a], [b]) => a.localeCompare(b))),
+      versoOpenings: Object.fromEntries([...this.versoOpenings].sort(([a], [b]) => a.localeCompare(b))),
       mixedMasterChapters: [...this.mixedMasterChapters],
     }
   }

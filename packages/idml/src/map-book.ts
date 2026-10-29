@@ -2,7 +2,7 @@ import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@se
 import { findActiveContent } from '@segnavia/html'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
-import { chapterParents, mapMasters } from './masters.ts'
+import { chapterParents, mapMasters, openingPage } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { mapOpeners } from './openers.ts'
 import { reportPlacements } from './placement-report.ts'
@@ -63,12 +63,18 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   }))
   const openers = mapOpeners(model, mapped, masters, report, options.asset)
   reportPlacements(model, openers.consumedPages, report)
-  const chapters = mapped
-    .filter(({ story }) => !openers.claimed.has(story.id))
-    .map(({ story, mapped: value }) => {
-      const parents = chapterParents(story.id, model, masters, report)
-      return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
-    })
+  const emitted = mapped.filter(({ story }) => !openers.claimed.has(story.id))
+  const openings = new Map(emitted.map(({ story }) => [story.id, openingPage(story.id, model)]))
+  if (preferences.facingPages) {
+    for (const { story } of emitted) {
+      const opening = openings.get(story.id)
+      if (opening?.role === 'verso') report.versoOpening(story.id, opening.page.id)
+    }
+  }
+  const chapters = emitted.map(({ story, mapped: value }) => {
+    const parents = chapterParents(story.id, model, masters, report)
+    return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+  })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
@@ -86,7 +92,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     ...(bookLanguage ? { lang: bookLanguage } : {}),
     ...(css ? { css } : {}),
     ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}),
-    rectoOpenings: preferences.facingPages,
+    rectoOpenings: preferences.facingPages && emitted.every(({ story }) => openings.get(story.id)?.role === 'recto'),
     parentPages: masters.parents,
     chapters,
   })
