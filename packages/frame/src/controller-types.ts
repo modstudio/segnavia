@@ -1,7 +1,13 @@
 import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { Clock } from './clock.ts'
 
-export type ResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
+type FormatResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' }>
+export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {
+  reuseKey?: string
+  bridge?: true
+}
+
+export type ResolvedContent = Exclude<FormatResolvedContent, { kind: 'url' }> | ResolvedUrlContent
 
 export interface DeckState {
   deck: Deck | null
@@ -24,7 +30,7 @@ export interface DeckState {
 
 export interface ControllerOptions {
   base?: string
-  resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent> | SlideContent
+  resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent | ResolvedContent> | SlideContent | ResolvedContent
   prefetch?: boolean
   keys?: 'stage' | 'page'
   hash?: string | null

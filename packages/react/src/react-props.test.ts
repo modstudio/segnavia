@@ -65,6 +65,13 @@ describe('React element prop wiring', () => {
     expect(element.attributes.has('label')).toBe(false)
   })
 
+  test('forwards the stage bridge ready timeout as a property', () => {
+    const element = new FakeElement() as unknown as HTMLElement & { bridgeReadyTimeoutMs?: number }
+    syncElementProps(ELEMENTS.stage, element, { bridgeReadyTimeoutMs: 25 }, {})
+    expect(element.bridgeReadyTimeoutMs).toBe(25)
+    expect((element as unknown as FakeElement).attributes.size).toBe(0)
+  })
+
   test.each([
     [ELEMENTS.page, 'page'],
     [ELEMENTS.thumbnail, 'page'],
