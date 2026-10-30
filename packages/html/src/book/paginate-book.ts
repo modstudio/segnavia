@@ -1,3 +1,4 @@
+import { printedPageAt, selectBookParent } from '../printed-pages.ts'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
@@ -12,16 +13,20 @@ export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
-  const textHeight = input.geometry.textHeight
   const orphans = input.settings.orphans ?? 2
   const widows = input.settings.widows ?? 2
 
-  function used(placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
-    return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: input.geometry, fragments })
+  function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
+    return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }
 
-  function withNotes<T extends object>(extra: T) {
-    return { notes: input.notes, geometry: input.geometry, used, ...extra }
+  function withNotes<T extends object>(textHeight: number, extra: T) {
+    return {
+      notes: input.notes,
+      geometry: { ...input.geometry, textHeight },
+      used: (placed: PaginateUnit[], fragments: PaginatePageNote[]) => used(textHeight, placed, fragments),
+      ...extra,
+    }
   }
 
   function refusal(block: PaginateBlock): PaginateBookRefusal {
@@ -54,17 +59,17 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     }
   }
 
-  function lineTooTall(unit: PaginateUnit): boolean {
+  function lineTooTall(unit: PaginateUnit, textHeight: number): boolean {
     return unit.bottom - unit.top > textHeight
   }
 
-  function greedyFill(placed: PaginateUnit[], fragments: PaginatePageNote[], units: PaginateUnit[], index: number) {
+  function greedyFill(placed: PaginateUnit[], fragments: PaginatePageNote[], units: PaginateUnit[], index: number, textHeight: number) {
     let next = index
     let notes = fragments
     while (next < units.length) {
       const unit = units[next]
-      if (!unit || lineTooTall(unit)) break
-      const allocated = paginateNotes(withNotes({ op: 'allocate' as const, placed, fragments: notes, unit }))
+      if (!unit || lineTooTall(unit, textHeight)) break
+      const allocated = paginateNotes(withNotes(textHeight, { op: 'allocate' as const, placed, fragments: notes, unit }))
       if (!allocated) break
       placed.push(unit)
       notes = allocated
@@ -73,34 +78,39 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     return { placed, fragments: notes, index: next }
   }
 
-  function forcePlace(unit: PaginateUnit) {
-    if (lineTooTall(unit)) return { placed: [], fragments: [], index: 0, pending: [], refusal: refusal(unit.block) }
-    const allocated = paginateNotes(withNotes({ op: 'allocate' as const, placed: [] as PaginateUnit[], fragments: [] as PaginatePageNote[], unit }))
+  function forcePlace(unit: PaginateUnit, textHeight: number) {
+    if (lineTooTall(unit, textHeight)) return { placed: [], fragments: [], index: 0, pending: [], refusal: refusal(unit.block) }
+    const allocated = paginateNotes(withNotes(textHeight, { op: 'allocate' as const, placed: [] as PaginateUnit[], fragments: [] as PaginatePageNote[], unit }))
     if (!allocated) return { placed: [], fragments: [], index: 0, pending: [], refusal: refusal(unit.block) }
-    return { placed: [unit], fragments: allocated, index: 0, pending: paginateNotes(withNotes({ op: 'leftover' as const, fragments: allocated })) }
+    return {
+      placed: [unit],
+      fragments: allocated,
+      index: 0,
+      pending: paginateNotes(withNotes(textHeight, { op: 'leftover' as const, fragments: allocated })),
+    }
   }
 
-  function fillPage(units: PaginateUnit[], index: number, pending: PaginatePageNote[]) {
-    const held = paginateNotes(withNotes({ op: 'continue' as const, pending }))
+  function fillPage(units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number) {
+    const held = paginateNotes(withNotes(textHeight, { op: 'continue' as const, pending }))
     const incoming = units[index]
-    if (held.leftover.length === 0 && incoming && lineTooTall(incoming)) {
+    if (held.leftover.length === 0 && incoming && lineTooTall(incoming, textHeight)) {
       return { placed: [], fragments: [], index, pending, refusal: refusal(incoming.block) }
     }
     const stuck = held.fragments.length === 0 ? held.leftover[0] : undefined
     if (stuck) return { placed: [], fragments: [], index, pending: held.leftover, refusal: noteRefusal(stuck.id) }
     if (held.leftover.length > 0) return { placed: [], fragments: held.fragments, index, pending: held.leftover }
-    const filled = greedyFill([], held.fragments, units, index)
+    const filled = greedyFill([], held.fragments, units, index, textHeight)
     const placed = paginateKeeps(filled.placed, units[filled.index], textHeight, orphans, widows, held.fragments.length > 0)
     const nextIndex = filled.index - (filled.placed.length - placed.length)
-    const fragments = paginateNotes(withNotes({ op: 'recompute' as const, placed, seed: held.fragments }))
+    const fragments = paginateNotes(withNotes(textHeight, { op: 'recompute' as const, placed, seed: held.fragments }))
     if (placed.length > 0 || fragments.length > 0) {
-      return { placed, fragments, index: nextIndex, pending: paginateNotes(withNotes({ op: 'leftover' as const, fragments })) }
+      return { placed, fragments, index: nextIndex, pending: paginateNotes(withNotes(textHeight, { op: 'leftover' as const, fragments })) }
     }
     const unit = units[nextIndex]
     const leftoverNote = pending[0]
     if (!unit && leftoverNote) return { placed: [], fragments: [], index: nextIndex, pending, refusal: noteRefusal(leftoverNote.id) }
     if (!unit) return { placed: [], fragments: [], index: nextIndex, pending, done: true }
-    const forced = forcePlace(unit)
+    const forced = forcePlace(unit, textHeight)
     if (forced.refusal) return forced
     return { placed: forced.placed, fragments: forced.fragments, index: nextIndex + 1, pending: forced.pending }
   }
@@ -109,7 +119,16 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 }
 
 // Ordered for embedding: each function calls only the others by name.
-export const PAGINATE_FUNCTIONS = [paginateColumns, paginateNotes, paginateKeeps, paginateMarks, paginateSequence, paginateBook]
+export const PAGINATE_FUNCTIONS = [
+  printedPageAt,
+  selectBookParent,
+  paginateColumns,
+  paginateNotes,
+  paginateKeeps,
+  paginateMarks,
+  paginateSequence,
+  paginateBook,
+]
 
 export function paginateScript(): string {
   return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`

@@ -3,6 +3,16 @@ import { block, flow, input, settings, win } from './paginate-book.test-helper.t
 import { paginateBook } from './paginate-book.ts'
 
 describe('paginateBook model', () => {
+  test('uses the opener height only for the opening page', () => {
+    const sample = input({ flows: [{ ...flow('c1', 'chapter', [block('text', 'p', 1, 1, 11, 0)]), parents: { opener: 'deep' } }] })
+    sample.parents.deep = { width: 100, height: 30 }
+
+    const pages = paginateBook(sample).pages
+
+    expect(pages.map((page) => page.windows[0] && (page.windows[0].end - page.windows[0].start) / 10)).toEqual([3, 5, 3])
+    expect(pages.map((page) => page.parent)).toEqual(['deep', 'segnavia:verso', 'segnavia:recto'])
+  })
+
   test('a two-column run is balanced on one page', () => {
     const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 6, 0, { columns: 2 })])] })).pages
     expect(pages).toHaveLength(1)

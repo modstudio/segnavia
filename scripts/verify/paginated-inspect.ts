@@ -23,7 +23,6 @@ export interface PaginatedReport {
   runningHead: { fromMark: boolean; carried: boolean; detail: string }
   direction: string | null
   ids: { unique: boolean; count: number; duplicates: string[] }
-  spine: { page: number; distance: number; side: string }[]
   designed: PaginatedDesignedReport
 }
 
@@ -316,23 +315,6 @@ export function inspectPaginatedBook(): PaginatedReport {
     return { unique: duplicates.length === 0 && ids.length > 0, count: ids.length, duplicates }
   }
 
-  function spine() {
-    const direction = document.documentElement.getAttribute('dir') === 'rtl' ? 'rtl' : 'ltr'
-    return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
-      const index = Number(page.getAttribute('data-segnavia-book-page'))
-      const text = page.querySelector('[data-segnavia-text]')
-      if (!text) return { page: index, distance: Number.NaN, side: 'missing' }
-      const paperBox = page.getBoundingClientRect()
-      const textBox = text.getBoundingClientRect()
-      const rightHand = (index % 2 === 1) === (direction === 'ltr')
-      return {
-        page: index,
-        distance: rightHand ? textBox.left - paperBox.left : paperBox.right - textBox.right,
-        side: rightHand ? 'right' : 'left',
-      }
-    })
-  }
-
   function designedPages(id: string) {
     return Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${id}"][data-segnavia-role="fixed"]`))
   }
@@ -393,7 +375,6 @@ export function inspectPaginatedBook(): PaginatedReport {
     runningHead: runningHead(),
     direction: document.documentElement.getAttribute('dir'),
     ids: uniqueIds(),
-    spine: spine(),
     designed: designed(),
   }
 }

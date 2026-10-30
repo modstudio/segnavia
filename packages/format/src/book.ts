@@ -1,10 +1,18 @@
 import { z } from 'zod'
-import { BookChapterEntry, BookFrontMatterEntry, BookTemplate, bookParentIssues, isBookContents } from './book-section.ts'
+import {
+  BookChapterEntry,
+  BookFrontMatterEntry,
+  BookTemplate,
+  bookParentIssues,
+  isBookContents,
+  isDesignedSection,
+  isTemplatedSection,
+} from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-import { bookParentPages, ParentPage } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
@@ -178,6 +186,29 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
       message: `the inner and outer margins total ${horizontal}mm and the page is ${trim.width}mm wide; reduce the horizontal margins to leave a text area`,
     })
   }
+  const parents = resolveParentPages([...bookParentPages(book.page.margin), ...book.parentPages])
+  const byName = new Map(parents.map((parent) => [parent.name, parent]))
+  const flowing = [...book.frontMatter, ...book.chapters].filter((entry) => !isDesignedSection(entry) && !isTemplatedSection(entry))
+  flowing.forEach((flow, index) => {
+    const roles = [
+      ['opener', flow.parents?.opener ?? BOOK_PARENT_NAMES.opener],
+      ['recto', flow.parents?.recto ?? BOOK_PARENT_NAMES.recto],
+      ['verso', flow.parents?.verso ?? BOOK_PARENT_NAMES.verso],
+    ] as const
+    const widths = roles.flatMap(([role, name]) => {
+      const parent = byName.get(name)
+      return parent ? [{ role, name, width: textArea(parent, trim).width }] : []
+    })
+    const first = widths[0]
+    const different = widths.find((candidate) => candidate.width !== first?.width)
+    if (!first || !different) return
+    const label = flow.title ?? `flow ${index + 1}`
+    ctx.addIssue({
+      code: 'custom',
+      path: book.frontMatter.includes(flow as never) ? ['frontMatter'] : ['chapters'],
+      message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
+    })
+  })
 })
 export type Book = z.infer<typeof Book>
 export type BookInput = z.input<typeof Book>

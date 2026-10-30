@@ -93,6 +93,18 @@ export interface ResolvedParentPage {
   foot: string
 }
 
+export interface TextArea {
+  width: number
+  height: number
+}
+
+export function textArea(parent: Pick<ResolvedParentPage, 'margin'>, paper: { width: number; height: number }): TextArea {
+  return {
+    width: paper.width - parent.margin.inner - parent.margin.outer,
+    height: paper.height - parent.margin.top - parent.margin.bottom,
+  }
+}
+
 const ZERO_PARENT_MARGIN: ParentPageMargin = { top: 0, bottom: 0, inner: 0, outer: 0 }
 
 export function resolveParentPages(parents: ParentPage[]): ResolvedParentPage[] {

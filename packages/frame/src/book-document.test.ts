@@ -1,15 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
-import {
-  heldPageNumber,
-  openerPageIndex,
-  pageIndexForTarget,
-  paginateScript,
-  planBookPages,
-  printedPageAt,
-  selectBookParent,
-  windowPageIndex,
-} from '@segnavia/html'
+import { Book, resolveDirection } from '@segnavia/format'
+import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -48,27 +39,9 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {planBookPages,selectBookParent,printedPageAt,spreadSlots,pageScale}`)() as {
-      planBookPages: typeof planBookPages
-      selectBookParent: typeof selectBookParent
-      printedPageAt: typeof printedPageAt
+    const embedded = new Function(`${script};return {spreadSlots,pageScale}`)() as {
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
-    }
-    const facts = [
-      { blank: false, sectionOpening: true, folio: '1' },
-      { blank: true, sectionOpening: false },
-      { blank: false, sectionOpening: true, role: 'fixed' as const },
-    ]
-    const blankFact = { blank: true, sectionOpening: false }
-    for (const direction of ['ltr', 'rtl'] as const) {
-      expect(embedded.planBookPages(facts, direction, BOOK_PARENT_NAMES)).toEqual(planBookPages(facts, direction, BOOK_PARENT_NAMES))
-      expect(embedded.selectBookParent(blankFact, 2, facts.length, direction, BOOK_PARENT_NAMES)).toEqual(
-        selectBookParent(blankFact, 2, facts.length, direction, BOOK_PARENT_NAMES),
-      )
-      expect(embedded.printedPageAt({ every: 'all', recto: 'odd', verso: 'even' }, 2, 3, direction)).toEqual(
-        printedPageAt({ every: 'all', recto: 'odd', verso: 'even' }, 2, 3, direction),
-      )
     }
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
@@ -84,14 +57,13 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(paginateScript())
     expect(BOOK_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(selectBookParent.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(planBookPages.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('--segnavia-text-height')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')
     expect(BOOK_COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
     expect(BOOK_COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')
     expect(BOOK_COMPOSER_SCRIPT).toContain('flowInlineStart')

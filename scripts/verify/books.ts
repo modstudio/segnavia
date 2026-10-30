@@ -14,10 +14,10 @@ import {
 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
-const PAGINATED_INNER_PX = 18 * PX_PER_MM
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit', 'segnavia:book-place'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
@@ -149,6 +149,17 @@ function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
   )
 }
 
+async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
+  const report = await frame.evaluate(inspectPaginatedMargins)
+  h.check(
+    `${id} text area sits the inner margin from the spine`,
+    report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - item.expected) < 0.5),
+    JSON.stringify(report.spine),
+  )
+  h.check(`${id} every text box stays within its parent margins`, report.text.checked > 0 && report.text.outside === 0, report.text.detail)
+  h.check(`${id} every furniture strip has its parent's text width`, report.furniture.checked > 0 && report.furniture.matches, JSON.stringify(report.furniture))
+}
+
 async function verifyPaginatedBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated.html'))
@@ -198,11 +209,7 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
-    check(
-      `${id} text area sits the inner margin from the spine`,
-      report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - PAGINATED_INNER_PX) < 0.5),
-      JSON.stringify(report.spine),
-    )
+    await checkParentMargins(h, frame, id)
     check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
     check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
     if (id === 'book-paginated-he') {
