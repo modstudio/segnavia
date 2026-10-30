@@ -1,4 +1,13 @@
-import { type Book, type BookChapterEntry, type BookFrontMatterEntry, type Deck, isDesignedSection, isTemplatedSection, type Page } from '@segnavia/format'
+import {
+  type Book,
+  type BookChapterEntry,
+  type BookFrontMatterEntry,
+  bookSections,
+  type Deck,
+  isDesignedSection,
+  isTemplatedSection,
+  type Page,
+} from '@segnavia/format'
 import {
   assertSingleSlotCopy,
   hasSlotWork,
@@ -91,10 +100,11 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   if (!hasSlotWork(book.slots, slots)) return book
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
+  const sections = bookSections(book)
   const filled = {
     ...book,
-    frontMatter: book.frontMatter.map((entry) => fillEntry(entry, prepared.apply)),
-    chapters: book.chapters.map((entry) => fillEntry(entry, prepared.apply)),
+    frontMatter: sections.filter(({ division }) => division === 'front').map(({ entry }) => fillEntry(entry as BookFrontMatterEntry, prepared.apply)),
+    chapters: sections.filter(({ division }) => division === 'body').map(({ entry }) => fillEntry(entry as BookChapterEntry, prepared.apply)),
     templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
   }
   // One book document reports each key once, so marks are per rendered tab, not per applied field.

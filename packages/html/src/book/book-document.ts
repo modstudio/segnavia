@@ -1,8 +1,8 @@
 import {
   type Book,
-  type BookSection,
   type BookSectionParents,
   type BookTemplate,
+  bookSections,
   type Chapter,
   type DesignedSection,
   isBookContents,
@@ -16,6 +16,7 @@ import { type ChildNode, type Document, isTag } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
+  authoredSection,
   type BuiltSection,
   collectHeadings,
   designedSection,
@@ -30,16 +31,6 @@ import {
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
-
-function direction(book: Book, value: string): string {
-  return resolveDirection(book.dir, book.lang, value)
-}
-function authoredSection(section: BookSection, id: string, build: BookBuild): BuiltSection {
-  const document = parse(section.html)
-  const runningHead = section.title
-  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
-  return { info: { id, kind: 'front', title: section.title, runningHead }, node }
-}
 
 function contentsSection(entry: { title?: string; opens?: string; parents?: BookSectionParents }, build: BookBuild): BuiltSection {
   const id = 'segnavia-contents'
@@ -120,8 +111,12 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
   const entries = headings.map((heading) => {
     const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
     return element('li', { class: 'segnavia-contents-entry', 'data-level': String(heading.level) }, [
-      element('a', { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: direction(book, heading.text) }, [text(heading.text)]),
-      element('span', { class: 'segnavia-contents-page', 'data-target': heading.id, dir: direction(book, page) }, [text(page)]),
+      element(
+        'a',
+        { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(book.dir, book.lang, heading.text) },
+        [text(heading.text)],
+      ),
+      element('span', { class: 'segnavia-contents-page', 'data-target': heading.id, dir: resolveDirection(book.dir, book.lang, page) }, [text(page)]),
     ])
   })
   return element('ol', { class: 'segnavia-contents-list' }, entries)
@@ -130,7 +125,7 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
 function addContents(book: Book, section: BuiltSection, headings: BookHeading[], options: BookDocumentOptions): void {
   const title = section.info.title
   const titleNode = section.node.children.find((child) => isTag(child) && child.name === 'h1')
-  if (title !== undefined && titleNode && isTag(titleNode)) titleNode.attribs.dir = direction(book, title)
+  if (title !== undefined && titleNode && isTag(titleNode)) titleNode.attribs.dir = resolveDirection(book.dir, book.lang, title)
   section.node.children.push(contentsList(book, headings, options))
   linkChildren(section.node)
 }
@@ -185,7 +180,7 @@ function columnIssues(section: BuiltSection): string[] {
 
 function endnotesHeading(book: Book): ReturnType<typeof element> {
   const titleValue = book.endnotes.title
-  return element('h1', { class: 'segnavia-endnotes-title', dir: direction(book, titleValue) }, [text(titleValue)])
+  return element('h1', { class: 'segnavia-endnotes-title', dir: resolveDirection(book.dir, book.lang, titleValue) }, [text(titleValue)])
 }
 
 function endnotesSection(
@@ -246,7 +241,9 @@ function pushChapterEndnotes(book: Book, build: DocumentBuild, id: string, owner
 function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefined {
   let contents: BuiltSection | undefined
   let frontNumber = 0
-  for (const entry of book.frontMatter) {
+  for (const sectionEntry of bookSections(book)) {
+    if (sectionEntry.division !== 'front') continue
+    const { entry } = sectionEntry
     if (isBookContents(entry)) {
       contents = contentsSection(entry, build.build)
       build.sections.push(contents)
@@ -287,7 +284,9 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
 
 function addChapters(book: Book, build: DocumentBuild): void {
   let chapterNumber = 0
-  for (const entry of book.chapters) {
+  for (const sectionEntry of bookSections(book)) {
+    if (sectionEntry.division !== 'body') continue
+    const { entry } = sectionEntry
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
       const owner = takeHeldNotesOwner(build)

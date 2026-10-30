@@ -90,7 +90,25 @@ const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
 export const BookChapterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, flowingChapter])
 export type BookChapterEntry = z.infer<typeof BookChapterEntry>
 
-export function isBookContents(entry: BookFrontMatterEntry): entry is BookContents {
+export type BookDivision = 'front' | 'body' | 'end'
+
+interface BookSectionLocation {
+  ancestry: Array<{ name: string; title?: string; id: string }>
+  depth: number
+  path: (string | number)[]
+}
+
+export type BookSectionEntry = BookSectionLocation & ({ entry: BookFrontMatterEntry; division: 'front' } | { entry: BookChapterEntry; division: 'body' })
+
+/** The canonical reading order for every feature that consumes a book. */
+export function bookSections(book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] }): BookSectionEntry[] {
+  return [
+    ...book.frontMatter.map((entry, index): BookSectionEntry => ({ entry, division: 'front', ancestry: [], depth: 0, path: ['frontMatter', index] })),
+    ...book.chapters.map((entry, index): BookSectionEntry => ({ entry, division: 'body', ancestry: [], depth: 0, path: ['chapters', index] })),
+  ]
+}
+
+export function isBookContents(entry: BookFrontMatterEntry | BookChapterEntry): entry is BookContents {
   return 'kind' in entry && entry.kind === 'contents'
 }
 
@@ -116,26 +134,19 @@ interface NamedSection {
 type Issue = { path: (string | number)[]; message: string }
 
 function namedSections(book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] }): NamedSection[] {
-  const front = book.frontMatter.map((entry, index): NamedSection => {
-    const path = ['frontMatter', index]
-    const label = entry.title ?? `frontMatter[${index}]`
-    return { label, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
-  })
-  const chapters = book.chapters.map((entry, index): NamedSection => {
-    const path = ['chapters', index]
+  return bookSections(book).map(({ entry, path }): NamedSection => {
     if (isDesignedSection(entry) || isTemplatedSection(entry)) {
-      return { label: entry.title ?? `chapters[${index}]`, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
+      return { label: entry.title ?? `${path[0]}[${path[1]}]`, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
     }
-    return { label: entry.title, path, parents: entry.parents }
+    return { label: entry.title ?? `${path[0]}[${path[1]}]`, path, parents: entry.parents }
   })
-  return [...front, ...chapters]
 }
 
 function hasKind(
   book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] },
   match: (entry: BookFrontMatterEntry | BookChapterEntry) => boolean,
 ): boolean {
-  return book.frontMatter.some(match) || book.chapters.some(match)
+  return bookSections(book).some(({ entry }) => match(entry))
 }
 
 function unknownParent(label: string, role: string, name: string, path: (string | number)[]): Issue {

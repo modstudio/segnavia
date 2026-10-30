@@ -1,5 +1,6 @@
 import {
   BOOK_FURNITURE,
+  type BookSection,
   type BookSectionParents,
   type BookTemplate,
   type DesignedSection,
@@ -19,6 +20,13 @@ import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 export interface BuiltSection {
   info: BookSectionInfo
   node: ReturnType<typeof element>
+}
+
+export function authoredSection(section: BookSection, id: string, build: BookBuild): BuiltSection {
+  const document = parse(section.html)
+  const runningHead = section.title
+  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
+  return { info: { id, kind: 'front', title: section.title, runningHead }, node }
 }
 
 export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {

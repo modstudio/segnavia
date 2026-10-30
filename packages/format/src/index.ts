@@ -84,6 +84,7 @@ export {
   BookView,
   type BookViewInput,
   BookViewPagination,
+  bookSections,
   Chapter,
   DesignedPage,
   DesignedSection,

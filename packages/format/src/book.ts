@@ -4,6 +4,7 @@ import {
   BookFrontMatterEntry,
   BookTemplate,
   bookParentIssues,
+  bookSections,
   isBookContents,
   isDesignedSection,
   isTemplatedSection,
@@ -19,11 +20,14 @@ import { Slots } from './slots.ts'
 export {
   BookChapterEntry,
   BookContents,
+  type BookDivision,
   BookFrontMatterEntry,
   BookOpens,
   BookSection,
+  type BookSectionEntry,
   BookSectionParents,
   BookTemplate,
+  bookSections,
   Chapter,
   DesignedPage,
   DesignedSection,
@@ -142,7 +146,8 @@ const ResolvedBook = BookShape.transform((book) => {
 })
 
 export const Book = ResolvedBook.superRefine((book, ctx) => {
-  const contentsPositions = book.frontMatter.flatMap((entry, index) => (isBookContents(entry) ? [index + 1] : []))
+  const sections = bookSections(book)
+  const contentsPositions = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [Number(path.at(-1)) + 1] : []))
   if (contentsPositions.length > 1) {
     ctx.addIssue({
       code: 'custom',
@@ -193,8 +198,8 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
     }
   }
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
-  const flowing = [...book.frontMatter, ...book.chapters].filter((entry) => !isDesignedSection(entry) && !isTemplatedSection(entry))
-  flowing.forEach((flow, index) => {
+  const flowing = sections.filter(({ entry }) => !isDesignedSection(entry) && !isTemplatedSection(entry))
+  flowing.forEach(({ entry: flow, path }, index) => {
     const names = flowingParentNames(flow.parents)
     const roles = Object.entries(names) as Array<[keyof typeof names, string]>
     const widths = roles.flatMap(([role, name]) => {
@@ -207,7 +212,7 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
     const label = flow.title ?? `flow ${index + 1}`
     ctx.addIssue({
       code: 'custom',
-      path: book.frontMatter.includes(flow as never) ? ['frontMatter'] : ['chapters'],
+      path: [path[0] ?? 'body'],
       message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
     })
   })
