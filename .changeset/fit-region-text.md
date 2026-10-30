@@ -1,4 +1,5 @@
 ---
+'@segnavia/format': minor
 '@segnavia/html': minor
 '@segnavia/frame': minor
 '@segnavia/render': minor

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, type BookInput, PX_PER_PT } from '@segnavia/format'
-import { templateRegionElements } from './book-held.ts'
 import { bookDocument } from './book-document.ts'
+import { templateRegionElements } from './book-held.ts'
 import { ABSOLUTE_PX, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })

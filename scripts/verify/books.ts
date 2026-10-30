@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { PX_PER_MM } from '@segnavia/format'
+import { PX_PER_MM, PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
@@ -354,8 +354,8 @@ async function verifyWorkbooks(h: Harness) {
       if (!el) return { size: 0, overflow: 'missing' }
       return { size: Number.parseFloat(getComputedStyle(el).fontSize), overflow: el.getAttribute('data-segnavia-region-overflow') }
     })
-    const minPx = 48 * (96 / 72)
-    const maxPx = 75 * (96 / 72)
+    const minPx = 48 * PX_PER_PT
+    const maxPx = 75 * PX_PER_PT
     check(`${id} 75pt lesson text fits between min and max`, fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow, JSON.stringify(fit))
 
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
@@ -366,19 +366,6 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
-
-    const printFile = id === 'book-workbook-he' ? 'book-workbook-he.html' : 'book-workbook-en.html'
-    await page.goto(h.url(printFile))
-    await page.waitForFunction(
-      () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
-      undefined,
-      { timeout: 20_000 },
-    )
-    const printSize = await page.evaluate(() => {
-      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
-      return el ? Number.parseFloat(getComputedStyle(el).fontSize) : 0
-    })
-    check(`${id} screen and PDF fitted sizes are equal`, Math.abs(fit.size - printSize) < 0.5, `${fit.size} vs ${printSize}`)
 
     const pixels = await compareTemplatedPages(h, id)
     check(

@@ -13,6 +13,7 @@ import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { element, linkChildren, textContent } from './dom.ts'
+import { templateRegionFitIssues } from './region-fit.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
 export interface BuiltSection {
@@ -120,6 +121,13 @@ export function templateRegionNameIssues(template: string, regions: Element[]): 
   return [...new Set(regions.flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))].flatMap((key) =>
     REGION_NAME.test(key) ? [] : [`template "${template}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
   )
+}
+
+export function templateRegionIssues(templates: BookTemplate[]): string[] {
+  return templates.flatMap((template) => {
+    const regions = templateRegionElements(template.html)
+    return [...templateRegionNameIssues(template.name, regions), ...templateRegionFitIssues(template.name, regions)]
+  })
 }
 
 const markFurniture = BOOK_FURNITURE.find((item) => item.key === 'segnavia:mark') as Extract<(typeof BOOK_FURNITURE)[number], { key: 'segnavia:mark' }>
