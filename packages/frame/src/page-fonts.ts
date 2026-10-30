@@ -1,4 +1,4 @@
-import { APP_FONT_NAME, type AppFont, type FontFace, type FontReference, type FontSource, type Page } from '@segnavia/format'
+import { APP_FONT_NAME, type AppFont, type BookView, type FontFace, type FontReference, type FontSource, type Page } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 
 export interface FontsOptions {
@@ -88,6 +88,20 @@ export async function expandedPagesFontCss(
   place = 'page',
 ): Promise<string> {
   const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+  if (!fonts) {
+    refuseMissingFontSource(references, place)
+    return ''
+  }
+  return resolveFontReferences(references, fonts, signal, place)
+}
+
+export async function expandedBookFontCss(
+  expanded: { book: BookView; fonts: FontReference[] },
+  fonts: FontsOptions | undefined,
+  signal: AbortSignal,
+): Promise<string> {
+  const place = expanded.book.title ? `book ${JSON.stringify(expanded.book.title)}` : 'book'
+  const references = uniqueFontReferences([...(expanded.book.fonts ?? []), ...expanded.fonts])
   if (!fonts) {
     refuseMissingFontSource(references, place)
     return ''

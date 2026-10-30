@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import {
   heldPageNumber,
   openerPageIndex,
@@ -91,6 +91,9 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')
+    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
+    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(BOOK_COMPOSER_SCRIPT).toContain('--segnavia-text-height')
     expect(BOOK_COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
     expect(BOOK_COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')

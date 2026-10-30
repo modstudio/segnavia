@@ -1,19 +1,26 @@
 import { BookView, type BookViewInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { bookFrame, bookSourceUrl } from './book-frame.ts'
-import { prepareBookView } from './book-motifs.ts'
+import { bookFrame } from './book-frame.ts'
+import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { MESSAGE, messageFrom } from './bridge.ts'
-import { bookViewMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
-import { type FontsOptions, refuseMissingFontSource, resolveFontReferences } from './page-fonts.ts'
+import type { MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
-export { bookFrame } from './book-frame.ts'
+export function bookSourceUrl(src: string): URL {
+  try {
+    return new URL(src)
+  } catch {
+    return new URL(src, location.href)
+  }
+}
 
 export class SegnaviaBook extends HTMLElementBase {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
+  private preparedView: BookView | null = null
   private currentLayout: BookLayout = 'pages'
   private shownLayout: BookLayout = 'pages'
   private requestedLayout: BookLayout = 'pages'
@@ -34,7 +41,7 @@ export class SegnaviaBook extends HTMLElementBase {
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
-    if (this.currentView && this.fontOptions) this.mount()
+    if (this.currentView) this.mount()
   }
 
   disconnectedCallback() {
@@ -68,6 +75,7 @@ export class SegnaviaBook extends HTMLElementBase {
       if (this.latestInput !== 'view') {
         this.latestInput = 'src'
         this.currentView = null
+        this.preparedView = null
         this.dropFrame()
         this.replaceChildren()
       }
@@ -273,7 +281,7 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   private mountLayoutFrame(layout: BookLayout): HTMLIFrameElement | null {
-    const view = this.currentView
+    const view = this.preparedView
     if (!view?.pagination || (layout === 'flow' && !view.flow)) return null
     const frame = this.mountFrame(bookFrame(view, this.resolvedFontCss, this.spread, layout), layout)
     this.append(frame)
@@ -283,6 +291,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private mountFrames(view: BookView, css: string | undefined) {
     const layout = this.currentLayout
     this.dropFrame()
+    this.preparedView = view
     this.resolvedFontCss = css
     if (!view.pagination) {
       this.replaceChildren(this.mountFrame(bookFrame(view, css)))
@@ -320,32 +329,23 @@ export class SegnaviaBook extends HTMLElementBase {
     const view = this.currentView
     if (!view) return
     this.showRequestedLayout(view)
-    const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
-    try {
-      if (!this.motifOptions) {
-        const refusal = bookViewMotifRefusal(view)
-        if (refusal) throw refusal
+    if (!this.motifOptions && !this.fontOptions) {
+      try {
+        const prepared = prepareBookViewWithoutSources(view)
+        this.mountFrames(prepared.view, prepared.css)
+      } catch (reason) {
+        this.reportError(reason)
       }
-      if (!this.motifOptions && !this.fontOptions) {
-        refuseMissingFontSource(view.fonts ?? [], place)
-        this.mountFrames(view, undefined)
-        return
-      }
-    } catch (reason) {
-      this.reportError(reason)
       return
     }
     const generation = this.loadGeneration
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    const prepared = this.motifOptions
-      ? prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal)
-      : resolveFontReferences(view.fonts ?? [], this.fontOptions as FontsOptions, controller.signal, place)
-    void prepared
+    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrames(typeof result === 'string' ? view : result.view, typeof result === 'string' ? result : result.css)
+        this.mountFrames(result.view, result.css)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return

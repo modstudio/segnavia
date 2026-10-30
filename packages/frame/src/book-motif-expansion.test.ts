@@ -80,3 +80,46 @@ test('preserves library furniture motifs while expanding host motifs around them
   })
   expect(bookMotifRefusal(libraryOnly)).toBeUndefined()
 })
+
+test('refuses library motifs in chapter and designed-page bodies without a source like a page does', async () => {
+  for (const chapter of [
+    { title: 'Chapter', html: '<span data-motif="segnavia:folio"></span>' },
+    { kind: 'designed' as const, pages: [{ html: '<span data-motif="segnavia:folio"></span>' }] },
+  ]) {
+    const html = '<span data-motif="segnavia:folio"></span>'
+    const book = Book.parse({
+      title: 'Reserved',
+      mode: chapter.kind === 'designed' ? 'paginated' : 'continuous',
+      ...(chapter.kind === 'designed' ? { page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } } } : {}),
+      chapters: [chapter],
+    })
+    const expected = framePageMotifRefusal(Page.parse({ html }))?.message
+    expect(bookMotifRefusal(book)?.message).toBe(expected)
+    await expect(expandFrameBook(book, undefined, signal)).rejects.toThrow(expected as string)
+  }
+})
+
+test('returns motif font references from a book expansion', async () => {
+  const book = Book.parse({
+    title: 'Motif font',
+    mode: 'continuous',
+    chapters: [{ title: 'Chapter', html: '<span data-motif="letter"></span>' }],
+  })
+  const expanded = await expandFrameBook(
+    book,
+    {
+      source: {
+        motif: async (key) => ({
+          key,
+          revision: 'one',
+          label: key,
+          fields: [],
+          versions: [{ lang: 'en', html: '<strong>Letter</strong>' }],
+          fonts: [{ app: 'ornament' }],
+        }),
+      },
+    },
+    signal,
+  )
+  expect(expanded.fonts).toEqual([{ app: 'ornament' }])
+})

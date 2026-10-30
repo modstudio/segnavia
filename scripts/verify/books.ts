@@ -117,6 +117,18 @@ export async function verifyBooks(h: Harness) {
     const pdf = id.replace('book-screen', 'book-paginated')
     const pdfText = execFileSync('pdftotext', [path.join(SITE, `${pdf}.pdf`), '-'], { encoding: 'utf8' })
     check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
+    const furniture = frame
+      .locator('[data-segnavia-foot] [data-book-demo-folio]')
+      .filter({ hasText: /PRINTED\s+\S/ })
+      .first()
+    const printed = (await furniture.textContent())?.replace(/^PRINTED\s+/, '').trim()
+    const folio = (await furniture.locator('xpath=ancestor::*[@data-segnavia-foot][1]//span[contains(@class,"segnavia-folio")]').textContent())?.trim()
+    check(
+      `${id} fills the furniture motif's printed-page number with its folio on screen`,
+      printed !== '' && printed === folio,
+      JSON.stringify({ printed, folio }),
+    )
+    check(`${id} fills the furniture motif's printed-page number in the PDF`, printed !== undefined && pdfText.includes(`PRINTED ${printed}`), printed)
   }
 
   await verifyPaginatedBooks(h)

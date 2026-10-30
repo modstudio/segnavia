@@ -5,14 +5,6 @@ import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts
 import { frameDocument, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
 
-export function bookSourceUrl(src: string): URL {
-  try {
-    return new URL(src)
-  } catch {
-    return new URL(src, location.href)
-  }
-}
-
 export function bookFrame(view: BookView, css?: string, spread = false, layout: BookLayout = 'pages'): { title: string; srcdoc: string } {
   const title = view.title ?? bookLabel(view.lang)
   if (view.pagination) {

@@ -142,6 +142,12 @@ describe('renderOptionsWithBookFonts', () => {
     expect(prepared.options.css).toBe('p{color:red}')
   })
 
+  test('embeds a font referenced only by an expanded book motif', async () => {
+    const prepared = await renderOptionsWithBookFonts({ ...book, fonts: [] }, { fontSource: source }, signal, [{ app: 'heading' }])
+    expect(prepared.fontCss).toContain('@font-face{font-family:"Heading Sans"')
+    expect(prepared.fontCss).toContain('--segnavia-font-heading:"Heading Sans",sans-serif')
+  })
+
   test('renderOptionsWithBookFonts converts a missing FontSource into RenderRefusedError', async () => {
     await expect(renderOptionsWithBookFonts(book, {}, signal)).rejects.toThrow(RenderRefusedError)
     await expect(renderOptionsWithBookFonts(book, {}, signal)).rejects.toThrow(

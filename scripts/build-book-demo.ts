@@ -6,7 +6,7 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, haggadahHeadCss, notoCss, workbookCss } from './demo-book-fonts.ts'
-import { BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
+import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 
 const fixture = (hebrew: boolean): BookInput => ({
@@ -140,7 +140,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     {
       name: 'ornament-foot',
       basedOn: 'segnavia:blank',
-      foot: '<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span></div>',
+      foot: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span><span data-motif="${BOOK_FOLIO_MOTIF_KEY}"></span></div>`,
     },
   ],
   frontMatter: [
