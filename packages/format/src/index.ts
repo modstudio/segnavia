@@ -164,6 +164,7 @@ export {
   type OmittedImpositionMark,
 } from './imposition-marks.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
+export { LOCAL_FONT_LIMITS, type LocalFontLimitFace, type LocalFontLimits, localFontLimitRefusal } from './local-font-limits.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
 export {

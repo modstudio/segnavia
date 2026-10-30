@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import type { AppFont, FontSource } from '@segnavia/format'
 import { Page } from '@segnavia/format'
 import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
-import { resolvePageFonts } from './page-fonts.ts'
+import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 
 const signal = new AbortController().signal
 const truetype = new Uint8Array([0, 1, 0, 0])
@@ -148,5 +148,34 @@ describe('packLocalFaces', () => {
     )
     expect(packed).toEqual([{ family: 'Alef', data: 'AAEAAA==', format: 'truetype', weight: 400, style: 'normal' }])
     expect(base64ToBytes(packed[0]?.data ?? '')).toEqual(truetype)
+  })
+
+  test('packs a complete 18-cut family under the shared defaults', () => {
+    const faces = Array.from({ length: 18 }, (_, index) => ({
+      family: 'Local Family',
+      data: truetype,
+      format: 'truetype' as const,
+      weight: 100 + index * 50,
+    }))
+    expect(packLocalFaces(faces, [{ local: 'Local Family', fallback: 'serif' }])).toHaveLength(18)
+  })
+
+  test('refuses count and decoded-byte overflow with actionable shared wording', () => {
+    const face = { family: 'Local Family', data: truetype, format: 'truetype' as const }
+    expect(() =>
+      packLocalFaces(
+        Array.from({ length: 65 }, () => face),
+        [{ local: 'Local Family', fallback: 'serif' }],
+      ),
+    ).toThrow(FontRefusedError)
+    expect(() =>
+      packLocalFaces(
+        Array.from({ length: 65 }, () => face),
+        [{ local: 'Local Family', fallback: 'serif' }],
+      ),
+    ).toThrow('The local face "Local Family" exceeds the count limit of 64; pass higher limits or declare fewer local font families to clear this refusal.')
+    expect(() => packLocalFaces([face], [{ local: 'Local Family', fallback: 'serif' }], { bytes: 3 })).toThrow(
+      'The local face "Local Family" exceeds the byte limit of 3; pass higher limits or declare fewer local font families to clear this refusal.',
+    )
   })
 })
