@@ -370,6 +370,17 @@ describe('paginateBook', () => {
     ])
   })
 
+  test('a front-division part flow stays in the front sequence', () => {
+    const part = { ...flow('part', 'part', [block('text', 'p', 0, 1, 2, 0)], 'Part'), sequence: 'front' as const }
+    const chapter = flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)], 'One')
+    const pages = paginateBook(input({ settings, flows: [part, chapter] })).pages
+    expect(pages.map((page) => ({ flow: page.flow, sequence: page.sequence, number: page.number }))).toEqual([
+      { flow: 'part', sequence: 'front', number: 1 },
+      { flow: 'part', sequence: 'front', number: 2 },
+      { flow: 'c1', sequence: 'body', number: 1 },
+    ])
+  })
+
   test('an odd front-matter count gets a trailing blank so the body opens on a recto', () => {
     const contents = flow('toc', 'contents', [block('text', 'p', 0, 1, 2, 0)])
     const chapter = flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0)])

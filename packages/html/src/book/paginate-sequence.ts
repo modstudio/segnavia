@@ -70,7 +70,7 @@ export function paginateSequence(
   }
 
   function isFront(flow: PaginateFlow): boolean {
-    if (flow.kind === 'fixed') return flow.sequence === 'front'
+    if (flow.sequence !== undefined) return flow.sequence === 'front'
     return flow.kind === 'front' || flow.kind === 'contents'
   }
 

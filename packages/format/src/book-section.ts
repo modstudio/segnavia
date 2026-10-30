@@ -17,6 +17,7 @@ export const DesignedPage = z.object({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
 
 export const REGION_NAME = /^[A-Za-z][\w-]*$/
+export const MAX_PART_DEPTH = 6
 
 export const TemplatedPage = z.object({
   template: z.string().min(1).optional(),
@@ -112,7 +113,7 @@ export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFro
 export type BookDivision = 'front' | 'body' | 'end'
 
 interface BookSectionLocation {
-  ancestry: Array<{ name: string; title?: string; id: string }>
+  ancestry: Array<{ name: string; title?: string; runningHead?: string; id: string }>
   depth: number
   path: (string | number)[]
 }
@@ -123,8 +124,15 @@ export function isPart(entry: BookItem): entry is Part {
   return 'name' in entry
 }
 
+export interface BookDivisions {
+  frontMatter: BookItem[]
+  body: BookItem[]
+  bodyKey?: 'body' | 'chapters'
+  endMatter: BookItem[]
+}
+
 /** The canonical reading order for every feature that consumes a book. */
-export function bookSections(book: { frontMatter: BookItem[]; body?: BookItem[]; chapters?: BookItem[]; endMatter?: BookItem[] }): BookSectionEntry[] {
+export function bookSections(book: BookDivisions): BookSectionEntry[] {
   const sections: BookSectionEntry[] = []
   let partNumber = 0
   const walk = (items: BookItem[], division: BookDivision, parentPath: (string | number)[], ancestry: BookSectionEntry['ancestry']): void => {
@@ -137,13 +145,12 @@ export function bookSections(book: { frontMatter: BookItem[]; body?: BookItem[];
       partNumber += 1
       const id = `segnavia-part-${partNumber}`
       if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
-      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, id }])
+      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id }])
     })
   }
   walk(book.frontMatter, 'front', ['frontMatter'], [])
-  const body = book.body ?? book.chapters ?? []
-  walk(body, 'body', [book.chapters && book.chapters.length > 0 ? 'chapters' : 'body'], [])
-  walk(book.endMatter ?? [], 'end', ['endMatter'], [])
+  walk(book.body, 'body', [book.bodyKey ?? 'body'], [])
+  walk(book.endMatter, 'end', ['endMatter'], [])
   return sections
 }
 
@@ -172,19 +179,20 @@ interface NamedSection {
 
 type Issue = { path: (string | number)[]; message: string }
 
-function namedSections(book: { frontMatter: BookItem[]; body?: BookItem[]; chapters?: BookChapterEntry[]; endMatter?: BookItem[] }): NamedSection[] {
+function pathLabel(path: (string | number)[]): string {
+  return path.join('.')
+}
+
+function namedSections(book: BookDivisions): NamedSection[] {
   return bookSections(book).map(({ entry, path }): NamedSection => {
     if (isDesignedSection(entry) || isTemplatedSection(entry)) {
-      return { label: entry.title ?? `${path[0]}[${path[1]}]`, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
+      return { label: entry.title ?? pathLabel(path), path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
     }
-    return { label: entry.title ?? `${path[0]}[${path[1]}]`, path, parents: entry.parents }
+    return { label: entry.title ?? pathLabel(path), path, parents: entry.parents }
   })
 }
 
-function hasKind(
-  book: { frontMatter: BookItem[]; body?: BookItem[]; chapters?: BookChapterEntry[]; endMatter?: BookItem[] },
-  match: (entry: BookItem) => boolean,
-): boolean {
+function hasKind(book: BookDivisions, match: (entry: BookItem) => boolean): boolean {
   return bookSections(book).some(({ entry }) => match(entry))
 }
 
@@ -251,15 +259,13 @@ function templatedPageIssues(section: NamedSection, knownTemplates: Set<string>)
   return issues
 }
 
-export function bookParentIssues(book: {
-  mode: 'continuous' | 'paginated'
-  parentPages: ParentPage[]
-  templates: BookTemplate[]
-  frontMatter: BookItem[]
-  body?: BookItem[]
-  chapters?: BookChapterEntry[]
-  endMatter?: BookItem[]
-}): Array<{ path: (string | number)[]; message: string }> {
+export function bookParentIssues(
+  book: BookDivisions & {
+    mode: 'continuous' | 'paginated'
+    parentPages: ParentPage[]
+    templates: BookTemplate[]
+  },
+): Array<{ path: (string | number)[]; message: string }> {
   const issues: Issue[] = []
   if (book.mode === 'continuous' && hasKind(book, isDesignedSection)) {
     issues.push({

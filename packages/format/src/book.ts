@@ -7,7 +7,9 @@ import {
   bookSections,
   isBookContents,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
+  MAX_PART_DEPTH,
   REGION_NAME,
 } from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
@@ -22,6 +24,7 @@ export {
   BookChapterEntry,
   BookContents,
   type BookDivision,
+  type BookDivisions,
   BookFrontMatterEntry,
   BookItem,
   BookOpens,
@@ -38,6 +41,7 @@ export {
   isDesignedSection,
   isPart,
   isTemplatedSection,
+  MAX_PART_DEPTH,
   Part,
   REGION_NAME,
   TemplatedPage,
@@ -142,14 +146,17 @@ export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scr
 export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>
 
-const ResolvedBook = BookShape.transform((book) => {
+const ResolvedBook = BookShape.transform((book, ctx) => {
   const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
+  if (book.body !== undefined && chapters !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
+    ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
+  }
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
-    chapters: chapters ?? [],
-    chaptersAndBody: book.body !== undefined && chapters !== undefined,
+    bodyKey: book.body === undefined && chapters !== undefined ? ('chapters' as const) : ('body' as const),
     numbering: {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
@@ -159,15 +166,17 @@ const ResolvedBook = BookShape.transform((book) => {
   }
 })
 
-function emptyPartIssues(items: z.infer<typeof BookItem>[], path: (string | number)[]): Array<{ path: (string | number)[]; message: string }> {
+function partSectionIssues(items: z.infer<typeof BookItem>[], path: (string | number)[]): Array<{ path: (string | number)[]; message: string }> {
   return items.flatMap((entry, index) => {
-    if (!('name' in entry)) return []
+    if (!isPart(entry)) return []
     const partPath = [...path, index]
-    const own =
-      entry.html === undefined && entry.title === undefined && entry.children.length === 0
-        ? [{ path: partPath, message: 'a part needs html, a title or children; add one or remove the part' }]
-        : []
-    return [...own, ...emptyPartIssues(entry.children, [...partPath, 'children'])]
+    const hasSection =
+      entry.html !== undefined ||
+      bookSections({ frontMatter: [], body: entry.children, endMatter: [] }).some(({ entry: child }) => !isPart(child) || child.html !== undefined)
+    const own = !hasSection
+      ? [{ path: partPath, message: `part ${partPath.join('.')} has no section; add html or a section inside it to clear this refusal` }]
+      : []
+    return [...own, ...partSectionIssues(entry.children, [...partPath, 'children'])]
   })
 }
 
@@ -176,22 +185,22 @@ type BookIssue = { path: (string | number)[]; message: string }
 function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
   const issues: BookIssue[] = []
   if (book.body.length === 0) issues.push({ path: ['body'], message: 'a book needs at least one body entry; add a chapter or part' })
-  if (book.chaptersAndBody) {
-    issues.push({ path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
-    issues.push({ path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
-  }
-  issues.push(...emptyPartIssues(book.frontMatter, ['frontMatter']), ...emptyPartIssues(book.body, ['body']), ...emptyPartIssues(book.endMatter, ['endMatter']))
+  issues.push(
+    ...partSectionIssues(book.frontMatter, ['frontMatter']),
+    ...partSectionIssues(book.body, [book.bodyKey]),
+    ...partSectionIssues(book.endMatter, ['endMatter']),
+  )
   const sections = bookSections(book)
   for (const section of sections) {
     if (isBookContents(section.entry) && section.division !== 'front') {
       issues.push({ path: section.path, message: `contents belongs in frontMatter; move this ${section.division} contents entry there` })
     }
   }
-  const positions = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [Number(path.at(-1)) + 1] : []))
-  if (positions.length > 1) {
+  const paths = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [path.join('.')] : []))
+  if (paths.length > 1) {
     issues.push({
       path: ['frontMatter'],
-      message: `front-matter entries at positions ${positions[0]} and ${positions[1]} are both contents entries; one must go`,
+      message: `front-matter entries at ${paths[0]} and ${paths[1]} are both contents entries; one must go`,
     })
   }
   return issues
@@ -263,9 +272,51 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   })
 })
 
-export const Book = RefinedBook.transform(({ chaptersAndBody: _chaptersAndBody, chapters: _chapters, ...book }) => book)
+function partDepthIssues(value: unknown): Array<{ path: (string | number)[]; message: string }> {
+  if (typeof value !== 'object' || value === null) return []
+  const input = value as Record<string, unknown>
+  const roots = [
+    ['frontMatter', input.frontMatter],
+    ['body', input.body],
+    ['chapters', input.chapters],
+    ['endMatter', input.endMatter],
+  ] as const
+  const stack: Array<{ value: unknown; path: (string | number)[]; depth: number }> = []
+  for (const [key, entries] of roots) {
+    if (!Array.isArray(entries)) continue
+    entries.forEach((entry, index) => {
+      stack.push({ value: entry, path: [key, index], depth: 0 })
+    })
+  }
+  const issues: Array<{ path: (string | number)[]; message: string }> = []
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (!current || typeof current.value !== 'object' || current.value === null || !('name' in current.value)) continue
+    const depth = current.depth + 1
+    if (depth > MAX_PART_DEPTH) {
+      issues.push({
+        path: current.path,
+        message: `part ${current.path.join('.')} exceeds the maximum part depth of ${MAX_PART_DEPTH}; reduce the nesting to clear this refusal`,
+      })
+      continue
+    }
+    const children = (current.value as Record<string, unknown>).children
+    if (!Array.isArray(children)) continue
+    children.forEach((child, index) => {
+      stack.push({ value: child, path: [...current.path, 'children', index], depth })
+    })
+  }
+  return issues
+}
+
+const DepthCheckedBook = z.preprocess((value, ctx) => {
+  for (const issue of partDepthIssues(value)) ctx.addIssue({ code: 'custom', ...issue })
+  return value
+}, RefinedBook)
+
+export const Book = DepthCheckedBook.transform(({ bodyKey: _bodyKey, ...book }) => book)
 export type Book = z.infer<typeof Book>
-export type BookInput = z.input<typeof Book>
+export type BookInput = z.input<typeof BookShape>
 
 export function resolveBookPagination(book: Book): BookViewPagination | undefined {
   if (book.mode !== 'paginated' || !book.page) return undefined

@@ -12,16 +12,15 @@ export type BookBuild = 'print' | 'galley' | 'flow'
 export interface BookSectionInfo {
   id: string
   kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes' | 'designed' | 'templated'
-  division?: 'front' | 'body' | 'end'
+  division: 'front' | 'body' | 'end'
   title?: string
   runningHead?: string
 }
 
 export type BookPrintPart = 'front' | 'body'
 
-export function bookPrintPart(kind: BookSectionInfo['kind'], division?: BookSectionInfo['division']): BookPrintPart {
-  if (division !== undefined) return division === 'front' ? 'front' : 'body'
-  return kind === 'front' || kind === 'contents' ? 'front' : 'body'
+export function bookPrintPart(division: BookSectionInfo['division']): BookPrintPart {
+  return division === 'front' ? 'front' : 'body'
 }
 
 export interface BookHeading {

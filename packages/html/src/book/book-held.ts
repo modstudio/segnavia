@@ -27,7 +27,7 @@ export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'o
   const document = parse(section.html)
   const runningHead = section.title
   const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
-  return { info: { id, kind: 'front', title: section.title, runningHead }, node }
+  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead }, node }
 }
 
 export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
@@ -107,6 +107,7 @@ export function designedSection(
   entry: DesignedSection,
   id: string,
   kind: 'front' | 'designed',
+  division: BookSectionInfo['division'],
   build: BookBuild,
   depth: number,
   geometry?: BookFlowPageGeometry,
@@ -128,7 +129,7 @@ export function designedSection(
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }
@@ -229,6 +230,7 @@ export function templatedSection(
   entry: TemplatedSection,
   id: string,
   kind: 'front' | 'templated',
+  division: BookSectionInfo['division'],
   build: BookBuild,
   depth: number,
   templates?: Map<string, BookTemplate>,
@@ -268,7 +270,7 @@ export function templatedSection(
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }

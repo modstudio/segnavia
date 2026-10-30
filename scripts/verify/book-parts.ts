@@ -33,6 +33,7 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
       }
       const openingPaper = document.querySelector<HTMLElement>('[data-segnavia-book-page][data-segnavia-flow="segnavia-part-1"]')
       const expectedHead = new Map([
+        ['segnavia-part-1', expected.openingPart],
         ['segnavia-chapter-1', expected.openingPart],
         ['segnavia-chapter-2', expected.titleOnlyPart],
         ['segnavia-chapter-3', expected.titleOnlyPart],

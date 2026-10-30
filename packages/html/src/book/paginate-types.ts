@@ -41,6 +41,7 @@ export type PaginateOpens = BookOpens
 
 interface PaginateFlowBase {
   id: string
+  sequence?: PaginateSequence
   runningHead?: string
   opens?: PaginateOpens
   parents?: PaginateFlowParents
@@ -52,7 +53,6 @@ export type PaginateFlow =
   | (PaginateFlowBase & {
       kind: 'fixed'
       pages: number
-      sequence?: PaginateSequence
       role?: 'fixed' | 'body'
       pageParents?: PaginateFlowParents[]
     })

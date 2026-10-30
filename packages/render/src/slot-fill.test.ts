@@ -35,6 +35,26 @@ test('filledBook applies host values to chapters, designed pages, templates and 
   expect(chapter !== undefined && 'html' in chapter && chapter.html).toContain('Lincoln School')
 })
 
+test('filledBook applies host values to a part opening and its nested chapter', async () => {
+  const book = Book.parse({
+    title: 'Workbook',
+    mode: 'continuous',
+    slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
+    body: [
+      {
+        name: 'part',
+        html: '<p data-slot-value="school">Part school</p>',
+        children: [{ title: 'One', html: '<p data-slot-value="school">Chapter school</p>' }],
+      },
+    ],
+  })
+  const filled = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
+  const part = filled.body[0]
+  const nested = part !== undefined && 'name' in part ? part.children[0] : undefined
+  expect(part !== undefined && 'name' in part && part.html).toContain('Lincoln School')
+  expect(nested !== undefined && 'html' in nested && nested.html).toContain('Lincoln School')
+})
+
 test('filledBook refuses a missing required slot by name', async () => {
   const book = Book.parse({
     title: 'Workbook',

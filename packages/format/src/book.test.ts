@@ -90,14 +90,14 @@ describe('book', () => {
     expect(Book.parse(input({ endnotes: { title: 'References' } })).endnotes.title).toBe('References')
   })
 
-  test('front matter accepts a contents entry and refuses a second one by position', () => {
+  test('front matter accepts a contents entry and refuses a second one by path', () => {
     const [contents] = Book.parse(input({ frontMatter: [{ kind: 'contents', title: 'On this page' }] })).frontMatter
     expect(contents).toEqual({ kind: 'contents', title: 'On this page' })
     expect(contents && isBookContents(contents)).toBe(true)
     expect(isBookContents({ html: '<p>Preface</p>', contents: true })).toBe(false)
     const result = Book.safeParse(input({ frontMatter: [{ kind: 'contents' }, { html: '<p>Foreword</p>' }, { kind: 'contents' }] }))
     expect(result.error?.issues[0]).toMatchObject({ path: ['frontMatter'] })
-    expect(result.error?.issues[0]?.message).toContain('positions 1 and 3')
+    expect(result.error?.issues[0]?.message).toContain('frontMatter.0 and frontMatter.2')
     expect(result.error?.issues[0]?.message).toContain('one must go')
   })
 
@@ -337,13 +337,44 @@ describe('book', () => {
     expect(result.error?.issues[0]?.message).toContain('HTML name token')
   })
 
-  test('body replaces legacy chapters and refuses both or an empty part at its tree path', () => {
+  test('body replaces legacy chapters and refuses a part without a section at its tree path', () => {
     const both = Book.safeParse(input({ body: [chapter], chapters: [{ title: 'Other', html: '<p>Other</p>' }] }))
     expect(both.error?.issues.map((issue) => issue.path)).toEqual([['body'], ['chapters']])
     expect(Book.safeParse(input({ body: [chapter], chapters: [chapter] })).success).toBe(false)
 
     const empty = Book.safeParse(input({ chapters: undefined, body: [{ name: 'part' }] }))
     expect(empty.error?.issues[0]?.path).toEqual(['body', 0])
+    expect(empty.error?.issues[0]?.message).toBe('part body.0 has no section; add html or a section inside it to clear this refusal')
+    expect(Book.safeParse(input({ chapters: undefined, body: [{ name: 'part', html: '<p>Opening</p>' }] })).success).toBe(true)
+    expect(Book.safeParse(input({ chapters: undefined, body: [{ name: 'part', children: [chapter] }] })).success).toBe(true)
+    expect(Book.safeParse(input({ chapters: undefined, body: [{ name: 'part', title: 'Only' }] })).success).toBe(false)
+  })
+
+  test('refuses part nesting beyond the named limit before recursive parsing', () => {
+    const root: Record<string, unknown> = { name: 'part', html: '<p>Opening</p>', children: [] }
+    let parent = root
+    for (let index = 0; index < 9_999; index += 1) {
+      const child: Record<string, unknown> = { name: 'part', html: '<p>Opening</p>', children: [] }
+      parent.children = [child]
+      parent = child
+    }
+    const result = Book.safeParse(input({ chapters: undefined, body: [root as never] }))
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.message).toContain('body.0.children.0.children.0')
+    expect(result.error?.issues[0]?.message).toContain('maximum part depth of 6')
+    expect(jsonSchemas().book).toMatchObject({ type: 'object' })
+  })
+
+  test('an untitled nested section uses its full path in a parent refusal', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        chapters: undefined,
+        body: [{ name: 'part', children: [{ kind: 'designed', parents: { fixed: 'missing' }, pages: [{ html: '<p>Art</p>' }] }] }],
+      }),
+    )
+    expect(result.error?.issues[0]?.message).toContain('section body.0.children.0')
   })
 
   test('a nested flow-width refusal reports the section full tree path', () => {
