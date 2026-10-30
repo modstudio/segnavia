@@ -29,6 +29,7 @@ export interface ExpandMotifsOptions {
   dataFonts?: boolean
   signal: AbortSignal
   deferPaths?: Iterable<string>
+  deferLibrary?: boolean
 }
 
 export interface PlacedMotif extends MotifPlacement {
@@ -84,6 +85,10 @@ export function libraryMotifPlacementRefusal(html: string): string | undefined {
 
 export function hasMotifPlacement(html: string): boolean {
   return motifElements(html).length > 0
+}
+
+export function hasHostMotifPlacement(html: string): boolean {
+  return motifElements(html).some((element) => !(element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
 }
 
 export function renderMotifPlacements(html: string, replacement: (key: string) => string | undefined): string {
@@ -270,7 +275,8 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
   for (const node of [...nodes]) {
     state.options.signal.throwIfAborted()
     if (!isTag(node)) continue
-    if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE)) await expandPlacement(node, inheritedLang, stack, state)
+    if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) && !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX)))
+      await expandPlacement(node, inheritedLang, stack, state)
     else await expandNodes(node.children, inheritedLang, stack, state)
   }
 }

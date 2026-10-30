@@ -1,6 +1,6 @@
-import { type Deck, Page } from '@segnavia/format'
+import { Book, type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { expandFramePages } from '@segnavia/frame/motifs'
+import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
@@ -245,8 +245,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const renderer: Renderer = {
     bookPdf(input, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(input, opts, deadline.signal)
-        return renderBrowserBookPdf(input, options, resolvedFontCss, {
+        const expanded = await expandFrameBook(Book.parse(input), opts.motifs, deadline.signal)
+        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
             withTab({ ...setup, deadline }, async (tab) => {
               const captures = await prepareBackdropRasters(tab, opts.effects)
