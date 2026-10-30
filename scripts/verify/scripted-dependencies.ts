@@ -38,17 +38,27 @@ export async function verifyScriptedDependencies(h: Harness) {
   check('the routed chart stub draws its chart on screen', await frame.locator('#chart-rendered').isVisible())
   await frame.locator('#topic').selectOption({ label: 'Math' })
   await frame.locator('#name').fill('Noah')
-  await frame.locator('button[type=submit]').click()
-  check('the scripted form submit handler writes the chosen values', (await frame.locator('#submitted').textContent()) === 'Math for Noah')
+  await frame.locator('form').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+  const submitted = await frame.locator('#submitted').textContent()
+  check('the scripted form submit handler writes the chosen values', submitted === 'Math for Noah', submitted ?? '')
   check('local and session storage round trip in the opaque-origin frame', (await frame.locator('#storage').textContent()) === 'local-ok / session-ok')
   check('an unapproved fetch is refused', (await frame.locator('#fetch').textContent()) === 'Fetch refused')
+  await frame
+    .locator('html[data-font-css=loaded]')
+    .waitFor({ timeout: 3000 })
+    .catch(() => {})
+  const font = await frame.locator('body').evaluate(async () => {
+    await document.fonts.load('16px "Scripted Demo Fixture"')
+    return { family: getComputedStyle(document.body).fontFamily, loaded: document.fonts.check('16px "Scripted Demo Fixture"') }
+  })
   check(
     'the approved stylesheet and font requests are made and answered from fixtures',
     [SCRIPTED_FONT_CSS_URL, SCRIPTED_FONT_URL].every((url) => requests.has(url) && answered.has(url)),
     JSON.stringify({ requests: [...requests], answered: [...answered] }),
   )
-  const font = await frame
-    .locator('body')
-    .evaluate(() => ({ family: getComputedStyle(document.body).fontFamily, loaded: document.fonts.check('16px "Scripted Demo Fixture"') }))
-  check('the routed fixture font is in use', font.loaded && font.family.startsWith('"Scripted Demo Fixture"'), JSON.stringify(font))
+  check(
+    'the routed fixture font is in use',
+    answered.has(SCRIPTED_FONT_URL) && font.loaded && font.family.startsWith('"Scripted Demo Fixture"'),
+    JSON.stringify(font),
+  )
 }

@@ -10,29 +10,35 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
   const page = Page.parse({
     scripts: 'sandboxed',
     size: { width: 640, height: 430 },
-    html: `<!doctype html><html><head><link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
+    html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
       body{box-sizing:border-box;margin:0;padding:24px;font:16px "Scripted Demo Fixture",sans-serif;color:#172033}
       form{display:flex;gap:8px}#chart-rendered{display:flex;align-items:end;gap:5px;height:38px;margin-block:18px}
       #chart-rendered i{display:block;width:18px;background:#2563eb}output,p{display:block;margin-block:12px}
-    </style></head><body>
+    </style>
       <form id="choices"><select id="topic"><option>Reading</option><option>Math</option></select><input id="name" value="Mina"><button type="submit">Show choice</button></form>
       <output id="submitted">Waiting for a choice</output><div id="chart"></div><p id="storage">Storage waiting</p><p id="fetch">Fetch waiting</p>
       <script src="${SCRIPTED_CHART_URL}"></script><script>
-        drawFixtureChart(document.getElementById('chart'))
+        if (window.drawFixtureChart) drawFixtureChart(document.getElementById('chart'))
         document.getElementById('choices').addEventListener('submit', function (event) {
           event.preventDefault()
           document.getElementById('submitted').textContent = document.getElementById('topic').value + ' for ' + document.getElementById('name').value
         })
-        localStorage.setItem('demo-local', 'local-ok')
-        sessionStorage.setItem('demo-session', 'session-ok')
-        document.getElementById('storage').textContent = localStorage.getItem('demo-local') + ' / ' + sessionStorage.getItem('demo-session')
         fetch('https://example.com/').then(function () {
           document.getElementById('fetch').textContent = 'Fetch unexpectedly succeeded'
         }, function () {
           document.getElementById('fetch').textContent = 'Fetch refused'
         })
-      </script>
-    </body></html>`,
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var link = document.querySelector('link[rel=stylesheet]')
+            link.onload = function () { document.documentElement.dataset.fontCss = 'loaded' }
+            document.head.append(link)
+          }, 0)
+        })
+        localStorage.setItem('demo-local', 'local-ok')
+        sessionStorage.setItem('demo-session', 'session-ok')
+        document.getElementById('storage').textContent = localStorage.getItem('demo-local') + ' / ' + sessionStorage.getItem('demo-session')
+      </script>`,
   })
   writeFileSync(path.join(site, 'scripted-dependencies-page.json'), JSON.stringify(page))
   writeFileSync(
