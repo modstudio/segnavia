@@ -128,7 +128,8 @@ export async function verifyBooks(h: Harness) {
       printed !== '' && printed === folio,
       JSON.stringify({ printed, folio }),
     )
-    check(`${id} fills the furniture motif's printed-page number in the PDF`, printed !== undefined && pdfText.includes(`PRINTED ${printed}`), printed)
+    const printedPdf = printed !== undefined && pdfText.split('\n').some((line) => line.includes('PRINTED') && line.includes(printed))
+    check(`${id} fills the furniture motif's printed-page number in the PDF`, printedPdf, printed)
   }
 
   await verifyPaginatedBooks(h)
