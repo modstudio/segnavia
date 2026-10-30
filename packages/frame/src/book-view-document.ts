@@ -32,7 +32,12 @@ function folios(system: Book['numbering']['body']): string[] {
 }
 
 function attribute(tag: string, name: string): string | undefined {
-  return new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(tag)?.[1]
+  const value = new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(tag)?.[1]
+  return value?.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|quot|apos|lt|gt));/gi, (entity, decimal, hexadecimal, named) => {
+    if (decimal) return String.fromCodePoint(Number(decimal))
+    if (hexadecimal) return String.fromCodePoint(Number.parseInt(hexadecimal, 16))
+    return { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>' }[String(named).toLowerCase()] ?? entity
+  })
 }
 
 function flowTextAreas(html: string, parents: Array<{ name: string; textArea: { width: number; height: number } }>) {

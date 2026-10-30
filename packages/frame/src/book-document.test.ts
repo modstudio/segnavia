@@ -92,9 +92,9 @@ describe('bookDocument', () => {
       page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 15, outer: 10 } },
       parentPages: [
         { name: 'tall', margin: { top: 5, bottom: 5, inner: 15, outer: 10 } },
-        { name: 'short', margin: { top: 30, bottom: 30, inner: 15, outer: 10 } },
+        { name: 'short&body', margin: { top: 30, bottom: 30, inner: 15, outer: 10 } },
       ],
-      chapters: [{ title: 'One', html: '<img alt="Tall">', parents: { opener: 'tall', recto: 'short', verso: 'short' } }],
+      chapters: [{ title: 'One', html: '<img alt="Tall">', parents: { opener: 'tall', recto: 'short&body', verso: 'short&body' } }],
     })
     const html = bookDocument(held, { nonce: 'held' })
     const area = { width: 123 * PX_PER_MM, height: 150 * PX_PER_MM }
