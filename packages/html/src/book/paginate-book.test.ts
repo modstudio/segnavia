@@ -321,7 +321,8 @@ describe('paginateBook', () => {
       {
         tag: 'img',
         position: { chapter: 1, block: 2 },
-        message: 'The img at chapter 1 block 2 could not establish a fit in the text area; shorten it or increase the text-area height to clear this refusal.',
+        message:
+          'The img at chapter 1 block 2 could not establish a fit in the "segnavia:opener" opener parent\'s 50px text area; shorten it or increase the text-area height to clear this refusal.',
       },
     ])
   })
@@ -345,7 +346,8 @@ describe('paginateBook', () => {
       {
         tag: 'pre',
         position: { chapter: 1, block: 1 },
-        message: 'The pre at chapter 1 block 1 could not establish a fit in the text area; shorten it or increase the text-area height to clear this refusal.',
+        message:
+          'The pre at chapter 1 block 1 could not establish a fit in the "segnavia:opener" opener parent\'s 50px text area; shorten it or increase the text-area height to clear this refusal.',
       },
     ])
   })

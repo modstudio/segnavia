@@ -139,7 +139,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
             id: 'hr',
             stories: ['head-right'],
             side: 'right',
-            margin: { top: 20, bottom: 21, left: 22, right: 23 },
+            margin: { top: 20, bottom: 21, left: 12, right: 13 },
             frames: [
               { id: 'fr', story: 'head-right', bounds: { left: 40, top: 3, width: 20, height: 5 } },
               { id: 'body-frame', story: 'unmapped', bounds: { left: 20, top: 30, width: 50, height: 40 } },
@@ -176,7 +176,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
     ':where(.idml-master-frame-2){position:absolute;inset-inline-start:7.761111mm;inline-size:3.527778mm;inset-block-start:0.352778mm;block-size:2.116667mm}',
   )
   expect(book.css).toContain(
-    ':where(.idml-master-frame-3){position:absolute;inset-inline-start:5.997222mm;inline-size:7.055556mm;inset-block-start:1.058333mm;block-size:1.763889mm}',
+    ':where(.idml-master-frame-3){position:absolute;inset-inline-start:9.525mm;inline-size:7.055556mm;inset-block-start:1.058333mm;block-size:1.763889mm}',
   )
   const firstHtml = book.chapters[0] && 'html' in book.chapters[0] ? book.chapters[0].html : ''
   expect(firstHtml).toContain('<span data-mark="Siman"><span class="idml-c-mark">Whole </span>')
@@ -188,6 +188,21 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   expect(report.data().unsupportedElements['master story']).toBe(1)
   expect(report.data().unsupportedElements['master margins disagree']).toBe(1)
   expect(() => bookDocument(book)).not.toThrow()
+
+  const verso = model.masterSpreads[0]?.pages[1]
+  if (!verso) throw new Error('Expected the verso master page.')
+  verso.margin = { ...verso.margin, left: 22, right: 23 }
+  let refusal = ''
+  try {
+    modelToBook(model, new ReportCollector())
+  } catch (error) {
+    refusal = error instanceof Error ? error.message : String(error)
+  }
+  expect(refusal).toContain('the body flow')
+  expect(refusal).toContain('idml-h-haggadah-recto')
+  expect(refusal).toContain('idml-h-haggadah-verso')
+  expect(refusal).toContain('different text widths')
+  expect(refusal).toContain('make the widths equal or split the flow into sections')
 })
 
 test('maps a single-page LTR master folio foot to both chapter sides', () => {

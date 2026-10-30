@@ -1,4 +1,4 @@
-import type { BookOpens, BookSectionParents } from '@segnavia/format'
+import type { BOOK_PARENT_NAMES, BookOpens, BookSectionParents, TextArea } from '@segnavia/format'
 
 export type PaginateSequence = 'front' | 'body'
 
@@ -48,7 +48,13 @@ interface PaginateFlowBase {
 
 export type PaginateFlow =
   | (PaginateFlowBase & { kind: 'front' | 'contents' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
-  | (PaginateFlowBase & { kind: 'fixed'; pages: number; sequence?: PaginateSequence; role?: 'fixed' | 'body' })
+  | (PaginateFlowBase & {
+      kind: 'fixed'
+      pages: number
+      sequence?: PaginateSequence
+      role?: 'fixed' | 'body'
+      pageParents?: PaginateFlowParents[]
+    })
 
 export interface PaginateNote {
   id: string
@@ -58,7 +64,9 @@ export interface PaginateNote {
 export interface PaginateBookInput {
   flows: PaginateFlow[]
   notes: PaginateNote[]
-  geometry: { textHeight: number; notesGap: number }
+  geometry: { notesGap: number }
+  parents: Record<string, TextArea>
+  parentNames: typeof BOOK_PARENT_NAMES
   settings: {
     orphans?: number
     widows?: number
@@ -99,7 +107,8 @@ export interface PaginateBookPage {
   sectionOpening: boolean
   runningHead?: string
   marks?: PaginatePageMarks
-  parents?: PaginateFlowParents
+  parent: string
+  side: 'left' | 'right'
 }
 
 // A refusal names the block it could not place, or the flow or note when no block is at fault.

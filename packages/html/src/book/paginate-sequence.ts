@@ -1,3 +1,4 @@
+import { selectBookParent } from '../printed-pages.ts'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import type {
@@ -16,8 +17,20 @@ import type {
 
 export function paginateSequence(
   input: PaginateBookInput,
-  fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[]) => PaginatePageFill,
+  fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number, textArea?: string) => PaginatePageFill,
 ): PaginateBookResult {
+  function selected(flow: PaginateFlow, opening: boolean, blank: boolean, role: 'body' | 'fixed' | undefined, pageIndex: number, parents = flow.parents) {
+    const fact = { blank, sectionOpening: opening, ...(role === undefined ? {} : { role }), ...(parents === undefined ? {} : { parents }) }
+    return selectBookParent(fact, pageIndex, pageIndex, input.settings.direction, input.parentNames)
+  }
+
+  function pageHeight(parent: string): number {
+    return input.parents[parent]?.height ?? 0
+  }
+
+  function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {
+    return opener && page.placed.length === 0 && page.fragments.length > 0 && !page.refusal
+  }
   function emptyMarks(): PaginatePageMarks {
     return Object.create(null) as PaginatePageMarks
   }
@@ -79,10 +92,6 @@ export function paginateSequence(
     return units
   }
 
-  function flowParents(flow: PaginateFlow): Pick<PaginateBookPage, 'parents'> {
-    return flow.parents === undefined ? {} : { parents: flow.parents }
-  }
-
   function openingOf(flow: PaginateFlow): 'recto' | 'verso' | 'any' {
     if (flow.opens === 'recto' || flow.opens === 'verso' || flow.opens === 'any') return flow.opens
     return input.settings.rectoOpenings ? 'recto' : 'any'
@@ -95,7 +104,8 @@ export function paginateSequence(
     return false
   }
 
-  function makeBlank(number: number, sequence: PaginateSequence, flow: PaginateFlow): PaginateBookPage {
+  function makeBlank(number: number, sequence: PaginateSequence, flow: PaginateFlow, physicalIndex: number): PaginateBookPage {
+    const planned = selected(flow, false, true, 'body', physicalIndex)
     return {
       kind: 'blank',
       number,
@@ -106,7 +116,8 @@ export function paginateSequence(
       notes: [],
       blank: true,
       sectionOpening: false,
-      ...flowParents(flow),
+      parent: planned.parent,
+      side: planned.side,
     }
   }
 
@@ -118,6 +129,7 @@ export function paginateSequence(
     placed: PaginateUnit[],
     fragments: PaginatePageNote[],
     marks: PaginatePageMarks,
+    planned: { parent: string; side: 'left' | 'right' },
   ): PaginateBookPage {
     const layout = paginateColumns(placed)
     return {
@@ -133,12 +145,22 @@ export function paginateSequence(
       sectionOpening: opener,
       ...(opener || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
-      ...flowParents(flow),
+      parent: planned.parent,
+      side: planned.side,
     }
   }
 
-  function makeFixed(part: PaginateSequence, number: number, flow: PaginateFlow, opener: boolean, marks: PaginatePageMarks): PaginateBookPage {
+  function makeFixed(
+    part: PaginateSequence,
+    number: number,
+    flow: PaginateFlow,
+    opener: boolean,
+    marks: PaginatePageMarks,
+    physicalIndex: number,
+    parents = flow.parents,
+  ): PaginateBookPage {
     const templated = flow.kind === 'fixed' && flow.role === 'body'
+    const planned = selected(flow, opener, false, templated ? 'body' : 'fixed', physicalIndex, parents)
     return {
       kind: part,
       number,
@@ -151,7 +173,8 @@ export function paginateSequence(
       sectionOpening: opener,
       ...((opener && !templated) || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
       marks,
-      ...flowParents(flow),
+      parent: planned.parent,
+      side: planned.side,
     }
   }
 
@@ -163,36 +186,68 @@ export function paginateSequence(
     fragments: PaginatePageNote[],
     pages: PaginateBookPage[],
     carried: PaginatePageMarks,
+    planned: { parent: string; side: 'left' | 'right' },
   ): PaginatePageMarks {
     const marked = paginateMarks(placed, carried)
-    pages.push(makeContent(part, pages.length + 1, flow, opener, placed, fragments, marked.marks))
+    pages.push(makeContent(part, pages.length + 1, flow, opener, placed, fragments, marked.marks, planned))
     return marked.carried
   }
 
-  function appendFixed(flow: PaginateFlow, part: PaginateSequence, pages: PaginateBookPage[], continued: PaginatePageNote[], carried: PaginatePageMarks) {
+  function appendFixed(
+    flow: PaginateFlow,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    physicalOffset: number,
+  ) {
     const count = flow.kind === 'fixed' ? flow.pages : 0
     let next = carried
     for (let index = 0; index < count; index += 1) {
       const opener = index === 0
       const marked = paginateMarks([], next)
       next = marked.carried
-      pages.push(makeFixed(part, pages.length + 1, flow, opener, marked.marks))
+      pages.push(
+        makeFixed(
+          part,
+          pages.length + 1,
+          flow,
+          opener,
+          marked.marks,
+          physicalOffset + pages.length + 1,
+          flow.kind === 'fixed' ? flow.pageParents?.[index] : undefined,
+        ),
+      )
     }
     return { pending: continued, carried: next }
   }
 
-  function paginateFlow(flow: PaginateFlow, part: PaginateSequence, pages: PaginateBookPage[], continued: PaginatePageNote[], carried: PaginatePageMarks) {
-    if (flow.kind === 'fixed') return appendFixed(flow, part, pages, continued, carried)
+  function paginateFlowing(
+    flow: Exclude<PaginateFlow, { kind: 'fixed' }>,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    physicalOffset: number,
+  ): { refusal?: PaginateBookRefusal; pending: PaginatePageNote[]; carried: PaginatePageMarks } {
     const units = unitsOf(flow)
     let index = 0
     let pending = continued
     let opener = true
     let nextCarried = carried
     while (index < units.length || pending.length > 0) {
-      const page = fillPage(units, index, pending)
+      let planned = selected(flow, opener, false, undefined, physicalOffset + pages.length + 1)
+      const height = pageHeight(planned.parent)
+      const textArea = opener ? `the "${planned.parent}" opener parent's ${height}px text area` : undefined
+      let page = fillPage(units, index, pending, height, textArea)
+      const isOpening: boolean = opener && page.placed.length > 0
+      if (notesOnlyOpeningPage(page, opener)) {
+        planned = selected(flow, isOpening, false, undefined, physicalOffset + pages.length + 1)
+        page = fillPage(units, index, pending, pageHeight(planned.parent))
+      }
       if (page.refusal) return { refusal: page.refusal, pending, carried: nextCarried }
       if (page.done || (page.placed.length === 0 && page.fragments.length === 0)) return { pending, carried: nextCarried }
-      nextCarried = emitMarked(part, flow, opener && page.placed.length > 0, page.placed, page.fragments, pages, nextCarried)
+      nextCarried = emitMarked(part, flow, isOpening, page.placed, page.fragments, pages, nextCarried, planned)
       opener = opener && page.placed.length === 0
       index = page.index
       pending = page.pending
@@ -200,14 +255,34 @@ export function paginateSequence(
     return { pending, carried: nextCarried }
   }
 
-  function flushNotes(continued: PaginatePageNote[], flow: PaginateFlow, part: PaginateSequence, pages: PaginateBookPage[], carried: PaginatePageMarks) {
+  function paginateFlow(
+    flow: PaginateFlow,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    physicalOffset: number,
+  ): { refusal?: PaginateBookRefusal; pending: PaginatePageNote[]; carried: PaginatePageMarks } {
+    if (flow.kind === 'fixed') return appendFixed(flow, part, pages, continued, carried, physicalOffset)
+    return paginateFlowing(flow, part, pages, continued, carried, physicalOffset)
+  }
+
+  function flushNotes(
+    continued: PaginatePageNote[],
+    flow: PaginateFlow,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+    carried: PaginatePageMarks,
+    physicalOffset: number,
+  ) {
     let pending = continued
     let nextCarried = carried
     while (pending.length > 0) {
-      const page = fillPage([], 0, pending)
+      const planned = selected(flow, false, false, 'body', physicalOffset + pages.length + 1)
+      const page = fillPage([], 0, pending, pageHeight(planned.parent))
       if (page.refusal) return { refusal: page.refusal, carried: nextCarried }
       if (page.done || (page.placed.length === 0 && page.fragments.length === 0)) return { carried: nextCarried }
-      nextCarried = emitMarked(part, flow, false, page.placed, page.fragments, pages, nextCarried)
+      nextCarried = emitMarked(part, flow, false, page.placed, page.fragments, pages, nextCarried, planned)
       pending = page.pending
     }
     return { carried: nextCarried }
@@ -220,9 +295,10 @@ export function paginateSequence(
     carried: PaginatePageMarks,
     part: PaginateSequence,
     pages: PaginateBookPage[],
+    physicalOffset: number,
   ) {
     if (flow.kind !== 'fixed' || continued.length === 0 || !previous) return { continued, carried }
-    const flushed = flushNotes(continued, previous, part, pages, carried)
+    const flushed = flushNotes(continued, previous, part, pages, carried, physicalOffset)
     if ('refusal' in flushed && flushed.refusal) return { refusal: flushed.refusal }
     return { continued: [] as PaginatePageNote[], carried: flushed.carried }
   }
@@ -236,10 +312,11 @@ export function paginateSequence(
     pages: PaginateBookPage[],
     physicalOffset: number,
   ) {
-    const held = flushBeforeFixed(flow, previous, continued, carried, part, pages)
+    const held = flushBeforeFixed(flow, previous, continued, carried, part, pages, physicalOffset)
     if ('refusal' in held && held.refusal) return { refusal: held.refusal }
-    if (needsOpeningBlank(openingOf(flow), physicalOffset + pages.length)) pages.push(makeBlank(pages.length + 1, part, flow))
-    const result = paginateFlow(flow, part, pages, held.continued, held.carried)
+    if (needsOpeningBlank(openingOf(flow), physicalOffset + pages.length))
+      pages.push(makeBlank(pages.length + 1, part, flow, physicalOffset + pages.length + 1))
+    const result = paginateFlow(flow, part, pages, held.continued, held.carried, physicalOffset)
     if ('refusal' in result && result.refusal) return { refusal: result.refusal }
     return { continued: result.pending, carried: result.carried }
   }
@@ -258,7 +335,7 @@ export function paginateSequence(
     }
     const last = flows[flows.length - 1]
     if (last) {
-      const flushed = flushNotes(continued, last, part, pages, carried)
+      const flushed = flushNotes(continued, last, part, pages, carried, physicalOffset)
       if ('refusal' in flushed && flushed.refusal) return { pages, refusals: [flushed.refusal] }
     }
     return { pages, refusals: [] }
@@ -276,7 +353,7 @@ export function paginateSequence(
     ? front.pages.length % 2 === 1
     : firstBody !== undefined && needsOpeningBlank(openingOf(firstBody), front.pages.length)
   if (front.pages.length > 0 && lastFront && padFront) {
-    front.pages.push(makeBlank(front.pages.length + 1, 'front', lastFront))
+    front.pages.push(makeBlank(front.pages.length + 1, 'front', lastFront, front.pages.length + 1))
   }
   const body = paginatePart(bodyFlows, 'body', front.pages.length)
   if (body.refusals.length > 0) return { pages: [...front.pages, ...body.pages], refusals: body.refusals }

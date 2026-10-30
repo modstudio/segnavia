@@ -6,6 +6,7 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
+import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -102,13 +103,6 @@ function chapterFourHtml(hebrew: boolean): string {
 const designedCss =
   ':where(.designed-spread,.designed-leaf){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:24px;padding-inline:24px}:where(.designed-verso){background:#1a365d;color:#fff}:where(.designed-recto){background:#2c5282;color:#fff}:where(.designed-leaf){background:#edf2f7}:where(.designed-foot){text-align:center}:where(table){inline-size:100%;border-collapse:collapse}:where(th,td){border:1px solid;padding:4px}'
 
-const markHead = (edge: 'start' | 'end') =>
-  `<div class="haggadah-head"><span class="haggadah-kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="haggadah-siman haggadah-siman-${edge}" data-motif="segnavia:mark" data-motif-name="siman"></span></div>`
-
-const markParents = { recto: 'haggadah-recto', verso: 'haggadah-verso' } as const
-const haggadahHeadCss =
-  ':where(.haggadah-head){position:relative;block-size:100%;display:flex;align-items:center;justify-content:center}:where(.haggadah-siman){position:absolute}:where(.haggadah-siman-start){inset-inline-start:0}:where(.haggadah-siman-end){inset-inline-end:0}'
-
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
   const verso = hebrew ? 'גב השער' : 'Verso of the spread'
@@ -143,15 +137,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
-  parentPages: [
-    { name: 'haggadah-recto', basedOn: 'segnavia:recto', head: markHead('end') },
-    { name: 'haggadah-verso', basedOn: 'segnavia:verso', head: markHead('start') },
-    {
-      name: 'ornament-foot',
-      basedOn: 'segnavia:blank',
-      foot: '<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span></div>',
-    },
-  ],
+  parentPages: paginatedParents(),
   frontMatter: [
     {
       title: hebrew ? 'פתיחה' : 'Preface',
@@ -161,9 +147,13 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
   chapters: [
     designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: markParents },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
     designedLeaf(hebrew),
-    { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew), parents: markParents },
+    {
+      title: hebrew ? 'פרק שני' : 'Chapter Two',
+      html: chapterTwoHtml(hebrew),
+      parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+    },
     { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
     { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
     columnFitChapter(hebrew),

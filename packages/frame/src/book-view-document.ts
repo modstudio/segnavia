@@ -7,6 +7,7 @@ import {
   PRINTED_PAGE_LIMIT,
   PX_PER_MM,
   resolveParentPages,
+  textArea,
 } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
@@ -30,15 +31,16 @@ function folios(system: Book['numbering']['body']): string[] {
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
-  const parents = resolveParentPages(pagination.parents).map((parent) => ({
-    ...parent,
-    margin: {
+  const paper = { width: px(pagination.paper.width), height: px(pagination.paper.height) }
+  const parents = resolveParentPages(pagination.parents).map((parent) => {
+    const margin = {
       top: px(parent.margin.top),
       bottom: px(parent.margin.bottom),
       inner: px(parent.margin.inner),
       outer: px(parent.margin.outer),
-    },
-  }))
+    }
+    return { ...parent, margin, textArea: textArea({ margin }, paper) }
+  })
   const config = {
     direction: pagination.direction,
     dir: view.dir,
@@ -46,8 +48,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     geometry: {
       paperWidth: px(pagination.paper.width),
       paperHeight: px(pagination.paper.height),
-      textWidth: px(pagination.paper.width - pagination.margin.inner - pagination.margin.outer),
-      textHeight: px(pagination.paper.height - pagination.margin.top - pagination.margin.bottom),
       columnGap: px(pagination.columnGap),
       notesGap: 9,
     },
