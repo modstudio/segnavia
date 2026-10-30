@@ -89,6 +89,16 @@ describe('sanitize', () => {
     expect(sanitize('<p onclick="x()">a</p><script>x()</script>', { keepScripts: true })).toBe('<p onclick="x()">a</p><script>x()</script>')
   })
 
+  test('scripted pages keep controls but never form destinations', () => {
+    const controls = '<form action="/send"><input><button formaction="/other">Send</button><select><option>One</option></select><textarea>Text</textarea></form>'
+    expect(findActiveContent(controls)).toEqual(['<form>', 'form[action]', '<input>', '<button>', 'button[formaction]', '<select>', '<textarea>'])
+    expect(sanitize(controls)).toBe('')
+    expect(findActiveContent(controls, { keepScripts: true })).toEqual(['form[action]', 'button[formaction]'])
+    expect(sanitize(controls, { keepScripts: true })).toBe(
+      '<form><input><button>Send</button><select><option>One</option></select><textarea>Text</textarea></form>',
+    )
+  })
+
   test('meta http-equiv is refused, since it can set policy from inside the page', () => {
     expect(findActiveContent('<meta http-equiv="refresh" content="0;url=https://x">')).toEqual(['<meta>'])
   })

@@ -25,6 +25,7 @@ export const REFUSED_ELEMENTS = new Set([
   'select',
   'textarea',
 ])
+const SCRIPTED_CONTROLS = new Set(['form', 'input', 'button', 'select', 'textarea'])
 // SVG's own ways of animating or embedding HTML.
 const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransform', 'animatemotion', 'foreignobject'])
 const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action'])
@@ -124,7 +125,8 @@ function refusedAttribute(name: string, value: string, allowed: ReadonlySet<stri
 }
 
 function refusedSet(options: SanitizeOptions): Set<string> {
-  return new Set([...REFUSED_ELEMENTS, ...(options.refuseElements ?? [])].map((name) => name.toLowerCase()))
+  const defaults = options.keepScripts ? [...REFUSED_ELEMENTS].filter((name) => !SCRIPTED_CONTROLS.has(name)) : REFUSED_ELEMENTS
+  return new Set([...defaults, ...(options.refuseElements ?? [])].map((name) => name.toLowerCase()))
 }
 
 function styleText(element: Element): string {

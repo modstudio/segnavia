@@ -94,6 +94,9 @@ describe('frame document', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
     expect(html).not.toContain('script-src')
     expect(html).toContain("new CustomEvent('segnavia:print'")
+    expect(html).not.toContain('allow-forms')
+    expect(html).not.toContain('allow-same-origin')
+    expect(html).toContain("form-action 'none'")
   })
 
   test('only refused-script documents answer a parent selection request', () => {
