@@ -176,6 +176,7 @@ export function sheetMm(print: Pick<Print, 'paper' | 'orientation'>): { width: n
 
 // CSS pixels per millimeter at the 96 dpi every browser lays out at.
 export const PX_PER_MM = 96 / 25.4
+export const PX_PER_PT = PX_PER_MM * MM_PER_PT
 
 // A physical page covers every CSS pixel it intersects. The tolerance keeps
 // exact inch and point conversions from growing because of floating-point noise.

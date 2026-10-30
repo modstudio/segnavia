@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { PX_PER_MM } from '@segnavia/format'
+import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
+import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -14,10 +15,10 @@ import {
 } from './paginated-designed.ts'
 import { compareHebrewInk } from './paginated-ink.ts'
 import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.ts'
+import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
-const PAGINATED_INNER_PX = 18 * PX_PER_MM
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit', 'segnavia:book-place'])
 
 async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
@@ -71,9 +72,7 @@ export async function verifyBooks(h: Harness) {
 
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
-    check(`${id} expands its front-matter motif on screen`, (await page.frameLocator(`${frame} iframe`).locator('[data-book-demo-motif]').count()) === 1)
-    const pdfText = execFileSync('pdftotext', [path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' })
-    check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
+    await verifyContinuousBookMotif(h, id)
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -109,28 +108,7 @@ export async function verifyBooks(h: Harness) {
     messages.join(','),
   )
 
-  await page.goto(h.url('book-paginated-screen.html'))
-  for (const id of ['book-screen-en', 'book-screen-he'] as const) {
-    const frame = page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
-    await frame.locator('[data-segnavia-pages]').waitFor()
-    check(`${id} expands its front-matter motif on screen`, (await frame.locator('[data-book-demo-motif]').count()) > 0)
-    const pdf = id.replace('book-screen', 'book-paginated')
-    const pdfText = execFileSync('pdftotext', [path.join(SITE, `${pdf}.pdf`), '-'], { encoding: 'utf8' })
-    check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
-    const furniture = frame
-      .locator('[data-segnavia-foot] [data-book-demo-folio]')
-      .filter({ hasText: /PRINTED\s+\S/ })
-      .first()
-    const printed = (await furniture.textContent())?.replace(/^PRINTED\s+/, '').trim()
-    const folio = (await furniture.locator('xpath=ancestor::*[@data-segnavia-foot][1]//span[contains(@class,"segnavia-folio")]').textContent())?.trim()
-    check(
-      `${id} fills the furniture motif's printed-page number with its folio on screen`,
-      printed !== '' && printed === folio,
-      JSON.stringify({ printed, folio }),
-    )
-    const printedPdf = printed !== undefined && pdfText.split('\n').some((line) => line.includes('PRINTED') && line.includes(printed))
-    check(`${id} fills the furniture motif's printed-page number in the PDF`, printedPdf, printed)
-  }
+  await verifyPaginatedBookMotifs(h)
 
   await verifyPaginatedBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
@@ -173,6 +151,17 @@ function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
     report.runningHead.fromMark && report.runningHead.carried,
     report.runningHead.detail,
   )
+}
+
+async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
+  const report = await frame.evaluate(inspectPaginatedMargins)
+  h.check(
+    `${id} text area sits the inner margin from the spine`,
+    report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - item.expected) < 0.5),
+    JSON.stringify(report.spine),
+  )
+  h.check(`${id} every text box stays within its parent margins`, report.text.checked > 0 && report.text.outside === 0, report.text.detail)
+  h.check(`${id} every furniture strip has its parent's text width`, report.furniture.checked > 0 && report.furniture.matches, JSON.stringify(report.furniture))
 }
 
 async function verifyPaginatedBooks(h: Harness) {
@@ -224,11 +213,7 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
-    check(
-      `${id} text area sits the inner margin from the spine`,
-      report.spine.length > 0 && report.spine.every((item) => Math.abs(item.distance - PAGINATED_INNER_PX) < 0.5),
-      JSON.stringify(report.spine),
-    )
+    await checkParentMargins(h, frame, id)
     check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
     check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
     if (id === 'book-paginated-he') {
@@ -353,7 +338,7 @@ async function verifyWorkbooks(h: Harness) {
         dir: document.documentElement.getAttribute('dir'),
       }
     })
-    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 3, report.failure ?? `${report.pages} pages`)
+    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 4, report.failure ?? `${report.pages} pages`)
     check(
       `${id} one lesson page names its own template`,
       report.templates.includes('lesson') && report.templates.includes('lesson-alt'),
@@ -368,12 +353,29 @@ async function verifyWorkbooks(h: Harness) {
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
     check(
       `${id} contents lists every lesson with its page number`,
-      lessons.length >= 4 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
+      lessons.length >= 5 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
       JSON.stringify(lessons),
     )
     const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
+
+    const fit = await frame.evaluate(() => {
+      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
+      if (!el) return { size: 0, overflow: 'missing', elements: -1 }
+      return {
+        size: Number.parseFloat(getComputedStyle(el).fontSize),
+        overflow: el.getAttribute('data-segnavia-region-overflow'),
+        elements: el.childElementCount,
+      }
+    })
+    const minPx = 48 * PX_PER_PT
+    const maxPx = 75 * PX_PER_PT
+    check(
+      `${id} a region of bare overflowing text fits between min and max`,
+      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
+      JSON.stringify(fit),
+    )
 
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {

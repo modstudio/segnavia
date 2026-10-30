@@ -193,6 +193,7 @@ export {
   PrintSetting,
   PrintSettingInput,
   PX_PER_MM,
+  PX_PER_PT,
   paperPixels,
   printBoxes,
   printPadding,

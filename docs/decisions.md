@@ -195,6 +195,13 @@ playing slide reveals them on cue.
 
 ## Rendering
 
+**A paginated flow has one width and each page has its parent's height.** A
+flow's opener, recto and verso parents must leave the same text width because
+the galley breaks its lines once; print and IDML import refuse a mismatch.
+Pagination selects and carries each page's parent, whose text height determines
+that page's capacity, while the galley caps images at the shortest of the
+flow's parent text areas so they can fit on every page that holds the flow.
+
 **Rendered PDFs are composed from top-level documents.** `printableDeck` and
 `printablePages` are frame-based documents for a browser to show and print.
 Their print bridge lifts the computed root or propagated body background onto

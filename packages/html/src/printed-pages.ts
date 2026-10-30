@@ -73,7 +73,7 @@ export function selectBookParent(
   index: number,
   count: number,
   direction: 'ltr' | 'rtl',
-  names = BOOK_PARENT_NAMES,
+  names: typeof BOOK_PARENT_NAMES,
 ): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'side'> {
   const physical = printedPageAt({ every: names.recto, recto: names.recto, verso: names.verso }, index, count, direction)
   const named = fact.parents

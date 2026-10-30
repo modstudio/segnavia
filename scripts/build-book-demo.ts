@@ -5,9 +5,12 @@ import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-docu
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
-import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, haggadahHeadCss, notoCss, workbookCss } from './demo-book-fonts.ts'
+import { writeHiddenBookDemo } from './book-hidden-demo.ts'
+import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
+import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
+import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
@@ -95,11 +98,6 @@ function chapterFourHtml(hebrew: boolean): string {
   return `<h1>${title}</h1>${image}${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
 }
 
-const markHead = (edge: 'start' | 'end') =>
-  `<div class="haggadah-head"><span class="haggadah-kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="haggadah-siman haggadah-siman-${edge}" data-motif="segnavia:mark" data-motif-name="siman"></span></div>`
-
-const markParents = { recto: 'haggadah-recto', verso: 'haggadah-verso' } as const
-
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
   const verso = hebrew ? 'גב השער' : 'Verso of the spread'
@@ -134,15 +132,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
-  parentPages: [
-    { name: 'haggadah-recto', basedOn: 'segnavia:recto', head: markHead('end') },
-    { name: 'haggadah-verso', basedOn: 'segnavia:verso', head: markHead('start') },
-    {
-      name: 'ornament-foot',
-      basedOn: 'segnavia:blank',
-      foot: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span><span data-motif="${BOOK_FOLIO_MOTIF_KEY}"></span></div>`,
-    },
-  ],
+  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY),
   frontMatter: [
     {
       title: hebrew ? 'פתיחה' : 'Preface',
@@ -152,86 +142,18 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
   chapters: [
     designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: markParents },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
     designedLeaf(hebrew),
-    { title: hebrew ? 'פרק שני' : 'Chapter Two', html: chapterTwoHtml(hebrew), parents: markParents },
+    {
+      title: hebrew ? 'פרק שני' : 'Chapter Two',
+      html: chapterTwoHtml(hebrew),
+      parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+    },
     { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
     { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
     columnFitChapter(hebrew),
   ],
 })
-
-function lessonTable(hebrew: boolean): string {
-  const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
-  return `<table><thead><tr>${head}</tr></thead><tbody><tr><td>א</td><td>1</td></tr><tr><td>ב</td><td>2</td></tr></tbody></table>`
-}
-
-function workbookFixture(hebrew: boolean): BookInput {
-  const lesson = hebrew ? 'שיעור' : 'Lesson'
-  const reading = hebrew ? 'הטקסט לקריאה בשיעור.' : 'The reading text for this lesson.'
-  const longReading = hebrew ? `${reading} `.repeat(8) : `${reading} `.repeat(8)
-  return {
-    title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
-    mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
-    rectoOpenings: true,
-    slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }],
-    templates: [
-      {
-        name: 'lesson',
-        html: '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
-      },
-      {
-        name: 'lesson-alt',
-        html: '<div class="lesson lesson-alt"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
-      },
-    ],
-    frontMatter: [
-      {
-        kind: 'designed',
-        title: hebrew ? 'זכויות יוצרים' : 'Copyright',
-        pages: [
-          {
-            html: `<div class="copyright-page"><p>© <span data-slot-value="school">${hebrew ? 'בית ספר' : 'School'}</span></p></div>`,
-          },
-        ],
-      },
-      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-    ],
-    chapters: [
-      {
-        kind: 'templated',
-        title: hebrew ? 'שיעורים' : 'Lessons',
-        template: 'lesson',
-        pages: [
-          {
-            regions: {
-              heading: `<h1 id="lesson-1">${lesson} 1</h1>`,
-              'reading-text': `<p>${reading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-          {
-            regions: {
-              heading: `<h1 id="lesson-2">${lesson} 2</h1>`,
-              'reading-text': `<p>${longReading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-          {
-            template: 'lesson-alt',
-            regions: {
-              heading: `<h1 id="lesson-3">${lesson} 3</h1>`,
-              'reading-text': `<p>${reading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-        ],
-      },
-    ],
-  }
-}
 
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
@@ -352,7 +274,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
     const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
     const workbookCssFull = hebrew
-      ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}`
+      ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(
       path.join(site, hebrew ? 'book-workbook-he.html' : 'book-workbook-en.html'),
@@ -371,6 +293,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script>${bookMotifSetup}</body></html>`,
   )
+  writeHiddenBookDemo(site)
   writeFileSync(
     path.join(site, 'book-paginated-large.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Large paginated book elements</title><style>

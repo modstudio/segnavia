@@ -67,6 +67,20 @@ export const BOOK_PARENT_NAMES = {
   blank: 'segnavia:blank',
 } as const
 
+export interface FlowingParentNames {
+  opener: string
+  recto: string
+  verso: string
+}
+
+export function flowingParentNames(parents?: Partial<FlowingParentNames>): FlowingParentNames {
+  return {
+    opener: parents?.opener ?? 'segnavia:opener',
+    recto: parents?.recto ?? 'segnavia:recto',
+    verso: parents?.verso ?? 'segnavia:verso',
+  }
+}
+
 function furniture(region: 'head' | 'foot'): string {
   return BOOK_FURNITURE.filter((item) => item.region === region)
     .filter((item) => item.fields.every((field) => !('required' in field) || !field.required))
@@ -91,6 +105,18 @@ export interface ResolvedParentPage {
   margin: ParentPageMargin
   head: string
   foot: string
+}
+
+export interface TextArea {
+  width: number
+  height: number
+}
+
+export function textArea(parent: Pick<ResolvedParentPage, 'margin'>, paper: { width: number; height: number }): TextArea {
+  return {
+    width: paper.width - parent.margin.inner - parent.margin.outer,
+    height: paper.height - parent.margin.top - parent.margin.bottom,
+  }
 }
 
 const ZERO_PARENT_MARGIN: ParentPageMargin = { top: 0, bottom: 0, inner: 0, outer: 0 }

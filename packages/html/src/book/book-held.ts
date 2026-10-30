@@ -13,6 +13,7 @@ import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { element, linkChildren, textContent } from './dom.ts'
+import { namedRegionFitIssues, templateRegionFitIssues } from './region-fit.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
 export interface BuiltSection {
@@ -106,17 +107,33 @@ export function designedSection(
   }
 }
 
+export function templateRegionElements(html: string): Element[] {
+  return elements(parse(html).children).filter((node) => node.attribs['data-region'])
+}
+
 function declaredRegions(html: string): Set<string> {
-  return new Set(elements(parse(html).children).flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))
+  return new Set(templateRegionElements(html).flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))
 }
 
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
 
-export function templateRegionNameIssues(templates: BookTemplate[]): string[] {
-  return templates.flatMap((template) =>
-    [...declaredRegions(template.html)].flatMap((key) =>
-      REGION_NAME.test(key) ? [] : [`template "${template.name}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
-    ),
+export function templateRegionNameIssues(template: string, regions: Element[]): string[] {
+  return [...new Set(regions.flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))].flatMap((key) =>
+    REGION_NAME.test(key) ? [] : [`template "${template}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
+  )
+}
+
+export function templateRegionIssues(templates: BookTemplate[]): string[] {
+  return templates.flatMap((template) => {
+    const regions = templateRegionElements(template.html)
+    return [...templateRegionNameIssues(template.name, regions), ...templateRegionFitIssues(template.name, regions)]
+  })
+}
+
+function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
+  const label = entry.title ?? id
+  return entry.pages.flatMap((page, index) =>
+    Object.values(page.regions).flatMap((html) => namedRegionFitIssues(`section ${label} page ${index + 1}`, templateRegionElements(html))),
   )
 }
 
@@ -161,7 +178,7 @@ export function markPlacementIssues(parents: ParentPage[]): string[] {
   )
 }
 
-export function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
+function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) => {
     const name = page.template ?? entry.template
@@ -176,6 +193,10 @@ export function undeclaredRegionIssues(entry: TemplatedSection, id: string, temp
           ],
     )
   })
+}
+
+export function templatedSectionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
+  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionFitIssues(entry, id)]
 }
 
 export function templatedSection(
