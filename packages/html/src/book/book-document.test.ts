@@ -221,10 +221,10 @@ describe('book document', () => {
     expect(bookDocument(book, { part: 'front', crossLinks: true }).html).toContain('href="segnavia:target/topic"')
     const body = bookDocument(book, { part: 'body', targets: true }).html
     for (const id of ['segnavia-chapter-1', 'topic', 'segnavia-fn-1-1', 'segnavia-fnref-1-1', 'segnavia-en-1', 'segnavia-enref-1']) {
-      expect(body).toContain(`href="#${id}"`)
+      expect(body).toContain(`href="#${id}" tabindex="-1"`)
     }
+    expect(bookDocument(book, { build: 'galley', targets: true }).html).toMatch(/inline-size:1px.*class="segnavia-targets"/)
   })
-
   test('a paginated document keeps footnote refs in the flow and moves notes to a notes galley', () => {
     const book = Book.parse(
       input({

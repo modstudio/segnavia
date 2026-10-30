@@ -23,7 +23,7 @@ export function bookDocument(book: Book, options: Pick<PaginatedDocumentOptions,
   if (book.mode !== 'paginated' || !book.page) {
     throw new PaginatedBookRefusedError('A paginated book document needs mode paginated and page; set both to clear this refusal.')
   }
-  const built = htmlBookDocument(book)
+  const built = htmlBookDocument(book, { targets: true })
   if (built.issues.length > 0) throw new PaginatedBookRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
   const view = bookViewFromHtml(book, built.html)
   if (!view.pagination) throw new PaginatedBookRefusedError('A paginated book document could not resolve pagination.')

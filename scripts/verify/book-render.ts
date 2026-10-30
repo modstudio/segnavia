@@ -3,8 +3,10 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
+import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
+import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -58,6 +60,8 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
     key,
     book: {
       title: hebrew ? 'ספר בדיקה' : 'Test Book',
+      authors: hebrew ? ['לאה כהן', 'David Levi'] : ['Ada Lovelace', 'Charles Babbage'],
+      subject: hebrew ? 'בדיקת מבנה & מידע' : 'Structure & metadata verification',
       mode: 'continuous',
       lang: hebrew ? 'he' : 'en',
       page: { paper: 'a5', orientation: 'portrait', margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
@@ -108,37 +112,6 @@ function frontPageCount(fixture: Fixture, pages: string[]): number {
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   const lastContentsPage = pageWith(pages, `${tag}-3-H2-5`)
   return lastContentsPage % 2 === 1 ? lastContentsPage + 1 : lastContentsPage
-}
-
-function annotationDestination(document: PDFDocument, value: unknown): number | undefined {
-  const key = (value: string) => PDFName.of(value)
-  const resolve = (value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
-  const annotation = resolve(value)
-  if (!(annotation instanceof PDFDict)) return undefined
-  const action = resolve(annotation.get(key('A')))
-  if (action instanceof PDFDict) {
-    const uri = resolve(action.get(key('URI')))
-    const text = uri instanceof PDFString || uri instanceof PDFHexString ? uri.decodeText() : ''
-    if (text.startsWith('segnavia:')) return -1
-  }
-  const target = resolve(annotation.get(key('Dest')))
-  if (!(target instanceof PDFArray)) return undefined
-  const reference = target.get(0)
-  return document.getPages().findIndex((candidate) => candidate.ref.toString() === reference?.toString()) + 1
-}
-
-function destinations(document: PDFDocument): number[] {
-  const resolve = (value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
-  const output: number[] = []
-  for (const page of document.getPages()) {
-    const annotations = resolve(page.node.get(PDFName.of('Annots')))
-    if (!(annotations instanceof PDFArray)) continue
-    for (let index = 0; index < annotations.size(); index += 1) {
-      const target = annotationDestination(document, annotations.get(index))
-      if (target !== undefined) output.push(target)
-    }
-  }
-  return output
 }
 
 function contentsNumbers(
@@ -262,7 +235,19 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
 
   const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, frontPages, frontSystem, bodySystem)
   check(`${fixture.key} contents page numbers match heading destination pages`, numbered)
-  const actualLinks = destinations(document).sort((left, right) => left - right)
+  const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
+  const expectedOutline = [
+    { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
+    ...fixture.chapterMarkers.flatMap((marker, chapter) => [
+      { title: fixture.book.chapters[chapter]?.title ?? '', page: pageWith(pages, marker) },
+      ...Array.from({ length: 6 }, (_, topic) => {
+        const title = `${tag}-${chapter + 1}-H2-${topic}`
+        return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
+      }),
+    ]),
+  ]
+  verifyPdfStructure(document, fixture.book, expectedOutline, `${fixture.key} continuous`, check)
+  const actualLinks = annotationDestinations(document).sort((left, right) => left - right)
   const expectedLinks = expectedLinkPages(fixture, pages, frontPages)
   check(
     `${fixture.key} contents and note links resolve to their target pages`,
@@ -298,38 +283,51 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   )
 }
 
-async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, check: Check): Promise<void> {
-  for (const key of ['english', 'hebrew'] as const) {
-    const hebrew = key === 'hebrew'
-    const one = hebrew ? 'פרק א' : 'Chapter One'
-    const two = hebrew ? 'פרק ב' : 'Chapter Two'
-    const openOne = hebrew ? 'OPEN_HE1' : 'OPEN_EN1'
-    const openTwo = hebrew ? 'OPEN_HE2' : 'OPEN_EN2'
-    const bytes = await renderer.bookPdf(
-      {
-        title: hebrew ? 'ספר' : 'Book',
-        mode: 'paginated',
-        lang: hebrew ? 'he' : 'en',
-        page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
-        frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
-        chapters: [
-          { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
-          { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
-        ],
-      },
-      { effects: false, css: 'body{font:16px serif}' },
-    )
-    const file = path.join(work, `book-paginated-${key}.pdf`)
-    writeFileSync(file, bytes)
-    const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
-    const links = destinations(await PDFDocument.load(bytes)).sort((left, right) => left - right)
-    const expected = [...chapterPages].sort((left, right) => left - right)
-    check(
-      `${key} paginated contents links resolve to each chapter's first page`,
-      chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),
-      `chapters=${chapterPages.join(',')} links=${links.join(',')}`,
-    )
+async function verifyPaginatedContentsBook(renderer: Renderer, work: string, check: Check, key: 'english' | 'hebrew'): Promise<void> {
+  const hebrew = key === 'hebrew'
+  const one = hebrew ? 'פרק א' : 'Chapter One'
+  const two = hebrew ? 'פרק ב' : 'Chapter Two'
+  const openOne = hebrew ? 'OPEN_HE1' : 'OPEN_EN1'
+  const openTwo = hebrew ? 'OPEN_HE2' : 'OPEN_EN2'
+  const book: BookInput = {
+    title: hebrew ? 'ספר' : 'Book',
+    authors: hebrew ? ['רחל לוי', 'A. Writer'] : ['A. Writer', 'B. Writer'],
+    subject: hebrew ? 'נושא & תיאור' : 'Subject & description',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
+    chapters: [
+      { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
+      { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
+    ],
   }
+  const bytes = await renderer.bookPdf(book, { effects: false, css: 'body{font:16px serif}' })
+  const file = path.join(work, `book-paginated-${key}.pdf`)
+  writeFileSync(file, bytes)
+  const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
+  const document = await PDFDocument.load(bytes)
+  const links = annotationDestinations(document).sort((left, right) => left - right)
+  const expected = [...chapterPages].sort((left, right) => left - right)
+  check(
+    `${key} paginated contents links resolve to each chapter's first page`,
+    chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),
+    `chapters=${chapterPages.join(',')} links=${links.join(',')}`,
+  )
+  verifyPdfStructure(
+    document,
+    book,
+    [
+      { title: one, page: chapterPages[0] ?? 0 },
+      { title: two, page: chapterPages[1] ?? 0 },
+    ],
+    `${key} paginated`,
+    check,
+  )
+}
+
+async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, check: Check): Promise<void> {
+  for (const key of ['english', 'hebrew'] as const) await verifyPaginatedContentsBook(renderer, work, check, key)
 }
 
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -337,6 +335,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)
+  await verifyPaginatedBookWithoutContents(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
   const book = {

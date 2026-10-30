@@ -28,7 +28,8 @@ test('places FontSource CSS before book CSS in the printed document', async () =
       render: async (setup) => {
         srcdoc = setup.html
         const document = await PDFDocument.create()
-        document.addPage([419.53, 595.28])
+        const page = document.addPage([419.53, 595.28])
+        document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'segnavia-chapter-1': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
         return {
           bytes: await document.save(),
           overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },

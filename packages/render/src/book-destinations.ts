@@ -7,6 +7,17 @@ export interface BookDestination {
   y: number
 }
 
+interface DestinationPart {
+  pages: number
+  destinations: Map<string, BookDestination>
+}
+
+export function joinedDestinations(front: DestinationPart, body: Pick<DestinationPart, 'destinations'>): Map<string, BookDestination> {
+  const joined = new Map(front.destinations)
+  for (const [id, target] of body.destinations) joined.set(id, { ...target, page: target.page + front.pages })
+  return joined
+}
+
 const key = (value: string) => PDFName.of(value)
 const resolve = (document: PDFDocument, value: PDFObject | undefined): PDFObject | undefined =>
   value instanceof PDFRef ? document.context.lookup(value) : value
@@ -72,7 +83,7 @@ function hiddenAnnotation(document: PDFDocument, annotation: PDFDict): boolean {
   return Math.abs(right - left) <= 1 && Math.abs(top - bottom) <= 1
 }
 
-function explicit(document: PDFDocument, target: BookDestination, offset: number): PDFArray {
+export function explicit(document: PDFDocument, target: BookDestination, offset: number): PDFArray {
   return document.context.obj([document.getPage(offset + target.page - 1).ref, 'XYZ', target.x, target.y, null])
 }
 

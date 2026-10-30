@@ -140,7 +140,7 @@ function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
   return element(
     'div',
     { class: 'segnavia-targets', 'aria-hidden': 'true' },
-    [...new Set(ids)].map((id) => element('a', { href: `#${id}` }, [text('\u200b')])),
+    [...new Set(ids)].map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
   )
 }
 
@@ -369,6 +369,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     requestedBuild === 'galley'
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
+          ...(options.targets ? [targetLinks(visible)] : []),
           element('div', { 'data-segnavia-galleys': '' }, [
             ...templateHolders(book.templates),
             ...visible.map((section) => section.node),

@@ -6,6 +6,17 @@ const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, o
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
+  test('accepts optional ordered authors and a subject', () => {
+    expect(Book.parse(input({ authors: ['Ada Lovelace', 'דוד לוי'], subject: 'A book about <things>' }))).toMatchObject({
+      authors: ['Ada Lovelace', 'דוד לוי'],
+      subject: 'A book about <things>',
+    })
+    expect(Book.parse(input()).authors).toBeUndefined()
+    expect(Book.parse(input()).subject).toBeUndefined()
+    expect(Book.safeParse(input({ authors: ['Ada', 3] as never })).success).toBe(false)
+    expect(Book.safeParse(input({ subject: 3 as never })).success).toBe(false)
+  })
+
   test('accepts an optional stylesheet and otherwise leaves it absent', () => {
     expect(Book.parse(input()).css).toBeUndefined()
     expect(Book.parse(input({ css: '.lead{color:purple}' })).css).toBe('.lead{color:purple}')
