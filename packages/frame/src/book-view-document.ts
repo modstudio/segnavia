@@ -56,7 +56,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     runningHead: pagination.runningHead,
-    contentsPageNumbers: pagination.contents.pageNumbers,
     parents,
     parentNames: BOOK_PARENT_NAMES,
     folios: { front: folios(pagination.numbering.frontMatter), body: folios(pagination.numbering.body) },

@@ -1,4 +1,11 @@
-import { type FlowingParentNames, flowingParentNames, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, type TextArea } from '@segnavia/format'
+import {
+  type FlowingParentNames,
+  flowingParentNames,
+  PRINTED_PAGE_NUMBER_PATH,
+  PRINTED_PAGE_TOTAL_PATH,
+  resolveDirection,
+  type TextArea,
+} from '@segnavia/format'
 import {
   ABSOLUTE_PX,
   embedFunction,
@@ -7,6 +14,7 @@ import {
   heldPageNumber,
   lengthPx,
   openerPageIndex,
+  PAGE_REFERENCE_SELECTOR,
   pageIndexForTarget,
   paginateScript,
   parseCssLength,
@@ -41,6 +49,16 @@ export function decideBookMeasurement(facts: BookMeasurementFacts, boundMs: numb
 
 export function pixelPhaseOffset(source: number, placed: number): number {
   return source - Math.floor(source) - (placed - Math.floor(placed))
+}
+
+export type PageReferenceFolio = { folio: string } | { refusal: string }
+
+export function pageReferenceFolio(id: string, page: number, folios: string[]): PageReferenceFolio {
+  const folio = folios[page - 1]
+  if (folio !== undefined) return { folio }
+  return {
+    refusal: `page reference target ${id} lands on folio ${page}, beyond the supported folio table; shorten the book to ${folios.length} folios or fewer to clear this refusal`,
+  }
 }
 
 export function flowTextArea(parents: Partial<FlowingParentNames>, areas: Record<string, TextArea>): TextArea {
@@ -78,6 +96,8 @@ ${embedFunction('pageIndexForTarget', pageIndexForTarget)}
 ${embedFunction('parseCssLength', parseCssLength)}
 ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('fitRegionSize', fitRegionSize)}
+${embedFunction('resolveDirection', resolveDirection)}
+${embedFunction('pageReferenceFolio', pageReferenceFolio)}
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
@@ -105,9 +125,12 @@ var noteSeries=function(){var series=[];var nodes=document.querySelectorAll('[da
 var measureInput=function(){var flows=[];var sourceBlocks=0;var nodes=document.querySelectorAll('[data-segnavia-flow]');for(var i=0;i<nodes.length;i++){var flow=measureFlow(nodes[i]);flows.push(flow);sourceBlocks+=flow.sourceBlocks;}var parents={};for(var p=0;p<config.parents.length;p++)parents[config.parents[p].name]=config.parents[p].textArea;return {flows:flows,sourceBlocks:sourceBlocks,notes:measureNotes(),geometry:{notesGap:config.geometry.notesGap,noteSeries:noteSeries()},parents:parents,parentNames:config.parentNames,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}};};
 var folioOf=function(page){var list=config.folios[page.sequence];return list&&list[page.number-1]?list[page.number-1]:String(page.number);};
 var runningHeadOf=function(page,index){if(page.blank||(page.sectionOpening&&page.role!=='body'))return undefined;var recto=index%2===1;var choice=recto?config.runningHead.recto:config.runningHead.verso;if(!choice||choice==='title')return page.runningHead;if(choice.part)return page.parts?page.parts[choice.part]:undefined;var held=page.marks&&page.marks[choice.mark];if(!held)return page.runningHead;return choice.which==='last'?held.last:held.first;};
-var pageForTarget=function(id,pages){var element=document.getElementById(id);if(!element){var missing=pageIndexForTarget(pages,{flow:id});return missing===undefined?'':folioOf(pages[missing]);}var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);var index=pageIndexForTarget(pages,target);return index===undefined?'':folioOf(pages[index]);};
+var pageForTarget=function(id,pages){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var page=pages[index];var result=pageReferenceFolio(id,page.number,config.folios[page.sequence]);if(result.refusal){fail(result.refusal);return '';}return result.folio;};
 var fillPrintedPage=function(root,number,total){var values={'${PRINTED_PAGE_NUMBER_PATH}':number,'${PRINTED_PAGE_TOTAL_PATH}':total};var bindings=root.querySelectorAll('[data-slot-value]');for(var i=0;i<bindings.length;i++){var path=bindings[i].getAttribute('data-slot-value');if(Object.prototype.hasOwnProperty.call(values,path)&&values[path]!==undefined){bindings[i].removeAttribute('data-slot-value');bindings[i].textContent=values[path];if(!bindings[i].hasAttribute('dir'))bindings[i].setAttribute('dir','auto');}}};
-var fillContents=function(pages){if(!config.contentsPageNumbers)return;var nodes=document.querySelectorAll('.segnavia-contents-page[data-target]');for(var i=0;i<nodes.length;i++){var id=nodes[i].getAttribute('data-target');if(id)nodes[i].textContent=pageForTarget(id,pages);}};
+var pageReferences=function(){return document.querySelectorAll('${PAGE_REFERENCE_SELECTOR}');};
+var pageReferenceId=function(node){var href=node.getAttribute('href')||'';return href.charAt(0)==='#'?href.slice(1):href.slice('segnavia:target/'.length);};
+var fillPageReferences=function(pages){var nodes=pageReferences();for(var i=0;i<nodes.length;i++){var id=pageReferenceId(nodes[i]);var folio=pageForTarget(id,pages);nodes[i].textContent=folio;nodes[i].setAttribute('dir',resolveDirection(config.dir,config.lang,folio));}};
+var unsettledPageReferences=function(pages){var nodes=pageReferences();var ids=[];for(var i=0;i<nodes.length;i++){var id=pageReferenceId(nodes[i]);if(nodes[i].textContent!==pageForTarget(id,pages)&&ids.indexOf(id)<0)ids.push(id);}return ids;};
 var mergeParents=function(section,template){if(!section&&!template)return undefined;var roles=['opener','recto','verso','blank','fixed'];var parents={};var any=false;for(var i=0;i<roles.length;i++){var name=(section&&section[roles[i]])||(template&&template[roles[i]]);if(name){parents[roles[i]]=name;any=true;}}return any?parents:undefined;};
 var stripIds=function(clone,original,win,origin){var consider=function(node,source){if(!node.getAttribute('id'))return;var top=source.getBoundingClientRect().top-origin;if(!(top>=win.start&&top<win.end))node.removeAttribute('id');};consider(clone,original);var ids=clone.querySelectorAll('[id]');var sources=original.querySelectorAll('[id]');for(var i=0;i<ids.length;i++){var source=sources[i];if(!source){ids[i].removeAttribute('id');continue;}consider(ids[i],source);}};
 var blockExtent=function(element,origin){var lines=blockLines(element,origin);if(!lines.length){var box=element.getBoundingClientRect();return {top:box.top-origin,bottom:box.bottom-origin};}return {top:lines[0].top,bottom:lines[lines.length-1].bottom};};
@@ -144,25 +167,20 @@ var widthDecision=decideBookMeasurement({frameWidth:document.documentElement.cli
 if(widthDecision==='wait-for-width'){if(visibleStartedAt!==null){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;}return nextAnimationFrame().then(composeWhenMeasurable);}
 if(visibleStartedAt===null)visibleStartedAt=performance.now();
 sizeGalleys();
-var chapterFirstPages=function(pages){var map={};for(var i=0;i<pages.length;i++){var page=pages[i];if(!page.sectionOpening||page.blank)continue;var section=document.querySelector('[data-segnavia-flow="'+page.flow+'"]');var kind=section?flowKind(section):'';if(kind!=='chapter'&&kind!=='part')continue;if(map[page.flow]===undefined)map[page.flow]=page.sequence+':'+page.number;}return map;};
-var sameFirstPages=function(left,right){var keys=Object.keys(left);if(keys.length!==Object.keys(right).length)return false;for(var i=0;i<keys.length;i++)if(left[keys[i]]!==right[keys[i]])return false;return true;};
-var movedFirstPages=function(left,right){var ids=[];for(var id in right)if(left[id]!==right[id])ids.push(id);for(var prior in left)if(!Object.prototype.hasOwnProperty.call(right,prior))ids.push(prior);return ids;};
 var paginateOrFail=function(input){var held=paginateBook(input);if(held.refusals.length){fail(held.refusals[0].message);return null;}return held;};
 var input=measureInput();
 var plan=paginateOrFail(input);
 if(!plan)return;
-fillContents(plan.pages);
-var previous=chapterFirstPages(plan.pages);
+fillPageReferences(plan.pages);
 var settled=false;
 for(var extra=0;extra<3;extra++){
 input=measureInput();
 plan=paginateOrFail(input);
 if(!plan)return;
-var next=chapterFirstPages(plan.pages);
-if(sameFirstPages(previous,next)){settled=true;break;}
-if(extra===2){fail('the first page of '+movedFirstPages(previous,next).join(', ')+' would not settle after filling contents; shorten the contents or use fixed contents lines to clear this refusal');return;}
-fillContents(plan.pages);
-previous=next;
+var moved=unsettledPageReferences(plan.pages);
+if(!moved.length){settled=true;break;}
+if(extra===2){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return;}
+fillPageReferences(plan.pages);
 }
 if(!settled)return;
 var decision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,sourceBlocks:input.sourceBlocks,measuredLines:measuredLineCount(input),plannedPages:plan.pages.length,visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS});

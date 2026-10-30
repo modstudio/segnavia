@@ -20,15 +20,13 @@ export function bookPageStyleComparisons(print: BookPageStyleFacts, screen: Book
 
 export function bookPageStyleFacts(): BookPageStyleFacts {
   const pages = document.querySelector('[data-segnavia-pages]')
-  const transform = pages ? getComputedStyle(pages).transform : 'none'
-  const scale = transform === 'none' ? 1 : Math.abs(new DOMMatrix(transform).a) || 1
   const image = pages?.querySelector('[data-segnavia-window] img,[data-segnavia-page-note] img')
-  const box = image?.getBoundingClientRect()
+  const imageStyle = image ? getComputedStyle(image) : null
   const contents = pages?.querySelector('.segnavia-contents-entry[data-level="2"]')
   const style = contents ? getComputedStyle(contents) : null
-  const rounded = (value: number) => Math.round((value / scale) * 10) / 10
+  const rounded = (value: string) => Math.round(Number.parseFloat(value) * 10) / 10
   return {
-    image: box ? { width: rounded(box.width), height: rounded(box.height) } : null,
+    image: imageStyle ? { width: rounded(imageStyle.width), height: rounded(imageStyle.height) } : null,
     contents: style ? { display: style.display, paddingInlineStart: style.paddingInlineStart } : null,
   }
 }

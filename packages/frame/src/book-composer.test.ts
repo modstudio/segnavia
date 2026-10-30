@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decideBookMeasurement } from './book-composer.ts'
+import { decideBookMeasurement, pageReferenceFolio } from './book-composer.ts'
 
 const facts = { frameWidth: 800, sourceBlocks: 1, measuredLines: 1, plannedPages: 1, visibleElapsedMs: 0 }
 
@@ -21,5 +21,18 @@ describe('decideBookMeasurement', () => {
   test('refuses deferred line measurement or page planning at the bound', () => {
     expect(decideBookMeasurement({ ...facts, measuredLines: 0, visibleElapsedMs: 1_000 }, 1_000)).toBe('refuse')
     expect(decideBookMeasurement({ ...facts, plannedPages: 0, visibleElapsedMs: 1_000 }, 1_000)).toBe('refuse')
+  })
+})
+
+test('refuses a page reference beyond the folio table', () => {
+  expect(
+    pageReferenceFolio(
+      'appendix',
+      501,
+      Array.from({ length: 500 }, (_, index) => String(index + 1)),
+    ),
+  ).toEqual({
+    refusal:
+      'page reference target appendix lands on folio 501, beyond the supported folio table; shorten the book to 500 folios or fewer to clear this refusal',
   })
 })

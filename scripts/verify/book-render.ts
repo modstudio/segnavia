@@ -5,8 +5,11 @@ import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/for
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
+import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
+import { expectedBookLinkPages } from './book-render-links.ts'
+import { compact, decodeXml, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -48,13 +51,13 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
     {
       title: hebrew ? 'פרק ראשון' : 'Chapter One',
       runningHead: runningHeads[0],
-      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
+      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p>B2F-${tag}[<a href="#pdf-front-ref-target" data-ref="page"></a>]</p><p>REF-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
     },
     { title: hebrew ? 'פרק שני' : 'Chapter Two', runningHead: runningHeads[1], html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` },
     {
       title: hebrew ? 'פרק שלישי' : 'Chapter Three',
       runningHead: runningHeads[2],
-      html: `<p>${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
+      html: `<p id="pdf-page-ref-target">${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
     },
   ]
   return {
@@ -68,7 +71,10 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
       page: { paper: 'a5', orientation: 'portrait', margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
       rectoOpenings: true,
       frontMatter: [
-        { title: hebrew ? 'פתיחה' : 'Front', html: `<p>FRONT${tag}</p>` },
+        {
+          title: hebrew ? 'פתיחה' : 'Front',
+          html: `<p id="pdf-front-ref-target">FRONT${tag}</p><p>F2B-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p>`,
+        },
         { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
       ],
       chapters,
@@ -87,10 +93,6 @@ function pagesText(file: string): string[] {
   return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' }).split('\f').slice(0, -1)
 }
 
-function decodeXml(value: string): string {
-  return value.replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'")
-}
-
 function bboxPages(file: string): BboxPage[] {
   const xml = execFileSync('pdftotext', ['-bbox-layout', file, '-'], { encoding: 'utf8' })
   return [...xml.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)].map((page) => ({
@@ -103,10 +105,6 @@ function bboxPages(file: string): BboxPage[] {
       text: decodeXml(word[4] ?? ''),
     })),
   }))
-}
-
-function pageWith(pages: string[], value: string): number {
-  return pages.findIndex((page) => page.includes(value)) + 1
 }
 
 function frontPageCount(fixture: Fixture, pages: string[]): number {
@@ -123,7 +121,6 @@ function contentsNumbers(
   frontSystem: 'arabic' | 'roman-lower',
   bodySystem: 'arabic' | 'hebrew',
 ): boolean {
-  const compact = (value: string) => value.replaceAll(/[\s\u202a-\u202e\u2066-\u2069]/g, '')
   const lines = text.split('\n').map(compact)
   const entries = [
     { text: fixture.frontTitle, number: formatNumber(1, frontSystem) },
@@ -139,15 +136,6 @@ function contentsNumbers(
     const printed = compact(entry.text)
     return lines.some((line) => line.includes(printed) && (line.endsWith(entry.number) || line.startsWith(entry.number)))
   })
-}
-
-function expectedLinkPages(fixture: Fixture, pages: string[], frontPages: number): number[] {
-  const chapterPages = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
-  const endnotes = pageWith(pages, fixture.endnotesTitle)
-  const headings = [pageWith(pages, fixture.frontMarker), ...chapterPages.flatMap((page) => Array.from({ length: 7 }, () => page))]
-  const footnote = chapterPages[0] ?? 0
-  const endnote = chapterPages[2] ?? 0
-  return [...headings, footnote, footnote, endnotes, endnote].sort((left, right) => left - right).map((page) => page || frontPages)
 }
 
 function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPages: number) {
@@ -236,6 +224,16 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
 
   const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, frontPages, frontSystem, bodySystem)
   check(`${fixture.key} contents page numbers match heading destination pages`, numbered)
+  verifyContinuousPageReference(
+    pages,
+    fixture.key,
+    `REF-${fixture.key === 'hebrew' ? 'HE' : 'EN'}`,
+    fixture.chapterMarkers[2] as string,
+    frontPages,
+    frontSystem,
+    bodySystem,
+    check,
+  )
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
@@ -249,7 +247,12 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   ]
   verifyPdfStructure(document, fixture.book, expectedOutline, `${fixture.key} continuous`, check)
   const actualLinks = annotationDestinations(document).sort((left, right) => left - right)
-  const expectedLinks = expectedLinkPages(fixture, pages, frontPages)
+  const expectedLinks = expectedBookLinkPages(
+    fixture.chapterMarkers.map((marker) => pageWith(pages, marker)),
+    pageWith(pages, fixture.frontMarker),
+    pageWith(pages, fixture.endnotesTitle),
+    frontPages,
+  )
   check(
     `${fixture.key} contents and note links resolve to their target pages`,
     JSON.stringify(actualLinks) === JSON.stringify(expectedLinks),
@@ -309,7 +312,7 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
   const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
   const document = await PDFDocument.load(bytes)
   const links = annotationDestinations(document).sort((left, right) => left - right)
-  const expected = [...chapterPages].sort((left, right) => left - right)
+  const expected = [...chapterPages, ...chapterPages].sort((left, right) => left - right)
   check(
     `${key} paginated contents links resolve to each chapter's first page`,
     chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),

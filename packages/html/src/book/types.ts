@@ -35,5 +35,6 @@ export interface BookDocument {
   html: string
   sections: BookSectionInfo[]
   headings: BookHeading[]
+  pageReferenceTargets: string[]
   issues: string[]
 }

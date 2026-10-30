@@ -85,14 +85,12 @@ describe('book document', () => {
   test('fills contents page numbers only when enabled', () => {
     const withNumbers = Book.parse(input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')] }))
     expect(bookDocument(withNumbers, { pageNumbers: { 'segnavia-chapter-1': '7', topic: '8' } }).html).toContain(
-      '<span class="segnavia-contents-page" data-target="topic" dir="ltr">8</span>',
+      '<a class="segnavia-contents-page" href="#topic" data-ref="page" dir="ltr">8</a>',
     )
     const withoutNumbers = Book.parse(
       input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')], contents: { pageNumbers: false } }),
     )
-    expect(bookDocument(withoutNumbers, { pageNumbers: { topic: '8' } }).html).toContain(
-      '<span class="segnavia-contents-page" data-target="topic" dir="ltr"></span>',
-    )
+    expect(bookDocument(withoutNumbers, { pageNumbers: { topic: '8' } }).html).toContain('<span class="segnavia-contents-page"></span>')
   })
 
   test('inserts requested blank pages immediately before their sections', () => {

@@ -19,7 +19,17 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
         { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(book.dir, book.lang, heading.text) },
         [text(heading.text)],
       ),
-      element('span', { class: 'segnavia-contents-page', 'data-target': heading.id, dir: resolveDirection(book.dir, book.lang, page) }, [text(page)]),
+      book.contents.pageNumbers
+        ? element(
+            'a',
+            {
+              class: 'segnavia-contents-page',
+              href: `#${heading.id}`,
+              'data-ref': 'page',
+            },
+            [text(page)],
+          )
+        : element('span', { class: 'segnavia-contents-page' }, []),
     ])
   })
   return element('ol', { class: 'segnavia-contents-list' }, entries)
