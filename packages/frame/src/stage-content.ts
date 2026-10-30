@@ -1,5 +1,5 @@
 import { type Deck, firstStrongDirection, type Slide } from '@segnavia/format'
-import { frameDocument, newNonce } from './bridge.ts'
+import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
@@ -39,7 +39,7 @@ export function stageCanvas(
   if (content.kind === 'html' || content.kind === 'url') {
     const iframe = document.createElement('iframe')
     iframe.className = 'segnavia-stage__frame'
-    iframe.setAttribute('sandbox', 'allow-scripts')
+    iframe.setAttribute('sandbox', frameSandbox(deck.scripts))
     iframe.title = options.frameTitle(deck.title, index + 1)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {

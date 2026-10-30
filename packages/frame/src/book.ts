@@ -1,9 +1,9 @@
-import { BookView, type BookViewInput } from '@segnavia/format'
+import { BookView, type BookViewInput, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { bookFrame } from './book-frame.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
-import { MESSAGE, messageFrom } from './bridge.ts'
+import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
@@ -259,9 +259,9 @@ export class SegnaviaBook extends HTMLElementBase {
     return layout
   }
 
-  private mountFrame(rendered: { title: string; srcdoc: string }, layout: BookLayout | null = null): HTMLIFrameElement {
+  private mountFrame(rendered: { title: string; srcdoc: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
     const iframe = document.createElement('iframe')
-    iframe.setAttribute('sandbox', 'allow-scripts')
+    iframe.setAttribute('sandbox', frameSandbox(rendered.scripts))
     if (layout) iframe.dataset.segnaviaBookLayout = layout
     iframe.title = rendered.title
     iframe.srcdoc = rendered.srcdoc

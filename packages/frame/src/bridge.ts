@@ -70,6 +70,12 @@ export interface FrameOptions {
   printBackground?: boolean
 }
 
+// The sandbox and the document policy fail closed together: only the exact
+// scripted mode admits form events, and no author frame receives same-origin.
+export function frameSandbox(scripts: Scripts | undefined): string {
+  return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
+}
+
 // The bridge is written to run in old engines too: it is the one script that
 // runs inside every author's document. Height is the root element's box,
 // because scrollHeight is never less than the frame's own viewport and a

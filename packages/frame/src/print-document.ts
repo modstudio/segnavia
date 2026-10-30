@@ -18,7 +18,7 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
-import { frameDocument, newNonce } from './bridge.ts'
+import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
@@ -115,12 +115,12 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
   const frame = (html: string) =>
-    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
     case 'url':
-      return `<iframe sandbox="allow-scripts" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+      return `<iframe sandbox="${frameSandbox(deck.scripts)}" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
     case 'image':
       return naturalImage(width, height, escapeHtml(inline(content.src)), content.alt, content.fit ?? deck.fit, content.frame ?? deck.frame)
     case 'shot': {
@@ -253,7 +253,8 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     dependencyOrigins: options.dependencyOrigins,
   })
   return placementBox(
-    (dimensions) => `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
+    (dimensions) =>
+      `<iframe sandbox="${frameSandbox(page.scripts)}" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
     placement,
     layout,
     fit.scale,

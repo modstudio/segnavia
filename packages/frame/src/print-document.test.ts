@@ -380,7 +380,8 @@ describe('printablePages', () => {
       dependencyOrigins: ['https://cdn.jsdelivr.net'],
     })
     expect(refused).toContain('sandbox="allow-scripts"')
-    expect(refused).not.toContain('allow-same-origin')
+    expect(sandboxed).toContain('sandbox="allow-scripts allow-forms"')
+    expect([refused, sandboxed].every((document) => !document.includes('allow-same-origin'))).toBe(true)
     expect(refused).toContain("script-src 'nonce-known'")
     expect(sandboxed).toContain(
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src data: https://cdn.jsdelivr.net; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
@@ -392,7 +393,6 @@ describe('printablePages', () => {
     const html = printablePages([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
     expect(html).toContain('img-src data:')
   })
-
   test('refuses an empty collection', () => {
     expect(() => printablePages([], grid)).toThrow(new RangeError('There is nothing to print. Pass at least one page to clear this refusal.'))
   })

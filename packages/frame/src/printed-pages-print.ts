@@ -1,5 +1,5 @@
 import { type Imposition, impose, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, sheetMm } from '@segnavia/format'
-import { MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
 import { printedPageDocument } from './printed-page-document.ts'
 import { escapeHtml } from './svg.ts'
@@ -16,13 +16,13 @@ function composedFrame(page: Page, index: number, expectedCount: number, options
     expectedCount,
     printBackground: true,
   })
-  return `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
+  return `<iframe sandbox="${frameSandbox('refuse')}" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
 }
 
 function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadlineAt: number): Promise<number> {
   const paper = sheetMm(page.print as NonNullable<Page['print']>)
   const frame = document.createElement('iframe')
-  frame.setAttribute('sandbox', 'allow-scripts')
+  frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
   const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
   return new Promise((resolve, reject) => {

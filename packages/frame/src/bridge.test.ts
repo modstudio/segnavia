@@ -5,6 +5,7 @@ import {
   bridgeForHost,
   type FrameOptions,
   frameDocument,
+  frameSandbox,
   MESSAGE,
   messageFrom,
   newNonce,
@@ -62,6 +63,11 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
 }
 
 describe('frame document', () => {
+  test('sandbox tokens allow forms only for the exact scripted mode and never same-origin', () => {
+    const sandboxes = [frameSandbox('sandboxed'), frameSandbox('refuse'), frameSandbox(undefined)]
+    expect(sandboxes).toEqual(['allow-scripts allow-forms', 'allow-scripts', 'allow-scripts'])
+    expect(sandboxes.every((sandbox) => !sandbox.includes('allow-same-origin'))).toBe(true)
+  })
   test('relays viewer and presentation shortcuts', () => {
     expect(RELAYED_KEYS).toEqual(expect.arrayContaining(['m', 'c', 'f']))
   })

@@ -265,7 +265,10 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    an `srcdoc` frame otherwise resolves `#id` against its parent's URL.
    Under `scripts: 'sandboxed'`, `dependencyOrigins` is the one host-approved
    https-origin policy used by sanitization and by the frame's script, style
-   and font CSP. The sanitizer requires an exact version for static markup on
+   and font CSP. Its frame sandbox adds `allow-forms` so submit events reach
+   author handlers, while `form-action 'none'` blocks real submissions. Refused-script
+   frames omit `allow-forms`; no author frame receives `allow-same-origin`.
+   The sanitizer requires an exact version for static markup on
    known package CDNs, and the render route applies that rule to runtime
    requests. A viewer CSP is origin-granular and cannot pin a runtime import's
    version, so hosts treat an approved origin as trusted for mutable URLs too.

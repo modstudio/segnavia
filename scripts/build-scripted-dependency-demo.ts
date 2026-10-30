@@ -12,12 +12,23 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
     size: { width: 640, height: 430 },
     html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
       body{box-sizing:border-box;margin:0;padding:24px;font:16px "Scripted Demo Fixture",sans-serif;color:#172033}
-      form{display:flex;gap:8px}#chart-rendered{display:flex;align-items:end;gap:5px;height:38px;margin-block:18px}
+      form{display:flex;gap:8px;margin-block:8px}#chart-rendered{display:flex;align-items:end;gap:5px;height:38px;margin-block:18px}
       #chart-rendered i{display:block;width:18px;background:#2563eb}output,p{display:block;margin-block:12px}
     </style>
       <form id="choices"><select id="topic"><option>Reading</option><option>Math</option></select><input id="name" value="Mina"><button type="submit">Show choice</button></form>
-      <output id="submitted">Waiting for a choice</output><div id="chart"></div><p id="storage">Storage waiting</p><p id="fetch">Fetch waiting</p>
+      <output id="submitted">Waiting for a choice</output><form id="blocked-form"><button type="submit">Try blocked form</button></form>
+      <output id="form-blocked">Form waiting</output><div id="chart"></div><p id="storage">Storage waiting</p><p id="fetch">Fetch waiting</p>
       <script src="${SCRIPTED_CHART_URL}"></script><script>
+        window.addEventListener('securitypolicyviolation', function (event) {
+          if (event.effectiveDirective === 'connect-src') {
+            document.getElementById('fetch').dataset.directive = event.effectiveDirective
+            document.getElementById('fetch').textContent = 'Fetch refused by connect-src'
+          }
+          if (event.effectiveDirective === 'form-action') {
+            document.getElementById('form-blocked').dataset.directive = event.effectiveDirective
+            document.getElementById('form-blocked').textContent = 'Form refused by form-action'
+          }
+        })
         if (window.drawFixtureChart) drawFixtureChart(document.getElementById('chart'))
         document.getElementById('choices').addEventListener('submit', function (event) {
           event.preventDefault()
@@ -26,8 +37,9 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
         fetch('https://example.com/').then(function () {
           document.getElementById('fetch').textContent = 'Fetch unexpectedly succeeded'
         }, function () {
-          document.getElementById('fetch').textContent = 'Fetch refused'
+          document.getElementById('fetch').dataset.rejected = 'true'
         })
+        document.getElementById('blocked-form').action = 'https://example.com/form'
         window.addEventListener('load', function () {
           setTimeout(function () {
             var link = document.querySelector('link[rel=stylesheet]')
