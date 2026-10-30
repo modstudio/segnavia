@@ -144,17 +144,11 @@ export type BookViewInput = z.input<typeof BookView>
 const ResolvedBook = BookShape.transform((book) => {
   const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
-  const canonicalItems = (items: unknown) =>
-    JSON.stringify(items, (key, value) => {
-      if (key === 'contents' && value === true) return undefined
-      if (!value || typeof value !== 'object' || Array.isArray(value)) return value
-      return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
-    })
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
     chapters: chapters ?? [],
-    chaptersAndBody: book.body !== undefined && chapters !== undefined && canonicalItems(book.body) !== canonicalItems(chapters),
+    chaptersAndBody: book.body !== undefined && chapters !== undefined,
     numbering: {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),

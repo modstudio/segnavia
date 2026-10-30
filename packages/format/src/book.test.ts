@@ -340,6 +340,7 @@ describe('book', () => {
   test('body replaces legacy chapters and refuses both or an empty part at its tree path', () => {
     const both = Book.safeParse(input({ body: [chapter], chapters: [{ title: 'Other', html: '<p>Other</p>' }] }))
     expect(both.error?.issues.map((issue) => issue.path)).toEqual([['body'], ['chapters']])
+    expect(Book.safeParse(input({ body: [chapter], chapters: [chapter] })).success).toBe(false)
 
     const empty = Book.safeParse(input({ chapters: undefined, body: [{ name: 'part' }] }))
     expect(empty.error?.issues[0]?.path).toEqual(['body', 0])
