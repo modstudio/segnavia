@@ -17,7 +17,7 @@ import type {
 
 export function paginateSequence(
   input: PaginateBookInput,
-  fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number) => PaginatePageFill,
+  fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number, textArea?: string) => PaginatePageFill,
 ): PaginateBookResult {
   function selected(flow: PaginateFlow, opening: boolean, blank: boolean, role: 'body' | 'fixed' | undefined, pageIndex: number, parents = flow.parents) {
     const fact = { blank, sectionOpening: opening, ...(role === undefined ? {} : { role }), ...(parents === undefined ? {} : { parents }) }
@@ -26,20 +26,6 @@ export function paginateSequence(
 
   function pageHeight(parent: string): number {
     return input.parents[parent]?.height ?? 0
-  }
-
-  function openerRefusal(
-    page: PaginatePageFill,
-    opener: boolean,
-    pending: PaginatePageNote[],
-    parent: string,
-    height: number,
-  ): PaginateBookRefusal | undefined {
-    if (!opener || pending.length > 0 || !page.refusal) return undefined
-    return {
-      ...page.refusal,
-      message: page.refusal.message.replace('the text area', `the "${parent}" opener parent's ${height}px text area`),
-    }
   }
 
   function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {
@@ -252,9 +238,8 @@ export function paginateSequence(
     while (index < units.length || pending.length > 0) {
       let planned = selected(flow, opener, false, undefined, physicalOffset + pages.length + 1)
       const height = pageHeight(planned.parent)
-      let page = fillPage(units, index, pending, height)
-      const refused = openerRefusal(page, opener, pending, planned.parent, height)
-      if (refused) return { refusal: refused, pending, carried: nextCarried }
+      const textArea = opener ? `the "${planned.parent}" opener parent's ${height}px text area` : undefined
+      let page = fillPage(units, index, pending, height, textArea)
       const isOpening: boolean = opener && page.placed.length > 0
       if (notesOnlyOpeningPage(page, opener)) {
         planned = selected(flow, isOpening, false, undefined, physicalOffset + pages.length + 1)

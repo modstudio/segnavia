@@ -1,3 +1,4 @@
+import { type FlowingParentNames, flowingParentNames, type TextArea } from '@segnavia/format'
 import {
   ABSOLUTE_PX,
   embedFunction,
@@ -22,8 +23,19 @@ export function pixelPhaseOffset(source: number, placed: number): number {
   return source - Math.floor(source) - (placed - Math.floor(placed))
 }
 
+export function flowTextArea(parents: Partial<FlowingParentNames>, areas: Record<string, TextArea>): TextArea {
+  const names = flowingParentNames(parents)
+  const opener = areas[names.opener]
+  const recto = areas[names.recto]
+  const verso = areas[names.verso]
+  if (!opener || !recto || !verso) throw new Error('A flow parent has no text area.')
+  return { width: opener.width, height: Math.min(opener.height, recto.height, verso.height) }
+}
+
 export function embeddedComposerFunctions(): string {
-  return `${embedFunction('spreadSlots', spreadSlots)}
+  return `${embedFunction('flowingParentNames', flowingParentNames)}
+${embedFunction('flowTextArea', flowTextArea)}
+${embedFunction('spreadSlots', spreadSlots)}
 ${embedFunction('pageScale', pageScale)}
 ${embedFunction('pixelPhaseOffset', pixelPhaseOffset)}
 ${embeddedBookPresentationFunctions()}`
@@ -49,9 +61,10 @@ var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
 var parentByName={};for(var parentIndex=0;parentIndex<config.parents.length;parentIndex++)parentByName[config.parents[parentIndex].name]=config.parents[parentIndex];
+var areaByParentName={};for(var areaIndex=0;areaIndex<config.parents.length;areaIndex++)areaByParentName[config.parents[areaIndex].name]=config.parents[areaIndex].textArea;
 document.documentElement.setAttribute('data-segnavia-parent-margins',JSON.stringify(config.parents.map(function(parent){return {name:parent.name,margin:parent.margin};})));
 var columnWidth=function(columns,textWidth){if(columns<=1)return textWidth;return (textWidth-(columns-1)*config.geometry.columnGap)/columns;};
-var sizeGalleys=function(){var flows=document.querySelectorAll('[data-segnavia-flow]');for(var f=0;f<flows.length;f++){if(flows[f].getAttribute('data-segnavia-kind')==='fixed'||flows[f].getAttribute('data-segnavia-kind')==='templated')continue;var area=config.flowTextAreas[flows[f].getAttribute('data-segnavia-flow')];flows[f].style.inlineSize=area.width+'px';flows[f].style.setProperty('--segnavia-text-height',area.height+'px');flows[f].style.orphans=String(config.orphans);flows[f].style.widows=String(config.widows);var blocks=flows[f].children;for(var b=0;b<blocks.length;b++){var columnsAttr=blocks[b].getAttribute('data-columns');if(columnsAttr){var style=getComputedStyle(blocks[b]);var margins=(parseFloat(style.marginInlineStart)||0)+(parseFloat(style.marginInlineEnd)||0);blocks[b].style.boxSizing='border-box';blocks[b].style.inlineSize=(columnWidth(parseInt(columnsAttr,10),area.width)-margins)+'px';}var refs=blocks[b].querySelectorAll('a[href^="#"]');for(var r=0;r<refs.length;r++){var note=document.querySelector('[data-segnavia-note="'+refs[r].getAttribute('href').slice(1)+'"]');if(note){note.style.inlineSize=area.width+'px';note.style.setProperty('--segnavia-text-height',area.height+'px');}}}}};
+var sizeGalleys=function(){var flows=document.querySelectorAll('[data-segnavia-flow]');for(var f=0;f<flows.length;f++){if(flows[f].getAttribute('data-segnavia-kind')==='fixed'||flows[f].getAttribute('data-segnavia-kind')==='templated')continue;var area=flowTextArea(parentsOf(flows[f])||{},areaByParentName);flows[f].style.inlineSize=area.width+'px';flows[f].style.setProperty('--segnavia-text-height',area.height+'px');flows[f].style.orphans=String(config.orphans);flows[f].style.widows=String(config.widows);var blocks=flows[f].children;for(var b=0;b<blocks.length;b++){var columnsAttr=blocks[b].getAttribute('data-columns');if(columnsAttr){var style=getComputedStyle(blocks[b]);var margins=(parseFloat(style.marginInlineStart)||0)+(parseFloat(style.marginInlineEnd)||0);blocks[b].style.boxSizing='border-box';blocks[b].style.inlineSize=(columnWidth(parseInt(columnsAttr,10),area.width)-margins)+'px';}var refs=blocks[b].querySelectorAll('a[href^="#"]');for(var r=0;r<refs.length;r++){var note=document.querySelector('[data-segnavia-note="'+refs[r].getAttribute('href').slice(1)+'"]');if(note){note.style.inlineSize=area.width+'px';note.style.setProperty('--segnavia-text-height',area.height+'px');}}}}};
 var originTop=function(element){return element.getBoundingClientRect().top;};
 var lineBoxes=function(element,origin){var range=document.createRange();range.selectNodeContents(element);var rects=Array.prototype.slice.call(range.getClientRects());var groups=[];for(var i=0;i<rects.length;i++){var top=rects[i].top-origin;var bottom=rects[i].bottom-origin;var found=null;for(var g=0;g<groups.length;g++){if(Math.abs(groups[g].top-top)<0.5){found=groups[g];break;}}if(!found)groups.push({top:top,bottom:bottom});else if(bottom>found.bottom)found.bottom=bottom;}groups.sort(function(a,b){return a.top-b.top;});return groups;};
 var blockLines=function(element,origin){var tag=element.tagName.toLowerCase();if(tag==='table'){var rows=element.querySelectorAll('tr');var lines=[];for(var r=0;r<rows.length;r++){var box=rows[r].getBoundingClientRect();lines.push({top:box.top-origin,bottom:box.bottom-origin});}return lines;}if(tag==='img'||tag==='figure'){var held=element.getBoundingClientRect();return [{top:held.top-origin,bottom:held.bottom-origin}];}var groups=lineBoxes(element,origin);if(groups.length)return groups;var box=element.getBoundingClientRect();return box.height>0?[{top:box.top-origin,bottom:box.bottom-origin}]:[];};

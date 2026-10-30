@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, PX_PER_MM, resolveDirection } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { pixelPhaseOffset } from './book-composer.ts'
+import { flowTextArea, pixelPhaseOffset } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -40,10 +40,21 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {spreadSlots,pageScale}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale}`)() as {
+      flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
     }
+    expect(
+      embedded.flowTextArea(
+        {},
+        {
+          [BOOK_PARENT_NAMES.opener]: { width: 100, height: 180 },
+          [BOOK_PARENT_NAMES.recto]: { width: 100, height: 160 },
+          [BOOK_PARENT_NAMES.verso]: { width: 100, height: 170 },
+        },
+      ),
+    ).toEqual({ width: 100, height: 160 })
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
   })
@@ -85,21 +96,17 @@ describe('bookDocument', () => {
     }
   })
 
-  test('caps a flow galley at its shortest text-holding parent', () => {
-    const held = Book.parse({
-      title: 'Book',
-      mode: 'paginated',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 15, outer: 10 } },
-      parentPages: [
-        { name: 'tall', margin: { top: 5, bottom: 5, inner: 15, outer: 10 } },
-        { name: 'short&body', margin: { top: 30, bottom: 30, inner: 15, outer: 10 } },
-      ],
-      chapters: [{ title: 'One', html: '<img alt="Tall">', parents: { opener: 'tall', recto: 'short&body', verso: 'short&body' } }],
-    })
-    const html = bookDocument(held, { nonce: 'held' })
-    const area = { width: 123 * PX_PER_MM, height: 150 * PX_PER_MM }
-    expect(html).toContain(`"flowTextAreas":{"segnavia-chapter-1":${JSON.stringify(area)}}`)
-    expect(BOOK_COMPOSER_SCRIPT).toContain('config.flowTextAreas')
+  test('uses a flow width and its shortest text-holding parent height', () => {
+    const areas = {
+      tall: { width: 120, height: 200 },
+      short: { width: 120, height: 150 },
+      [BOOK_PARENT_NAMES.opener]: { width: 100, height: 180 },
+      [BOOK_PARENT_NAMES.recto]: { width: 100, height: 160 },
+      [BOOK_PARENT_NAMES.verso]: { width: 100, height: 170 },
+    }
+
+    expect(flowTextArea({ opener: 'tall', recto: 'short', verso: 'short' }, areas)).toEqual({ width: 120, height: 150 })
+    expect(flowTextArea({}, areas)).toEqual({ width: 100, height: 160 })
   })
 
   test('refuses a continuous book and a document with issues', () => {

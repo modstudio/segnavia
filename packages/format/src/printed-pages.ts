@@ -75,9 +75,9 @@ export interface FlowingParentNames {
 
 export function flowingParentNames(parents?: Partial<FlowingParentNames>): FlowingParentNames {
   return {
-    opener: parents?.opener ?? BOOK_PARENT_NAMES.opener,
-    recto: parents?.recto ?? BOOK_PARENT_NAMES.recto,
-    verso: parents?.verso ?? BOOK_PARENT_NAMES.verso,
+    opener: parents?.opener ?? 'segnavia:opener',
+    recto: parents?.recto ?? 'segnavia:recto',
+    verso: parents?.verso ?? 'segnavia:verso',
   }
 }
 
