@@ -9,10 +9,32 @@ export interface InkImage {
   data: number[]
 }
 
+export interface InkBand {
+  image: InkImage
+  countedRows: { start: number; end: number }
+}
+
 export interface PixelDiff {
   over: number
   lost: number
   extra: number
+}
+
+export function bandHeight(windowHeight: number): number {
+  return Math.max(1, Math.min(INK_BAND_PX, Math.floor(windowHeight)))
+}
+
+export function bandCaptureHeight(windowHeight: number): number {
+  const band = bandHeight(windowHeight)
+  return band + Math.min(INK_NEIGHBORHOOD_PX, Math.max(0, Math.floor(windowHeight) - band))
+}
+
+export function countedBand(image: InkImage, side: 'start' | 'end', countedHeight: number): InkBand {
+  const height = Math.min(countedHeight, image.height)
+  return {
+    image,
+    countedRows: side === 'start' ? { start: 0, end: height } : { start: image.height - height, end: image.height },
+  }
 }
 
 export function isInk(red: number, green: number, blue: number): boolean {
@@ -34,29 +56,31 @@ function nearbyInk(image: InkImage, x: number, y: number): boolean {
   return false
 }
 
-export function presenceDiff(galley: InkImage, composed: InkImage): PixelDiff {
-  const height = Math.min(galley.height, composed.height)
-  const width = Math.min(galley.width, composed.width)
+export function presenceDiff(galley: InkBand, composed: InkBand): PixelDiff {
+  const width = Math.min(galley.image.width, composed.image.width)
   let lost = 0
   let extra = 0
-  for (let y = 0; y < height; y += 1) {
+  for (let y = galley.countedRows.start; y < galley.countedRows.end; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const inGalley = inkAt(galley, x, y)
-      const inPage = inkAt(composed, x, y)
-      if (inGalley && !nearbyInk(composed, x, y)) lost += 1
-      if (inPage && !nearbyInk(galley, x, y)) extra += 1
+      if (inkAt(galley.image, x, y) && !nearbyInk(composed.image, x, y)) lost += 1
+    }
+  }
+  for (let y = composed.countedRows.start; y < composed.countedRows.end; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (inkAt(composed.image, x, y) && !nearbyInk(galley.image, x, y)) extra += 1
     }
   }
   return { over: lost + extra, lost, extra }
 }
 
-export function inkBounds(image: InkImage): { count: number; minX: number; minY: number; maxX: number; maxY: number } {
+export function inkBounds(band: InkBand): { count: number; minX: number; minY: number; maxX: number; maxY: number } {
+  const { image } = band
   let count = 0
   let minX = image.width
   let minY = image.height
   let maxX = -1
   let maxY = -1
-  for (let y = 0; y < image.height; y += 1) {
+  for (let y = band.countedRows.start; y < band.countedRows.end; y += 1) {
     for (let x = 0; x < image.width; x += 1) {
       if (!inkAt(image, x, y)) continue
       count += 1
@@ -69,13 +93,13 @@ export function inkBounds(image: InkImage): { count: number; minX: number; minY:
   return { count, minX, minY, maxX, maxY }
 }
 
-export function inkCount(image: InkImage): number {
-  return inkBounds(image).count
+export function inkCount(band: InkBand): number {
+  return inkBounds(band).count
 }
 
-export function stackImages(top: InkImage, bottom: InkImage): InkImage {
-  const width = Math.min(top.width, bottom.width)
-  const height = top.height + bottom.height
+export function stackImages(top: InkBand, bottom: InkBand): InkBand {
+  const width = Math.min(top.image.width, bottom.image.width)
+  const height = top.image.height + bottom.image.height
   const data = new Array(width * height * 4).fill(255)
   const write = (source: InkImage, y0: number) => {
     for (let y = 0; y < source.height; y += 1) {
@@ -89,7 +113,10 @@ export function stackImages(top: InkImage, bottom: InkImage): InkImage {
       }
     }
   }
-  write(top, 0)
-  write(bottom, top.height)
-  return { width, height, data }
+  write(top.image, 0)
+  write(bottom.image, top.image.height)
+  return {
+    image: { width, height, data },
+    countedRows: { start: top.countedRows.start, end: top.image.height + bottom.countedRows.end },
+  }
 }
