@@ -80,7 +80,7 @@ test('ignores a verso-opening story claimed into a title block', () => {
   const report = new ReportCollector()
   const book = modelToBook(model(pages, [header, body]), report)
 
-  expect(book.chapters.map((chapter) => chapter.title)).toEqual(['body'])
+  expect(book.body.map((chapter) => chapter.title)).toEqual(['body'])
   expect(book.rectoOpenings).toBe(true)
   expect(report.data().versoOpenings).toEqual({})
 })
@@ -107,7 +107,7 @@ test('ignores a page-less chapter when located chapters open on rectos', () => {
   const report = new ReportCollector()
   const book = modelToBook(model([{ id: 'recto-page', stories: ['located'], side: 'right' }], [story('located'), story('page-less')]), report)
 
-  expect(book.chapters.map((chapter) => chapter.title)).toEqual(['located', 'page-less'])
+  expect(book.body.map((chapter) => chapter.title)).toEqual(['located', 'page-less'])
   expect(book.rectoOpenings).toBe(true)
   expect(report.data().versoOpenings).toEqual({})
 })

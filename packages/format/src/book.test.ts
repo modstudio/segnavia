@@ -201,8 +201,8 @@ describe('book', () => {
         chapters: [designed, chapter],
       }),
     )
-    const first = book.chapters[0]
-    const second = book.chapters[1]
+    const first = book.body[0]
+    const second = book.body[1]
     expect(first !== undefined && isDesignedSection(first)).toBe(true)
     expect(first).toMatchObject({ kind: 'designed', title: 'Spread', opens: 'verso', contents: true, pages: designed.pages })
     expect(second !== undefined && isDesignedSection(second)).toBe(false)
@@ -277,7 +277,7 @@ describe('book', () => {
         chapters: [templated, chapter],
       }),
     )
-    const first = book.chapters[0]
+    const first = book.body[0]
     expect(first !== undefined && isTemplatedSection(first)).toBe(true)
     expect(first).toMatchObject({ kind: 'templated', title: 'Lessons', template: 'lesson', contents: true, pages: templated.pages })
     expect(book.slots).toEqual([{ key: 'school', label: 'School', type: 'text', required: true, overflow: 'wrap' }])

@@ -111,7 +111,6 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
     ...book,
     frontMatter: mapBookItems(book.frontMatter, prepared.apply),
     body: mapBookItems(book.body, prepared.apply),
-    chapters: mapBookItems(book.body, prepared.apply) as BookChapterEntry[],
     endMatter: mapBookItems(book.endMatter, prepared.apply),
     templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
   }

@@ -14,7 +14,7 @@ describe('bookSections', () => {
     expect(sections.map(({ entry: _entry, ...section }) => section)).toEqual([
       { division: 'front', ancestry: [], depth: 0, path: ['frontMatter', 0] },
       { division: 'front', ancestry: [], depth: 0, path: ['frontMatter', 1] },
-      { division: 'body', ancestry: [], depth: 0, path: ['chapters', 0] },
+      { division: 'body', ancestry: [], depth: 0, path: ['body', 0] },
     ])
     expect(sections.map(({ entry }) => entry)).toEqual([...book.frontMatter, ...book.body])
   })

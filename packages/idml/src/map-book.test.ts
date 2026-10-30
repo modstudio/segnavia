@@ -56,8 +56,8 @@ test('maps document setup and orders placeholder chapters by first page', () => 
   expect(book.page?.columnGap).toBeCloseTo(12 * (25.4 / 72))
   expect(report.data().unsupportedElements['differing body frame gutters']).toBe(2)
   expect(report.data().locations['element:differing body frame gutters']).toEqual(['frame-10-a', 'frame-14'])
-  expect(book.chapters.map((chapter) => chapter.title)).toEqual(['later', 'earlier'])
-  expect(book.chapters[0]).toMatchObject({ html: '<p><br></p>' })
+  expect(book.body.map((chapter) => chapter.title)).toEqual(['later', 'earlier'])
+  expect(book.body[0]).toMatchObject({ html: '<p><br></p>' })
 })
 
 test('maps left binding, asymmetric margins, and non-facing pages', () => {
@@ -178,11 +178,11 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   expect(book.css).toContain(
     ':where(.idml-master-frame-3){position:absolute;inset-inline-start:9.525mm;inline-size:7.055556mm;inset-block-start:1.058333mm;block-size:1.763889mm}',
   )
-  const firstHtml = book.chapters[0] && 'html' in book.chapters[0] ? book.chapters[0].html : ''
+  const firstHtml = book.body[0] && 'html' in book.body[0] ? book.body[0].html : ''
   expect(firstHtml).toContain('<span data-mark="Siman"><span class="idml-c-mark">Whole </span>')
   expect(firstHtml).toContain('>run</span></span>')
-  expect(book.chapters[0]?.parents).toEqual({ opener: 'idml-h-haggadah-recto', recto: 'idml-h-haggadah-recto', verso: 'idml-h-haggadah-verso' })
-  expect(book.chapters[1]?.parents).toEqual({ opener: 'idml-none' })
+  expect(book.body[0]?.parents).toEqual({ opener: 'idml-h-haggadah-recto', recto: 'idml-h-haggadah-recto', verso: 'idml-h-haggadah-verso' })
+  expect(book.body[1]?.parents).toEqual({ opener: 'idml-none' })
   expect(report.data().locations['element:master TextFrame']).toEqual(['H-Haggadah#body-frame'])
   expect(report.data().locations['element:master Rectangle']).toEqual(['H-Haggadah#rect'])
   expect(report.data().unsupportedElements['master story']).toBe(1)
@@ -250,7 +250,7 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:8.819444mm;inline-size:3.527778mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
   expect(book.page?.margin).toEqual({ top: 5 * (25.4 / 72), bottom: 10 * (25.4 / 72), inner: 15 * (25.4 / 72), outer: 20 * (25.4 / 72) })
-  expect(book.chapters[0]?.parents).toEqual({ opener: 'idml-a-master-recto', verso: 'idml-a-master-recto' })
+  expect(book.body[0]?.parents).toEqual({ opener: 'idml-a-master-recto', verso: 'idml-a-master-recto' })
 })
 
 test('emits an unapplied base master and preserves its inheritance', () => {
@@ -314,7 +314,7 @@ test('reports extra master pages and unknown applied masters by location', () =>
     partsRead: [],
   }
   const book = modelToBook(model, report)
-  expect(book.chapters[0]?.parents).toEqual({ opener: 'segnavia:recto' })
+  expect(book.body[0]?.parents).toEqual({ opener: 'segnavia:recto' })
   expect(report.data().locations['element:applied master unknown:missing']).toEqual(['body-page'])
 
   const target = model.spreads[0]?.pages[0]

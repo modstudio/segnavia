@@ -268,10 +268,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   })
 })
 
-export const Book = RefinedBook.transform(
-  ({ chaptersAndBody: _chaptersAndBody, chapters, ...book }) =>
-    Object.defineProperty(book, 'chapters', { value: chapters, enumerable: false }) as typeof book & { chapters: typeof chapters },
-)
+export const Book = RefinedBook.transform(({ chaptersAndBody: _chaptersAndBody, chapters: _chapters, ...book }) => book)
 export type Book = z.infer<typeof Book>
 export type BookInput = z.input<typeof Book>
 

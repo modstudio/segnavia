@@ -27,9 +27,9 @@ test('filledBook applies host values to chapters, designed pages, templates and 
   })
   const filled = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
   expect(filled.templates[0]?.html).toContain('Lincoln School')
-  const designed = filled.chapters[0]
-  const templated = filled.chapters[1]
-  const chapter = filled.chapters[2]
+  const designed = filled.body[0]
+  const templated = filled.body[1]
+  const chapter = filled.body[2]
   expect(designed !== undefined && isDesignedSection(designed) && designed.pages[0]?.html).toContain('Lincoln School')
   expect(templated !== undefined && isTemplatedSection(templated) && templated.pages[0]?.regions.heading).toContain('Lincoln School')
   expect(chapter !== undefined && 'html' in chapter && chapter.html).toContain('Lincoln School')
@@ -61,7 +61,7 @@ test('a refuse-overflow key bound in two chapters is marked once per book docume
   })
   const fill = { fill: { id: 'host', values: { school: 'Lincoln School' } } }
   const filled = await filledBook(book, fill)
-  const chapters = book.chapters.flatMap((entry) => ('html' in entry ? [entry.html] : []))
+  const chapters = book.body.flatMap((entry) => ('html' in entry ? [entry.html] : []))
   const once = await prepareSlots(book.slots, fill)
   once.apply(chapters.join(''))
   expect([...(preparedSlotsFor(filled)?.marked ?? [])]).toEqual([...once.marked])
