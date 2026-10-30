@@ -366,5 +366,5 @@ export function jsonSchemas() {
   }
 }
 
+export { type DependencyDecision, dependencyDecision, dependencyOriginSet } from './dependency-policy.ts'
 export * from './slots.ts'
-export { dependencyDecision, dependencyOriginSet, type DependencyDecision } from './dependency-policy.ts'

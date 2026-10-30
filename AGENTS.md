@@ -112,7 +112,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   is exactly `pages` or `flow` and `place` is absent or obeys that same bound.
   Slot fit is safe because filled items refuse author scripts, leaving only
   the nonce-authorized bridge able to post from a filled frame.
-- Rendering is offline. Never let a render reach the network.
+- Rendering is offline: Chromium never reaches the network. A scripted document's approved dependencies are answered from the host's cache, and anything else is refused.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.
 

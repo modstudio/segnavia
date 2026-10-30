@@ -63,6 +63,7 @@ export {
 } from './renderer.ts'
 export { filledBook }
 
+const dependencySetup = (options: RenderOptions) => ({ dependencyOrigins: options.dependencyOrigins, dependencies: options.dependencies })
 const FLUID_WIDTH = 1024
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -176,6 +177,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
+        ...dependencySetup(opts),
       },
       async (tab) => {
         await awaitPrintedPageComposition(tab, page)
@@ -226,6 +228,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
+        ...dependencySetup(opts),
       },
       (tab) =>
         pdfWithBackdropRasters(
@@ -293,6 +296,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,
+            ...dependencySetup(opts),
           },
           async (tab) => {
             await awaitPrintedPageComposition(tab, page)
@@ -370,6 +374,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,
+            ...dependencySetup(opts),
           },
           async (tab) => proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts),
         )

@@ -90,7 +90,8 @@ describe('sanitize', () => {
   })
 
   test('scripted pages keep controls but never form destinations', () => {
-    const controls = '<form action="/send"><input><button formaction="/other">Send</button><select><option>One</option></select><textarea>Text</textarea></form>'
+    const controls =
+      '<form action="/send"><input><button formaction="/other">Send</button><select><option>One</option></select><textarea>Text</textarea></form>'
     expect(findActiveContent(controls)).toEqual(['<form>', 'form[action]', '<input>', '<button>', 'button[formaction]', '<select>', '<textarea>'])
     expect(sanitize(controls)).toBe('')
     expect(findActiveContent(controls, { keepScripts: true })).toEqual(['form[action]', 'button[formaction]'])

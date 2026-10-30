@@ -376,19 +376,18 @@ describe('printablePages', () => {
     expect(html).toContain(`width:600px;height:${(placement.trim.height * (96 / 25.4)) / fit.scale}px`)
     expect(html).toContain(`left:${placement.trim.x - placement.bleedBox.x}mm;top:${placement.trim.y - placement.bleedBox.y}mm`)
   })
-
   test('sandboxes every frame and applies the policy for its script mode', () => {
     const refused = printablePages([fluid], grid, { nonce: 'known' })
     const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, { nonce: 'known' })
     expect(refused).toContain('sandbox="allow-scripts"')
     expect(refused).not.toContain('allow-same-origin')
     expect(refused).toContain("script-src 'nonce-known'")
-    expect(sandboxed).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
-    expect(sandboxed).toContain("connect-src 'none'")
+    expect(sandboxed).toContain(
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; media-src data: blob:; connect-src 'none'",
+    )
     expect(refused).not.toContain('var printAt=')
     expect(refused).not.toContain('dispatchPrint()')
   })
-
   test('adds extra content security policy directives when supplied', () => {
     const html = printablePages([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
     expect(html).toContain('img-src data:')

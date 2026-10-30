@@ -2,8 +2,8 @@
 // in a document that a viewer renders and a renderer prints. One rule for
 // both, so a preview never shows what the printed copy refuses.
 
-import render from 'dom-serializer'
 import { dependencyDecision } from '@segnavia/format'
+import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
 import { sanitizeCss } from './sanitize-css.ts'
@@ -125,7 +125,8 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, keepScri
 function dependencyAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): string | undefined {
   if (!options.keepScripts) return undefined
   const tag = element.name.toLowerCase()
-  if (!((tag === 'script' && attribute === 'src') || (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href'))) return undefined
+  if (!((tag === 'script' && attribute === 'src') || (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href')))
+    return undefined
   const decision = dependencyDecision(value, options.dependencyOrigins)
   return decision.allowed ? '' : decision.reason
 }

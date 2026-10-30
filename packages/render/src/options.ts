@@ -54,6 +54,7 @@ export interface RenderLimits {
 
 export interface RenderOptions {
   dependencyOrigins?: Iterable<string>
+  dependencies?: (url: string) => Promise<{ body: Uint8Array; contentType: string } | undefined>
   css?: string
   fonts?: Font[]
   fontSource?: FontSource

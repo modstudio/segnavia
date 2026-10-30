@@ -32,6 +32,8 @@ interface TabSetup {
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
+  dependencyOrigins?: Iterable<string>
+  dependencies?: RenderOptions['dependencies']
 }
 
 export interface BrowserBookDependencies {
@@ -91,6 +93,8 @@ function printBook(
             await renderOptions.beforeOutput?.(tab)
           }
         : renderOptions.beforeOutput,
+      dependencyOrigins: renderOptions.dependencyOrigins,
+      dependencies: renderOptions.dependencies,
     },
     {
       ...pagePdfSize(size),
