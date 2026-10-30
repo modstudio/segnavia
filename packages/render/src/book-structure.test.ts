@@ -16,7 +16,7 @@ describe('book outline policy', () => {
       { id: 'two', level: 1, text: 'Two', sectionId: 'two' },
     ]
     const destinations = new Map(headings.map((heading, index) => [heading.id, at(index + 1)]))
-    expect(bookOutline(headings, destinations, {})).toEqual([
+    expect(bookOutline(headings, destinations)).toEqual([
       {
         id: 'one',
         title: 'One',
@@ -30,6 +30,10 @@ describe('book outline policy', () => {
     ])
   })
 
+  test('keeps a Hebrew title unmarked in the pure outline tree', () => {
+    expect(bookOutline([{ id: 'one', level: 1, text: 'Introduction שלום', sectionId: 'one' }], new Map([['one', at(1)]]))[0]?.title).toBe('Introduction שלום')
+  })
+
   test('uses contents depth and excludes opted-out headings', () => {
     const book = Book.parse({
       title: 'Book',
@@ -40,11 +44,11 @@ describe('book outline policy', () => {
     const built = bookDocument(book)
     expect(built.headings.map((heading) => heading.id)).toEqual(['segnavia-chapter-1', 'kept'])
     const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
-    expect(bookOutline(built.headings, destinations, book)[0]?.children.map((item) => item.id)).toEqual(['kept'])
+    expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['kept'])
   })
 
   test('refuses a heading without a printed destination and names its id', () => {
-    expect(() => bookOutline([{ id: 'missing', level: 1, text: 'Missing', sectionId: 'one' }], new Map(), {})).toThrow(
+    expect(() => bookOutline([{ id: 'missing', level: 1, text: 'Missing', sectionId: 'one' }], new Map())).toThrow(
       'The heading missing has no printed destination.',
     )
   })
@@ -63,6 +67,8 @@ test('direction marks appear only when natural and resolved directions differ', 
   expect(outlineTitle('Introduction שלום', undefined, 'he')).toBe('\u200fIntroduction שלום')
   expect(outlineTitle('שלום', undefined, 'en')).toBe('\u200eשלום')
   expect(outlineTitle('Introduction', undefined, 'en')).toBe('Introduction')
+  expect(outlineTitle('1948', undefined, 'he')).toBe('\u200f1948')
+  expect(outlineTitle('1948', undefined, 'en')).toBe('1948')
 })
 
 test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', async () => {
@@ -86,7 +92,6 @@ test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', a
       ['chapter', at(1)],
       ['topic', at(1)],
     ]),
-    offset: 0,
   })
   const resolve = (value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
   const outlines = resolve(document.catalog.get(PDFName.of('Outlines'))) as PDFDict

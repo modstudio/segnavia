@@ -6,6 +6,7 @@ import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
+import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -334,6 +335,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)
+  await verifyPaginatedBookWithoutContents(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
   const book = {

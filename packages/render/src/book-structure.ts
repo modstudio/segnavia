@@ -4,12 +4,7 @@ import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type 
 import { type BookDestination, explicit } from './book-destinations.ts'
 import { RenderRefusedError } from './errors.ts'
 
-export interface BookMetadata {
-  title: string
-  authors?: string[]
-  subject?: string
-  lang?: string
-}
+export type BookMetadata = Pick<Book, 'title' | 'authors' | 'subject' | 'lang'>
 
 export interface BookOutlineItem {
   id: string
@@ -19,8 +14,8 @@ export interface BookOutlineItem {
 }
 
 function markedTitle(title: string, direction: 'ltr' | 'rtl'): string {
-  const natural = firstStrongDirection(title)
-  if (!natural || natural === direction) return title
+  const natural = firstStrongDirection(title) ?? 'ltr'
+  if (natural === direction) return title
   return `${direction === 'rtl' ? '\u200f' : '\u200e'}${title}`
 }
 
@@ -28,7 +23,7 @@ export function outlineTitle(title: string, dir: Book['dir'], lang: Book['lang']
   return markedTitle(title, resolveDirection(dir, lang, title))
 }
 
-export function bookOutline(headings: BookHeading[], destinations: Map<string, BookDestination>, direction: Pick<Book, 'dir' | 'lang'>): BookOutlineItem[] {
+export function bookOutline(headings: BookHeading[], destinations: Map<string, BookDestination>): BookOutlineItem[] {
   const roots: BookOutlineItem[] = []
   const stack: Array<{ level: number; item: BookOutlineItem }> = []
   for (const heading of headings) {
@@ -36,7 +31,7 @@ export function bookOutline(headings: BookHeading[], destinations: Map<string, B
     if (!destination) throw new RenderRefusedError(`The heading ${heading.id} has no printed destination.`)
     const item: BookOutlineItem = {
       id: heading.id,
-      title: outlineTitle(heading.text, direction.dir, direction.lang),
+      title: heading.text,
       destination,
       children: [],
     }
@@ -72,20 +67,25 @@ function descendantCount(item: BookOutlineItem): number {
   return item.children.reduce((count, child) => count + 1 + descendantCount(child), 0)
 }
 
-function writeSiblings(document: PDFDocument, items: BookOutlineItem[], parent: PDFRef, offset: number): { first: PDFRef; last: PDFRef } {
+function writeSiblings(
+  document: PDFDocument,
+  items: BookOutlineItem[],
+  parent: PDFRef,
+  direction: Pick<Book, 'dir' | 'lang'>,
+): { first: PDFRef; last: PDFRef } {
   const dictionaries = items.map(() => document.context.obj({}))
   const references = dictionaries.map((dictionary) => document.context.register(dictionary))
   items.forEach((item, index) => {
     const dictionary = dictionaries[index] as PDFDict
-    dictionary.set(key('Title'), PDFHexString.fromText(item.title))
+    dictionary.set(key('Title'), PDFHexString.fromText(outlineTitle(item.title, direction.dir, direction.lang)))
     dictionary.set(key('Parent'), parent)
-    dictionary.set(key('Dest'), explicit(document, item.destination, offset))
+    dictionary.set(key('Dest'), explicit(document, item.destination, 0))
     const previous = references[index - 1]
     const next = references[index + 1]
     if (previous) dictionary.set(key('Prev'), previous)
     if (next) dictionary.set(key('Next'), next)
     if (item.children.length > 0) {
-      const children = writeSiblings(document, item.children, references[index] as PDFRef, offset)
+      const children = writeSiblings(document, item.children, references[index] as PDFRef, direction)
       dictionary.set(key('First'), children.first)
       dictionary.set(key('Last'), children.last)
       dictionary.set(key('Count'), PDFNumber.of(-descendantCount(item)))
@@ -94,11 +94,8 @@ function writeSiblings(document: PDFDocument, items: BookOutlineItem[], parent: 
   return { first: references[0] as PDFRef, last: references.at(-1) as PDFRef }
 }
 
-export function writeBookStructure(
-  document: PDFDocument,
-  input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; offset: number; book: Book },
-): void {
-  const metadata: BookMetadata = { title: input.book.title, authors: input.book.authors, subject: input.book.subject, lang: input.book.lang }
+export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
+  const metadata = input.book
   document.setTitle(metadata.title)
   if (metadata.authors) document.setAuthor(metadata.authors.join('; '))
   if (metadata.subject !== undefined) document.setSubject(metadata.subject)
@@ -106,11 +103,11 @@ export function writeBookStructure(
   const xmp = document.context.stream(new TextEncoder().encode(bookXmp(metadata)), { Type: 'Metadata', Subtype: 'XML' })
   document.catalog.set(key('Metadata'), document.context.register(xmp))
 
-  const outline = bookOutline(input.headings, input.destinations, input.book)
+  const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return
   const root = document.context.obj({ Type: 'Outlines' })
   const rootReference = document.context.register(root)
-  const siblings = writeSiblings(document, outline, rootReference, input.offset)
+  const siblings = writeSiblings(document, outline, rootReference, input.book)
   root.set(key('First'), siblings.first)
   root.set(key('Last'), siblings.last)
   root.set(key('Count'), PDFNumber.of(outline.length))

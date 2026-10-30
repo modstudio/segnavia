@@ -140,7 +140,7 @@ function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
   return element(
     'div',
     { class: 'segnavia-targets', 'aria-hidden': 'true' },
-    [...new Set(ids)].map((id) => element('a', { href: `#${id}` }, [text('\u200b')])),
+    [...new Set(ids)].map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
   )
 }
 

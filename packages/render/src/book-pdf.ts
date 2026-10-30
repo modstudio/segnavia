@@ -1,7 +1,7 @@
 import { Book, type BookInput, bookParentPages, formatNumber, resolveDirection, sheetMm } from '@segnavia/format'
 import { type BookDocument, type BookHeading, type BookPageFacts, type BookSectionInfo, bookDocument, bookPrintPart, planBookPages } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
-import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
+import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -206,9 +206,7 @@ async function join(book: Book, headings: BookHeading[], front: PrintedPart, bod
     if (embedded) output.getPage(index).drawPage(embedded, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
   }
   rewriteBookLinks(output, front.pages, front.destinations, body.destinations)
-  const destinations = new Map(front.destinations)
-  for (const [id, target] of body.destinations) destinations.set(id, { ...target, page: target.page + front.pages })
-  writeBookStructure(output, { book, headings, destinations, offset: 0 })
+  writeBookStructure(output, { book, headings, destinations: joinedDestinations(front, body) })
   return output.save()
 }
 
@@ -220,7 +218,7 @@ async function renderPaginatedBookPdf(book: Book, options: RenderOptions, adapte
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations, offset: 0 })
+  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations })
   const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
