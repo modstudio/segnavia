@@ -360,7 +360,6 @@ async function verifyWorkbooks(h: Harness) {
     })
     const minPx = 48 * PX_PER_PT
     const maxPx = 75 * PX_PER_PT
-    check(`${id} 75pt lesson text fits between min and max`, fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow, JSON.stringify(fit))
     check(
       `${id} a region of bare overflowing text fits between min and max`,
       fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
