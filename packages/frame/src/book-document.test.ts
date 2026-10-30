@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { BOOK_MEASUREMENT_WAIT_MS, decideBookMeasurement, flowTextArea, pixelPhaseOffset } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
@@ -79,6 +79,9 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')
+    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
+    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')
     expect(BOOK_COMPOSER_SCRIPT).toContain("flows[f].style.setProperty('--segnavia-text-height',area.height+'px')")
     expect(BOOK_COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")

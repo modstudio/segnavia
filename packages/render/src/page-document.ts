@@ -64,10 +64,11 @@ export async function renderOptionsWithBookFonts(
   input: BookInput,
   options: RenderOptions,
   signal: AbortSignal,
+  motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string }> {
   const book = Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
-  const references = book.fonts ?? []
+  const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
   const local = localFontsForRender(options.localFonts, references)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)

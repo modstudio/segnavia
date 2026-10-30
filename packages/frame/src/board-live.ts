@@ -89,6 +89,7 @@ export function liveBoardItem(
     else failed(error)
   }
   book.addEventListener('error', onError)
+  book.motifs = motifs
   book.fonts = fonts
   book.view = { ...resolved.view, scripts: 'refuse' }
   mounting = false

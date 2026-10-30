@@ -18,9 +18,10 @@ export interface RendererOptions {
 }
 
 export type PagePdfOptions = RenderOptions & { motifs?: MotifsOptions }
+export type BookPdfOptions = RenderOptions & { motifs?: MotifsOptions }
 
 export interface Renderer {
-  bookPdf(book: BookInput, options?: RenderOptions): Promise<Uint8Array>
+  bookPdf(book: BookInput, options?: BookPdfOptions): Promise<Uint8Array>
   pagePdf(page: PageInput, options?: PagePdfOptions): Promise<Uint8Array>
   pagesPdf(pages: PageInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>

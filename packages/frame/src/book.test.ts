@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { bookFrame, SegnaviaBook } from './book.ts'
+import { SegnaviaBook } from './book.ts'
+import { bookFrame } from './book-frame.ts'
 import { reflectedBookElement } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
@@ -280,8 +281,7 @@ describe('book fonts', () => {
     expect(frames).toHaveLength(0)
     connected = true
     book.connectedCallback()
-    await Promise.resolve()
-    await Promise.resolve()
+    for (let i = 0; i < 8; i += 1) await Promise.resolve()
     globalThis.document = previousDocument
     globalThis.window = previousWindow
     expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')
@@ -317,8 +317,7 @@ describe('book fonts', () => {
       },
     }
     book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
-    await Promise.resolve()
-    await Promise.resolve()
+    for (let i = 0; i < 8; i += 1) await Promise.resolve()
     globalThis.document = previous
     expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')
@@ -341,7 +340,7 @@ describe('book fonts', () => {
     })
   })
 
-  test('named app fonts without a FontSource surface through the error event', () => {
+  test('named app fonts without a FontSource surface through the error event', async () => {
     const book = new SegnaviaBook()
     let detail: unknown
     book.dispatchEvent = ((event: Event) => {
@@ -349,12 +348,13 @@ describe('book fonts', () => {
       return true
     }) as typeof book.dispatchEvent
     book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
     })
   })
 
-  test('a local font fallback without a FontSource surfaces through the error event', () => {
+  test('a local font fallback without a FontSource surfaces through the error event', async () => {
     const book = new SegnaviaBook()
     let detail: unknown
     book.dispatchEvent = ((event: Event) => {
@@ -362,6 +362,7 @@ describe('book fonts', () => {
       return true
     }) as typeof book.dispatchEvent
     book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ local: 'Local Face', fallback: 'serif' }] }
+    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
     })

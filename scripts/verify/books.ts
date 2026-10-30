@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
+import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
@@ -72,6 +73,7 @@ export async function verifyBooks(h: Harness) {
 
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
+    await verifyContinuousBookMotif(h, id)
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -107,6 +109,7 @@ export async function verifyBooks(h: Harness) {
     messages.join(','),
   )
 
+  await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
   await verifyPartsBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
