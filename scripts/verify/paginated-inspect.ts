@@ -296,7 +296,7 @@ export function inspectPaginatedBook(): PaginatedReport {
         '[data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-3"], [data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-4"]',
       ),
     ).map((page) => page.querySelector('.segnavia-running-head')?.textContent?.trim() ?? '')
-    const expected = document.documentElement.getAttribute('lang') === 'he' ? 'חלק שני' : 'Part Two'
+    const expected = document.documentElement.getAttribute('lang') === 'he' ? 'סימן ב' : 'Mark B'
     const marked = heads.filter((head) => head === expected)
     return {
       fromMark: marked.length > 0,

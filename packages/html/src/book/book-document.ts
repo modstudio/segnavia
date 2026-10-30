@@ -31,7 +31,7 @@ import {
   templateRegionIssues,
 } from './book-held.ts'
 import { duplicateIdIssues, reservedIdIssues } from './book-issues.ts'
-import { addPart, attachPendingParts } from './book-part-build.ts'
+import { addPart, attachPendingPartHeadings } from './book-part-build.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
@@ -182,7 +182,7 @@ export interface DocumentBuild {
   templatedNumber: number
   chapterNumber: number
   heldNotesOwner: number
-  pendingPartIds: string[]
+  pendingPartHeadings: Array<Pick<BookHeading, 'level' | 'depth' | 'text'>>
 }
 
 function decorateSection(sectionEntry: ReturnType<typeof bookSections>[number], build: DocumentBuild): void {
@@ -192,7 +192,7 @@ function decorateSection(sectionEntry: ReturnType<typeof bookSections>[number], 
   if (sectionEntry.ancestry.length > 0) {
     section.node.attribs['data-segnavia-parts'] = JSON.stringify(Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? ''])))
   }
-  attachPendingParts(build)
+  attachPendingPartHeadings(build, section.info.id)
 }
 
 function takeHeldNotesOwner(build: DocumentBuild): number {
@@ -347,7 +347,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     templatedNumber: 0,
     chapterNumber: 0,
     heldNotesOwner: 0,
-    pendingPartIds: [],
+    pendingPartHeadings: [],
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)

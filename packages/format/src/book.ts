@@ -8,6 +8,7 @@ import {
   isBookContents,
   isDesignedSection,
   isTemplatedSection,
+  REGION_NAME,
 } from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
@@ -62,7 +63,7 @@ export type BookPage = z.infer<typeof BookPage>
 export const BookRunningHeadSource = z.union([
   z.literal('title'),
   z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) }),
-  z.object({ part: z.string().regex(/^[A-Za-z][\w-]*$/) }),
+  z.object({ part: z.string().regex(REGION_NAME) }),
 ])
 export type BookRunningHeadSource = z.infer<typeof BookRunningHeadSource>
 
@@ -256,7 +257,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     const label = flow.title ?? `flow ${index + 1}`
     ctx.addIssue({
       code: 'custom',
-      path: [path[0] ?? 'body'],
+      path,
       message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
     })
   })

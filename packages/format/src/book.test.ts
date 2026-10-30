@@ -345,4 +345,17 @@ describe('book', () => {
     const empty = Book.safeParse(input({ chapters: undefined, body: [{ name: 'part' }] }))
     expect(empty.error?.issues[0]?.path).toEqual(['body', 0])
   })
+
+  test('a nested flow-width refusal reports the section full tree path', () => {
+    const result = Book.safeParse(
+      input({
+        mode: 'paginated',
+        page,
+        parentPages: [{ name: 'narrow', basedOn: 'segnavia:recto', margin: { top: 10, bottom: 10, inner: 30, outer: 10 } }],
+        chapters: undefined,
+        body: [{ name: 'part', children: [{ title: 'Nested', html: '<p>Text</p>', parents: { recto: 'narrow' } }] }],
+      }),
+    )
+    expect(result.error?.issues.find((issue) => issue.message.includes('different text widths'))?.path).toEqual(['body', 0, 'children', 0])
+  })
 })

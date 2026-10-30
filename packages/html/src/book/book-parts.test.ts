@@ -25,14 +25,14 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
     { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body' },
     { id: 'segnavia-chapter-2', kind: 'chapter', division: 'end' },
   ])
-  expect(result.headings.map(({ text, level, depth }) => ({ text, level, depth }))).toEqual([
-    { text: 'Outer', level: 1, depth: 0 },
-    { text: 'Inner', level: 1, depth: 1 },
-    { text: 'One', level: 1, depth: 2 },
-    { text: 'Topic', level: 2, depth: 2 },
-    { text: 'Appendix', level: 1, depth: 0 },
-    { text: 'After', level: 1, depth: 1 },
+  expect(result.headings.map(({ id, text, level, depth }) => ({ id, text, level, depth }))).toEqual([
+    { id: 'segnavia-part-1', text: 'Outer', level: 1, depth: 0 },
+    { id: 'segnavia-chapter-1', text: 'Inner', level: 1, depth: 1 },
+    { id: 'segnavia-chapter-1', text: 'One', level: 1, depth: 2 },
+    { id: 'segnavia-h-1-1', text: 'Topic', level: 2, depth: 2 },
+    { id: 'segnavia-chapter-2', text: 'Appendix', level: 1, depth: 0 },
+    { id: 'segnavia-chapter-2', text: 'After', level: 1, depth: 1 },
   ])
   expect(result.html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Outer&quot;,&quot;gate&quot;:&quot;Inner&quot;}"')
-  expect(result.html).toContain('<span id="segnavia-part-2" hidden></span>')
+  expect(result.html).not.toMatch(/id="segnavia-part-[23]"/)
 })

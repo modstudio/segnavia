@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Book, type BookInput, bookSections, formatNumber, isPart, MM_PER_PT, PAPER_MM } from '@segnavia/format'
+import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
@@ -20,10 +20,6 @@ interface Fixture {
   chapterMarkers: string[]
   runningHeads: string[]
   endnotesTitle: string
-}
-
-function fixtureBody(fixture: Fixture) {
-  return bookSections(Book.parse(fixture.book)).flatMap(({ division, entry }) => (division === 'body' && !isPart(entry) ? [entry] : []))
 }
 
 interface BboxWord {
@@ -131,7 +127,7 @@ function contentsNumbers(
   const entries = [
     { text: fixture.frontTitle, number: formatNumber(1, frontSystem) },
     ...chapterPages.flatMap((page, index) => [
-      { text: fixtureBody(fixture)[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
+      { text: fixture.book.chapters?.[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
       ...Array.from({ length: 6 }, (_, topic) => ({
         text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H2-${topic}`,
         number: formatNumber(page - frontPages, bodySystem),
@@ -243,7 +239,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
     ...fixture.chapterMarkers.flatMap((marker, chapter) => [
-      { title: fixtureBody(fixture)[chapter]?.title ?? '', page: pageWith(pages, marker) },
+      { title: fixture.book.chapters?.[chapter]?.title ?? '', page: pageWith(pages, marker) },
       ...Array.from({ length: 6 }, (_, topic) => {
         const title = `${tag}-${chapter + 1}-H2-${topic}`
         return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
