@@ -28,6 +28,11 @@ test('a fit-min mark names the template, the region and the value, not a region 
     clippedStart: 0,
     clippedEnd: 0,
   })
+  expect(regionFitMinContribution('unit:1:lesson-text:80pt')).toEqual({
+    locator: 'template unit:1 region lesson-text data-fit-min 80pt',
+    clippedStart: 0,
+    clippedEnd: 0,
+  })
   expect(regionOverflowContribution('12:reading-text:48').locator).not.toBe(regionFitMinContribution('12:reading-text:48').locator)
 })
 

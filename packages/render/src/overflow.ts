@@ -215,7 +215,11 @@ export function regionOverflowContribution(attribute: string): OverflowContribut
 }
 
 export function regionFitMinContribution(attribute: string): OverflowContribution {
-  const [template, name, value] = attribute.split(':')
+  const valueAt = attribute.lastIndexOf(':')
+  const nameAt = attribute.lastIndexOf(':', valueAt - 1)
+  const template = attribute.slice(0, nameAt)
+  const name = attribute.slice(nameAt + 1, valueAt)
+  const value = attribute.slice(valueAt + 1)
   return { locator: `template ${template} region ${name} data-fit-min ${value}`, clippedStart: 0, clippedEnd: 0 }
 }
 
