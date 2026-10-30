@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from './book.ts'
-import { flowingParentNames, textArea } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, flowingParentNames, textArea } from './printed-pages.ts'
 
 describe('textArea', () => {
   test('subtracts the parent margins from the paper', () => {
@@ -9,6 +9,11 @@ describe('textArea', () => {
   })
 
   test('resolves the three flowing roles from overrides and defaults', () => {
+    expect(flowingParentNames()).toEqual({
+      opener: BOOK_PARENT_NAMES.opener,
+      recto: BOOK_PARENT_NAMES.recto,
+      verso: BOOK_PARENT_NAMES.verso,
+    })
     expect(flowingParentNames({ opener: 'opening' })).toEqual({ opener: 'opening', recto: 'segnavia:recto', verso: 'segnavia:verso' })
   })
 })
