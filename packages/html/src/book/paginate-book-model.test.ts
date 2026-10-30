@@ -38,7 +38,7 @@ describe('paginateBook model', () => {
       ],
     })
     sample.parents.deep = { width: 100, height: 30 }
-    const continued = { id: 'n1', whole: false, start: 0, end: 1 }
+    const continued = { id: 'n1', series: 'footnote', whole: false, start: 0, end: 1 }
     const result = paginateSequence(sample, (units, index, pending) => {
       const unit = units[index]
       if (unit?.flowId === 'c1') return { placed: [unit], fragments: [], index: index + 1, pending: [continued] }

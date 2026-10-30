@@ -158,10 +158,6 @@ export function noteSeriesIssues(series: ResolvedNoteSeries[], mode: 'continuous
       })
     }
   })
-  const page = series.filter(({ placement }) => placement === 'page')
-  if (page.length > 1) {
-    issues.push({ path: ['notes'], message: `note series ${page.map(({ name }) => name).join(' and ')} are both page-placed; declare one page-placed series` })
-  }
   return issues
 }
 

@@ -23,12 +23,12 @@ export function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, b
   return { id, kind, blocks, ...(runningHead === undefined ? {} : { runningHead }) }
 }
 
-export function note(id: string, count: number, height = lineHeight): PaginateNote {
-  return { id, lines: lines(count, 0, height) }
+export function note(id: string, count: number, height = lineHeight, series = 'footnote'): PaginateNote {
+  return { id, series, lines: lines(count, 0, height) }
 }
 
 type InputOverrides = Omit<Partial<PaginateBookInput>, 'geometry' | 'parents' | 'parentNames'> &
-  Pick<PaginateBookInput, 'flows'> & { geometry?: { textHeight: number; notesGap: number } }
+  Pick<PaginateBookInput, 'flows'> & { geometry?: { textHeight: number; notesGap: number; noteSeries?: Array<{ name: string; gap: number }> } }
 
 export function input(overrides: InputOverrides): PaginateBookInput {
   const geometry = overrides.geometry ?? { textHeight: 50, notesGap: 10 }
@@ -36,7 +36,7 @@ export function input(overrides: InputOverrides): PaginateBookInput {
   const area = { width: 100, height: geometry.textHeight }
   return {
     notes: [],
-    geometry: { notesGap: geometry.notesGap },
+    geometry: { notesGap: geometry.notesGap, ...(geometry.noteSeries ? { noteSeries: geometry.noteSeries } : {}) },
     parents: Object.fromEntries(Object.values(BOOK_PARENT_NAMES).map((name) => [name, area])),
     parentNames: BOOK_PARENT_NAMES,
     settings: {

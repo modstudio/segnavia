@@ -13,6 +13,29 @@ const input = (overrides: Partial<BookInput> = {}): BookInput => ({
 })
 
 describe('note series document', () => {
+  test('groups page notes into series galleys in declaration order', () => {
+    const book = Book.parse(
+      input({
+        notes: [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'roman-lower' }],
+        body: [
+          chapter(
+            'One',
+            '<p>A<span data-note="commentary">comment</span> B<span data-note="footnote">source</span> C<span data-note="commentary">more</span></p>',
+          ),
+        ],
+      }),
+    )
+    const html = bookDocument(book).html
+    const footnotes = html.match(/<aside data-segnavia-notes-galley data-segnavia-note-series="footnote"[^>]*>(.*?)<\/aside>/)?.[1]
+    const commentary = html.match(/<aside data-segnavia-notes-galley data-segnavia-note-series="commentary"[^>]*>(.*?)<\/aside>/)?.[1]
+    expect(html.indexOf('data-segnavia-note-series="footnote"')).toBeLessThan(html.indexOf('data-segnavia-note-series="commentary"'))
+    expect(footnotes).toContain('source')
+    expect(footnotes).not.toContain('comment')
+    expect(commentary).toContain('comment')
+    expect(commentary).toContain('more')
+    expect(commentary).not.toContain('source')
+  })
+
   test('places and numbers a series by chapter', () => {
     const result = bookDocument(
       Book.parse(

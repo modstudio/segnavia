@@ -34,14 +34,14 @@ export interface NoteState {
   used: Set<string>
   counters: Map<string, number>
   collected: Map<string, CollectedNotes>
-  pageParagraphs: Element[]
+  pageParagraphs: Map<string, Element[]>
   authored: Map<string, AuthoredNote>
   repeatCount: number
   issues: string[]
 }
 
 export function noteState(): NoteState {
-  return { used: new Set(), counters: new Map(), collected: new Map(), pageParagraphs: [], authored: new Map(), repeatCount: 0, issues: [] }
+  return { used: new Set(), counters: new Map(), collected: new Map(), pageParagraphs: new Map(), authored: new Map(), repeatCount: 0, issues: [] }
 }
 
 function nearestBlock(note: Element): Element | undefined {
@@ -138,8 +138,11 @@ function transformAuthoredNote(
   replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
   const paragraph = noteParagraph(series.bodyClass, noteId, refId, marker, content)
   if (series.placement === 'page') {
-    if (galley) state.pageParagraphs.push(paragraph)
-    else addPageBlock(block, paragraph, blocks, series)
+    if (galley) {
+      const paragraphs = state.pageParagraphs.get(series.name) ?? []
+      paragraphs.push(paragraph)
+      state.pageParagraphs.set(series.name, paragraphs)
+    } else addPageBlock(block, paragraph, blocks, series)
   } else collectedNotes(series, context, state).paragraphs.push(paragraph)
   if (authoredId) state.authored.set(authoredId, { noteId, refId, marker })
   state.used.add(series.name)

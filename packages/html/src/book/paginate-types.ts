@@ -59,13 +59,19 @@ export type PaginateFlow =
 
 export interface PaginateNote {
   id: string
+  series: string
   lines: PaginateLine[]
+}
+
+export interface PaginateNoteSeriesGeometry {
+  name: string
+  gap: number
 }
 
 export interface PaginateBookInput {
   flows: PaginateFlow[]
   notes: PaginateNote[]
-  geometry: { notesGap: number }
+  geometry: { notesGap: number; noteSeries?: PaginateNoteSeriesGeometry[] }
   parents: Record<string, TextArea>
   parentNames: typeof BOOK_PARENT_NAMES
   settings: {
@@ -88,6 +94,7 @@ export interface PaginateWindow {
 
 export interface PaginatePageNote {
   id: string
+  series: string
   whole: boolean
   start: number
   end: number
@@ -148,7 +155,7 @@ export type PaginateNotesUsed = (placed: PaginateUnit[], fragments: PaginatePage
 
 interface PaginateNotesBase {
   notes: PaginateNote[]
-  geometry: { textHeight: number; notesGap: number }
+  geometry: { textHeight: number; notesGap: number; noteSeries?: PaginateNoteSeriesGeometry[] }
 }
 
 export type PaginateNotesOp =

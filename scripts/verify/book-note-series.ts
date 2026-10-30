@@ -1,4 +1,5 @@
 import type { Harness } from './harness.ts'
+import { verifyTwoPageNoteSeries } from './two-page-note-series.ts'
 
 async function seriesFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)
@@ -50,4 +51,5 @@ export async function verifyNoteSeries(h: Harness) {
       JSON.stringify(report),
     )
   }
+  await verifyTwoPageNoteSeries(h)
 }
