@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { pixelPhaseOffset } from './book-composer.ts'
+import { pixelPhaseOffset, WINDOW_EDGE_INSET_PX } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -73,10 +73,12 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())
   })
 
-  test('keeps a cloned window at the galley source pixel phase without moving its line offsets', () => {
+  test('keeps a cloned window at the galley source pixel phase and midpoint ink inside its clip', () => {
     expect(pixelPhaseOffset(1099.765625, 7993.25)).toBeCloseTo(0.515625)
     expect(pixelPhaseOffset(6222.953125, 17557.78125)).toBeCloseTo(0.171875)
+    expect(WINDOW_EDGE_INSET_PX).toBe(0.25)
     expect(BOOK_COMPOSER_SCRIPT).toContain('pixelPhaseOffset(source,placed)')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('parseFloat(clone.style.insetBlockStart)+0.25')
     expect(BOOK_COMPOSER_SCRIPT).toContain('alignWindowPhases();if(!alignHeldNotes())')
   })
 
