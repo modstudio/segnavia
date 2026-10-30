@@ -14,6 +14,7 @@ import {
 } from './book-section.ts'
 import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
+import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { bookParentPages, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
@@ -114,6 +115,7 @@ export const BookShape = z.object({
       title: z.string().optional(),
     })
     .default({ placement: 'book' }),
+  notes: z.array(NoteSeries).default([]),
   rectoOpenings: z.boolean().default(false),
   orphans: z.number().int().min(1).default(2),
   widows: z.number().int().min(1).default(2),
@@ -146,13 +148,35 @@ export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scr
 export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>
 
-const ResolvedBook = BookShape.transform((book, ctx) => {
+const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
+  const seen = new Set<string>()
+  book.notes.forEach(({ name }, index) => {
+    if (seen.has(name)) {
+      ctx.addIssue({ code: 'custom', path: ['notes', index, 'name'], message: `note series ${name} is duplicated; give every series a unique name` })
+    }
+    seen.add(name)
+    if (name !== 'footnote' && name !== 'endnote') {
+      if (book.notes[index]?.placement === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['notes', index, 'placement'], message: `note series ${name} needs placement` })
+      }
+      if (book.notes[index]?.numbering === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['notes', index, 'numbering'], message: `note series ${name} needs numbering` })
+      }
+    }
+  })
+})
+
+const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
   const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
   if (book.body !== undefined && chapters !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
     ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
   }
+  const notes = resolveNoteSeries({ lang: book.lang, footnotes: book.footnotes, endnotes: book.endnotes, notes: book.notes })
+  const footnote = notes[0]
+  const endnote = notes[1]
+  if (!footnote || !endnote) throw new Error('note series resolution did not produce the two default series')
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
@@ -161,8 +185,9 @@ const ResolvedBook = BookShape.transform((book, ctx) => {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
     },
-    footnotes: { ...book.footnotes, marker: book.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols') },
-    endnotes: { ...book.endnotes, marker: book.endnotes.marker ?? 'arabic', title: book.endnotes.title ?? (hebrew ? 'הערות' : 'Notes') },
+    footnotes: { ...book.footnotes, marker: footnote.marker },
+    endnotes: { ...book.endnotes, marker: endnote.marker, title: endnote.title },
+    notes,
   }
 })
 
@@ -219,13 +244,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       message: `front-matter and body numbering are both ${book.numbering.body}; the two must differ when front matter is present`,
     })
   }
-  if (book.endnotes.placement === 'chapter' && book.mode === 'continuous') {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['endnotes', 'placement'],
-      message: 'endnotes are placed at the end of each chapter only in paginated mode; use book placement or paginated mode',
-    })
-  }
+  for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })
   for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   if (!book.page) return
   const trim = sheetMm(book.page)
@@ -334,11 +353,4 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     contents: book.contents,
     runningHead: book.runningHead,
   }
-}
-
-// This is the one Book refusal that depends on chapter content. The HTML
-// reader applies it once it knows which note kinds are used; Book.parse cannot.
-export function noteMarkerIssues(book: Book, used: { footnotes: boolean; endnotes: boolean }): string[] {
-  if (!used.footnotes || !used.endnotes || book.footnotes.marker !== book.endnotes.marker) return []
-  return [`footnote and endnote markers are both ${book.footnotes.marker}; the two must differ when both kinds are used`]
 }

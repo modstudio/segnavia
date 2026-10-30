@@ -29,10 +29,18 @@ export {
   isPart,
   isTemplatedSection,
   MAX_PART_DEPTH,
-  noteMarkerIssues,
   Part,
   REGION_NAME,
   resolveBookPagination,
   TemplatedPage,
   TemplatedSection,
 } from './book.ts'
+export {
+  NoteNumbering,
+  NotePlacement,
+  NoteSeries,
+  type NoteSeriesInput,
+  noteMarkerIssues,
+  type ResolvedNoteSeries,
+  resolveNoteSeries,
+} from './note-series.ts'
