@@ -24,10 +24,10 @@ describe('book document', () => {
     )
     const result = bookDocument(book)
     expect(result.sections).toEqual([
-      { id: 'segnavia-front-1', kind: 'front', title: 'Preface', runningHead: 'Preface' },
-      { id: 'segnavia-contents', kind: 'contents', title: 'Contents', runningHead: 'Contents' },
-      { id: 'segnavia-chapter-1', kind: 'chapter', title: 'One', runningHead: 'One' },
-      { id: 'segnavia-endnotes', kind: 'endnotes', title: 'Notes', runningHead: 'Notes' },
+      { id: 'segnavia-front-1', kind: 'front', division: 'front', title: 'Preface', runningHead: 'Preface' },
+      { id: 'segnavia-contents', kind: 'contents', division: 'front', title: 'Contents', runningHead: 'Contents' },
+      { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body', title: 'One', runningHead: 'One' },
+      { id: 'segnavia-endnotes', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Notes' },
     ])
     expect([...result.html.matchAll(/<section[^>]+id="([^"]+)"/g)].map((match) => match[1])).toEqual(result.sections.map((section) => section.id))
   })
@@ -141,10 +141,10 @@ describe('book document', () => {
     )
     expect(result.issues).toEqual([])
     expect(result.sections).toEqual([
-      { id: 'segnavia-chapter-1', kind: 'chapter', title: 'One', runningHead: 'I' },
-      { id: 'segnavia-endnotes-1', kind: 'endnotes', title: 'Notes', runningHead: 'I' },
-      { id: 'segnavia-chapter-2', kind: 'chapter', title: 'Two', runningHead: 'Two' },
-      { id: 'segnavia-endnotes-2', kind: 'endnotes', title: 'Notes', runningHead: 'Two' },
+      { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body', title: 'One', runningHead: 'I' },
+      { id: 'segnavia-endnotes-1', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'I' },
+      { id: 'segnavia-chapter-2', kind: 'chapter', division: 'body', title: 'Two', runningHead: 'Two' },
+      { id: 'segnavia-endnotes-2', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Two' },
     ])
     const first = sectionOpen(result.html, 'segnavia-endnotes-1')
     const second = sectionOpen(result.html, 'segnavia-endnotes-2')
@@ -174,10 +174,10 @@ describe('book document', () => {
       ),
     )
     expect(result.sections).toEqual([
-      { id: 'segnavia-designed-1', kind: 'designed', title: 'Spread', runningHead: 'Spread' },
-      { id: 'segnavia-endnotes-designed-1', kind: 'endnotes', title: 'Notes', runningHead: 'Spread' },
-      { id: 'segnavia-chapter-1', kind: 'chapter', title: 'One', runningHead: 'One' },
-      { id: 'segnavia-endnotes-1', kind: 'endnotes', title: 'Notes', runningHead: 'One' },
+      { id: 'segnavia-designed-1', kind: 'designed', division: 'body', title: 'Spread', runningHead: 'Spread' },
+      { id: 'segnavia-endnotes-designed-1', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Spread' },
+      { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body', title: 'One', runningHead: 'One' },
+      { id: 'segnavia-endnotes-1', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'One' },
     ])
     const tag = sectionOpen(result.html, 'segnavia-endnotes-designed-1')
     expect(tag).toContain('data-opens="any"')

@@ -31,7 +31,7 @@ describe('opener selection and placement reporting', () => {
       const result = await importIdml(await headerFixture(headerFirst))
       expect(result.book.body.map((chapter) => chapter.title)).toEqual(['body'])
       const chapter = result.book.body[0]
-      const html = chapter && 'html' in chapter ? chapter.html : ''
+      const html = chapter && 'html' in chapter ? (chapter.html ?? '') : ''
       expect(html.startsWith('<div class="idml-title-block"')).toBe(true)
       expect(html).toContain('Head')
       expect(html).toContain('A much longer body story')

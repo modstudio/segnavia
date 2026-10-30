@@ -256,8 +256,8 @@ describe('importIdml', () => {
     expect(result.book.body.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
     const first = result.book.body[0]
     const second = result.book.body[1]
-    const firstHtml = first && 'html' in first ? first.html : ''
-    const secondHtml = second && 'html' in second ? second.html : ''
+    const firstHtml = first && 'html' in first ? (first.html ?? '') : ''
+    const secondHtml = second && 'html' in second ? (second.html ?? '') : ''
     expect(firstHtml.startsWith('<div class="idml-title-block"')).toBe(true)
     expect(firstHtml).toContain('Header one')
     expect(firstHtml).not.toContain('Header two')

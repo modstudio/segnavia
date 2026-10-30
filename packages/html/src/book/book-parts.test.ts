@@ -19,11 +19,11 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
   })
   const result = bookDocument(book)
 
-  expect(result.sections.map(({ id, kind }) => ({ id, kind }))).toEqual([
-    { id: 'segnavia-contents', kind: 'contents' },
-    { id: 'segnavia-part-1', kind: 'part' },
-    { id: 'segnavia-chapter-1', kind: 'chapter' },
-    { id: 'segnavia-chapter-2', kind: 'chapter' },
+  expect(result.sections.map(({ id, kind, division }) => ({ id, kind, division }))).toEqual([
+    { id: 'segnavia-contents', kind: 'contents', division: 'front' },
+    { id: 'segnavia-part-1', kind: 'part', division: 'body' },
+    { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body' },
+    { id: 'segnavia-chapter-2', kind: 'chapter', division: 'end' },
   ])
   expect(result.headings.map(({ text, level, depth }) => ({ text, level, depth }))).toEqual([
     { text: 'Outer', level: 1, depth: 0 },

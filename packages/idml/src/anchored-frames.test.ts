@@ -48,7 +48,7 @@ async function imported(stories: { name: string; content: string }[], spreadStor
 
 function chapterHtml(result: Awaited<ReturnType<typeof imported>>, title = 'host'): string {
   const chapter = result.book.body.find((candidate) => candidate.title === title)
-  if (!chapter || !('html' in chapter)) throw new Error(`Expected chapter ${title}.`)
+  if (!chapter || !('html' in chapter) || chapter.html === undefined) throw new Error(`Expected chapter ${title}.`)
   return chapter.html
 }
 

@@ -152,7 +152,7 @@ function endnotesSection(
 ): BuiltSection {
   const titleValue = book.endnotes.title
   return {
-    info: { id, kind: 'endnotes', title: titleValue, runningHead },
+    info: { id, kind: 'endnotes', division: 'body', title: titleValue, runningHead },
     node: sectionNode('endnotes', id, [endnotesHeading(book), ...paragraphs], build, runningHead, opens ? flowAttribs(opens) : {}),
   }
 }
@@ -185,6 +185,16 @@ export interface DocumentBuild {
   pendingPartIds: string[]
 }
 
+function decorateSection(sectionEntry: ReturnType<typeof bookSections>[number], build: DocumentBuild): void {
+  const section = build.sections.at(-1)
+  if (!section) return
+  section.info.division = sectionEntry.division
+  if (sectionEntry.ancestry.length > 0) {
+    section.node.attribs['data-segnavia-parts'] = JSON.stringify(Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? ''])))
+  }
+  attachPendingParts(build)
+}
+
 function takeHeldNotesOwner(build: DocumentBuild): number {
   build.heldNotesOwner -= 1
   return build.heldNotesOwner
@@ -212,13 +222,13 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     if (isBookContents(entry)) {
       contents = contentsSection(entry, build.build)
       build.sections.push(contents)
-      attachPendingParts(build)
+      decorateSection(sectionEntry, build)
       continue
     }
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
       appendDesigned(entry, `segnavia-designed-${build.designedNumber}`, 'front', book, build.build, build.notes, build.sections, build.headings, build.issues)
-      attachPendingParts(build)
+      decorateSection(sectionEntry, build)
       continue
     }
     if (isTemplatedSection(entry)) {
@@ -235,13 +245,13 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
         build.headings,
         build.issues,
       )
-      attachPendingParts(build)
+      decorateSection(sectionEntry, build)
       continue
     }
     frontNumber += 1
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.build)
     build.sections.push(section)
-    attachPendingParts(build)
+    decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
       build.headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
@@ -275,7 +285,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
         build.issues,
         owner,
       )
-      attachPendingParts(build)
+      decorateSection(sectionEntry, build)
       pushChapterEndnotes(book, build, `segnavia-endnotes-designed-${build.designedNumber}`, owner)
       continue
     }
@@ -295,18 +305,15 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
         build.issues,
         owner,
       )
-      attachPendingParts(build)
+      decorateSection(sectionEntry, build)
       pushChapterEndnotes(book, build, `segnavia-endnotes-templated-${build.templatedNumber}`, owner)
       continue
     }
     if (!('html' in entry)) continue
     build.chapterNumber += 1
     const section = chapterSection(entry, build.chapterNumber, build.build)
-    if (sectionEntry.ancestry.length > 0) {
-      section.node.attribs['data-segnavia-parts'] = JSON.stringify(Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? ''])))
-    }
     build.sections.push(section)
-    attachPendingParts(build)
+    decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if (entry.title !== undefined) {
       build.headings.push({

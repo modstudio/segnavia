@@ -10,6 +10,7 @@ export function addPart(sectionEntry: ReturnType<typeof bookSections>[number], b
   if (entry.html !== undefined) {
     const parts = Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? '']))
     build.sections.push(partSection(entry, id, sectionEntry.division, build.build, parts))
+    attachPendingParts(build)
   } else {
     build.pendingPartIds.push(id)
   }
