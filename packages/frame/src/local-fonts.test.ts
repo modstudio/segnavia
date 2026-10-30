@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import type { AppFont, FontSource } from '@segnavia/format'
 import { Page } from '@segnavia/format'
 import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
-import { resolvePageFonts } from './page-fonts.ts'
+import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 
 const signal = new AbortController().signal
 const truetype = new Uint8Array([0, 1, 0, 0])
@@ -162,6 +162,12 @@ describe('packLocalFaces', () => {
 
   test('refuses count and decoded-byte overflow with actionable shared wording', () => {
     const face = { family: 'Local Family', data: truetype, format: 'truetype' as const }
+    expect(() =>
+      packLocalFaces(
+        Array.from({ length: 65 }, () => face),
+        [{ local: 'Local Family', fallback: 'serif' }],
+      ),
+    ).toThrow(FontRefusedError)
     expect(() =>
       packLocalFaces(
         Array.from({ length: 65 }, () => face),

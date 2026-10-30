@@ -1,5 +1,6 @@
 import { type FontFace, type FontReference, type LocalFacesInput, type LocalFontLimits, localFontLimitRefusal, localFontReferences } from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
+import { FontRefusedError } from './page-fonts.ts'
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
@@ -163,7 +164,7 @@ export function packLocalFaces(faces: readonly FontFace[], references: readonly 
     selected.map(({ face, family }) => ({ family, bytes: face.data.byteLength })),
     limits,
   )
-  if (refusal) throw new Error(refusal)
+  if (refusal) throw new FontRefusedError(refusal)
   return selected.map(({ face, family }) => ({
     family,
     format: face.format,
