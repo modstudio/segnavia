@@ -1,6 +1,16 @@
 import type { Frame } from 'playwright-core'
 import type { Harness } from './harness.ts'
-import { INK_BAND_PX, INK_NEIGHBORHOOD_PX, INK_PIXEL_TOLERANCE, type InkImage, inkBounds, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
+import type { InkBand } from './paginated-ink-pixels.ts'
+import {
+  bandCaptureHeight,
+  countedBand,
+  INK_BAND_PX,
+  INK_NEIGHBORHOOD_PX,
+  INK_PIXEL_TOLERANCE,
+  inkBounds,
+  presenceDiff,
+  stackImages,
+} from './paginated-ink-pixels.ts'
 import {
   columnGroupKey,
   galleyInlineOffset,
@@ -37,7 +47,7 @@ interface Mismatch {
   pageSize?: number[]
 }
 
-async function pngRgba(h: Harness, png: Buffer): Promise<InkImage> {
+async function pngRgba(h: Harness, png: Buffer): Promise<InkBand['image']> {
   return h.page.evaluate(async (b64) => {
     const img = new Image()
     img.src = `data:image/png;base64,${b64}`
@@ -157,10 +167,6 @@ function flowSelector(flow: string): string {
   return `[data-segnavia-galley-source] [data-segnavia-flow="${flow}"]`
 }
 
-function bandHeight(windowHeight: number): number {
-  return Math.max(1, Math.min(INK_BAND_PX, Math.floor(windowHeight)))
-}
-
 async function showGalley(frame: Frame) {
   return frame.evaluate(() => {
     const galleys = document.querySelector('[data-segnavia-galley-source]') as HTMLElement | null
@@ -203,12 +209,7 @@ async function hideOutsideText(frame: Frame, hidden: boolean) {
   }, hidden)
 }
 
-interface EdgeBands {
-  galleyStart: InkImage
-  galleyEnd: InkImage
-  pageStart: InkImage
-  pageEnd: InkImage
-}
+type EdgeBands = { galleyStart: InkBand; galleyEnd: InkBand; pageStart: InkBand; pageEnd: InkBand }
 
 async function hideOtherGalleyBlocks(frame: Frame, view: InkWindow, hide: boolean) {
   await frame.evaluate(
@@ -233,15 +234,21 @@ async function hideOtherGalleyBlocks(frame: Frame, view: InkWindow, hide: boolea
   )
 }
 
-async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkImage; end: InkImage }>> {
-  const bands: Array<{ start: InkImage; end: InkImage }> = []
+async function captureEdgeBands(h: Harness, frame: Frame, selector: string, x: number, windowY: number, width: number, windowHeight: number) {
+  const height = bandCaptureHeight(windowHeight)
+  const capture = async (side: 'start' | 'end') => {
+    const y = windowY + (side === 'start' ? 0 : windowHeight - height)
+    return countedBand(await pngRgba(h, await screenshotBand(h, frame, selector, x, y, width, height)), side, windowHeight)
+  }
+  return { start: await capture('start'), end: await capture('end') }
+}
+
+async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkBand; end: InkBand }>> {
+  const bands: Array<{ start: InkBand; end: InkBand }> = []
   for (const view of windows) {
-    const height = bandHeight(view.height)
     await hideOtherGalleyBlocks(frame, view, true)
     try {
-      const start = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, height))
-      const end = await pngRgba(h, await screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height))
-      bands.push({ start, end })
+      bands.push(await captureEdgeBands(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, view.height))
     } finally {
       await hideOtherGalleyBlocks(frame, view, false)
     }
@@ -249,18 +256,15 @@ async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]
   return bands
 }
 
-async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkImage; end: InkImage }>> {
-  const bands: Array<{ start: InkImage; end: InkImage }> = []
+async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkBand; end: InkBand }>> {
+  const bands: Array<{ start: InkBand; end: InkBand }> = []
   for (const view of windows) {
-    const height = bandHeight(view.height)
-    const start = await pngRgba(h, await screenshotBand(h, frame, windowSelector(view.windowIndex), 0, 0, view.width, height))
-    const end = await pngRgba(h, await screenshotBand(h, frame, windowSelector(view.windowIndex), 0, view.height - height, view.width, height))
-    bands.push({ start, end })
+    bands.push(await captureEdgeBands(h, frame, windowSelector(view.windowIndex), 0, 0, view.width, view.height))
   }
   return bands
 }
 
-function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
+function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number, galley: InkBand, page: InkBand, mismatches: Mismatch[]): void {
   const pageInk = inkBounds(page).count
   const galleyInk = inkBounds(galley).count
   if (side === 'start' && pageInk === 0) return
@@ -276,8 +280,8 @@ function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number,
     extra: diff.extra,
     galleyInk,
     pageInk,
-    galleySize: [galley.width, galley.height],
-    pageSize: [page.width, page.height],
+    galleySize: [galley.image.width, galley.countedRows.end - galley.countedRows.start],
+    pageSize: [page.image.width, page.countedRows.end - page.countedRows.start],
   })
 }
 
@@ -290,7 +294,7 @@ function lastOfColumn(windows: InkWindow[]): Set<number> {
   return last
 }
 
-function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkImage, page: InkImage, mismatches: Mismatch[]): void {
+function recordInside(view: InkWindow, side: 'start' | 'end', galley: InkBand, page: InkBand, mismatches: Mismatch[]): void {
   recordMismatch(view, side, side === 'start' ? view.start : view.end, galley, page, mismatches)
 }
 
@@ -338,7 +342,7 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     const galley = galleyBands[index]
     const page = pageBands[index]
     if (!galley || !page) continue
-    const height = bandHeight(view.height)
+    const height = bandCaptureHeight(view.height)
     if (!intersectsScaledExtent({ start: view.start, end: view.start + height }, view.scaledExtents)) {
       recordInside(view, 'start', galley.start, page.start, mismatches)
       comparedBands.add(`${index}:start`)
@@ -354,8 +358,8 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     const previousPage = pageBands[pair.previousIndex]
     const nextPage = pageBands[pair.nextIndex]
     if (!previous || !next || !previousPage || !nextPage) continue
-    const previousHeight = bandHeight(pair.previous.height)
-    const nextHeight = bandHeight(pair.next.height)
+    const previousHeight = bandCaptureHeight(pair.previous.height)
+    const nextHeight = bandCaptureHeight(pair.next.height)
     const comparePixels =
       !intersectsScaledExtent({ start: pair.previous.end - previousHeight, end: pair.previous.end }, pair.previous.scaledExtents) &&
       !intersectsScaledExtent({ start: pair.next.start, end: pair.next.start + nextHeight }, pair.next.scaledExtents)
