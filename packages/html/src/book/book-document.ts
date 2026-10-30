@@ -369,6 +369,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     requestedBuild === 'galley'
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
+          ...(options.targets ? [targetLinks(visible)] : []),
           element('div', { 'data-segnavia-galleys': '' }, [
             ...templateHolders(book.templates),
             ...visible.map((section) => section.node),

@@ -72,7 +72,7 @@ function hiddenAnnotation(document: PDFDocument, annotation: PDFDict): boolean {
   return Math.abs(right - left) <= 1 && Math.abs(top - bottom) <= 1
 }
 
-function explicit(document: PDFDocument, target: BookDestination, offset: number): PDFArray {
+export function explicit(document: PDFDocument, target: BookDestination, offset: number): PDFArray {
   return document.context.obj([document.getPage(offset + target.page - 1).ref, 'XYZ', target.x, target.y, null])
 }
 

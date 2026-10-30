@@ -3,6 +3,7 @@ import { type BookDocument, type BookHeading, type BookPageFacts, type BookSecti
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
+import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -189,7 +190,7 @@ async function printFront(book: Book, source: BookDocument, body: PrintedPart, o
   return { part: trailingBlank ? await appendBlank(final) : final, trailingBlank }
 }
 
-async function join(front: PrintedPart, body: PrintedPart, marginBytes: Uint8Array): Promise<Uint8Array> {
+async function join(book: Book, headings: BookHeading[], front: PrintedPart, body: PrintedPart, marginBytes: Uint8Array): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   for (const part of [front, body]) {
     if (!part.bytes) continue
@@ -205,6 +206,9 @@ async function join(front: PrintedPart, body: PrintedPart, marginBytes: Uint8Arr
     if (embedded) output.getPage(index).drawPage(embedded, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
   }
   rewriteBookLinks(output, front.pages, front.destinations, body.destinations)
+  const destinations = new Map(front.destinations)
+  for (const [id, target] of body.destinations) destinations.set(id, { ...target, page: target.page + front.pages })
+  writeBookStructure(output, { book, headings, destinations, offset: 0 })
   return output.save()
 }
 
@@ -214,6 +218,9 @@ async function renderPaginatedBookPdf(book: Book, options: RenderOptions, adapte
   if (!printed.bytes) throw new RenderRefusedError('The paginated book print produced no bytes.')
   const document = await loadPdf(printed.bytes)
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
+  const built = bookDocument(book)
+  if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
+  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations, offset: 0 })
   const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
@@ -242,7 +249,10 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParentPages(book.page.margin)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, options, 'margin', marginCss(book, plan, parents))
-  const output = await adapter.finish(await setPdfPageSize(await join(front, printedBody.part, margin.bytes), sheetMm(book.page)), options)
+  const output = await adapter.finish(
+    await setPdfPageSize(await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), sheetMm(book.page)),
+    options,
+  )
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })

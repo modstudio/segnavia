@@ -55,6 +55,8 @@ export type BookRunningHead = z.infer<typeof BookRunningHead>
 
 export const BookShape = z.object({
   title: z.string(),
+  authors: z.array(z.string()).optional(),
+  subject: z.string().optional(),
   mode: BookMode,
   page: BookPage.optional(),
   scripts: Scripts.default('refuse'),
