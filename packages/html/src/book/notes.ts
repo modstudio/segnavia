@@ -60,13 +60,13 @@ function noteParagraph(className: string, noteId: string, refId: string, marker:
 function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext): string {
   if (series.numbering === 'book') return 'book'
   if (series.numbering === 'part') return context.part?.id ?? 'book'
-  return context.placementKey ?? String(context.chapter)
+  return String(context.chapter)
 }
 
 function placementKey(series: ResolvedNoteSeries, context: NoteSectionContext): string {
   if (series.placement === 'book') return 'book'
   if (series.placement === 'part') return context.part?.id ?? 'book'
-  return String(context.chapter)
+  return context.placementKey ?? String(context.chapter)
 }
 
 function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): { number: number; scope: string } {
@@ -88,8 +88,10 @@ function addPageBlock(block: Element, paragraph: Element, blocks: Map<Element, E
     append(existing, paragraph)
     return
   }
-  const className = series.name === 'footnote' ? 'segnavia-footnotes' : `segnavia-notes-${series.name}`
-  const attributes: Record<string, string> = series.name === 'footnote' ? { class: className } : { class: className, 'data-segnavia-note-series': series.name }
+  const attributes: Record<string, string> = {
+    class: series.blockClass,
+    ...(series.markBlockSeries ? { 'data-segnavia-note-series': series.name } : {}),
+  }
   const notes = element('div', attributes, [paragraph])
   blocks.set(block, notes)
   if (INSIDE_BLOCKS.has(block.name)) append(block, notes)
@@ -102,7 +104,10 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
   const existing = state.collected.get(mapKey)
   if (existing) return existing
   const scopeTitle = series.placement === 'part' ? context.part?.title : series.placement === 'chapter' ? context.title : undefined
-  const bookTarget = series.placement === 'book' || (series.placement === 'part' && context.part === undefined)
+  const bookTarget =
+    series.placement === 'book' ||
+    (series.placement === 'part' && context.part === undefined) ||
+    (series.placement === 'chapter' && context.division === 'front')
   const collected: CollectedNotes = {
     series,
     placementKey: key,
@@ -131,8 +136,7 @@ function transformAuthoredNote(
   const authoredId = note.attribs.id
   const content = [...note.children]
   replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
-  const className = series.name === 'footnote' ? 'segnavia-footnote' : series.name === 'endnote' ? 'segnavia-endnote' : `segnavia-note-${series.name}`
-  const paragraph = noteParagraph(className, noteId, refId, marker, content)
+  const paragraph = noteParagraph(series.bodyClass, noteId, refId, marker, content)
   if (series.placement === 'page') {
     if (galley) state.pageParagraphs.push(paragraph)
     else addPageBlock(block, paragraph, blocks, series)

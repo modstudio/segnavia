@@ -122,8 +122,7 @@ function columnIssues(section: BuiltSection): string[] {
 }
 
 function notesHeading(book: Book, notes: CollectedNotes): ReturnType<typeof element> {
-  const className = notes.series.name === 'endnote' ? 'segnavia-endnotes-title' : 'segnavia-notes-title'
-  return element('h1', { class: className, dir: resolveDirection(book.dir, book.lang, notes.series.title) }, [text(notes.series.title)])
+  return element('h1', { class: notes.series.titleClass, dir: resolveDirection(book.dir, book.lang, notes.series.title) }, [text(notes.series.title)])
 }
 
 function notesSection(
@@ -263,7 +262,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
 }
 
 function collectedSectionId(notes: CollectedNotes): string {
-  const prefix = notes.series.name === 'endnote' ? 'segnavia-endnotes' : `segnavia-notes-${notes.series.name}`
+  const prefix = notes.series.sectionIdPrefix
   if (notes.targetId === 'book') return prefix
   if (notes.series.placement === 'part') return `${prefix}-${notes.placementKey.replace(/^segnavia-/, '')}`
   if (notes.series.placement === 'chapter' && notes.targetId.startsWith('segnavia-chapter-'))
@@ -279,7 +278,10 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
     const targetId = notes.series.placement === 'part' ? (build.partTargets.get(notes.placementKey) ?? notes.targetId) : notes.targetId
     notes.targetId = targetId
     const index = build.sections.findIndex(({ info }) => info.id === targetId)
-    if (index < 0) continue
+    if (index < 0) {
+      build.issues.push(`note series ${notes.series.name} could not find placement target ${targetId}; keep the owning section in the book`)
+      continue
+    }
     const owner = build.sections[index]
     const parts = owner?.node.attribs['data-segnavia-parts']
     build.sections.splice(
@@ -298,7 +300,8 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
   }
   for (const notes of collected) {
     if (notes.targetId !== 'book') continue
-    build.sections.push(notesSection(book, notes, build.build, collectedSectionId(notes), notes.series.title))
+    const index = build.sections.findIndex(({ info }) => info.division === 'end')
+    build.sections.splice(index < 0 ? build.sections.length : index, 0, notesSection(book, notes, build.build, collectedSectionId(notes), notes.series.title))
   }
 }
 
@@ -319,9 +322,9 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)
+  addChapters(book, build, 'end')
   const { notes, sections, headings, issues } = build
   insertCollectedSections(book, build)
-  addChapters(book, build, 'end')
   if (contents) addContents(book, contents, headings, options)
   if (requestedBuild !== 'print') markBlockPositions(sections)
 

@@ -155,6 +155,14 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
       ctx.addIssue({ code: 'custom', path: ['notes', index, 'name'], message: `note series ${name} is duplicated; give every series a unique name` })
     }
     seen.add(name)
+    if (name !== 'footnote' && name !== 'endnote') {
+      if (book.notes[index]?.placement === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['notes', index, 'placement'], message: `note series ${name} needs placement` })
+      }
+      if (book.notes[index]?.numbering === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['notes', index, 'numbering'], message: `note series ${name} needs numbering` })
+      }
+    }
   })
 })
 
@@ -165,6 +173,10 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
     ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
   }
+  const notes = resolveNoteSeries({ lang: book.lang, footnotes: book.footnotes, endnotes: book.endnotes, notes: book.notes })
+  const footnote = notes[0]
+  const endnote = notes[1]
+  if (!footnote || !endnote) throw new Error('note series resolution did not produce the two default series')
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
@@ -173,9 +185,9 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
     },
-    footnotes: { ...book.footnotes, marker: book.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols') },
-    endnotes: { ...book.endnotes, marker: book.endnotes.marker ?? 'arabic', title: book.endnotes.title ?? (hebrew ? 'הערות' : 'Notes') },
-    notes: resolveNoteSeries({ lang: book.lang, footnotes: book.footnotes, endnotes: book.endnotes, notes: book.notes }),
+    footnotes: { ...book.footnotes, marker: footnote.marker },
+    endnotes: { ...book.endnotes, marker: endnote.marker, title: endnote.title },
+    notes,
   }
 })
 
@@ -230,13 +242,6 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       code: 'custom',
       path: ['numbering'],
       message: `front-matter and body numbering are both ${book.numbering.body}; the two must differ when front matter is present`,
-    })
-  }
-  if (book.endnotes.placement === 'chapter' && book.mode === 'continuous') {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['endnotes', 'placement'],
-      message: 'endnotes are placed at the end of each chapter only in paginated mode; use book placement or paginated mode',
     })
   }
   for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })

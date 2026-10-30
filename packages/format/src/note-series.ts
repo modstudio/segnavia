@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { REGION_NAME } from './book-section.ts'
 import { isHebrew, NoteMarker, type NoteMarker as NoteMarkerValue } from './numbering.ts'
 
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
@@ -8,9 +9,9 @@ export const NoteNumbering = z.enum(['chapter', 'part', 'book'])
 export type NoteNumbering = z.infer<typeof NoteNumbering>
 
 export const NoteSeries = z.object({
-  name: z.string().regex(/^[A-Za-z][\w-]*$/, 'a note series name must be an HTML name token'),
-  placement: NotePlacement,
-  numbering: NoteNumbering,
+  name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),
+  placement: NotePlacement.optional(),
+  numbering: NoteNumbering.optional(),
   marker: NoteMarker.optional(),
   title: z.string().optional(),
 })
@@ -24,7 +25,21 @@ export interface ResolvedNoteSeries {
   title: string
   idStem: string
   idScope: 'chapter' | 'numbering'
+  blockClass: string
+  bodyClass: string
+  titleClass: string
+  sectionIdPrefix: string
+  markerLabel: string
+  markerConflictSuffixes: Readonly<Record<string, string>>
+  markBlockSeries: boolean
 }
+
+type SeriesPresentation = Pick<
+  ResolvedNoteSeries,
+  'idStem' | 'idScope' | 'blockClass' | 'bodyClass' | 'titleClass' | 'sectionIdPrefix' | 'markerLabel' | 'markerConflictSuffixes' | 'markBlockSeries'
+>
+
+type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue }
 
 interface NoteSeriesSettings {
   lang?: string
@@ -41,25 +56,74 @@ function unusedMarker(lang: string | undefined, used: Set<NoteMarkerValue>): Not
   return markerOrder(lang).find((marker) => !used.has(marker)) ?? 'symbols'
 }
 
+function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
+  if (series.placement === undefined || series.numbering === undefined) {
+    throw new Error(`note series ${series.name} needs placement and numbering`)
+  }
+  return {
+    ...series,
+    placement: series.placement,
+    numbering: series.numbering,
+    title: series.title ?? series.name,
+    idStem: `note-${series.name}`,
+    idScope: 'numbering',
+    blockClass: `segnavia-notes-${series.name}`,
+    bodyClass: `segnavia-note-${series.name}`,
+    titleClass: 'segnavia-notes-title',
+    sectionIdPrefix: `segnavia-notes-${series.name}`,
+    markerLabel: `note series ${series.name}`,
+    markerConflictSuffixes: {},
+    markBlockSeries: true,
+  }
+}
+
 export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSeries[] {
   const hebrew = isHebrew(settings.lang)
   const declared = new Map(settings.notes.map((series) => [series.name, series]))
-  const inputs: NoteSeriesInput[] = [
-    declared.get('footnote') ?? {
-      name: 'footnote',
-      placement: 'page',
-      numbering: settings.footnotes.restart,
-      marker: settings.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols'),
-      title: hebrew ? 'מקורות' : 'Footnotes',
-    },
-    declared.get('endnote') ?? {
-      name: 'endnote',
-      placement: settings.endnotes.placement,
-      numbering: 'book',
-      marker: settings.endnotes.marker ?? 'arabic',
-      title: settings.endnotes.title ?? (hebrew ? 'הערות' : 'Notes'),
-    },
-    ...settings.notes.filter(({ name }) => name !== 'footnote' && name !== 'endnote'),
+  const footnotePresentation: SeriesPresentation = {
+    idStem: 'fn',
+    idScope: 'chapter',
+    blockClass: 'segnavia-footnotes',
+    bodyClass: 'segnavia-footnote',
+    titleClass: 'segnavia-notes-title',
+    sectionIdPrefix: 'segnavia-notes-footnote',
+    markerLabel: 'footnote',
+    markerConflictSuffixes: { endnote: 'the two must differ when both kinds are used' },
+    markBlockSeries: false,
+  }
+  const endnotePresentation: SeriesPresentation = {
+    idStem: 'en',
+    idScope: 'numbering',
+    blockClass: 'segnavia-notes-endnote',
+    bodyClass: 'segnavia-endnote',
+    titleClass: 'segnavia-endnotes-title',
+    sectionIdPrefix: 'segnavia-endnotes',
+    markerLabel: 'endnote',
+    markerConflictSuffixes: {},
+    markBlockSeries: true,
+  }
+  const footnote: ResolvableNoteSeries = {
+    name: 'footnote',
+    placement: 'page',
+    numbering: settings.footnotes.restart,
+    marker: settings.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols'),
+    title: hebrew ? 'מקורות' : 'Footnotes',
+    ...footnotePresentation,
+    ...declared.get('footnote'),
+  }
+  const endnote: ResolvableNoteSeries = {
+    name: 'endnote',
+    placement: settings.endnotes.placement,
+    numbering: 'book',
+    marker: settings.endnotes.marker ?? 'arabic',
+    title: settings.endnotes.title ?? (hebrew ? 'הערות' : 'Notes'),
+    ...endnotePresentation,
+    ...declared.get('endnote'),
+  }
+  const inputs: ResolvableNoteSeries[] = [
+    footnote,
+    endnote,
+    ...settings.notes.filter(({ name }) => name !== 'footnote' && name !== 'endnote').map(resolveCustomSeries),
   ]
   const used = new Set<NoteMarkerValue>()
   return inputs.map((series) => {
@@ -70,21 +134,23 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
       placement: series.placement,
       numbering: series.numbering,
       marker,
-      title: series.title ?? series.name,
-      idStem: series.name === 'footnote' ? 'fn' : series.name === 'endnote' ? 'en' : `note-${series.name}`,
-      idScope: series.name === 'footnote' ? 'chapter' : 'numbering',
+      title: series.title,
+      idStem: series.idStem,
+      idScope: series.idScope,
+      blockClass: series.blockClass,
+      bodyClass: series.bodyClass,
+      titleClass: series.titleClass,
+      sectionIdPrefix: series.sectionIdPrefix,
+      markerLabel: series.markerLabel,
+      markerConflictSuffixes: series.markerConflictSuffixes,
+      markBlockSeries: series.markBlockSeries,
     }
   })
 }
 
 export function noteSeriesIssues(series: ResolvedNoteSeries[], mode: 'continuous' | 'paginated'): Array<{ path: (string | number)[]; message: string }> {
   const issues: Array<{ path: (string | number)[]; message: string }> = []
-  const names = new Set<string>()
   series.forEach((item, index) => {
-    if (names.has(item.name)) {
-      issues.push({ path: ['notes', index, 'name'], message: `note series ${item.name} is duplicated; give every series a unique name` })
-    }
-    names.add(item.name)
     if (mode === 'continuous' && (item.placement === 'chapter' || item.placement === 'part')) {
       issues.push({
         path: ['notes', index, 'placement'],
@@ -99,12 +165,7 @@ export function noteSeriesIssues(series: ResolvedNoteSeries[], mode: 'continuous
   return issues
 }
 
-export function noteMarkerIssues(
-  source: ResolvedNoteSeries[] | { notes: ResolvedNoteSeries[] },
-  usage: ReadonlySet<string> | { footnotes: boolean; endnotes: boolean },
-): string[] {
-  const series = Array.isArray(source) ? source : source.notes
-  const used = 'footnotes' in usage ? new Set([...(usage.footnotes ? ['footnote'] : []), ...(usage.endnotes ? ['endnote'] : [])]) : usage
+export function noteMarkerIssues(series: ResolvedNoteSeries[], used: ReadonlySet<string>): string[] {
   const active = series.filter(({ name }) => used.has(name))
   const issues: string[] = []
   for (let left = 0; left < active.length; left += 1) {
@@ -113,11 +174,8 @@ export function noteMarkerIssues(
       const b = active[right]
       if (!a || !b) continue
       if (a.marker !== b.marker) continue
-      issues.push(
-        a.name === 'footnote' && b.name === 'endnote'
-          ? `footnote and endnote markers are both ${a.marker}; the two must differ when both kinds are used`
-          : `note series ${a.name} and ${b.name} markers are both ${a.marker}; used series must have different markers`,
-      )
+      const suffix = a.markerConflictSuffixes[b.name] ?? b.markerConflictSuffixes[a.name] ?? 'used series must have different markers'
+      issues.push(`${a.markerLabel} and ${b.markerLabel} markers are both ${a.marker}; ${suffix}`)
     }
   }
   return issues

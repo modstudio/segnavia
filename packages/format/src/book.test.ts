@@ -136,9 +136,9 @@ describe('book', () => {
 
   test('chapter endnotes need paginated mode', () => {
     const result = Book.safeParse(input({ endnotes: { placement: 'chapter' } }))
-    expect(result.error?.issues[0]).toMatchObject({ path: ['endnotes', 'placement'] })
-    expect(result.error?.issues[0]?.message).toContain('only in paginated mode')
-    expect(result.error?.issues[0]?.message).toContain('book placement or paginated mode')
+    expect(result.error?.issues[0]).toMatchObject({ path: ['notes', 1, 'placement'] })
+    expect(result.error?.issues[0]?.message).toContain('only available in paginated mode')
+    expect(result.error?.issues[0]?.message).toContain('page or book placement, or paginated mode')
   })
 
   test('page margins must leave a text area in both dimensions', () => {
@@ -155,13 +155,13 @@ describe('book', () => {
   test('note marker issues require both note kinds and matching markers', () => {
     const same = Book.parse(input({ footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } }))
     const different = Book.parse(input())
-    expect(noteMarkerIssues(same, { footnotes: false, endnotes: false })).toEqual([])
-    expect(noteMarkerIssues(same, { footnotes: true, endnotes: false })).toEqual([])
-    expect(noteMarkerIssues(same, { footnotes: false, endnotes: true })).toEqual([])
-    expect(noteMarkerIssues(same, { footnotes: true, endnotes: true })).toEqual([
+    expect(noteMarkerIssues(same.notes, new Set())).toEqual([])
+    expect(noteMarkerIssues(same.notes, new Set(['footnote']))).toEqual([])
+    expect(noteMarkerIssues(same.notes, new Set(['endnote']))).toEqual([])
+    expect(noteMarkerIssues(same.notes, new Set(['footnote', 'endnote']))).toEqual([
       'footnote and endnote markers are both arabic; the two must differ when both kinds are used',
     ])
-    expect(noteMarkerIssues(different, { footnotes: true, endnotes: true })).toEqual([])
+    expect(noteMarkerIssues(different.notes, new Set(['footnote', 'endnote']))).toEqual([])
   })
 
   test('the generated book schema describes unresolved input', () => {

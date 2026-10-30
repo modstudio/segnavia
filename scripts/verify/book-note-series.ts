@@ -23,10 +23,12 @@ export async function verifyNoteSeries(h: Harness) {
       const repeated = document.querySelector<HTMLAnchorElement>('[data-segnavia-note-repeat] > a')
       const endCall = document.querySelector<HTMLAnchorElement>('#segnavia-enref-1')
       const endBody = document.querySelector<HTMLAnchorElement>('#segnavia-en-1 > a')
+      const pageNotes = Array.from(document.querySelectorAll('[data-segnavia-page-note]')).map((note) => note.getAttribute('data-segnavia-page-note'))
       return {
         markers: [first?.textContent, second?.textContent, endCall?.textContent],
         links: [first?.getAttribute('href'), repeated?.getAttribute('href'), endCall?.getAttribute('href'), endBody?.getAttribute('href')],
         heading: document.querySelector('#segnavia-endnotes .segnavia-endnotes-title')?.textContent,
+        pageNotes,
       }
     })
     const expectedMarkers = language === 'he' ? ['א', 'ב', '1'] : ['*', '†', '1']
@@ -42,5 +44,10 @@ export async function verifyNoteSeries(h: Harness) {
       JSON.stringify(report),
     )
     h.check(`${id} carries the collected series heading`, report.heading === expectedHeading, JSON.stringify(report))
+    h.check(
+      `${id} composes each page note body once and does not measure the repeated call`,
+      JSON.stringify(report.pageNotes) === JSON.stringify(['segnavia-fn-1-1', 'segnavia-fn-2-2']),
+      JSON.stringify(report),
+    )
   }
 }
