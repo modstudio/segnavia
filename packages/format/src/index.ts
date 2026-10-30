@@ -91,6 +91,7 @@ export {
   isBookContents,
   isChapter,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
   noteMarkerIssues,
   REGION_NAME,

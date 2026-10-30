@@ -7,13 +7,15 @@ import {
   type DesignedSection,
   isBookContents,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
   noteMarkerIssues,
   resolveDirection,
   type TemplatedSection,
 } from '@segnavia/format'
-import { type ChildNode, type Document, isTag } from 'domhandler'
+import type { ChildNode, Document } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
+import { addContents } from './book-contents.ts'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
   authoredSection,
@@ -22,12 +24,14 @@ import {
   designedSection,
   flowAttribs,
   markPlacementIssues,
+  partSection,
   sectionNode,
   templatedSection,
   templatedSectionIssues,
   templateHolders,
   templateRegionIssues,
 } from './book-held.ts'
+import { duplicateIdIssues, reservedIdIssues } from './book-issues.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
@@ -42,7 +46,7 @@ function contentsSection(entry: { title?: string; opens?: string; parents?: Book
   }
 }
 
-function chapterSection(chapter: Chapter, index: number, build: BookBuild): BuiltSection {
+function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, build: BookBuild): BuiltSection {
   const id = `segnavia-chapter-${index}`
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
@@ -107,29 +111,6 @@ function chapterHeadings(section: BuiltSection, chapter: number, depth: number):
   return collectHeadings(section.node.children, section.info.id, depth, 2, (n) => `segnavia-h-${chapter}-${n}`, { n: 0 })
 }
 
-function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
-  const entries = headings.map((heading) => {
-    const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
-    return element('li', { class: 'segnavia-contents-entry', 'data-level': String(heading.level) }, [
-      element(
-        'a',
-        { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(book.dir, book.lang, heading.text) },
-        [text(heading.text)],
-      ),
-      element('span', { class: 'segnavia-contents-page', 'data-target': heading.id, dir: resolveDirection(book.dir, book.lang, page) }, [text(page)]),
-    ])
-  })
-  return element('ol', { class: 'segnavia-contents-list' }, entries)
-}
-
-function addContents(book: Book, section: BuiltSection, headings: BookHeading[], options: BookDocumentOptions): void {
-  const title = section.info.title
-  const titleNode = section.node.children.find((child) => isTag(child) && child.name === 'h1')
-  if (title !== undefined && titleNode && isTag(titleNode)) titleNode.attribs.dir = resolveDirection(book.dir, book.lang, title)
-  section.node.children.push(contentsList(book, headings, options))
-  linkChildren(section.node)
-}
-
 function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
   const ids = sections.flatMap((section) => [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))])
   return element(
@@ -137,28 +118,6 @@ function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
     { class: 'segnavia-targets', 'aria-hidden': 'true' },
     [...new Set(ids)].map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
   )
-}
-
-function duplicateIdIssues(sections: BuiltSection[], headings: BookHeading[]): string[] {
-  const listed = new Set(headings.map((heading) => heading.id))
-  const occurrences = new Map<string, BookSectionInfo[]>()
-  for (const section of sections) {
-    const ids = [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))]
-    for (const id of ids) occurrences.set(id, [...(occurrences.get(id) ?? []), section.info])
-  }
-  return [...occurrences].flatMap(([id, owners]) => {
-    if (!listed.has(id) || owners.length < 2) return []
-    const named = owners.slice(0, 2).map((owner) => `${owner.title ?? owner.id} (${owner.id})`)
-    return [`destination id ${id} is used in both ${named[0]} and ${named[1]}; listed heading and generated destination ids must be unique`]
-  })
-}
-
-function reservedIdIssues(section: BuiltSection): string[] {
-  return elements(section.node.children).flatMap((node) => {
-    const id = node.attribs.id
-    if (!id?.startsWith('segnavia-')) return []
-    return [`authored id ${id} in ${section.info.title ?? section.info.id} (${section.info.id}) uses the reserved segnavia- prefix`]
-  })
 }
 
 function columnsValueOk(value: string): boolean {
@@ -229,6 +188,20 @@ function takeHeldNotesOwner(build: DocumentBuild): number {
   return build.heldNotesOwner
 }
 
+function addPart(sectionEntry: ReturnType<typeof bookSections>[number], build: DocumentBuild): boolean {
+  const { entry } = sectionEntry
+  if (!isPart(entry)) return false
+  const id = sectionEntry.id ?? ''
+  if (entry.html !== undefined) {
+    const parts = Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? '']))
+    build.sections.push(partSection(entry, id, sectionEntry.division, build.build, parts))
+  }
+  if (entry.contents && entry.title !== undefined) {
+    build.headings.push({ id, level: 1, depth: sectionEntry.depth, text: entry.title, sectionId: id })
+  }
+  return true
+}
+
 // Chapter endnotes open on either side so recto openings govern the next chapter, not the notes.
 function pushChapterEndnotes(book: Book, build: DocumentBuild, id: string, owner: number): void {
   if (book.endnotes.placement !== 'chapter') return
@@ -244,6 +217,10 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
   for (const sectionEntry of bookSections(book)) {
     if (sectionEntry.division !== 'front') continue
     const { entry } = sectionEntry
+    if (isPart(entry)) {
+      addPart(sectionEntry, build)
+      continue
+    }
     if (isBookContents(entry)) {
       contents = contentsSection(entry, build.build)
       build.sections.push(contents)
@@ -274,7 +251,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.build)
     build.sections.push(section)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
-    if (entry.contents && entry.title !== undefined) {
+    if ('contents' in entry && entry.contents && entry.title !== undefined) {
       build.headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
     }
     transformNotes(section.node, book, 0, build.notes, build.build === 'galley')
@@ -282,11 +259,16 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
   return contents
 }
 
-function addChapters(book: Book, build: DocumentBuild): void {
+function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' = 'body'): void {
   let chapterNumber = 0
   for (const sectionEntry of bookSections(book)) {
-    if (sectionEntry.division !== 'body') continue
+    if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
+    if (isPart(entry)) {
+      addPart(sectionEntry, build)
+      continue
+    }
+    if (isBookContents(entry)) continue
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
       const owner = takeHeldNotesOwner(build)
@@ -324,13 +306,27 @@ function addChapters(book: Book, build: DocumentBuild): void {
       pushChapterEndnotes(book, build, `segnavia-endnotes-templated-${build.templatedNumber}`, owner)
       continue
     }
+    if (!('html' in entry)) continue
     chapterNumber += 1
     const section = chapterSection(entry, chapterNumber, build.build)
+    if (sectionEntry.ancestry.length > 0) {
+      section.node.attribs['data-segnavia-parts'] = JSON.stringify(Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? ''])))
+    }
     build.sections.push(section)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
+    if (entry.title !== undefined) {
+      build.headings.push({
+        id: section.info.id,
+        level: 1,
+        ...(sectionEntry.depth > 0 ? { depth: sectionEntry.depth } : {}),
+        text: entry.title,
+        sectionId: section.info.id,
+      })
+    }
     build.headings.push(
-      { id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id },
-      ...chapterHeadings(section, chapterNumber, book.contents.depth),
+      ...chapterHeadings(section, chapterNumber, book.contents.depth).map((heading) =>
+        sectionEntry.depth > 0 ? { ...heading, depth: sectionEntry.depth } : heading,
+      ),
     )
     transformNotes(section.node, book, chapterNumber, build.notes, build.build === 'galley')
     pushChapterEndnotes(book, build, `segnavia-endnotes-${chapterNumber}`, chapterNumber)
@@ -359,10 +355,11 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   } else if (notes.endnotes) {
     sections.push(endnotesSection(book, endnotesInOrder(notes), requestedBuild, 'segnavia-endnotes', book.endnotes.title))
   }
+  addChapters(book, build, 'end')
   if (contents) addContents(book, contents, headings, options)
   if (requestedBuild !== 'print') markBlockPositions(sections)
 
-  const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind) === options.part)
+  const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.kind, section.info.division) === options.part)
   const document = parse('') as Document
   document.children =
     requestedBuild === 'galley'

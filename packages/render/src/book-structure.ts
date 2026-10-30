@@ -27,6 +27,7 @@ export function bookOutline(headings: BookHeading[], destinations: Map<string, B
   const roots: BookOutlineItem[] = []
   const stack: Array<{ level: number; item: BookOutlineItem }> = []
   for (const heading of headings) {
+    const level = heading.level + (heading.depth ?? 0)
     const destination = destinations.get(heading.id)
     if (!destination) throw new RenderRefusedError(`The heading ${heading.id} has no printed destination.`)
     const item: BookOutlineItem = {
@@ -35,11 +36,11 @@ export function bookOutline(headings: BookHeading[], destinations: Map<string, B
       destination,
       children: [],
     }
-    while ((stack.at(-1)?.level ?? 0) >= heading.level) stack.pop()
+    while ((stack.at(-1)?.level ?? 0) >= level) stack.pop()
     const parent = stack.at(-1)?.item
     if (parent) parent.children.push(item)
     else roots.push(item)
-    stack.push({ level: heading.level, item })
+    stack.push({ level, item })
   }
   return roots
 }

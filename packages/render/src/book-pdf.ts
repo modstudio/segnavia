@@ -41,7 +41,8 @@ function requireTargets(part: PrintedPart, expected: string[]): void {
   }
 }
 
-const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') => sections.filter((section) => bookPrintPart(section.kind) === part)
+const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') =>
+  sections.filter((section) => bookPrintPart(section.kind, section.division) === part)
 
 function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookDestination>) {
   const ids: string[] = []

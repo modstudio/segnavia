@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
   BookChapterEntry,
-  BookFrontMatterEntry,
+  BookItem,
   BookTemplate,
   bookParentIssues,
   bookSections,
@@ -22,6 +22,7 @@ export {
   BookContents,
   type BookDivision,
   BookFrontMatterEntry,
+  BookItem,
   BookOpens,
   BookSection,
   type BookSectionEntry,
@@ -34,7 +35,9 @@ export {
   isBookContents,
   isChapter,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
+  Part,
   REGION_NAME,
   TemplatedPage,
   TemplatedSection,
@@ -56,7 +59,11 @@ export const BookPage = z.object({
 })
 export type BookPage = z.infer<typeof BookPage>
 
-export const BookRunningHeadSource = z.union([z.literal('title'), z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) })])
+export const BookRunningHeadSource = z.union([
+  z.literal('title'),
+  z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) }),
+  z.object({ part: z.string().regex(/^[A-Za-z][\w-]*$/) }),
+])
 export type BookRunningHeadSource = z.infer<typeof BookRunningHeadSource>
 
 export const BookRunningHead = z.object({
@@ -74,8 +81,10 @@ export const BookShape = z.object({
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
-  frontMatter: z.array(BookFrontMatterEntry).default([]),
-  chapters: z.array(BookChapterEntry).min(1),
+  frontMatter: z.array(BookItem).default([]),
+  body: z.array(BookItem).optional(),
+  endMatter: z.array(BookItem).default([]),
+  chapters: z.array(BookChapterEntry).optional(),
   parentPages: z.array(ParentPage).default([]),
   templates: z.array(BookTemplate).default([]),
   slots: Slots.optional(),
@@ -134,8 +143,12 @@ export type BookViewInput = z.input<typeof BookView>
 
 const ResolvedBook = BookShape.transform((book) => {
   const hebrew = isHebrew(book.lang)
+  const { chapters, ...fields } = book
   return {
-    ...book,
+    ...fields,
+    body: book.body ?? chapters ?? [],
+    chapters: chapters ?? [],
+    chaptersAndBody: book.body !== undefined && chapters !== undefined,
     numbering: {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
@@ -146,6 +159,27 @@ const ResolvedBook = BookShape.transform((book) => {
 })
 
 export const Book = ResolvedBook.superRefine((book, ctx) => {
+  const input = book as typeof book & { chapters?: BookChapterEntry[] }
+  if (input.body.length === 0) {
+    ctx.addIssue({ code: 'custom', path: ['body'], message: 'a book needs at least one body entry; add a chapter or part' })
+  }
+  if (book.chaptersAndBody) {
+    ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
+    ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
+  }
+  const emptyParts = (items: typeof book.body, path: (string | number)[]): void => {
+    items.forEach((entry, index) => {
+      if (!('name' in entry)) return
+      const partPath = [...path, index]
+      if (entry.html === undefined && entry.title === undefined && entry.children.length === 0) {
+        ctx.addIssue({ code: 'custom', path: partPath, message: 'a part needs html, a title or children; add one or remove the part' })
+      }
+      emptyParts(entry.children, [...partPath, 'children'])
+    })
+  }
+  emptyParts(book.frontMatter, ['frontMatter'])
+  emptyParts(book.body, ['body'])
+  emptyParts(book.endMatter, ['endMatter'])
   const sections = bookSections(book)
   const contentsPositions = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [Number(path.at(-1)) + 1] : []))
   if (contentsPositions.length > 1) {

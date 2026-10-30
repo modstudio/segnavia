@@ -1,5 +1,6 @@
 import {
   BOOK_FURNITURE,
+  type Book,
   type BookSection,
   type BookSectionParents,
   type BookTemplate,
@@ -22,7 +23,7 @@ export interface BuiltSection {
   node: ReturnType<typeof element>
 }
 
-export function authoredSection(section: BookSection, id: string, build: BookBuild): BuiltSection {
+export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'opens' | 'parents'>, id: string, build: BookBuild): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
   const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
@@ -52,6 +53,23 @@ export function sectionNode(
   if (build !== 'print') attribs['data-segnavia-flow'] = id
   if (build === 'galley' && runningHead !== undefined) attribs['data-running-head'] = runningHead
   return element('section', attribs, children)
+}
+
+export function partSection(
+  entry: Extract<Book['body'][number], { name: string }>,
+  id: string,
+  division: 'front' | 'body' | 'end',
+  build: BookBuild,
+  parts: Record<string, string>,
+): BuiltSection {
+  const children = entry.html === undefined ? [] : parse(entry.html).children
+  const runningHead = entry.runningHead ?? entry.title
+  const extra = flowAttribs(entry.opens, entry.parents, {
+    'data-segnavia-kind': 'part',
+    'data-segnavia-parts': JSON.stringify(parts),
+    ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
+  })
+  return { info: { id, kind: 'part', division, title: entry.title, runningHead }, node: sectionNode('part', id, children, build, runningHead, extra) }
 }
 
 function flowPage(page: number, kind: 'designed' | 'templated', children: ChildNode[], geometry: BookFlowPageGeometry, recto: boolean) {

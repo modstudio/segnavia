@@ -59,7 +59,10 @@ describe('book', () => {
       mode: 'continuous',
       scripts: 'refuse',
       frontMatter: [],
+      body: [chapter],
       chapters: [chapter],
+      chaptersAndBody: false,
+      endMatter: [],
       parentPages: [],
       templates: [],
       numbering: { frontMatter: 'roman-lower', body: 'arabic' },
@@ -332,5 +335,13 @@ describe('book', () => {
     expect(result.error?.issues[0]?.path).toEqual(['templates', 0, 'name'])
     expect(result.error?.issues[0]?.message).toContain('template "say "hi""')
     expect(result.error?.issues[0]?.message).toContain('HTML name token')
+  })
+
+  test('body replaces legacy chapters and refuses both or an empty part at its tree path', () => {
+    const both = Book.safeParse(input({ body: [chapter], chapters: [chapter] }))
+    expect(both.error?.issues.map((issue) => issue.path)).toEqual([['body'], ['chapters']])
+
+    const empty = Book.safeParse(input({ chapters: undefined, body: [{ name: 'part' }] }))
+    expect(empty.error?.issues[0]?.path).toEqual(['body', 0])
   })
 })

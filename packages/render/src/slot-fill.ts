@@ -2,9 +2,9 @@ import {
   type Book,
   type BookChapterEntry,
   type BookFrontMatterEntry,
-  bookSections,
   type Deck,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
   type Page,
 } from '@segnavia/format'
@@ -93,6 +93,13 @@ function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, 
   return entry
 }
 
+function mapBookItems(items: Book['body'], apply: (html: string) => string): Book['body'] {
+  return items.map((entry) => {
+    if (!isPart(entry)) return fillEntry(entry, apply)
+    return { ...entry, ...(entry.html === undefined ? {} : { html: apply(entry.html) }), children: mapBookItems(entry.children, apply) }
+  })
+}
+
 export async function filledBook(book: Book, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Book> {
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(book.scripts, book.slots, slots)
@@ -100,11 +107,12 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   if (!hasSlotWork(book.slots, slots)) return book
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
-  const sections = bookSections(book)
   const filled = {
     ...book,
-    frontMatter: sections.filter(({ division }) => division === 'front').map(({ entry }) => fillEntry(entry as BookFrontMatterEntry, prepared.apply)),
-    chapters: sections.filter(({ division }) => division === 'body').map(({ entry }) => fillEntry(entry as BookChapterEntry, prepared.apply)),
+    frontMatter: mapBookItems(book.frontMatter, prepared.apply),
+    body: mapBookItems(book.body, prepared.apply),
+    chapters: mapBookItems(book.body, prepared.apply) as BookChapterEntry[],
+    endMatter: mapBookItems(book.endMatter, prepared.apply),
     templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
   }
   // One book document reports each key once, so marks are per rendered tab, not per applied field.
