@@ -106,17 +106,19 @@ export function designedSection(
   }
 }
 
+export function templateRegionElements(html: string): Element[] {
+  return elements(parse(html).children).filter((node) => node.attribs['data-region'])
+}
+
 function declaredRegions(html: string): Set<string> {
-  return new Set(elements(parse(html).children).flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))
+  return new Set(templateRegionElements(html).flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))
 }
 
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
 
-export function templateRegionNameIssues(templates: BookTemplate[]): string[] {
-  return templates.flatMap((template) =>
-    [...declaredRegions(template.html)].flatMap((key) =>
-      REGION_NAME.test(key) ? [] : [`template "${template.name}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
-    ),
+export function templateRegionNameIssues(template: string, regions: Element[]): string[] {
+  return [...new Set(regions.flatMap((node) => (node.attribs['data-region'] ? [node.attribs['data-region']] : [])))].flatMap((key) =>
+    REGION_NAME.test(key) ? [] : [`template "${template}" marks region "${key}" which is not an HTML name token; ${regionNameClear}`],
   )
 }
 

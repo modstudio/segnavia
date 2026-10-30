@@ -38,7 +38,7 @@ export type {
   PaginateSequence,
   PaginateWindow,
 } from './book/paginate-types.ts'
-export { fitRegionSize } from './book/region-fit.ts'
+export { ABSOLUTE_PX, fitRegionSize, lengthPx, parseCssLength } from './book/region-fit.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput } from '@segnavia/format'
+import { Book, type BookInput, PX_PER_PT } from '@segnavia/format'
+import { templateRegionElements } from './book-held.ts'
 import { bookDocument } from './book-document.ts'
-import { fitRegionSize, templateRegionFitIssues } from './region-fit.ts'
+import { ABSOLUTE_PX, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({
@@ -11,6 +12,8 @@ const input = (overrides: Partial<BookInput> = {}): BookInput => ({
   chapters: [chapter('One')],
   ...overrides,
 })
+
+const issuesFor = (html: string) => templateRegionFitIssues('lesson', templateRegionElements(html))
 
 describe('fitRegionSize', () => {
   test('fits at max (no change)', () => {
@@ -37,34 +40,58 @@ describe('fitRegionSize', () => {
     })
     expect(n).toBeLessThan(10)
   })
+
+  test('unusable inputs are marked unusable without measuring', () => {
+    let n = 0
+    const overflows = () => {
+      n += 1
+      return true
+    }
+    expect(fitRegionSize(48, 75, 1, overflows)).toEqual({ usable: false })
+    expect(fitRegionSize(75, 48, 0, overflows)).toEqual({ usable: false })
+    expect(fitRegionSize(Number.NaN, 48, 1, overflows)).toEqual({ usable: false })
+    expect(n).toBe(0)
+  })
 })
 
 describe('templateRegionFitIssues', () => {
   test('invalid attributes', () => {
     expect(
-      templateRegionFitIssues([
-        {
-          name: 'lesson',
-          html: [
-            '<div data-region="heading" data-fit-min="wide" data-fit-step="1pt" style="font-size:75pt"></div>',
-            '<div data-region="reading" data-fit-min="48pt" data-fit-step="0pt" style="font-size:75pt"></div>',
-            '<div data-region="table" data-fit-min="48pt" style="font-size:75pt"></div>',
-            '<div data-region="large" data-fit-min="80pt" data-fit-step="1pt" style="font-size:75pt"></div>',
-          ].join(''),
-        },
-      ]),
+      issuesFor(
+        [
+          '<div data-region="heading" data-fit-min="wide" data-fit-step="1pt" style="font-size:75pt"></div>',
+          '<div data-region="reading" data-fit-min="48pt" data-fit-step="0pt" style="font-size:75pt"></div>',
+          '<div data-region="table" data-fit-min="48pt" style="font-size:75pt"></div>',
+          '<div data-region="relative" data-fit-min="2em" data-fit-step="1pt" style="font-size:75pt"></div>',
+          '<div data-region="negative" data-fit-min="-5pt" data-fit-step="1pt" style="font-size:75pt"></div>',
+        ].join(''),
+      ),
     ).toEqual([
-      'template "lesson" region "heading" data-fit-min "wide" is not a CSS length; use a CSS length such as 48pt to clear this refusal',
-      'template "lesson" region "reading" data-fit-step "0pt" is not a positive CSS length; use a positive CSS length such as 1pt to clear this refusal',
-      'template "lesson" region "table" data-fit-step "" is not a positive CSS length; use a positive CSS length such as 1pt to clear this refusal',
-      'template "lesson" region "large" data-fit-min "80pt" is above the authored font size 75pt; lower the minimum or raise the region\'s font-size to clear this refusal',
+      'template "lesson" region "heading" data-fit-min "wide" is not an absolute CSS length; use an absolute CSS length such as 48pt to clear this refusal',
+      'template "lesson" region "reading" data-fit-step "0pt" is not a positive absolute CSS length; use a positive absolute CSS length such as 1pt to clear this refusal',
+      'template "lesson" region "table" data-fit-step "" is not an absolute CSS length; use an absolute CSS length such as 1pt to clear this refusal',
+      'template "lesson" region "relative" data-fit-min "2em" uses unit "em"; use an absolute CSS length (px, pt, pc, in, cm, mm or q) such as 48pt to clear this refusal',
+      'template "lesson" region "negative" data-fit-min "-5pt" is not a positive absolute CSS length; use a positive absolute CSS length such as 48pt to clear this refusal',
     ])
   })
 
-  test('a valid min and step against an authored size are silent', () => {
-    expect(
-      templateRegionFitIssues([{ name: 'lesson', html: '<div data-region="heading" data-fit-min="48pt" data-fit-step="1pt" style="font-size:75pt"></div>' }]),
-    ).toEqual([])
+  test('a valid min and step are silent, including a min above an inline font-size', () => {
+    expect(issuesFor('<div data-region="heading" data-fit-min="48pt" data-fit-step="1pt" style="font-size:75pt"></div>')).toEqual([])
+    expect(issuesFor('<div data-region="heading" data-fit-min="80pt" data-fit-step="1pt" style="font-size:75pt"></div>')).toEqual([])
+  })
+
+  test('a value that smuggles a CSS declaration is not a length and cannot add a declaration', () => {
+    const smuggled = '1px;background:url(https://example.invalid/x)'
+    expect(parseCssLength(smuggled)).toBeUndefined()
+    expect(lengthPx(smuggled, ABSOLUTE_PX)).toBeUndefined()
+    expect(issuesFor(`<div data-region="heading" data-fit-min="${smuggled}" data-fit-step="1pt"></div>`)).toEqual([
+      `template "lesson" region "heading" data-fit-min "${smuggled}" is not an absolute CSS length; use an absolute CSS length such as 48pt to clear this refusal`,
+    ])
+  })
+
+  test('an absolute length converts through PX_PER_PT', () => {
+    expect(lengthPx('48pt', ABSOLUTE_PX)).toBe(48 * PX_PER_PT)
+    expect(lengthPx('75pt', ABSOLUTE_PX)).toBe(75 * PX_PER_PT)
   })
 
   test('bookDocument reports fit issues on the same path as other data-region checks', () => {
@@ -74,8 +101,8 @@ describe('templateRegionFitIssues', () => {
       }),
     )
     expect(bookDocument(book).issues).toEqual([
-      'template "lesson" region "heading" data-fit-min "bogus" is not a CSS length; use a CSS length such as 48pt to clear this refusal',
-      'template "lesson" region "heading" data-fit-step "-1pt" is not a positive CSS length; use a positive CSS length such as 1pt to clear this refusal',
+      'template "lesson" region "heading" data-fit-min "bogus" is not an absolute CSS length; use an absolute CSS length such as 48pt to clear this refusal',
+      'template "lesson" region "heading" data-fit-step "-1pt" is not a positive absolute CSS length; use a positive absolute CSS length such as 1pt to clear this refusal',
     ])
   })
 })

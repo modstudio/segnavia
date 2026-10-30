@@ -24,6 +24,7 @@ import {
   sectionNode,
   templatedSection,
   templateHolders,
+  templateRegionElements,
   templateRegionNameIssues,
   undeclaredRegionIssues,
 } from './book-held.ts'
@@ -31,6 +32,13 @@ import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
 import { templateRegionFitIssues } from './region-fit.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
+
+function templateIssues(templates: BookTemplate[]): string[] {
+  return templates.flatMap((template) => {
+    const regions = templateRegionElements(template.html)
+    return [...templateRegionNameIssues(template.name, regions), ...templateRegionFitIssues(template.name, regions)]
+  })
+}
 
 function direction(book: Book, value: string): string {
   return resolveDirection(book.dir, book.lang, value)
@@ -391,8 +399,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ...(buildIssue ? [buildIssue] : []),
       ...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
       ...markPlacementIssues(book.parentPages),
-      ...templateRegionNameIssues(book.templates),
-      ...templateRegionFitIssues(book.templates),
+      ...templateIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),
     ],
