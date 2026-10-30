@@ -6,8 +6,8 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
-import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
+import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_STYLE_CHECK_CSS = '.book-css-check{color:rgb(91, 42, 123);font-size:23px}'
