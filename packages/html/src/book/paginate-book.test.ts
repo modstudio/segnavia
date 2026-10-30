@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { block, flow, input, note, settings, win } from './paginate-book.test-helper.ts'
 import { paginateBook, paginateScript } from './paginate-book.ts'
 import type { PaginateBookInput } from './paginate-types.ts'
+
 function rebuilt() {
   return new Function(`${paginateScript()}; return paginateBook;`)() as typeof paginateBook
 }
@@ -249,7 +250,6 @@ describe('paginateBook', () => {
       },
     ])
   })
-
   test('a heading keeps with the next block', () => {
     const heading = block('heading', 'h2', 1, 1, 1, 0)
     const paragraph = block('text', 'p', 1, 2, 5, 10)
