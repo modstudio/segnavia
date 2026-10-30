@@ -6,6 +6,7 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
+import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_STYLE_CHECK_CSS = '.book-css-check{color:rgb(91, 42, 123);font-size:23px}'
@@ -169,81 +170,6 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
 })
 
-const workbookCss =
-  ':where(.lesson){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:12px;padding-inline:12px;display:flex;flex-direction:column;gap:8px}:where(.lesson-heading){font-weight:700}:where(.lesson-reading){flex:none;block-size:3em;max-block-size:3em;overflow:visible}:where(.lesson-table table){inline-size:100%;border-collapse:collapse}:where(.lesson-table th,.lesson-table td){border:1px solid;padding:4px}:where(.copyright-page){box-sizing:border-box;inline-size:100%;block-size:100%;padding:24px}:where(.lesson-alt .lesson-table){order:-1}'
-
-function lessonTable(hebrew: boolean): string {
-  const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
-  return `<table><thead><tr>${head}</tr></thead><tbody><tr><td>א</td><td>1</td></tr><tr><td>ב</td><td>2</td></tr></tbody></table>`
-}
-
-function workbookFixture(hebrew: boolean): BookInput {
-  const lesson = hebrew ? 'שיעור' : 'Lesson'
-  const reading = hebrew ? 'הטקסט לקריאה בשיעור.' : 'The reading text for this lesson.'
-  const longReading = hebrew ? `${reading} `.repeat(8) : `${reading} `.repeat(8)
-  return {
-    title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
-    mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
-    rectoOpenings: true,
-    slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }],
-    templates: [
-      {
-        name: 'lesson',
-        html: '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
-      },
-      {
-        name: 'lesson-alt',
-        html: '<div class="lesson lesson-alt"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>',
-      },
-    ],
-    frontMatter: [
-      {
-        kind: 'designed',
-        title: hebrew ? 'זכויות יוצרים' : 'Copyright',
-        pages: [
-          {
-            html: `<div class="copyright-page"><p>© <span data-slot-value="school">${hebrew ? 'בית ספר' : 'School'}</span></p></div>`,
-          },
-        ],
-      },
-      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-    ],
-    chapters: [
-      {
-        kind: 'templated',
-        title: hebrew ? 'שיעורים' : 'Lessons',
-        template: 'lesson',
-        pages: [
-          {
-            regions: {
-              heading: `<h1 id="lesson-1">${lesson} 1</h1>`,
-              'reading-text': `<p>${reading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-          {
-            regions: {
-              heading: `<h1 id="lesson-2">${lesson} 2</h1>`,
-              'reading-text': `<p>${longReading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-          {
-            template: 'lesson-alt',
-            regions: {
-              heading: `<h1 id="lesson-3">${lesson} 3</h1>`,
-              'reading-text': `<p>${reading}</p>`,
-              table: lessonTable(hebrew),
-            },
-          },
-        ],
-      },
-    ],
-  }
-}
-
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -359,7 +285,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
     const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
     const workbookCssFull = hebrew
-      ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}`
+      ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(
       path.join(site, hebrew ? 'book-workbook-he.html' : 'book-workbook-en.html'),

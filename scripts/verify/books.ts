@@ -327,7 +327,7 @@ async function verifyWorkbooks(h: Harness) {
         dir: document.documentElement.getAttribute('dir'),
       }
     })
-    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 3, report.failure ?? `${report.pages} pages`)
+    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 4, report.failure ?? `${report.pages} pages`)
     check(
       `${id} one lesson page names its own template`,
       report.templates.includes('lesson') && report.templates.includes('lesson-alt'),
@@ -342,12 +342,21 @@ async function verifyWorkbooks(h: Harness) {
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
     check(
       `${id} contents lists every lesson with its page number`,
-      lessons.length >= 4 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
+      lessons.length >= 5 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
       JSON.stringify(lessons),
     )
     const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
+
+    const fit = await frame.evaluate(() => {
+      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
+      if (!el) return { size: 0, overflow: 'missing' }
+      return { size: Number.parseFloat(getComputedStyle(el).fontSize), overflow: el.getAttribute('data-segnavia-region-overflow') }
+    })
+    const minPx = 48 * (96 / 72)
+    const maxPx = 75 * (96 / 72)
+    check(`${id} 75pt lesson text fits between min and max`, fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow, JSON.stringify(fit))
 
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
@@ -357,6 +366,19 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
+
+    const printFile = id === 'book-workbook-he' ? 'book-workbook-he.html' : 'book-workbook-en.html'
+    await page.goto(h.url(printFile))
+    await page.waitForFunction(
+      () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
+      undefined,
+      { timeout: 20_000 },
+    )
+    const printSize = await page.evaluate(() => {
+      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
+      return el ? Number.parseFloat(getComputedStyle(el).fontSize) : 0
+    })
+    check(`${id} screen and PDF fitted sizes are equal`, Math.abs(fit.size - printSize) < 0.5, `${fit.size} vs ${printSize}`)
 
     const pixels = await compareTemplatedPages(h, id)
     check(

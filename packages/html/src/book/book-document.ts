@@ -29,6 +29,7 @@ import {
 } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
+import { templateRegionFitIssues } from './region-fit.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
 
 function direction(book: Book, value: string): string {
@@ -391,6 +392,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
       ...markPlacementIssues(book.parentPages),
       ...templateRegionNameIssues(book.templates),
+      ...templateRegionFitIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),
     ],
