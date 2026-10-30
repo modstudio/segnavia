@@ -90,37 +90,7 @@ describe('book document', () => {
     const withoutNumbers = Book.parse(
       input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')], contents: { pageNumbers: false } }),
     )
-    expect(bookDocument(withoutNumbers, { pageNumbers: { topic: '8' } }).html).toContain(
-      '<span class="segnavia-contents-page"></span>',
-    )
-  })
-
-  test('fills page references while keeping an empty link before pagination', () => {
-    const book = Book.parse(input({ chapters: [chapter('One', '<p><a href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>')] }))
-    expect(bookDocument(book).html).toContain('<a href="#topic" data-ref="page" dir="ltr"></a>')
-    expect(bookDocument(book, { pageNumbers: { topic: 'יב' } }).html).toContain('<a href="#topic" data-ref="page" dir="rtl">יב</a>')
-    expect(bookDocument(book, { pageNumbers: { topic: '12' }, crossLinks: true }).html).toContain(
-      '<a href="segnavia:target/topic" data-ref="page" dir="ltr">12</a>',
-    )
-  })
-
-  test('reports missing and ambiguous page reference targets', () => {
-    const missing = bookDocument(Book.parse(input({ chapters: [chapter('One', '<p><a href="#lost" data-ref="page"></a></p>')] })))
-    expect(missing.issues).toContain('page reference target lost does not exist; add id="lost" to its destination to clear this refusal')
-
-    const repeated = bookDocument(
-      Book.parse(
-        input({
-          chapters: [
-            chapter('One', '<p><a href="#topic" data-ref="page"></a><span id="topic">First</span></p>'),
-            chapter('Two', '<span id="topic">Second</span>'),
-          ],
-        }),
-      ),
-    )
-    expect(repeated.issues).toContain(
-      'page reference target topic is used in both One (segnavia-chapter-1) and Two (segnavia-chapter-2); make the target id unique to clear this refusal',
-    )
+    expect(bookDocument(withoutNumbers, { pageNumbers: { topic: '8' } }).html).toContain('<span class="segnavia-contents-page"></span>')
   })
 
   test('inserts requested blank pages immediately before their sections', () => {

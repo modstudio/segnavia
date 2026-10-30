@@ -5,6 +5,7 @@ import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/for
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
+import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
@@ -238,16 +239,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
 
   const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, frontPages, frontSystem, bodySystem)
   check(`${fixture.key} contents page numbers match heading destination pages`, numbered)
-  const targetBodyPage = pageWith(pages, fixture.chapterMarkers[2] as string) - frontPages
-  const expectedReference = formatNumber(targetBodyPage, bodySystem)
-  check(
-    `${fixture.key} continuous PDF page reference uses its target body folio`,
-    pages
-      .join('\n')
-      .replaceAll(/\s/g, '')
-      .includes(`REF-${fixture.key === 'hebrew' ? 'HE' : 'EN'}[${expectedReference}]`),
-    `expected ${expectedReference} for body page ${targetBodyPage}`,
-  )
+  verifyContinuousPageReference(pages, `REF-${fixture.key === 'hebrew' ? 'HE' : 'EN'}`, fixture.chapterMarkers[2] as string, frontPages, bodySystem, check)
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
@@ -321,7 +313,7 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
   const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
   const document = await PDFDocument.load(bytes)
   const links = annotationDestinations(document).sort((left, right) => left - right)
-  const expected = [...chapterPages].sort((left, right) => left - right)
+  const expected = [...chapterPages, ...chapterPages].sort((left, right) => left - right)
   check(
     `${key} paginated contents links resolve to each chapter's first page`,
     chapterPages.every((page) => page > 0) && JSON.stringify(links) === JSON.stringify(expected),

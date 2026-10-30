@@ -71,7 +71,6 @@ export async function verifyBooks(h: Harness) {
     const hostScroll = await page.evaluate(() => scrollY)
     check(`${id} contents scroll the chapter into the frame`, contents && href === 'about:srcdoc' && hostScroll === 0, JSON.stringify({ href, hostScroll }))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-contents.png`) })
-
     const pageRef = page.frameLocator(`${frame} iframe`).locator('a[data-ref="page"][href="#far-shore"]')
     check(`${id} continuous page reference has no number`, (await pageRef.textContent()) === '')
     await pageRef.evaluate((element: HTMLAnchorElement) => element.click())
@@ -203,10 +202,13 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
-    const reference = await frame.locator('a[data-ref="page"][href="#segnavia-chapter-3"]').first().evaluate((node) => {
-      const target = document.getElementById('segnavia-chapter-3')?.closest('[data-segnavia-book-page]')
-      return { number: node.textContent?.trim() ?? '', folio: target?.getAttribute('data-segnavia-folio') ?? '', dir: node.getAttribute('dir') }
-    })
+    const reference = await frame
+      .locator('a[data-ref="page"][href="#segnavia-chapter-3"]')
+      .first()
+      .evaluate((node) => {
+        const target = document.getElementById('segnavia-chapter-3')?.closest('[data-segnavia-book-page]')
+        return { number: node.textContent?.trim() ?? '', folio: target?.getAttribute('data-segnavia-folio') ?? '', dir: node.getAttribute('dir') }
+      })
     check(
       `${id} page reference uses its target page folio and isolates its direction`,
       reference.number !== '' && reference.number === reference.folio && reference.dir === 'auto',

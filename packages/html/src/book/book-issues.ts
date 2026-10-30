@@ -42,7 +42,9 @@ export function pageReferenceIssues(sections: BuiltSection[]): string[] {
     const owners = targets.get(id) ?? []
     if (owners.length === 0) return [`page reference target ${id} does not exist; add id="${id}" to its destination to clear this refusal`]
     if (owners.length === 1) return []
-    return [`page reference target ${id} is used in both ${sectionName(owners[0] as BuiltSection)} and ${sectionName(owners[1] as BuiltSection)}; make the target id unique to clear this refusal`]
+    return [
+      `page reference target ${id} is used in both ${sectionName(owners[0] as BuiltSection)} and ${sectionName(owners[1] as BuiltSection)}; make the target id unique to clear this refusal`,
+    ]
   })
 }
 
