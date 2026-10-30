@@ -40,6 +40,7 @@ export class SegnaviaStage extends HTMLElement {
   // Styles applied inside every slide, such as a host's house style.
   css = ''
   cspExtra = ''
+  dependencyOrigins: Iterable<string> = []
   bridgeReadyTimeoutMs = 10_000
   private owned: DeckController | null = null
   private attached: DeckController | null = null
@@ -264,6 +265,7 @@ export class SegnaviaStage extends HTMLElement {
       neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,
+      dependencyOrigins: this.dependencyOrigins,
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,

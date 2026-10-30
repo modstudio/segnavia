@@ -53,6 +53,7 @@ export interface RenderLimits {
 }
 
 export interface RenderOptions {
+  dependencyOrigins?: Iterable<string>
   css?: string
   fonts?: Font[]
   fontSource?: FontSource

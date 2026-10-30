@@ -109,6 +109,7 @@ describe('book element input', () => {
     const named = bookFrame({ html: '<main>Book</main>', title: 'Named book', scripts: 'sandboxed' })
     expect(named.title).toBe('Named book')
     expect(named.srcdoc).not.toContain("script-src 'nonce-")
+    expect(named.srcdoc).toContain("connect-src 'none'")
   })
 
   test('sanitizes book CSS and places it after generated fonts', () => {

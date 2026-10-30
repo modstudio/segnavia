@@ -214,6 +214,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       css: containFixedPageOverflow(css),
       relayKeys: false,
       reportHeight: false,
+      dependencyOrigins: opts.dependencyOrigins,
     })
     return withTab(
       {

@@ -377,13 +377,14 @@ describe('printablePages', () => {
     expect(html).toContain(`left:${placement.trim.x - placement.bleedBox.x}mm;top:${placement.trim.y - placement.bleedBox.y}mm`)
   })
 
-  test('sandboxes every frame and applies nonce policy only to refused scripts', () => {
+  test('sandboxes every frame and applies the policy for its script mode', () => {
     const refused = printablePages([fluid], grid, { nonce: 'known' })
     const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, { nonce: 'known' })
     expect(refused).toContain('sandbox="allow-scripts"')
     expect(refused).not.toContain('allow-same-origin')
     expect(refused).toContain("script-src 'nonce-known'")
-    expect(sandboxed).not.toContain('script-src')
+    expect(sandboxed).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+    expect(sandboxed).toContain("connect-src 'none'")
     expect(refused).not.toContain('var printAt=')
     expect(refused).not.toContain('dispatchPrint()')
   })

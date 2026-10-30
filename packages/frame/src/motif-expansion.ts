@@ -305,7 +305,11 @@ export async function prepareShownPage(
   return { page: expanded.page, resolved, css }
 }
 
-export function shownPageDocument(page: Page, resolved: PreparedSlots | undefined, options: { nonce: string; css?: string; csp?: string }): string {
+export function shownPageDocument(
+  page: Page,
+  resolved: PreparedSlots | undefined,
+  options: { nonce: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
+): string {
   return frameDocument(slotHtml(page.html, resolved), {
     scripts: page.scripts,
     nonce: options.nonce,
@@ -313,6 +317,7 @@ export function shownPageDocument(page: Page, resolved: PreparedSlots | undefine
     lang: page.lang,
     css: `${page.print ? printProperties(page.print) : ''}${options.css ?? ''}`,
     csp: options.csp,
+    dependencyOrigins: options.dependencyOrigins,
     relayKeys: false,
   })
 }

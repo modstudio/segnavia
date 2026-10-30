@@ -32,6 +32,7 @@ export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src', 'bounded', 'label']
   css = ''
   cspExtra = ''
+  dependencyOrigins: Iterable<string> = []
   private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
@@ -169,6 +170,7 @@ export class SegnaviaPage extends HTMLElement {
           nonce: newNonce(),
           css: `${fontCss}${this.css}`,
           csp: this.cspExtra || undefined,
+          dependencyOrigins: this.dependencyOrigins,
         }),
       )
     }
@@ -192,6 +194,7 @@ export class SegnaviaPage extends HTMLElement {
           lang: page.lang,
           css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
           csp: this.cspExtra || undefined,
+          dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,
         }),
       )

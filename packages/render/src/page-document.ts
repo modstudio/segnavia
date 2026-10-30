@@ -87,5 +87,6 @@ export function renderPageDocument(page: Page, options: RenderOptions, printing 
     css,
     relayKeys: false,
     reportHeight: false,
+    dependencyOrigins: options.dependencyOrigins,
   })
 }

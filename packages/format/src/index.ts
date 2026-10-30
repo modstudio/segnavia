@@ -367,3 +367,4 @@ export function jsonSchemas() {
 }
 
 export * from './slots.ts'
+export { dependencyDecision, dependencyOriginSet, type DependencyDecision } from './dependency-policy.ts'

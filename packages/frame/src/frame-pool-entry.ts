@@ -31,7 +31,7 @@ export function addFrame({ entries, events, host, index, content, state, control
   const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, pool.css, pool.csp)
   if (existing && canReuseFrame({ readiness: existing.ready, sameResolution: existing.content === content }, existing.value, comparable)) return existing.canvas
   const entry = new FrameEntry(slide.id, comparable, content)
-  const canvas = stageCanvas(controller, deck, slide, index, content, pool.css, pool.csp, pool.frameTitle, () => entry.markLoaded(pool), pool.slots)
+  const canvas = stageCanvas(controller, deck, slide, index, content, pool.css, pool.csp, pool.dependencyOrigins, pool.frameTitle, () => entry.markLoaded(pool), pool.slots)
   entry.canvas = canvas
   entries.set(slide.id, entry)
   if (existing) {

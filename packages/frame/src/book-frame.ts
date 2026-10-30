@@ -5,7 +5,13 @@ import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts
 import { frameDocument, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
 
-export function bookFrame(view: BookView, css?: string, spread = false, layout: BookLayout = 'pages'): { title: string; srcdoc: string } {
+export function bookFrame(
+  view: BookView,
+  css?: string,
+  spread = false,
+  layout: BookLayout = 'pages',
+  dependencyOrigins: Iterable<string> = [],
+): { title: string; srcdoc: string } {
   const title = view.title ?? bookLabel(view.lang)
   if (view.pagination) {
     return {
@@ -26,6 +32,7 @@ export function bookFrame(view: BookView, css?: string, spread = false, layout: 
       css: bookStylesheet(css, view.css, undefined),
       relayKeys: false,
       reportHeight: false,
+      dependencyOrigins,
     }),
   }
 }

@@ -54,6 +54,7 @@ export interface PrintOptions {
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
   slots?: SlotsOptions
+  dependencyOrigins?: Iterable<string>
 }
 
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
@@ -66,7 +67,7 @@ const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-p
 export function htmlSlideDocument(
   deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>,
   html: string,
-  options: { css?: string; nonce: string; printAtMs?: number },
+  options: { css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string> },
 ): string {
   return frameDocument(html, {
     scripts: deck.scripts,
@@ -78,6 +79,7 @@ export function htmlSlideDocument(
     relayKeys: false,
     printAtMs: options.printAtMs ?? 0,
     printBackground: true,
+    dependencyOrigins: options.dependencyOrigins,
   })
 }
 
@@ -113,7 +115,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
   const frame = (html: string) =>
-    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0 }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
@@ -160,6 +162,7 @@ export interface PrintablePagesOptions {
   nonce?: string
   cspExtra?: string
   slots?: SlotsOptions
+  dependencyOrigins?: Iterable<string>
 }
 
 export interface PrintablePagesDocument {
@@ -247,6 +250,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
     reportHeight: false,
     relayKeys: false,
     printBackground: true,
+    dependencyOrigins: options.dependencyOrigins,
   })
   return placementBox(
     (dimensions) => `<iframe sandbox="allow-scripts" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,

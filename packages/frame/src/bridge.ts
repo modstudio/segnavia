@@ -7,7 +7,7 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import type { Scripts } from '@segnavia/format'
+import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 
 export const MESSAGE = {
@@ -57,6 +57,7 @@ export interface FrameOptions {
   css?: string
   // Extra CSP directives, appended to the frame's own.
   csp?: string
+  dependencyOrigins?: Iterable<string>
   relayKeys?: boolean
   reportHeight?: boolean
   // Holds the existing ready message until a document composer marks its root.
@@ -207,8 +208,17 @@ export const BLOCK_DIRECTION_CSS =
 // author adds can only narrow this one: browsers enforce every policy present.
 export function frameDocument(html: string, options: FrameOptions): string {
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
+  const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
+  const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
   const directives = [
-    options.scripts === 'refuse' ? `script-src 'nonce-${options.nonce}'` : null,
+    options.scripts === 'refuse' ? `script-src 'nonce-${options.nonce}'` : withOrigins("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
+    options.scripts === 'sandboxed' ? withOrigins("style-src 'unsafe-inline'") : null,
+    options.scripts === 'sandboxed' ? withOrigins('font-src data:') : null,
+    options.scripts === 'sandboxed' ? 'img-src data: blob:' : null,
+    options.scripts === 'sandboxed' ? 'media-src data: blob:' : null,
+    options.scripts === 'sandboxed' ? "connect-src 'none'" : null,
+    options.scripts === 'sandboxed' ? "frame-src 'none'" : null,
+    options.scripts === 'sandboxed' ? 'worker-src blob:' : null,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

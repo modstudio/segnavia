@@ -90,13 +90,21 @@ describe('frame document', () => {
     expect(html.match(/<!doctype/gi)?.length).toBe(1)
   })
 
-  test('sandboxed scripts carry no script policy, so the author code runs', () => {
+  test('sandboxed scripts carry the dependency policy and refuse connections', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
-    expect(html).not.toContain('script-src')
+    expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+    expect(html).toContain("connect-src 'none'")
     expect(html).toContain("new CustomEvent('segnavia:print'")
     expect(html).not.toContain('allow-forms')
     expect(html).not.toContain('allow-same-origin')
     expect(html).toContain("form-action 'none'")
+  })
+
+  test('approved dependency origins are written into scripted CSP directives', () => {
+    const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n', dependencyOrigins: ['https://cdn.jsdelivr.net'] })
+    expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net")
+    expect(html).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net")
+    expect(html).toContain('font-src data: https://cdn.jsdelivr.net')
   })
 
   test('sandboxed scripts receive independent in-memory Storage properties', () => {
@@ -107,8 +115,8 @@ describe('frame document', () => {
     const session = window.sessionStorage as Storage
     expect(local.length).toBe(0)
     expect(local.getItem('missing')).toBeNull()
-    local.setItem('count', 3)
-    local.setItem('other', true)
+    ;(local.setItem as (key: unknown, value: unknown) => void)('count', 3)
+    ;(local.setItem as (key: unknown, value: unknown) => void)('other', true)
     expect(local.getItem('count')).toBe('3')
     expect(local.key(0)).toBe('count')
     expect(local.key(2)).toBeNull()
@@ -172,9 +180,7 @@ describe('frame document', () => {
       MESSAGE.height,
       MESSAGE.ready,
     ])
-    expect(html).toContain(
-      "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
-    )
+    expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")
   })
 
   test('direction and language land on the root the author declared, or one we supply', () => {

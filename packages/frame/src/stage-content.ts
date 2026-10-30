@@ -25,6 +25,7 @@ export function stageCanvas(
   content: ResolvedContent,
   css: string,
   csp: string,
+  dependencyOrigins: Iterable<string> | undefined,
   frameTitle: FrameTitle,
   loaded: () => void,
   slots?: PreparedSlots,
@@ -47,6 +48,7 @@ export function stageCanvas(
         lang: deck.lang,
         css,
         csp: csp || undefined,
+        dependencyOrigins,
         reportHeight: false,
       })
     } else iframe.src = controller.url(content.src)

@@ -131,6 +131,10 @@ export class SegnaviaPlayer extends HTMLElement {
     this.stage.cspExtra = csp
   }
 
+  set dependencyOrigins(origins: Iterable<string>) {
+    this.stage.dependencyOrigins = origins
+  }
+
   set slots(value: SlotsOptions | undefined) {
     this.stage.slots = value
   }
