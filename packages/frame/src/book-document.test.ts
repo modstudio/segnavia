@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, Book, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { flowTextArea, pixelPhaseOffset } from './book-composer.ts'
+import { BOOK_MEASUREMENT_WAIT_MS, decideBookMeasurement, flowTextArea, pixelPhaseOffset } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -40,10 +40,11 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,decideBookMeasurement}`)() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
+      decideBookMeasurement: typeof decideBookMeasurement
     }
     expect(
       embedded.flowTextArea(
@@ -57,6 +58,7 @@ describe('bookDocument', () => {
     ).toEqual({ width: 100, height: 160 })
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
+    expect(embedded.decideBookMeasurement({ frameWidth: 100, sourceBlocks: 1, measuredLines: 0, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
@@ -73,6 +75,8 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')

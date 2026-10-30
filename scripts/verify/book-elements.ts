@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
+import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
@@ -298,6 +299,7 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await verifyHiddenBookElements(h)
   await page.goto(h.url('book-paginated.html'))
   const printStyle: Record<string, BookPageStyleFacts> = {}
   for (const language of ['en', 'he'] as const) {

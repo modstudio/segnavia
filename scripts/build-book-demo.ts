@@ -5,6 +5,7 @@ import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-docu
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
+import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
@@ -294,6 +295,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
   )
+  writeHiddenBookDemo(site)
   writeFileSync(
     path.join(site, 'book-paginated-large.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Large paginated book elements</title><style>
