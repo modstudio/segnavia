@@ -1,5 +1,36 @@
 # @segnavia/html
 
+## 0.38.0
+
+### Minor Changes
+
+- b8569dc: Add recursive named parts and front, body and end divisions to books, including structural contents, outlines and part running heads. A parsed `Book` carries its body as `body`; `chapters` is still accepted as input, but a host that read `book.chapters` after parsing reads `book.body` or `bookSections(book)` instead. Parts nest at most six deep, and a part with neither an opening nor a section inside it is refused.
+- afb281b: Fit a template region's text to its box. A `[data-region]` element may declare `data-fit-min` and `data-fit-step` as absolute CSS lengths. Its authored font size is the maximum, and the paginated composer steps the size down until the region's text fits, on screen and in the PDF alike. Text still overflowing at the minimum goes into the overflow report. A minimum above the authored size is reported as its own overflow entry. An invalid, non-positive or non-absolute value in template or region HTML is refused at build.
+- Model a book's notes as named series. A book declares them with `notes: [{ name, placement: page|chapter|part|book, numbering: chapter|part|book, marker, title }]`; `footnotes` and `endnotes` configure the two default series. A repeated call `<a data-note-ref>` keeps the first number. Chapter-placed endnote sections gain a scope subheading, `p.segnavia-notes-scope`.
+- fdd794a: A paginated page's text area now follows its parent page's margins.
+
+  - **Per page:** text height follows each page's parent. The text box, columns, windows and furniture strips are sized from the parent page, on screen and in the PDF.
+  - **Per flow:** a flowing section's opener, recto and verso parents must leave one text width. A mismatch is refused at print and at IDML import, naming the parents and both widths.
+  - **Galley image cap:** the shortest of the flow's parent text heights.
+  - **Opener refusal:** a section's first content that does not fit its opener is refused, naming the opener parent.
+  - **Margins:** every resolved parent page must leave a positive text area.
+  - **Window edges:** cloned window edges keep the galley's pixel phase, so pointed Hebrew marks are not clipped.
+
+- 3d703f5: Expand host motifs placed in book sections on screen and in book PDFs.
+- 4824f85: Store artifact-style HTML unchanged as a scripted page. Hosts can set `dependencyOrigins` for scripts, styles and fonts and supply the render-time `dependencies` cache seam. Static markup and render requests to known package CDNs require exact versions; the viewer CSP is origin-granular, so runtime imports at an approved origin are not version-pinned. Scripted frames add `allow-forms` under `form-action 'none'` so submit handlers run without allowing a real submission, and never add `allow-same-origin`. Scripted viewers now refuse remote images and connections through a tighter CSP.
+
+### Patch Changes
+
+- c3c0505: Add book authors and subjects, and preserve PDF metadata and outline destinations across continuous and paginated book rendering.
+- Updated dependencies [b8569dc]
+- Updated dependencies [afb281b]
+- Updated dependencies
+- Updated dependencies [fdd794a]
+- Updated dependencies [c3c0505]
+- Updated dependencies [4824f85]
+- Updated dependencies [e44df2c]
+  - @segnavia/format@0.38.0
+
 ## 0.37.0
 
 ### Minor Changes
