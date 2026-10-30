@@ -33,7 +33,7 @@ import {
   templateHolders,
   templateRegionIssues,
 } from './book-held.ts'
-import { duplicateIdIssues, reservedIdIssues } from './book-issues.ts'
+import { duplicateIdIssues, pageReferenceIssues, reservedIdIssues } from './book-issues.ts'
 import { addPart, attachPendingPartHeadings, partNames } from './book-part-build.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
@@ -305,6 +305,22 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
   }
 }
 
+function fillPageReferences(sections: BuiltSection[], options: BookDocumentOptions): void {
+  for (const section of sections) {
+    for (const node of elements(section.node.children)) {
+      if (node.name !== 'a' || node.attribs['data-ref'] !== 'page') continue
+      const href = node.attribs.href
+      if (!href?.startsWith('#') || href.length < 2) continue
+      const id = href.slice(1)
+      const page = options.pageNumbers?.[id] ?? ''
+      node.children = [text(page)]
+      node.attribs.dir = resolveDirection(undefined, undefined, page)
+      if (options.crossLinks) node.attribs.href = `segnavia:target/${id}`
+      linkChildren(node)
+    }
+  }
+}
+
 export function bookDocument(book: Book, options: BookDocumentOptions = {}): BookDocument {
   const { build: requestedBuild, issue: buildIssue } = resolveBookBuild(book, options.build)
   const build: DocumentBuild = {
@@ -326,6 +342,8 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   const { notes, sections, headings, issues } = build
   insertCollectedSections(book, build)
   if (contents) addContents(book, contents, headings, options)
+  const referenceIssues = pageReferenceIssues(sections)
+  fillPageReferences(sections, options)
   if (requestedBuild !== 'print') markBlockPositions(sections)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.division) === options.part)
@@ -359,6 +377,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ...templateRegionIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),
+      ...referenceIssues,
     ],
   }
 }

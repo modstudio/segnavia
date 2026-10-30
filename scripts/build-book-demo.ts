@@ -32,11 +32,13 @@ const fixture = (hebrew: boolean): BookInput => ({
       title: hebrew ? 'התחלה' : 'Beginning',
       html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
         hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
-      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>`,
+      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p><p>${
+        hebrew ? 'ראו עמ׳ ' : 'See page '
+      }<a href="#far-shore" data-ref="page"></a>.</p>`,
     },
     {
       title: hebrew ? 'החוף הרחוק' : 'The Far Shore',
-      html: `<h1>${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
+      html: `<h1 id="far-shore">${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
         hebrew ? 'בקצה המסע נמצא חוף חדש' : 'At the end of the crossing was another shore'
       }<span data-note="endnote">${hebrew ? 'מקור להערת הסיום.' : 'The source for the endnote.'}</span>.</p>`,
     },
@@ -60,7 +62,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote}</span></p><p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'

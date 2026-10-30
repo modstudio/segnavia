@@ -72,6 +72,11 @@ export async function verifyBooks(h: Harness) {
     check(`${id} contents scroll the chapter into the frame`, contents && href === 'about:srcdoc' && hostScroll === 0, JSON.stringify({ href, hostScroll }))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-contents.png`) })
 
+    const pageRef = page.frameLocator(`${frame} iframe`).locator('a[data-ref="page"][href="#far-shore"]')
+    check(`${id} continuous page reference has no number`, (await pageRef.textContent()) === '')
+    await pageRef.evaluate((element: HTMLAnchorElement) => element.click())
+    check(`${id} continuous page reference remains a working link`, await inBookView(h, frame, '#far-shore'))
+
     await clickBookAnchor(h, frame, '#segnavia-fnref-1-1')
     check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
     await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
@@ -198,6 +203,15 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
+    const reference = await frame.locator('a[data-ref="page"][href="#segnavia-chapter-3"]').first().evaluate((node) => {
+      const target = document.getElementById('segnavia-chapter-3')?.closest('[data-segnavia-book-page]')
+      return { number: node.textContent?.trim() ?? '', folio: target?.getAttribute('data-segnavia-folio') ?? '', dir: node.getAttribute('dir') }
+    })
+    check(
+      `${id} page reference uses its target page folio and isolates its direction`,
+      reference.number !== '' && reference.number === reference.folio && reference.dir === 'auto',
+      JSON.stringify(reference),
+    )
     await checkParentMargins(h, frame, id)
     check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
     check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
@@ -207,7 +221,7 @@ async function verifyPaginatedBooks(h: Harness) {
     }
     checkMarkHeads(h, id, report)
 
-    await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]').evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#segnavia-chapter-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
       const target = document.getElementById('segnavia-chapter-1')
       if (!target) return false
@@ -229,21 +243,21 @@ async function verifyPaginatedBooks(h: Harness) {
     )
     await checkPaginatedBlocks(h, frame, id)
     check(`${id} contents page numbers equal the designed section's first page and its headings' pages`, designed.contents.matches, designed.contents.detail)
-    await frame.locator('[data-segnavia-pages] a[href="#spread-open"]').evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#spread-open"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const spreadLanded = await frame.evaluate(() => {
       const target = document.getElementById('spread-open')
       if (!target) return false
       const box = target.getBoundingClientRect()
       return box.bottom > 0 && box.top < innerHeight
     })
-    await frame.locator('[data-segnavia-pages] a[href="#spread-recto"]').evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#spread-recto"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const rectoLanded = await frame.evaluate(() => {
       const target = document.getElementById('spread-recto')
       if (!target) return false
       const box = target.getBoundingClientRect()
       return box.bottom > 0 && box.top < innerHeight
     })
-    await frame.locator('[data-segnavia-pages] a[href="#plate"]').evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#plate"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const plateLanded = await frame.evaluate(() => {
       const target = document.getElementById('plate')
       if (!target) return false
@@ -362,7 +376,7 @@ async function verifyWorkbooks(h: Harness) {
       JSON.stringify(fit),
     )
 
-    await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
+    await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
       const target = document.getElementById('lesson-1')
       if (!target) return false

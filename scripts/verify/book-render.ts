@@ -48,13 +48,13 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
     {
       title: hebrew ? 'פרק ראשון' : 'Chapter One',
       runningHead: runningHeads[0],
-      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
+      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p>REF-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
     },
     { title: hebrew ? 'פרק שני' : 'Chapter Two', runningHead: runningHeads[1], html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` },
     {
       title: hebrew ? 'פרק שלישי' : 'Chapter Three',
       runningHead: runningHeads[2],
-      html: `<p>${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
+      html: `<p id="pdf-page-ref-target">${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
     },
   ]
   return {
@@ -147,7 +147,9 @@ function expectedLinkPages(fixture: Fixture, pages: string[], frontPages: number
   const headings = [pageWith(pages, fixture.frontMarker), ...chapterPages.flatMap((page) => Array.from({ length: 7 }, () => page))]
   const footnote = chapterPages[0] ?? 0
   const endnote = chapterPages[2] ?? 0
-  return [...headings, footnote, footnote, endnotes, endnote].sort((left, right) => left - right).map((page) => page || frontPages)
+  return [...headings, ...headings, chapterPages[2] ?? 0, footnote, footnote, endnotes, endnote]
+    .sort((left, right) => left - right)
+    .map((page) => page || frontPages)
 }
 
 function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPages: number) {
@@ -236,6 +238,16 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
 
   const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, frontPages, frontSystem, bodySystem)
   check(`${fixture.key} contents page numbers match heading destination pages`, numbered)
+  const targetBodyPage = pageWith(pages, fixture.chapterMarkers[2] as string) - frontPages
+  const expectedReference = formatNumber(targetBodyPage, bodySystem)
+  check(
+    `${fixture.key} continuous PDF page reference uses its target body folio`,
+    pages
+      .join('\n')
+      .replaceAll(/\s/g, '')
+      .includes(`REF-${fixture.key === 'hebrew' ? 'HE' : 'EN'}[${expectedReference}]`),
+    `expected ${expectedReference} for body page ${targetBodyPage}`,
+  )
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
