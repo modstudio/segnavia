@@ -64,6 +64,8 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')
+    expect(BOOK_COMPOSER_SCRIPT).toContain("flows[f].style.setProperty('--segnavia-text-height',area.height+'px')")
+    expect(BOOK_COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
     expect(BOOK_COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
     expect(BOOK_COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')
     expect(BOOK_COMPOSER_SCRIPT).toContain('flowInlineStart')
