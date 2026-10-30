@@ -270,7 +270,7 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    requests. A viewer CSP is origin-granular and cannot pin a runtime import's
    version, so hosts treat an approved origin as trusted for mutable URLs too.
    Connections and remote images remain refused. Rendering stays offline: `dependencies(url)`
-   answers approved requests from the host's cache through route fulfilment;
+   answers approved requests from the host's cache through route fulfillment;
    an absent answer refuses the render by URL, and Chromium never reaches the
    network.
 4. `slideDurationMs` adds `beforeMs`, narration duration and `afterMs`, or

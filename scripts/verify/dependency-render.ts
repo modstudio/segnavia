@@ -21,7 +21,7 @@ export async function verifyDependencyRender(
   const file = path.join(work, 'dependency.pdf')
   writeFileSync(file, pdf)
   check(
-    'an offline render fulfils an approved scripted dependency from the host cache',
+    'an offline render fulfills an approved scripted dependency from the host cache',
     execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }).includes('cache seam worked'),
   )
   const missing = await refusal(renderer.pagePdf(page, { dependencyOrigins: ['https://cdn.jsdelivr.net'], waitForPageReady: false }))
