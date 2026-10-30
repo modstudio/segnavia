@@ -14,6 +14,7 @@ export {
   type BookPositionKey,
   parseBookPositionKey,
 } from './book/book-flow.ts'
+export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE, pageReferenceTarget } from './book/book-page-reference.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
 export { type BookFurnitureValues, embedFunction, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'

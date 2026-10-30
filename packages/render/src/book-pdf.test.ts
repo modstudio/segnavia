@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { BookSectionInfo } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { frontPrintStatus, renderBookPdf } from './book-pdf.ts'
+import { frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
 const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', division: 'front', title: 'Preface' }]
@@ -57,6 +57,16 @@ describe('front print convergence', () => {
       status: 'refused',
       message: 'Front destination topic in Preface (segnavia-front-1) moved from page 2 to page 3 after three prints.',
     })
+  })
+})
+
+test('allows three page-reference reprints before refusing named moving targets', () => {
+  expect(pageReferencePrintStatus({ target: '9' }, { target: '10' }, 2)).toEqual({ status: 'more' })
+  expect(pageReferencePrintStatus({ target: '10' }, { target: '10' }, 3)).toEqual({ status: 'stable' })
+  expect(pageReferencePrintStatus({ target: '10' }, { target: '11' }, 3)).toEqual({
+    status: 'refused',
+    message:
+      'Body page references to target did not converge after three reprints; shorten the referenced content or reserve fixed space for page references to clear this refusal.',
   })
 })
 

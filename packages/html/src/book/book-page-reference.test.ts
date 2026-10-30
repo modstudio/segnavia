@@ -15,7 +15,7 @@ test('fills page references while keeping an empty link before pagination', () =
 
 test('reports missing and ambiguous page reference targets', () => {
   const missing = bookDocument(Book.parse(input([{ title: 'One', html: '<p><a href="#lost" data-ref="page"></a></p>' }])))
-  expect(missing.issues).toContain('page reference target lost does not exist; add id="lost" to its destination to clear this refusal')
+  expect(missing.issues).toContain('page reference to lost in One (segnavia-chapter-1) has no target; add the id or remove the reference')
 
   const repeated = bookDocument(
     Book.parse(
@@ -26,6 +26,6 @@ test('reports missing and ambiguous page reference targets', () => {
     ),
   )
   expect(repeated.issues).toContain(
-    'page reference target topic is used in both One (segnavia-chapter-1) and Two (segnavia-chapter-2); make the target id unique to clear this refusal',
+    'page reference target topic is used in 2 sections: One (segnavia-chapter-1), Two (segnavia-chapter-2); make the target id unique to clear this refusal',
   )
 })

@@ -29,18 +29,8 @@ async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
 }
 
 function hashTargets(document: BookDocument): string[] {
-  return [...new Set([...document.html.matchAll(/href="#([^"]+)"/g)].map((match) => match[1] as string))]
-}
-
-function pageReferenceTargets(document: BookDocument): string[] {
-  return [
-    ...new Set(
-      [...document.html.matchAll(/<a\b[^>]*\bdata-ref="page"[^>]*>/g)].flatMap(([tag]) => {
-        const href = /\bhref="(?:#|segnavia:target\/)([^"]+)"/.exec(tag)?.[1]
-        return href ? [href] : []
-      }),
-    ),
-  ]
+  const hidden = /<div class="segnavia-targets"[^>]*>([\s\S]*?)<\/div>/.exec(document.html)?.[1] ?? ''
+  return [...new Set([...hidden.matchAll(/href="#([^"]+)"/g)].map((match) => match[1] as string))]
 }
 
 function requireTargets(part: PrintedPart, expected: string[]): void {
@@ -144,14 +134,20 @@ export function frontPrintStatus(prints: Map<string, BookDestination>[], ids: st
   return { status: 'stable' }
 }
 
-function finalNumbers(book: Book, ids: string[], front: PrintedPart, body: PrintedPart): Record<string, string> {
+interface NumberSource {
+  destinations: Map<string, BookDestination>
+  system: Book['numbering']['body']
+}
+
+function finalNumbers(ids: string[], sources: NumberSource[], headings = new Set<string>()): Record<string, string> {
   return Object.fromEntries(
     ids.map((id) => {
-      const frontPage = front.destinations.get(id)?.page
-      if (frontPage !== undefined) return [id, formatNumber(frontPage, book.numbering.frontMatter)]
-      const bodyPage = body.destinations.get(id)?.page
-      if (bodyPage === undefined) throw new RenderRefusedError(`The page reference target ${id} has no printed destination.`)
-      return [id, formatNumber(bodyPage, book.numbering.body)]
+      for (const source of sources) {
+        const page = source.destinations.get(id)?.page
+        if (page !== undefined) return [id, formatNumber(page, source.system)]
+      }
+      const role = headings.has(id) ? 'heading' : 'page reference target'
+      throw new RenderRefusedError(`The ${role} ${id} has no printed destination; keep its destination in the printed book to clear this refusal.`)
     }),
   )
 }
@@ -160,41 +156,59 @@ function sameNumbers(left: Record<string, string>, right: Record<string, string>
   return Object.keys(left).length === Object.keys(right).length && Object.entries(left).every(([id, number]) => right[id] === number)
 }
 
+export type PageReferencePrintStatus = { status: 'stable' } | { status: 'more' } | { status: 'refused'; message: string }
+
+export function pageReferencePrintStatus(expected: Record<string, string>, actual: Record<string, string>, reprints: number): PageReferencePrintStatus {
+  if (sameNumbers(expected, actual)) return { status: 'stable' }
+  if (reprints < 3) return { status: 'more' }
+  const moved = Object.keys(actual).filter((id) => expected[id] !== actual[id])
+  return {
+    status: 'refused',
+    message: `Body page references to ${moved.join(', ')} did not converge after three reprints; shorten the referenced content or reserve fixed space for page references to clear this refusal.`,
+  }
+}
+
 async function printBody(book: Book, options: RenderOptions, adapter: BookPdfAdapter) {
   const firstDocument = bookDocument(book, { part: 'body', targets: true })
   if (firstDocument.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${firstDocument.issues.join('; ')}.`)
   let part = await inspect(await adapter.print(firstDocument.html, book, options, 'body'))
-  let prints = 1
   requireTargets(part, hashTargets(firstDocument))
   const plan = book.rectoOpenings ? planBlanks(firstDocument.sections, part.destinations) : { ids: [], predicted: new Map<string, number>() }
   if (book.rectoOpenings) {
     const finalDocument = bookDocument(book, { part: 'body', targets: true, blankBefore: plan.ids })
     part = await inspect(await adapter.print(finalDocument.html, book, options, 'body'))
-    prints += 1
     requireTargets(part, hashTargets(finalDocument))
     verifyStarts('body', sectionsFor(firstDocument.sections, 'body'), plan.predicted, part.destinations)
   }
-  const ids = pageReferenceTargets(firstDocument).filter((id) => part.destinations.has(id))
-  let numbers: Record<string, string> = {}
-  let referencesStable = ids.length === 0
-  while (ids.length > 0 && prints < 3) {
-    numbers = finalNumbers(book, ids, { pages: 0, destinations: new Map() }, part)
-    const document = bookDocument(book, { part: 'body', targets: true, crossLinks: true, blankBefore: plan.ids, pageNumbers: numbers })
+  return { document: firstDocument, part, blankBefore: plan.ids, predicted: plan.predicted }
+}
+
+async function convergeBody(book: Book, source: Awaited<ReturnType<typeof printBody>>, front: PrintedPart, options: RenderOptions, adapter: BookPdfAdapter) {
+  const ids = source.document.pageReferenceTargets
+  if (ids.length === 0) return source.part
+  let part = source.part
+  let expected = finalNumbers(ids, [
+    { destinations: front.destinations, system: book.numbering.frontMatter },
+    { destinations: part.destinations, system: book.numbering.body },
+  ])
+  for (let reprints = 1; reprints <= 3; reprints += 1) {
+    const document = bookDocument(book, { part: 'body', targets: true, crossLinks: true, blankBefore: source.blankBefore, pageNumbers: expected })
     const printed = await inspect(await adapter.print(document.html, book, options, 'body'))
-    prints += 1
     requireTargets(printed, hashTargets(document))
-    const actual = finalNumbers(book, ids, { pages: 0, destinations: new Map() }, printed)
+    const actual = finalNumbers(ids, [
+      { destinations: front.destinations, system: book.numbering.frontMatter },
+      { destinations: printed.destinations, system: book.numbering.body },
+    ])
     part = printed
-    if (sameNumbers(numbers, actual)) {
-      referencesStable = true
-      break
+    const status = pageReferencePrintStatus(expected, actual, reprints)
+    if (status.status === 'stable') {
+      if (book.rectoOpenings) verifyStarts('body', sectionsFor(source.document.sections, 'body'), source.predicted, part.destinations)
+      return part
     }
-    numbers = actual
+    if (status.status === 'refused') throw new RenderRefusedError(status.message)
+    expected = actual
   }
-  if (!referencesStable) {
-    throw new RenderRefusedError(`Body page references to ${ids.join(', ')} did not converge after three prints.`)
-  }
-  return { document: firstDocument, part, blankBefore: plan.ids }
+  return part
 }
 
 async function printFront(book: Book, source: BookDocument, body: PrintedPart, options: RenderOptions, adapter: BookPdfAdapter) {
@@ -204,7 +218,8 @@ async function printFront(book: Book, source: BookDocument, body: PrintedPart, o
   const prints: PrintedPart[] = []
   let numbers: Record<string, string> | undefined
   let final: PrintedPart | undefined
-  const numberIds = [...new Set([...source.headings.map((heading) => heading.id), ...pageReferenceTargets(source)])]
+  const headingIds = new Set(source.headings.map((heading) => heading.id))
+  const numberIds = [...new Set([...headingIds, ...source.pageReferenceTargets])]
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const document = bookDocument(book, { part: 'front', targets: true, crossLinks: true, pageNumbers: numbers })
     const printed = await inspect(await adapter.print(document.html, book, options, 'front'))
@@ -221,7 +236,14 @@ async function printFront(book: Book, source: BookDocument, body: PrintedPart, o
       break
     }
     if (status.status === 'refused') throw new RenderRefusedError(status.message)
-    numbers = finalNumbers(book, numberIds, printed, body)
+    numbers = finalNumbers(
+      numberIds,
+      [
+        { destinations: printed.destinations, system: book.numbering.frontMatter },
+        { destinations: body.destinations, system: book.numbering.body },
+      ],
+      headingIds,
+    )
   }
   if (!final) throw new RenderRefusedError('The front print did not converge after three prints.')
   const trailingBlank = book.rectoOpenings && final.pages % 2 === 1
@@ -267,7 +289,10 @@ export async function renderBookPdf(input: BookInput, options: RenderOptions, ad
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, options, adapter)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
   const printedBody = await printBody(book, options, adapter)
-  const printedFront = await printFront(book, printedBody.document, printedBody.part, options, adapter)
+  let printedFront = await printFront(book, printedBody.document, printedBody.part, options, adapter)
+  printedBody.part = await convergeBody(book, printedBody, printedFront.part, options, adapter)
+  printedFront = await printFront(book, printedBody.document, printedBody.part, options, adapter)
+  printedBody.part = await convergeBody(book, printedBody, printedFront.part, options, adapter)
   const front = printedFront.part
   const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])

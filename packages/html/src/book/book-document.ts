@@ -34,6 +34,7 @@ import {
   templateRegionIssues,
 } from './book-held.ts'
 import { duplicateIdIssues, pageReferenceIssues, reservedIdIssues } from './book-issues.ts'
+import { pageReferenceNodes, pageReferenceTarget, pageReferenceTargets } from './book-page-reference.ts'
 import { addPart, attachPendingPartHeadings, partNames } from './book-part-build.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
@@ -305,19 +306,15 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
   }
 }
 
-function fillPageReferences(sections: BuiltSection[], options: BookDocumentOptions): void {
-  for (const section of sections) {
-    for (const node of elements(section.node.children)) {
-      if (node.name !== 'a' || node.attribs['data-ref'] !== 'page') continue
-      const href = node.attribs.href
-      if (!href?.startsWith('#') || href.length < 2) continue
-      const id = href.slice(1)
-      const page = options.pageNumbers?.[id] ?? ''
-      node.children = [text(page)]
-      node.attribs.dir = resolveDirection(undefined, undefined, page)
-      if (options.crossLinks) node.attribs.href = `segnavia:target/${id}`
-      linkChildren(node)
-    }
+function writePageReferenceNumbers(book: Book, roots: ReturnType<typeof notesGalleys>, options: BookDocumentOptions): void {
+  for (const node of pageReferenceNodes(roots)) {
+    const id = pageReferenceTarget(node.attribs)
+    if (!id) continue
+    const page = options.pageNumbers?.[id] ?? ''
+    node.children = [text(page)]
+    node.attribs.dir = resolveDirection(book.dir, book.lang, page)
+    if (options.crossLinks) node.attribs.href = `segnavia:target/${id}`
+    linkChildren(node)
   }
 }
 
@@ -342,8 +339,15 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   const { notes, sections, headings, issues } = build
   insertCollectedSections(book, build)
   if (contents) addContents(book, contents, headings, options)
-  const referenceIssues = pageReferenceIssues(sections)
-  fillPageReferences(sections, options)
+  const noteGalleys = notesGalleys(book.notes, notes.pageParagraphs)
+  const scopes = [
+    ...sections.map((section) => ({ owner: `${section.info.title ?? section.info.id} (${section.info.id})`, roots: [section.node] })),
+    ...noteGalleys.map((galley) => ({ owner: `page-placed note series ${galley.attribs['data-segnavia-note-series'] ?? ''}`, roots: [galley] })),
+  ]
+  const referenceIssues = pageReferenceIssues(sections, scopes)
+  const referenceRoots = scopes.flatMap((scope) => scope.roots)
+  const referenceTargets = pageReferenceTargets(referenceRoots)
+  writePageReferenceNumbers(book, referenceRoots, options)
   if (requestedBuild !== 'print') markBlockPositions(sections)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.division) === options.part)
@@ -353,11 +357,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
           ...(options.targets ? [targetLinks(visible)] : []),
-          element('div', { 'data-segnavia-galleys': '' }, [
-            ...templateHolders(book.templates),
-            ...visible.map((section) => section.node),
-            ...notesGalleys(book.notes, notes.pageParagraphs),
-          ]),
+          element('div', { 'data-segnavia-galleys': '' }, [...templateHolders(book.templates), ...visible.map((section) => section.node), ...noteGalleys]),
         ]
       : [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
@@ -369,6 +369,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     html: serialize(document),
     sections: sections.map((section) => section.info),
     headings,
+    pageReferenceTargets: referenceTargets,
     issues: [
       ...(buildIssue ? [buildIssue] : []),
       ...noteMarkerIssues(book.notes, notes.used),

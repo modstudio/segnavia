@@ -5,6 +5,7 @@ import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
+import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
@@ -202,18 +203,7 @@ async function verifyPaginatedBooks(h: Harness) {
       JSON.stringify(report.furniture),
     )
     check(`${id} contents page numbers equal the chapters' first pages`, report.contents.matches, report.contents.detail)
-    const reference = await frame
-      .locator('a[data-ref="page"][href="#segnavia-chapter-3"]')
-      .first()
-      .evaluate((node) => {
-        const target = document.getElementById('segnavia-chapter-3')?.closest('[data-segnavia-book-page]')
-        return { number: node.textContent?.trim() ?? '', folio: target?.getAttribute('data-segnavia-folio') ?? '', dir: node.getAttribute('dir') }
-      })
-    check(
-      `${id} page reference uses its target page folio and isolates its direction`,
-      reference.number !== '' && reference.number === reference.folio && reference.dir === 'auto',
-      JSON.stringify(reference),
-    )
+    await verifyPaginatedPageReferences(frame, id, check)
     await checkParentMargins(h, frame, id)
     check(`${id} ids are unique in the composed document`, report.ids.unique, JSON.stringify(report.ids))
     check(`${id} window edges sit on line-box midpoints`, report.clip.midpoint, JSON.stringify(report.clip))
@@ -322,8 +312,8 @@ async function verifyWorkbooks(h: Harness) {
       )
       const school = document.body.textContent ?? ''
       const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
-      const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).map((node) => {
-        const target = node.getAttribute('data-target') ?? ''
+      const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => {
+        const target = (node.getAttribute('href') ?? '').slice(1)
         const paper = document.getElementById(target)?.closest('[data-segnavia-book-page]')
         return { id: target, text: node.textContent?.trim() ?? '', folio: paper?.getAttribute('data-segnavia-folio') ?? '' }
       })

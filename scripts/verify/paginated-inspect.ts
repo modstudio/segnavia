@@ -176,8 +176,8 @@ export function inspectPaginatedBook(): PaginatedReport {
       pages
         .find((page) => page.getAttribute('data-segnavia-flow') === id && page.getAttribute('data-segnavia-role') === 'opener')
         ?.querySelector('.segnavia-folio')?.textContent ?? ''
-    const entries = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).map((node) => ({
-      id: node.getAttribute('data-target') ?? '',
+    const entries = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => ({
+      id: (node.getAttribute('href') ?? '').slice(1),
       text: node.textContent?.trim() ?? '',
     }))
     return {
@@ -331,8 +331,8 @@ export function inspectPaginatedBook(): PaginatedReport {
   }
 
   function designedContents() {
-    const designedEntries = Array.from(document.querySelectorAll('.segnavia-contents-page[data-target]')).flatMap((node) => {
-      const id = node.getAttribute('data-target') ?? ''
+    const designedEntries = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).flatMap((node) => {
+      const id = (node.getAttribute('href') ?? '').slice(1)
       const target = document.getElementById(id)
       const paper = target?.closest('[data-segnavia-book-page]')
       if (paper?.getAttribute('data-segnavia-role') !== 'fixed' && !id.startsWith('segnavia-designed-')) return []

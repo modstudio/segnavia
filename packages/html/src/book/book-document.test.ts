@@ -85,7 +85,7 @@ describe('book document', () => {
   test('fills contents page numbers only when enabled', () => {
     const withNumbers = Book.parse(input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')] }))
     expect(bookDocument(withNumbers, { pageNumbers: { 'segnavia-chapter-1': '7', topic: '8' } }).html).toContain(
-      '<a class="segnavia-contents-page" href="#topic" data-ref="page" data-target="topic" dir="ltr">8</a>',
+      '<a class="segnavia-contents-page" href="#topic" data-ref="page" dir="ltr">8</a>',
     )
     const withoutNumbers = Book.parse(
       input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')], contents: { pageNumbers: false } }),

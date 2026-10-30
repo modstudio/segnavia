@@ -14,7 +14,7 @@ const CONTENTS_INDENTS = Array.from({ length: 5 }, (_, index) => index + 2)
 const DEEP_CONTENTS_INDENTS = Array.from({ length: MAX_PART_DEPTH }, (_, index) => index + 7)
   .map((level) => `:where(.segnavia-contents-entry[data-level="${level}"]){padding-inline-start:${level - 1}em}`)
   .join('')
-const CONTENTS_PREFIX = `:where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}${CONTENTS_INDENTS}`
+const CONTENTS_PREFIX = `:where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-page){margin-inline-start:auto}:where([data-ref="page"]){unicode-bidi:isolate}${CONTENTS_INDENTS}`
 const CONTENTS_SUFFIX = ':where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}'
 const GALLEY_SUFFIX =
   ':where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}:where([data-segnavia-galleys] img,[data-segnavia-window] img,[data-segnavia-page-note] img){display:block;max-block-size:var(--segnavia-text-height);max-inline-size:100%;block-size:auto;inline-size:auto}'

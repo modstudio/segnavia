@@ -26,8 +26,6 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
               class: 'segnavia-contents-page',
               href: `#${heading.id}`,
               'data-ref': 'page',
-              'data-target': heading.id,
-              dir: resolveDirection(book.dir, book.lang, page),
             },
             [text(page)],
           )
