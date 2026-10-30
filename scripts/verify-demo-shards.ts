@@ -23,6 +23,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyHeadless',
   'verifyDocuments',
   'verifySelection',
+  'verifyScriptedDependencies',
   'verifyBoundedPage',
   'verifyResponsive',
   'verifyPaperPicker',

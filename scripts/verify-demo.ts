@@ -23,6 +23,7 @@ import { verifyPlayerLayout } from './verify/player-layout.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
+import { verifyScriptedDependencies } from './verify/scripted-dependencies.ts'
 import { verifySelection } from './verify/selection.ts'
 import { verifySlots } from './verify/slots.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
@@ -43,6 +44,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyDocuments', run: () => verifyDocuments(h) },
   { name: 'verifyRtl', run: () => verifyRtl(h) },
   { name: 'verifySelection', run: () => verifySelection(h) },
+  { name: 'verifyScriptedDependencies', run: () => verifyScriptedDependencies(h) },
   { name: 'verifyBoundedPage', run: () => verifyBoundedPage(h) },
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },

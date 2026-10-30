@@ -1,10 +1,12 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { buildInPageLinkDemo } from './build-in-page-link-demo.ts'
+import { buildScriptedDependencyDemo } from './build-scripted-dependency-demo.ts'
 import { emptyDirectionPage, fixedPage, fluidPage, hebrewPage, ownDirectionPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
 // The page demo: each page fixture as JSON, and one host page showing them all, with the in-page link frames beside them.
 export function buildPageDemo(site: string, shell: (body: string) => string): void {
+  buildScriptedDependencyDemo(site, shell)
   writeFileSync(path.join(site, 'page.json'), JSON.stringify(fluidPage))
   writeFileSync(path.join(site, 'page-rtl.json'), JSON.stringify(hebrewPage))
   writeFileSync(path.join(site, 'page-rtl-own-dir.json'), JSON.stringify(ownDirectionPage))
