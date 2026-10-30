@@ -26,6 +26,9 @@ describe('note series document', () => {
     expect(result.html).toContain('id="segnavia-note-sources-1-1"')
     expect(result.html).toContain('id="segnavia-note-sources-2-1"')
     expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr"[^>]*>One<\/p>/)
+    expect(result.html).toMatch(
+      /<p class="segnavia-notes-scope" dir="ltr">One<\/p><p class="segnavia-note-sources"[^>]*data-segnavia-position="segnavia-notes-sources-1:2"/,
+    )
   })
 
   test('places a part series after the part and restarts its number in the next part', () => {

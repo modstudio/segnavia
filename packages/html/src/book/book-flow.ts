@@ -110,6 +110,10 @@ function isFootnoteBlock(node: Element): boolean {
   return (node.attribs.class ?? '').split(/\s+/).includes('segnavia-footnotes')
 }
 
+function isNotesScope(node: Element): boolean {
+  return (node.attribs.class ?? '').split(/\s+/).includes('segnavia-notes-scope')
+}
+
 interface PositionSection {
   info: { id: string }
   node: { children: Element['children'] }
@@ -121,6 +125,7 @@ export function markBlockPositions(sections: PositionSection[]): void {
     for (const child of section.node.children) {
       if (!isTag(child)) continue
       if (child.name === 'style' || child.name === 'script') continue
+      if (isNotesScope(child)) continue
       if (isFootnoteBlock(child)) {
         child.attribs['data-segnavia-position'] = bookBlockPosition(section.info.id, position, 'footnotes')
         continue
