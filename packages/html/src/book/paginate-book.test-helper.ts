@@ -1,5 +1,5 @@
 import { BOOK_PARENT_NAMES } from '@segnavia/format'
-import type { PaginateBlock, PaginateBookInput, PaginateFlow, PaginateNote, PaginateWindow } from './paginate-types.ts'
+import type { PaginateBlock, PaginateBookInput, PaginateFlow, PaginateNote, PaginateNoteSeriesGeometry, PaginateWindow } from './paginate-types.ts'
 
 export const lineHeight = 10
 
@@ -28,7 +28,7 @@ export function note(id: string, count: number, height = lineHeight, series = 'f
 }
 
 type InputOverrides = Omit<Partial<PaginateBookInput>, 'geometry' | 'parents' | 'parentNames'> &
-  Pick<PaginateBookInput, 'flows'> & { geometry?: { textHeight: number; notesGap: number; noteSeries?: Array<{ name: string; gap: number }> } }
+  Pick<PaginateBookInput, 'flows'> & { geometry?: { textHeight: number; notesGap: number; noteSeries?: PaginateNoteSeriesGeometry[] } }
 
 export function input(overrides: InputOverrides): PaginateBookInput {
   const geometry = overrides.geometry ?? { textHeight: 50, notesGap: 10 }

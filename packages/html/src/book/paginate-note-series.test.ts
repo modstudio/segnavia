@@ -14,7 +14,7 @@ describe('paginateBook note series', () => {
       input({
         geometry: {
           textHeight: 120,
-          notesGap: 9,
+          notesGap: 40,
           noteSeries: [
             { name: 'footnote', gap: 10 },
             { name: 'commentary', gap: 20 },

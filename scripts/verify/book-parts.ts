@@ -1,23 +1,12 @@
 import { partBookLabels } from '../demo-book-parts-fixtures.ts'
+import { composedFrame } from './composed-frame.ts'
 import type { Harness } from './harness.ts'
-
-async function partsFrame(h: Harness, id: string) {
-  const element = await h.page.$(`#${id}`)
-  const frame = await element?.contentFrame()
-  if (!frame) throw new Error(`The parts book frame ${id} did not load.`)
-  await frame.waitForFunction(
-    () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
-    undefined,
-    { timeout: 20_000 },
-  )
-  return frame
-}
 
 export async function verifyPartsBooks(h: Harness): Promise<void> {
   await h.page.goto(h.url('book-parts.html'))
   for (const hebrew of [false, true]) {
     const id = `book-parts-${hebrew ? 'he' : 'en'}`
-    const frame = await partsFrame(h, id)
+    const frame = await composedFrame(h, `#${id}`, `The parts book frame ${id}`)
     const labels = partBookLabels(hebrew)
     const report = await frame.evaluate((expected) => {
       const papers = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]'))

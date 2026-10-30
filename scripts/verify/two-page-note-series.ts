@@ -1,24 +1,13 @@
+import { composedFrame } from './composed-frame.ts'
 import type { Harness } from './harness.ts'
 import { inspectPaginatedBook } from './paginated-inspect.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
-
-async function composedFrame(h: Harness, id: string) {
-  const element = await h.page.$(`#${id}`)
-  const frame = await element?.contentFrame()
-  if (!frame) throw new Error(`The two-page-series frame ${id} did not load.`)
-  await frame.waitForFunction(
-    () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
-    undefined,
-    { timeout: 20_000 },
-  )
-  return frame
-}
 
 export async function verifyTwoPageNoteSeries(h: Harness) {
   await h.page.goto(h.url('book-two-page-series.html'))
   for (const language of ['en', 'he'] as const) {
     const id = `book-two-page-series-${language}`
-    const frame = await composedFrame(h, id)
+    const frame = await composedFrame(h, `#${id}`, `The two-page-series frame ${id}`)
     const report = await frame.evaluate(inspectPaginatedBook)
     const groups = await frame.evaluate(() => {
       const declared = Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-notes-galley]')).map((galley) =>

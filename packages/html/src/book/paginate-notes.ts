@@ -13,15 +13,10 @@ export function paginateNotes(
   const noteSeries = payload.geometry.noteSeries
   const textHeight = payload.geometry.textHeight
   const seriesOrder = new Map(noteSeries?.map((series, index) => [series.name, index]))
-  const noteOrder = new Map(payload.notes.map((note, index) => [note.id, index]))
 
   function ordered(fragments: PaginatePageNote[]): PaginatePageNote[] {
     if (!noteSeries) return fragments
-    return fragments.slice().sort((left, right) => {
-      const leftSeries = seriesOrder.get(left.series) ?? noteSeries.length
-      const rightSeries = seriesOrder.get(right.series) ?? noteSeries.length
-      return leftSeries - rightSeries || (noteOrder.get(left.id) ?? 0) - (noteOrder.get(right.id) ?? 0)
-    })
+    return fragments.slice().sort((left, right) => (seriesOrder.get(left.series) ?? noteSeries.length) - (seriesOrder.get(right.series) ?? noteSeries.length))
   }
 
   function noteEnd(id: string): number {
@@ -37,11 +32,10 @@ export function paginateNotes(
 
   function notesSpace(fragments: PaginatePageNote[]): number {
     if (fragments.length === 0) return 0
-    if (!noteSeries) return notesGap + fragments.reduce((height, fragment) => height + fragmentHeight(fragment), 0)
     let height = 0
     let previous: string | undefined
-    for (const fragment of ordered(fragments)) {
-      if (fragment.series !== previous) height += noteSeries.find(({ name }) => name === fragment.series)?.gap ?? notesGap
+    for (const fragment of noteSeries ? ordered(fragments) : fragments) {
+      if (fragment.series !== previous) height += noteSeries?.find(({ name }) => name === fragment.series)?.gap ?? notesGap
       height += fragmentHeight(fragment)
       previous = fragment.series
     }

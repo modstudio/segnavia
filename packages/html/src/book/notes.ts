@@ -82,8 +82,15 @@ function noteIds(series: ResolvedNoteSeries, scope: string, chapter: number, num
   return { noteId: `segnavia-${series.idStem}${scopePart}-${number}`, refId: `segnavia-${series.idStem}ref${scopePart}-${number}` }
 }
 
-function addPageBlock(block: Element, paragraph: Element, blocks: Map<Element, Element>, series: ResolvedNoteSeries): void {
-  const existing = blocks.get(block)
+function addPageBlock(
+  block: Element,
+  paragraph: Element,
+  blocks: Map<Element, Map<string, Element>>,
+  series: ResolvedNoteSeries,
+  seriesOrder: Map<string, number>,
+): void {
+  const blockSeries = blocks.get(block) ?? new Map<string, Element>()
+  const existing = blockSeries.get(series.name)
   if (existing) {
     append(existing, paragraph)
     return
@@ -93,9 +100,20 @@ function addPageBlock(block: Element, paragraph: Element, blocks: Map<Element, E
     ...(series.markBlockSeries ? { 'data-segnavia-note-series': series.name } : {}),
   }
   const notes = element('div', attributes, [paragraph])
-  blocks.set(block, notes)
-  if (INSIDE_BLOCKS.has(block.name)) append(block, notes)
-  else insertAfter(block, notes)
+  const index = seriesOrder.get(series.name) ?? seriesOrder.size
+  const next = [...blockSeries.entries()]
+    .filter(([name]) => (seriesOrder.get(name) ?? seriesOrder.size) > index)
+    .sort(([left], [right]) => (seriesOrder.get(left) ?? seriesOrder.size) - (seriesOrder.get(right) ?? seriesOrder.size))[0]?.[1]
+  if (next?.prev) insertAfter(next.prev, notes)
+  else if (INSIDE_BLOCKS.has(block.name)) append(block, notes)
+  else {
+    const previous = [...blockSeries.entries()]
+      .filter(([name]) => (seriesOrder.get(name) ?? seriesOrder.size) < index)
+      .sort(([left], [right]) => (seriesOrder.get(right) ?? seriesOrder.size) - (seriesOrder.get(left) ?? seriesOrder.size))[0]?.[1]
+    insertAfter(previous ?? block, notes)
+  }
+  blockSeries.set(series.name, notes)
+  blocks.set(block, blockSeries)
 }
 
 function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): CollectedNotes {
@@ -125,7 +143,8 @@ function transformAuthoredNote(
   series: ResolvedNoteSeries,
   context: NoteSectionContext,
   state: NoteState,
-  blocks: Map<Element, Element>,
+  blocks: Map<Element, Map<string, Element>>,
+  seriesOrder: Map<string, number>,
   galley: boolean,
 ): void {
   const block = nearestBlock(note)
@@ -142,7 +161,7 @@ function transformAuthoredNote(
       const paragraphs = state.pageParagraphs.get(series.name) ?? []
       paragraphs.push(paragraph)
       state.pageParagraphs.set(series.name, paragraphs)
-    } else addPageBlock(block, paragraph, blocks, series)
+    } else addPageBlock(block, paragraph, blocks, series, seriesOrder)
   } else collectedNotes(series, context, state).paragraphs.push(paragraph)
   if (authoredId) state.authored.set(authoredId, { noteId, refId, marker })
   state.used.add(series.name)
@@ -165,8 +184,9 @@ function transformRepeat(node: Element, state: NoteState): void {
 }
 
 export function transformNotes(root: Element, book: Book, context: NoteSectionContext, state: NoteState, galley = false): void {
-  const blocks = new Map<Element, Element>()
+  const blocks = new Map<Element, Map<string, Element>>()
   const byName = new Map(book.notes.map((series) => [series.name, series]))
+  const seriesOrder = new Map(book.notes.map((series, index) => [series.name, index]))
   const nodes = elements(root.children).filter(
     (node) => (node.name === 'span' && node.attribs['data-note'] !== undefined) || (node.name === 'a' && node.attribs['data-note-ref'] !== undefined),
   )
@@ -181,6 +201,6 @@ export function transformNotes(root: Element, book: Book, context: NoteSectionCo
       state.issues.push(`data-note names unknown note series ${name}; declare the series in notes or use a declared series name`)
       continue
     }
-    transformAuthoredNote(node, series, context, state, blocks, galley)
+    transformAuthoredNote(node, series, context, state, blocks, seriesOrder, galley)
   }
 }
