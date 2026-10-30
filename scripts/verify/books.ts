@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
+import { verifyPartsBooks } from './book-parts.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -107,6 +108,7 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBooks(h)
+  await verifyPartsBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
 }
