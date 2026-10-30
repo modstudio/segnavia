@@ -107,7 +107,6 @@ export interface PaginateBookPage {
   sectionOpening: boolean
   runningHead?: string
   marks?: PaginatePageMarks
-  parents?: PaginateFlowParents
   parent: string
   side: 'left' | 'right'
 }

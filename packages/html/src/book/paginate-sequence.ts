@@ -27,6 +27,24 @@ export function paginateSequence(
   function pageHeight(parent: string): number {
     return input.parents[parent]?.height ?? 0
   }
+
+  function openerRefusal(
+    page: PaginatePageFill,
+    opener: boolean,
+    pending: PaginatePageNote[],
+    parent: string,
+    height: number,
+  ): PaginateBookRefusal | undefined {
+    if (!opener || pending.length > 0 || !page.refusal) return undefined
+    return {
+      ...page.refusal,
+      message: page.refusal.message.replace('the text area', `the "${parent}" opener parent's ${height}px text area`),
+    }
+  }
+
+  function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {
+    return opener && page.placed.length === 0 && page.fragments.length > 0 && !page.refusal
+  }
   function emptyMarks(): PaginatePageMarks {
     return Object.create(null) as PaginatePageMarks
   }
@@ -88,10 +106,6 @@ export function paginateSequence(
     return units
   }
 
-  function flowParents(flow: PaginateFlow): Pick<PaginateBookPage, 'parents'> {
-    return flow.parents === undefined ? {} : { parents: flow.parents }
-  }
-
   function openingOf(flow: PaginateFlow): 'recto' | 'verso' | 'any' {
     if (flow.opens === 'recto' || flow.opens === 'verso' || flow.opens === 'any') return flow.opens
     return input.settings.rectoOpenings ? 'recto' : 'any'
@@ -118,7 +132,6 @@ export function paginateSequence(
       sectionOpening: false,
       parent: planned.parent,
       side: planned.side,
-      ...flowParents(flow),
     }
   }
 
@@ -148,7 +161,6 @@ export function paginateSequence(
       marks,
       parent: planned.parent,
       side: planned.side,
-      ...flowParents(flow),
     }
   }
 
@@ -177,7 +189,6 @@ export function paginateSequence(
       marks,
       parent: planned.parent,
       side: planned.side,
-      ...flowParents(flow),
     }
   }
 
@@ -225,15 +236,14 @@ export function paginateSequence(
     return { pending: continued, carried: next }
   }
 
-  function paginateFlow(
-    flow: PaginateFlow,
+  function paginateFlowing(
+    flow: Exclude<PaginateFlow, { kind: 'fixed' }>,
     part: PaginateSequence,
     pages: PaginateBookPage[],
     continued: PaginatePageNote[],
     carried: PaginatePageMarks,
     physicalOffset: number,
-  ) {
-    if (flow.kind === 'fixed') return appendFixed(flow, part, pages, continued, carried, physicalOffset)
+  ): { refusal?: PaginateBookRefusal; pending: PaginatePageNote[]; carried: PaginatePageMarks } {
     const units = unitsOf(flow)
     let index = 0
     let pending = continued
@@ -241,9 +251,12 @@ export function paginateSequence(
     let nextCarried = carried
     while (index < units.length || pending.length > 0) {
       let planned = selected(flow, opener, false, undefined, physicalOffset + pages.length + 1)
-      let page = fillPage(units, index, pending, pageHeight(planned.parent))
+      const height = pageHeight(planned.parent)
+      let page = fillPage(units, index, pending, height)
+      const refused = openerRefusal(page, opener, pending, planned.parent, height)
+      if (refused) return { refusal: refused, pending, carried: nextCarried }
       const isOpening: boolean = opener && page.placed.length > 0
-      if (isOpening !== opener) {
+      if (notesOnlyOpeningPage(page, opener)) {
         planned = selected(flow, isOpening, false, undefined, physicalOffset + pages.length + 1)
         page = fillPage(units, index, pending, pageHeight(planned.parent))
       }
@@ -255,6 +268,18 @@ export function paginateSequence(
       pending = page.pending
     }
     return { pending, carried: nextCarried }
+  }
+
+  function paginateFlow(
+    flow: PaginateFlow,
+    part: PaginateSequence,
+    pages: PaginateBookPage[],
+    continued: PaginatePageNote[],
+    carried: PaginatePageMarks,
+    physicalOffset: number,
+  ): { refusal?: PaginateBookRefusal; pending: PaginatePageNote[]; carried: PaginatePageMarks } {
+    if (flow.kind === 'fixed') return appendFixed(flow, part, pages, continued, carried, physicalOffset)
+    return paginateFlowing(flow, part, pages, continued, carried, physicalOffset)
   }
 
   function flushNotes(

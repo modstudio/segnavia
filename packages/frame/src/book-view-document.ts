@@ -3,6 +3,7 @@ import {
   type Book,
   type BookView,
   type BookViewPagination,
+  flowingParentNames,
   formatNumber,
   PRINTED_PAGE_LIMIT,
   PX_PER_MM,
@@ -28,6 +29,31 @@ function px(value: number): number {
 
 function folios(system: Book['numbering']['body']): string[] {
   return Array.from({ length: PRINTED_PAGE_LIMIT }, (_, index) => formatNumber(index + 1, system))
+}
+
+function attribute(tag: string, name: string): string | undefined {
+  return new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(tag)?.[1]
+}
+
+function flowTextAreas(html: string, parents: Array<{ name: string; textArea: { width: number; height: number } }>) {
+  const byName = new Map(parents.map((parent) => [parent.name, parent.textArea]))
+  const areas: Record<string, { width: number; height: number }> = {}
+  for (const match of html.matchAll(/<[^>]+\sdata-segnavia-flow="[^"]+"[^>]*>/g)) {
+    const tag = match[0]
+    if (attribute(tag, 'data-segnavia-kind') === 'fixed' || attribute(tag, 'data-segnavia-kind') === 'templated') continue
+    const id = attribute(tag, 'data-segnavia-flow')
+    if (!id) continue
+    const names = flowingParentNames({
+      opener: attribute(tag, 'data-parent-opener'),
+      recto: attribute(tag, 'data-parent-recto'),
+      verso: attribute(tag, 'data-parent-verso'),
+    })
+    const held = [byName.get(names.opener), byName.get(names.recto), byName.get(names.verso)]
+    if (held.some((area) => area === undefined)) continue
+    const resolved = held as Array<{ width: number; height: number }>
+    areas[id] = { width: resolved[0]?.width ?? 0, height: Math.min(...resolved.map((area) => area.height)) }
+  }
+  return areas
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -58,6 +84,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     runningHead: pagination.runningHead,
     contentsPageNumbers: pagination.contents.pageNumbers,
     parents,
+    flowTextAreas: flowTextAreas(view.html, parents),
     parentNames: BOOK_PARENT_NAMES,
     folios: { front: folios(pagination.numbering.frontMatter), body: folios(pagination.numbering.body) },
     limit: PRINTED_PAGE_LIMIT,

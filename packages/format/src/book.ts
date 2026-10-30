@@ -12,7 +12,7 @@ import { Direction, resolveDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
+import { bookParentPages, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
@@ -170,31 +170,33 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   if (!book.page) return
   const trim = sheetMm(book.page)
-  const vertical = book.page.margin.top + book.page.margin.bottom
-  const horizontal = book.page.margin.inner + book.page.margin.outer
-  if (vertical >= trim.height) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['page', 'margin'],
-      message: `the top and bottom margins total ${vertical}mm and the page is ${trim.height}mm high; reduce the vertical margins to leave a text area`,
-    })
-  }
-  if (horizontal >= trim.width) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['page', 'margin'],
-      message: `the inner and outer margins total ${horizontal}mm and the page is ${trim.width}mm wide; reduce the horizontal margins to leave a text area`,
-    })
-  }
   const parents = resolveParentPages([...bookParentPages(book.page.margin), ...book.parentPages])
+  const defaults = new Set(bookParentPages(book.page.margin).map((parent) => parent.name))
+  for (const parent of parents) {
+    const area = textArea(parent, trim)
+    const path = defaults.has(parent.name) ? ['page', 'margin'] : ['parentPages']
+    if (area.height <= 0) {
+      const total = parent.margin.top + parent.margin.bottom
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `parent page "${parent.name}" has top and bottom margins totaling ${total}mm on paper ${trim.height}mm high; reduce the vertical margins to leave a text area`,
+      })
+    }
+    if (area.width <= 0) {
+      const total = parent.margin.inner + parent.margin.outer
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `parent page "${parent.name}" has inner and outer margins totaling ${total}mm on paper ${trim.width}mm wide; reduce the horizontal margins to leave a text area`,
+      })
+    }
+  }
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
   const flowing = [...book.frontMatter, ...book.chapters].filter((entry) => !isDesignedSection(entry) && !isTemplatedSection(entry))
   flowing.forEach((flow, index) => {
-    const roles = [
-      ['opener', flow.parents?.opener ?? BOOK_PARENT_NAMES.opener],
-      ['recto', flow.parents?.recto ?? BOOK_PARENT_NAMES.recto],
-      ['verso', flow.parents?.verso ?? BOOK_PARENT_NAMES.verso],
-    ] as const
+    const names = flowingParentNames(flow.parents)
+    const roles = Object.entries(names) as Array<[keyof typeof names, string]>
     const widths = roles.flatMap(([role, name]) => {
       const parent = byName.get(name)
       return parent ? [{ role, name, width: textArea(parent, trim).width }] : []

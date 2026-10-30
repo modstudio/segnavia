@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, resolveDirection } from '@segnavia/format'
+import { Book, PX_PER_MM, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { pixelPhaseOffset, WINDOW_EDGE_INSET_PX } from './book-composer.ts'
+import { pixelPhaseOffset } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -73,13 +73,33 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())
   })
 
-  test('keeps a cloned window at the galley source pixel phase and midpoint ink inside its clip', () => {
-    expect(pixelPhaseOffset(1099.765625, 7993.25)).toBeCloseTo(0.515625)
-    expect(pixelPhaseOffset(6222.953125, 17557.78125)).toBeCloseTo(0.171875)
-    expect(WINDOW_EDGE_INSET_PX).toBe(0.25)
-    expect(BOOK_COMPOSER_SCRIPT).toContain('pixelPhaseOffset(source,placed)')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('parseFloat(clone.style.insetBlockStart)+0.25')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('alignWindowPhases();if(!alignHeldNotes())')
+  test('moves a placed window onto its galley source pixel phase', () => {
+    const phases: Array<[number, number]> = [
+      [1099.765625, 7993.25],
+      [6222.125, 17557.78125],
+      [-8.2, 3.7],
+    ]
+    for (const [source, placed] of phases) {
+      const shifted = placed + pixelPhaseOffset(source, placed)
+      expect(shifted - Math.floor(shifted)).toBeCloseTo(source - Math.floor(source))
+    }
+  })
+
+  test('caps a flow galley at its shortest text-holding parent', () => {
+    const held = Book.parse({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 15, outer: 10 } },
+      parentPages: [
+        { name: 'tall', margin: { top: 5, bottom: 5, inner: 15, outer: 10 } },
+        { name: 'short', margin: { top: 30, bottom: 30, inner: 15, outer: 10 } },
+      ],
+      chapters: [{ title: 'One', html: '<img alt="Tall">', parents: { opener: 'tall', recto: 'short', verso: 'short' } }],
+    })
+    const html = bookDocument(held, { nonce: 'held' })
+    const area = { width: 123 * PX_PER_MM, height: 150 * PX_PER_MM }
+    expect(html).toContain(`"flowTextAreas":{"segnavia-chapter-1":${JSON.stringify(area)}}`)
+    expect(BOOK_COMPOSER_SCRIPT).toContain('config.flowTextAreas')
   })
 
   test('refuses a continuous book and a document with issues', () => {

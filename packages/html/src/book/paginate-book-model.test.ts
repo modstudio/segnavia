@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { block, flow, input, settings, win } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
+import { paginateSequence } from './paginate-sequence.ts'
 
 describe('paginateBook model', () => {
   test('uses the opener height only for the opening page', () => {
@@ -11,6 +12,46 @@ describe('paginateBook model', () => {
 
     expect(pages.map((page) => page.windows[0] && (page.windows[0].end - page.windows[0].start) / 10)).toEqual([3, 5, 3])
     expect(pages.map((page) => page.parent)).toEqual(['deep', 'segnavia:verso', 'segnavia:recto'])
+  })
+
+  test('keeps the first content on its opener and refuses a line taller than that opener', () => {
+    const first = input({
+      flows: [{ ...flow('c1', 'chapter', [block('text', 'p', 1, 1, 1, 0, { lines: [{ top: 0, bottom: 20 }] })]), parents: { opener: 'deep' } }],
+    })
+    first.parents.deep = { width: 100, height: 30 }
+    expect(paginateBook(first).pages[0]).toMatchObject({ parent: 'deep', sectionOpening: true })
+
+    const tooTall = input({
+      flows: [{ ...flow('c1', 'chapter', [block('text', 'p', 1, 1, 1, 0, { lines: [{ top: 0, bottom: 40 }] })]), parents: { opener: 'deep' } }],
+    })
+    tooTall.parents.deep = { width: 100, height: 30 }
+    const refused = paginateBook(tooTall)
+    expect(refused.pages).toEqual([])
+    expect(refused.refusals[0]?.message).toContain('the "deep" opener parent\'s 30px text area')
+  })
+
+  test('lets leftover notes fill a body page before placing content on the opener', () => {
+    const sample = input({
+      flows: [
+        flow('c1', 'chapter', [block('text', 'p', 1, 1, 1, 0)]),
+        { ...flow('c2', 'chapter', [block('text', 'p', 2, 1, 1, 0)]), parents: { opener: 'deep' } },
+      ],
+    })
+    sample.parents.deep = { width: 100, height: 30 }
+    const continued = { id: 'n1', whole: false, start: 0, end: 1 }
+    const result = paginateSequence(sample, (units, index, pending) => {
+      const unit = units[index]
+      if (unit?.flowId === 'c1') return { placed: [unit], fragments: [], index: index + 1, pending: [continued] }
+      if (units[0]?.flowId === 'c1') return { placed: [], fragments: [], index, pending, done: true }
+      if (pending.length > 0) return { placed: [], fragments: [continued], index, pending: [] }
+      if (unit) return { placed: [unit], fragments: [], index: index + 1, pending: [] }
+      return { placed: [], fragments: [], index, pending: [], done: true }
+    })
+    expect(result.refusals).toEqual([])
+    expect(result.pages.filter((page) => page.flow === 'c2').map((page) => ({ parent: page.parent, opening: page.sectionOpening }))).toEqual([
+      { parent: 'segnavia:verso', opening: false },
+      { parent: 'deep', opening: true },
+    ])
   })
 
   test('a two-column run is balanced on one page', () => {

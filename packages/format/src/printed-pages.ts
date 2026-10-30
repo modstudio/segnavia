@@ -67,6 +67,20 @@ export const BOOK_PARENT_NAMES = {
   blank: 'segnavia:blank',
 } as const
 
+export interface FlowingParentNames {
+  opener: string
+  recto: string
+  verso: string
+}
+
+export function flowingParentNames(parents?: Partial<FlowingParentNames>): FlowingParentNames {
+  return {
+    opener: parents?.opener ?? BOOK_PARENT_NAMES.opener,
+    recto: parents?.recto ?? BOOK_PARENT_NAMES.recto,
+    verso: parents?.verso ?? BOOK_PARENT_NAMES.verso,
+  }
+}
+
 function furniture(region: 'head' | 'foot'): string {
   return BOOK_FURNITURE.filter((item) => item.region === region)
     .filter((item) => item.fields.every((field) => !('required' in field) || !field.required))
