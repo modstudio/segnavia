@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { INK_NEIGHBORHOOD_PX, type InkBand, type InkImage, inkBounds, isInk, presenceDiff, stackImages } from './paginated-ink-pixels.ts'
+import {
+  bandCaptureHeight,
+  countedBand,
+  INK_NEIGHBORHOOD_PX,
+  type InkBand,
+  type InkImage,
+  inkBounds,
+  isInk,
+  presenceDiff,
+  stackImages,
+} from './paginated-ink-pixels.ts'
 
 function image(width: number, height: number, pixels: Array<[number, number]>): InkImage {
   const data = new Array(width * height * 4).fill(255)
@@ -13,7 +23,7 @@ function image(width: number, height: number, pixels: Array<[number, number]>): 
   return { width, height, data }
 }
 
-function band(width: number, height: number, pixels: Array<[number, number]>, start = 0, end = height): InkBand {
+function band(width: number, height: number, pixels: Array<[number, number]>, start: number, end: number): InkBand {
   return { image: image(width, height, pixels), countedRows: { start, end } }
 }
 
@@ -24,20 +34,20 @@ describe('paginated ink pixels', () => {
   })
 
   test('an all-white composed band loses galley ink', () => {
-    const diff = presenceDiff(band(10, 10, [[5, 5]]), band(10, 10, []))
+    const diff = presenceDiff(band(10, 10, [[5, 5]], 0, 10), band(10, 10, [], 0, 10))
     expect(diff.lost).toBeGreaterThanOrEqual(1)
     expect(diff.over).toBeGreaterThanOrEqual(1)
   })
 
   test('ink shifted by the neighborhood still matches', () => {
-    const galley = band(10, 10, [[5, 5]])
-    const composed = band(10, 10, [[5 + INK_NEIGHBORHOOD_PX, 5]])
+    const galley = band(10, 10, [[5, 5]], 0, 10)
+    const composed = band(10, 10, [[5 + INK_NEIGHBORHOOD_PX, 5]], 0, 10)
     expect(presenceDiff(galley, composed).lost).toBe(0)
     expect(presenceDiff(galley, composed).over).toBe(0)
   })
 
   test('stackImages concatenates bands vertically with the first band on row 0', () => {
-    const stacked = stackImages(band(2, 1, [[0, 0]]), band(2, 1, []))
+    const stacked = stackImages(band(2, 1, [[0, 0]], 0, 1), band(2, 1, [], 0, 1))
     expect(stacked.image.height).toBe(2)
     expect(stacked.image.width).toBe(2)
     expect(isInk(stacked.image.data[0] ?? 255, stacked.image.data[1] ?? 255, stacked.image.data[2] ?? 255)).toBe(true)
@@ -46,14 +56,16 @@ describe('paginated ink pixels', () => {
   })
 
   test('union of stacked bands matches galley ink that appears in either window', () => {
-    const galley = stackImages(band(4, 1, [[1, 0]]), band(4, 1, [[2, 0]]))
-    const composed = stackImages(band(4, 1, [[1, 0]]), band(4, 1, [[2, 0]]))
-    expect(presenceDiff(galley, composed).over).toBe(0)
+    const galley = stackImages(band(4, 1, [[1, 0]], 0, 1), band(4, 1, [], 0, 1))
+    const composed = stackImages(band(4, 1, [], 0, 1), band(4, 1, [[1, 0]], 0, 1))
+    const diff = presenceDiff(galley, composed)
+    expect(diff.lost).toBe(0)
+    expect(diff.extra).toBe(0)
   })
 
   test('union fails when neither window holds the galley ink', () => {
-    const galley = stackImages(band(4, 1, [[1, 0]]), band(4, 1, [[2, 0]]))
-    const composed = stackImages(band(4, 1, []), band(4, 1, []))
+    const galley = stackImages(band(4, 1, [[1, 0]], 0, 1), band(4, 1, [[2, 0]], 0, 1))
+    const composed = stackImages(band(4, 1, [], 0, 1), band(4, 1, [], 0, 1))
     expect(presenceDiff(galley, composed).lost).toBeGreaterThanOrEqual(1)
   })
 
@@ -93,5 +105,21 @@ describe('paginated ink pixels', () => {
     expect(stacked.image.height).toBe(6)
     expect(inkBounds(stacked).count).toBe(0)
     expect(presenceDiff(stacked, composed).over).toBe(0)
+  })
+
+  test('stackImages refuses bands whose counted rows do not meet at the seam', () => {
+    expect(() => stackImages(band(4, 3, [], 0, 2), band(4, 3, [], 0, 2))).toThrow('top counted rows do not reach the image bottom')
+    expect(() => stackImages(band(4, 3, [], 1, 3), band(4, 3, [], 1, 3))).toThrow('bottom counted rows do not start at the image top')
+  })
+
+  test('countedBand counts the window edge and clips to the captured image', () => {
+    expect(countedBand(image(2, 9, []), 'start', 20).countedRows).toEqual({ start: 0, end: 8 })
+    expect(countedBand(image(2, 9, []), 'end', 20).countedRows).toEqual({ start: 1, end: 9 })
+    expect(countedBand(image(2, 4, []), 'start', 20).countedRows).toEqual({ start: 0, end: 4 })
+    expect(countedBand(image(2, 4, []), 'end', 20).countedRows).toEqual({ start: 0, end: 4 })
+  })
+
+  test('bandCaptureHeight clips to a window shorter than the band', () => {
+    expect(bandCaptureHeight(4)).toBe(4)
   })
 })

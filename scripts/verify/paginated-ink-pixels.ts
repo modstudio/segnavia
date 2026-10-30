@@ -29,8 +29,8 @@ export function bandCaptureHeight(windowHeight: number): number {
   return band + Math.min(INK_NEIGHBORHOOD_PX, Math.max(0, Math.floor(windowHeight) - band))
 }
 
-export function countedBand(image: InkImage, side: 'start' | 'end', countedHeight: number): InkBand {
-  const height = Math.min(countedHeight, image.height)
+export function countedBand(image: InkImage, side: 'start' | 'end', windowHeight: number): InkBand {
+  const height = Math.min(bandHeight(windowHeight), image.height)
   return {
     image,
     countedRows: side === 'start' ? { start: 0, end: height } : { start: image.height - height, end: image.height },
@@ -58,19 +58,19 @@ function nearbyInk(image: InkImage, x: number, y: number): boolean {
 
 export function presenceDiff(galley: InkBand, composed: InkBand): PixelDiff {
   const width = Math.min(galley.image.width, composed.image.width)
-  let lost = 0
-  let extra = 0
-  for (let y = galley.countedRows.start; y < galley.countedRows.end; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (inkAt(galley.image, x, y) && !nearbyInk(composed.image, x, y)) lost += 1
-    }
-  }
-  for (let y = composed.countedRows.start; y < composed.countedRows.end; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      if (inkAt(composed.image, x, y) && !nearbyInk(galley.image, x, y)) extra += 1
-    }
-  }
+  const lost = unmatchedInk(galley, composed.image, width)
+  const extra = unmatchedInk(composed, galley.image, width)
   return { over: lost + extra, lost, extra }
+}
+
+function unmatchedInk(band: InkBand, other: InkImage, width: number): number {
+  let unmatched = 0
+  for (let y = band.countedRows.start; y < band.countedRows.end; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (inkAt(band.image, x, y) && !nearbyInk(other, x, y)) unmatched += 1
+    }
+  }
+  return unmatched
 }
 
 export function inkBounds(band: InkBand): { count: number; minX: number; minY: number; maxX: number; maxY: number } {
@@ -98,6 +98,12 @@ export function inkCount(band: InkBand): number {
 }
 
 export function stackImages(top: InkBand, bottom: InkBand): InkBand {
+  if (top.countedRows.end !== top.image.height) {
+    throw new Error('Cannot stack ink bands: top counted rows do not reach the image bottom')
+  }
+  if (bottom.countedRows.start !== 0) {
+    throw new Error('Cannot stack ink bands: bottom counted rows do not start at the image top')
+  }
   const width = Math.min(top.image.width, bottom.image.width)
   const height = top.image.height + bottom.image.height
   const data = new Array(width * height * 4).fill(255)

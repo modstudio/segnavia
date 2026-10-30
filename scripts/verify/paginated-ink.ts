@@ -3,7 +3,6 @@ import type { Harness } from './harness.ts'
 import type { InkBand } from './paginated-ink-pixels.ts'
 import {
   bandCaptureHeight,
-  bandHeight,
   countedBand,
   INK_BAND_PX,
   INK_NEIGHBORHOOD_PX,
@@ -235,20 +234,21 @@ async function hideOtherGalleyBlocks(frame: Frame, view: InkWindow, hide: boolea
   )
 }
 
-async function pngBand(h: Harness, png: Promise<Buffer>, side: 'start' | 'end', countedHeight: number): Promise<InkBand> {
-  return countedBand(await pngRgba(h, await png), side, countedHeight)
+async function captureEdgeBands(h: Harness, frame: Frame, selector: string, x: number, windowY: number, width: number, windowHeight: number) {
+  const height = bandCaptureHeight(windowHeight)
+  const capture = async (side: 'start' | 'end') => {
+    const y = windowY + (side === 'start' ? 0 : windowHeight - height)
+    return countedBand(await pngRgba(h, await screenshotBand(h, frame, selector, x, y, width, height)), side, windowHeight)
+  }
+  return { start: await capture('start'), end: await capture('end') }
 }
 
 async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkBand; end: InkBand }>> {
   const bands: Array<{ start: InkBand; end: InkBand }> = []
   for (const view of windows) {
-    const band = bandHeight(view.height)
-    const height = bandCaptureHeight(view.height)
     await hideOtherGalleyBlocks(frame, view, true)
     try {
-      const start = await pngBand(h, screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, height), 'start', band)
-      const end = await pngBand(h, screenshotBand(h, frame, flowSelector(view.flow), view.localX, view.end - height, view.width, height), 'end', band)
-      bands.push({ start, end })
+      bands.push(await captureEdgeBands(h, frame, flowSelector(view.flow), view.localX, view.start, view.width, view.height))
     } finally {
       await hideOtherGalleyBlocks(frame, view, false)
     }
@@ -259,11 +259,7 @@ async function captureGalleyBands(h: Harness, frame: Frame, windows: InkWindow[]
 async function capturePageBands(h: Harness, frame: Frame, windows: InkWindow[]): Promise<Array<{ start: InkBand; end: InkBand }>> {
   const bands: Array<{ start: InkBand; end: InkBand }> = []
   for (const view of windows) {
-    const band = bandHeight(view.height)
-    const height = bandCaptureHeight(view.height)
-    const start = await pngBand(h, screenshotBand(h, frame, windowSelector(view.windowIndex), 0, 0, view.width, height), 'start', band)
-    const end = await pngBand(h, screenshotBand(h, frame, windowSelector(view.windowIndex), 0, view.height - height, view.width, height), 'end', band)
-    bands.push({ start, end })
+    bands.push(await captureEdgeBands(h, frame, windowSelector(view.windowIndex), 0, 0, view.width, view.height))
   }
   return bands
 }
@@ -284,8 +280,8 @@ function recordMismatch(view: InkWindow, side: Mismatch['side'], offset: number,
     extra: diff.extra,
     galleyInk,
     pageInk,
-    galleySize: [galley.image.width, galley.image.height],
-    pageSize: [page.image.width, page.image.height],
+    galleySize: [galley.image.width, galley.countedRows.end - galley.countedRows.start],
+    pageSize: [page.image.width, page.countedRows.end - page.countedRows.start],
   })
 }
 
@@ -346,7 +342,7 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     const galley = galleyBands[index]
     const page = pageBands[index]
     if (!galley || !page) continue
-    const height = bandHeight(view.height)
+    const height = bandCaptureHeight(view.height)
     if (!intersectsScaledExtent({ start: view.start, end: view.start + height }, view.scaledExtents)) {
       recordInside(view, 'start', galley.start, page.start, mismatches)
       comparedBands.add(`${index}:start`)
@@ -362,8 +358,8 @@ export async function compareHebrewInk(h: Harness, frame: Frame) {
     const previousPage = pageBands[pair.previousIndex]
     const nextPage = pageBands[pair.nextIndex]
     if (!previous || !next || !previousPage || !nextPage) continue
-    const previousHeight = bandHeight(pair.previous.height)
-    const nextHeight = bandHeight(pair.next.height)
+    const previousHeight = bandCaptureHeight(pair.previous.height)
+    const nextHeight = bandCaptureHeight(pair.next.height)
     const comparePixels =
       !intersectsScaledExtent({ start: pair.previous.end - previousHeight, end: pair.previous.end }, pair.previous.scaledExtents) &&
       !intersectsScaledExtent({ start: pair.next.start, end: pair.next.start + nextHeight }, pair.next.scaledExtents)
