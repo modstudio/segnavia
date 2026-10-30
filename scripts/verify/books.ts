@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { PX_PER_MM } from '@segnavia/format'
+import { PX_PER_MM, PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
@@ -327,7 +327,7 @@ async function verifyWorkbooks(h: Harness) {
         dir: document.documentElement.getAttribute('dir'),
       }
     })
-    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 3, report.failure ?? `${report.pages} pages`)
+    check(`${id} composed without a planner refusal`, !report.failure && report.pages === 4, report.failure ?? `${report.pages} pages`)
     check(
       `${id} one lesson page names its own template`,
       report.templates.includes('lesson') && report.templates.includes('lesson-alt'),
@@ -342,12 +342,29 @@ async function verifyWorkbooks(h: Harness) {
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
     check(
       `${id} contents lists every lesson with its page number`,
-      lessons.length >= 4 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
+      lessons.length >= 5 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
       JSON.stringify(lessons),
     )
     const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
+
+    const fit = await frame.evaluate(() => {
+      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
+      if (!el) return { size: 0, overflow: 'missing', elements: -1 }
+      return {
+        size: Number.parseFloat(getComputedStyle(el).fontSize),
+        overflow: el.getAttribute('data-segnavia-region-overflow'),
+        elements: el.childElementCount,
+      }
+    })
+    const minPx = 48 * PX_PER_PT
+    const maxPx = 75 * PX_PER_PT
+    check(
+      `${id} a region of bare overflowing text fits between min and max`,
+      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
+      JSON.stringify(fit),
+    )
 
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {

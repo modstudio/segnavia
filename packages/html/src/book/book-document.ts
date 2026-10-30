@@ -23,9 +23,9 @@ import {
   markPlacementIssues,
   sectionNode,
   templatedSection,
+  templatedSectionIssues,
   templateHolders,
-  templateRegionNameIssues,
-  undeclaredRegionIssues,
+  templateRegionIssues,
 } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
@@ -109,7 +109,7 @@ function appendTemplated(
   notesOwner = 0,
 ) {
   const held = templatedSection(entry, id, kind, build, book.contents.depth, templates, build === 'flow' ? bookFlowPageGeometry(book) : undefined)
-  appendHeld(held.built, held.headings, undeclaredRegionIssues(entry, id, templates), book, notes, build, sections, headings, issues, notesOwner)
+  appendHeld(held.built, held.headings, templatedSectionIssues(entry, id, templates), book, notes, build, sections, headings, issues, notesOwner)
 }
 
 function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
@@ -390,7 +390,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ...(buildIssue ? [buildIssue] : []),
       ...noteMarkerIssues(book, { footnotes: notes.footnotes, endnotes: notes.endnotes }),
       ...markPlacementIssues(book.parentPages),
-      ...templateRegionNameIssues(book.templates),
+      ...templateRegionIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),
     ],
