@@ -1,4 +1,4 @@
-import { type FontFace, type FontReference, type LocalFacesInput, localFontReferences } from '@segnavia/format'
+import { type FontFace, type FontReference, type LocalFacesInput, type LocalFontLimits, localFontLimitRefusal, localFontReferences } from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
@@ -149,14 +149,26 @@ export async function readLocalFonts(references: readonly FontReference[], optio
   return { faces, unavailable: unavailableFaces }
 }
 
-export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[]): LocalFacesInput {
+export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[], limits?: LocalFontLimits): LocalFacesInput {
   const families = new Map<string, string>()
   for (const reference of references) {
     if ('local' in reference && !families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
   }
-  return faces.flatMap((face) => {
+  const selected = faces.flatMap((face) => {
     const family = families.get(face.family.toLowerCase())
     if (!family) return []
-    return [{ family, format: face.format, weight: face.weight, style: face.style, data: bytesToBase64(face.data) }]
+    return [{ face, family }]
   })
+  const refusal = localFontLimitRefusal(
+    selected.map(({ face, family }) => ({ family, bytes: face.data.byteLength })),
+    limits,
+  )
+  if (refusal) throw new Error(refusal)
+  return selected.map(({ face, family }) => ({
+    family,
+    format: face.format,
+    weight: face.weight,
+    style: face.style,
+    data: bytesToBase64(face.data),
+  }))
 }

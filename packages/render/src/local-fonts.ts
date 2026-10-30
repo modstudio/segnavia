@@ -1,9 +1,18 @@
-import { type FontFace, type FontReference, type LocalFacesInput, LocalFaceTransport, localFontReferences } from '@segnavia/format'
+import {
+  type FontFace,
+  type FontReference,
+  LOCAL_FONT_LIMITS,
+  type LocalFacesInput,
+  LocalFaceTransport,
+  type LocalFontLimits,
+  localFontLimitRefusal,
+  localFontReferences,
+} from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 
-export const DEFAULT_LOCAL_FONT_COUNT = 16
-export const DEFAULT_LOCAL_FONT_BYTES = 32 * 1024 * 1024
+export const DEFAULT_LOCAL_FONT_COUNT = LOCAL_FONT_LIMITS.count
+export const DEFAULT_LOCAL_FONT_BYTES = LOCAL_FONT_LIMITS.bytes
 
 export interface LocalFontsReport {
   fellBack: Array<{ family: string; fallback: string }>
@@ -11,7 +20,7 @@ export interface LocalFontsReport {
 
 export interface LocalFontsOptions {
   faces?: LocalFacesInput
-  limits?: { count?: number; bytes?: number }
+  limits?: LocalFontLimits
   report?: (report: LocalFontsReport) => void
 }
 
@@ -21,21 +30,7 @@ function familyFrom(value: unknown): string {
   return typeof family === 'string' && family.length > 0 ? family : 'unknown family'
 }
 
-function limit(value: number | undefined, fallback: number, label: string): number {
-  const resolved = value ?? fallback
-  if (!Number.isSafeInteger(resolved) || resolved < 0) {
-    throw new RenderRefusedError(`The local font ${label} limit must be a non-negative safe integer; supply a valid limit to clear this refusal.`)
-  }
-  return resolved
-}
-
-function byteLimitRefusal(family: string, byteLimit: number): RenderRefusedError {
-  return new RenderRefusedError(
-    `The local face ${JSON.stringify(family)} exceeds the byte limit of ${byteLimit}; send at most ${byteLimit} decoded bytes to clear this refusal.`,
-  )
-}
-
-function decodeFace(input: unknown, usedBytes: number, byteLimit: number): FontFace {
+function decodeFace(input: unknown): FontFace {
   const parsed = LocalFaceTransport.safeParse(input)
   const family = familyFrom(input)
   if (!parsed.success) {
@@ -43,15 +38,12 @@ function decodeFace(input: unknown, usedBytes: number, byteLimit: number): FontF
       `The local face ${JSON.stringify(family)} has an invalid transport shape; send only family, format, weight, style and base64 data to clear this refusal.`,
     )
   }
-  const padding = parsed.data.data.endsWith('==') ? 2 : parsed.data.data.endsWith('=') ? 1 : 0
-  const decodedLength = (parsed.data.data.length / 4) * 3 - padding
-  if (usedBytes + decodedLength > byteLimit) throw byteLimitRefusal(family, byteLimit)
   let data: Uint8Array | undefined
   try {
     data = base64ToBytes(parsed.data.data)
   } catch (error) {
     if (!(error instanceof RangeError)) throw error
-    throw byteLimitRefusal(family, byteLimit)
+    throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
   }
   if (!data || bytesToBase64(data) !== parsed.data.data) {
     throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
@@ -71,21 +63,17 @@ function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
     throw new RenderRefusedError('The local faces transport is not an array; send an array of local faces to clear this refusal.')
   }
   const inputs: readonly unknown[] = supplied
-  const countLimit = limit(options?.limits?.count, DEFAULT_LOCAL_FONT_COUNT, 'count')
-  const byteLimit = limit(options?.limits?.bytes, DEFAULT_LOCAL_FONT_BYTES, 'byte')
-  if (inputs.length > countLimit) {
-    throw new RenderRefusedError(
-      `The local face ${JSON.stringify(familyFrom(inputs[countLimit]))} exceeds the count limit of ${countLimit}; send at most ${countLimit} faces to clear this refusal.`,
-    )
-  }
-  const faces: FontFace[] = []
-  let bytes = 0
-  for (const input of inputs) {
-    const face = decodeFace(input, bytes, byteLimit)
-    faces.push(face)
-    bytes += face.data.byteLength
-  }
-  return faces
+  const refusal = localFontLimitRefusal(
+    inputs.map((input) => {
+      const data = typeof input === 'object' && input !== null && 'data' in input ? (input as { data?: unknown }).data : undefined
+      if (typeof data !== 'string') return { family: familyFrom(input), bytes: 0 }
+      const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0
+      return { family: familyFrom(input), bytes: (data.length / 4) * 3 - padding }
+    }),
+    options?.limits,
+  )
+  if (refusal) throw new RenderRefusedError(refusal)
+  return inputs.map(decodeFace)
 }
 
 export function localFontsForRender(

@@ -55,6 +55,17 @@ describe('local fonts for a render', () => {
     ).toThrow('"First" exceeds the byte limit of 1')
   })
 
+  test('accepts 18 faces and shares default overflow refusals with frame packing', () => {
+    const face = { family: 'Local Family', format: 'truetype' as const, data: truetype }
+    expect(localFontsForRender({ faces: Array.from({ length: 18 }, () => face) }, [{ local: 'Local Family', fallback: 'serif' }]).faces).toHaveLength(18)
+    expect(() => localFontsForRender({ faces: Array.from({ length: 65 }, () => face) }, [])).toThrow(
+      'The local face "Local Family" exceeds the count limit of 64; pass higher limits or declare fewer local font families to clear this refusal.',
+    )
+    expect(() => localFontsForRender({ faces: [face], limits: { bytes: 3 } }, [])).toThrow(
+      'The local face "Local Family" exceeds the byte limit of 3; pass higher limits or declare fewer local font families to clear this refusal.',
+    )
+  })
+
   test('retains no decoded buffer after the prepared faces leave the call', async () => {
     const weak = (() => {
       const result = localFontsForRender({ faces: [{ family: 'Declared Family', format: 'truetype', data: truetype }] }, references)
