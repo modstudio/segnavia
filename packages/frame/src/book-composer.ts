@@ -142,7 +142,7 @@ var widthDecision=decideBookMeasurement({frameWidth:document.documentElement.cli
 if(widthDecision==='wait-for-width'){if(visibleStartedAt!==null){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;}return nextAnimationFrame().then(composeWhenMeasurable);}
 if(visibleStartedAt===null)visibleStartedAt=performance.now();
 sizeGalleys();
-var chapterFirstPages=function(pages){var map={};for(var i=0;i<pages.length;i++){var page=pages[i];if(!page.sectionOpening||page.blank)continue;if(String(page.flow).indexOf('segnavia-chapter-')!==0)continue;if(map[page.flow]===undefined)map[page.flow]=page.sequence+':'+page.number;}return map;};
+var chapterFirstPages=function(pages){var map={};for(var i=0;i<pages.length;i++){var page=pages[i];if(!page.sectionOpening||page.blank)continue;var section=document.querySelector('[data-segnavia-flow="'+page.flow+'"]');var kind=section?flowKind(section):'';if(kind!=='chapter'&&kind!=='part')continue;if(map[page.flow]===undefined)map[page.flow]=page.sequence+':'+page.number;}return map;};
 var sameFirstPages=function(left,right){var keys=Object.keys(left);if(keys.length!==Object.keys(right).length)return false;for(var i=0;i<keys.length;i++)if(left[keys[i]]!==right[keys[i]])return false;return true;};
 var movedFirstPages=function(left,right){var ids=[];for(var id in right)if(left[id]!==right[id])ids.push(id);for(var prior in left)if(!Object.prototype.hasOwnProperty.call(right,prior))ids.push(prior);return ids;};
 var paginateOrFail=function(input){var held=paginateBook(input);if(held.refusals.length){fail(held.refusals[0].message);return null;}return held;};

@@ -38,9 +38,7 @@ describe('bookSections', () => {
       endMatter: [{ name: 'appendix', title: 'Appendix', children: [{ title: 'A', html: '<p>End</p>' }] }],
     })
 
-    expect(
-      bookSections(book).map(({ entry, ...section }) => ({ ...section, title: entry.title })),
-    ).toEqual([
+    expect(bookSections(book).map(({ entry, ...section }) => ({ ...section, title: entry.title }))).toEqual([
       { division: 'front', ancestry: [], depth: 0, path: ['frontMatter', 0], title: 'Preface' },
       { division: 'body', ancestry: [], depth: 0, path: ['body', 0], id: 'segnavia-part-1', title: 'First' },
       {

@@ -137,7 +137,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
-  runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
+  runningHead: { recto: { part: 'part' }, verso: { part: 'part' } },
   parentPages: paginatedParents(),
   frontMatter: [
     {
@@ -146,19 +146,33 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
     },
     { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
   ],
-  chapters: [
-    designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
-    designedLeaf(hebrew),
+  body: [
     {
-      title: hebrew ? 'פרק שני' : 'Chapter Two',
-      html: chapterTwoHtml(hebrew),
-      parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+      name: 'part',
+      title: hebrew ? 'חלק ראשון' : 'Part One',
+      html: `<h1>${hebrew ? 'חלק ראשון' : 'Part One'}</h1>`,
+      children: [
+        designedSpread(hebrew),
+        { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
+        designedLeaf(hebrew),
+      ],
     },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
-    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
-    columnFitChapter(hebrew),
+    {
+      name: 'part',
+      title: hebrew ? 'חלק שני' : 'Part Two',
+      children: [
+        {
+          title: hebrew ? 'פרק שני' : 'Chapter Two',
+          html: chapterTwoHtml(hebrew),
+          parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+        },
+        { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
+        { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
+        columnFitChapter(hebrew),
+      ],
+    },
   ],
+  endMatter: [{ name: 'appendix', title: hebrew ? 'נספח' : 'Appendix', children: [{ title: hebrew ? 'אחרית דבר' : 'Afterword', html: '<p>Appendix</p>' }] }],
 })
 
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {

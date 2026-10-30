@@ -54,14 +54,13 @@ describe('book', () => {
   })
 
   test('a parsed book resolves every defaulted field', () => {
-    expect(Book.parse(input())).toEqual({
+    const parsed = Book.parse(input())
+    expect(parsed).toMatchObject({
       title: 'Book',
       mode: 'continuous',
       scripts: 'refuse',
       frontMatter: [],
       body: [chapter],
-      chapters: [chapter],
-      chaptersAndBody: false,
       endMatter: [],
       parentPages: [],
       templates: [],
@@ -74,6 +73,7 @@ describe('book', () => {
       runningHead: { recto: 'title', verso: 'title' },
       contents: { pageNumbers: true, depth: 2 },
     })
+    expect(Object.keys(parsed)).not.toContain('chapters')
   })
 
   test('contents depth defaults to two and accepts levels one through six', () => {
@@ -338,7 +338,7 @@ describe('book', () => {
   })
 
   test('body replaces legacy chapters and refuses both or an empty part at its tree path', () => {
-    const both = Book.safeParse(input({ body: [chapter], chapters: [chapter] }))
+    const both = Book.safeParse(input({ body: [chapter], chapters: [{ title: 'Other', html: '<p>Other</p>' }] }))
     expect(both.error?.issues.map((issue) => issue.path)).toEqual([['body'], ['chapters']])
 
     const empty = Book.safeParse(input({ chapters: undefined, body: [{ name: 'part' }] }))

@@ -144,11 +144,17 @@ export type BookViewInput = z.input<typeof BookView>
 const ResolvedBook = BookShape.transform((book) => {
   const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
+  const canonicalItems = (items: unknown) =>
+    JSON.stringify(items, (key, value) => {
+      if (key === 'contents' && value === true) return undefined
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value
+      return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
+    })
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
     chapters: chapters ?? [],
-    chaptersAndBody: book.body !== undefined && chapters !== undefined,
+    chaptersAndBody: book.body !== undefined && chapters !== undefined && canonicalItems(book.body) !== canonicalItems(chapters),
     numbering: {
       frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
       body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
@@ -158,37 +164,47 @@ const ResolvedBook = BookShape.transform((book) => {
   }
 })
 
-export const Book = ResolvedBook.superRefine((book, ctx) => {
-  const input = book as typeof book & { chapters?: BookChapterEntry[] }
-  if (input.body.length === 0) {
-    ctx.addIssue({ code: 'custom', path: ['body'], message: 'a book needs at least one body entry; add a chapter or part' })
-  }
+function emptyPartIssues(items: z.infer<typeof BookItem>[], path: (string | number)[]): Array<{ path: (string | number)[]; message: string }> {
+  return items.flatMap((entry, index) => {
+    if (!('name' in entry)) return []
+    const partPath = [...path, index]
+    const own =
+      entry.html === undefined && entry.title === undefined && entry.children.length === 0
+        ? [{ path: partPath, message: 'a part needs html, a title or children; add one or remove the part' }]
+        : []
+    return [...own, ...emptyPartIssues(entry.children, [...partPath, 'children'])]
+  })
+}
+
+type BookIssue = { path: (string | number)[]; message: string }
+
+function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
+  const issues: BookIssue[] = []
+  if (book.body.length === 0) issues.push({ path: ['body'], message: 'a book needs at least one body entry; add a chapter or part' })
   if (book.chaptersAndBody) {
-    ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
-    ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
+    issues.push({ path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
+    issues.push({ path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
   }
-  const emptyParts = (items: typeof book.body, path: (string | number)[]): void => {
-    items.forEach((entry, index) => {
-      if (!('name' in entry)) return
-      const partPath = [...path, index]
-      if (entry.html === undefined && entry.title === undefined && entry.children.length === 0) {
-        ctx.addIssue({ code: 'custom', path: partPath, message: 'a part needs html, a title or children; add one or remove the part' })
-      }
-      emptyParts(entry.children, [...partPath, 'children'])
-    })
-  }
-  emptyParts(book.frontMatter, ['frontMatter'])
-  emptyParts(book.body, ['body'])
-  emptyParts(book.endMatter, ['endMatter'])
+  issues.push(...emptyPartIssues(book.frontMatter, ['frontMatter']), ...emptyPartIssues(book.body, ['body']), ...emptyPartIssues(book.endMatter, ['endMatter']))
   const sections = bookSections(book)
-  const contentsPositions = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [Number(path.at(-1)) + 1] : []))
-  if (contentsPositions.length > 1) {
-    ctx.addIssue({
-      code: 'custom',
+  for (const section of sections) {
+    if (isBookContents(section.entry) && section.division !== 'front') {
+      issues.push({ path: section.path, message: `contents belongs in frontMatter; move this ${section.division} contents entry there` })
+    }
+  }
+  const positions = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [Number(path.at(-1)) + 1] : []))
+  if (positions.length > 1) {
+    issues.push({
       path: ['frontMatter'],
-      message: `front-matter entries at positions ${contentsPositions[0]} and ${contentsPositions[1]} are both contents entries; one must go`,
+      message: `front-matter entries at positions ${positions[0]} and ${positions[1]} are both contents entries; one must go`,
     })
   }
+  return issues
+}
+
+const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
+  for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
+  const sections = bookSections(book)
   if (book.mode === 'paginated' && !book.page) {
     ctx.addIssue({ code: 'custom', path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   }
@@ -251,6 +267,11 @@ export const Book = ResolvedBook.superRefine((book, ctx) => {
     })
   })
 })
+
+export const Book = RefinedBook.transform(
+  ({ chaptersAndBody: _chaptersAndBody, chapters, ...book }) =>
+    Object.defineProperty(book, 'chapters', { value: chapters, enumerable: false }) as typeof book & { chapters: typeof chapters },
+)
 export type Book = z.infer<typeof Book>
 export type BookInput = z.input<typeof Book>
 

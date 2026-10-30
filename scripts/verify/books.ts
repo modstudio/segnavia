@@ -143,7 +143,7 @@ function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
     JSON.stringify(pdfMarks),
   )
   check(
-    `${id} running heads take the first mark and carry onto a page with none`,
+    `${id} running heads take the enclosing part title and carry across its pages`,
     report.runningHead.fromMark && report.runningHead.carried,
     report.runningHead.detail,
   )

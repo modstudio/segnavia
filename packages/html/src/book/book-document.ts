@@ -24,7 +24,6 @@ import {
   designedSection,
   flowAttribs,
   markPlacementIssues,
-  partSection,
   sectionNode,
   templatedSection,
   templatedSectionIssues,
@@ -32,9 +31,10 @@ import {
   templateRegionIssues,
 } from './book-held.ts'
 import { duplicateIdIssues, reservedIdIssues } from './book-issues.ts'
+import { addPart, attachPendingParts } from './book-part-build.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { endnotesInOrder, noteState, transformNotes } from './notes.ts'
-import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, type BookSectionInfo, bookPrintPart } from './types.ts'
+import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
 function contentsSection(entry: { title?: string; opens?: string; parents?: BookSectionParents }, build: BookBuild): BuiltSection {
   const id = 'segnavia-contents'
@@ -171,7 +171,7 @@ function withBlankPages(sections: BuiltSection[], blankBefore: string[] | undefi
   ])
 }
 
-interface DocumentBuild {
+export interface DocumentBuild {
   build: BookBuild
   notes: ReturnType<typeof noteState>
   sections: BuiltSection[]
@@ -180,26 +180,14 @@ interface DocumentBuild {
   templates: Map<string, BookTemplate>
   designedNumber: number
   templatedNumber: number
+  chapterNumber: number
   heldNotesOwner: number
+  pendingPartIds: string[]
 }
 
 function takeHeldNotesOwner(build: DocumentBuild): number {
   build.heldNotesOwner -= 1
   return build.heldNotesOwner
-}
-
-function addPart(sectionEntry: ReturnType<typeof bookSections>[number], build: DocumentBuild): boolean {
-  const { entry } = sectionEntry
-  if (!isPart(entry)) return false
-  const id = sectionEntry.id ?? ''
-  if (entry.html !== undefined) {
-    const parts = Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? '']))
-    build.sections.push(partSection(entry, id, sectionEntry.division, build.build, parts))
-  }
-  if (entry.contents && entry.title !== undefined) {
-    build.headings.push({ id, level: 1, depth: sectionEntry.depth, text: entry.title, sectionId: id })
-  }
-  return true
 }
 
 // Chapter endnotes open on either side so recto openings govern the next chapter, not the notes.
@@ -224,11 +212,13 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     if (isBookContents(entry)) {
       contents = contentsSection(entry, build.build)
       build.sections.push(contents)
+      attachPendingParts(build)
       continue
     }
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
       appendDesigned(entry, `segnavia-designed-${build.designedNumber}`, 'front', book, build.build, build.notes, build.sections, build.headings, build.issues)
+      attachPendingParts(build)
       continue
     }
     if (isTemplatedSection(entry)) {
@@ -245,11 +235,13 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
         build.headings,
         build.issues,
       )
+      attachPendingParts(build)
       continue
     }
     frontNumber += 1
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.build)
     build.sections.push(section)
+    attachPendingParts(build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
       build.headings.push({ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id })
@@ -260,7 +252,6 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
 }
 
 function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' = 'body'): void {
-  let chapterNumber = 0
   for (const sectionEntry of bookSections(book)) {
     if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
@@ -284,6 +275,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
         build.issues,
         owner,
       )
+      attachPendingParts(build)
       pushChapterEndnotes(book, build, `segnavia-endnotes-designed-${build.designedNumber}`, owner)
       continue
     }
@@ -303,16 +295,18 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
         build.issues,
         owner,
       )
+      attachPendingParts(build)
       pushChapterEndnotes(book, build, `segnavia-endnotes-templated-${build.templatedNumber}`, owner)
       continue
     }
     if (!('html' in entry)) continue
-    chapterNumber += 1
-    const section = chapterSection(entry, chapterNumber, build.build)
+    build.chapterNumber += 1
+    const section = chapterSection(entry, build.chapterNumber, build.build)
     if (sectionEntry.ancestry.length > 0) {
       section.node.attribs['data-segnavia-parts'] = JSON.stringify(Object.fromEntries(sectionEntry.ancestry.map((part) => [part.name, part.title ?? ''])))
     }
     build.sections.push(section)
+    attachPendingParts(build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if (entry.title !== undefined) {
       build.headings.push({
@@ -324,12 +318,12 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
       })
     }
     build.headings.push(
-      ...chapterHeadings(section, chapterNumber, book.contents.depth).map((heading) =>
+      ...chapterHeadings(section, build.chapterNumber, book.contents.depth).map((heading) =>
         sectionEntry.depth > 0 ? { ...heading, depth: sectionEntry.depth } : heading,
       ),
     )
-    transformNotes(section.node, book, chapterNumber, build.notes, build.build === 'galley')
-    pushChapterEndnotes(book, build, `segnavia-endnotes-${chapterNumber}`, chapterNumber)
+    transformNotes(section.node, book, build.chapterNumber, build.notes, build.build === 'galley')
+    pushChapterEndnotes(book, build, `segnavia-endnotes-${build.chapterNumber}`, build.chapterNumber)
   }
 }
 
@@ -344,7 +338,9 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     templates: new Map(book.templates.map((template) => [template.name, template])),
     designedNumber: 0,
     templatedNumber: 0,
+    chapterNumber: 0,
     heldNotesOwner: 0,
+    pendingPartIds: [],
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)
