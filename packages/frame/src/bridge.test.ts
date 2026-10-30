@@ -3,6 +3,7 @@ import { animationReport } from './animation-timing.ts'
 import {
   BLOCK_DIRECTION_CSS,
   bridgeForHost,
+  type FrameOptions,
   frameDocument,
   MESSAGE,
   messageFrom,
@@ -96,6 +97,12 @@ describe('frame document', () => {
     expect(html).toContain("connect-src 'none'")
     expect(html).toContain("new CustomEvent('segnavia:print'")
     expect(html).toContain("form-action 'none'")
+  })
+
+  test('an unknown script mode fails closed without the storage shim', () => {
+    const html = frameDocument('<p>x</p>', { nonce: 'n' } as FrameOptions)
+    expect(html).toContain("script-src 'nonce-n'")
+    expect(html).not.toContain("Object.defineProperty(window,'localStorage'")
   })
 
   test('approved dependency origins are written into scripted CSP directives', () => {

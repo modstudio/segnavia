@@ -221,11 +221,12 @@ const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => st
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
 export function frameDocument(html: string, options: FrameOptions): string {
+  const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
   const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
   const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
   const directives = [
-    ...(options.scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[options.scripts](withOrigins)),
+    ...(scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](withOrigins)),
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -234,7 +235,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
-    `<script nonce="${options.nonce}">${bridgeScript(options)}</script>`,
+    `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>`,
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
     options.css ? `<style>${options.css}</style>` : '',
