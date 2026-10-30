@@ -17,7 +17,19 @@ import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions
 export const BOOK_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const BOOK_COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
 export const BOOK_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
+// A valid book normally establishes its line boxes in one layout frame. One second admits
+// throttled or deferred browser layout while leaving ample room inside the 20-second caller bound.
+export const BOOK_MEASUREMENT_WAIT_MS = 1_000
 export const WINDOW_EDGE_INSET_PX = 0.25
+
+export interface BookMeasurementFacts {
+  sourceBlocks: number
+  measuredLines: number
+}
+
+export function bookNeedsMeasurementRetry(facts: BookMeasurementFacts): boolean {
+  return facts.sourceBlocks > 0 && facts.measuredLines === 0
+}
 
 export function pixelPhaseOffset(source: number, placed: number): number {
   return source - Math.floor(source) - (placed - Math.floor(placed))
@@ -38,6 +50,7 @@ ${embedFunction('flowTextArea', flowTextArea)}
 ${embedFunction('spreadSlots', spreadSlots)}
 ${embedFunction('pageScale', pageScale)}
 ${embedFunction('pixelPhaseOffset', pixelPhaseOffset)}
+${embedFunction('bookNeedsMeasurementRetry', bookNeedsMeasurementRetry)}
 ${embeddedBookPresentationFunctions()}`
 }
 
@@ -107,15 +120,29 @@ ${
     : 'var presentScreen=function(){};'
 }
 var compose=function(plan){var pages=document.createElement('div');pages.setAttribute('data-segnavia-pages','');for(var index=0;index<plan.pages.length;index++){var page=plan.pages[index];var selected={parent:page.parent,side:page.side,folio:folioOf(page),runningHead:runningHeadOf(page,index+1)};var parent=parentByName[selected.parent];var margin=parent.margin;var textArea=parent.textArea;var paper=document.createElement('section');paper.setAttribute('data-segnavia-book-page',String(index+1));paper.setAttribute('data-segnavia-role',page.role);paper.setAttribute('data-segnavia-sequence',page.sequence);paper.setAttribute('data-segnavia-number',String(page.number));paper.setAttribute('data-segnavia-flow',page.flow);paper.setAttribute('data-segnavia-parent',parent.name);paper.setAttribute('data-segnavia-folio',folioOf(page));paper.style.cssText='position:relative;box-sizing:border-box;inline-size:'+config.geometry.paperWidth+'px;block-size:'+config.geometry.paperHeight+'px;overflow:hidden;break-after:page;direction:'+config.direction+';';var inlineStart=(selected.side==='right')===(config.direction==='ltr')?margin.inner:margin.outer;var text=document.createElement('div');text.setAttribute('data-segnavia-text','');text.style.cssText='position:absolute;overflow:visible;inset-block-start:'+margin.top+'px;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;block-size:'+textArea.height+'px';var seenFlows={};for(var w=0;w<page.windows.length;w++){var keepFlowId=!seenFlows[page.windows[w].flow];seenFlows[page.windows[w].flow]=true;placeWindow(text,page.windows[w],keepFlowId&&page.sectionOpening,textArea);}placeHeader(text,page,textArea);placeNotes(text,page.notes,textArea);paper.append(text);placeDesigned(paper,page,index,plan.pages);placeTemplated(text,page,index,plan.pages);var furniture=function(region,html){if(!html)return;var held=document.createElement('div');held.setAttribute('data-segnavia-'+region,'');held.setAttribute('data-segnavia-parent',parent.name);var regionSize=region==='head'?margin.top:margin.bottom;held.style.cssText='position:absolute;overflow:hidden;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;'+(region==='head'?'inset-block-start:0;block-size:'+regionSize+'px':'inset-block-end:0;block-size:'+regionSize+'px');var values={};if(selected.folio!==undefined)values.folio=selected.folio;if(selected.runningHead!==undefined)values.runningHead=selected.runningHead;if(page.marks!==undefined)values.marks=page.marks;held.innerHTML=fillBookFurniture(html,values,config.dir,config.lang);paper.append(held);};furniture('head',parent.head);furniture('foot',parent.foot);pages.append(paper);}var galleys=document.querySelector('[data-segnavia-galleys]');if(galleys){galleys.setAttribute('data-segnavia-galley-source','');galleys.style.cssText='position:absolute;inset-inline-start:-10000px;visibility:visible;';var held=galleys.querySelectorAll('[id]');for(var i=0;i<held.length;i++)held[i].removeAttribute('id');}document.body.append(pages);alignWindowPhases();if(!alignHeldNotes())return pages;var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){var regions=filled[t].querySelectorAll('[data-region]');for(var r=0;r<regions.length;r++)fitRegion(regions[r],filled[t].getAttribute('data-template')||'');var paper=filled[t].closest('[data-segnavia-book-page]');markRegionOverflow(filled[t],paper?paper.getAttribute('data-segnavia-folio')||'':'');}var height=(plan.pages.length*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;return pages;};
+var sourceBlockCount=function(){var count=0;var flows=document.querySelectorAll('[data-segnavia-flow]');for(var i=0;i<flows.length;i++){var kind=flows[i].getAttribute('data-segnavia-kind');if(kind==='fixed'||kind==='templated')continue;for(var b=0;b<flows[i].children.length;b++){var tag=flows[i].children[b].tagName;if(tag!=='STYLE'&&tag!=='SCRIPT')count+=1;}}return count;};
+var measuredLineCount=function(input){var count=0;for(var i=0;i<input.flows.length;i++){var blocks=input.flows[i].blocks;if(!blocks)continue;for(var b=0;b<blocks.length;b++)count+=blocks[b].lines.length;}return count;};
+var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
-Promise.all([loaded,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){if(document.documentElement.clientWidth>0)return;return new Promise(function(resolve){var wait=function(){if(document.documentElement.clientWidth>0){resolve();return;}if(window.requestAnimationFrame)window.requestAnimationFrame(wait);else setTimeout(wait,0);};wait();});}).then(function(){
+Promise.all([loaded,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
+var measurementDeadline=0;
+var composeWhenMeasurable=function(){
 try{
+// A collapsed host gives its frame no layout viewport, so measurement starts only after the host shows it.
+if(document.documentElement.clientWidth<=0)return nextLayoutFrame().then(composeWhenMeasurable);
+if(measurementDeadline===0)measurementDeadline=performance.now()+${BOOK_MEASUREMENT_WAIT_MS};
 sizeGalleys();
 var chapterFirstPages=function(pages){var map={};for(var i=0;i<pages.length;i++){var page=pages[i];if(!page.sectionOpening||page.blank)continue;if(String(page.flow).indexOf('segnavia-chapter-')!==0)continue;if(map[page.flow]===undefined)map[page.flow]=page.sequence+':'+page.number;}return map;};
 var sameFirstPages=function(left,right){var keys=Object.keys(left);if(keys.length!==Object.keys(right).length)return false;for(var i=0;i<keys.length;i++)if(left[keys[i]]!==right[keys[i]])return false;return true;};
 var movedFirstPages=function(left,right){var ids=[];for(var id in right)if(left[id]!==right[id])ids.push(id);for(var prior in left)if(!Object.prototype.hasOwnProperty.call(right,prior))ids.push(prior);return ids;};
-var paginateOrFail=function(){var held=paginateBook(measureInput());if(held.refusals.length){fail(held.refusals[0].message);return null;}return held;};
-var plan=paginateOrFail();
+var firstInput=measureInput();
+var measurementFacts={sourceBlocks:sourceBlockCount(),measuredLines:measuredLineCount(firstInput)};
+if(bookNeedsMeasurementRetry(measurementFacts)){
+if(performance.now()<measurementDeadline)return nextLayoutFrame().then(composeWhenMeasurable);
+fail('The book source could not establish measurable line boxes within ${BOOK_MEASUREMENT_WAIT_MS}ms; keep the frame and galley at a non-zero size until fonts and layout are ready to clear this refusal.');return;
+}
+var paginateOrFail=function(input){var held=paginateBook(input||measureInput());if(held.refusals.length){fail(held.refusals[0].message);return null;}return held;};
+var plan=paginateOrFail(firstInput);
 if(!plan)return;
 fillContents(plan.pages);
 var previous=chapterFirstPages(plan.pages);
@@ -130,11 +157,14 @@ fillContents(plan.pages);
 previous=next;
 }
 if(!settled)return;
+if(plan.pages.length===0&&measurementFacts.sourceBlocks>0){fail('The non-empty book source did not produce a page; keep source blocks measurable until composition finishes to clear this refusal.');return;}
 if(plan.pages.length>config.limit){fail('the composed book needs '+plan.pages.length+' papers, above the limit '+config.limit+'; shorten the content to clear this refusal');return;}
 var composed=compose(plan);
 if(document.documentElement.hasAttribute('${BOOK_FAILURE_ATTRIBUTE}'))return;
 return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(function(){presentScreen(composed,plan.pages.length);document.documentElement.setAttribute('${BOOK_COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${BOOK_COMPOSED_ATTRIBUTE}','');});
 }catch(error){fail(error instanceof Error?error.message:String(error));}
+};
+return composeWhenMeasurable();
 }).catch(function(error){fail(error instanceof Error?error.message:String(error));});
 })();`
   return script
