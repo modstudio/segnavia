@@ -1,49 +1,15 @@
-// <segnavia-book>: shows a continuous book in a sandboxed frame, or a paginated
-// book as scaled pages and, with spread, direction-aware two-page spreads.
-
-import { BookView, type BookViewInput, resolveDirection } from '@segnavia/format'
-import { bookStylesheet } from '@segnavia/html'
+import { BookView, type BookViewInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { bookFrame, bookSourceUrl } from './book-frame.ts'
+import { prepareBookView } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
-import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { bookLabel } from './labels.ts'
+import { MESSAGE, messageFrom } from './bridge.ts'
+import { bookViewMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { type FontsOptions, refuseMissingFontSource, resolveFontReferences } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
-export function bookFrame(view: BookView, css?: string, spread = false, layout: BookLayout = 'pages'): { title: string; srcdoc: string } {
-  const title = view.title ?? bookLabel(view.lang)
-  if (view.pagination) {
-    return {
-      title,
-      srcdoc:
-        layout === 'flow' && view.flow
-          ? flowViewDocument(view, { nonce: newNonce(), fontCss: css })
-          : paginatedViewDocument(view, view.pagination, { nonce: newNonce(), fontCss: css, screen: { spread } }),
-    }
-  }
-  return {
-    title,
-    srcdoc: frameDocument(view.html, {
-      scripts: view.scripts,
-      nonce: newNonce(),
-      dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
-      lang: view.lang,
-      css: bookStylesheet(css, view.css, undefined),
-      relayKeys: false,
-      reportHeight: false,
-    }),
-  }
-}
-
-function sourceUrl(src: string): URL {
-  try {
-    return new URL(src)
-  } catch {
-    return new URL(src, location.href)
-  }
-}
+export { bookFrame } from './book-frame.ts'
 
 export class SegnaviaBook extends HTMLElementBase {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -63,6 +29,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
   private fontOptions: FontsOptions | undefined
+  private motifOptions: MotifsOptions | undefined
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
@@ -111,7 +78,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.loadController = controller
     this.sourceLoadController = controller
     try {
-      const response = await fetch(sourceUrl(value), { signal: controller.signal })
+      const response = await fetch(bookSourceUrl(value), { signal: controller.signal })
       if (!response.ok) throw new Error(`The book at ${value} answered ${response.status}.`)
       const view = BookView.parse(await response.json())
       if (generation !== this.loadGeneration) return
@@ -129,6 +96,10 @@ export class SegnaviaBook extends HTMLElementBase {
 
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
+  }
+
+  get motifs(): MotifsOptions | undefined {
+    return this.motifOptions
   }
 
   get spread(): boolean {
@@ -149,6 +120,16 @@ export class SegnaviaBook extends HTMLElementBase {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
+    if (!this.currentView) return
+    ++this.loadGeneration
+    this.loadController?.abort()
+    this.loadController = null
+    this.sourceLoadController = null
+    this.mount()
+  }
+
+  set motifs(value: MotifsOptions | undefined) {
+    this.motifOptions = value
     if (!this.currentView) return
     ++this.loadGeneration
     this.loadController?.abort()
@@ -340,24 +321,31 @@ export class SegnaviaBook extends HTMLElementBase {
     if (!view) return
     this.showRequestedLayout(view)
     const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
-    if (!this.fontOptions) {
-      try {
+    try {
+      if (!this.motifOptions) {
+        const refusal = bookViewMotifRefusal(view)
+        if (refusal) throw refusal
+      }
+      if (!this.motifOptions && !this.fontOptions) {
         refuseMissingFontSource(view.fonts ?? [], place)
-      } catch (reason) {
-        this.reportError(reason)
+        this.mountFrames(view, undefined)
         return
       }
-      this.mountFrames(view, undefined)
+    } catch (reason) {
+      this.reportError(reason)
       return
     }
     const generation = this.loadGeneration
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void resolveFontReferences(view.fonts ?? [], this.fontOptions, controller.signal, place)
-      .then((css) => {
+    const prepared = this.motifOptions
+      ? prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal)
+      : resolveFontReferences(view.fonts ?? [], this.fontOptions as FontsOptions, controller.signal, place)
+    void prepared
+      .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrames(view, css)
+        this.mountFrames(typeof result === 'string' ? view : result.view, typeof result === 'string' ? result : result.css)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return

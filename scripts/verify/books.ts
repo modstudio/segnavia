@@ -71,6 +71,9 @@ export async function verifyBooks(h: Harness) {
 
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
+    check(`${id} expands its front-matter motif on screen`, (await page.frameLocator(`${frame} iframe`).locator('[data-book-demo-motif]').count()) === 1)
+    const pdfText = execFileSync('pdftotext', [path.join(SITE, `${id}.pdf`), '-'], { encoding: 'utf8' })
+    check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -105,6 +108,18 @@ export async function verifyBooks(h: Harness) {
     messages.every((kind) => BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
+
+  await page.goto(h.url('book-paginated-screen.html'))
+  for (const id of ['book-screen-en', 'book-screen-he'] as const) {
+    await page.locator(`#${id}[data-segnavia-book-ready]`).waitFor()
+    check(
+      `${id} expands its front-matter motif on screen`,
+      (await page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`).locator('[data-book-demo-motif]').count()) === 1,
+    )
+    const pdf = id.replace('book-screen', 'book-paginated')
+    const pdfText = execFileSync('pdftotext', [path.join(SITE, `${pdf}.pdf`), '-'], { encoding: 'utf8' })
+    check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
+  }
 
   await verifyPaginatedBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)

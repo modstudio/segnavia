@@ -1,4 +1,17 @@
-import { type FontReference, type MotifSource, type Page, PRINTED_PAGE_CONTEXT, printProperties, type SlotsOptions } from '@segnavia/format'
+import {
+  type Book,
+  type BookChapterEntry,
+  type BookFrontMatterEntry,
+  type BookView,
+  type FontReference,
+  isDesignedSection,
+  isTemplatedSection,
+  type MotifSource,
+  type Page,
+  PRINTED_PAGE_CONTEXT,
+  printProperties,
+  type SlotsOptions,
+} from '@segnavia/format'
 import { documentLanguage, type ExpandedMotifs, expandMotifs, hasMotifPlacement, libraryMotifPlacementRefusal, MotifRefusedError } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
@@ -16,6 +29,27 @@ export interface ExpandedFramePage {
   fonts: FontReference[]
 }
 
+export interface ExpandedBook<T extends Book | BookView> {
+  book: T
+  fonts: FontReference[]
+}
+
+interface BookHtmlField {
+  html: string
+  furniture: boolean
+}
+
+function motifSourceRefusal(fields: BookHtmlField[]): MotifRefusedError | undefined {
+  for (const { html } of fields) {
+    const refusal = libraryMotifPlacementRefusal(html)
+    if (refusal) return new MotifRefusedError(refusal)
+  }
+  if (fields.some(({ html, furniture }) => furniture && hasMotifPlacement(html))) {
+    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+  }
+  return undefined
+}
+
 function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot'; html: string }> {
   return (
     page.printedPages?.parents.flatMap((parent) =>
@@ -26,14 +60,163 @@ function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot
 
 export function framePageMotifRefusal(page: Page): MotifRefusedError | undefined {
   const regions = parentRegions(page)
-  for (const html of [page.html, ...regions.map(({ html }) => html)]) {
-    const refusal = libraryMotifPlacementRefusal(html)
-    if (refusal) return new MotifRefusedError(refusal)
+  return motifSourceRefusal([{ html: page.html, furniture: false }, ...regions.map(({ html }) => ({ html, furniture: true }))])
+}
+
+function entryFields(entry: BookFrontMatterEntry | BookChapterEntry): string[] {
+  if (isDesignedSection(entry)) return entry.pages.map((page) => page.html)
+  if (isTemplatedSection(entry)) return entry.pages.flatMap((page) => Object.values(page.regions))
+  return 'html' in entry ? [entry.html] : []
+}
+
+function bookFields(book: Book): BookHtmlField[] {
+  return [
+    ...book.frontMatter.flatMap(entryFields).map((html) => ({ html, furniture: false })),
+    ...book.chapters.flatMap(entryFields).map((html) => ({ html, furniture: false })),
+    ...book.templates.map(({ html }) => ({ html, furniture: false })),
+    ...book.parentPages.flatMap((parent) => [parent.head, parent.foot].flatMap((html) => (html === undefined ? [] : [{ html, furniture: true }]))),
+  ]
+}
+
+function viewFields(view: BookView): BookHtmlField[] {
+  return [
+    { html: view.html, furniture: false },
+    ...(view.flow === undefined ? [] : [{ html: view.flow, furniture: false }]),
+    ...(view.pagination?.parents.flatMap((parent) => [parent.head, parent.foot].flatMap((html) => (html === undefined ? [] : [{ html, furniture: true }]))) ??
+      []),
+  ]
+}
+
+export function bookMotifRefusal(book: Book): MotifRefusedError | undefined {
+  return motifSourceRefusal(bookFields(book))
+}
+
+export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefined {
+  return motifSourceRefusal(viewFields(view))
+}
+
+async function expandBookHtml(
+  html: string,
+  furniture: boolean,
+  lang: string | undefined,
+  scripts: Book['scripts'],
+  motifs: MotifsOptions,
+  signal: AbortSignal,
+) {
+  return expandMotifs(html, {
+    source: motifs.source,
+    pins: motifs.pins,
+    lang,
+    scripts,
+    prefix: 'slot',
+    linkOrigins: motifs.linkOrigins,
+    signal,
+    ...(furniture ? { deferPaths: [PRINTED_PAGE_CONTEXT] } : {}),
+  })
+}
+
+function motifSummary(results: ExpandedMotifs[]) {
+  return {
+    placed: results.flatMap((result) => result.placed),
+    fonts: results.flatMap((result) => result.fonts),
+    unavailable: [...new Set(results.flatMap((result) => result.unavailable))],
   }
-  if (regions.some(({ html }) => hasMotifPlacement(html))) {
-    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+}
+
+async function expandEntry<T extends BookFrontMatterEntry | BookChapterEntry>(
+  entry: T,
+  expand: (html: string) => Promise<ExpandedMotifs>,
+  results: ExpandedMotifs[],
+): Promise<T> {
+  const apply = async (html: string) => {
+    const result = await expand(html)
+    results.push(result)
+    return result.html
   }
-  return undefined
+  if (isDesignedSection(entry)) return { ...entry, pages: await Promise.all(entry.pages.map(async (page) => ({ ...page, html: await apply(page.html) }))) }
+  if (isTemplatedSection(entry)) {
+    return {
+      ...entry,
+      pages: await Promise.all(
+        entry.pages.map(async (page) => ({
+          ...page,
+          regions: Object.fromEntries(await Promise.all(Object.entries(page.regions).map(async ([key, html]) => [key, await apply(html)] as const))),
+        })),
+      ),
+    }
+  }
+  if ('html' in entry) return { ...entry, html: await apply(entry.html) }
+  return entry
+}
+
+export async function expandFrameBook(book: Book, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedBook<Book>> {
+  if (!motifs) {
+    const refusal = bookMotifRefusal(book)
+    if (refusal) throw refusal
+    return { book, fonts: [] }
+  }
+  const results: ExpandedMotifs[] = []
+  const expand = (html: string) => expandBookHtml(html, false, book.lang, book.scripts, motifs, signal)
+  const parentPages = await Promise.all(
+    book.parentPages.map(async (parent) => {
+      const apply = async (html: string) => {
+        const result = await expandBookHtml(html, true, book.lang, book.scripts, motifs, signal)
+        results.push(result)
+        return result.html
+      }
+      return {
+        ...parent,
+        ...(parent.head === undefined ? {} : { head: await apply(parent.head) }),
+        ...(parent.foot === undefined ? {} : { foot: await apply(parent.foot) }),
+      }
+    }),
+  )
+  const expanded = {
+    ...book,
+    frontMatter: await Promise.all(book.frontMatter.map((entry) => expandEntry(entry, expand, results))),
+    chapters: await Promise.all(book.chapters.map((entry) => expandEntry(entry, expand, results))),
+    templates: await Promise.all(
+      book.templates.map(async (template) => {
+        const result = await expand(template.html)
+        results.push(result)
+        return { ...template, html: result.html }
+      }),
+    ),
+    parentPages,
+  }
+  const summary = motifSummary(results)
+  motifs.placed?.(summary)
+  return { book: expanded, fonts: summary.fonts }
+}
+
+export async function expandFrameBookView(view: BookView, motifs: MotifsOptions, signal: AbortSignal): Promise<ExpandedBook<BookView>> {
+  const results: ExpandedMotifs[] = []
+  const apply = async (html: string, furniture = false) => {
+    const result = await expandBookHtml(html, furniture, view.lang, view.scripts, motifs, signal)
+    results.push(result)
+    return result.html
+  }
+  const pagination = view.pagination
+    ? {
+        ...view.pagination,
+        parents: await Promise.all(
+          view.pagination.parents.map(async (parent) => ({
+            ...parent,
+            ...(parent.head === undefined ? {} : { head: await apply(parent.head, true) }),
+            ...(parent.foot === undefined ? {} : { foot: await apply(parent.foot, true) }),
+          })),
+        ),
+      }
+    : undefined
+  const book = {
+    ...view,
+    html: await apply(view.html),
+    ...(view.flow === undefined ? {} : { flow: await apply(view.flow) }),
+    ...(pagination === undefined ? {} : { pagination }),
+  }
+  const summary = motifSummary(results)
+  motifs.placed?.(summary)
+  return { book, fonts: summary.fonts }
 }
 
 export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {

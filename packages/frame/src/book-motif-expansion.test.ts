@@ -1,0 +1,58 @@
+import { expect, test } from 'bun:test'
+import { Book, Page } from '@segnavia/format'
+import { bookDocument } from '@segnavia/html'
+import { bookMotifRefusal, expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
+
+const signal = new AbortController().signal
+const source = {
+  motif: async (key: string) => ({
+    key,
+    revision: 'one',
+    label: key,
+    fields: [],
+    versions: [{ lang: 'en', html: `<strong class="expanded-${key}">${key}</strong>` }],
+    fonts: [],
+  }),
+}
+
+test('expands motifs in a chapter, designed page and templated region before building the book', async () => {
+  const book = Book.parse({
+    title: 'Motifs',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+    lang: 'en',
+    templates: [{ name: 'feature', html: '<main data-region="body"></main>' }],
+    chapters: [
+      { title: 'Chapter', html: '<p data-motif="chapter">authored</p>' },
+      { kind: 'designed', pages: [{ html: '<section data-motif="designed"></section>' }] },
+      { kind: 'templated', template: 'feature', pages: [{ regions: { body: '<div data-motif="region"></div>' } }] },
+    ],
+  })
+
+  const expanded = await expandFrameBook(book, { source }, signal)
+  const html = bookDocument(expanded.book).html
+  expect(html).toContain('class="expanded-chapter"')
+  expect(html).toContain('class="expanded-designed"')
+  expect(html).toContain('class="expanded-region"')
+  expect(html).not.toContain('>authored</p>')
+})
+
+test('matches page missing-source behavior for body and parent-page placements', async () => {
+  const bodyBook = Book.parse({
+    title: 'Body',
+    mode: 'continuous',
+    chapters: [{ title: 'One', html: '<p data-motif="held"></p>' }],
+  })
+  const bodyPage = Page.parse({ html: '<p data-motif="held"></p>' })
+  expect(bookMotifRefusal(bodyBook)).toBeUndefined()
+  expect(framePageMotifRefusal(bodyPage)).toBeUndefined()
+  expect((await expandFrameBook(bodyBook, undefined, signal)).book.chapters[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
+
+  const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { top: 1, bottom: 1, inner: 1, outer: 1 } }
+  const parentBook = Book.parse({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
+  const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], rules: { every: 'held' } } })
+  expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(parentPage)?.message)
+  expect(bookMotifRefusal(parentBook)?.message).toBe(
+    'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.',
+  )
+})

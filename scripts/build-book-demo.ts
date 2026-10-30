@@ -1,30 +1,26 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { Book, type BookInput } from '@segnavia/format'
 import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
-import { filledBook } from '@segnavia/render'
+import { filledBook, type MotifsOptions } from '@segnavia/render'
+import { alefCss, notoCss } from './demo-book-fonts.ts'
+import { BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 
-const ROOT = path.resolve(import.meta.dir, '..')
 const BOOK_STYLE_CHECK_CSS = '.book-css-check{color:rgb(91, 42, 123);font-size:23px}'
 const BOOK_CSS = `html{font:18px/1.55 Georgia,serif;scroll-behavior:auto}body{margin:0}.segnavia-section{box-sizing:border-box;min-block-size:520px;padding:24px 32px}.segnavia-contents{background:#f3efe4}.segnavia-chapter:nth-of-type(even){background:#edf4f6}.note-paragraph{min-block-size:360px}.segnavia-footnotes{border-block-start:1px solid;padding-block-start:12px}.segnavia-endnotes{background:#f6f0f4}h1{margin-block-start:0}a{color:#174f72}${BOOK_STYLE_CHECK_CSS}`
 
-const alefCss = () => {
-  const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/Alef-Regular.ttf')).toString('base64')
-  return `@font-face{font-family:Alef;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
-}
-const notoCss = () => {
-  const data = readFileSync(path.join(ROOT, 'fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')).toString('base64')
-  return `@font-face{font-family:NotoSerifHebrew;src:url(data:font/ttf;base64,${data}) format('truetype');font-display:block}`
-}
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
   lang: hebrew ? 'he' : 'en',
   css: BOOK_CSS,
-  frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
+  frontMatter: [
+    { title: hebrew ? 'שער' : 'Title page', html: `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>` },
+    { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+  ],
   chapters: [
     {
       title: hebrew ? 'התחלה' : 'Beginning',
@@ -154,7 +150,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   frontMatter: [
     {
       title: hebrew ? 'פתיחה' : 'Preface',
-      html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+      html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p data-motif="${BOOK_MOTIF_KEY}"></p><p>${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
     },
     { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
   ],
@@ -315,13 +311,17 @@ export async function buildNoteCasePdfs(site: string, render: (book: BookInput, 
 
 export async function buildBookPdfs(
   site: string,
-  bookPdf: (book: BookInput, options?: { css?: string }) => Promise<Uint8Array<ArrayBufferLike>>,
+  bookPdf: (book: BookInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
 ): Promise<void> {
   for (const hebrew of [false, true]) {
     const css = hebrew
       ? `${alefCss()}${notoCss()}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
-    writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css }))
+    writeFileSync(
+      path.join(site, `book-${hebrew ? 'he' : 'en'}.pdf`),
+      await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
+    )
+    writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
   await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
@@ -334,7 +334,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     path.join(site, 'book.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Continuous books</title><style>
       html,body{margin:0;block-size:100%;overflow:hidden}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}.book segnavia-book{block-size:400px;background:#fff}
-    </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-en" src="book-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-he" src="book-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-en" src="book-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-he" src="book-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script>${bookMotifSetup}</body></html>`,
   )
 
   const hebrewFace = `${alefCss()}${notoCss()}`
@@ -376,7 +376,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     path.join(site, 'book-paginated-screen.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated book elements</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
-    </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script>${bookMotifSetup}</body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-large.html'),
