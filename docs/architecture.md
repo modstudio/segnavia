@@ -324,7 +324,10 @@ flowing section's column measure uses its shared parent text width, while text
 height follows each page's selected parent. Its galley image cap is the minimum
 text height across its opener, recto and verso parents, so an image measured in
 the galley can fit every page that holds the flow; page-note image clones use
-the same cap.
+the same cap. A section's first content stays on its opener: a first unit that
+does not fit the opener's text area is refused, naming the opener parent and its
+height, rather than moved to a body page. Only a page that leftover notes from
+the previous section fill takes a body parent before the opener.
 
 ### Printed book structure
 
