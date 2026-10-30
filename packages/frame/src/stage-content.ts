@@ -23,12 +23,14 @@ export function stageCanvas(
   slide: Slide,
   index: number,
   content: ResolvedContent,
-  css: string,
-  csp: string,
-  dependencyOrigins: Iterable<string> | undefined,
-  frameTitle: FrameTitle,
-  loaded: () => void,
-  slots?: PreparedSlots,
+  options: {
+    css: string
+    csp: string
+    dependencyOrigins?: Iterable<string>
+    frameTitle: FrameTitle
+    loaded: () => void
+    slots?: PreparedSlots
+  },
 ): HTMLElement {
   const canvas = document.createElement('div')
   canvas.className = 'segnavia-stage__canvas'
@@ -38,17 +40,17 @@ export function stageCanvas(
     const iframe = document.createElement('iframe')
     iframe.className = 'segnavia-stage__frame'
     iframe.setAttribute('sandbox', 'allow-scripts')
-    iframe.title = frameTitle(deck.title, index + 1)
-    iframe.addEventListener('load', loaded, { once: true })
+    iframe.title = options.frameTitle(deck.title, index + 1)
+    iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      iframe.srcdoc = frameDocument(slotHtml(content.html, slots), {
+      iframe.srcdoc = frameDocument(slotHtml(content.html, options.slots), {
         scripts: deck.scripts,
         nonce: newNonce(),
         dir: deck.dir,
         lang: deck.lang,
-        css,
-        csp: csp || undefined,
-        dependencyOrigins,
+        css: options.css,
+        csp: options.csp || undefined,
+        dependencyOrigins: options.dependencyOrigins,
         reportHeight: false,
       })
     } else iframe.src = controller.url(content.src)
@@ -87,13 +89,13 @@ export function stageCanvas(
         () => {
           imageSize = { width: image.naturalWidth, height: image.naturalHeight }
           position()
-          loaded()
+          options.loaded()
         },
         { once: true },
       )
     } else {
       position()
-      image.addEventListener('load', loaded, { once: true })
+      image.addEventListener('load', options.loaded, { once: true })
     }
     image.src = controller.url(content.src)
     layer.append(image)

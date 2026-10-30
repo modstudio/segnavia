@@ -1,4 +1,4 @@
-import type { Scripts } from '@segnavia/format'
+import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
@@ -6,6 +6,7 @@ export interface ContentValue {
   scripts: Scripts
   css: string
   cspExtra: string
+  dependencyOrigins: string
 }
 
 export function comparableContent(
@@ -14,9 +15,10 @@ export function comparableContent(
   scripts: Scripts,
   css: string,
   cspExtra: string,
+  dependencyOrigins: Iterable<string> | undefined = undefined,
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
-  return { content: resolved, scripts, css, cspExtra }
+  return { content: resolved, scripts, css, cspExtra, dependencyOrigins: [...dependencyOriginSet(dependencyOrigins)].sort().join(' ') }
 }
 
 export function sameContent(left: ContentValue, right: ContentValue): boolean {

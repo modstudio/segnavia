@@ -1,8 +1,9 @@
 import { Buffer } from 'node:buffer'
-import { dependencyDecision } from '@segnavia/format'
+import { dependencyDecision, dependencyOriginSet } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
+import type { DependencyAnswer, DependencyCache } from './options.ts'
 import { withinBound } from './render-deadline.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
@@ -15,22 +16,23 @@ export interface BrowserTabSetup {
   waitForReady: boolean
   beforeOutput?: (tab: Tab) => Promise<void>
   dependencyOrigins?: Iterable<string>
-  dependencies?: (url: string) => Promise<{ body: Uint8Array; contentType: string } | undefined>
+  dependencies?: DependencyCache
 }
 
 export type DependencyRouteDecision =
   | { action: 'continue' }
   | { action: 'abort' }
   | { action: 'missing'; url: string }
-  | { action: 'fulfill'; body: Uint8Array; contentType: string }
+  | ({ action: 'fulfill' } & DependencyAnswer)
 
-export function dependencyRouteDecision(
+export async function dependencyRouteDecision(
   url: string,
-  dependencyOrigins: Iterable<string> | undefined,
-  answer: { body: Uint8Array; contentType: string } | undefined,
-): DependencyRouteDecision {
+  dependencyOrigins: ReadonlySet<string>,
+  lookup: DependencyCache | undefined,
+): Promise<DependencyRouteDecision> {
   if (url.startsWith('data:')) return { action: 'continue' }
   if (!dependencyDecision(url, dependencyOrigins).allowed) return { action: 'abort' }
+  const answer = await lookup?.(url)
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 
@@ -54,11 +56,10 @@ export async function renderInBrowserTab<T>(
   }
   if (measureSlots) await installSlotFitCapture(context)
   const missing = new Set<string>()
+  const dependencyOrigins = dependencyOriginSet(setup.dependencyOrigins)
   await context.route('**/*', async (route) => {
     const url = route.request().url()
-    const approved = dependencyDecision(url, setup.dependencyOrigins).allowed
-    const answer = approved ? await setup.dependencies?.(url) : undefined
-    const decision = dependencyRouteDecision(url, setup.dependencyOrigins, answer)
+    const decision = await dependencyRouteDecision(url, dependencyOrigins, setup.dependencies)
     if (decision.action === 'continue') await route.continue()
     else if (decision.action === 'fulfill') await route.fulfill({ body: Buffer.from(decision.body), contentType: decision.contentType })
     else {
@@ -75,9 +76,10 @@ export async function renderInBrowserTab<T>(
   })
   if (setup.waitForReady) await tab.exposeFunction('pageReady', () => ready?.())
   await tab.setContent(setup.html, { waitUntil: 'load' })
-  if (missing.size > 0) {
-    throw new RenderRefusedError(`The host cache did not answer approved dependencies: ${[...missing].join(', ')}.`)
+  const refuseMissing = () => {
+    if (missing.size > 0) throw new RenderRefusedError(`The host cache did not answer approved dependencies: ${[...missing].join(', ')}.`)
   }
+  refuseMissing()
   if (setup.waitForReady) {
     await withinBound(PAGE_READY_BOUND_MS, readyPromise).catch(() => {
       throw new RenderRefusedError(`The page did not call window.pageReady() within ${PAGE_READY_BOUND_MS / 1000}s.`)
@@ -86,5 +88,6 @@ export async function renderInBrowserTab<T>(
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
   if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
   await setup.beforeOutput?.(tab)
+  refuseMissing()
   return body(tab)
 }

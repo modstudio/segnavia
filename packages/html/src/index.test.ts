@@ -129,6 +129,12 @@ describe('sanitize', () => {
     expect(findActiveContent(cleaned, options)).toEqual([])
   })
 
+  test('keeps an approved import condition', () => {
+    const css = '@import url(https://fonts.googleapis.com/css2?family=Inter) print;'
+    const cleaned = sanitize(`<style>${css}</style>`, { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com'] })
+    expect(cleaned).toContain(css)
+  })
+
   test('meta http-equiv is refused, since it can set policy from inside the page', () => {
     expect(findActiveContent('<meta http-equiv="refresh" content="0;url=https://x">')).toEqual(['<meta>'])
   })

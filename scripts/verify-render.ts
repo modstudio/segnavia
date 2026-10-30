@@ -59,8 +59,8 @@ const output = path.resolve(import.meta.dirname, '../out')
 
 const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
-await verifyDependencyRender(renderer, work, refusal, check)
 try {
+  await verifyDependencyRender(renderer, work, refusal, check)
   const ready = await refusal(
     renderer.pagePdf({
       html: '<p id="p">waiting</p><script>setTimeout(() => { p.textContent = "ready"; pageReady() }, 300)</script>',

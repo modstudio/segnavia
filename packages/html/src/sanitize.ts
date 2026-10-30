@@ -2,31 +2,31 @@
 // in a document that a viewer renders and a renderer prints. One rule for
 // both, so a preview never shows what the printed copy refuses.
 
-import { dependencyDecision } from '@segnavia/format'
+import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/format'
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
 import { sanitizeCss } from './sanitize-css.ts'
 
 // Elements that reach outside the document, embed another one, or submit.
-export const REFUSED_ELEMENTS = new Set([
-  'script',
-  'iframe',
-  'frame',
-  'frameset',
-  'object',
-  'embed',
-  'applet',
-  'base',
-  'portal',
-  'link',
-  'form',
-  'input',
-  'button',
-  'select',
-  'textarea',
-])
-const SCRIPTED_CONTROLS = new Set(['form', 'input', 'button', 'select', 'textarea'])
+const REFUSED = {
+  script: 'always',
+  iframe: 'always',
+  frame: 'always',
+  frameset: 'always',
+  object: 'always',
+  embed: 'always',
+  applet: 'always',
+  base: 'always',
+  portal: 'always',
+  link: 'always',
+  form: 'unless-scripts',
+  input: 'unless-scripts',
+  button: 'unless-scripts',
+  select: 'unless-scripts',
+  textarea: 'unless-scripts',
+} as const
+export const REFUSED_ELEMENTS = new Set(Object.keys(REFUSED))
 // SVG's own ways of animating or embedding HTML.
 const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransform', 'animatemotion', 'foreignobject'])
 const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action'])
@@ -85,17 +85,6 @@ function normalizeUrl(value: string): string {
     .toLowerCase()
 }
 
-function origins(values: Iterable<string> | undefined): Set<string> {
-  const set = new Set<string>()
-  for (const value of values ?? []) {
-    try {
-      const url = new URL(value)
-      if (url.protocol === 'https:') set.add(url.origin.toLowerCase())
-    } catch {}
-  }
-  return set
-}
-
 function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
@@ -122,25 +111,42 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, keepScri
   return name === 'meta' && Object.keys(element.attribs).some((attribute) => attribute.toLowerCase() === 'http-equiv')
 }
 
-function dependencyAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): string | undefined {
+function dependencyAttribute(
+  element: Element,
+  attribute: string,
+  value: string,
+  options: SanitizeOptions,
+  dependencies: ReadonlySet<string>,
+): string | undefined {
   if (!options.keepScripts) return undefined
   const tag = element.name.toLowerCase()
   if (!((tag === 'script' && attribute === 'src') || (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href')))
     return undefined
-  const decision = dependencyDecision(value, options.dependencyOrigins)
+  const decision = dependencyDecision(value, dependencies)
   return decision.allowed ? '' : decision.reason
 }
 
-function refusedAttribute(element: Element, name: string, value: string, allowed: ReadonlySet<string>, options: SanitizeOptions): boolean {
+function refusedAttribute(
+  element: Element,
+  name: string,
+  value: string,
+  allowed: ReadonlySet<string>,
+  options: SanitizeOptions,
+  dependencies: ReadonlySet<string>,
+): string | undefined {
   const attribute = name.toLowerCase()
-  if (attribute.startsWith('on')) return !(options.keepScripts ?? false)
-  const dependency = dependencyAttribute(element, attribute, value, options)
-  if (dependency !== undefined) return dependency !== ''
-  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed))
+  if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
+  const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
+  if (dependency !== undefined) return dependency || undefined
+  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed)) ? '' : undefined
 }
 
 function refusedSet(options: SanitizeOptions): Set<string> {
-  const defaults = options.keepScripts ? [...REFUSED_ELEMENTS].filter((name) => !SCRIPTED_CONTROLS.has(name)) : REFUSED_ELEMENTS
+  const defaults = options.keepScripts
+    ? Object.entries(REFUSED)
+        .filter(([, rule]) => rule === 'always')
+        .map(([name]) => name)
+    : REFUSED_ELEMENTS
   return new Set([...defaults, ...(options.refuseElements ?? [])].map((name) => name.toLowerCase()))
 }
 
@@ -148,33 +154,40 @@ function styleText(element: Element): string {
   return element.children.map((child) => ('data' in child ? child.data : '')).join('')
 }
 
-function dependencyCss(source: string, declarations: boolean, options: SanitizeOptions): ReturnType<typeof sanitizeCss> {
+function dependencyCss(source: string, declarations: boolean, options: SanitizeOptions, dependencies: ReadonlySet<string>): ReturnType<typeof sanitizeCss> {
   if (!options.keepScripts) return sanitizeCss(source, declarations, options.dataFonts ?? false)
   const restores: string[] = []
   const hold = (url: string) => {
-    const decision = dependencyDecision(url, options.dependencyOrigins)
+    const decision = dependencyDecision(url, dependencies)
     if (!decision.allowed) return url
     const index = restores.push(url) - 1
     return `data:image/segnavia-dependency-${index},x`
   }
+  let marker = 'segnavia-held-import'
+  while (source.includes(marker)) marker += '-x'
+  const imports: string[] = []
   let protectedCss = source.replace(/@import\s+(?:url\(\s*)?["']?(https:\/\/[^\s"')]+)["']?\s*\)?[^;]*;/gi, (rule, url: string) => {
     const held = hold(url)
-    return held === url ? rule : `@namespace url(${held});`
+    if (held === url) return rule
+    const index = imports.push(rule) - 1
+    return `.${marker}-${index}{}`
   })
   protectedCss = protectedCss.replace(/@font-face\s*\{[^}]*\}/gi, (block) => block.replace(/https:\/\/[^\s"')]+/gi, hold))
   const result = sanitizeCss(protectedCss, declarations, options.dataFonts ?? false)
   const restore = (value: string) => value.replace(/data:image\/segnavia-dependency-(\d+),x/g, (_, index: string) => restores[Number(index)] ?? '')
-  return { css: restore(result.css).replace(/@namespace url\((https:\/\/[^)]+)\);/gi, '@import url($1);'), removed: result.removed.map(restore) }
+  let css = restore(result.css)
+  for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
+  return { css, removed: result.removed.map(restore) }
 }
 
-function styleFindings(element: Element, options: SanitizeOptions): string[] {
+function styleFindings(element: Element, options: SanitizeOptions, dependencies: ReadonlySet<string>): string[] {
   const found: string[] = []
   if (element.name.toLowerCase() === 'style') {
-    for (const construct of dependencyCss(styleText(element), false, options).removed) found.push(`<style> ${construct}`)
+    for (const construct of dependencyCss(styleText(element), false, options, dependencies).removed) found.push(`<style> ${construct}`)
   }
   for (const [name, value] of Object.entries(element.attribs)) {
     if (name.toLowerCase() !== 'style') continue
-    for (const construct of dependencyCss(value, true, options).removed) found.push(`${element.name}[${name}] ${construct}`)
+    for (const construct of dependencyCss(value, true, options, dependencies).removed) found.push(`${element.name}[${name}] ${construct}`)
   }
   return found
 }
@@ -182,37 +195,36 @@ function styleFindings(element: Element, options: SanitizeOptions): string[] {
 // What the rule would remove, named, so a host can refuse a write with the
 // reason rather than store a page that silently prints differently.
 export function findActiveContent(html: string, options: SanitizeOptions = {}): string[] {
-  const allowed = origins(options.linkOrigins)
+  const allowed = originSet(options.linkOrigins)
+  const dependencies = dependencyOriginSet(options.dependencyOrigins)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false
   const found: string[] = []
   for (const element of elements(parse(html).children)) {
     if (refusedElement(element, refused, keepScripts)) found.push(`<${element.name}>`)
-    found.push(...styleFindings(element, options))
+    found.push(...styleFindings(element, options, dependencies))
     for (const [name, value] of Object.entries(element.attribs)) {
-      if (refusedAttribute(element, name, value, allowed, options)) {
-        const reason = dependencyAttribute(element, name.toLowerCase(), value, options)
-        found.push(`${element.name}[${name}]${reason ? ` ${reason}` : ''}`)
-      }
+      const reason = refusedAttribute(element, name, value, allowed, options, dependencies)
+      if (reason !== undefined) found.push(`${element.name}[${name}]${reason ? ` ${reason}` : ''}`)
     }
   }
   return found
 }
 
-function cleanStyleElement(element: Element, options: SanitizeOptions): void {
+function cleanStyleElement(element: Element, options: SanitizeOptions, dependencies: ReadonlySet<string>): void {
   if (element.name.toLowerCase() !== 'style') return
   const children = element.children.filter((candidate) => 'data' in candidate)
   const child = children[0]
   if (!child || !('data' in child)) return
-  child.data = dependencyCss(styleText(element), false, options).css
+  child.data = dependencyCss(styleText(element), false, options, dependencies).css
   for (const extra of children.slice(1)) if ('data' in extra) extra.data = ''
 }
 
-function cleanAttributes(element: Element, allowed: ReadonlySet<string>, options: SanitizeOptions): void {
+function cleanAttributes(element: Element, allowed: ReadonlySet<string>, options: SanitizeOptions, dependencies: ReadonlySet<string>): void {
   for (const [name, value] of Object.entries(element.attribs)) {
-    if (refusedAttribute(element, name, value, allowed, options)) delete element.attribs[name]
+    if (refusedAttribute(element, name, value, allowed, options, dependencies) !== undefined) delete element.attribs[name]
     else if (name.toLowerCase() === 'style') {
-      const css = dependencyCss(value, true, options).css.trim()
+      const css = dependencyCss(value, true, options, dependencies).css.trim()
       if (css) element.attribs[name] = css
       else delete element.attribs[name]
     }
@@ -220,7 +232,8 @@ function cleanAttributes(element: Element, allowed: ReadonlySet<string>, options
 }
 
 export function sanitize(html: string, options: SanitizeOptions = {}): string {
-  const allowed = origins(options.linkOrigins)
+  const allowed = originSet(options.linkOrigins)
+  const dependencies = dependencyOriginSet(options.dependencyOrigins)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false
   const document = parse(html)
@@ -228,8 +241,8 @@ export function sanitize(html: string, options: SanitizeOptions = {}): string {
     nodes.filter((node) => {
       if (!isTag(node)) return true
       if (refusedElement(node, refused, keepScripts)) return false
-      cleanStyleElement(node, options)
-      cleanAttributes(node, allowed, options)
+      cleanStyleElement(node, options, dependencies)
+      cleanAttributes(node, allowed, options, dependencies)
       node.children = prune(node.children)
       return true
     })

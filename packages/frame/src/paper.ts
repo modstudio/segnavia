@@ -14,6 +14,7 @@ export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side']
   css = ''
   cspExtra = ''
+  dependencyOrigins: Iterable<string> = []
   private pages: Page[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
@@ -260,6 +261,7 @@ export class SegnaviaPaper extends HTMLElement {
       {
         css: `${this.resolvedFontCss}${this.css}`,
         cspExtra: this.cspExtra,
+        dependencyOrigins: this.dependencyOrigins,
       },
       this.shownSide,
     )

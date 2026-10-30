@@ -203,6 +203,20 @@ function escapeAttribute(value: string): string {
 export const BLOCK_DIRECTION_CSS =
   ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir="ltr" i],[dir="rtl" i],[dir="auto" i])){unicode-bidi:plaintext}'
 
+const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => string) => string[]> = {
+  refuse: () => [],
+  sandboxed: (withOrigins) => [
+    withOrigins("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
+    withOrigins("style-src 'unsafe-inline'"),
+    withOrigins('font-src data:'),
+    'img-src data: blob:',
+    'media-src data: blob:',
+    "connect-src 'none'",
+    "frame-src 'none'",
+    'worker-src blob:',
+  ],
+}
+
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
@@ -211,14 +225,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
   const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
   const directives = [
-    options.scripts === 'refuse' ? `script-src 'nonce-${options.nonce}'` : withOrigins("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
-    options.scripts === 'sandboxed' ? withOrigins("style-src 'unsafe-inline'") : null,
-    options.scripts === 'sandboxed' ? withOrigins('font-src data:') : null,
-    options.scripts === 'sandboxed' ? 'img-src data: blob:' : null,
-    options.scripts === 'sandboxed' ? 'media-src data: blob:' : null,
-    options.scripts === 'sandboxed' ? "connect-src 'none'" : null,
-    options.scripts === 'sandboxed' ? "frame-src 'none'" : null,
-    options.scripts === 'sandboxed' ? 'worker-src blob:' : null,
+    ...(options.scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[options.scripts](withOrigins)),
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

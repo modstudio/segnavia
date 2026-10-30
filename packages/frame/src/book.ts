@@ -284,7 +284,10 @@ export class SegnaviaBook extends HTMLElementBase {
   private mountLayoutFrame(layout: BookLayout): HTMLIFrameElement | null {
     const view = this.preparedView
     if (!view?.pagination || (layout === 'flow' && !view.flow)) return null
-    const frame = this.mountFrame(bookFrame(view, this.resolvedFontCss, this.spread, layout, this.dependencyOrigins), layout)
+    const frame = this.mountFrame(
+      bookFrame(view, { css: this.resolvedFontCss, spread: this.spread, layout, dependencyOrigins: this.dependencyOrigins }),
+      layout,
+    )
     this.append(frame)
     return frame
   }
@@ -295,12 +298,13 @@ export class SegnaviaBook extends HTMLElementBase {
     this.preparedView = view
     this.resolvedFontCss = css
     if (!view.pagination) {
-      this.replaceChildren(this.mountFrame(bookFrame(view, css, false, 'pages', this.dependencyOrigins)))
+      this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', dependencyOrigins: this.dependencyOrigins })))
       return
     }
-    const pages = this.mountFrame(bookFrame(view, css, this.spread, 'pages', this.dependencyOrigins), 'pages')
+    const pages = this.mountFrame(bookFrame(view, { css, spread: this.spread, layout: 'pages', dependencyOrigins: this.dependencyOrigins }), 'pages')
     const frames = [pages]
-    if (layout === 'flow' && view.flow) frames.push(this.mountFrame(bookFrame(view, css, this.spread, 'flow', this.dependencyOrigins), 'flow'))
+    if (layout === 'flow' && view.flow)
+      frames.push(this.mountFrame(bookFrame(view, { css, spread: this.spread, layout: 'flow', dependencyOrigins: this.dependencyOrigins }), 'flow'))
     this.replaceChildren(...frames)
     this.showLayoutFrame(layout)
   }

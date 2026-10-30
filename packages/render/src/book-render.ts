@@ -10,7 +10,7 @@ import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './options.ts'
+import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
 import { preparedSlotsFor } from './slot-fill.ts'
@@ -33,7 +33,7 @@ interface TabSetup {
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
   dependencyOrigins?: Iterable<string>
-  dependencies?: RenderOptions['dependencies']
+  dependencies?: DependencyCache
 }
 
 export interface BrowserBookDependencies {
@@ -93,8 +93,7 @@ function printBook(
             await renderOptions.beforeOutput?.(tab)
           }
         : renderOptions.beforeOutput,
-      dependencyOrigins: renderOptions.dependencyOrigins,
-      dependencies: renderOptions.dependencies,
+      ...dependencySetup(renderOptions),
     },
     {
       ...pagePdfSize(size),

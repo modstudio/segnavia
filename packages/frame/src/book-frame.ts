@@ -7,11 +7,9 @@ import { bookLabel } from './labels.ts'
 
 export function bookFrame(
   view: BookView,
-  css?: string,
-  spread = false,
-  layout: BookLayout = 'pages',
-  dependencyOrigins: Iterable<string> = [],
+  options: { css?: string; spread?: boolean; layout?: BookLayout; dependencyOrigins?: Iterable<string> } = {},
 ): { title: string; srcdoc: string } {
+  const { css, spread = false, layout = 'pages', dependencyOrigins = [] } = options
   const title = view.title ?? bookLabel(view.lang)
   if (view.pagination) {
     return {

@@ -6,18 +6,21 @@ const PACKAGE_PATHS: Record<string, RegExp> = {
   'https://cdnjs.cloudflare.com': /^\/ajax\/libs\/[^/]+\/(\d+\.\d+\.\d+)(?:\/|$)/,
 }
 
-export function dependencyOriginSet(values: Iterable<string> | undefined): Set<string> {
+export function originSet(values: Iterable<string> | undefined, bare = false): Set<string> {
   const result = new Set<string>()
   for (const value of values ?? []) {
     try {
       const url = new URL(value)
-      if (url.protocol === 'https:' && url.pathname === '/' && !url.search && !url.hash) result.add(url.origin.toLowerCase())
+      if (url.protocol === 'https:' && (!bare || (url.pathname === '/' && !url.search && !url.hash))) result.add(url.origin.toLowerCase())
     } catch {}
   }
   return result
 }
 
-export function dependencyDecision(value: string, approved: Iterable<string> | undefined): DependencyDecision {
+// Dependency origins are host policy entries, not URLs to individual files.
+export const dependencyOriginSet = (values: Iterable<string> | undefined): Set<string> => originSet(values, true)
+
+export function dependencyDecision(value: string, approved: ReadonlySet<string>): DependencyDecision {
   let url: URL
   try {
     url = new URL(value)
@@ -25,7 +28,7 @@ export function dependencyDecision(value: string, approved: Iterable<string> | u
     return { allowed: false, reason: `${JSON.stringify(value)} is not an absolute https URL; an absolute URL at an approved origin clears this refusal` }
   }
   const origin = url.origin.toLowerCase()
-  if (url.protocol !== 'https:' || !dependencyOriginSet(approved).has(origin)) {
+  if (url.protocol !== 'https:' || !approved.has(origin)) {
     return { allowed: false, reason: `${url.href} is not at an approved dependency origin; add ${origin} to dependencyOrigins to clear this refusal` }
   }
   const shape = PACKAGE_PATHS[origin]

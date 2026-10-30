@@ -5,4 +5,4 @@
 '@segnavia/render': minor
 ---
 
-Store artifact-style HTML unchanged as a scripted page. Hosts can set `dependencyOrigins` for pinned scripts, styles and fonts and supply the render-time `dependencies` cache seam. Scripted viewers now refuse remote images and connections through a tighter CSP.
+Store artifact-style HTML unchanged as a scripted page. Hosts can set `dependencyOrigins` for scripts, styles and fonts and supply the render-time `dependencies` cache seam. Static markup and render requests to known package CDNs require exact versions; the viewer CSP is origin-granular, so runtime imports at an approved origin are not version-pinned. Scripted viewers now refuse remote images and connections through a tighter CSP.

@@ -18,7 +18,13 @@ export function thumbnailCanvas(
   bridge = false,
   slots?: PreparedSlots,
 ): HTMLElement {
-  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, css, '', [], defaultFrameTitle, () => {}, slots)
+  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, {
+    css,
+    csp: '',
+    frameTitle: defaultFrameTitle,
+    loaded: () => {},
+    slots,
+  })
   canvas.querySelector('iframe')?.setAttribute('sandbox', bridge ? 'allow-scripts' : '')
   return canvas
 }

@@ -115,7 +115,7 @@ describe('book element input', () => {
   test('sanitizes book CSS and places it after generated fonts', () => {
     const rendered = bookFrame(
       { html: '<main class="lead">Book</main>', css: '.lead{color:purple;background:url(https://example.test/ink.png)}', scripts: 'refuse' },
-      '@font-face{font-family:Held;src:url(data:font/woff2;base64,AA==)}',
+      { css: '@font-face{font-family:Held;src:url(data:font/woff2;base64,AA==)}' },
     )
     expect(rendered.srcdoc).not.toContain('example.test')
     expect(rendered.srcdoc.indexOf('@font-face')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple;}'))
@@ -138,8 +138,7 @@ describe('book element input', () => {
     }
     const rendered = bookFrame(
       { html: '<main class="lead" data-segnavia-galleys></main>', css: '.lead{color:purple}', scripts: 'refuse', pagination },
-      '.font-marker{font-family:Held}',
-      true,
+      { css: '.font-marker{font-family:Held}', spread: true },
     )
     expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
@@ -175,7 +174,7 @@ describe('book fonts', () => {
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
     ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
-      mounted.push(bookFrame(view, css, spread, book.layout))
+      mounted.push(bookFrame(view, { css, spread, layout: book.layout }))
     book.dispatchEvent = ((event: Event) => {
       if (event.type === 'error') errors.push((event as CustomEvent).detail)
       return true
@@ -232,7 +231,7 @@ describe('book fonts', () => {
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
     ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
-      mounted.push(bookFrame(view, css, spread, book.layout))
+      mounted.push(bookFrame(view, { css, spread, layout: book.layout }))
     book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
     book.view = { html: '<main>Initial</main>', title: 'Initial' }
     await Promise.resolve()

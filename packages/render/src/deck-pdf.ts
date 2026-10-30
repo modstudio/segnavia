@@ -22,6 +22,7 @@ import {
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -39,7 +40,7 @@ interface DeckPdfServices {
       boundMs?: number
       beforeOutput?: (tab: Tab) => Promise<void>
       dependencyOrigins?: Iterable<string>
-      dependencies?: RenderOptions['dependencies']
+      dependencies?: DependencyCache
     },
     pdf: Parameters<Tab['pdf']>[0],
   ): Promise<Uint8Array>
@@ -124,8 +125,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         scripts: true,
         html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
-        dependencyOrigins: opts.dependencyOrigins,
-        dependencies: opts.dependencies,
+        ...dependencySetup(opts),
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
@@ -151,8 +151,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               scripts: true,
               html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins }),
               boundMs: opts.boundMs,
-              dependencyOrigins: opts.dependencyOrigins,
-              dependencies: opts.dependencies,
+              ...dependencySetup(opts),
               beforeOutput: waitForPrintReady,
             },
             {
@@ -209,8 +208,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             scripts: true,
             html,
             boundMs: opts.boundMs,
-            dependencyOrigins: opts.dependencyOrigins,
-            dependencies: opts.dependencies,
+            ...dependencySetup(opts),
             beforeOutput: slide.content.kind === 'html' ? waitForPrintReady : slide.content.kind === 'image' ? placeRenderedImages : undefined,
           },
           {

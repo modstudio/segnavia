@@ -38,7 +38,6 @@ describe('printableDeck', () => {
     gap: { column: 10, row: 20 },
     bleed: 3,
   })
-
   test('reports the notes sheet and thumbnail geometry in CSS pixels', () => {
     const geometry = notesLayoutGeometry(deck.size)
     expect(geometry.sheet.width).toBeCloseTo(816)
@@ -57,14 +56,12 @@ describe('printableDeck', () => {
     expect(printable).not.toMatch(/\.notes\{height:/)
     expect(printable).toContain('<bdi dir="ltr">1</bdi>')
   })
-
   test('leaves visible notes space below a portrait slide', () => {
     const geometry = notesLayoutGeometry({ width: 720, height: 1280 })
     const innerHeight = geometry.sheet.height - 96
     expect(geometry.slide.height).toBeLessThan(innerHeight)
     expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
   })
-
   test('writes an escaped title into both the slides and notes documents', () => {
     const named = printableDeck(deck)
     const notes = printableDeck(deck, { layout: 'notes' })
@@ -378,12 +375,15 @@ describe('printablePages', () => {
   })
   test('sandboxes every frame and applies the policy for its script mode', () => {
     const refused = printablePages([fluid], grid, { nonce: 'known' })
-    const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, { nonce: 'known' })
+    const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, {
+      nonce: 'known',
+      dependencyOrigins: ['https://cdn.jsdelivr.net'],
+    })
     expect(refused).toContain('sandbox="allow-scripts"')
     expect(refused).not.toContain('allow-same-origin')
     expect(refused).toContain("script-src 'nonce-known'")
     expect(sandboxed).toContain(
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; media-src data: blob:; connect-src 'none'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src data: https://cdn.jsdelivr.net; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
     )
     expect(refused).not.toContain('var printAt=')
     expect(refused).not.toContain('dispatchPrint()')

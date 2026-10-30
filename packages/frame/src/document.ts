@@ -16,6 +16,7 @@ const MOUNT_MARGIN = 600
 export class SegnaviaDocument extends HTMLElement {
   private stylesheet = ''
   private extraCsp = ''
+  dependencyOrigins: Iterable<string> = []
   private pageValues: Page[] = []
   private printValue: Print | null = null
   private observer: IntersectionObserver | null = null
@@ -245,6 +246,7 @@ export class SegnaviaDocument extends HTMLElement {
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
+    page.dependencyOrigins = this.dependencyOrigins
     page.part.add('page')
     sheet.append(page)
     page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? projection.page.html })

@@ -26,4 +26,16 @@ export async function verifyDependencyRender(
   )
   const missing = await refusal(renderer.pagePdf(page, { dependencyOrigins: ['https://cdn.jsdelivr.net'], waitForPageReady: false }))
   check('an approved dependency without a cache answer is refused by URL', missing.includes(url), missing)
+  const lateUrl = 'https://cdn.jsdelivr.net/npm/segnavia-render-stub@1.2.3/late.js'
+  const late = await refusal(
+    renderer.pagePdf(
+      {
+        html: `<script>setTimeout(function(){import('${lateUrl}').finally(function(){pageReady()})},0)</script>`,
+        scripts: 'sandboxed',
+        size: { width: 400, height: 200 },
+      },
+      { dependencyOrigins: ['https://cdn.jsdelivr.net'] },
+    ),
+  )
+  check('an approved dependency requested after load without a cache answer is refused by URL', late.includes(lateUrl), late)
 }

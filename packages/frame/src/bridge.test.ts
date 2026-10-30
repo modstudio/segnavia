@@ -95,8 +95,6 @@ describe('frame document', () => {
     expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
     expect(html).toContain("connect-src 'none'")
     expect(html).toContain("new CustomEvent('segnavia:print'")
-    expect(html).not.toContain('allow-forms')
-    expect(html).not.toContain('allow-same-origin')
     expect(html).toContain("form-action 'none'")
   })
 

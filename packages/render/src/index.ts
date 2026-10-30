@@ -14,7 +14,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import type { OverflowEntry, RenderOptions } from './options.ts'
+import { dependencySetup, type OverflowEntry, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
@@ -39,6 +39,8 @@ export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
 export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
 export type {
+  DependencyAnswer,
+  DependencyCache,
   Font,
   ImageOptions,
   MarksReport,
@@ -63,11 +65,9 @@ export {
 } from './renderer.ts'
 export { filledBook }
 
-const dependencySetup = (options: RenderOptions) => ({ dependencyOrigins: options.dependencyOrigins, dependencies: options.dependencies })
 const FLUID_WIDTH = 1024
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
-// Collapse the viewport because a growing document is never shorter than it.
 async function contentHeight(tab: Tab): Promise<number> {
   const width = tab.viewportSize()?.width ?? FLUID_WIDTH
   await tab.setViewportSize({ width, height: 1 })
@@ -362,7 +362,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
         const single: Deck = { ...preparedDeck, slides: [slide] }
         const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-        const html = printableDeck(single, { inline: opts.inline, css })
+        const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins })
         return withTab(
           {
             viewport: deck.size,
