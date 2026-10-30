@@ -102,10 +102,11 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
   const existing = state.collected.get(mapKey)
   if (existing) return existing
   const scopeTitle = series.placement === 'part' ? context.part?.title : series.placement === 'chapter' ? context.title : undefined
+  const bookTarget = series.placement === 'book' || (series.placement === 'part' && context.part === undefined)
   const collected: CollectedNotes = {
     series,
     placementKey: key,
-    targetId: series.placement === 'part' ? (context.part?.id ?? context.targetId) : context.targetId,
+    targetId: bookTarget ? 'book' : series.placement === 'part' ? (context.part?.id ?? context.targetId) : context.targetId,
     scopeTitle,
     division: context.division,
     paragraphs: [],

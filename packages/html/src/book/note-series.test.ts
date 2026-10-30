@@ -76,6 +76,20 @@ describe('note series document', () => {
     expect(result.html).toContain('id="segnavia-en-1"')
   })
 
+  test('places a part series at book end when its first note is outside a part', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          notes: [{ name: 'sources', placement: 'part', numbering: 'part', marker: 'roman-lower', title: 'Sources' }],
+          body: [chapter('One', '<p>A<span data-note="sources">source</span></p>')],
+          endMatter: [chapter('Appendix', '<p>After</p>')],
+        }),
+      ),
+    )
+    expect(result.sections.map(({ id }) => id)).toEqual(['segnavia-chapter-1', 'segnavia-notes-sources', 'segnavia-chapter-2'])
+    expect(result.sections[1]?.division).toBe('body')
+  })
+
   test('reuses a note number and body for a later call', () => {
     const result = bookDocument(
       Book.parse(

@@ -140,7 +140,7 @@ function notesSection(
       ? [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, notes.scopeTitle) }, [text(notes.scopeTitle)])]
       : []
   return {
-    info: { id, kind: 'endnotes', division: notes.division, title: notes.series.title, runningHead },
+    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, runningHead },
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...scope, ...notes.paragraphs], build, runningHead, {
       ...(opens ? flowAttribs(opens) : {}),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
@@ -264,7 +264,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
 
 function collectedSectionId(notes: CollectedNotes): string {
   const prefix = notes.series.name === 'endnote' ? 'segnavia-endnotes' : `segnavia-notes-${notes.series.name}`
-  if (notes.series.placement === 'book') return prefix
+  if (notes.targetId === 'book') return prefix
   if (notes.series.placement === 'part') return `${prefix}-${notes.placementKey.replace(/^segnavia-/, '')}`
   if (notes.series.placement === 'chapter' && notes.targetId.startsWith('segnavia-chapter-'))
     return `${prefix}-${notes.targetId.slice('segnavia-chapter-'.length)}`
@@ -275,7 +275,7 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
   const order = new Map(book.notes.map((series, index) => [series.name, index]))
   const collected = [...build.notes.collected.values()].sort((left, right) => (order.get(left.series.name) ?? 0) - (order.get(right.series.name) ?? 0))
   for (const notes of [...collected].reverse()) {
-    if (notes.series.placement === 'book') continue
+    if (notes.targetId === 'book') continue
     const targetId = notes.series.placement === 'part' ? (build.partTargets.get(notes.placementKey) ?? notes.targetId) : notes.targetId
     notes.targetId = targetId
     const index = build.sections.findIndex(({ info }) => info.id === targetId)
@@ -297,7 +297,7 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
     )
   }
   for (const notes of collected) {
-    if (notes.series.placement !== 'book') continue
+    if (notes.targetId !== 'book') continue
     build.sections.push(notesSection(book, notes, build.build, collectedSectionId(notes), notes.series.title))
   }
 }
