@@ -130,7 +130,7 @@ export function templateRegionIssues(templates: BookTemplate[]): string[] {
   })
 }
 
-export function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
+function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
     Object.values(page.regions).flatMap((html) => namedRegionFitIssues(`section ${label} page ${index + 1}`, templateRegionElements(html))),
@@ -178,7 +178,7 @@ export function markPlacementIssues(parents: ParentPage[]): string[] {
   )
 }
 
-export function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
+function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) => {
     const name = page.template ?? entry.template
@@ -193,6 +193,10 @@ export function undeclaredRegionIssues(entry: TemplatedSection, id: string, temp
           ],
     )
   })
+}
+
+export function templatedSectionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
+  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionFitIssues(entry, id)]
 }
 
 export function templatedSection(
