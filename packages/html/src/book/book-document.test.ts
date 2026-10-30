@@ -223,9 +223,8 @@ describe('book document', () => {
     for (const id of ['segnavia-chapter-1', 'topic', 'segnavia-fn-1-1', 'segnavia-fnref-1-1', 'segnavia-en-1', 'segnavia-enref-1']) {
       expect(body).toContain(`href="#${id}"`)
     }
-    expect(bookDocument(book, { build: 'galley', targets: true }).html).toContain('<div class="segnavia-targets" aria-hidden="true">')
+    expect(bookDocument(book, { build: 'galley', targets: true }).html).toMatch(/inline-size:0.*class="segnavia-targets"/)
   })
-
   test('a paginated document keeps footnote refs in the flow and moves notes to a notes galley', () => {
     const book = Book.parse(
       input({
