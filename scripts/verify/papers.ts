@@ -338,7 +338,7 @@ export async function verifyPapers(h: Harness) {
     'a paper keeps hostile page HTML and language inside its one sandboxed frame and refuses an invalid direction',
     hostilePaper.dirRefused &&
       hostilePaper.frames === 1 &&
-      hostilePaper.sandbox === 'allow-scripts' &&
+      hostilePaper.sandbox === 'allow-scripts allow-forms' &&
       hostilePaper.hostNodes === 0 &&
       !hostilePaper.hostMarker,
     JSON.stringify(hostilePaper),
@@ -390,7 +390,7 @@ export async function verifyPapers(h: Harness) {
   )
   check(
     'printPages keeps hostile page HTML and language inside its one sandboxed frame',
-    hostilePrinted.frames === 1 && hostilePrinted.sandbox === 'allow-scripts' && hostilePrinted.hostNodes === 0 && !hostilePrinted.hostMarker,
+    hostilePrinted.frames === 1 && hostilePrinted.sandbox === 'allow-scripts allow-forms' && hostilePrinted.hostNodes === 0 && !hostilePrinted.hostMarker,
     JSON.stringify(hostilePrinted),
   )
   await h.evidence('10-papers.png')
