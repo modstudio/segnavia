@@ -44,6 +44,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
+  dependencyOrigins?: SegnaviaPlayer['dependencyOrigins']
   resolveSlide?: ControllerOptions['resolveSlide']
   transition?: HostTransition
   slots?: SegnaviaPlayer['slots']
@@ -66,6 +67,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   controller?: DeckController | null
   css?: string
   cspExtra?: string
+  dependencyOrigins?: SegnaviaStage['dependencyOrigins']
   bridgeReadyTimeoutMs?: SegnaviaStage['bridgeReadyTimeoutMs']
   frameTitle?: SegnaviaStage['frameTitle']
   transition?: HostTransition
@@ -117,6 +119,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   page?: PageInput | null
   css?: string
   cspExtra?: string
+  dependencyOrigins?: SegnaviaPage['dependencyOrigins']
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
@@ -131,6 +134,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   side?: SegnaviaPaper['side']
   css?: string
   cspExtra?: string
+  dependencyOrigins?: SegnaviaPaper['dependencyOrigins']
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
@@ -142,6 +146,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   print?: PrintInput | null
   css?: string
   cspExtra?: string
+  dependencyOrigins?: SegnaviaDocument['dependencyOrigins']
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']

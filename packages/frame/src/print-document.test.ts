@@ -38,7 +38,6 @@ describe('printableDeck', () => {
     gap: { column: 10, row: 20 },
     bleed: 3,
   })
-
   test('reports the notes sheet and thumbnail geometry in CSS pixels', () => {
     const geometry = notesLayoutGeometry(deck.size)
     expect(geometry.sheet.width).toBeCloseTo(816)
@@ -57,14 +56,12 @@ describe('printableDeck', () => {
     expect(printable).not.toMatch(/\.notes\{height:/)
     expect(printable).toContain('<bdi dir="ltr">1</bdi>')
   })
-
   test('leaves visible notes space below a portrait slide', () => {
     const geometry = notesLayoutGeometry({ width: 720, height: 1280 })
     const innerHeight = geometry.sheet.height - 96
     expect(geometry.slide.height).toBeLessThan(innerHeight)
     expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
   })
-
   test('writes an escaped title into both the slides and notes documents', () => {
     const named = printableDeck(deck)
     const notes = printableDeck(deck, { layout: 'notes' })
@@ -376,23 +373,10 @@ describe('printablePages', () => {
     expect(html).toContain(`width:600px;height:${(placement.trim.height * (96 / 25.4)) / fit.scale}px`)
     expect(html).toContain(`left:${placement.trim.x - placement.bleedBox.x}mm;top:${placement.trim.y - placement.bleedBox.y}mm`)
   })
-
-  test('sandboxes every frame and applies nonce policy only to refused scripts', () => {
-    const refused = printablePages([fluid], grid, { nonce: 'known' })
-    const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, { nonce: 'known' })
-    expect(refused).toContain('sandbox="allow-scripts"')
-    expect(refused).not.toContain('allow-same-origin')
-    expect(refused).toContain("script-src 'nonce-known'")
-    expect(sandboxed).not.toContain('script-src')
-    expect(refused).not.toContain('var printAt=')
-    expect(refused).not.toContain('dispatchPrint()')
-  })
-
   test('adds extra content security policy directives when supplied', () => {
     const html = printablePages([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
     expect(html).toContain('img-src data:')
   })
-
   test('refuses an empty collection', () => {
     expect(() => printablePages([], grid)).toThrow(new RangeError('There is nothing to print. Pass at least one page to clear this refusal.'))
   })

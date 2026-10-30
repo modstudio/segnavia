@@ -21,6 +21,12 @@ describe('resolved content values', () => {
     expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'sandboxed'))).toBe(false)
     expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'refuse', 'p{color:red}'))).toBe(false)
     expect(sameContent(value('<p>same</p>'), value('<p>same</p>', 'refuse', '', "img-src 'none'"))).toBe(false)
+    expect(
+      sameContent(
+        comparableContent({ kind: 'html', html: '<p>same</p>' }, (path) => path, 'refuse', '', '', ['https://one.example']),
+        comparableContent({ kind: 'html', html: '<p>same</p>' }, (path) => path, 'refuse', '', '', ['https://two.example']),
+      ),
+    ).toBe(false)
   })
 
   test('compares external content by its absolute address', () => {

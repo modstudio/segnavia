@@ -22,6 +22,7 @@ import {
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -38,6 +39,8 @@ interface DeckPdfServices {
       html: string
       boundMs?: number
       beforeOutput?: (tab: Tab) => Promise<void>
+      dependencyOrigins?: Iterable<string>
+      dependencies?: DependencyCache
     },
     pdf: Parameters<Tab['pdf']>[0],
   ): Promise<Uint8Array>
@@ -122,6 +125,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         scripts: true,
         html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true }),
         boundMs: opts.boundMs,
+        ...dependencySetup(opts),
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
@@ -145,8 +149,9 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               // The nonce policy, rather than disabling JavaScript in Chromium,
               // refuses author code while leaving the print bridge running.
               scripts: true,
-              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs }),
+              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins }),
               boundMs: opts.boundMs,
+              ...dependencySetup(opts),
               beforeOutput: waitForPrintReady,
             },
             {
@@ -190,7 +195,12 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
       try {
         const html =
           slide.content.kind === 'html'
-            ? htmlSlideDocument(deck, slide.content.html, { nonce: newNonce(), css, printAtMs: slide.printAtMs ?? 0 })
+            ? htmlSlideDocument(deck, slide.content.html, {
+                nonce: newNonce(),
+                css,
+                printAtMs: slide.printAtMs ?? 0,
+                dependencyOrigins: opts.dependencyOrigins,
+              })
             : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css })
         const bytes = await services.renderPdf(
           {
@@ -198,6 +208,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             scripts: true,
             html,
             boundMs: opts.boundMs,
+            ...dependencySetup(opts),
             beforeOutput: slide.content.kind === 'html' ? waitForPrintReady : slide.content.kind === 'image' ? placeRenderedImages : undefined,
           },
           {

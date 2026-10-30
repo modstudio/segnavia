@@ -3,7 +3,9 @@ import { animationReport } from './animation-timing.ts'
 import {
   BLOCK_DIRECTION_CSS,
   bridgeForHost,
+  type FrameOptions,
   frameDocument,
+  frameSandbox,
   MESSAGE,
   messageFrom,
   newNonce,
@@ -61,6 +63,11 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
 }
 
 describe('frame document', () => {
+  test('sandbox tokens allow forms only for the exact scripted mode and never same-origin', () => {
+    const sandboxes = [frameSandbox('sandboxed'), frameSandbox('refuse'), frameSandbox(undefined)]
+    expect(sandboxes).toEqual(['allow-scripts allow-forms', 'allow-scripts', 'allow-scripts'])
+    expect(sandboxes.every((sandbox) => !sandbox.includes('allow-same-origin'))).toBe(true)
+  })
   test('relays viewer and presentation shortcuts', () => {
     expect(RELAYED_KEYS).toEqual(expect.arrayContaining(['m', 'c', 'f']))
   })
@@ -90,10 +97,25 @@ describe('frame document', () => {
     expect(html.match(/<!doctype/gi)?.length).toBe(1)
   })
 
-  test('sandboxed scripts carry no script policy, so the author code runs', () => {
+  test('sandboxed scripts carry the dependency policy and refuse connections', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n' })
-    expect(html).not.toContain('script-src')
+    expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+    expect(html).toContain("connect-src 'none'")
     expect(html).toContain("new CustomEvent('segnavia:print'")
+    expect(html).toContain("form-action 'none'")
+  })
+
+  test('an unknown script mode fails closed without the storage shim', () => {
+    const html = frameDocument('<p>x</p>', { nonce: 'n' } as FrameOptions)
+    expect(html).toContain("script-src 'nonce-n'")
+    expect(html).not.toContain("Object.defineProperty(window,'localStorage'")
+  })
+
+  test('approved dependency origins are written into scripted CSP directives', () => {
+    const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n', dependencyOrigins: ['https://cdn.jsdelivr.net'] })
+    expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net")
+    expect(html).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net")
+    expect(html).toContain('font-src data: https://cdn.jsdelivr.net')
   })
 
   test('only refused-script documents answer a parent selection request', () => {
@@ -142,9 +164,7 @@ describe('frame document', () => {
       MESSAGE.height,
       MESSAGE.ready,
     ])
-    expect(html).toContain(
-      "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'\">",
-    )
+    expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")
   })
 
   test('direction and language land on the root the author declared, or one we supply', () => {

@@ -89,6 +89,52 @@ describe('sanitize', () => {
     expect(sanitize('<p onclick="x()">a</p><script>x()</script>', { keepScripts: true })).toBe('<p onclick="x()">a</p><script>x()</script>')
   })
 
+  test('scripted pages keep controls but never form destinations', () => {
+    const controls =
+      '<form action="/send"><input><button formaction="/other">Send</button><select><option>One</option></select><textarea>Text</textarea></form>'
+    expect(findActiveContent(controls)).toEqual(['<form>', 'form[action]', '<input>', '<button>', 'button[formaction]', '<select>', '<textarea>'])
+    expect(sanitize(controls)).toBe('')
+    expect(findActiveContent(controls, { keepScripts: true })).toEqual(['form[action]', 'button[formaction]'])
+    expect(sanitize(controls, { keepScripts: true })).toBe(
+      '<form><input><button>Send</button><select><option>One</option></select><textarea>Text</textarea></form>',
+    )
+  })
+
+  test('scripted pages keep only approved pinned dependencies and both sanitizer paths agree', () => {
+    const pinned = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.js'
+    const ranged = 'https://cdn.jsdelivr.net/npm/chart.js@^4/dist/chart.js'
+    const options = { keepScripts: true, dependencyOrigins: ['https://cdn.jsdelivr.net'] }
+    const html = `<script src="${pinned}" integrity="sha384-ok"></script><script src="${ranged}"></script><script src="https://evil.example/a@1.2.3.js"></script>`
+    const findings = findActiveContent(html, options)
+    expect(findings).toHaveLength(2)
+    expect(findings[0]).toContain('exact x.y.z package version')
+    expect(findings[1]).toContain('dependencyOrigins')
+    const cleaned = sanitize(html, options)
+    expect(cleaned).toContain(`src="${pinned}" integrity="sha384-ok"`)
+    expect(cleaned).not.toContain(ranged)
+    expect(cleaned).not.toContain('evil.example')
+    expect(findActiveContent(cleaned, options)).toEqual([])
+    expect(sanitize(`<script src="${pinned}"></script>`, { keepScripts: true })).toBe('<script></script>')
+  })
+
+  test('scripted dependency policy keeps stylesheets, imports, and font files but drops preconnect', () => {
+    const options = { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'] }
+    const html =
+      '<link rel="preconnect" href="https://fonts.gstatic.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><style>@import url(https://fonts.googleapis.com/css2?family=Inter);@font-face{font-family:Inter;src:url(https://fonts.gstatic.com/s/inter/v1/font.woff2)}</style>'
+    const cleaned = sanitize(html, options)
+    expect(cleaned).not.toContain('preconnect')
+    expect(cleaned).toContain('rel="stylesheet"')
+    expect(cleaned).toContain('@import url(https://fonts.googleapis.com/css2?family=Inter);')
+    expect(cleaned).toContain('url(https://fonts.gstatic.com/s/inter/v1/font.woff2)')
+    expect(findActiveContent(cleaned, options)).toEqual([])
+  })
+
+  test('keeps an approved import condition', () => {
+    const css = '@import url(https://fonts.googleapis.com/css2?family=Inter) print;'
+    const cleaned = sanitize(`<style>${css}</style>`, { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com'] })
+    expect(cleaned).toContain(css)
+  })
+
   test('meta http-equiv is refused, since it can set policy from inside the page', () => {
     expect(findActiveContent('<meta http-equiv="refresh" content="0;url=https://x">')).toEqual(['<meta>'])
   })

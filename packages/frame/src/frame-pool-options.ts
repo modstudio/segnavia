@@ -7,6 +7,7 @@ export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
   css: string
   csp: string
+  dependencyOrigins?: Iterable<string>
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean

@@ -8,6 +8,13 @@ import type { PressReport } from './press/types.ts'
 
 export type Font = FontFace
 
+export interface DependencyAnswer {
+  body: Uint8Array
+  contentType: string
+}
+
+export type DependencyCache = (url: string) => Promise<DependencyAnswer | undefined>
+
 export type OverflowPart = 'page' | 'front' | 'body' | 'margin'
 
 export interface OverflowContribution {
@@ -53,6 +60,8 @@ export interface RenderLimits {
 }
 
 export interface RenderOptions {
+  dependencyOrigins?: Iterable<string>
+  dependencies?: DependencyCache
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
@@ -83,6 +92,11 @@ export interface RenderOptions {
     report?: (report: PressReport) => void
   }
 }
+
+export const dependencySetup = (options: RenderOptions): Pick<RenderOptions, 'dependencyOrigins' | 'dependencies'> => ({
+  dependencyOrigins: options.dependencyOrigins,
+  dependencies: options.dependencies,
+})
 
 export interface ImageOptions extends RenderOptions {
   motifs?: MotifsOptions

@@ -7,7 +7,7 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import type { Scripts } from '@segnavia/format'
+import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 
 export const MESSAGE = {
@@ -57,6 +57,7 @@ export interface FrameOptions {
   css?: string
   // Extra CSP directives, appended to the frame's own.
   csp?: string
+  dependencyOrigins?: Iterable<string>
   relayKeys?: boolean
   reportHeight?: boolean
   // Holds the existing ready message until a document composer marks its root.
@@ -67,6 +68,12 @@ export interface FrameOptions {
   // Set only for a print document whose sandboxed frame must carry its root
   // background into the browser print pipeline.
   printBackground?: boolean
+}
+
+// The sandbox and the document policy fail closed together: only the exact
+// scripted mode admits form events, and no author frame receives same-origin.
+export function frameSandbox(scripts: Scripts | undefined): string {
+  return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -123,7 +130,13 @@ var settle=function(element,pseudo){var elementStyle=getComputedStyle(element);v
 var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.push(settle(elements[i],null),settle(elements[i],'::before'),settle(elements[i],'::after'));}return waits;
 };`
     : ''
+  const storage =
+    options.scripts === 'sandboxed'
+      ? `var storage=function(){var values=new Map();return {get length(){return values.size;},key:function(index){var keys=Array.from(values.keys());return index>=0&&index<keys.length?keys[index]:null;},getItem:function(key){key=String(key);return values.has(key)?values.get(key):null;},setItem:function(key,value){values.set(String(key),String(value));},removeItem:function(key){values.delete(String(key));},clear:function(){values.clear();}};};
+Object.defineProperty(window,'localStorage',{configurable:true,value:storage()});Object.defineProperty(window,'sessionStorage',{configurable:true,value:storage()});`
+      : ''
   return `(function(){
+${storage}
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${selection}
@@ -196,13 +209,30 @@ function escapeAttribute(value: string): string {
 export const BLOCK_DIRECTION_CSS =
   ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir="ltr" i],[dir="rtl" i],[dir="auto" i])){unicode-bidi:plaintext}'
 
+const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => string) => string[]> = {
+  refuse: () => [],
+  sandboxed: (withOrigins) => [
+    withOrigins("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
+    withOrigins("style-src 'unsafe-inline'"),
+    withOrigins('font-src data:'),
+    'img-src data: blob:',
+    'media-src data: blob:',
+    "connect-src 'none'",
+    "frame-src 'none'",
+    'worker-src blob:',
+  ],
+}
+
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
 export function frameDocument(html: string, options: FrameOptions): string {
+  const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
+  const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
+  const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
   const directives = [
-    options.scripts === 'refuse' ? `script-src 'nonce-${options.nonce}'` : null,
+    ...(scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](withOrigins)),
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -211,7 +241,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
-    `<script nonce="${options.nonce}">${bridgeScript(options)}</script>`,
+    `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>`,
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
     options.css ? `<style>${options.css}</style>` : '',

@@ -10,7 +10,7 @@ import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './options.ts'
+import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
 import { preparedSlotsFor } from './slot-fill.ts'
@@ -32,6 +32,8 @@ interface TabSetup {
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
+  dependencyOrigins?: Iterable<string>
+  dependencies?: DependencyCache
 }
 
 export interface BrowserBookDependencies {
@@ -40,7 +42,7 @@ export interface BrowserBookDependencies {
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
-function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean): string {
+function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean, dependencyOrigins?: Iterable<string>): string {
   const nonce = newNonce()
   if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true })
   return frameDocument(html, {
@@ -51,6 +53,7 @@ function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marg
     css: bookStylesheet(fontCss, book.css, css),
     relayKeys: false,
     reportHeight: false,
+    dependencyOrigins,
   })
 }
 
@@ -71,7 +74,7 @@ function printBook(
   const css = `${bookPageCss(book, marginLayer || paginated)}${layerCss}${renderOptions.css ?? ''}`
   let srcdoc: string
   try {
-    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer)
+    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, renderOptions.dependencyOrigins)
   } catch (error) {
     if (error instanceof PaginatedBookRefusedError) throw new RenderRefusedError(error.message)
     throw error
@@ -90,6 +93,7 @@ function printBook(
             await renderOptions.beforeOutput?.(tab)
           }
         : renderOptions.beforeOutput,
+      ...dependencySetup(renderOptions),
     },
     {
       ...pagePdfSize(size),

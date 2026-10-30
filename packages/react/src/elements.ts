@@ -67,14 +67,14 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENTS = {
   player: element<SegnaviaPlayer, PlayerProps, typeof STYLED_ELEMENTS.player>(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'resolveSlide', 'transition', 'slots'],
+    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'transition', 'slots'],
     {
       onSegnaviaLabels: 'segnavia-labels',
     },
   ),
   stage: element<SegnaviaStage, StageProps, typeof HEADLESS_ELEMENTS.stage>(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots'],
+    ['controller', 'css', 'cspExtra', 'dependencyOrigins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots'],
     {
       onSegnaviaController: 'segnavia-controller',
       onSegnaviaFit: 'segnavia-fit',
@@ -97,15 +97,19 @@ export const ELEMENTS = {
       onSegnaviaFillSelect: 'segnavia-fill-select',
     },
   ),
-  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'slots', 'motifs', 'fonts'], {}),
+  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(
+    HEADLESS_ELEMENTS.page,
+    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts'],
+    {},
+  ),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'slots', 'motifs', 'fonts'],
+    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts'],
     {},
   ),
   document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'pages', 'print', 'slots', 'motifs', 'fonts'],
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts'],
     {},
   ),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),

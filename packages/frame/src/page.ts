@@ -14,7 +14,7 @@
 
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
+import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { requestSelection } from './selection-request.ts'
@@ -32,6 +32,7 @@ export class SegnaviaPage extends HTMLElement {
   static observedAttributes = ['src', 'bounded', 'label']
   css = ''
   cspExtra = ''
+  dependencyOrigins: Iterable<string> = []
   private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
@@ -169,6 +170,7 @@ export class SegnaviaPage extends HTMLElement {
           nonce: newNonce(),
           css: `${fontCss}${this.css}`,
           csp: this.cspExtra || undefined,
+          dependencyOrigins: this.dependencyOrigins,
         }),
       )
     }
@@ -192,6 +194,7 @@ export class SegnaviaPage extends HTMLElement {
           lang: page.lang,
           css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
           csp: this.cspExtra || undefined,
+          dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,
         }),
       )
@@ -277,7 +280,7 @@ export class SegnaviaPage extends HTMLElement {
     sheet.dir = 'ltr'
     sheet.style.width = typeof page.size === 'object' ? `${page.size.width}px` : '100%'
     const iframe = document.createElement('iframe')
-    iframe.setAttribute('sandbox', 'allow-scripts')
+    iframe.setAttribute('sandbox', frameSandbox(page.scripts))
     iframe.title = this.label || 'Page'
     sheet.append(iframe)
     this.replaceChildren(sheet)

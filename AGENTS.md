@@ -98,9 +98,10 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
 
 ## Security invariants
 
-- Author HTML is always shown in a frame sandboxed without same-origin.
-  Under `scripts: 'refuse'` a nonce CSP keeps author scripts from running
-  while the bridge still runs. Never add `allow-same-origin`.
+- Author HTML is always shown in a frame sandboxed without same-origin. A
+  scripted frame adds `allow-forms` under `form-action 'none'`; a refused-script
+  frame does not. Under `scripts: 'refuse'` a nonce CSP keeps author scripts
+  from running while the bridge still runs. Never add `allow-same-origin`.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
   a ready signal, an animation report, a bounded slot-fit report and, from a
@@ -112,7 +113,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   is exactly `pages` or `flow` and `place` is absent or obeys that same bound.
   Slot fit is safe because filled items refuse author scripts, leaving only
   the nonce-authorized bridge able to post from a filled frame.
-- Rendering is offline. Never let a render reach the network.
+- Rendering is offline: Chromium never reaches the network. A scripted document's approved dependencies are answered from the host's cache, and anything else is refused.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.
 

@@ -1,4 +1,5 @@
 import type { Deck, Slide } from '@segnavia/format'
+import { frameSandbox } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { defaultFrameTitle } from './frame-title.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -18,8 +19,14 @@ export function thumbnailCanvas(
   bridge = false,
   slots?: PreparedSlots,
 ): HTMLElement {
-  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, css, '', defaultFrameTitle, () => {}, slots)
-  canvas.querySelector('iframe')?.setAttribute('sandbox', bridge ? 'allow-scripts' : '')
+  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, {
+    css,
+    csp: '',
+    frameTitle: defaultFrameTitle,
+    loaded: () => {},
+    slots,
+  })
+  canvas.querySelector('iframe')?.setAttribute('sandbox', bridge ? frameSandbox('refuse') : '')
   return canvas
 }
 

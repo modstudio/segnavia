@@ -16,6 +16,7 @@ import { verifyBookRender } from './verify/book-render.ts'
 import { verifyClippedBleed } from './verify/clipped-bleed.ts'
 import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
+import { verifyDependencyRender } from './verify/dependency-render.ts'
 import { verifyFontSource } from './verify/font-source.ts'
 import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
@@ -59,6 +60,7 @@ const output = path.resolve(import.meta.dirname, '../out')
 const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
+  await verifyDependencyRender(renderer, work, refusal, check)
   const ready = await refusal(
     renderer.pagePdf({
       html: '<p id="p">waiting</p><script>setTimeout(() => { p.textContent = "ready"; pageReady() }, 300)</script>',
