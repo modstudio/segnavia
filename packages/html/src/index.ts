@@ -49,6 +49,7 @@ export {
   type ExpandedMotifs,
   type ExpandMotifsOptions,
   expandMotifs,
+  hasHostMotifPlacement,
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MOTIF_DEPTH_LIMIT,

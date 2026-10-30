@@ -12,7 +12,15 @@ import {
   printProperties,
   type SlotsOptions,
 } from '@segnavia/format'
-import { documentLanguage, type ExpandedMotifs, expandMotifs, hasMotifPlacement, libraryMotifPlacementRefusal, MotifRefusedError } from '@segnavia/html'
+import {
+  documentLanguage,
+  type ExpandedMotifs,
+  expandMotifs,
+  hasHostMotifPlacement,
+  hasMotifPlacement,
+  libraryMotifPlacementRefusal,
+  MotifRefusedError,
+} from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
@@ -39,12 +47,13 @@ interface BookHtmlField {
   furniture: boolean
 }
 
-function motifSourceRefusal(fields: BookHtmlField[]): MotifRefusedError | undefined {
-  for (const { html } of fields) {
+function motifSourceRefusal(fields: BookHtmlField[], preserveFurnitureLibrary = false): MotifRefusedError | undefined {
+  for (const { html, furniture } of fields) {
+    if (preserveFurnitureLibrary && furniture) continue
     const refusal = libraryMotifPlacementRefusal(html)
     if (refusal) return new MotifRefusedError(refusal)
   }
-  if (fields.some(({ html, furniture }) => furniture && hasMotifPlacement(html))) {
+  if (fields.some(({ html, furniture }) => furniture && (preserveFurnitureLibrary ? hasHostMotifPlacement(html) : hasMotifPlacement(html)))) {
     return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
   }
   return undefined
@@ -88,11 +97,11 @@ function viewFields(view: BookView): BookHtmlField[] {
 }
 
 export function bookMotifRefusal(book: Book): MotifRefusedError | undefined {
-  return motifSourceRefusal(bookFields(book))
+  return motifSourceRefusal(bookFields(book), true)
 }
 
 export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefined {
-  return motifSourceRefusal(viewFields(view))
+  return motifSourceRefusal(viewFields(view), true)
 }
 
 async function expandBookHtml(
@@ -112,6 +121,7 @@ async function expandBookHtml(
     linkOrigins: motifs.linkOrigins,
     signal,
     ...(furniture ? { deferPaths: [PRINTED_PAGE_CONTEXT] } : {}),
+    ...(furniture ? { deferLibrary: true } : {}),
   })
 }
 

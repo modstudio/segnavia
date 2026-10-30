@@ -56,3 +56,27 @@ test('matches page missing-source behavior for body and parent-page placements',
     'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.',
   )
 })
+
+test('preserves library furniture motifs while expanding host motifs around them', async () => {
+  const book = Book.parse({
+    title: 'Furniture',
+    mode: 'continuous',
+    parentPages: [
+      {
+        name: 'held',
+        head: '<span data-motif="segnavia:folio"></span><span data-motif="ornament"></span>',
+        margin: { top: 1, bottom: 1, inner: 1, outer: 1 },
+      },
+    ],
+    chapters: [{ title: 'One', html: '<p></p>' }],
+  })
+  const expanded = await expandFrameBook(book, { source }, signal)
+  expect(expanded.book.parentPages[0]?.head).toContain('data-motif="segnavia:folio"')
+  expect(expanded.book.parentPages[0]?.head).toContain('class="expanded-ornament"')
+
+  const libraryOnly = Book.parse({
+    ...book,
+    parentPages: [{ ...book.parentPages[0], head: '<span data-motif="segnavia:folio"></span>' }],
+  })
+  expect(bookMotifRefusal(libraryOnly)).toBeUndefined()
+})
