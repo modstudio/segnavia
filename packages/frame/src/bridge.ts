@@ -123,7 +123,13 @@ var settle=function(element,pseudo){var elementStyle=getComputedStyle(element);v
 var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.push(settle(elements[i],null),settle(elements[i],'::before'),settle(elements[i],'::after'));}return waits;
 };`
     : ''
+  const storage =
+    options.scripts === 'sandboxed'
+      ? `var storage=function(){var values=new Map();return {get length(){return values.size;},key:function(index){var keys=Array.from(values.keys());return index>=0&&index<keys.length?keys[index]:null;},getItem:function(key){key=String(key);return values.has(key)?values.get(key):null;},setItem:function(key,value){values.set(String(key),String(value));},removeItem:function(key){values.delete(String(key));},clear:function(){values.clear();}};};
+Object.defineProperty(window,'localStorage',{configurable:true,value:storage()});Object.defineProperty(window,'sessionStorage',{configurable:true,value:storage()});`
+      : ''
   return `(function(){
+${storage}
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${selection}
