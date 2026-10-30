@@ -351,12 +351,21 @@ async function verifyWorkbooks(h: Harness) {
 
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
-      if (!el) return { size: 0, overflow: 'missing' }
-      return { size: Number.parseFloat(getComputedStyle(el).fontSize), overflow: el.getAttribute('data-segnavia-region-overflow') }
+      if (!el) return { size: 0, overflow: 'missing', elements: -1 }
+      return {
+        size: Number.parseFloat(getComputedStyle(el).fontSize),
+        overflow: el.getAttribute('data-segnavia-region-overflow'),
+        elements: el.childElementCount,
+      }
     })
     const minPx = 48 * PX_PER_PT
     const maxPx = 75 * PX_PER_PT
     check(`${id} 75pt lesson text fits between min and max`, fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow, JSON.stringify(fit))
+    check(
+      `${id} a region of bare overflowing text fits between min and max`,
+      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
+      JSON.stringify(fit),
+    )
 
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {

@@ -161,7 +161,10 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
     const regions = [...document.querySelectorAll('[data-segnavia-region-overflow]')].map(
       (element) => element.getAttribute('data-segnavia-region-overflow') ?? '',
     )
-    return { extent, endOverflow, extentClipped, rtl, elements, furniture, regions }
+    const fitMins = [...document.querySelectorAll('[data-segnavia-region-fit-min]')].map(
+      (element) => element.getAttribute('data-segnavia-region-fit-min') ?? '',
+    )
+    return { extent, endOverflow, extentClipped, rtl, elements, furniture, regions, fitMins }
   })
   const contributions: OverflowContribution[] = []
   let clippedStart = 0
@@ -185,6 +188,11 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
     clippedEnd = Math.max(clippedEnd, region.clippedEnd)
     if (contributions.length < 20) contributions.push(region)
   }
+  for (const attribute of measured.fitMins ?? []) {
+    const fitMin = regionFitMinContribution(attribute)
+    clippedEnd = Math.max(clippedEnd, fitMin.clippedEnd)
+    if (contributions.length < 20) contributions.push(fitMin)
+  }
   return {
     overflow: {
       pageWidth,
@@ -204,6 +212,11 @@ function overflowEntry(measured: MeasuredOverflow, scale: number, part: Overflow
 export function regionOverflowContribution(attribute: string): OverflowContribution {
   const [folio, name, excess] = attribute.split(':')
   return { locator: `page ${folio} region ${name}`, clippedStart: 0, clippedEnd: Number(excess) || 0 }
+}
+
+export function regionFitMinContribution(attribute: string): OverflowContribution {
+  const [template, name, value] = attribute.split(':')
+  return { locator: `template ${template} region ${name} data-fit-min ${value}`, clippedStart: 0, clippedEnd: 0 }
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {

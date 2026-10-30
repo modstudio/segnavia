@@ -1,13 +1,25 @@
 import { PX_PER_MM, PX_PER_PT } from '@segnavia/format'
 
-export const ABSOLUTE_PX: Record<string, number> = {
-  cm: 10 * PX_PER_MM,
-  in: 72 * PX_PER_PT,
-  mm: PX_PER_MM,
-  pc: 12 * PX_PER_PT,
-  pt: PX_PER_PT,
+export const ABSOLUTE_UNITS = ['px', 'pt', 'pc', 'in', 'cm', 'mm', 'q'] as const
+type AbsoluteUnit = (typeof ABSOLUTE_UNITS)[number]
+
+export const ABSOLUTE_PX: Record<AbsoluteUnit, number> = {
   px: 1,
+  pt: PX_PER_PT,
+  pc: 12 * PX_PER_PT,
+  in: 72 * PX_PER_PT,
+  cm: 10 * PX_PER_MM,
+  mm: PX_PER_MM,
   q: PX_PER_MM / 4,
+}
+
+function listedAbsoluteUnits(): string {
+  const last = ABSOLUTE_UNITS.length - 1
+  return `${ABSOLUTE_UNITS.slice(0, last).join(', ')} or ${ABSOLUTE_UNITS[last]}`
+}
+
+function isAbsoluteUnit(unit: string): unit is AbsoluteUnit {
+  return (ABSOLUTE_UNITS as readonly string[]).includes(unit)
 }
 
 export function parseCssLength(value: string): { value: number; unit: string } | undefined {
@@ -19,7 +31,7 @@ export function parseCssLength(value: string): { value: number; unit: string } |
   return { value: Number(amount), unit: unit.toLowerCase() }
 }
 
-export function lengthPx(value: string, table: Record<string, number>): number | undefined {
+export function lengthPx(value: string, table: Readonly<Record<string, number>>): number | undefined {
   const parsed = parseCssLength(value)
   if (parsed === undefined || !(parsed.value > 0)) return undefined
   const factor = table[parsed.unit]
@@ -30,42 +42,44 @@ function fitExample(attribute: string): string {
   return attribute === 'data-fit-min' ? '48pt' : '1pt'
 }
 
-function fitLengthIssues(template: string, region: string, attribute: string, value: string): string[] {
+function fitLengthIssues(where: string, attribute: string, value: string): string[] {
   const example = fitExample(attribute)
   const parsed = parseCssLength(value)
   if (parsed === undefined) {
-    return [
-      `template "${template}" region "${region}" ${attribute} "${value}" is not an absolute CSS length; use an absolute CSS length such as ${example} to clear this refusal`,
-    ]
+    return [`${where} ${attribute} "${value}" is not an absolute CSS length; use an absolute CSS length such as ${example} to clear this refusal`]
   }
-  if (ABSOLUTE_PX[parsed.unit] === undefined) {
+  if (!isAbsoluteUnit(parsed.unit)) {
     return [
-      `template "${template}" region "${region}" ${attribute} "${value}" uses unit "${parsed.unit}"; use an absolute CSS length (px, pt, pc, in, cm, mm or q) such as ${example} to clear this refusal`,
+      `${where} ${attribute} "${value}" uses unit "${parsed.unit}"; use an absolute CSS length (${listedAbsoluteUnits()}) such as ${example} to clear this refusal`,
     ]
   }
   if (!(parsed.value > 0)) {
     return [
-      `template "${template}" region "${region}" ${attribute} "${value}" is not a positive absolute CSS length; use a positive absolute CSS length such as ${example} to clear this refusal`,
+      `${where} ${attribute} "${value}" is not a positive absolute CSS length; use a positive absolute CSS length such as ${example} to clear this refusal`,
     ]
   }
   return []
 }
 
-function regionFitIssues(template: string, region: string, attribs: Record<string, string>): string[] {
+function regionFitIssues(where: string, attribs: Record<string, string>): string[] {
   const minText = attribs['data-fit-min']
   const stepText = attribs['data-fit-step']
   if (minText === undefined && stepText === undefined) return []
   const issues: string[] = []
-  if (minText !== undefined) issues.push(...fitLengthIssues(template, region, 'data-fit-min', minText))
-  if (minText !== undefined || stepText !== undefined) issues.push(...fitLengthIssues(template, region, 'data-fit-step', stepText ?? ''))
+  if (minText !== undefined) issues.push(...fitLengthIssues(where, 'data-fit-min', minText))
+  if (minText !== undefined || stepText !== undefined) issues.push(...fitLengthIssues(where, 'data-fit-step', stepText ?? ''))
   return issues
 }
 
-export function templateRegionFitIssues(template: string, regions: { attribs: Record<string, string> }[]): string[] {
+export function namedRegionFitIssues(where: string, regions: { attribs: Record<string, string> }[]): string[] {
   return regions.flatMap((node) => {
     const region = node.attribs['data-region']
-    return region ? regionFitIssues(template, region, node.attribs) : []
+    return region ? regionFitIssues(`${where} region "${region}"`, node.attribs) : []
   })
+}
+
+export function templateRegionFitIssues(template: string, regions: { attribs: Record<string, string> }[]): string[] {
+  return namedRegionFitIssues(`template "${template}"`, regions)
 }
 
 export function fitRegionSize(

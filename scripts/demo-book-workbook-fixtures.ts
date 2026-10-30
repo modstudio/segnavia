@@ -62,7 +62,7 @@ export function workbookFixture(hebrew: boolean): BookInput {
           lessonPage(hebrew, 3, reading, 'lesson-alt'),
           {
             template: 'lesson-fit',
-            regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': `<p>${fitted}</p>` },
+            regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': fitted },
           },
         ],
       },

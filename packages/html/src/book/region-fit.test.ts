@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Book, type BookInput, PX_PER_PT } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 import { templateRegionElements } from './book-held.ts'
-import { ABSOLUTE_PX, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
+import { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({
@@ -94,6 +94,11 @@ describe('templateRegionFitIssues', () => {
     expect(lengthPx('75pt', ABSOLUTE_PX)).toBe(75 * PX_PER_PT)
   })
 
+  test('ABSOLUTE_PX is keyed by ABSOLUTE_UNITS in docs order', () => {
+    expect(ABSOLUTE_UNITS).toEqual(['px', 'pt', 'pc', 'in', 'cm', 'mm', 'q'])
+    expect(Object.keys(ABSOLUTE_PX)).toEqual([...ABSOLUTE_UNITS])
+  })
+
   test('bookDocument reports fit issues on the same path as other data-region checks', () => {
     const book = Book.parse(
       input({
@@ -103,6 +108,25 @@ describe('templateRegionFitIssues', () => {
     expect(bookDocument(book).issues).toEqual([
       'template "lesson" region "heading" data-fit-min "bogus" is not an absolute CSS length; use an absolute CSS length such as 48pt to clear this refusal',
       'template "lesson" region "heading" data-fit-step "-1pt" is not a positive absolute CSS length; use a positive absolute CSS length such as 1pt to clear this refusal',
+    ])
+  })
+
+  test('bookDocument refuses an invalid nested fit value, naming the section, page, region, value and unit', () => {
+    const book = Book.parse(
+      input({
+        templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
+        chapters: [
+          {
+            kind: 'templated',
+            title: 'Lessons',
+            template: 'lesson',
+            pages: [{ regions: { heading: '<div data-region="inner" data-fit-min="2em" data-fit-step="1pt"></div>' } }],
+          },
+        ],
+      }),
+    )
+    expect(bookDocument(book).issues).toEqual([
+      'section Lessons page 1 region "inner" data-fit-min "2em" uses unit "em"; use an absolute CSS length (px, pt, pc, in, cm, mm or q) such as 48pt to clear this refusal',
     ])
   })
 })
