@@ -6,7 +6,6 @@ import type { PaginateBookInput } from './paginate-types.ts'
 function rebuilt() {
   return new Function(`${paginateScript()}; return paginateBook;`)() as typeof paginateBook
 }
-
 function fixtures(): PaginateBookInput[] {
   return [
     input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 12, 0)], 'One')] }),
@@ -151,6 +150,7 @@ function fixtures(): PaginateBookInput[] {
       notes: [
         {
           id: 'n1',
+          series: 'footnote',
           lines: [
             { top: 0, bottom: 10 },
             { top: 10, bottom: 20 },
@@ -189,7 +189,7 @@ describe('paginateBook', () => {
     expect(pages[0]?.windows).toEqual([win('c1', 0, 50, 0)])
     expect(pages[0]?.notes).toEqual([])
     expect(pages[1]?.windows).toEqual([win('c1', 50, 60, 0)])
-    expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: true, start: 0, end: 3 }])
+    expect(pages[1]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: true, start: 0, end: 3 }])
   })
 
   test('a note continues after keeping two lines with its reference', () => {
@@ -202,8 +202,8 @@ describe('paginateBook', () => {
       }),
     ).pages
     expect(pages[0]?.windows).toEqual([win('c1', 0, 20, 0)])
-    expect(pages[0]?.notes).toEqual([{ id: 'n1', whole: false, start: 0, end: 2 }])
-    expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: false, start: 2, end: 6 }])
+    expect(pages[0]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: false, start: 0, end: 2 }])
+    expect(pages[1]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: false, start: 2, end: 6 }])
   })
 
   test('the reference line moves when two note lines do not fit', () => {
@@ -218,7 +218,7 @@ describe('paginateBook', () => {
     expect(pages[0]?.windows).toEqual([win('c1', 0, 50, 0)])
     expect(pages[0]?.notes).toEqual([])
     expect(pages[1]?.windows[0]?.start).toBe(50)
-    expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: true, start: 0, end: 2 }])
+    expect(pages[1]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: true, start: 0, end: 2 }])
   })
 
   test('a continued note that cannot place a line is refused by the referring block', () => {
@@ -229,6 +229,7 @@ describe('paginateBook', () => {
         notes: [
           {
             id: 'n1',
+            series: 'footnote',
             lines: [
               { top: 0, bottom: 10 },
               { top: 10, bottom: 20 },
@@ -239,7 +240,7 @@ describe('paginateBook', () => {
       }),
     )
     expect(result.pages).toHaveLength(1)
-    expect(result.pages[0]?.notes).toEqual([{ id: 'n1', whole: false, start: 0, end: 2 }])
+    expect(result.pages[0]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: false, start: 0, end: 2 }])
     expect(result.refusals).toEqual([
       {
         tag: 'p',
@@ -249,7 +250,6 @@ describe('paginateBook', () => {
       },
     ])
   })
-
   test('a heading keeps with the next block', () => {
     const heading = block('heading', 'h2', 1, 1, 1, 0)
     const paragraph = block('text', 'p', 1, 2, 5, 10)
@@ -274,9 +274,9 @@ describe('paginateBook', () => {
       }),
     ).pages
     expect(pages[0]?.windows).toEqual([win('c1', 0, 20, 0)])
-    expect(pages[0]?.notes).toEqual([{ id: 'n1', whole: false, start: 0, end: 2 }])
+    expect(pages[0]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: false, start: 0, end: 2 }])
     expect(pages[1]?.windows).toEqual([])
-    expect(pages[1]?.notes).toEqual([{ id: 'n1', whole: false, start: 2, end: 4 }])
+    expect(pages[1]?.notes).toEqual([{ id: 'n1', series: 'footnote', whole: false, start: 2, end: 4 }])
     expect(pages[2]?.windows[0]?.start).toBe(20)
   })
 

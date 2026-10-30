@@ -41,3 +41,28 @@ export function noteSeriesFixture(hebrew: boolean): BookInput {
     ],
   }
 }
+
+export function twoPageSeriesFixture(hebrew: boolean): BookInput {
+  const commentary = hebrew
+    ? 'בְּרֵאשִׁית בָּרָא אֱלֹהִים הערה ארוכה השייכת לסדרת הפירוש ונמשכת בעמוד הבא. '.repeat(34)
+    : 'A long commentary note belongs to its own series and continues on the next page without joining the source notes. '.repeat(28)
+  return {
+    title: hebrew ? 'שתי סדרות בתחתית העמוד' : 'Two series at the page foot',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    notes: [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'arabic', title: hebrew ? 'פירוש' : 'Commentary' }],
+    body: [
+      {
+        title: hebrew ? 'פרק ראשון' : 'Chapter One',
+        html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p>${
+          hebrew ? 'הטקסט קורא למקור קצר' : 'The text calls a short source'
+        }<span data-note="footnote">${hebrew ? 'מקור קצר לסדרה הראשונה.' : 'A short source in the first series.'}</span> ${
+          hebrew ? 'ולפירוש ארוך' : 'and a long commentary'
+        }<span data-note="commentary">${commentary}</span>.</p><p>${
+          hebrew ? 'עוד טקסט בעמוד מראה שההערות נשארות בתחתיתו.' : 'More page text shows that both note groups remain at the page foot.'
+        }</p>`,
+      },
+    ],
+  }
+}

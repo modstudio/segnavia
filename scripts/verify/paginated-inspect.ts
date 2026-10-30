@@ -76,16 +76,23 @@ export function inspectPaginatedBook(): PaginatedReport {
 
   function notes() {
     const pages = Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
-    return Array.from(document.querySelectorAll('[data-segnavia-book-page] a[id^="segnavia-fnref-"]')).map((ref) => {
-      const href = ref.getAttribute('href') ?? ''
-      const note = href.startsWith('#') ? href.slice(1) : ''
-      const page = ref.closest('[data-segnavia-book-page]')
-      const index = Number(page?.getAttribute('data-segnavia-book-page'))
-      const later = pages.some(
-        (candidate) => Number(candidate.getAttribute('data-segnavia-book-page')) >= index && candidate.querySelector(`[data-segnavia-page-note="${note}"]`),
-      )
-      return { id: note, ok: Boolean(page?.querySelector(`[data-segnavia-page-note="${note}"]`)) || later }
-    })
+    const pageNotes = new Set(
+      Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-notes-galley] [data-segnavia-note]')).map((note) =>
+        note.getAttribute('data-segnavia-note'),
+      ),
+    )
+    return Array.from(document.querySelectorAll('[data-segnavia-book-page] .segnavia-note-ref:not([data-segnavia-note-repeat]) > a[href^="#"]'))
+      .filter((ref) => pageNotes.has(ref.getAttribute('href')?.slice(1) ?? ''))
+      .map((ref) => {
+        const href = ref.getAttribute('href') ?? ''
+        const note = href.startsWith('#') ? href.slice(1) : ''
+        const page = ref.closest('[data-segnavia-book-page]')
+        const index = Number(page?.getAttribute('data-segnavia-book-page'))
+        const later = pages.some(
+          (candidate) => Number(candidate.getAttribute('data-segnavia-book-page')) >= index && candidate.querySelector(`[data-segnavia-page-note="${note}"]`),
+        )
+        return { id: note, ok: Boolean(page?.querySelector(`[data-segnavia-page-note="${note}"]`)) || later }
+      })
   }
 
   function columnGroups() {

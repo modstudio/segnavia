@@ -1,22 +1,12 @@
+import { composedFrame } from './composed-frame.ts'
 import type { Harness } from './harness.ts'
-
-async function seriesFrame(h: Harness, id: string) {
-  const element = await h.page.$(`#${id}`)
-  const frame = await element?.contentFrame()
-  if (!frame) throw new Error(`The note series frame ${id} did not load.`)
-  await frame.waitForFunction(
-    () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
-    undefined,
-    { timeout: 20_000 },
-  )
-  return frame
-}
+import { verifyTwoPageNoteSeries } from './two-page-note-series.ts'
 
 export async function verifyNoteSeries(h: Harness) {
   await h.page.goto(h.url('book-note-series.html'))
   for (const language of ['en', 'he'] as const) {
     const id = `book-note-series-${language}`
-    const frame = await seriesFrame(h, id)
+    const frame = await composedFrame(h, `#${id}`, `The note series frame ${id}`)
     const report = await frame.evaluate(() => {
       const first = document.querySelector<HTMLAnchorElement>('#segnavia-fnref-1-1')
       const second = document.querySelector<HTMLAnchorElement>('#segnavia-fnref-2-2')
@@ -50,4 +40,5 @@ export async function verifyNoteSeries(h: Harness) {
       JSON.stringify(report),
     )
   }
+  await verifyTwoPageNoteSeries(h)
 }

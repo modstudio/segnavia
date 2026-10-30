@@ -9,7 +9,7 @@ import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
-import { noteSeriesFixture } from './demo-book-note-series-fixtures.ts'
+import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
@@ -193,6 +193,14 @@ function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string):
   )
 }
 
+function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
+  const css = hebrew ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'
+  writeFileSync(
+    path.join(site, hebrew ? 'book-two-page-series-he.html' : 'book-two-page-series-en.html'),
+    paginatedBookDocument(Book.parse(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),
+  )
+}
+
 export function largePaginatedFixture(hebrew: boolean): BookInput {
   // Regular paginated fixtures exercise continued notes. This stress fixture keeps a real short
   // footnote because Poppler reports clipped continuation fragments as in-clip bbox words.
@@ -289,6 +297,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     writeOversizeBook(site, hebrew, css)
     writeNoteCaseBook(site, hebrew, hebrewFace)
     writeNoteSeriesBook(site, hebrew, hebrewFace)
+    writeTwoPageSeriesBook(site, hebrew, hebrewFace)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
     const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
@@ -336,6 +345,12 @@ export async function buildBookDemo(site: string): Promise<void> {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Two note series</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-note-series-en" sandbox="allow-scripts" src="book-note-series-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-note-series-he" sandbox="allow-scripts" src="book-note-series-he.html"></iframe></section></main></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-two-page-series.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Two page note series</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-two-page-series-en" sandbox="allow-scripts" src="book-two-page-series-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-two-page-series-he" sandbox="allow-scripts" src="book-two-page-series-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-workbook.html'),

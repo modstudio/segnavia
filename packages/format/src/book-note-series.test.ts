@@ -32,16 +32,16 @@ describe('book note series', () => {
     ).toMatchObject({ path: ['notes', 1, 'name'] })
   })
 
-  test('refuses collected series in continuous mode and two page-placed series', () => {
+  test('refuses collected series in continuous mode and accepts several page series in paginated mode', () => {
     const collected = Book.safeParse(input({ notes: [{ name: 'sources', placement: 'chapter', numbering: 'chapter' }] }))
     expect(collected.error?.issues.some(({ message }) => message.includes('note series sources uses chapter placement'))).toBe(true)
-    const pageSeries = Book.safeParse(
+    const pageSeries = Book.parse(
       input({
         mode: 'paginated',
         page,
         notes: [{ name: 'sources', placement: 'page', numbering: 'book' }],
       }),
     )
-    expect(pageSeries.error?.issues.some(({ message }) => message.includes('declare one page-placed series'))).toBe(true)
+    expect(pageSeries.notes.filter(({ placement }) => placement === 'page').map(({ name }) => name)).toEqual(['footnote', 'sources'])
   })
 })

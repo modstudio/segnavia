@@ -13,6 +13,48 @@ const input = (overrides: Partial<BookInput> = {}): BookInput => ({
 })
 
 describe('note series document', () => {
+  test('keeps page series in separate declaration-ordered blocks in flow and continuous builds', () => {
+    const notes = [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'roman-lower' }] as const
+    const body = [chapter('One', '<p>A<span data-note="commentary">comment</span> B<span data-note="footnote">source</span></p>')]
+    const documents = [
+      bookDocument(Book.parse(input({ notes: [...notes], body })), { build: 'flow' }),
+      bookDocument(Book.parse(input({ mode: 'continuous', notes: [...notes], body }))),
+    ]
+    for (const document of documents) {
+      const html = document.html
+      const footnotes = html.match(/<div class="segnavia-footnotes"[^>]*>(.*?)<\/div>/)?.[1]
+      const commentary = html.match(/<div class="segnavia-notes-commentary" data-segnavia-note-series="commentary"[^>]*>(.*?)<\/div>/)?.[1]
+      expect(html.indexOf('class="segnavia-footnotes"')).toBeLessThan(html.indexOf('class="segnavia-notes-commentary"'))
+      expect(footnotes).toContain('source')
+      expect(footnotes).not.toContain('comment')
+      expect(commentary).toContain('comment')
+      expect(commentary).not.toContain('source')
+    }
+  })
+
+  test('groups page notes into series galleys in declaration order', () => {
+    const book = Book.parse(
+      input({
+        notes: [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'roman-lower' }],
+        body: [
+          chapter(
+            'One',
+            '<p>A<span data-note="commentary">comment</span> B<span data-note="footnote">source</span> C<span data-note="commentary">more</span></p>',
+          ),
+        ],
+      }),
+    )
+    const html = bookDocument(book).html
+    const footnotes = html.match(/<aside data-segnavia-notes-galley data-segnavia-note-series="footnote"[^>]*>(.*?)<\/aside>/)?.[1]
+    const commentary = html.match(/<aside data-segnavia-notes-galley data-segnavia-note-series="commentary"[^>]*>(.*?)<\/aside>/)?.[1]
+    expect(html.indexOf('data-segnavia-note-series="footnote"')).toBeLessThan(html.indexOf('data-segnavia-note-series="commentary"'))
+    expect(footnotes).toContain('source')
+    expect(footnotes).not.toContain('comment')
+    expect(commentary).toContain('comment')
+    expect(commentary).toContain('more')
+    expect(commentary).not.toContain('source')
+  })
+
   test('places and numbers a series by chapter', () => {
     const result = bookDocument(
       Book.parse(

@@ -18,7 +18,7 @@ import {
 import type { Document } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
 import { addContents } from './book-contents.ts'
-import { notesGalley, targetLinks, withBlankPages } from './book-document-nodes.ts'
+import { notesGalleys, targetLinks, withBlankPages } from './book-document-nodes.ts'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
   authoredSection,
@@ -338,7 +338,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
           element('div', { 'data-segnavia-galleys': '' }, [
             ...templateHolders(book.templates),
             ...visible.map((section) => section.node),
-            ...(notes.pageParagraphs.length > 0 ? [notesGalley(notes.pageParagraphs)] : []),
+            ...notesGalleys(book.notes, notes.pageParagraphs),
           ]),
         ]
       : [

@@ -31,6 +31,7 @@ export type {
   PaginateMark,
   PaginateNote,
   PaginateNoteRef,
+  PaginateNoteSeriesGeometry,
   PaginateOpens,
   PaginatePageMarks,
   PaginatePageNote,

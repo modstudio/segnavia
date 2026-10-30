@@ -10,7 +10,14 @@ export function paginateNotes(
 ): number | PaginatePageNote[] | { fragments: PaginatePageNote[]; leftover: PaginatePageNote[] } | undefined {
   const notesById = new Map(payload.notes.map((note: PaginateNote) => [note.id, note]))
   const notesGap = payload.geometry.notesGap
+  const noteSeries = payload.geometry.noteSeries
   const textHeight = payload.geometry.textHeight
+  const seriesOrder = new Map(noteSeries?.map((series, index) => [series.name, index]))
+
+  function ordered(fragments: PaginatePageNote[]): PaginatePageNote[] {
+    if (!noteSeries) return fragments
+    return fragments.slice().sort((left, right) => (seriesOrder.get(left.series) ?? noteSeries.length) - (seriesOrder.get(right.series) ?? noteSeries.length))
+  }
 
   function noteEnd(id: string): number {
     return notesById.get(id)?.lines.length ?? 0
@@ -26,8 +33,13 @@ export function paginateNotes(
   function notesSpace(fragments: PaginatePageNote[]): number {
     if (fragments.length === 0) return 0
     let height = 0
-    for (const fragment of fragments) height += fragmentHeight(fragment)
-    return notesGap + height
+    let previous: string | undefined
+    for (const fragment of noteSeries ? ordered(fragments) : fragments) {
+      if (fragment.series !== previous) height += noteSeries?.find(({ name }) => name === fragment.series)?.gap ?? notesGap
+      height += fragmentHeight(fragment)
+      previous = fragment.series
+    }
+    return height
   }
 
   function measure(placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
@@ -38,11 +50,13 @@ export function paginateNotes(
   }
 
   function makeFragment(id: string, start: number, end: number): PaginatePageNote {
-    return { id, whole: start === 0 && end === noteEnd(id), start, end }
+    return { id, series: notesById.get(id)?.series ?? '', whole: start === 0 && end === noteEnd(id), start, end }
   }
 
   function leftoverFrom(fragments: PaginatePageNote[]): PaginatePageNote[] {
-    return fragments.flatMap((fragment) => (fragment.end < noteEnd(fragment.id) ? [makeFragment(fragment.id, fragment.end, noteEnd(fragment.id))] : []))
+    return ordered(
+      fragments.flatMap((fragment) => (fragment.end < noteEnd(fragment.id) ? [makeFragment(fragment.id, fragment.end, noteEnd(fragment.id))] : [])),
+    )
   }
 
   function takeContinued(continued: PaginatePageNote[]): { fragments: PaginatePageNote[]; leftover: PaginatePageNote[] } {
@@ -50,7 +64,7 @@ export function paginateNotes(
     const fragments: PaginatePageNote[] = []
     const leftover: PaginatePageNote[] = []
     let pending = true
-    for (const item of continued) {
+    for (const item of ordered(continued)) {
       const total = noteEnd(item.id)
       if (!pending) {
         leftover.push(item)
@@ -67,7 +81,7 @@ export function paginateNotes(
       if (end < total) leftover.push(makeFragment(item.id, end, total))
       pending = false
     }
-    return { fragments, leftover }
+    return { fragments: ordered(fragments), leftover: ordered(leftover) }
   }
 
   function fitNote(trial: PaginateUnit[], fragments: PaginatePageNote[], id: string): PaginatePageNote | undefined {
@@ -92,7 +106,7 @@ export function paginateNotes(
       if (!fragment) return undefined
       fragments.push(fragment)
     }
-    return fragments
+    return ordered(fragments)
   }
 
   function notesFor(placed: PaginateUnit[], seed: PaginatePageNote[]): PaginatePageNote[] {

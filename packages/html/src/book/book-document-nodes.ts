@@ -1,4 +1,5 @@
-import type { ChildNode } from 'domhandler'
+import type { ResolvedNoteSeries } from '@segnavia/format'
+import type { ChildNode, Element } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import type { BuiltSection } from './book-held.ts'
 import { element, text } from './dom.ts'
@@ -12,9 +13,16 @@ export function targetLinks(sections: BuiltSection[]): ReturnType<typeof element
   )
 }
 
-export function notesGalley(paragraphs: ReturnType<typeof element>[]): ReturnType<typeof element> {
+function notesGalley(series: string, paragraphs: Element[]): ReturnType<typeof element> {
   const notes = paragraphs.map((paragraph) => element('div', { 'data-segnavia-note': paragraph.attribs.id ?? '' }, [paragraph]))
-  return element('aside', { 'data-segnavia-notes-galley': '', 'aria-hidden': 'true' }, notes)
+  return element('aside', { 'data-segnavia-notes-galley': '', 'data-segnavia-note-series': series, 'aria-hidden': 'true' }, notes)
+}
+
+export function notesGalleys(series: ResolvedNoteSeries[], paragraphs: Map<string, Element[]>): ReturnType<typeof element>[] {
+  return series.flatMap((item) => {
+    const held = paragraphs.get(item.name)
+    return item.placement === 'page' && held?.length ? [notesGalley(item.name, held)] : []
+  })
 }
 
 export function withBlankPages(sections: BuiltSection[], blankBefore: string[] | undefined): ChildNode[] {

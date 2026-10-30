@@ -1,4 +1,4 @@
-import { LARGE_BOOK_WAIT_MS } from './book-stress-ready.ts'
+import { composedFrame } from './composed-frame.ts'
 import type { Harness } from './harness.ts'
 
 export async function verifyHiddenBookElements(h: Harness) {
@@ -8,8 +8,7 @@ export async function verifyHiddenBookElements(h: Harness) {
       { id: `book-hidden-${language}`, description: 'hidden container is shown' },
       { id: `book-hidden-frame-${language}`, description: 'hidden pages frame is shown' },
     ]) {
-      const frame = h.page.frameLocator(`#${testCase.id} iframe[data-segnavia-book-layout="pages"]`)
-      await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
+      const frame = await composedFrame(h, `#${testCase.id} iframe[data-segnavia-book-layout="pages"]`, `The hidden book frame ${testCase.id}`)
       const state = await frame.locator('html').evaluate((root) => ({
         composed: root.hasAttribute('data-segnavia-composed'),
         failure: root.getAttribute('data-segnavia-compose-failure'),

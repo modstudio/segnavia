@@ -238,6 +238,7 @@ describe('book document', () => {
     expect(result.html).toContain('data-segnavia-flow="segnavia-chapter-1"')
     expect(result.html).toContain('id="segnavia-fnref-1-1"')
     expect(result.html).toContain('data-segnavia-notes-galley')
+    expect(result.html).toContain('data-segnavia-note-series="footnote"')
     expect(result.html).toContain('data-segnavia-note="segnavia-fn-1-1"')
     expect(result.html).not.toContain('class="segnavia-footnotes"')
     expect(result.html).not.toContain('break-before:page')
