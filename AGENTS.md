@@ -55,13 +55,11 @@ find it rather than hard-coding the case.
 
 ## Design research
 
-A design starts with research into how others meet the same need: layout
-engines, typesetting systems, paged-media renderers and design platforms
-such as InDesign. The research is for ideas, and for the problems those
-tools ran into. It is not a template. The design is our own: what this
-library builds may exist nowhere else, and its model follows from the real
-thing, never from another tool's API. The design names what each source
-suggested and whether we took it.
+Research for a design here draws on layout engines, typesetting systems,
+paged-media renderers and design platforms such as InDesign, for their
+ideas and for the problems those tools ran into. What this library builds
+may exist nowhere else: its model follows from the real thing, never from
+another tool's API.
 
 ## Code
 
