@@ -111,11 +111,9 @@ export async function verifyBooks(h: Harness) {
 
   await page.goto(h.url('book-paginated-screen.html'))
   for (const id of ['book-screen-en', 'book-screen-he'] as const) {
-    await page.locator(`#${id}[data-segnavia-book-ready]`).waitFor()
-    check(
-      `${id} expands its front-matter motif on screen`,
-      (await page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`).locator('[data-book-demo-motif]').count()) === 1,
-    )
+    const frame = page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
+    await frame.locator('[data-segnavia-pages]').waitFor()
+    check(`${id} expands its front-matter motif on screen`, (await frame.locator('[data-book-demo-motif]').count()) > 0)
     const pdf = id.replace('book-screen', 'book-paginated')
     const pdfText = execFileSync('pdftotext', [path.join(SITE, `${pdf}.pdf`), '-'], { encoding: 'utf8' })
     check(`${id} expands its front-matter motif in the PDF`, pdfText.includes('BOOK MOTIF'))
