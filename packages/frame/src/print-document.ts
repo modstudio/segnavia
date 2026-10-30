@@ -119,8 +119,10 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
-    case 'url':
-      return `<iframe sandbox="${frameSandbox(deck.scripts)}" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    case 'url': {
+      // A URL slide's host-served document is outside the frame policy that blocks form submission.
+      return `<iframe sandbox="${frameSandbox('refuse')}" src="${escapeHtml(content.src)}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    }
     case 'image':
       return naturalImage(width, height, escapeHtml(inline(content.src)), content.alt, content.fit ?? deck.fit, content.frame ?? deck.frame)
     case 'shot': {

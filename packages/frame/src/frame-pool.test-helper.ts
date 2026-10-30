@@ -8,6 +8,7 @@ export class FramePoolTestElement {
   inert = false
   isConnected = false
   contentWindow: Record<string, never> | null = null
+  private attributes = new Map<string, string>()
   private children: FramePoolTestElement[] = []
   private listeners = new Map<string, Listener[]>()
   private parent: FramePoolTestElement | null = null
@@ -45,10 +46,16 @@ export class FramePoolTestElement {
   }
 
   setAttribute(name: string, value: string) {
+    this.attributes.set(name, value)
     if (name.startsWith('data-')) this.dataset[dataKey(name)] = value
   }
 
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
+  }
+
   removeAttribute(name: string) {
+    this.attributes.delete(name)
     if (name.startsWith('data-')) delete this.dataset[dataKey(name)]
   }
 

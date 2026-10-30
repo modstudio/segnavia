@@ -39,7 +39,8 @@ export function stageCanvas(
   if (content.kind === 'html' || content.kind === 'url') {
     const iframe = document.createElement('iframe')
     iframe.className = 'segnavia-stage__frame'
-    iframe.setAttribute('sandbox', frameSandbox(deck.scripts))
+    // A URL slide's host-served document is outside the frame policy that blocks form submission.
+    iframe.setAttribute('sandbox', frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
     iframe.title = options.frameTitle(deck.title, index + 1)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
