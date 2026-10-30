@@ -41,17 +41,18 @@ export type PaginateOpens = BookOpens
 
 interface PaginateFlowBase {
   id: string
+  sequence?: PaginateSequence
   runningHead?: string
   opens?: PaginateOpens
   parents?: PaginateFlowParents
+  parts?: Record<string, string>
 }
 
 export type PaginateFlow =
-  | (PaginateFlowBase & { kind: 'front' | 'contents' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
+  | (PaginateFlowBase & { kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
   | (PaginateFlowBase & {
       kind: 'fixed'
       pages: number
-      sequence?: PaginateSequence
       role?: 'fixed' | 'body'
       pageParents?: PaginateFlowParents[]
     })
@@ -106,6 +107,7 @@ export interface PaginateBookPage {
   blank: boolean
   sectionOpening: boolean
   runningHead?: string
+  parts?: Record<string, string>
   marks?: PaginatePageMarks
   parent: string
   side: 'left' | 'right'

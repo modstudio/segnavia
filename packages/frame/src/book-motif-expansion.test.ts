@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Book, Page } from '@segnavia/format'
+import { Book, isPart, Page } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
 import { bookMotifRefusal, expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
 
@@ -37,6 +37,35 @@ test('expands motifs in a chapter, designed page and templated region before bui
   expect(html).not.toContain('>authored</p>')
 })
 
+test('expands and refuses motifs throughout a part subtree', async () => {
+  const book = Book.parse({
+    title: 'Parts',
+    mode: 'continuous',
+    body: [
+      {
+        name: 'part',
+        title: 'Part',
+        html: '<p data-motif="opening"></p>',
+        children: [{ title: 'Chapter', html: '<p data-motif="nested"></p>' }],
+      },
+    ],
+  })
+
+  const expanded = await expandFrameBook(book, { source }, signal)
+  const part = expanded.book.body[0]
+  const child = part && isPart(part) ? part.children[0] : undefined
+  expect(part && isPart(part) ? part.html : undefined).toContain('class="expanded-opening"')
+  expect(child && 'html' in child ? child.html : undefined).toContain('class="expanded-nested"')
+
+  const reserved = Book.parse({
+    ...book,
+    body: [{ name: 'part', children: [{ title: 'Chapter', html: '<span data-motif="segnavia:folio"></span>' }] }],
+  })
+  const expected = framePageMotifRefusal(Page.parse({ html: '<span data-motif="segnavia:folio"></span>' }))?.message
+  expect(bookMotifRefusal(reserved)?.message).toBe(expected)
+  await expect(expandFrameBook(reserved, undefined, signal)).rejects.toThrow(expected as string)
+})
+
 test('matches page missing-source behavior for body and parent-page placements', async () => {
   const bodyBook = Book.parse({
     title: 'Body',
@@ -46,7 +75,7 @@ test('matches page missing-source behavior for body and parent-page placements',
   const bodyPage = Page.parse({ html: '<p data-motif="held"></p>' })
   expect(bookMotifRefusal(bodyBook)).toBeUndefined()
   expect(framePageMotifRefusal(bodyPage)).toBeUndefined()
-  expect((await expandFrameBook(bodyBook, undefined, signal)).book.chapters[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
+  expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
 
   const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { top: 1, bottom: 1, inner: 1, outer: 1 } }
   const parentBook = Book.parse({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })

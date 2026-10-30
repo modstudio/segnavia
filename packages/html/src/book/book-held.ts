@@ -1,5 +1,7 @@
 import {
   BOOK_FURNITURE,
+  type Book,
+  type BookSection,
   type BookSectionParents,
   type BookTemplate,
   type DesignedSection,
@@ -19,6 +21,13 @@ import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 export interface BuiltSection {
   info: BookSectionInfo
   node: ReturnType<typeof element>
+}
+
+export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'opens' | 'parents'>, id: string, build: BookBuild): BuiltSection {
+  const document = parse(section.html)
+  const runningHead = section.title
+  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
+  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead }, node }
 }
 
 export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
@@ -44,6 +53,23 @@ export function sectionNode(
   if (build !== 'print') attribs['data-segnavia-flow'] = id
   if (build === 'galley' && runningHead !== undefined) attribs['data-running-head'] = runningHead
   return element('section', attribs, children)
+}
+
+export function partSection(
+  entry: Extract<Book['body'][number], { name: string }>,
+  id: string,
+  division: 'front' | 'body' | 'end',
+  build: BookBuild,
+  parts: Record<string, string>,
+): BuiltSection {
+  const children = entry.html === undefined ? [] : parse(entry.html).children
+  const runningHead = entry.runningHead ?? entry.title
+  const extra = flowAttribs(entry.opens, entry.parents, {
+    'data-segnavia-kind': 'part',
+    'data-segnavia-parts': JSON.stringify(parts),
+    ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
+  })
+  return { info: { id, kind: 'part', division, title: entry.title, runningHead }, node: sectionNode('part', id, children, build, runningHead, extra) }
 }
 
 function flowPage(page: number, kind: 'designed' | 'templated', children: ChildNode[], geometry: BookFlowPageGeometry, recto: boolean) {
@@ -81,6 +107,7 @@ export function designedSection(
   entry: DesignedSection,
   id: string,
   kind: 'front' | 'designed',
+  division: BookSectionInfo['division'],
   build: BookBuild,
   depth: number,
   geometry?: BookFlowPageGeometry,
@@ -102,7 +129,7 @@ export function designedSection(
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }
@@ -203,6 +230,7 @@ export function templatedSection(
   entry: TemplatedSection,
   id: string,
   kind: 'front' | 'templated',
+  division: BookSectionInfo['division'],
   build: BookBuild,
   depth: number,
   templates?: Map<string, BookTemplate>,
@@ -242,7 +270,7 @@ export function templatedSection(
   if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
     headings,
   }
 }

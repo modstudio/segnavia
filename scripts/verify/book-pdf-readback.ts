@@ -8,6 +8,10 @@ export interface ExpectedOutlineItem {
   page: number
 }
 
+export interface OutlineItem extends ExpectedOutlineItem {
+  depth: number
+}
+
 const resolve = (document: PDFDocument, value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
 
 function annotationDestination(document: PDFDocument, value: unknown): number | undefined {
@@ -42,9 +46,9 @@ function textValue(value: unknown): string | undefined {
   return value instanceof PDFString || value instanceof PDFHexString ? value.decodeText() : undefined
 }
 
-function outlineItems(document: PDFDocument): ExpectedOutlineItem[] {
-  const output: ExpectedOutlineItem[] = []
-  const visit = (value: unknown): void => {
+export function pdfOutlineItems(document: PDFDocument): OutlineItem[] {
+  const output: OutlineItem[] = []
+  const visit = (value: unknown, depth: number): void => {
     let current = resolve(document, value)
     while (current instanceof PDFDict) {
       const title = textValue(resolve(document, current.get(PDFName.of('Title'))))
@@ -52,14 +56,14 @@ function outlineItems(document: PDFDocument): ExpectedOutlineItem[] {
       if (title !== undefined && target instanceof PDFArray) {
         const reference = target.get(0)
         const page = document.getPages().findIndex((candidate) => candidate.ref.toString() === reference?.toString()) + 1
-        output.push({ title, page })
+        output.push({ title, page, depth })
       }
-      visit(current.get(PDFName.of('First')))
+      visit(current.get(PDFName.of('First')), depth + 1)
       current = resolve(document, current.get(PDFName.of('Next')))
     }
   }
   const outlines = resolve(document, document.catalog.get(PDFName.of('Outlines')))
-  if (outlines instanceof PDFDict) visit(outlines.get(PDFName.of('First')))
+  if (outlines instanceof PDFDict) visit(outlines.get(PDFName.of('First')), 0)
   return output
 }
 
@@ -69,7 +73,7 @@ export function verifyPdfStructure(document: PDFDocument, book: BookInput, expec
   const xmp = metadata instanceof PDFRawStream ? new TextDecoder().decode(metadata.getContents()) : ''
   const authors = book.authors ?? []
   const subject = book.subject ?? ''
-  const actualOutline = outlineItems(document)
+  const actualOutline = pdfOutlineItems(document).map(({ title, page }) => ({ title, page }))
   check(`${label} PDF title metadata matches the book`, document.getTitle() === book.title, document.getTitle())
   check(`${label} catalog language matches the book`, lang === book.lang, lang)
   check(

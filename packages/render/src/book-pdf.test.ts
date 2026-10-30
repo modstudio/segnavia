@@ -5,7 +5,7 @@ import type { BookDestination } from './book-destinations.ts'
 import { frontPrintStatus, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
-const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', title: 'Preface' }]
+const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', division: 'front', title: 'Preface' }]
 const destinations = (page: number): Map<string, BookDestination> =>
   new Map([
     ['segnavia-front-1', { page: 1, x: 0, y: 0 }],

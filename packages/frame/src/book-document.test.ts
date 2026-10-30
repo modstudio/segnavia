@@ -117,7 +117,7 @@ describe('bookDocument', () => {
   })
 
   test('refuses a continuous book and a document with issues', () => {
-    const continuous = Book.parse({ title: 'Book', mode: 'continuous', page: book.page, chapters: book.chapters })
+    const continuous = Book.parse({ title: 'Book', mode: 'continuous', page: book.page, chapters: book.body })
     expect(() => bookDocument(continuous, { nonce: 'held' })).toThrow(PaginatedBookRefusedError)
     expect(() => bookDocument(continuous, { nonce: 'held' })).toThrow('mode paginated and page')
     const issues = Book.parse({

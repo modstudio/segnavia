@@ -47,8 +47,8 @@ async function imported(stories: { name: string; content: string }[], spreadStor
 }
 
 function chapterHtml(result: Awaited<ReturnType<typeof imported>>, title = 'host'): string {
-  const chapter = result.book.chapters.find((candidate) => candidate.title === title)
-  if (!chapter || !('html' in chapter)) throw new Error(`Expected chapter ${title}.`)
+  const chapter = result.book.body.find((candidate) => candidate.title === title)
+  if (!chapter || !('html' in chapter) || chapter.html === undefined) throw new Error(`Expected chapter ${title}.`)
   return chapter.html
 }
 
@@ -58,7 +58,7 @@ test('renders an inline anchored story inside its host paragraph and not as a ch
     story('label', '<Content>inside</Content>'),
   ])
   const html = chapterHtml(result)
-  expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['host'])
+  expect(result.book.body.map((chapter) => chapter.title)).toEqual(['host'])
   expect(html).toContain('before<span class="idml-anchored" style="display:inline-block;inline-size:82.46pt;vertical-align:baseline">')
   expect(html).toContain('<span style="display:block">inside</span></span>after')
   expect(html).not.toContain('<p>inside</p>')
@@ -68,7 +68,7 @@ test('renders an inline anchored story inside its host paragraph and not as a ch
 
 test('reports an AboveLine anchor and does not emit its story', async () => {
   const result = await imported([story('host', `before${frame('aside', 'AnchoredPosition="AboveLine"')}after`), story('aside', '<Content>hidden</Content>')])
-  expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['host'])
+  expect(result.book.body.map((chapter) => chapter.title)).toEqual(['host'])
   expect(chapterHtml(result)).not.toContain('hidden')
   expect(result.report.unsupportedElements['TextFrame anchored:AboveLine']).toBe(1)
   expect(result.report.locations['element:TextFrame anchored:AboveLine']?.[0]).toContain('Stories/Story_host.xml')
@@ -76,7 +76,7 @@ test('reports an AboveLine anchor and does not emit its story', async () => {
 
 test('keeps a page-placed anchored story as a chapter and reports the anchoring', async () => {
   const result = await imported([story('host', frame('placed')), story('placed', '<Content>chapter</Content>')], ['host', 'placed'])
-  expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['host', 'placed'])
+  expect(result.book.body.map((chapter) => chapter.title)).toEqual(['host', 'placed'])
   expect(chapterHtml(result, 'host')).not.toContain('chapter')
   expect(result.report.unsupportedElements['TextFrame anchored:InlinePosition']).toBe(1)
 })

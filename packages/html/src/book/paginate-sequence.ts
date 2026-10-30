@@ -70,7 +70,7 @@ export function paginateSequence(
   }
 
   function isFront(flow: PaginateFlow): boolean {
-    if (flow.kind === 'fixed') return flow.sequence === 'front'
+    if (flow.sequence !== undefined) return flow.sequence === 'front'
     return flow.kind === 'front' || flow.kind === 'contents'
   }
 
@@ -144,6 +144,7 @@ export function paginateSequence(
       blank: false,
       sectionOpening: opener,
       ...(opener || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
+      ...(flow.parts === undefined ? {} : { parts: flow.parts }),
       marks,
       parent: planned.parent,
       side: planned.side,
@@ -172,6 +173,7 @@ export function paginateSequence(
       blank: false,
       sectionOpening: opener,
       ...((opener && !templated) || flow.runningHead === undefined ? {} : { runningHead: flow.runningHead }),
+      ...(flow.parts === undefined ? {} : { parts: flow.parts }),
       marks,
       parent: planned.parent,
       side: planned.side,

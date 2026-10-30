@@ -1,10 +1,10 @@
 import {
   type Book,
-  type BookChapterEntry,
-  type BookFrontMatterEntry,
+  type BookItem,
   type BookView,
   type FontReference,
   isDesignedSection,
+  isPart,
   isTemplatedSection,
   type MotifSource,
   type Page,
@@ -93,7 +93,18 @@ export function framePageMotifRefusal(page: Page): MotifRefusedError | undefined
   return motifSourceRefusal(fields, PAGE_MOTIF_POLICY)
 }
 
-function entryShape<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T): { entry: T; fields: BookHtmlField[] } {
+function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[] } {
+  if (isPart(entry)) {
+    const children = entry.children.map(entryShape)
+    const copy = { ...entry, children: children.map(({ entry: child }) => child) }
+    return {
+      entry: copy,
+      fields: [
+        ...(copy.html === undefined ? [] : [{ html: copy.html, furniture: false, replace: (html: string) => (copy.html = html) }]),
+        ...children.flatMap(({ fields }) => fields),
+      ],
+    }
+  }
   if (isDesignedSection(entry)) {
     const copy = { ...entry, pages: entry.pages.map((page) => ({ ...page })) }
     return { entry: copy, fields: copy.pages.map((page) => ({ html: page.html, furniture: false, replace: (html) => (page.html = html) })) }
@@ -120,20 +131,23 @@ function entryShape<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T)
 
 function bookShape(book: Book): BookHtmlShape<Book> {
   const frontMatter = book.frontMatter.map(entryShape)
-  const chapters = book.chapters.map(entryShape)
+  const body = book.body.map(entryShape)
+  const endMatter = book.endMatter.map(entryShape)
   const templates = book.templates.map((template) => ({ ...template }))
   const parentPages = book.parentPages.map((parent) => ({ ...parent }))
   return {
     book: {
       ...book,
       frontMatter: frontMatter.map(({ entry }) => entry),
-      chapters: chapters.map(({ entry }) => entry),
+      body: body.map(({ entry }) => entry),
+      endMatter: endMatter.map(({ entry }) => entry),
       templates,
       parentPages,
     },
     fields: [
       ...frontMatter.flatMap(({ fields }) => fields),
-      ...chapters.flatMap(({ fields }) => fields),
+      ...body.flatMap(({ fields }) => fields),
+      ...endMatter.flatMap(({ fields }) => fields),
       ...templates.map((template) => ({ html: template.html, furniture: false, replace: (html: string) => (template.html = html) })),
       ...parentPages.flatMap((parent) =>
         (['head', 'foot'] as const).flatMap((region) => {

@@ -10,6 +10,7 @@ import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from '.
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
+import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 
 const fixture = (hebrew: boolean): BookInput => ({
@@ -177,6 +178,13 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   )
 }
 
+function writePartsBook(site: string, hebrew: boolean, hebrewFace: string): void {
+  writeFileSync(
+    path.join(site, hebrew ? 'book-parts-he.html' : 'book-parts-en.html'),
+    paginatedBookDocument(Book.parse(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
+  )
+}
+
 export function largePaginatedFixture(hebrew: boolean): BookInput {
   // Regular paginated fixtures exercise continued notes. This stress fixture keeps a real short
   // footnote because Poppler reports clipped continuation fragments as in-clip bbox words.
@@ -237,6 +245,7 @@ export async function buildBookPdfs(
       await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
+    writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
   await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
@@ -259,6 +268,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
+    writePartsBook(site, hebrew, hebrewFace)
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.json' : 'book-paginated-large-en.json'),
@@ -281,6 +291,12 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull }),
     )
   }
+  writeFileSync(
+    path.join(site, 'book-parts.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Books with parts</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-parts-en" sandbox="allow-scripts" src="book-parts-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-parts-he" sandbox="allow-scripts" src="book-parts-he.html"></iframe></section></main></body></html>`,
+  )
   writeFileSync(
     path.join(site, 'book-paginated.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>

@@ -29,9 +29,9 @@ describe('opener selection and placement reporting', () => {
   for (const headerFirst of [true, false]) {
     test(`selects the larger single-column body before claiming its header when the header is ${headerFirst ? 'first' : 'last'}`, async () => {
       const result = await importIdml(await headerFixture(headerFirst))
-      expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['body'])
-      const chapter = result.book.chapters[0]
-      const html = chapter && 'html' in chapter ? chapter.html : ''
+      expect(result.book.body.map((chapter) => chapter.title)).toEqual(['body'])
+      const chapter = result.book.body[0]
+      const html = chapter && 'html' in chapter ? (chapter.html ?? '') : ''
       expect(html.startsWith('<div class="idml-title-block"')).toBe(true)
       expect(html).toContain('Head')
       expect(html).toContain('A much longer body story')
@@ -40,7 +40,7 @@ describe('opener selection and placement reporting', () => {
 
   test('does not claim a one-page story that is longer than the selected flow', async () => {
     const result = await importIdml(await headerFixture(true, 'A header candidate longer than body', 'Body'))
-    expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['header', 'body'])
+    expect(result.book.body.map((chapter) => chapter.title)).toEqual(['header', 'body'])
   })
 
   test('reports continuation-page and master placements instead of rendering them', async () => {
@@ -58,7 +58,7 @@ describe('opener selection and placement reporting', () => {
       { name: 'Stories/body.xml', content: '<Story Self="body"><ParagraphStyleRange><Content>Body continues</Content></ParagraphStyleRange></Story>' },
     ])
     const result = await importIdml(bytes)
-    const chapter = result.book.chapters[0]
+    const chapter = result.book.body[0]
     const html = chapter && 'html' in chapter ? chapter.html : ''
     expect(html).not.toContain('<svg')
     expect(result.report.unsupportedElements).toMatchObject({ 'polygon art group': 2, Rectangle: 1 })

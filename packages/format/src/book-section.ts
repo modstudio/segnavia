@@ -17,6 +17,7 @@ export const DesignedPage = z.object({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
 
 export const REGION_NAME = /^[A-Za-z][\w-]*$/
+export const MAX_PART_DEPTH = 6
 
 export const TemplatedPage = z.object({
   template: z.string().min(1).optional(),
@@ -40,6 +41,16 @@ const sectionFields = {
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+}
+
+const partFields = {
+  name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
+  title: z.string().optional(),
+  html: z.string().optional(),
+  contents: z.boolean().default(true),
+  opens: BookOpens.optional(),
+  parents: BookSectionParents.optional(),
+  runningHead: z.string().optional(),
 }
 
 export const DesignedSection = z.object({
@@ -90,15 +101,68 @@ const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
 export const BookChapterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, flowingChapter])
 export type BookChapterEntry = z.infer<typeof BookChapterEntry>
 
-export function isBookContents(entry: BookFrontMatterEntry): entry is BookContents {
+export interface Part extends z.infer<z.ZodObject<typeof partFields>> {
+  children: BookItem[]
+}
+
+export type BookItem = Part | BookFrontMatterEntry | BookChapterEntry
+
+export const Part: z.ZodType<Part> = z.lazy(() => z.object({ ...partFields, children: z.array(BookItem).default([]) }))
+export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFrontMatterEntry, BookChapterEntry]))
+
+export type BookDivision = 'front' | 'body' | 'end'
+
+interface BookSectionLocation {
+  ancestry: Array<{ name: string; title?: string; runningHead?: string; id: string }>
+  depth: number
+  path: (string | number)[]
+}
+
+export type BookSectionEntry = BookSectionLocation & { entry: BookItem; division: BookDivision; id?: string }
+
+export function isPart(entry: BookItem): entry is Part {
+  return 'name' in entry
+}
+
+export interface BookDivisions {
+  frontMatter: BookItem[]
+  body: BookItem[]
+  bodyKey?: 'body' | 'chapters'
+  endMatter: BookItem[]
+}
+
+/** The canonical reading order for every feature that consumes a book. */
+export function bookSections(book: BookDivisions): BookSectionEntry[] {
+  const sections: BookSectionEntry[] = []
+  let partNumber = 0
+  const walk = (items: BookItem[], division: BookDivision, parentPath: (string | number)[], ancestry: BookSectionEntry['ancestry']): void => {
+    items.forEach((entry, index) => {
+      const path = [...parentPath, index]
+      if (!isPart(entry)) {
+        sections.push({ entry, division, ancestry, depth: ancestry.length, path })
+        return
+      }
+      partNumber += 1
+      const id = `segnavia-part-${partNumber}`
+      if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
+      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id }])
+    })
+  }
+  walk(book.frontMatter, 'front', ['frontMatter'], [])
+  walk(book.body, 'body', [book.bodyKey ?? 'body'], [])
+  walk(book.endMatter, 'end', ['endMatter'], [])
+  return sections
+}
+
+export function isBookContents(entry: BookItem): entry is BookContents {
   return 'kind' in entry && entry.kind === 'contents'
 }
 
-export function isDesignedSection(entry: BookFrontMatterEntry | BookChapterEntry): entry is DesignedSection {
+export function isDesignedSection(entry: BookItem): entry is DesignedSection {
   return 'kind' in entry && entry.kind === 'designed'
 }
 
-export function isTemplatedSection(entry: BookFrontMatterEntry | BookChapterEntry): entry is TemplatedSection {
+export function isTemplatedSection(entry: BookItem): entry is TemplatedSection {
   return 'kind' in entry && entry.kind === 'templated'
 }
 
@@ -115,27 +179,21 @@ interface NamedSection {
 
 type Issue = { path: (string | number)[]; message: string }
 
-function namedSections(book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] }): NamedSection[] {
-  const front = book.frontMatter.map((entry, index): NamedSection => {
-    const path = ['frontMatter', index]
-    const label = entry.title ?? `frontMatter[${index}]`
-    return { label, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
-  })
-  const chapters = book.chapters.map((entry, index): NamedSection => {
-    const path = ['chapters', index]
-    if (isDesignedSection(entry) || isTemplatedSection(entry)) {
-      return { label: entry.title ?? `chapters[${index}]`, path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
-    }
-    return { label: entry.title, path, parents: entry.parents }
-  })
-  return [...front, ...chapters]
+function pathLabel(path: (string | number)[]): string {
+  return path.join('.')
 }
 
-function hasKind(
-  book: { frontMatter: BookFrontMatterEntry[]; chapters: BookChapterEntry[] },
-  match: (entry: BookFrontMatterEntry | BookChapterEntry) => boolean,
-): boolean {
-  return book.frontMatter.some(match) || book.chapters.some(match)
+function namedSections(book: BookDivisions): NamedSection[] {
+  return bookSections(book).map(({ entry, path }): NamedSection => {
+    if (isDesignedSection(entry) || isTemplatedSection(entry)) {
+      return { label: entry.title ?? pathLabel(path), path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
+    }
+    return { label: entry.title ?? pathLabel(path), path, parents: entry.parents }
+  })
+}
+
+function hasKind(book: BookDivisions, match: (entry: BookItem) => boolean): boolean {
+  return bookSections(book).some(({ entry }) => match(entry))
 }
 
 function unknownParent(label: string, role: string, name: string, path: (string | number)[]): Issue {
@@ -201,13 +259,13 @@ function templatedPageIssues(section: NamedSection, knownTemplates: Set<string>)
   return issues
 }
 
-export function bookParentIssues(book: {
-  mode: 'continuous' | 'paginated'
-  parentPages: ParentPage[]
-  templates: BookTemplate[]
-  frontMatter: BookFrontMatterEntry[]
-  chapters: BookChapterEntry[]
-}): Array<{ path: (string | number)[]; message: string }> {
+export function bookParentIssues(
+  book: BookDivisions & {
+    mode: 'continuous' | 'paginated'
+    parentPages: ParentPage[]
+    templates: BookTemplate[]
+  },
+): Array<{ path: (string | number)[]; message: string }> {
   const issues: Issue[] = []
   if (book.mode === 'continuous' && hasKind(book, isDesignedSection)) {
     issues.push({

@@ -3,6 +3,7 @@ import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
+import { verifyPartsBooks } from './book-parts.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -109,8 +110,8 @@ export async function verifyBooks(h: Harness) {
   )
 
   await verifyPaginatedBookMotifs(h)
-
   await verifyPaginatedBooks(h)
+  await verifyPartsBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
 }

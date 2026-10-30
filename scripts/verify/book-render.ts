@@ -5,6 +5,7 @@ import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/for
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
+import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
@@ -127,7 +128,7 @@ function contentsNumbers(
   const entries = [
     { text: fixture.frontTitle, number: formatNumber(1, frontSystem) },
     ...chapterPages.flatMap((page, index) => [
-      { text: fixture.book.chapters[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
+      { text: fixture.book.chapters?.[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
       ...Array.from({ length: 6 }, (_, topic) => ({
         text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H2-${topic}`,
         number: formatNumber(page - frontPages, bodySystem),
@@ -239,7 +240,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
     ...fixture.chapterMarkers.flatMap((marker, chapter) => [
-      { title: fixture.book.chapters[chapter]?.title ?? '', page: pageWith(pages, marker) },
+      { title: fixture.book.chapters?.[chapter]?.title ?? '', page: pageWith(pages, marker) },
       ...Array.from({ length: 6 }, (_, topic) => {
         const title = `${tag}-${chapter + 1}-H2-${topic}`
         return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
@@ -335,6 +336,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyFixture(renderer, work, fixture('english'), check)
   await verifyFixture(renderer, work, fixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)
+  await verifyPartsOutlines(renderer, check)
   await verifyPaginatedBookWithoutContents(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`

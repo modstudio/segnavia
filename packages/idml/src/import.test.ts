@@ -29,7 +29,7 @@ describe('importIdml', () => {
       { name: 'Stories/Story_master.xml', content: '<Story Self="master-story"/>' },
     ])
     const result = await importIdml(bytes)
-    expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
+    expect(result.book.body.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
     expect(result.book.dir).toBe('ltr')
     expect(result.book.page?.margin.inner).toBeCloseTo(30 * (25.4 / 72))
     expect(result.book.page?.margin.outer).toBeCloseTo(40 * (25.4 / 72))
@@ -78,7 +78,7 @@ describe('importIdml', () => {
       },
     ])
     const result = await importIdml(bytes)
-    const chapter = result.book.chapters[0]
+    const chapter = result.book.body[0]
     if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
     expect(result.book).toMatchObject({ dir: 'ltr', lang: 'he', page: { columnGap: 12 * (25.4 / 72) } })
     expect(chapter.html).toContain('class="idml-p-body" dir="rtl" data-columns="2"')
@@ -180,7 +180,7 @@ describe('importIdml', () => {
     ])
     const result = await importIdml(bytes)
     expect(result.book.lang).toBe('he')
-    const chapter = result.book.chapters[0]
+    const chapter = result.book.body[0]
     if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
     expect(chapter.html).toContain('dir="ltr"')
     expect(result.book.css).toContain('.idml-p-body{line-height:18pt}')
@@ -221,7 +221,7 @@ describe('importIdml', () => {
     expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-book-recto', 'idml-h-book-verso'])
     expect(result.book.parentPages[0]?.head).toContain('data-motif-name="Siman"')
     expect(result.book.parentPages[0]?.head).toContain('data-motif-which="first"')
-    const chapter = result.book.chapters[0]
+    const chapter = result.book.body[0]
     expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-mark="Siman">')
     expect(result.report.unsupportedElements).not.toHaveProperty('master story')
   })
@@ -253,11 +253,11 @@ describe('importIdml', () => {
         return '<svg><script>bad()</script><path d="M0 0"/></svg>'
       },
     })
-    expect(result.book.chapters.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
-    const first = result.book.chapters[0]
-    const second = result.book.chapters[1]
-    const firstHtml = first && 'html' in first ? first.html : ''
-    const secondHtml = second && 'html' in second ? second.html : ''
+    expect(result.book.body.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
+    const first = result.book.body[0]
+    const second = result.book.body[1]
+    const firstHtml = first && 'html' in first ? (first.html ?? '') : ''
+    const secondHtml = second && 'html' in second ? (second.html ?? '') : ''
     expect(firstHtml.startsWith('<div class="idml-title-block"')).toBe(true)
     expect(firstHtml).toContain('Header one')
     expect(firstHtml).not.toContain('Header two')
@@ -289,7 +289,7 @@ describe('importIdml', () => {
       { name: 'Stories/body.xml', content: '<Story Self="body"><ParagraphStyleRange><Content>Body</Content></ParagraphStyleRange></Story>' },
     ])
     const result = await importIdml(bytes)
-    const chapter = result.book.chapters[0]
+    const chapter = result.book.body[0]
     const html = chapter && 'html' in chapter ? chapter.html : ''
     expect(html).toContain('inset-inline-start:-5pt;inline-size:20pt')
     expect(html).toContain('block-size:20pt"></div>')
