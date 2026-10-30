@@ -3,6 +3,8 @@ import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
+import { clickBookAnchor, inBookView } from './book-navigation.ts'
+import { verifyNoteSeries } from './book-note-series.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
@@ -21,25 +23,6 @@ import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
 const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit', 'segnavia:book-place'])
-
-async function inView(h: Harness, frame: string, selector: string): Promise<boolean> {
-  return h.page
-    .frameLocator(`${frame} iframe`)
-    .locator(selector)
-    .evaluate((element) => {
-      const box = element.getBoundingClientRect()
-      return box.bottom > 0 && box.top < innerHeight
-    })
-}
-
-async function clickAnchor(h: Harness, frame: string, selector: string) {
-  // Activate in the document so the check tests the link handler, not browser pointer routing into a sandboxed frame.
-  await h.page
-    .frameLocator(`${frame} iframe`)
-    .locator(selector)
-    .first()
-    .evaluate((element: HTMLAnchorElement) => element.click())
-}
 
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
@@ -79,8 +62,8 @@ export async function verifyBooks(h: Harness) {
       .locator('body')
       .evaluate(() => scrollTo(0, 0))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-top.png`) })
-    await clickAnchor(h, frame, '.segnavia-contents-entry a')
-    const contents = await inView(h, frame, '#segnavia-chapter-1 h1')
+    await clickBookAnchor(h, frame, '.segnavia-contents-entry a')
+    const contents = await inBookView(h, frame, '#segnavia-chapter-1 h1')
     const href = await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -89,14 +72,14 @@ export async function verifyBooks(h: Harness) {
     check(`${id} contents scroll the chapter into the frame`, contents && href === 'about:srcdoc' && hostScroll === 0, JSON.stringify({ href, hostScroll }))
     await page.locator(frame).screenshot({ path: path.join(EVIDENCE, `${id}-contents.png`) })
 
-    await clickAnchor(h, frame, '#segnavia-fnref-1-1')
-    check(`${id} footnote marker brings its note into view`, await inView(h, frame, '#segnavia-fn-1-1'))
-    await clickAnchor(h, frame, '#segnavia-fn-1-1 a')
-    check(`${id} footnote back-link returns to its marker`, await inView(h, frame, '#segnavia-fnref-1-1'))
+    await clickBookAnchor(h, frame, '#segnavia-fnref-1-1')
+    check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
+    await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
+    check(`${id} footnote back-link returns to its marker`, await inBookView(h, frame, '#segnavia-fnref-1-1'))
 
-    await clickAnchor(h, frame, '#segnavia-enref-1')
-    const endnote = await inView(h, frame, '#segnavia-en-1')
-    const endSection = await inView(h, frame, '#segnavia-endnotes')
+    await clickBookAnchor(h, frame, '#segnavia-enref-1')
+    const endnote = await inBookView(h, frame, '#segnavia-en-1')
+    const endSection = await inBookView(h, frame, '#segnavia-endnotes')
     check(`${id} endnote marker reaches the endnotes section`, endnote && endSection)
   }
 
@@ -114,6 +97,7 @@ export async function verifyBooks(h: Harness) {
   await verifyPartsBooks(h)
   await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
+  await verifyNoteSeries(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {
