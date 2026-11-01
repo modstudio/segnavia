@@ -133,6 +133,7 @@ describe('font collections', () => {
       expect(extracted.format).toBe('truetype')
       expect(zeroAdjustment(extracted.data)).toEqual(zeroAdjustment(source))
       expect(new DataView(extracted.data.buffer).getUint32(12 + 2 * 16 + 4)).not.toBe(0)
+      expect(tableChecksum(extracted.data, 0, extracted.data.length)).toBe(0xb1b0afba)
     }
   })
 
