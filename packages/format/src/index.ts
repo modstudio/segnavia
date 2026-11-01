@@ -98,6 +98,7 @@ export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './dec
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export { collectionFaces, extractFace, type ExtractedFontFace } from './font-collection.ts'
+export { resolveFontFace, type ResolvedFontFace } from './font-face.ts'
 export {
   APP_FONT_NAME,
   APP_FONT_NAME_MESSAGE,
