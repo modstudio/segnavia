@@ -17,6 +17,7 @@ import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
+import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
@@ -312,6 +313,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
+buildFontCollectionDemo(ROOT, SITE)
 await buildBookDemo(SITE)
 buildPaperDemo(SITE)
 await buildSlotDemo(SITE)
