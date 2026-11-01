@@ -45,9 +45,15 @@ const refusal = (work: Promise<unknown>) =>
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
 
-const collectionPdf = execFileSync('pdftoppm', ['-singlefile', '-gray', '-r', '96', path.resolve(import.meta.dirname, '../out/font-collection.pdf'), '-'])
-const standalonePdf = execFileSync('pdftoppm', ['-singlefile', '-gray', '-r', '96', path.resolve(import.meta.dirname, '../out/font-standalone.pdf'), '-'])
-check('a collection face has the same PDF glyph ink as its standalone face', collectionPdf.equals(standalonePdf))
+// With no output root, pdftoppm writes the single page to stdout; an empty
+// image would make the comparison pass without comparing anything.
+const collectionPdf = execFileSync('pdftoppm', ['-singlefile', '-gray', '-r', '96', path.resolve(import.meta.dirname, '../out/font-collection.pdf')])
+const standalonePdf = execFileSync('pdftoppm', ['-singlefile', '-gray', '-r', '96', path.resolve(import.meta.dirname, '../out/font-standalone.pdf')])
+check(
+  'a collection face has the same PDF glyph ink as its standalone face',
+  collectionPdf.length > 0 && collectionPdf.equals(standalonePdf),
+  `${collectionPdf.length} and ${standalonePdf.length} bytes`,
+)
 
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
