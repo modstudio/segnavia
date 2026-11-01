@@ -89,7 +89,8 @@ function shapeRefusal(error: z.ZodError): PlacementRefusedError {
   const issue = error.issues[0]
   const field = String(issue?.path[0] ?? 'kind') as keyof Placement
   const detail = issue?.message ?? 'the value is invalid'
-  if (detail.includes('to clear this refusal')) return new PlacementRefusedError(`${field} could not be accepted: ${detail}`)
+  // This module's refinements state their own remedy; Zod's built-in issues do not.
+  if (issue?.code === 'custom') return new PlacementRefusedError(`${field} could not be accepted: ${detail}`)
   return new PlacementRefusedError(`${field} could not be accepted: ${detail}; ${FIELD_REMEDIES[field]} to clear this refusal`)
 }
 
