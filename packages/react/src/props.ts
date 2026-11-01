@@ -5,6 +5,7 @@ import type {
   HostTransition,
   PageInput,
   PrintInput,
+  SegnaviaBook,
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
@@ -96,6 +97,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   slots?: SegnaviaThumbnail['slots']
   motifs?: SegnaviaThumbnail['motifs']
   fonts?: SegnaviaThumbnail['fonts']
+  placements?: SegnaviaThumbnail['placements']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
@@ -123,9 +125,22 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
+  placements?: SegnaviaPage['placements']
   src?: string
   label?: string
   bounded?: boolean
+  unstyled?: boolean
+}
+
+export interface BookProps extends ElementProps<SegnaviaBook> {
+  view?: SegnaviaBook['view']
+  fonts?: SegnaviaBook['fonts']
+  motifs?: SegnaviaBook['motifs']
+  placements?: SegnaviaBook['placements']
+  dependencyOrigins?: SegnaviaBook['dependencyOrigins']
+  src?: string
+  spread?: boolean
+  layout?: SegnaviaBook['layout']
   unstyled?: boolean
 }
 
@@ -138,6 +153,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
+  placements?: SegnaviaPaper['placements']
   unstyled?: boolean
 }
 
@@ -150,6 +166,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
+  placements?: SegnaviaDocument['placements']
   unstyled?: boolean
 }
 

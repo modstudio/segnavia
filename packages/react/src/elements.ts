@@ -1,4 +1,4 @@
-import type { SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
+import type { SegnaviaBook, SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -18,6 +18,7 @@ import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
+  BookProps,
   CaptionProps,
   CaptionsProps,
   CounterProps,
@@ -82,7 +83,7 @@ export const ELEMENTS = {
   ),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts'],
+    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts', 'placements'],
     {
       onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
     },
@@ -99,17 +100,22 @@ export const ELEMENTS = {
   ),
   page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(
     HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts'],
+    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements'],
+    {},
+  ),
+  book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
+    HEADLESS_ELEMENTS.book,
+    ['view', 'fonts', 'motifs', 'placements', 'dependencyOrigins'],
     {},
   ),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts'],
+    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements'],
     {},
   ),
   document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts'],
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements'],
     {},
   ),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),

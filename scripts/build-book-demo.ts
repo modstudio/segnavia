@@ -12,6 +12,7 @@ import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
+import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
@@ -280,6 +281,7 @@ export async function buildBookPdfs(
 
 export async function buildBookDemo(site: string): Promise<void> {
   await buildIdmlTableDemo(site)
+  await writePlacedMediaBook(site)
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
   writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(Book.parse(composeFailureFixture()))))

@@ -15,7 +15,7 @@
 import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
-import { framePageMotifRefusal, type MotifsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
@@ -38,6 +38,7 @@ export class SegnaviaPage extends HTMLElement {
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private placementOptions: PlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
@@ -83,6 +84,15 @@ export class SegnaviaPage extends HTMLElement {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    if (this.pageValue) this.load(this.pageValue)
+  }
+
+  get placements(): PlacementsOptions | undefined {
+    return this.placementOptions
+  }
+
+  set placements(value: PlacementsOptions | undefined) {
+    this.placementOptions = value
     if (this.pageValue) this.load(this.pageValue)
   }
 
@@ -178,7 +188,7 @@ export class SegnaviaPage extends HTMLElement {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (!this.motifOptions && !this.fontOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
       const motifRefusal = framePageMotifRefusal(page)
       if (motifRefusal) {
         report(motifRefusal)
@@ -207,7 +217,7 @@ export class SegnaviaPage extends HTMLElement {
       this.fit()
       return
     }
-    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal)
+    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions)
       .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
       .catch(report)
     this.fit()

@@ -8,6 +8,7 @@ import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
 import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
 import { verifyPartsBooks } from './book-parts.ts'
+import { verifyPlacedMediaBook } from './book-placed-media.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -33,12 +34,10 @@ const BRIDGE_MESSAGES = new Set([
   'segnavia:book-place',
   'segnavia:compose-failure',
 ])
-
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
   await Promise.all(['#book-en', '#book-he'].map((book) => page.frameLocator(`${book} iframe`).locator('.segnavia-contents-list').waitFor()))
-
   const continuousBookStyle = await page
     .frameLocator('#book-en iframe')
     .locator('.book-css-check')
@@ -113,6 +112,7 @@ export async function verifyBooks(h: Harness) {
   await verifyWorkbooks(h)
   await verifyNoteSeries(h)
   await verifyImportedIdmlTable(h)
+  await verifyPlacedMediaBook(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {

@@ -1,3 +1,4 @@
+import type { PlacementsOptions } from '@segnavia/html'
 import type { ResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -46,6 +47,7 @@ export function liveBoardItem(
   failed: (error: unknown) => void,
   motifs?: MotifsOptions,
   fonts?: FontsOptions,
+  placements?: PlacementsOptions,
 ): LiveBoardItem {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()
@@ -65,6 +67,7 @@ export function liveBoardItem(
     const dispose = listenForError(page, failed)
     page.motifs = motifs
     page.fonts = fonts
+    page.placements = placements
     page.load({ ...resolved.page, scripts: 'refuse' })
     return { element: page, dispose }
   }
@@ -73,6 +76,7 @@ export function liveBoardItem(
     const dispose = listenForError(paper, failed)
     paper.motifs = motifs
     paper.fonts = fonts
+    paper.placements = placements
     paper.load(
       resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
       resolved.imposition,
@@ -91,6 +95,7 @@ export function liveBoardItem(
   book.addEventListener('error', onError)
   book.motifs = motifs
   book.fonts = fonts
+  book.placements = placements
   book.view = { ...resolved.view, scripts: 'refuse' }
   mounting = false
   if (loadError !== undefined) throw loadError

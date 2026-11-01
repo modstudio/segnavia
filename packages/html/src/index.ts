@@ -61,6 +61,18 @@ export {
   type PlacedMotif,
   renderMotifPlacements,
 } from './motifs.ts'
+export {
+  PLACEMENT_ATTRIBUTES,
+  type PlacementPlan,
+  type PlacementPlanEntry,
+  type PlacementRefusal,
+  type PlacementReport,
+  type PlacementsOptions,
+  placementPlan,
+  type ResolvedPlacement,
+  type ResolvePlacement,
+  resolvePlacements,
+} from './placements.ts'
 export * from './printed-pages.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
 export {

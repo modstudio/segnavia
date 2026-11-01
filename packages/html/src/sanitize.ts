@@ -85,6 +85,10 @@ function normalizeUrl(value: string): string {
     .toLowerCase()
 }
 
+export function safeImageSource(value: string): boolean {
+  return DATA_IMAGE.test(normalizeUrl(value))
+}
+
 function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
@@ -97,7 +101,7 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>)
     }
   }
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
-  if (attribute === 'src' || attribute === 'poster') return DATA_IMAGE.test(url)
+  if (attribute === 'src' || attribute === 'poster') return safeImageSource(value)
   return false
 }
 

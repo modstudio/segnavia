@@ -2,6 +2,7 @@
 // width. It brings no appearance, only geometry, which a host can override.
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
+import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
@@ -23,6 +24,7 @@ export class SegnaviaPaper extends HTMLElement {
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private placementOptions: PlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
   private resolvedFontCss = ''
   private resolvedSlots: PreparedSlots | undefined
@@ -47,6 +49,16 @@ export class SegnaviaPaper extends HTMLElement {
   set motifs(value: MotifsOptions | undefined) {
     this.slotGeneration++
     this.motifOptions = value
+    if (this.imposed) this.paint()
+  }
+
+  get placements(): PlacementsOptions | undefined {
+    return this.placementOptions
+  }
+
+  set placements(value: PlacementsOptions | undefined) {
+    this.slotGeneration++
+    this.placementOptions = value
     if (this.imposed) this.paint()
   }
 
@@ -198,7 +210,7 @@ export class SegnaviaPaper extends HTMLElement {
         .then((resolved) => commit(shown, resolved))
         .catch(report)
     }
-    if (!this.motifOptions && !this.fontOptions && !pages.some((page) => (page.fonts ?? []).some((ref) => 'app' in ref))) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => (page.fonts ?? []).some((ref) => 'app' in ref))) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
         this.paintPlaceholder(imposed)
@@ -214,7 +226,7 @@ export class SegnaviaPaper extends HTMLElement {
       return
     }
     this.paintPlaceholder(imposed)
-    void expandFramePages(pages, this.motifOptions, controller.signal)
+    void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen')
       .then(async (expanded) => {
         const css = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
         if (!current()) return

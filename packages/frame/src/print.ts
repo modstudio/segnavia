@@ -5,6 +5,7 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import type { PlacementsOptions } from '@segnavia/html'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { paperBoxSize } from './paper-geometry.ts'
@@ -215,6 +216,7 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
   slots?: SlotPrintOptions
   motifs?: MotifsOptions
   fonts?: FontsOptions
+  placements?: PlacementsOptions
 }
 
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
@@ -224,6 +226,8 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
     pagesInput.map((page) => Page.parse(page)),
     options.motifs,
     signal,
+    options.placements,
+    'print',
   )
   const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)

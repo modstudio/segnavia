@@ -3,6 +3,7 @@
 // natural size at the browser's 96 dpi.
 
 import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
@@ -25,6 +26,7 @@ export class SegnaviaDocument extends HTMLElement {
   private authoringRail: HTMLElement | null = null
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private placementOptions: PlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
@@ -48,6 +50,15 @@ export class SegnaviaDocument extends HTMLElement {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.paint()
+  }
+
+  get placements(): PlacementsOptions | undefined {
+    return this.placementOptions
+  }
+
+  set placements(value: PlacementsOptions | undefined) {
+    this.placementOptions = value
     this.paint()
   }
 
@@ -242,6 +253,7 @@ export class SegnaviaDocument extends HTMLElement {
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
+    page.placements = this.placementOptions
     page.fonts = this.fontOptions
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet

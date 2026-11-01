@@ -149,7 +149,7 @@ export {
 } from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
-export { Page, type PageInput, PageSize } from './page.ts'
+export { FLUID_WIDTH, Page, type PageInput, PageSize } from './page.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
