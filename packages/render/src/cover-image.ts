@@ -1,4 +1,4 @@
-import { COVER_SHEET, type Cover } from '@segnavia/format'
+import type { Cover } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import type { ImageOptions } from './options.ts'
 import { pageViewport } from './page-viewport.ts'
@@ -21,7 +21,7 @@ export function coverImagePlan(cover: Cover, options: CoverImageOptions): CoverI
   const { dependencies: _dependencies, dependencyOrigins: _dependencyOrigins, format = 'webp', proof: _proof, scale: _scale, width, ...rest } = supplied
   const viewport = pageViewport(cover.page)
   return {
-    height: Math.round((width * COVER_SHEET.height) / COVER_SHEET.width),
+    height: Math.round((viewport.height * width) / viewport.width),
     options: { ...rest, format, scale: width / viewport.width },
   }
 }

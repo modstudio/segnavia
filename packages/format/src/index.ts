@@ -3,22 +3,16 @@
 // for hosts that do not run TypeScript.
 
 import { z } from 'zod'
-import { Board } from './board.ts'
-import { BookShape, BookView } from './book.ts'
-import { Cover } from './cover.ts'
-import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
+import { Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
-import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
+import { FontReference } from './fonts.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
-import { Lexicon } from './lexicon.ts'
-import { Media } from './media.ts'
-import { Motif, MotifInput } from './motif.ts'
-import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
-import { PlacementShape } from './placement.ts'
+import { jsonSchemasFor } from './json-schemas.ts'
+import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
-import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
+import { Slots } from './slots.ts'
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
@@ -74,6 +68,7 @@ export * from './book-exports.ts'
 export {
   COVER_DRAWING_VERSION,
   COVER_SHEET,
+  Cover,
   type CoverDigestMaterial,
   type CoverInput,
   coverDigest,
@@ -215,7 +210,6 @@ export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
-export { Cover }
 
 export const Margin = z.object({
   top: z.number().nonnegative().default(0),
@@ -380,30 +374,7 @@ export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>
 
 export function jsonSchemas() {
-  return {
-    book: z.toJSONSchema(BookShape, { io: 'input' }),
-    bookView: z.toJSONSchema(BookView, { io: 'input' }),
-    page: z.toJSONSchema(Page, { io: 'input' }),
-    lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
-    imposition: z.toJSONSchema(Imposition, { io: 'input' }),
-    deck: z.toJSONSchema(DeckShape, { io: 'input' }),
-    manifest: z.toJSONSchema(Manifest, { io: 'input' }),
-    publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
-    board: z.toJSONSchema(Board, { io: 'input' }),
-    printSetting: z.toJSONSchema(PrintSetting, { io: 'input' }),
-    printSettingInput: z.toJSONSchema(PrintSettingInput, { io: 'input' }),
-    slotDeclaration: z.toJSONSchema(SlotDeclaration, { io: 'input' }),
-    slotDeclarationInput: z.toJSONSchema(SlotDeclarationInput, { io: 'input' }),
-    fontReference: z.toJSONSchema(FontReference, { io: 'input' }),
-    fontReferenceInput: z.toJSONSchema(FontReferenceInput, { io: 'input' }),
-    localFaceTransport: z.toJSONSchema(LocalFaceTransport, { io: 'input' }),
-    localFacesTransport: z.toJSONSchema(LocalFacesTransport, { io: 'input' }),
-    motif: z.toJSONSchema(Motif, { io: 'input' }),
-    motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
-    media: z.toJSONSchema(Media, { io: 'input' }),
-    placement: z.toJSONSchema(PlacementShape, { io: 'input' }),
-    cover: z.toJSONSchema(Cover, { io: 'input' }),
-  }
+  return jsonSchemasFor(Page, Imposition)
 }
 
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'

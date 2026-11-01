@@ -160,7 +160,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-    const viewport = pageViewport(page)
+    const { grows: _grows, ...viewport } = pageViewport(page)
     return withTab(
       {
         viewport,
@@ -277,8 +277,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal)
         const page = await filledPage(prepared.page, opts.slots, deadline.signal)
-        const viewport = pageViewport(page, opts.width)
-        const grows = page.size === 'fluid' || (typeof page.size === 'object' && page.size.height === 'auto')
+        const { grows, ...viewport } = pageViewport(page, opts.width)
         return withTab(
           {
             viewport,

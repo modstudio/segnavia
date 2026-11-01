@@ -8,6 +8,7 @@ test.each([
   [160, 100],
   [320, 200],
   [800, 500],
+  [1601, 1000],
 ])('derives an exact %i × %i cover image', (width, height) => {
   const plan = coverImagePlan(cover, { width })
   expect(plan.height).toBe(height)
