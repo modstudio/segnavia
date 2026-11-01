@@ -5,7 +5,7 @@ import { bookFrame } from './book-frame.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
+import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
@@ -32,6 +32,7 @@ export class SegnaviaBook extends HTMLElementBase {
   private latestInput: 'src' | 'view' | null = null
   private fontOptions: FontsOptions | undefined
   private motifOptions: MotifsOptions | undefined
+  private placementOptions: PlacementsOptions | undefined
   dependencyOrigins: Iterable<string> = []
 
   connectedCallback() {
@@ -97,15 +98,15 @@ export class SegnaviaBook extends HTMLElementBase {
       if (this.loadController === controller) this.loadController = null
     }
   }
-
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
   }
-
   get motifs(): MotifsOptions | undefined {
     return this.motifOptions
   }
-
+  get placements(): PlacementsOptions | undefined {
+    return this.placementOptions
+  }
   get spread(): boolean {
     return this.hasAttribute('spread')
   }
@@ -113,7 +114,6 @@ export class SegnaviaBook extends HTMLElementBase {
   set spread(value: boolean) {
     this.toggleAttribute('spread', value)
   }
-
   get layout(): BookLayout {
     return this.currentLayout
   }
@@ -121,19 +121,22 @@ export class SegnaviaBook extends HTMLElementBase {
   set layout(value: BookLayout) {
     this.setAttribute('layout', value)
   }
-
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
-    if (!this.currentView) return
-    ++this.loadGeneration
-    this.loadController?.abort()
-    this.loadController = null
-    this.sourceLoadController = null
-    this.mount()
+    this.reloadSources()
   }
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.reloadSources()
+  }
+
+  set placements(value: PlacementsOptions | undefined) {
+    this.placementOptions = value
+    this.reloadSources()
+  }
+
+  private reloadSources() {
     if (!this.currentView) return
     ++this.loadGeneration
     this.loadController?.abort()
@@ -322,7 +325,7 @@ export class SegnaviaBook extends HTMLElementBase {
     const view = this.currentView
     if (!view) return
     this.showRequestedLayout(view)
-    if (!this.motifOptions && !this.fontOptions) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {
         const prepared = prepareBookViewWithoutSources(view)
         this.mountFrames(prepared.view, prepared.css)
@@ -335,7 +338,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal)
+    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
         this.mountFrames(result.view, result.css)

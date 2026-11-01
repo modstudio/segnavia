@@ -16,7 +16,7 @@ host, never in this repository.
 ## The library owns its seams
 
 A seam is declared here and implemented by a host: `Host` in capture,
-`resolveSlide` and `css` on the deck, `inline` for printing, `VoiceProvider`
+`resolveSlide` and `css` on the deck, `resolvePlacement` for placed assets, `inline` for printing, `VoiceProvider`
 and `alignedProvider` for voice. A host conforms to a seam; a seam is never
 shaped around one host. When a need does not fit an existing seam, design the
 seam first and write it into `docs/architecture.md`.

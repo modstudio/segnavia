@@ -5,6 +5,7 @@ import type {
   HostTransition,
   PageInput,
   PrintInput,
+  SegnaviaBook,
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
@@ -123,9 +124,22 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
+  placements?: SegnaviaPage['placements']
   src?: string
   label?: string
   bounded?: boolean
+  unstyled?: boolean
+}
+
+export interface BookProps extends ElementProps<SegnaviaBook> {
+  view?: SegnaviaBook['view']
+  fonts?: SegnaviaBook['fonts']
+  motifs?: SegnaviaBook['motifs']
+  placements?: SegnaviaBook['placements']
+  dependencyOrigins?: SegnaviaBook['dependencyOrigins']
+  src?: string
+  spread?: boolean
+  layout?: SegnaviaBook['layout']
   unstyled?: boolean
 }
 

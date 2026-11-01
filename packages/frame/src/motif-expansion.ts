@@ -20,9 +20,12 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
+  type PlacementsOptions,
+  resolvePlacements,
 } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
+import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 export interface MotifsOptions {
@@ -31,6 +34,8 @@ export interface MotifsOptions {
   linkOrigins?: Iterable<string>
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
+
+export type { PlacementsOptions, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 
 export interface ExpandedFramePage {
   page: Page
@@ -219,26 +224,70 @@ async function expandBookShape<T extends Book | BookView>(shape: BookHtmlShape<T
   return { book: shape.book, fonts: summary.fonts }
 }
 
-export async function expandFrameBook(book: Book, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedBook<Book>> {
+async function resolveBookShape<T extends Book | BookView>(
+  expanded: ExpandedBook<T>,
+  placements: PlacementsOptions | undefined,
+  purpose: 'screen' | 'print',
+  signal: AbortSignal,
+): Promise<ExpandedBook<T>> {
+  if (!placements) return expanded
+  const shape = 'frontMatter' in expanded.book ? bookShape(expanded.book as Book) : viewShape(expanded.book as BookView)
+  const resolved = await Promise.all(
+    shape.fields.map((field) =>
+      resolvePlacements(field.html, {
+        resolvePlacement: placements.resolve,
+        report: placements.report,
+        purpose,
+        width: bookPlacementWidth(shape.book),
+        signal,
+      }),
+    ),
+  )
+  resolved.forEach((html, index) => {
+    shape.fields[index]?.replace(html)
+  })
+  return { book: shape.book, fonts: expanded.fonts } as ExpandedBook<T>
+}
+
+export async function expandFrameBook(
+  book: Book,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+): Promise<ExpandedBook<Book>> {
   const shape = bookShape(book)
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return { book, fonts: [] }
+    return resolveBookShape({ book, fonts: [] }, placements, purpose, signal)
   }
-  return expandBookShape(shape, motifs, signal)
+  return resolveBookShape(await expandBookShape(shape, motifs, signal), placements, purpose, signal)
 }
 
-export async function expandFrameBookView(view: BookView, motifs: MotifsOptions, signal: AbortSignal): Promise<ExpandedBook<BookView>> {
-  return expandBookShape(viewShape(view), motifs, signal)
+export async function expandFrameBookView(
+  view: BookView,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+): Promise<ExpandedBook<BookView>> {
+  const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal) : { book: view, fonts: [] }
+  return resolveBookShape(expanded, placements, 'screen', signal)
 }
 
-export async function expandFramePage(page: Page, motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage> {
+export async function expandFramePage(
+  page: Page,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+): Promise<ExpandedFramePage> {
   const regions = parentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    return { page, fonts: [] }
+    const html = await resolvePagePlacements(page, placements, purpose, signal)
+    return { page: html === page.html ? page : { ...page, html }, fonts: [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
   const result = await expandMotifs(page.html, {
@@ -283,11 +332,19 @@ export async function expandFramePage(page: Page, motifs: MotifsOptions | undefi
         })),
       }
     : undefined
-  return { page: { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }, fonts: summary.fonts }
+  const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
+  const html = await resolvePagePlacements(expandedPage, placements, purpose, signal)
+  return { page: { ...expandedPage, html }, fonts: summary.fonts }
 }
 
-export function expandFramePages(pages: Page[], motifs: MotifsOptions | undefined, signal: AbortSignal): Promise<ExpandedFramePage[]> {
-  return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal)))
+export function expandFramePages(
+  pages: Page[],
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+): Promise<ExpandedFramePage[]> {
+  return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal, placements, purpose)))
 }
 
 export async function prepareShownPage(
@@ -296,8 +353,9 @@ export async function prepareShownPage(
   slots: SlotsOptions | undefined,
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
+  placements?: PlacementsOptions,
 ): Promise<{ page: Page; resolved?: PreparedSlots; css: string }> {
-  const expanded = await expandFramePage(page, motifs, signal)
+  const expanded = await expandFramePage(page, motifs, signal, placements)
   const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
   if (refusal) throw refusal
   const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined

@@ -1,4 +1,4 @@
-import type { SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
+import type { SegnaviaBook, SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -18,6 +18,7 @@ import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
+  BookProps,
   CaptionProps,
   CaptionsProps,
   CounterProps,
@@ -99,7 +100,12 @@ export const ELEMENTS = {
   ),
   page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(
     HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts'],
+    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements'],
+    {},
+  ),
+  book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
+    HEADLESS_ELEMENTS.book,
+    ['view', 'fonts', 'motifs', 'placements', 'dependencyOrigins'],
     {},
   ),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
