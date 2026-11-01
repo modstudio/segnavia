@@ -46,7 +46,8 @@ Single-column paragraphs in a multi-column frame carry `data-columns` within
 the bound `html` exports.
 Tables become native `table`, `colgroup`, row-region and `td` elements. Their
 named cell anchors determine the grid, so source order cannot change placement;
-header and footer regions repeat through the paginator. Table, region and cell
+header and footer regions repeat through the paginator. A table nested in a cell
+is reported as an unsupported `Table` and not rendered. Table, region and cell
 styles are equal-specificity classes in layer order, followed by deduplicated
 local override classes. Collapsed CSS borders preserve one shared edge and let
 the wider stroke win; this differs from InDesign when its last-applied stroke is
