@@ -30,6 +30,23 @@ test('Book preparation resolves placed media through the book PDF field path', a
   expect(bookDocument(expanded.book).html).toContain(`src="${src}"`)
 })
 
+test('placed page entries become designed sections before the book is built', async () => {
+  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'page/one' } }] })
+  const expanded = await expandFrameBook(book, undefined, signal, {
+    resolve: async () => ({ kind: 'page', page: Page.parse({ html: '<p>Resolved page</p>', size: { width: 320, height: 200 } }) }),
+  })
+  expect(bookDocument(expanded.book).html).toContain('<p>Resolved page</p>')
+  expect(expanded.book.body[0]).toMatchObject({ kind: 'designed', pages: [{ html: '<p>Resolved page</p>' }] })
+})
+
+test('placed media entries use image resolution and missing reporting', async () => {
+  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const reports: unknown[] = []
+  const expanded = await expandFrameBook(book, undefined, signal, { resolve: async () => undefined, report: (entry) => reports.push(entry) })
+  expect(bookDocument(expanded.book).html).toContain('data-segnavia-placement="missing"')
+  expect(reports).toEqual([{ address: 'media/missing', page: undefined, reason: 'missing' }])
+})
+
 test('chooses placement widths from print, fluid, fixed, and paginated book viewports', async () => {
   const widths: number[] = []
   const capture = {

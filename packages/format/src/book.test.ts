@@ -6,6 +6,13 @@ const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, o
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
+  test('accepts book placements from the table and refuses other asset kinds', () => {
+    expect(Book.parse(input({ chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'pages/one' } }] })).body[0]).toMatchObject({
+      kind: 'placed',
+      placement: { kind: 'page', address: 'pages/one' },
+    })
+    expect(() => Book.parse(input({ chapters: [{ kind: 'placed', placement: { kind: 'deck', address: 'decks/one' } }] }))).toThrow('book does not accept deck')
+  })
   test('accepts optional ordered authors and a subject', () => {
     expect(Book.parse(input({ authors: ['Ada Lovelace', 'דוד לוי'], subject: 'A book about <things>' }))).toMatchObject({
       authors: ['Ada Lovelace', 'דוד לוי'],
