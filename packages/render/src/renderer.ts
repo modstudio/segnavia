@@ -1,6 +1,7 @@
-import type { BookInput, Deck, ImpositionInput, PageInput } from '@segnavia/format'
+import type { BookInput, CoverInput, Deck, ImpositionInput, PageInput } from '@segnavia/format'
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
+import type { CoverImageOptions } from './cover-image.ts'
 import type { ImageOptions, ProofImageOptions, RenderOptions } from './options.ts'
 
 export const RENDER_BOUND_MS = 60_000
@@ -25,6 +26,7 @@ export interface Renderer {
   pagePdf(page: PageInput, options?: PagePdfOptions): Promise<Uint8Array>
   pagesPdf(pages: PageInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageInput, options?: ImageOptions): Promise<Uint8Array>
+  coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
   deckPdf(deck: Deck, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
   slideImage(deck: Deck, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>

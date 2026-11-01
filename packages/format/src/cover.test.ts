@@ -1,0 +1,88 @@
+import { describe, expect, test } from 'bun:test'
+import { COVER_DRAWING_VERSION, COVER_SHEET, Cover, type CoverDigestMaterial, coverDigest, digestCoverMaterial, MM_PER_PT, type Motif } from './index.ts'
+
+const cover = (html = '<h1>Cover</h1>') => Cover.parse({ page: { html } })
+
+const motif = (key: string, revision = '1'): Motif => ({
+  key,
+  revision,
+  label: key,
+  fields: [],
+  versions: [{ lang: 'en', html: `<p>${key}</p>` }],
+  fonts: [],
+})
+
+describe('Cover', () => {
+  test('fills the cover sheet and print defaults when print is absent', () => {
+    expect(cover().page.print).toEqual({
+      paper: { width: 160, height: 100, unit: 'mm' },
+      orientation: 'landscape',
+      bleed: 0,
+      safe: 0,
+      marks: false,
+      markColor: 'black',
+    })
+  })
+
+  test.each([
+    { width: 160, height: 100, unit: 'mm' as const },
+    { width: 160 / MM_PER_PT, height: 100 / MM_PER_PT, unit: 'pt' as const },
+  ])('accepts an explicit cover sheet in $unit', (paper) => {
+    expect(() => Cover.parse({ page: { html: '', print: { paper, orientation: 'landscape' } } })).not.toThrow()
+  })
+
+  test('refuses another sheet and names its dimensions', () => {
+    expect(() => Cover.parse({ page: { html: '', print: { paper: 'a4' } } })).toThrow('210 × 297 mm sheet')
+    expect(() => Cover.parse({ page: { html: '', print: { paper: 'a4' } } })).toThrow('160 × 100 mm cover sheet')
+  })
+
+  test('refuses print bleed and sandboxed scripts with remedies', () => {
+    expect(() => Cover.parse({ page: { html: '', print: { paper: { width: 160, height: 100, unit: 'mm' }, bleed: 2 } } })).toThrow(
+      'page.print.bleed must be 0; remove bleed',
+    )
+    expect(() => Cover.parse({ page: { html: '', scripts: 'sandboxed' } })).toThrow("page.scripts must be 'refuse'; refuse scripts")
+  })
+
+  test('keeps a Hebrew page unchanged apart from its filled print setting', () => {
+    const parsed = Cover.parse({ page: { html: '<p>שלום</p>', lang: 'he', dir: 'rtl' } })
+    expect(parsed.page).toMatchObject({ html: '<p>שלום</p>', lang: 'he', dir: 'rtl' })
+  })
+})
+
+describe('cover digest', () => {
+  test('is stable across key and unordered input order', async () => {
+    const first = Cover.parse({ name: 'Named', page: { html: 'same', lang: 'en' }, id: 'cover' })
+    const second = Cover.parse({ id: 'cover', page: { lang: 'en', html: 'same' }, name: 'Named' })
+    expect(await coverDigest(first, { stamp: 'renderer', fonts: ['z', 'a'], motifs: [motif('z'), motif('a')] })).toBe(
+      await coverDigest(second, { stamp: 'renderer', fonts: ['a', 'z'], motifs: [motif('a'), motif('z')] }),
+    )
+  })
+
+  test('changes with page HTML, fonts, motifs and renderer stamp', async () => {
+    const base = await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })
+    expect(await coverDigest(cover('<h1>Changed</h1>'), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
+    expect(await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-b'], motifs: [motif('a')] })).not.toBe(base)
+    expect(await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('b')] })).not.toBe(base)
+    expect(await coverDigest(cover(), { stamp: 'new-renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
+  })
+
+  test('changes with the sheet and drawing version', async () => {
+    const material: CoverDigestMaterial = {
+      page: cover().page,
+      sheet: COVER_SHEET,
+      drawingVersion: COVER_DRAWING_VERSION,
+      stamp: 'renderer',
+      fonts: [],
+      motifs: [],
+    }
+    const base = await digestCoverMaterial(material)
+    expect(await digestCoverMaterial({ ...material, sheet: { width: 80, height: 50 } })).not.toBe(base)
+    expect(await digestCoverMaterial({ ...material, drawingVersion: COVER_DRAWING_VERSION + 1 })).not.toBe(base)
+  })
+
+  test('ignores cover identity and page id', async () => {
+    const first = Cover.parse({ id: 'cover-a', name: 'Alpha', page: { id: 'page-a', html: 'same' } })
+    const second = Cover.parse({ id: 'cover-b', name: 'Beta', page: { id: 'page-b', html: 'same' } })
+    expect(await coverDigest(first, { stamp: 'renderer' })).toBe(await coverDigest(second, { stamp: 'renderer' }))
+  })
+})

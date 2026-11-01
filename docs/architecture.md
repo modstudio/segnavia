@@ -995,6 +995,20 @@ inline-start corner, so the first cell of a right-to-left imposition is at
 the top right. Each page keeps its own direction inside its cell. Marks carry
 no text.
 
+## Covers
+
+A designed cover is a page built at thumbnail size on the fixed 160 × 100 mm
+cover sheet, with a 16:10 aspect. Wherever an asset is shown small, the host's
+designed cover comes first; when the host supplies none, today's cover or
+thumbnail remains unchanged.
+
+`coverDigest` gives the cover picture an immutable address. It hashes the
+canonical page without identity metadata, the sheet, the cover drawing
+version, the host's renderer stamp, sorted host-supplied font file identifiers
+and sorted motifs. The host may draw the cover through `coverImage`, keep the
+WebP or PNG under that digest and serve it from an address carrying the digest.
+The library stores no cover document, picture or digest cache.
+
 ## How a render stays safe
 
 Every render runs in its own context, offline, with requests that leave the

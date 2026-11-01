@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { Board } from './board.ts'
 import { BookShape, BookView } from './book.ts'
+import { Cover } from './cover.ts'
 import { DeckShape, Manifest, PublishedShot, Size } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
@@ -70,6 +71,14 @@ export {
   settleBoard,
 } from './board-sections.ts'
 export * from './book-exports.ts'
+export {
+  COVER_DRAWING_VERSION,
+  COVER_SHEET,
+  type CoverDigestMaterial,
+  type CoverInput,
+  coverDigest,
+  digestCoverMaterial,
+} from './cover.ts'
 export {
   Annotation,
   annotationCueIssues,
@@ -206,6 +215,7 @@ export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
+export { Cover }
 
 export const Margin = z.object({
   top: z.number().nonnegative().default(0),
@@ -392,6 +402,7 @@ export function jsonSchemas() {
     motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
     media: z.toJSONSchema(Media, { io: 'input' }),
     placement: z.toJSONSchema(PlacementShape, { io: 'input' }),
+    cover: z.toJSONSchema(Cover, { io: 'input' }),
   }
 }
 

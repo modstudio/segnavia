@@ -1,4 +1,4 @@
-import { Book, type Deck, Page } from '@segnavia/format'
+import { Book, Cover, type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck } from '@segnavia/frame/print-document'
@@ -10,6 +10,7 @@ import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
+import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
@@ -18,7 +19,8 @@ import { dependencySetup, type OverflowEntry, type RenderOptions } from './optio
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
-import { assertPrintOptions, printPage, printViewport } from './page-paper.ts'
+import { assertPrintOptions, printPage } from './page-paper.ts'
+import { FLUID_WIDTH, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
@@ -34,6 +36,7 @@ import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } fro
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
 export { captureImage } from './capture-image.ts'
+export { type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
@@ -65,7 +68,6 @@ export {
 } from './renderer.ts'
 export { filledBook }
 
-const FLUID_WIDTH = 1024
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
 async function contentHeight(tab: Tab): Promise<number> {
@@ -156,14 +158,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
-  function pageViewport(page: Page, width?: number) {
-    if (page.print) {
-      return printViewport(page.print)
-    }
-    if (page.size === 'fluid') return { width: width ?? FLUID_WIDTH, height: 800 }
-    return { width: page.size.width, height: page.size.height === 'auto' ? 800 : page.size.height }
-  }
-
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const viewport = pageViewport(page)
@@ -305,6 +299,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
         )
       })
+    },
+
+    coverImage(input, opts) {
+      const cover = Cover.parse(input)
+      const plan = coverImagePlan(cover, opts)
+      return renderer.pageImage(cover.page, plan.options)
     },
 
     async pagesPdf(inputs, opts = {}) {
