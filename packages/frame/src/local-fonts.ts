@@ -1,4 +1,12 @@
-import { type FontFace, type FontReference, type LocalFacesInput, type LocalFontLimits, localFontLimitRefusal, localFontReferences } from '@segnavia/format'
+import {
+  type FontFace,
+  type FontReference,
+  type LocalFacesInput,
+  type LocalFontLimits,
+  localFontLimitRefusal,
+  localFontReferences,
+  resolveFontFace,
+} from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 import { FontRefusedError } from './page-fonts.ts'
 
@@ -83,8 +91,9 @@ async function readCut(font: LocalFontData, family: string, signal: AbortSignal)
     const data = new Uint8Array(await (await font.blob()).arrayBuffer())
     const format = fontFormat(data)
     if (!format) return
+    const resolved = resolveFontFace(data, format, font.postscriptName)
     const cut = faceWeightAndStyle(font.style)
-    return { family, data, format, weight: cut.weight, style: cut.style }
+    return { family, ...resolved, weight: cut.weight, style: cut.style }
   } catch (error) {
     if (isAbort(error) || signal.aborted) throw error
   }
@@ -170,6 +179,7 @@ export function packLocalFaces(faces: readonly FontFace[], references: readonly 
     format: face.format,
     weight: face.weight,
     style: face.style,
+    postscriptName: face.postscriptName,
     data: bytesToBase64(face.data),
   }))
 }

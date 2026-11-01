@@ -7,6 +7,7 @@ import {
   type LocalFontLimits,
   localFontLimitRefusal,
   localFontReferences,
+  resolveFontFace,
 } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
@@ -35,7 +36,7 @@ function decodeFace(input: unknown): FontFace {
   const family = familyFrom(input)
   if (!parsed.success) {
     throw new RenderRefusedError(
-      `The local face ${JSON.stringify(family)} has an invalid transport shape; send only family, format, weight, style and base64 data to clear this refusal.`,
+      `The local face ${JSON.stringify(family)} has an invalid transport shape; send only family, format, weight, style, postscriptName and base64 data to clear this refusal.`,
     )
   }
   let data: Uint8Array | undefined
@@ -48,13 +49,15 @@ function decodeFace(input: unknown): FontFace {
   if (!data || bytesToBase64(data) !== parsed.data.data) {
     throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
   }
-  const detected = fontFormat(data)
-  if (detected !== parsed.data.format) {
+  const resolved = resolveFontFace(data, parsed.data.format, parsed.data.postscriptName)
+  const detected = fontFormat(resolved.data)
+  if (detected !== resolved.format) {
     throw new RenderRefusedError(
-      `The local face ${JSON.stringify(family)} declares ${parsed.data.format}, but its signature is ${detected ?? 'not a supported font'}; send a matching supported face to clear this refusal.`,
+      `The local face ${JSON.stringify(family)} declares ${resolved.format}, but its signature is ${detected ?? 'not a supported font'}; send a matching supported face to clear this refusal.`,
     )
   }
-  return { ...parsed.data, data }
+  const { postscriptName: _postscriptName, ...face } = parsed.data
+  return { ...face, ...resolved }
 }
 
 function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {

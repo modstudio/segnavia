@@ -9,6 +9,30 @@ function face(overrides: Partial<FontFace> & Pick<FontFace, 'family'>): FontFace
   return { data, format: 'truetype', ...overrides }
 }
 
+function oneFaceCollection(name: string): Uint8Array {
+  const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
+  const bytes = new Uint8Array(62 + encoded.length)
+  const view = new DataView(bytes.buffer)
+  bytes.set(new TextEncoder().encode('ttcf'))
+  view.setUint32(4, 0x00010000)
+  view.setUint32(8, 1)
+  view.setUint32(12, 16)
+  view.setUint32(16, 0x00010000)
+  view.setUint16(20, 1)
+  bytes.set(new TextEncoder().encode('name'), 28)
+  view.setUint32(36, 44)
+  view.setUint32(40, 18 + encoded.length)
+  view.setUint16(46, 1)
+  view.setUint16(48, 18)
+  view.setUint16(50, 3)
+  view.setUint16(52, 1)
+  view.setUint16(54, 0x409)
+  view.setUint16(56, 6)
+  view.setUint16(58, encoded.length)
+  bytes.set(encoded, 62)
+  return bytes
+}
+
 describe('bytesToBase64', () => {
   test('matches known vectors', () => {
     expect(bytesToBase64(new Uint8Array([0]))).toBe('AA==')
@@ -20,6 +44,16 @@ describe('bytesToBase64', () => {
 })
 
 describe('fontCss', () => {
+  test('extracts a named collection face before writing CSS', () => {
+    const css = fontCss({
+      app: new Map(),
+      local: [{ family: 'Collection Face', data: oneFaceCollection('CollectionFace-Regular'), format: 'collection', postscriptName: 'CollectionFace-Regular' }],
+    })
+    expect(css).toContain('data:font/ttf;base64,')
+    expect(css).toContain('format("truetype")')
+    expect(css).not.toContain('format("collection")')
+  })
+
   test('writes the exact @font-face rule and :root property for an app font', () => {
     const app = new Map<string, AppFont>([['serif', { family: 'Body Serif', faces: [face({ family: 'Body Serif' })], generic: 'serif' }]])
     expect(fontCss({ app })).toBe(
@@ -163,7 +197,7 @@ describe('fontCss', () => {
     const format = () => fontCss({ app: new Map(), local: [face({ family: 'Face', format: 'woff2;}body{' as FontFace['format'] })] })
     expect(format).toThrow(FontCssRefusedError)
     expect(format).toThrow(
-      'The face "Face" could not establish a font format that is one of woff2, woff, truetype, opentype; supply one of woff2, woff, truetype, opentype to clear this refusal.',
+      'The face "Face" could not establish a font format that is one of woff2, woff, truetype, opentype, collection; supply one of woff2, woff, truetype, opentype, collection to clear this refusal.',
     )
   })
 

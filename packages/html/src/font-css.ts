@@ -1,4 +1,4 @@
-import { APP_FONT_NAME, type AppFont, FONT_FORMATS, type FontFace, type FontFormat } from '@segnavia/format'
+import { APP_FONT_NAME, type AppFont, FONT_FORMATS, type FontFace, type FontFormat, resolveFontFace } from '@segnavia/format'
 import { bytesToBase64 } from './base64.ts'
 import { hasControlChar } from './control-char.ts'
 import { parseUnicodeRange, UNICODE_RANGE_CLEARANCE } from './unicode-range.ts'
@@ -85,7 +85,9 @@ function validatedFace(font: FontFace): FontFace {
 }
 
 export function fontFaceCss(font: FontFace): string {
-  const face = validatedFace(font)
+  const validated = validatedFace(font)
+  const resolved = resolveFontFace(validated.data, validated.format, validated.postscriptName)
+  const face = { ...validated, ...resolved }
   return `@font-face{font-family:${quoteFamily(face.family)};src:url(data:font/${mimeType(face.format)};base64,${bytesToBase64(face.data)}) format(${JSON.stringify(face.format)});font-weight:${face.weight ?? 'normal'};font-style:${face.style ?? 'normal'};${unicodeRangeDeclaration(face)}font-display:block}`
 }
 

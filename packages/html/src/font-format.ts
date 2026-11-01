@@ -6,5 +6,6 @@ export function fontFormat(data: Uint8Array): FontFormat | undefined {
   if (tag === 'wOF2') return 'woff2'
   if (tag === 'wOFF') return 'woff'
   if (tag === 'OTTO') return 'opentype'
+  if (tag === 'ttcf') return 'collection'
   if (tag === 'true' || (data[0] === 0 && data[1] === 1 && data[2] === 0 && data[3] === 0)) return 'truetype'
 }

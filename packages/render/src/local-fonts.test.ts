@@ -1,12 +1,46 @@
 import { describe, expect, test } from 'bun:test'
 import type { LocalFacesInput } from '@segnavia/format'
+import { bytesToBase64 } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { localFontsForRender } from './local-fonts.ts'
 
 const truetype = 'AAEAAA=='
 const references = [{ local: 'Declared Family', fallback: 'serif' }] as const
 
+function collectionData(name: string): string {
+  const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
+  const bytes = new Uint8Array(62 + encoded.length)
+  const view = new DataView(bytes.buffer)
+  bytes.set(new TextEncoder().encode('ttcf'))
+  view.setUint32(4, 0x00010000)
+  view.setUint32(8, 1)
+  view.setUint32(12, 16)
+  view.setUint32(16, 0x00010000)
+  view.setUint16(20, 1)
+  bytes.set(new TextEncoder().encode('name'), 28)
+  view.setUint32(36, 44)
+  view.setUint32(40, 18 + encoded.length)
+  view.setUint16(46, 1)
+  view.setUint16(48, 18)
+  view.setUint16(50, 3)
+  view.setUint16(52, 1)
+  view.setUint16(54, 0x409)
+  view.setUint16(56, 6)
+  view.setUint16(58, encoded.length)
+  bytes.set(encoded, 62)
+  return bytesToBase64(bytes)
+}
+
 describe('local fonts for a render', () => {
+  test('serves the named face from a collection transport', () => {
+    const result = localFontsForRender(
+      { faces: [{ family: 'Declared Family', format: 'collection', postscriptName: 'CollectionFace-Regular', data: collectionData('CollectionFace-Regular') }] },
+      references,
+    )
+    expect(result.faces[0]).toMatchObject({ family: 'Declared Family', format: 'truetype' })
+    expect(result.faces[0]?.data.slice(0, 4)).toEqual(Uint8Array.of(0, 1, 0, 0))
+  })
+
   test('keeps only a named face, registers it under the declared family, and reports no fallback', () => {
     const result = localFontsForRender(
       {
