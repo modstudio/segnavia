@@ -11,7 +11,10 @@ export function reflectedBookElement() {
   ) =>
     ({
       ...rendered,
-      dataset: layout ? { segnaviaBookLayout: layout } : {},
+      dataset: {
+        ...(layout ? { segnaviaBookLayout: layout } : {}),
+        segnaviaBookGeneration: String((book as unknown as { loadGeneration: number }).loadGeneration),
+      },
       hidden: false,
       style: {},
       contentWindow: { postMessage() {} },

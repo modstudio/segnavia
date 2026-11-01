@@ -34,7 +34,7 @@ describe('book layout lifecycle', () => {
       data: { type: 'segnavia:ready' },
     } as unknown as MessageEvent)
     expect(messages).toEqual([])
-    expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.has('flow')).toBe(true)
+    expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.has('flow')).toBe(false)
   })
 
   test('a missing flow view refuses flow but preserves the request for a later capable view', () => {
@@ -173,5 +173,63 @@ describe('book layout lifecycle', () => {
     expect((book as unknown as { places: Map<string, string> }).places.size).toBe(0)
     onMessage(pages.contentWindow, 'chapter:2:footnotes')
     expect((book as unknown as { places: Map<string, string> }).places).toEqual(new Map([['pages', 'chapter:2:footnotes']]))
+  })
+
+  test('a composition failure reports one error and never makes the layout ready', () => {
+    const { book, frames } = reflectedBookElement()
+    const events: string[] = []
+    book.dispatchEvent = ((event: Event) => {
+      events.push(event.type === 'error' ? (event as CustomEvent<{ message: string }>).detail.message : event.type)
+      return true
+    }) as typeof book.dispatchEvent
+    book.view = switchableBookView()
+    const pages = frames[0]
+    if (!pages) throw new Error('pages frame was not mounted')
+    const failure = { source: pages.contentWindow, data: { type: 'segnavia:compose-failure', text: 'page limit reached' } } as MessageEvent
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage(failure)
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage(failure)
+    expect(events).toEqual(['page limit reached'])
+    expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.size).toBe(0)
+  })
+
+  test('a stale generation composition failure is ignored', () => {
+    const { book, frames } = reflectedBookElement()
+    const errors: string[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      return true
+    }) as typeof book.dispatchEvent
+    book.view = switchableBookView()
+    const stale = frames[0]
+    if (!stale) throw new Error('pages frame was not mounted')
+    stale.dataset.segnaviaBookGeneration = String(Number(stale.dataset.segnaviaBookGeneration) - 1)
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: stale.contentWindow,
+      data: { type: 'segnavia:compose-failure', text: 'stale failure' },
+    } as MessageEvent)
+    expect(errors).toEqual([])
+  })
+
+  test('a failed handoff keeps the outgoing layout and reselecting reports the failure again', () => {
+    const { book, attributes, frames } = reflectedBookElement()
+    const errors: string[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      return true
+    }) as typeof book.dispatchEvent
+    book.view = switchableBookView()
+    book.layout = 'flow'
+    const flow = frames.find((frame) => frame.dataset.segnaviaBookLayout === 'flow')
+    if (!flow) throw new Error('flow frame was not mounted')
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: flow.contentWindow,
+      data: { type: 'segnavia:compose-failure', text: 'flow refused' },
+    } as MessageEvent)
+    expect(frames.filter((frame) => !frame.hidden).map((frame) => frame.dataset.segnaviaBookLayout)).toEqual(['pages'])
+    expect(book.layout).toBe('pages')
+    expect(attributes.get('layout')).toBe('pages')
+    book.layout = 'flow'
+    expect(errors).toEqual(['flow refused', 'flow refused'])
+    expect(book.layout).toBe('pages')
   })
 })
