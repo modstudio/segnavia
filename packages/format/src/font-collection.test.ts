@@ -39,18 +39,22 @@ function fixture(): { collection: Uint8Array; sources: Map<string, Uint8Array> }
   }
   const sharedCmapOffset = cursor
   cursor += 4
-  const tableOffsets = tableSets.map((tables) => tables.map((table) => {
-    if (table.tag === 'cmap') return sharedCmapOffset
-    const offset = cursor
-    cursor += align(table.data.length)
-    return offset
-  }))
+  const tableOffsets = tableSets.map((tables) =>
+    tables.map((table) => {
+      if (table.tag === 'cmap') return sharedCmapOffset
+      const offset = cursor
+      cursor += align(table.data.length)
+      return offset
+    }),
+  )
   const bytes = new Uint8Array(cursor)
   const view = new DataView(bytes.buffer)
   bytes.set(new TextEncoder().encode('ttcf'))
   view.setUint32(4, 0x00010000)
   view.setUint32(8, faces.length)
-  directoryOffsets.forEach((offset, index) => view.setUint32(12 + index * 4, offset))
+  directoryOffsets.forEach((offset, index) => {
+    view.setUint32(12 + index * 4, offset)
+  })
   bytes.set(Uint8Array.of(0, 0, 0, 0), sharedCmapOffset)
   tableSets.forEach((tables, faceIndex) => {
     const directory = directoryOffsets[faceIndex] ?? 0
@@ -98,7 +102,12 @@ function standalone(tables: Array<{ tag: string; data: Uint8Array }>): Uint8Arra
 function tableChecksum(bytes: Uint8Array, offset: number, length: number): number {
   let sum = 0
   for (let index = 0; index < length; index += 4) {
-    const word = (((bytes[offset + index] ?? 0) << 24) | ((bytes[offset + index + 1] ?? 0) << 16) | ((bytes[offset + index + 2] ?? 0) << 8) | (bytes[offset + index + 3] ?? 0)) >>> 0
+    const word =
+      (((bytes[offset + index] ?? 0) << 24) |
+        ((bytes[offset + index + 1] ?? 0) << 16) |
+        ((bytes[offset + index + 2] ?? 0) << 8) |
+        (bytes[offset + index + 3] ?? 0)) >>>
+      0
     sum = (sum + word) >>> 0
   }
   return sum

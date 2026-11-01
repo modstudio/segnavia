@@ -34,7 +34,9 @@ function collectionData(name: string): string {
 describe('local fonts for a render', () => {
   test('serves the named face from a collection transport', () => {
     const result = localFontsForRender(
-      { faces: [{ family: 'Declared Family', format: 'collection', postscriptName: 'CollectionFace-Regular', data: collectionData('CollectionFace-Regular') }] },
+      {
+        faces: [{ family: 'Declared Family', format: 'collection', postscriptName: 'CollectionFace-Regular', data: collectionData('CollectionFace-Regular') }],
+      },
       references,
     )
     expect(result.faces[0]).toMatchObject({ family: 'Declared Family', format: 'truetype' })

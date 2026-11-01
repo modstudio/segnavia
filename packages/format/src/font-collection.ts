@@ -24,7 +24,8 @@ function collectionView(bytes: Uint8Array): DataView {
 }
 
 function requireRange(bytes: Uint8Array, offset: number, length: number): void {
-  if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || offset > bytes.length - length) malformed(Math.max(0, offset))
+  if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || offset > bytes.length - length)
+    malformed(Math.max(0, offset))
 }
 
 function collectionOffsets(bytes: Uint8Array): number[] {
@@ -107,7 +108,12 @@ export function collectionFaces(bytes: Uint8Array): string[] {
 function checksum(bytes: Uint8Array, offset = 0, length = bytes.length): number {
   let sum = 0
   for (let index = 0; index < length; index += 4) {
-    const word = (((bytes[offset + index] ?? 0) << 24) | ((bytes[offset + index + 1] ?? 0) << 16) | ((bytes[offset + index + 2] ?? 0) << 8) | (bytes[offset + index + 3] ?? 0)) >>> 0
+    const word =
+      (((bytes[offset + index] ?? 0) << 24) |
+        ((bytes[offset + index + 1] ?? 0) << 16) |
+        ((bytes[offset + index + 2] ?? 0) << 8) |
+        (bytes[offset + index + 3] ?? 0)) >>>
+      0
     sum = (sum + word) >>> 0
   }
   return sum
