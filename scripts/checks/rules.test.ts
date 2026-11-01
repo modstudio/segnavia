@@ -101,10 +101,13 @@ describe('writing rules', () => {
       `process.env['${CHROMIUM_ENVIRONMENT_VARIABLE}']`,
       `Bun.env.${CHROMIUM_ENVIRONMENT_VARIABLE}`,
       `Bun.env["${CHROMIUM_ENVIRONMENT_VARIABLE}"]`,
+      `const { ${CHROMIUM_ENVIRONMENT_VARIABLE} } = process.env`,
     ])
       expect(checkChromiumEnvironmentRead({ ...direct, text })).toHaveLength(1)
     for (const text of [`// process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}`, `const help = 'set ${CHROMIUM_ENVIRONMENT_VARIABLE} to override the browser'`])
       expect(checkChromiumEnvironmentRead({ ...direct, text })).toEqual([])
+    const belowComment = { ...direct, text: `/*\n one\n two\n*/\nconst browser = process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}` }
+    expect(checkChromiumEnvironmentRead(belowComment)[0]?.path).toBe('scripts/example.ts:5')
     expect(checkChromiumEnvironmentRead({ ...direct, path: CHROMIUM_PATH_MODULE })).toEqual([])
   })
 
