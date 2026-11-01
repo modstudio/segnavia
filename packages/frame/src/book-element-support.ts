@@ -1,4 +1,4 @@
-import type { BookLayout } from './book-presentation.ts'
+import { BOOK_LAYOUTS, type BookLayout } from './book-presentation.ts'
 import { MESSAGE } from './bridge.ts'
 
 export function bookSourceUrl(src: string): URL {
@@ -31,7 +31,7 @@ export function clearBookCollections(...collections: Array<{ clear: () => void }
 }
 
 export function acceptedBookLayout(value: string | null): BookLayout | undefined {
-  return value === null ? 'pages' : (['pages', 'flow'] as const).find((layout) => layout === value)
+  return value === null ? 'pages' : BOOK_LAYOUTS.find((layout) => layout === value)
 }
 
 export function restoreBookLayoutAttribute(element: HTMLElement, previous: string | null) {
@@ -39,31 +39,52 @@ export function restoreBookLayoutAttribute(element: HTMLElement, previous: strin
   else element.setAttribute('layout', previous)
 }
 
-export function handleBookComposeFailure(
+export interface BookComposeFailureState {
+  failed: Map<BookLayout, string>
+  ready: Set<BookLayout>
+  pending: Set<BookLayout>
+  switchPlaces: Map<BookLayout, string | undefined>
+  fallbacks: Map<BookLayout, BookLayout>
+  handoffTo?: BookLayout
+  cancelHandoff: () => void
+  restore: (layout: BookLayout) => void
+  report: (text: string) => void
+}
+
+export type BookComposeFailureDecision =
+  | { action: 'ignore' }
+  | { action: 'handled' }
+  | { action: 'fail'; text: string; fallback?: BookLayout; cancelHandoff: boolean }
+
+export function decideBookComposeFailure(
   message: { type: string; text?: string },
   layout: BookLayout | undefined,
-  state: {
-    failed: Map<BookLayout, string>
-    ready: Set<BookLayout>
-    pending: Set<BookLayout>
-    switchPlaces: Map<BookLayout, string | undefined>
-    fallbacks: Map<BookLayout, BookLayout>
-    handoffTo?: BookLayout
-    cancelHandoff: () => void
-    restore: (layout: BookLayout) => void
-    report: (text: string) => void
-  },
-): boolean {
-  if (message.type !== MESSAGE.composeFailure || !layout || typeof message.text !== 'string') return false
-  if (state.failed.has(layout)) return true
-  state.failed.set(layout, message.text)
+  failed: boolean,
+  fallback: BookLayout | undefined,
+  handoffTo: BookLayout | undefined,
+): BookComposeFailureDecision {
+  if (message.type !== MESSAGE.composeFailure || !layout || typeof message.text !== 'string') return { action: 'ignore' }
+  if (failed) return { action: 'handled' }
+  return { action: 'fail', text: message.text, fallback, cancelHandoff: handoffTo === layout }
+}
+
+export function handleBookComposeFailure(message: { type: string; text?: string }, layout: BookLayout | undefined, state: BookComposeFailureState): boolean {
+  const decision = decideBookComposeFailure(
+    message,
+    layout,
+    layout ? state.failed.has(layout) : false,
+    layout ? state.fallbacks.get(layout) : undefined,
+    state.handoffTo,
+  )
+  if (decision.action === 'ignore') return false
+  if (decision.action === 'handled' || !layout) return true
+  state.failed.set(layout, decision.text)
   state.ready.delete(layout)
   state.pending.delete(layout)
   state.switchPlaces.delete(layout)
-  const fallback = state.fallbacks.get(layout)
   state.fallbacks.delete(layout)
-  if (state.handoffTo === layout) state.cancelHandoff()
-  if (fallback) state.restore(fallback)
-  state.report(message.text)
+  if (decision.cancelHandoff) state.cancelHandoff()
+  if (decision.fallback) state.restore(decision.fallback)
+  state.report(decision.text)
   return true
 }

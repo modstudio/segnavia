@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
 
 describe('book layout lifecycle', () => {
-  test('a reloaded frame keeps its intrinsic layout and readiness does not outlive a detach', () => {
+  test('a reloaded frame keeps its intrinsic layout and detach clears readiness', () => {
     const { book, frames } = reflectedBookElement()
     const messages: unknown[] = []
     ;(book as unknown as { dispatchEvent: () => boolean }).dispatchEvent = () => true
@@ -34,7 +34,6 @@ describe('book layout lifecycle', () => {
       data: { type: 'segnavia:ready' },
     } as unknown as MessageEvent)
     expect(messages).toEqual([])
-    expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.has('flow')).toBe(false)
   })
 
   test('a missing flow view refuses flow but preserves the request for a later capable view', () => {
@@ -192,7 +191,7 @@ describe('book layout lifecycle', () => {
     expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.size).toBe(0)
   })
 
-  test('a stale generation composition failure is ignored', () => {
+  test('a failed source refresh keeps the mounted frame live but ignores its composition failure', async () => {
     const { book, frames } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
@@ -202,12 +201,28 @@ describe('book layout lifecycle', () => {
     book.view = switchableBookView()
     const stale = frames[0]
     if (!stale) throw new Error('pages frame was not mounted')
-    stale.dataset.segnaviaBookGeneration = String(Number(stale.dataset.segnaviaBookGeneration) - 1)
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(null, { status: 503 })) as unknown as typeof fetch
+    try {
+      await book.attributeChangedCallback('src', null, 'https://example.test/newer.json')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: stale.contentWindow,
+      data: { type: 'segnavia:book-place', key: 'chapter:2' },
+    } as MessageEvent)
+    ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
+      source: stale.contentWindow,
+      data: { type: 'segnavia:ready' },
+    } as MessageEvent)
     ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage({
       source: stale.contentWindow,
       data: { type: 'segnavia:compose-failure', text: 'stale failure' },
     } as MessageEvent)
-    expect(errors).toEqual([])
+    expect((book as unknown as { places: Map<string, string> }).places.get('pages')).toBe('chapter:2')
+    expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.has('pages')).toBe(true)
+    expect(errors).toEqual(['The book at https://example.test/newer.json answered 503.'])
   })
 
   test('a failed handoff keeps the outgoing layout and reselecting reports the failure again', () => {

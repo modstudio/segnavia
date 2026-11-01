@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, Book, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { BOOK_MEASUREMENT_WAIT_MS, decideBookMeasurement, flowTextArea, pixelPhaseOffset } from './book-composer.ts'
+import { BOOK_FAILURE_ATTRIBUTE, BOOK_MEASUREMENT_WAIT_MS, decideBookMeasurement, flowTextArea, pixelPhaseOffset } from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -134,7 +134,8 @@ describe('bookDocument', () => {
   test('starts at zero height until the composer marks the root', () => {
     const html = bookDocument(book, { nonce: 'held' })
     expect(html).toContain('html:not([data-segnavia-composed])')
-    expect(html).toContain('attributeFilter:[name,failureName]')
+    expect(html).toContain(JSON.stringify(BOOK_FAILURE_ATTRIBUTE))
+    expect(html).toContain('book composition failed without a reported reason')
     expect(html).toContain('overflow:clip')
   })
 

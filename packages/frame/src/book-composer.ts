@@ -83,7 +83,7 @@ ${embeddedBookPresentationFunctions()}`
 export function composerScript(configJson: string, screen = false): string {
   const script = `(function(){
 var composeStarted=performance.now();
-var fail=function(reason){document.documentElement.setAttribute('${BOOK_FAILURE_ATTRIBUTE}',String(reason));};
+var fail=function(reason){var text=String(reason);document.documentElement.setAttribute('${BOOK_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
 var config=${configJson};
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
 ${paginateScript()}

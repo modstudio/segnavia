@@ -355,29 +355,27 @@ export class SegnaviaBook extends HTMLElementBase {
     if (!frame) return
     const message = messageFrom(event, frame)
     if (!message) return
-    if (frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
-    if (
-      bookElement.handleBookComposeFailure(message, layout, {
-        failed: this.failedLayouts,
-        ready: this.readyLayouts,
-        pending: this.pendingLayouts,
-        switchPlaces: this.switchPlaces,
-        fallbacks: this.layoutFallbacks,
-        handoffTo: this.layoutHandoff?.to,
-        cancelHandoff: () => this.cancelLayoutHandoff(),
-        restore: (fallback) => {
-          this.showLayoutFrame(fallback)
-          this.currentLayout = fallback
-          this.requestedLayout = fallback
-          this.reflectingLayout = true
-          this.setAttribute('layout', fallback)
-          this.reflectingLayout = false
-        },
-        report: (text) => bookElement.reportBookError(this, text),
-      })
-    )
-      return
+    if (message.type === MESSAGE.composeFailure && frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
+    const failureState: bookElement.BookComposeFailureState = {
+      failed: this.failedLayouts,
+      ready: this.readyLayouts,
+      pending: this.pendingLayouts,
+      switchPlaces: this.switchPlaces,
+      fallbacks: this.layoutFallbacks,
+      handoffTo: this.layoutHandoff?.to,
+      cancelHandoff: () => this.cancelLayoutHandoff(),
+      restore: (fallback) => {
+        this.showLayoutFrame(fallback)
+        this.currentLayout = fallback
+        this.requestedLayout = fallback
+        this.reflectingLayout = true
+        this.setAttribute('layout', fallback)
+        this.reflectingLayout = false
+      },
+      report: (text) => bookElement.reportBookError(this, text),
+    }
+    if (bookElement.handleBookComposeFailure(message, layout, failureState)) return
     if (message.type === MESSAGE.bookPlace && layout) {
       const key = bookPlaceKey((message as { key?: unknown }).key)
       if (key !== undefined) {
