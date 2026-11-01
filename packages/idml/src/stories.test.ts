@@ -7,6 +7,7 @@ import { ReportCollector } from './report.ts'
 import { storyHtml } from './stories.ts'
 import { parseStories } from './story-model.ts'
 import { StyleMapper } from './styles.ts'
+import { TableStyleMapper } from './table-styles.ts'
 import type { IdmlStyle, IdmlTextNode } from './types.ts'
 
 const node = (name: string, children: IdmlTextNode[] = [], attributes: Record<string, string> = {}, text?: string): IdmlTextNode => ({
@@ -77,6 +78,37 @@ test('emits columns, language and direction only where they differ and counts om
   expect(result.html).toContain('<p class="idml-p-body" data-columns="2">עברית</p>')
   expect(result.html).toContain('<p class="idml-p-english" dir="ltr" lang="en-US">English</p>')
   expect(report.data().unsupportedElements).toEqual({ Table: 1 })
+})
+
+test('splits a paragraph around a table and maps cell paragraphs through the text path', () => {
+  const report = new ReportCollector()
+  const english: IdmlStyle = {
+    ...paragraphStyle,
+    id: 'en',
+    name: 'English',
+    properties: { ParagraphDirection: 'LeftToRightDirection', AppliedLanguage: '$ID/English: USA' },
+  }
+  const character: IdmlStyle = { id: 'strong', name: 'Strong', kind: 'character', properties: { PointSize: '11' }, location: 'Styles#strong' }
+  const tableStyle: IdmlStyle = { id: 'table', name: 'Ledger', kind: 'table', properties: {}, location: 'Styles#table' }
+  const allStyles = [paragraphStyle, english, character, tableStyle]
+  const styles = new StyleMapper(allStyles, [], report, 'rtl')
+  const tables = new TableStyleMapper(allStyles, [], report, (css) => styles.cssOverrideClass(css))
+  const table = node('Table', [
+    node('Column', [], { SingleColumnWidth: '60' }),
+    node('Cell', [
+      node('ParagraphStyleRange', [node('CharacterStyleRange', [node('Content', [], {}, 'Cell')], { AppliedCharacterStyle: 'strong' })], {
+        AppliedParagraphStyle: 'en',
+      }),
+    ], { Name: '0:0' }),
+    node('Row', [], {}),
+  ], { AppliedTableStyle: 'table', BodyRowCount: '1' })
+  const root = node('Story', [node('ParagraphStyleRange', [node('Content', [], {}, 'Before'), table, node('Content', [], {}, 'After')], {
+    AppliedParagraphStyle: 'p',
+  })])
+  const result = storyHtml({ id: 'story', root }, styles, report, 'rtl', 'he', { tableStyles: tables })
+  expect(result.html).toBe(
+    '<p class="idml-p-body">Before</p><table class="idml-t-ledger" dir="ltr"><colgroup><col style="width:60pt"></colgroup><tbody><tr><td><p class="idml-p-english" dir="ltr" lang="en-US"><span class="idml-c-strong">Cell</span></p></td></tr></tbody></table><p class="idml-p-body">After</p>',
+  )
 })
 
 test('deduplicates override classes across paragraphs and counts unmapped properties', () => {

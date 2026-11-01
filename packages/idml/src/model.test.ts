@@ -124,8 +124,6 @@ describe('idmlModel', () => {
     ])
     expect(model.report?.unsupportedElements).toMatchObject({
       ObjectStyle: 1,
-      TableStyle: 1,
-      CellStyle: 1,
       Gradient: 1,
       Tint: 1,
       MixedInk: 1,

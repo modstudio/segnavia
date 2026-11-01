@@ -61,3 +61,17 @@ test('emits alternating fill rules with skip counts and deduplicates local overr
   expect(mapper.css()).toContain('.idml-t-bands tr:nth-child(3n+2){background-color:#000}')
   expect(mapper.css()).toContain('.idml-t-bands tr:nth-child(3n+4){background-color:#fff}')
 })
+
+test('reports graphic, rotated and diagonal cells by their table feature names', () => {
+  const report = new ReportCollector()
+  const mapper = new TableStyleMapper([], [], report, () => undefined)
+  mapper.cellClasses({
+    region: 'body', column: 0, columnCount: 1, direction: 'ltr',
+    node: cell({ CellType: 'GraphicTypeCell', TextRotation: '90', TopLeftDiagonalLine: 'true' }),
+  })
+  expect(report.data().unsupportedElements).toEqual({
+    'Table:DiagonalLine': 1,
+    'Table:GraphicCell': 1,
+    'Table:RotatedCell': 1,
+  })
+})

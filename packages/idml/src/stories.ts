@@ -5,17 +5,20 @@ import { Element, Text } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
 import type { ReportCollector } from './report.ts'
 import type { StyleMapper } from './styles.ts'
+import { tableNode } from './table-html.ts'
+import type { TableStyleMapper } from './table-styles.ts'
 import type { IdmlFramePreference, IdmlTextNode, IdmlTextVariable } from './types.ts'
 
-const OMITTED = new Set(['Rectangle', 'Group', 'Polygon', 'Table', 'Footnote', 'Note'])
+const OMITTED = new Set(['Rectangle', 'Group', 'Polygon', 'Footnote', 'Note'])
 const WRAPPERS = new Set(['HyperlinkTextSource', 'XMLElement', 'Change'])
 
 interface Token {
-  kind: 'text' | 'paragraph' | 'variable' | 'processing-instruction' | 'anchored'
+  kind: 'text' | 'paragraph' | 'variable' | 'processing-instruction' | 'anchored' | 'table'
   text?: string
   character?: IdmlTextNode
   location: string
   variable?: string
+  node?: IdmlTextNode
 }
 
 export interface StoryHtmlInput {
@@ -35,6 +38,7 @@ export interface StoryHtmlResult {
 export interface StoryHtmlOptions {
   anchored?: (location: string, direction: 'ltr' | 'rtl') => string | undefined
   inlineParagraphs?: boolean
+  tableStyles?: TableStyleMapper
 }
 
 function classes(...values: (string | undefined)[]): string | undefined {
@@ -57,7 +61,8 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
     else if (node.name === 'Br') result.push({ kind: 'paragraph', location: node.location })
     else if (node.name === '#processing-instruction') {
       result.push({ kind: 'processing-instruction', text: node.text ?? '', character, location: node.location })
-    } else if (node.name === 'TextVariableInstance') {
+    } else if (node.name === 'Table') result.push({ kind: 'table', node, location: node.location })
+    else if (node.name === 'TextVariableInstance') {
       result.push({ kind: 'variable', variable: node.attributes.AssociatedTextVariable, character, location: node.location })
     } else if (node.name === 'TextFrame') result.push({ kind: 'anchored', location: node.location })
     else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
@@ -278,7 +283,13 @@ export function storyHtml(
   for (const paragraph of paragraphRanges) {
     const all = tokens(paragraph, report)
     let current: Token[] = []
-    const flush = () => {
+    let wroteTable = false
+    const visible = () => current.some((token) => token.kind !== 'text' || Boolean(token.text))
+    const flush = (empty = true) => {
+      if (!empty && !visible()) {
+        current = []
+        return
+      }
       paragraphs.push(
         paragraphNode(
           paragraph,
@@ -298,9 +309,39 @@ export function storyHtml(
     }
     for (const token of all) {
       if (token.kind === 'paragraph') flush()
+      else if (token.kind === 'table' && token.node) {
+        flush(false)
+        if (!options.tableStyles) report.add(report.unsupportedElements, 'Table', token.location)
+        else {
+          paragraphs.push(
+            tableNode(token.node, options.tableStyles, (cell) => {
+              const cellParagraphs = cell.children.filter((child) => child.name === 'ParagraphStyleRange')
+              return cellParagraphs.flatMap((cellParagraph) => {
+                const cellTokens = tokens(cellParagraph, report).filter((candidate) => candidate.kind !== 'paragraph' && candidate.kind !== 'table')
+                return [
+                  paragraphNode(
+                    cellParagraph,
+                    cellTokens,
+                    styles,
+                    report,
+                    bookDirection,
+                    bookLanguage,
+                    story.direction,
+                    undefined,
+                    story.textVariables ?? [],
+                    story.master ?? false,
+                    options,
+                  ),
+                ]
+              })
+            }),
+          )
+        }
+        wroteTable = true
+      }
       else current.push(token)
     }
-    if (current.length > 0 || all.length === 0 || all.at(-1)?.kind !== 'paragraph') flush()
+    if (visible() || (!wroteTable && (all.length === 0 || all.at(-1)?.kind !== 'paragraph'))) flush()
   }
   if (paragraphs.length === 0) {
     paragraphs.push(
