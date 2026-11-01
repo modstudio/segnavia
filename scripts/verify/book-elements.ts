@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
+import { verifyComposeFailure } from './book-compose-failure.ts'
 import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
@@ -390,4 +391,5 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
   await stressPage.goto(h.url('book-paginated-large.html'))
   await verifyLargeBookComposition(check, stressPage)
   await stressContext.close()
+  await verifyComposeFailure(h)
 }

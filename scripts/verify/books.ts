@@ -24,7 +24,15 @@ import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
-const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:ready', 'segnavia:animation', 'segnavia:slot-fit', 'segnavia:book-place'])
+const BRIDGE_MESSAGES = new Set([
+  'segnavia:key',
+  'segnavia:height',
+  'segnavia:ready',
+  'segnavia:animation',
+  'segnavia:slot-fit',
+  'segnavia:book-place',
+  'segnavia:compose-failure',
+])
 
 export async function verifyBooks(h: Harness) {
   const { page, check } = h

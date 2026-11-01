@@ -142,10 +142,13 @@ the server-safe `@segnavia/frame/book-document` entry, which embeds
 `paginateScript()` under the bridge nonce. Contents and note links are ordinary
 in-page anchors handled inside the frame, and the bridge carries only its
 existing key, height and ready messages unless its parent requests the bounded
-selection reply available to refused-script documents.
+selection reply available to refused-script documents. Its
+`FrameOptions.failureAttribute` names the composer's refusal attribute. When
+that attribute appears, the bridge sends `segnavia:compose-failure` once and
+never sends ready.
 
 The element emits `ready` when that bridge message arrives and emits `error`
-with `detail.message` when loading or validating an input fails.
+with `detail.message` when loading, validation or paginated composition fails.
 
 A book's optional `css` travels with its `BookView` and is sanitized before it
 is shown or printed. It never keeps an author data face; a host supplies book
@@ -725,6 +728,8 @@ readiness, so a strict host content security policy cannot disable either.
 The frame bridge sends a relayed key, height, readiness, animation timing,
 slot fit and, from a paginated book frame, the reader's bounded place to its host. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound.
+From a paginated book frame, a bounded `segnavia:compose-failure` report: the composer's refusal
+text, at most 1024 characters.
 On a refused-script page the bridge answers a `segnavia:selection-request` from
 its parent. A paginated book frame also accepts `segnavia:book-layout` only
 from its parent, only when `layout` is exactly `pages` or `flow`, and only when

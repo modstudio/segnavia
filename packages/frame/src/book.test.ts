@@ -249,13 +249,13 @@ describe('book fonts', () => {
   test('fonts and view assigned before connection mount the latest frame on connect', async () => {
     const previousDocument = globalThis.document
     const previousWindow = globalThis.window
-    const frames: Array<{ srcdoc: string; title: string; setAttribute: (name: string, value: string) => void }> = []
+    const frames: Array<{ srcdoc: string; title: string; dataset: Record<string, string>; setAttribute: (name: string, value: string) => void }> = []
     Object.defineProperty(globalThis, 'document', {
       configurable: true,
       writable: true,
       value: {
         createElement() {
-          const frame = { srcdoc: '', title: '', setAttribute() {} }
+          const frame = { srcdoc: '', title: '', dataset: {}, setAttribute() {} }
           frames.push(frame)
           return frame
         },
@@ -288,14 +288,14 @@ describe('book fonts', () => {
   })
 
   test('setting fonts mounts a frame whose srcdoc carries the resolved css', async () => {
-    const frames: Array<{ srcdoc: string; title: string; setAttribute: (name: string, value: string) => void }> = []
+    const frames: Array<{ srcdoc: string; title: string; dataset: Record<string, string>; setAttribute: (name: string, value: string) => void }> = []
     const previous = globalThis.document
     Object.defineProperty(globalThis, 'document', {
       configurable: true,
       writable: true,
       value: {
         createElement() {
-          const frame = { srcdoc: '', title: '', setAttribute() {} }
+          const frame = { srcdoc: '', title: '', dataset: {}, setAttribute() {} }
           frames.push(frame)
           return frame
         },
