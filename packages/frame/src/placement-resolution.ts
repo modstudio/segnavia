@@ -7,13 +7,33 @@ export function bookPlacementWidth(book: Book | BookView): number {
   return 1024
 }
 
-export function resolvePagePlacements(
+function resolvePlacementHtml(
   page: Page,
+  html: string,
   placements: PlacementsOptions | undefined,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
 ): Promise<string> {
-  if (!placements) return Promise.resolve(page.html)
+  if (!placements) return Promise.resolve(html)
   const width = page.print ? paperPixels(sheetMm(page.print).width) : page.size === 'fluid' ? 1024 : page.size.width
-  return resolvePlacements(page.html, { resolvePlacement: placements.resolve, report: placements.report, purpose, width, signal })
+  return resolvePlacements(html, { resolvePlacement: placements.resolve, report: placements.report, purpose, width, signal })
+}
+
+export async function resolvePagePlacements(
+  page: Page,
+  placements: PlacementsOptions | undefined,
+  purpose: 'screen' | 'print',
+  signal: AbortSignal,
+): Promise<Page> {
+  if (!placements) return page
+  const html = await resolvePlacementHtml(page, page.html, placements, purpose, signal)
+  if (!page.printedPages) return { ...page, html }
+  const parents = await Promise.all(
+    page.printedPages.parents.map(async (parent) => ({
+      ...parent,
+      ...(parent.head === undefined ? {} : { head: await resolvePlacementHtml(page, parent.head, placements, purpose, signal) }),
+      ...(parent.foot === undefined ? {} : { foot: await resolvePlacementHtml(page, parent.foot, placements, purpose, signal) }),
+    })),
+  )
+  return { ...page, html, printedPages: { ...page.printedPages, parents } }
 }

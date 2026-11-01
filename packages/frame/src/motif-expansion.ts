@@ -286,8 +286,7 @@ export async function expandFramePage(
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    const html = await resolvePagePlacements(page, placements, purpose, signal)
-    return { page: html === page.html ? page : { ...page, html }, fonts: [] }
+    return { page: await resolvePagePlacements(page, placements, purpose, signal), fonts: [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
   const result = await expandMotifs(page.html, {
@@ -333,8 +332,7 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  const html = await resolvePagePlacements(expandedPage, placements, purpose, signal)
-  return { page: { ...expandedPage, html }, fonts: summary.fonts }
+  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal), fonts: summary.fonts }
 }
 
 export function expandFramePages(

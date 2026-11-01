@@ -34,3 +34,13 @@ test('placements introduced by motif expansion resolve afterward', async () => {
   }
   expect((await expandFramePage(page, motifs, signal, placements)).page.html).toContain(`src="${src}"`)
 })
+
+test('page parent furniture resolves placed media before document building', async () => {
+  const page = Page.parse({ html: '<main>Body</main>', size: { width: 320, height: 200 } })
+  const withParent = {
+    ...page,
+    printedPages: { parents: [{ name: 'body', head: '<img data-segnavia-media="cover">' }] },
+  } as unknown as Page
+  const resolved = await expandFramePage(withParent, undefined, signal, placements)
+  expect(resolved.page.printedPages?.parents[0]?.head).toContain(`src="${src}"`)
+})
