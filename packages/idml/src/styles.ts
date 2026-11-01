@@ -31,7 +31,7 @@ function properties(element: Element): Record<string, string> {
 
 export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
   const result: IdmlStyle[] = []
-  for (const kind of ['ParagraphStyle', 'CharacterStyle', 'ObjectStyle'] as const) {
+  for (const kind of ['ParagraphStyle', 'CharacterStyle', 'ObjectStyle', 'TableStyle', 'CellStyle'] as const) {
     for (const element of roots.filter((candidate) => localName(candidate.name) === kind)) {
       const values = properties(element)
       const id = values.Self
@@ -39,7 +39,16 @@ export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
       result.push({
         id,
         name: values.Name ?? id.split('/').at(-1) ?? id,
-        kind: kind === 'ParagraphStyle' ? 'paragraph' : kind === 'CharacterStyle' ? 'character' : 'object',
+        kind:
+          kind === 'ParagraphStyle'
+            ? 'paragraph'
+            : kind === 'CharacterStyle'
+              ? 'character'
+              : kind === 'TableStyle'
+                ? 'table'
+                : kind === 'CellStyle'
+                  ? 'cell'
+                  : 'object',
         ...(values.BasedOn ? { basedOn: values.BasedOn } : {}),
         properties: Object.fromEntries(Object.entries(values).filter(([name]) => !['Self', 'Name', 'BasedOn'].includes(name))),
         location: `${part}#${id}`,
@@ -64,7 +73,11 @@ export function parseSwatches(roots: Element[]): IdmlSwatch[] {
 }
 
 function rootName(kind: IdmlStyle['kind']): string {
-  return kind === 'paragraph' ? PARAGRAPH_ROOT : kind === 'character' ? CHARACTER_ROOT : OBJECT_ROOT
+  if (kind === 'paragraph') return PARAGRAPH_ROOT
+  if (kind === 'character') return CHARACTER_ROOT
+  if (kind === 'table') return '$ID/[No table style]'
+  if (kind === 'cell') return '$ID/[None]'
+  return OBJECT_ROOT
 }
 
 function findStyle(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle | undefined {
@@ -78,7 +91,7 @@ function rootStyle(styles: IdmlStyle[], kind: IdmlStyle['kind']): IdmlStyle | un
   return styles.find((style) => style.kind === kind && (style.name === rootName(kind) || style.id.endsWith(`/${rootName(kind)}`)))
 }
 
-function styleChain(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle[] {
+export function styleChain(styles: IdmlStyle[], id: string | undefined, kind: IdmlStyle['kind']): IdmlStyle[] {
   const root = rootStyle(styles, kind)
   const chain: IdmlStyle[] = []
   const seen = new Set<string>()
@@ -168,6 +181,7 @@ export class StyleMapper {
     string,
     { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string; resetShading: boolean }
   >()
+  private readonly rawOverrides = new Map<string, { name: string; declarations: string }>()
   private readonly reportedStyleProperties = new Set<string>()
 
   constructor(
@@ -180,7 +194,7 @@ export class StyleMapper {
     this.byId = new Map(styles.map((style) => [style.id, style]))
     const taken = new Set<string>()
     for (const style of styles) {
-      if (style.kind === 'object') continue
+      if (style.kind === 'object' || style.kind === 'table' || style.kind === 'cell') continue
       const prefix = style.kind === 'paragraph' ? 'idml-p-' : 'idml-c-'
       const base = `${prefix}${slug(style.name)}`
       let candidate = base
@@ -241,6 +255,15 @@ export class StyleMapper {
     return name
   }
 
+  cssOverrideClass(declarations: string): string | undefined {
+    if (!declarations) return undefined
+    const found = this.rawOverrides.get(declarations)
+    if (found) return found.name
+    const name = `idml-o-${this.overrides.size + this.rawOverrides.size + 1}`
+    this.rawOverrides.set(declarations, { name, declarations })
+    return name
+  }
+
   paragraphDirection(properties: Record<string, string>): 'ltr' | 'rtl' | undefined {
     return idmlDirection(properties.ParagraphDirection)
   }
@@ -278,6 +301,7 @@ export class StyleMapper {
       const declarations = this.declarations(value.properties, value.direction, value.location, this.report.unsupportedOverrideProperties, value.resetShading)
       if (declarations) rules.push(`.${value.name}{${declarations}}`)
     }
+    for (const value of this.rawOverrides.values()) rules.push(`.${value.name}{${value.declarations}}`)
     return rules.join('')
   }
 
