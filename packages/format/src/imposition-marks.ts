@@ -1,5 +1,5 @@
 import { gridPlacements, type ImpositionPlacement } from './imposition.ts'
-import type { Imposition } from './index.ts'
+import type { Imposition } from './imposition-schema.ts'
 import { MARK_GAP_MM, MARK_LENGTH_MM, type MarkSegment, roundMillimeters } from './paper.ts'
 
 export const MIN_MARK_LENGTH_MM = 2

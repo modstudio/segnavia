@@ -405,7 +405,8 @@ is in its print setting or in an imposition. A host shows a page alone with
 imposition's cells with `<segnavia-paper>`; switching
 between them is the host's control. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
-into that PDF, and a deck lays out one slide on each sheet of its frame-based
+into that PDF, and `pageImage` draws it at the print sheet's size without
+growing the image to the page's content height. A deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its
@@ -995,6 +996,28 @@ inline-start corner, so the first cell of a right-to-left imposition is at
 the top right. Each page keeps its own direction inside its cell. Marks carry
 no text.
 
+## Covers
+
+A designed cover is a page built at thumbnail size on the fixed 160 × 100 mm
+cover sheet, with a 16:10 aspect. Wherever an asset is shown small, the host's
+designed cover comes first; when the host supplies none, the asset's own cover
+or thumbnail is drawn as it would be without one.
+
+`Cover.parse` fills the cover sheet when the page has no print setting and
+refuses any other sheet, bleed, a safe area, marks and page scripts: a cover is
+a picture for the screen and is drawn live in a script-refusing frame, so it
+must look the same there as in its image.
+
+`coverDigest` gives the cover picture an immutable address. It hashes the
+canonical page without identity metadata, the sheet, the cover drawing
+version, the host's renderer stamp, sorted host-supplied font file identifiers
+and sorted motifs. The host may draw the cover through
+`renderer.coverImage(cover, { width, format })`, which draws it offline with no
+approved dependencies to WebP (the default) or PNG exactly `width` pixels wide
+at the sheet's aspect, keep the picture under that digest and serve it from an
+address carrying the digest.
+The library stores no cover document, picture or digest cache.
+
 ## How a render stays safe
 
 Every render runs in its own context, offline, with requests that leave the
@@ -1015,5 +1038,6 @@ A render after `close()` is refused.
 
 The library keeps no storage. A host stores decks and pages, its shot library
 (versions, permanent addresses, usage via `shotsUsed`), media files with the
-`Media` facts it fills for each, tickets, sharing and tenancy, and serves
+`Media` facts it fills for each, designed cover pages and the cover pictures it
+keeps under their `coverDigest`, tickets, sharing and tenancy, and serves
 `PublishedShot` JSON at each shot's address.
