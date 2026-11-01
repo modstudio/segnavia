@@ -1,10 +1,10 @@
-import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { PageInput } from '@segnavia/format'
 import { EFFECT_REGION_THRESHOLD, SCALE } from '../verify/pixel-difference.ts'
 import { formatRegistration, registrationPasses, worstRegistration } from './registration.ts'
 import type { BarId, BarThreshold, Difference, FixtureKind, ReaderResult, RegistrationMeasurement, SizeMeasurement, Threshold } from './types.ts'
 
+export { chromiumPath } from '../chromium-path.ts'
 export { EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from '../verify/pixel-difference.ts'
 
 export const ROOT = path.resolve(import.meta.dir, '../..')
@@ -257,15 +257,3 @@ export async function fixtures(): Promise<Fixture[]> {
 }
 
 export { BOOK_FACE_CSS, bookFixtures, ENGLISH_BOOK_ID, FAULT_CONTROL_PAGE, HEBREW_BOOK_ID, SHIFTED_BOOK_ID } from './book-fixtures.ts'
-
-export function chromiumPath(): string {
-  const candidates = [
-    process.env.SEGNAVIA_CHROMIUM,
-    '/Users/shmuel/Library/Caches/ms-playwright/chromium-1194/chrome-mac/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-  ]
-  const found = candidates.find((candidate) => candidate && existsSync(candidate))
-  if (!found) throw new Error('No Chromium executable was found. Set SEGNAVIA_CHROMIUM.')
-  return found
-}

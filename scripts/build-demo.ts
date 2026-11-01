@@ -22,6 +22,7 @@ import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
 import { buildSlotDemo, buildSlotPdf } from './build-slot-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
+import { chromiumPath } from './chromium-path.ts'
 import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
@@ -31,13 +32,12 @@ import { sineWav } from './sine-wav.ts'
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
 const SITE = path.join(OUT, 'site')
-const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const CHROMIUM = chromiumPath()
 const build = Bun.spawn(['bun', 'run', 'build'], { cwd: ROOT, stdout: 'inherit', stderr: 'inherit' })
 if ((await build.exited) !== 0) throw new Error('bun run build failed.')
 rmSync(SITE, { recursive: true, force: true })
 mkdirSync(path.join(SITE, 'shots'), { recursive: true })
-// The demo app: English or Hebrew, signed in by cookie or a guest, with an
-// API that answers or refuses under load.
+// The demo app: English or Hebrew, signed in by cookie or a guest, with an API that answers or refuses under load.
 const app = Bun.serve({
   port: 0,
   fetch: async (request) => {

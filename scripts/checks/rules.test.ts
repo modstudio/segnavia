@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { PACKAGES, SOURCE_CONDITION } from '../../architecture.ts'
 import {
+  checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
   checkImports,
@@ -86,6 +87,19 @@ describe('architecture rules', () => {
 })
 
 describe('writing rules', () => {
+  test('scripts use the shared Chromium lookup', () => {
+    const variable = ['SEGNAVIA', 'CHROMIUM'].join('_')
+    const direct = { path: 'scripts/example.ts', text: `const browser = process.env.${variable}`, imports: [] }
+    expect(checkChromiumEnvironmentRead(direct)).toEqual([
+      {
+        rule: 'chromium-path',
+        path: 'scripts/example.ts:1',
+        message: 'reads the Chromium environment variable directly; use chromiumPath() from scripts/chromium-path.ts.',
+      },
+    ])
+    expect(checkChromiumEnvironmentRead({ ...direct, path: 'scripts/chromium-path.ts' })).toEqual([])
+  })
+
   test('a comment telling history is caught; the same words in a string are not', () => {
     const text = "const a = 'previously'\n// This previously used a canvas.\n// Rings are padded so the edge stays visible."
     expect(checkComments({ path: 'x.ts', text, imports: [] })).toHaveLength(1)

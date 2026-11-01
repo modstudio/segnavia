@@ -253,6 +253,22 @@ export function checkTypeScriptSuppressions(file: SourceFile): Finding[] {
   return directive ? [{ rule: 'type-suppression', path: file.path, message: `${directive} disables type safety; fix the types instead.` }] : []
 }
 
+const CHROMIUM_ENVIRONMENT_VARIABLE = ['SEGNAVIA', 'CHROMIUM'].join('_')
+
+export function checkChromiumEnvironmentRead(file: SourceFile): Finding[] {
+  if (!file.path.startsWith('scripts/') || file.path === 'scripts/chromium-path.ts') return []
+  const offset = file.text.indexOf(CHROMIUM_ENVIRONMENT_VARIABLE)
+  if (offset === -1) return []
+  const line = file.text.slice(0, offset).split('\n').length
+  return [
+    {
+      rule: 'chromium-path',
+      path: `${file.path}:${line}`,
+      message: 'reads the Chromium environment variable directly; use chromiumPath() from scripts/chromium-path.ts.',
+    },
+  ]
+}
+
 export function checkCeiling(file: SourceFile): Finding[] {
   const lines = file.text.split('\n').length
   return lines > FILE_CEILING_LINES

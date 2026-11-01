@@ -9,6 +9,7 @@ import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import {
   checkCeiling,
+  checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
   checkImports,
@@ -105,7 +106,7 @@ function structural(names: string[]): Finding[] {
       else findings.push(...checkImports(file, workspace, all))
       findings.push(...checkHostNames(file, names))
     }
-    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkCeiling(file))
+    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))
   }
   for (const relative of testFiles()) {
     const text = readFileSync(path.join(ROOT, relative), 'utf8')
