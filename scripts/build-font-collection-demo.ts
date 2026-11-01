@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fontFaceCss } from '@segnavia/html'
+import type { Renderer } from '@segnavia/render'
 
 interface SfntTable {
   record: Uint8Array
@@ -45,7 +46,7 @@ function collection(faces: Uint8Array[]): Uint8Array {
   return output
 }
 
-export function buildFontCollectionDemo(root: string, site: string): { collection: Uint8Array; standalone: Uint8Array } {
+export async function buildFontCollectionDemo(root: string, site: string, output: string, renderer: Renderer): Promise<void> {
   const alef = new Uint8Array(readFileSync(path.join(root, 'fixtures/hebrew-notice/Alef-Regular.ttf')))
   const noto = new Uint8Array(readFileSync(path.join(root, 'fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')))
   const packed = collection([alef, noto])
@@ -55,5 +56,15 @@ export function buildFontCollectionDemo(root: string, site: string): { collectio
     path.join(site, 'font-collection.html'),
     `<!doctype html><meta charset="utf-8"><style>${collectionCss}${standaloneCss}body{margin:0}.probe{display:block;width:max-content;font-size:72px;line-height:1;font-weight:400;color:#000;background:#fff}.collection{font-family:"Collection Alef"}.standalone{font-family:"Standalone Alef"}</style><span class="probe collection">אבגדהוז</span><span class="probe standalone">אבגדהוז</span>`,
   )
-  return { collection: packed, standalone: alef }
+  const page = { html: '<p style="margin:0;font-family:CollectionDemo;font-size:72px">אבגדהוז</p>' }
+  writeFileSync(
+    path.join(output, 'font-collection.pdf'),
+    await renderer.pagePdf(page, {
+      fonts: [{ family: 'CollectionDemo', data: packed, format: 'collection', postscriptName: 'Alef-Regular' }],
+    }),
+  )
+  writeFileSync(
+    path.join(output, 'font-standalone.pdf'),
+    await renderer.pagePdf(page, { fonts: [{ family: 'CollectionDemo', data: alef, format: 'truetype' }] }),
+  )
 }
