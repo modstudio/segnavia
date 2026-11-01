@@ -27,7 +27,7 @@ export function localFontReferences(references: readonly FontReference[]): Array
   return locals
 }
 
-export const FONT_FORMATS = ['woff2', 'woff', 'truetype', 'opentype'] as const
+export const FONT_FORMATS = ['woff2', 'woff', 'truetype', 'opentype', 'collection'] as const
 export type FontFormat = (typeof FONT_FORMATS)[number]
 
 const LocalFaceTransportShape = {
@@ -36,6 +36,7 @@ const LocalFaceTransportShape = {
   // See FontFace.weight.
   weight: z.union([z.number(), z.string()]).optional(),
   style: z.enum(['normal', 'italic']).optional(),
+  postscriptName: z.string().min(1).optional(),
   data: z.string(),
 } as const
 
@@ -55,6 +56,7 @@ export interface FontFace {
   weight?: number | string
   style?: 'normal' | 'italic'
   unicodeRange?: string
+  postscriptName?: string
 }
 
 export interface AppFont {

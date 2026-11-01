@@ -29,6 +29,39 @@ type QueryLocalFonts = () => Promise<
 
 const host = globalThis as { queryLocalFonts?: QueryLocalFonts }
 
+function namedTruetype(name: string): Uint8Array {
+  const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
+  const bytes = new Uint8Array(46 + encoded.length)
+  const view = new DataView(bytes.buffer)
+  view.setUint32(0, 0x00010000)
+  view.setUint16(4, 1)
+  bytes.set(new TextEncoder().encode('name'), 12)
+  view.setUint32(20, 28)
+  view.setUint32(24, 18 + encoded.length)
+  view.setUint16(30, 1)
+  view.setUint16(32, 18)
+  view.setUint16(34, 3)
+  view.setUint16(36, 1)
+  view.setUint16(38, 0x409)
+  view.setUint16(40, 6)
+  view.setUint16(42, encoded.length)
+  bytes.set(encoded, 46)
+  return bytes
+}
+
+function collectedTruetype(name: string, padding = 0): Uint8Array {
+  const face = namedTruetype(name)
+  const bytes = new Uint8Array(16 + face.length + padding)
+  const view = new DataView(bytes.buffer)
+  bytes.set(new TextEncoder().encode('ttcf'))
+  view.setUint32(4, 0x00010000)
+  view.setUint32(8, 1)
+  view.setUint32(12, 16)
+  bytes.set(face, 16)
+  view.setUint32(16 + 20, new DataView(face.buffer).getUint32(20) + 16)
+  return bytes
+}
+
 afterEach(() => {
   delete host.queryLocalFonts
 })
@@ -40,7 +73,7 @@ function installed(fonts: StubFont[]): QueryLocalFonts {
       fullName: font.fullName,
       postscriptName: font.postscriptName,
       style: font.style,
-      blob: async () => new Blob([Uint8Array.from(font.bytes ?? truetype)]),
+      blob: async () => new Blob([Uint8Array.from(font.bytes ?? namedTruetype(font.postscriptName))]),
     }))
 }
 
@@ -78,7 +111,7 @@ describe('readLocalFonts', () => {
     host.queryLocalFonts = installed([{ family: 'Alef', fullName: 'Alef Regular', postscriptName: 'Alef-Regular', style: 'Regular' }])
     const result = await readLocalFonts([{ local: 'alef', fallback: 'serif' }], { signal })
     expect(result.unavailable).toEqual([])
-    expect(result.faces).toEqual([{ family: 'alef', data: truetype, format: 'truetype', weight: 400, style: 'normal' }])
+    expect(result.faces).toEqual([{ family: 'alef', data: namedTruetype('Alef-Regular'), format: 'truetype', weight: 400, style: 'normal' }])
   })
 
   test('reports unreadable when a cut cannot be read', async () => {
@@ -98,14 +131,25 @@ describe('readLocalFonts', () => {
     expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
   })
 
-  test('reports unreadable for a TrueType collection', async () => {
+  test('refuses a malformed TrueType collection and names its cut', async () => {
     const ttcf = new Uint8Array([0x74, 0x74, 0x63, 0x66])
     host.queryLocalFonts = installed([
       { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular', bytes: ttcf },
     ])
+    const work = readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    await expect(work).rejects.toBeInstanceOf(FontRefusedError)
+    await expect(work).rejects.toThrow('LocalFace-Regular: font collection header is malformed')
+  })
+
+  test('extracts an installed collection before applying the transport byte limit', async () => {
+    const name = 'LocalFace-Regular'
+    host.queryLocalFonts = installed([
+      { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: name, style: 'Regular', bytes: collectedTruetype(name, 200) },
+    ])
     const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
-    expect(result.faces).toEqual([])
-    expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
+    expect(result.faces[0]?.format).toBe('truetype')
+    expect(result.faces[0]?.data.length).toBeLessThan(200)
+    expect(packLocalFaces(result.faces, [{ local: 'Local Face', fallback: 'serif' }], { bytes: 200 })).toHaveLength(1)
   })
 
   test('groups cuts by postscript name and maps style to weight and italic', async () => {
@@ -117,9 +161,25 @@ describe('readLocalFonts', () => {
     const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
     expect(result.unavailable).toEqual([])
     expect(result.faces).toEqual([
-      { family: 'Local Face', data: truetype, format: 'truetype', weight: 400, style: 'normal' },
-      { family: 'Local Face', data: truetype, format: 'truetype', weight: 700, style: 'italic' },
+      { family: 'Local Face', data: namedTruetype('LocalFace-Regular'), format: 'truetype', weight: 400, style: 'normal' },
+      { family: 'Local Face', data: namedTruetype('LocalFace-BoldItalic'), format: 'truetype', weight: 700, style: 'italic' },
     ])
+  })
+
+  test('refuses and names a mismatched cut even when another family cut resolves', async () => {
+    host.queryLocalFonts = installed([
+      { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular' },
+      {
+        family: 'Local Face',
+        fullName: 'Local Face Bold',
+        postscriptName: 'LocalFace-Bold',
+        style: 'Bold',
+        bytes: namedTruetype('Different-Bold'),
+      },
+    ])
+    const work = readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    await expect(work).rejects.toBeInstanceOf(FontRefusedError)
+    await expect(work).rejects.toThrow('LocalFace-Bold: font face has PostScript name Different-Bold, not LocalFace-Bold')
   })
 
   test('passing returned faces as fonts.local writes a local @font-face on the page path', async () => {

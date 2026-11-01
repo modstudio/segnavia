@@ -4,7 +4,6 @@ import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'no
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { Deck, jsonSchemas, type Narration, type PublishedShot, type Shot } from '@segnavia/format'
-import { bridgeForHost } from '@segnavia/frame/bridge'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { fill } from '@segnavia/html'
 import { openRenderer, RenderRefusedError } from '@segnavia/render'
@@ -17,9 +16,11 @@ import { buildCaptureOutputFacts } from './build-capture-output.ts'
 import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
+import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
+import { buildSandboxDemo } from './build-sandbox-demo.ts'
 import { buildSlotDemo, buildSlotPdf } from './build-slot-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
 import { chromiumPath } from './chromium-path.ts'
@@ -327,40 +328,14 @@ const printable = {
   ),
 }
 writeFileSync(path.join(SITE, 'deck-print.json'), JSON.stringify(printable))
-const scripted = Deck.parse({
-  title: 'Scripts allowed',
-  scripts: 'sandboxed',
-  slides: [
-    {
-      id: 'runs',
-      content: {
-        kind: 'html',
-        html: '<h1 id="t">waiting</h1><script>document.getElementById("t").textContent = "ran"; document.body.style.background = "rgb(0, 128, 0)"</script>',
-      },
-    },
-    { id: 'next', content: { kind: 'html', html: '<h1>second</h1>' } },
-  ],
-})
-writeFileSync(path.join(SITE, 'deck-scripted.json'), JSON.stringify(scripted))
-writeFileSync(path.join(SITE, 'scripted.html'), shell('<segnavia-player src="deck-scripted.json" hash="off"></segnavia-player>'))
+buildSandboxDemo(SITE, shell)
 await buildAuthoringDemo(ROOT, SITE, shell)
 writeFileSync(path.join(SITE, 'prefetch.html'), shell('<segnavia-player id="d" src="deck.json" prefetch></segnavia-player>'))
 buildDeckHost(SITE)
-// A page the host serves itself, as a preview ticket would be: its own CSP,
-// and the bridge included under the host's nonce to report its height.
-writeFileSync(
-  path.join(SITE, 'ticket-page.html'),
-  `<!doctype html><html><head><meta charset="utf-8"><script>${bridgeForHost({ relayKeys: false })}</script></head><body style="margin:0"><div style="height:420px;background:#fde68a">served by the host</div></body></html>`,
-)
-writeFileSync(
-  path.join(SITE, 'ticket.html'),
-  shell(
-    '<div style="background:#fff;width:800px"><segnavia-page id="ticket"></segnavia-page></div><script type="module">await customElements.whenDefined("segnavia-page"); document.getElementById("ticket").showUrl("ticket-page.html")</script>',
-  ),
-)
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
+  await buildFontCollectionDemo(ROOT, SITE, OUT, renderer)
   await buildBookPdfs(SITE, (book, options) => renderer.bookPdf(book, { effects: false, ...options }))
   writeFileSync(path.join(OUT, 'deck.pdf'), await renderer.deckPdf(printable, { inline }))
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))
