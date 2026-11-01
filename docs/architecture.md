@@ -372,6 +372,12 @@ Paginated mode measures Chromium's line boxes (grouped by top, including mixed-b
 
 Parent-page head and foot HTML can place a page mark independently of the running head with `data-motif="segnavia:mark"` and `data-motif-name`; `data-motif-which` chooses `first` or `last` and defaults to `first`. Only a paginated book fills this placement from the page plan's carried marks, so a page with no new value shows the last earlier value while a blank or a page before the first value shows nothing; a continuous book or a `Page` leaves it empty. The library writes an isolated `bdi` and resolves its direction from the book and the value. The HTML book reader refuses an empty name, an unknown field and a `which` value other than `first` or `last`. `BOOK_FURNITURE.region` records where the default parents place furniture; a mark is never default furniture, and an author places it in either the head or the foot.
 
+## Media and placement
+
+Media is an asset kind beside deck, page, paper, book and shot: a placed graphic, raster or vector. `Media.parse` reads the facts a host fills when it stores the file; the value describes the source and never carries its bytes. `format` is the source format (`png`, `jpeg`, `gif`, `webp`, `svg`, `pdf`, `ai`), and `MEDIA_FORMATS` states what each format has: pages for PDF and Illustrator, a pixel resolution for raster. `size` is intrinsic, in pixels for raster and points for vector. A PDF or Illustrator file lists its `pages`, each with an optional name (an artboard name or page label) and its `media`, `crop`, `trim`, `bleed` and `art` boxes in points. `alt`, `caption` and `credit` carry their text with an optional `lang` and `dir`; `mediaTextDirection` resolves each through `resolveDirection`. Media a host extracts from one page or artboard of a PDF or Illustrator file records `derivedFrom` (the source's address, its page and an optional name), so the host can extract it again after the source changes; a format with pages cannot itself be derived.
+
+A `Placement` is one asset placed in another. It names the placed asset by `kind` and the host's `address` and carries what belongs to this use: for media, the `page` (a 1-based number or a name) and the page `box` that bounds it, a `crop` of physical inset edges as CSS lengths or percentages, a `fit`, and an `alt` that overrides the asset's. `Placement.parse(input, container, placed?)` reads what the container accepts from `PLACEMENT_ACCEPTS`: a board accepts every kind, a book media and pages, and a page, deck or paper only media. It refuses page, box and crop on any kind but media, and page and box when the placed media is given and has no pages. A page name or number the source does not have is not refused here; it is reported when the placement resolves. A crop whose opposite edges together leave no area is refused. `findPlacementCycle` walks a graph of placements by address and returns the first chain that reaches its own start, and `checkPlacementCycles` refuses it, naming the chain. Every refusal is a `PlacementRefusedError` naming the field and what clears it. `jsonSchemas()` includes both shapes for hosts that do not run TypeScript.
+
 ## How a shot is made
 
 The default capture viewport is 1280×720, the same aspect ratio and size as
@@ -1008,5 +1014,6 @@ A render after `close()` is refused.
 ## Data the host keeps
 
 The library keeps no storage. A host stores decks and pages, its shot library
-(versions, permanent addresses, usage via `shotsUsed`), tickets, sharing and
-tenancy, and serves `PublishedShot` JSON at each shot's address.
+(versions, permanent addresses, usage via `shotsUsed`), media files with the
+`Media` facts it fills for each, tickets, sharing and tenancy, and serves
+`PublishedShot` JSON at each shot's address.

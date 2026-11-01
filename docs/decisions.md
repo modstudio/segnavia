@@ -91,6 +91,16 @@ slide, so it all lives in one repository.
 **Code never names a host.** It is enforced by `checkHostNames`, using names
 from `host-names.local`. Adoption notes live with each host.
 
+**Media describes its source and carries no bytes.** The host stores the file
+and fills its facts, as it must to store it at all, so the library never
+reads a source file. A placement names media by the host's address, the way
+every placed asset is named, and the host supplies what to draw when it
+resolves.
+
+**What a container accepts is a table.** `PLACEMENT_ACCEPTS` lists the kinds
+each container takes, so a new kind or container is one row, read by one
+check, never a branch per kind.
+
 ## Capture
 
 **A clean image plus measured geometry is the primary output.** Drawing
