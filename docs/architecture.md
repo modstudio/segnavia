@@ -44,6 +44,14 @@ during import because format parent-page inheritance replaces a head or foot
 rather than merging its boxes; `basedOn` remains available for parent margins.
 Single-column paragraphs in a multi-column frame carry `data-columns` within
 the bound `html` exports.
+Tables become native `table`, `colgroup`, row-region and `td` elements. Their
+named cell anchors determine the grid, so source order cannot change placement;
+header and footer regions repeat through the paginator. A table nested in a cell
+is reported as an unsupported `Table` and not rendered. Table, region and cell
+styles are equal-specificity classes in layer order, followed by deduplicated
+local override classes. Collapsed CSS borders preserve one shared edge and let
+the wider stroke win; this differs from InDesign when its last-applied stroke is
+narrower, but avoids visibly doubled shared strokes.
 Text frames anchored inline in story text become inline-block `idml-anchored`
 spans at their source position, with their nested paragraphs represented as
 block-displayed spans so paragraph HTML remains valid. Anchored-only stories do

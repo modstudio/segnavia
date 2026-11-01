@@ -114,7 +114,7 @@ describe('idmlModel', () => {
       {
         name: 'Resources/Styles.xml',
         bytes: bytes(
-          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="p"><Properties><Leading>12</Leading></Properties></ParagraphStyle></RootParagraphStyleGroup><ObjectStyle/><TableStyle/><CellStyle/></idPkg:Styles>',
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="p"><Properties><Leading>12</Leading></Properties></ParagraphStyle></RootParagraphStyleGroup><RootTableStyleGroup><TableStyleGroup><TableStyle Self="t"/></TableStyleGroup></RootTableStyleGroup><RootCellStyleGroup><CellStyleGroup><CellStyle Self="c"/></CellStyleGroup></RootCellStyleGroup><ObjectStyle/></idPkg:Styles>',
         ),
       },
       {
@@ -124,14 +124,16 @@ describe('idmlModel', () => {
     ])
     expect(model.report?.unsupportedElements).toMatchObject({
       ObjectStyle: 1,
-      TableStyle: 1,
-      CellStyle: 1,
       Gradient: 1,
       Tint: 1,
       MixedInk: 1,
       StrokeStyle: 1,
     })
     expect(model.report?.unsupportedElements).not.toHaveProperty('Leading')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('RootTableStyleGroup')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('TableStyleGroup')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('RootCellStyleGroup')
+    expect(model.report?.unsupportedElements).not.toHaveProperty('CellStyleGroup')
   })
 
   test('refuses XML beyond the named depth cap', () => {

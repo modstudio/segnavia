@@ -13,6 +13,7 @@ import { ReportCollector } from './report.ts'
 import { type StoryHtmlResult, storyHtml } from './stories.ts'
 import { StyleMapper } from './styles.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
+import { TableStyleMapper } from './table-styles.ts'
 import type { IdmlAnchoredFrame, IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
 
@@ -65,6 +66,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
   const fonts = new FontMapper(model.fonts ?? [], options.font, report)
   const styles = new StyleMapper(model.styles ?? [], model.swatches ?? [], report, bookDirection, fonts)
+  const tableStyles = new TableStyleMapper(model.styles ?? [], model.swatches ?? [], report, (css) => styles.cssOverrideClass(css))
   const matchedVariables = matchVariables(model.textVariables ?? [], report)
   const bookLanguage = styles.rootLanguage()
   const storyPages = storyPageUses(model)
@@ -75,6 +77,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   const frameByLocation = new Map((model.anchoredFrames ?? []).map((frame) => [frame.location, frame]))
   const renderStory = (story: IdmlStory, depth = 0, ancestors = new Set([story.id]), master = false): StoryHtmlResult =>
     storyHtml({ ...story, textVariables: matchedVariables, master }, styles, report, bookDirection, bookLanguage, {
+      tableStyles,
       inlineParagraphs: depth > 0,
       anchored: (location, direction): string | undefined => {
         const frame = frameByLocation.get(location)
@@ -120,7 +123,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
-  const css = `${styles.css()}${masters.css}`
+  const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
   return Book.parse({
     title: model.id,

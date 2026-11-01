@@ -13,6 +13,7 @@ import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
+import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
@@ -270,6 +271,7 @@ export async function buildBookPdfs(
 }
 
 export async function buildBookDemo(site: string): Promise<void> {
+  await buildIdmlTableDemo(site)
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
   writeFileSync(

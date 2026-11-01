@@ -74,7 +74,7 @@ describe('importIdml', () => {
       {
         name: 'Stories/Story_story.xml',
         content:
-          '<Story Self="story"><ParagraphStyleRange AppliedParagraphStyle="body"><CharacterStyleRange><Content>&lt;script&gt;שלום</Content></CharacterStyleRange><Table/></ParagraphStyleRange></Story>',
+          '<Story Self="story"><ParagraphStyleRange AppliedParagraphStyle="body"><CharacterStyleRange><Content>&lt;script&gt;שלום</Content></CharacterStyleRange><Note/></ParagraphStyleRange></Story>',
       },
     ])
     const result = await importIdml(bytes)
@@ -89,9 +89,9 @@ describe('importIdml', () => {
     expect(result.book.css).not.toContain('font-style')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
-    expect(result.report.unsupportedElements).toMatchObject({ Table: 1 })
+    expect(result.report.unsupportedElements).toMatchObject({ Note: 1 })
     expect(result.report.unsupportedStyleProperties).toMatchObject({ RuleAbove: 1 })
-    expect(result.report.locations['element:Table']).toBeDefined()
+    expect(result.report.locations['element:Note']).toBeDefined()
   })
 
   test('maps local and app fonts into Book references and style and override CSS once per face', async () => {

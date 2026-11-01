@@ -29,8 +29,14 @@ const MAPPED_ELEMENTS = new Set([
   'ParagraphStyleGroup',
   'RootCharacterStyleGroup',
   'CharacterStyleGroup',
+  'RootTableStyleGroup',
+  'TableStyleGroup',
+  'RootCellStyleGroup',
+  'CellStyleGroup',
   'ParagraphStyle',
   'CharacterStyle',
+  'TableStyle',
+  'CellStyle',
   'AnchoredObjectSetting',
   'Color',
   'TextVariable',
@@ -42,7 +48,8 @@ function insideMappedResource(element: Element): boolean {
   let parent = element.parent
   while (parent && 'name' in parent) {
     const name = localName(parent.name)
-    if (name === 'ParagraphStyle' || name === 'CharacterStyle' || name === 'ObjectStyle' || name === 'Color') return true
+    if (name === 'ParagraphStyle' || name === 'CharacterStyle' || name === 'ObjectStyle' || name === 'TableStyle' || name === 'CellStyle' || name === 'Color')
+      return true
     parent = parent.parent
   }
   return false

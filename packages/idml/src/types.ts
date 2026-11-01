@@ -11,7 +11,7 @@ export interface IdmlTextNode {
 export interface IdmlStyle {
   id: string
   name: string
-  kind: 'paragraph' | 'character' | 'object'
+  kind: 'paragraph' | 'character' | 'object' | 'table' | 'cell'
   basedOn?: string
   properties: Record<string, string>
   location: string
