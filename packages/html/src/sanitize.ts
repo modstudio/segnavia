@@ -32,7 +32,7 @@ const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransf
 const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action'])
 const URL_ATTRIBUTES = new Set(['href', 'xlink:href', 'src', 'srcset', 'poster', 'background', 'data', 'cite', 'longdesc', 'ping'])
 const DATA_IMAGE_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
-export const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
+const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
 const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
 
 export interface SanitizeOptions {
@@ -85,6 +85,10 @@ function normalizeUrl(value: string): string {
     .toLowerCase()
 }
 
+export function safeImageSource(value: string): boolean {
+  return DATA_IMAGE.test(normalizeUrl(value))
+}
+
 function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
@@ -97,7 +101,7 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>)
     }
   }
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
-  if (attribute === 'src' || attribute === 'poster') return DATA_IMAGE.test(url)
+  if (attribute === 'src' || attribute === 'poster') return safeImageSource(value)
   return false
 }
 

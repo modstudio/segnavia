@@ -23,6 +23,10 @@ describe('placementPlan', () => {
 
   test('turns parse refusals into refusal entries', () => {
     expect(placementPlan('<p></p><img data-segnavia-media="">').refusals[0]).toMatchObject({ index: 1, address: '' })
+    expect(placementPlan('<img data-segnavia-media="a" data-segnavia-page="">').refusals[0]).toMatchObject({
+      address: 'a',
+      page: '',
+    })
   })
 })
 
@@ -43,6 +47,18 @@ describe('resolvePlacements', () => {
     expect(output).not.toContain('data-segnavia-media')
   })
 
+  test('accepts a line-wrapped base64 image source as the sanitizer does', async () => {
+    const src = 'data:image/png;base64,AA\nBB'
+    const output = await resolvePlacements('<img data-segnavia-media="a">', {
+      resolvePlacement: async () => ({ kind: 'media', media: media(), src }),
+      purpose: 'screen',
+      width: 100,
+      signal,
+    })
+    expect(output).not.toContain('data-segnavia-placement')
+    expect(output).toContain('data:image/png;base64,AA\nBB')
+  })
+
   test.each(['https://example.com/x.png', 'blob:x', 'data:text/html,x', 'data:image/svg+xmlx,x'])('refuses unsafe source %s', async (src) => {
     const reports: unknown[] = []
     const output = await resolvePlacements('<img data-segnavia-media="a">', {
@@ -56,16 +72,25 @@ describe('resolvePlacements', () => {
     expect(reports).toEqual([{ address: 'a', page: undefined, reason: 'refused-src' }])
   })
 
-  test('fills absent alt and direction but keeps authored empty alt', async () => {
-    const resolver: ResolvePlacement = async () => ({ kind: 'media', media: media({ text: 'שלום', lang: 'he' }), src: png })
-    const output = await resolvePlacements('<img data-segnavia-media="a"><img data-segnavia-media="b" alt="">', {
-      resolvePlacement: resolver,
-      purpose: 'screen',
-      width: 100,
-      signal,
+  test('fills absent alt and resolved direction but does not label an authored alt', async () => {
+    const resolver: ResolvePlacement = async (placement) => ({
+      kind: 'media',
+      media: media(placement.address === 'a' ? { text: 'שלום' } : { text: 'שלום', lang: 'he' }),
+      src: png,
     })
-    expect(output).toContain('alt="שלום" lang="he" dir="rtl"')
+    const output = await resolvePlacements(
+      '<img data-segnavia-media="a"><img data-segnavia-media="b" alt="Author caption"><img data-segnavia-media="c" alt=""><img data-segnavia-media="d">',
+      {
+        resolvePlacement: resolver,
+        purpose: 'screen',
+        width: 100,
+        signal,
+      },
+    )
+    expect(output).toContain('alt="שלום" dir="rtl"')
+    expect(output).toContain('alt="Author caption" src=')
     expect(output).toMatch(/<img alt(?:="")? src=/)
+    expect(output.match(/lang="he" dir="rtl"/g)).toHaveLength(1)
   })
 
   test('appends crop to authored style and passes purpose and widths', async () => {

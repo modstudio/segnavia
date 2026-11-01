@@ -1,8 +1,9 @@
 import { type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
 import type { Element } from 'domhandler'
-import { DATA_IMAGE, elements, parse, serialize } from './sanitize.ts'
+import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
+const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
 export type ResolvedPlacement = { kind: 'media'; media: Media; src: string }
 export type ResolvePlacement = (
@@ -48,7 +49,7 @@ function positiveInteger(value: string | undefined): number | undefined {
 }
 
 function pageSelector(value: string | undefined): string | number | undefined {
-  if (value === undefined || value === '') return undefined
+  if (value === undefined) return undefined
   return /^[1-9][0-9]*$/.test(value) ? Number(value) : value
 }
 
@@ -66,16 +67,16 @@ function cropValue(value: string | undefined): PlacementValue['crop'] {
 }
 
 function plannedElement(element: Element, index: number): PlacementPlanEntry | PlacementRefusal {
-  const address = element.attribs[PLACEMENT_ATTRIBUTES[0]]
-  const page = pageSelector(element.attribs[PLACEMENT_ATTRIBUTES[1]])
+  const address = element.attribs[MEDIA_ATTRIBUTE]
+  const page = pageSelector(element.attribs[PAGE_ATTRIBUTE])
   try {
     const placement = Placement.parse(
       {
         kind: 'media',
         address: address as string,
         ...(page === undefined ? {} : { page }),
-        ...(element.attribs[PLACEMENT_ATTRIBUTES[2]] === undefined ? {} : { box: element.attribs[PLACEMENT_ATTRIBUTES[2]] as PlacementValue['box'] }),
-        ...(element.attribs[PLACEMENT_ATTRIBUTES[3]] === undefined ? {} : { crop: cropValue(element.attribs[PLACEMENT_ATTRIBUTES[3]]) }),
+        ...(element.attribs[BOX_ATTRIBUTE] === undefined ? {} : { box: element.attribs[BOX_ATTRIBUTE] as PlacementValue['box'] }),
+        ...(element.attribs[CROP_ATTRIBUTE] === undefined ? {} : { crop: cropValue(element.attribs[CROP_ATTRIBUTE]) }),
       },
       'page',
     )
@@ -92,15 +93,18 @@ function plannedElement(element: Element, index: number): PlacementPlanEntry | P
   }
 }
 
-export function placementPlan(html: string): PlacementPlan {
-  const found = elements(parse(html).children)
+function planElements(found: Element[]): PlacementPlan {
   const planned = found.flatMap((element, index) =>
-    element.name.toLowerCase() === 'img' && PLACEMENT_ATTRIBUTES[0] in element.attribs ? [plannedElement(element, index)] : [],
+    element.name.toLowerCase() === 'img' && MEDIA_ATTRIBUTE in element.attribs ? [plannedElement(element, index)] : [],
   )
   return {
     entries: planned.filter((entry): entry is PlacementPlanEntry => 'placement' in entry),
     refusals: planned.filter((entry): entry is PlacementRefusal => !('placement' in entry)),
   }
+}
+
+export function placementPlan(html: string): PlacementPlan {
+  return planElements(elements(parse(html).children))
 }
 
 function placeholder(element: Element): void {
@@ -117,10 +121,12 @@ function placeholder(element: Element): void {
 
 function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: ResolvedPlacement): void {
   element.attribs.src = resolved.src
-  if (entry.alt === undefined && resolved.media.alt) element.attribs.alt = resolved.media.alt.text
-  if (entry.lang === undefined && entry.dir === undefined && (resolved.media.alt?.lang || resolved.media.alt?.dir)) {
-    if (resolved.media.alt.lang) element.attribs.lang = resolved.media.alt.lang
-    element.attribs.dir = mediaTextDirection(resolved.media.alt)
+  if (entry.alt === undefined && resolved.media.alt) {
+    element.attribs.alt = resolved.media.alt.text
+    if (entry.lang === undefined && entry.dir === undefined) {
+      if (resolved.media.alt.lang) element.attribs.lang = resolved.media.alt.lang
+      element.attribs.dir = mediaTextDirection(resolved.media.alt)
+    }
   }
   const crop = entry.placement.crop
   if (crop) {
@@ -156,11 +162,11 @@ export async function resolvePlacements(
   html: string,
   options: { resolvePlacement: ResolvePlacement; purpose: 'screen' | 'print'; width: number; signal: AbortSignal; report?: PlacementReport },
 ): Promise<string> {
-  const plan = placementPlan(html)
-  if (plan.entries.length === 0 && plan.refusals.length === 0) return html
-  options.signal.throwIfAborted()
   const document = parse(html)
   const found = elements(document.children)
+  const plan = planElements(found)
+  if (plan.entries.length === 0 && plan.refusals.length === 0) return html
+  options.signal.throwIfAborted()
   for (const refusal of plan.refusals) {
     const element = found[refusal.index]
     if (element) placeholder(element)
@@ -184,7 +190,7 @@ export async function resolvePlacements(
         if (!resolved) {
           placeholder(element)
           options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'missing' })
-        } else if (!DATA_IMAGE.test(resolved.src)) {
+        } else if (!safeImageSource(resolved.src)) {
           placeholder(element)
           options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'refused-src' })
         } else applyResolved(element, entry, resolved)

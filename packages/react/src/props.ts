@@ -97,6 +97,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   slots?: SegnaviaThumbnail['slots']
   motifs?: SegnaviaThumbnail['motifs']
   fonts?: SegnaviaThumbnail['fonts']
+  placements?: SegnaviaThumbnail['placements']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
@@ -152,6 +153,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
+  placements?: SegnaviaPaper['placements']
   unstyled?: boolean
 }
 
@@ -164,6 +166,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
+  placements?: SegnaviaDocument['placements']
   unstyled?: boolean
 }
 

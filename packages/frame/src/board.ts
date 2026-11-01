@@ -11,6 +11,7 @@ import {
   visibleItems,
   zoomToFit,
 } from '@segnavia/format'
+import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
@@ -44,6 +45,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
+  private placementOptions: PlacementsOptions | undefined
   private viewEvent = 0
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -114,6 +116,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
   }
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
+    this.render()
+  }
+  set placements(value: PlacementsOptions | undefined) {
+    this.placementOptions = value
     this.render()
   }
   set fonts(value: FontsOptions | undefined) {
@@ -357,7 +363,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.painter.fonts)
+    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.painter.fonts, this.placementOptions)
   }
 
   private resolve(item: BoardItem) {

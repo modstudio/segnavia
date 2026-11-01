@@ -10,6 +10,8 @@ import { Slots } from './slots.ts'
 // A page is designed for the screen at whatever size it needs: fluid (the
 // viewer's width, as tall as its content), a fixed sheet, or a fixed width
 // that grows with its content.
+export const FLUID_WIDTH = 1024
+
 export const PageSize = z.union([z.literal('fluid'), Size, z.object({ width: z.number().int().positive(), height: z.literal('auto') })])
 export type PageSize = z.infer<typeof PageSize>
 

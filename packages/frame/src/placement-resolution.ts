@@ -1,10 +1,10 @@
-import { type Book, type BookView, type Page, paperPixels, sheetMm } from '@segnavia/format'
+import { type Book, type BookView, FLUID_WIDTH, type Page, paperPixels, sheetMm } from '@segnavia/format'
 import { type PlacementsOptions, resolvePlacements } from '@segnavia/html'
 
 export function bookPlacementWidth(book: Book | BookView): number {
   if ('pagination' in book && book.pagination) return paperPixels(book.pagination.paper.width)
   if ('page' in book && book.page) return paperPixels(sheetMm(book.page).width)
-  return 1024
+  return FLUID_WIDTH
 }
 
 function resolvePlacementHtml(
@@ -15,7 +15,7 @@ function resolvePlacementHtml(
   signal: AbortSignal,
 ): Promise<string> {
   if (!placements) return Promise.resolve(html)
-  const width = page.print ? paperPixels(sheetMm(page.print).width) : page.size === 'fluid' ? 1024 : page.size.width
+  const width = page.print ? paperPixels(sheetMm(page.print).width) : page.size === 'fluid' ? FLUID_WIDTH : page.size.width
   return resolvePlacements(html, { resolvePlacement: placements.resolve, report: placements.report, purpose, width, signal })
 }
 

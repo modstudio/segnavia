@@ -14,7 +14,12 @@ export async function verifyPlacedMediaBook(h: Harness) {
       images: images.length,
       papers: papers.size,
       capped: Boolean(images[0] && text && images[0].getBoundingClientRect().height <= text.getBoundingClientRect().height + 0.5),
-      resolved: images[0]?.getAttribute('src')?.startsWith('data:image/svg+xml,') ?? false,
+      resolved:
+        !images[0]?.hasAttribute('data-segnavia-placement') &&
+        (images[0]
+          ?.getAttribute('src')
+          ?.startsWith('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%222400%22') ??
+          false),
     }
   })
   h.check(

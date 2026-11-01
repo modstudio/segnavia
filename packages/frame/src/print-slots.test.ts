@@ -50,6 +50,44 @@ test('browser deck and page printing refuse every required slot state before cre
 
 const imposition = { paper: { unit: 'mm' as const, width: 210, height: 297 }, columns: 1, rows: 1, cell: { width: 210, height: 297 } }
 
+test('printPages resolves placements before building the browser print document', async () => {
+  let written = ''
+  const printWindow = new EventTarget() as EventTarget & {
+    document: { open(): void; write(html: string): void; close(): void; querySelectorAll(): unknown[]; fonts: { ready: Promise<void> } }
+    setTimeout: typeof setTimeout
+    requestAnimationFrame: (callback: FrameRequestCallback) => number
+  }
+  printWindow.document = {
+    open() {},
+    write(html) {
+      written = html
+    },
+    close() {},
+    querySelectorAll: () => [],
+    fonts: { ready: Promise.resolve() },
+  }
+  printWindow.setTimeout = setTimeout
+  printWindow.requestAnimationFrame = (callback) => {
+    callback(0)
+    return 1
+  }
+  const host = { style: { cssText: '' }, contentWindow: printWindow, remove() {} }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => host, body: { append() {} } } })
+  try {
+    const src = 'data:image/png;base64,AA=='
+    await printPages([{ html: '<img data-segnavia-media="cover">' }], imposition, {
+      placements: { resolve: async () => ({ kind: 'media', media: { format: 'png', size: { width: 20, height: 10 } }, src }) },
+      print: () => {},
+    })
+    expect(written).toContain(src)
+    expect(written).not.toContain('data-segnavia-media')
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
 test('browser print refuses fills together with fill', async () => {
   const deck = Deck.parse({ title: 'Fills', slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
   const slots = { fills: [{ fill: { id: 'ada', values: { name: 'Ada' } } }], fill: { id: 'ada', values: { name: 'Ada' } } }

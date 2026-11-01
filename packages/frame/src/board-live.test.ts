@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-test('passes a board motif source to a live book before its view', async () => {
+test('passes board motif and placement sources to a live book before its view', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
   const { liveBoardItem } = await import('./board-live.ts')
@@ -12,10 +12,14 @@ test('passes a board motif source to a live book before its view', async () => {
         revision: 'one',
         label: key,
         fields: [],
-        versions: [{ lang: 'en', html: '<strong data-board-book-motif>Expanded</strong>' }],
+        versions: [{ lang: 'en', html: '<strong data-board-book-motif>Expanded</strong><img data-segnavia-media="cover">' }],
         fonts: [],
       }),
     },
+  }
+  const src = 'data:image/png;base64,AA=='
+  const placements = {
+    resolve: async () => ({ kind: 'media' as const, media: { format: 'png' as const, size: { width: 20, height: 10 } }, src }),
   }
   try {
     const live = liveBoardItem(
@@ -42,12 +46,16 @@ test('passes a board motif source to a live book before its view', async () => {
       },
       () => {},
       motifs,
+      undefined,
+      placements,
     )
     const book = live.element as InstanceType<typeof import('./book.ts')['SegnaviaBook']>
     expect(book.motifs).toBe(motifs)
-    if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and motifs')
-    const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal)
+    expect(book.placements).toBe(placements)
+    if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and sources')
+    const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.foot).toContain('data-board-book-motif')
+    expect(expanded.book.pagination?.parents[0]?.foot).toContain(`src="${src}"`)
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

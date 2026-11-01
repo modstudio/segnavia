@@ -20,7 +20,7 @@ import { measureOverflow, type PrintResult, printWithOverflow } from './overflow
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
-import { FLUID_WIDTH, pageViewport } from './page-viewport.ts'
+import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
@@ -70,13 +70,7 @@ export {
 export { filledBook }
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
-async function contentHeight(tab: Tab): Promise<number> {
-  const width = tab.viewportSize()?.width ?? FLUID_WIDTH
-  await tab.setViewportSize({ width, height: 1 })
-  const height = await tab.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0))
-  await tab.setViewportSize({ width, height })
-  return height
-}
+
 export async function openRenderer(options: RendererOptions): Promise<Renderer> {
   const heapMb = options.jsHeapMb ?? DEFAULT_JS_HEAP_MB
   const keeper = keepBrowser(() =>
