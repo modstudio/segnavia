@@ -9,7 +9,7 @@ export interface MillimeterEdges {
   left: number
 }
 
-export interface Placement {
+export interface ImpositionPlacement {
   page: number
   paper: number
   side: 'front' | 'back'
@@ -26,7 +26,7 @@ export interface Imposed {
   paper: { width: number; height: number }
   papers: number
   sides: 1 | 2
-  placements: Placement[]
+  placements: ImpositionPlacement[]
 }
 
 export interface PageFit {
@@ -72,7 +72,7 @@ function columnXMm(imposition: Imposition, column: number, widths: number[], pap
   return x
 }
 
-function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): Placement {
+function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): ImpositionPlacement {
   const mm = (value: number) => toMillimeters(value, imposition.unit)
   const column = cell % imposition.columns
   const row = Math.floor(cell / imposition.columns)
@@ -145,7 +145,7 @@ function mirrorEdges(edges: MillimeterEdges, axis: 'x' | 'y'): MillimeterEdges {
   return mirrored
 }
 
-export function mirrorPlacement(front: Placement, paper: Imposed['paper'], flip: Imposition['flip'], page = front.page): Placement {
+export function mirrorPlacement(front: ImpositionPlacement, paper: Imposed['paper'], flip: Imposition['flip'], page = front.page): ImpositionPlacement {
   const portrait = paper.width <= paper.height
   const axis = (flip === 'long') === portrait ? 'x' : 'y'
   const mirroredClipped = new Set(front.clipped.map((edge) => mirrorEdge(edge, axis)))
@@ -183,11 +183,11 @@ function assignPieces(imposition: Imposition, pieces: number, papers: number): P
   return assignments
 }
 
-function expandAssignments(imposition: Imposition, assignments: PieceAssignment[], pageCount: number, paper: Imposed['paper']): Placement[] {
-  const placements: Placement[] = []
+function expandAssignments(imposition: Imposition, assignments: PieceAssignment[], pageCount: number, paper: Imposed['paper']): ImpositionPlacement[] {
+  const placements: ImpositionPlacement[] = []
   let currentPaper = -1
-  let fronts: Placement[] = []
-  let backs: Placement[] = []
+  let fronts: ImpositionPlacement[] = []
+  let backs: ImpositionPlacement[] = []
   const flush = () => {
     placements.push(...fronts, ...backs)
     fronts = []
@@ -213,8 +213,8 @@ function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['p
   const columns = imposition.columns
   if (pageCount !== columns * 2) throw new Error(foldPageCountMessage(fold, pageCount, columns))
   const cells = foldCellPages(fold, columns)
-  const fronts: Placement[] = []
-  const backs: Placement[] = []
+  const fronts: ImpositionPlacement[] = []
+  const backs: ImpositionPlacement[] = []
   for (const [cell, pages] of cells.entries()) {
     if (!pages) continue
     const front = placementAt(imposition, 0, cell, pages.front, paper)
@@ -224,7 +224,7 @@ function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['p
   return { paper, papers: 1, sides: 2, placements: [...fronts, ...backs] }
 }
 
-export function gridPlacements(imposition: Imposition): { paper: Imposed['paper']; placements: Placement[] } {
+export function gridPlacements(imposition: Imposition): { paper: Imposed['paper']; placements: ImpositionPlacement[] } {
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const cells = imposition.columns * imposition.rows
   return { paper, placements: Array.from({ length: cells }, (_, cell) => placementAt(imposition, 0, cell, 0, paper)) }
@@ -243,13 +243,13 @@ export function impose(imposition: Imposition, pageCount: number): Imposed {
   return { paper, papers, sides, placements }
 }
 
-function trimDiffers(page: { print?: Print }, placement: Placement): boolean {
+function trimDiffers(page: { print?: Print }, placement: ImpositionPlacement): boolean {
   if (!page.print) return false
   const trim = sheetMm(page.print)
   return Math.abs(trim.width - placement.trim.width) > 0.01 || Math.abs(trim.height - placement.trim.height) > 0.01
 }
 
-export function fitPage(page: { size: Page['size']; print?: Print }, placement: Placement, fit: 'contain' | 'cover'): PageFit {
+export function fitPage(page: { size: Page['size']; print?: Print }, placement: ImpositionPlacement, fit: 'contain' | 'cover'): PageFit {
   const differs = trimDiffers(page, placement)
   if (page.size === 'fluid') {
     return {
@@ -323,7 +323,7 @@ export function fitPage(page: { size: Page['size']; print?: Print }, placement: 
   }
 }
 
-export function pagePlacementLayout(size: Page['size'], placement: Placement, fit: PageFit): PagePlacementLayout {
+export function pagePlacementLayout(size: Page['size'], placement: ImpositionPlacement, fit: PageFit): PagePlacementLayout {
   if (size === 'fluid') {
     return {
       kind: 'fluid',

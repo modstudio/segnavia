@@ -1,8 +1,8 @@
-import { fitPage, type Imposed, type Page, type PagePlacementLayout, type Placement, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import { fitPage, type Imposed, type ImpositionPlacement, type Page, type PagePlacementLayout, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
-  placement: Placement
+  placement: ImpositionPlacement
   layout: PagePlacementLayout
 }
 
@@ -17,10 +17,10 @@ export interface PieceGeometry {
   pdf: { width: string; height: string }
   // Millimeters Chromium was asked to print; fluid pieces use the paper box, others the CSS piece.
   paper: { width: number; height: number }
-  padding?: Placement['bleed']
+  padding?: ImpositionPlacement['bleed']
 }
 
-const geometryKey = (page: number, pageValue: Page, placement: Placement) =>
+const geometryKey = (page: number, pageValue: Page, placement: ImpositionPlacement) =>
   pageValue.size === 'fluid'
     ? JSON.stringify([
         page,
@@ -66,7 +66,7 @@ export function pieceGeometry(item: PiecePlacement): PieceGeometry {
 }
 
 export function placementPdfGeometry(
-  placement: Placement,
+  placement: ImpositionPlacement,
   layout: PagePlacementLayout,
   paperHeight: number,
 ): { draw: { x: number; y: number; width: number; height: number }; clip: { x: number; y: number; width: number; height: number } } {
