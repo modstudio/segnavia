@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { resolveFontFace } from './font-face.ts'
+import { FontFaceRefusedError } from './font-refusal.ts'
 
 function sfnt(name: string): Uint8Array {
   const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
@@ -49,6 +50,12 @@ describe('resolveFontFace', () => {
     expect(resolveFontFace(standalone, 'truetype', 'Fixture-Regular').data).toBe(standalone)
     expect(() => resolveFontFace(standalone, 'truetype', 'Other')).toThrow('font face has PostScript name Fixture-Regular, not Other')
     expect(resolveFontFace(standalone, 'truetype').data).toBe(standalone)
+  })
+
+  test('refuses standalone bytes declared as a collection even when named', () => {
+    const work = () => resolveFontFace(standalone, 'collection', 'Fixture-Regular')
+    expect(work).toThrow(FontFaceRefusedError)
+    expect(work).toThrow('font declared as a collection does not contain a font collection')
   })
 
   test('keeps a named WOFF without inspecting its name', () => {

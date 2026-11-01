@@ -54,6 +54,12 @@ describe('fontCss', () => {
     expect(css).not.toContain('format("collection")')
   })
 
+  test('translates collection resolution refusals to the HTML refusal type', () => {
+    const work = () => fontCss({ app: new Map(), local: [face({ family: 'Collection Face', format: 'collection', postscriptName: 'Missing' })] })
+    expect(work).toThrow(FontCssRefusedError)
+    expect(work).toThrow('font declared as a collection does not contain a font collection')
+  })
+
   test('writes the exact @font-face rule and :root property for an app font', () => {
     const app = new Map<string, AppFont>([['serif', { family: 'Body Serif', faces: [face({ family: 'Body Serif' })], generic: 'serif' }]])
     expect(fontCss({ app })).toBe(

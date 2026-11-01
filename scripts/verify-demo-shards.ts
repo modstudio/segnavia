@@ -18,6 +18,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyPapers',
   'verifyRailAuthoring',
   'verifyBooks',
+  'verifyFontCollection',
   'verifyComponents',
   'verifyCssSanitizer',
   'verifyHeadless',

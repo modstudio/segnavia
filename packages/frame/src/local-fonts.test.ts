@@ -131,14 +131,14 @@ describe('readLocalFonts', () => {
     expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
   })
 
-  test('reports unreadable for a TrueType collection', async () => {
+  test('refuses a malformed TrueType collection and names its cut', async () => {
     const ttcf = new Uint8Array([0x74, 0x74, 0x63, 0x66])
     host.queryLocalFonts = installed([
       { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular', bytes: ttcf },
     ])
-    const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
-    expect(result.faces).toEqual([])
-    expect(result.unavailable).toEqual([{ family: 'Local Face', fallback: 'serif', reason: 'unreadable' }])
+    const work = readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    await expect(work).rejects.toBeInstanceOf(FontRefusedError)
+    await expect(work).rejects.toThrow('LocalFace-Regular: font collection header is malformed')
   })
 
   test('extracts an installed collection before applying the transport byte limit', async () => {
@@ -164,6 +164,22 @@ describe('readLocalFonts', () => {
       { family: 'Local Face', data: namedTruetype('LocalFace-Regular'), format: 'truetype', weight: 400, style: 'normal' },
       { family: 'Local Face', data: namedTruetype('LocalFace-BoldItalic'), format: 'truetype', weight: 700, style: 'italic' },
     ])
+  })
+
+  test('refuses and names a mismatched cut even when another family cut resolves', async () => {
+    host.queryLocalFonts = installed([
+      { family: 'Local Face', fullName: 'Local Face Regular', postscriptName: 'LocalFace-Regular', style: 'Regular' },
+      {
+        family: 'Local Face',
+        fullName: 'Local Face Bold',
+        postscriptName: 'LocalFace-Bold',
+        style: 'Bold',
+        bytes: namedTruetype('Different-Bold'),
+      },
+    ])
+    const work = readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
+    await expect(work).rejects.toBeInstanceOf(FontRefusedError)
+    await expect(work).rejects.toThrow('LocalFace-Bold: font face has PostScript name Different-Bold, not LocalFace-Bold')
   })
 
   test('passing returned faces as fonts.local writes a local @font-face on the page path', async () => {

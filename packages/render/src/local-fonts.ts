@@ -1,5 +1,6 @@
 import {
   type FontFace,
+  FontFaceRefusedError,
   type FontReference,
   LOCAL_FONT_LIMITS,
   type LocalFacesInput,
@@ -7,6 +8,7 @@ import {
   type LocalFontLimits,
   localFontLimitRefusal,
   localFontReferences,
+  type ResolvedFontFace,
   resolveFontFace,
 } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
@@ -49,7 +51,13 @@ function decodeFace(input: unknown): FontFace {
   if (!data || bytesToBase64(data) !== parsed.data.data) {
     throw new RenderRefusedError(`The local face ${JSON.stringify(family)} has invalid base64 data; send canonical base64 to clear this refusal.`)
   }
-  const resolved = resolveFontFace(data, parsed.data.format, parsed.data.postscriptName)
+  let resolved: ResolvedFontFace
+  try {
+    resolved = resolveFontFace(data, parsed.data.format, parsed.data.postscriptName)
+  } catch (error) {
+    if (error instanceof FontFaceRefusedError) throw new RenderRefusedError(error.message)
+    throw error
+  }
   const detected = fontFormat(resolved.data)
   if (detected !== resolved.format) {
     throw new RenderRefusedError(
@@ -76,7 +84,13 @@ function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
     options?.limits,
   )
   if (refusal) throw new RenderRefusedError(refusal)
-  return inputs.map(decodeFace)
+  const faces = inputs.map(decodeFace)
+  const extractedRefusal = localFontLimitRefusal(
+    faces.map((face) => ({ family: face.family, bytes: face.data.length })),
+    options?.limits,
+  )
+  if (extractedRefusal) throw new RenderRefusedError(extractedRefusal)
+  return faces
 }
 
 export function localFontsForRender(

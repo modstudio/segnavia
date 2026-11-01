@@ -28,11 +28,6 @@ const BRIDGE_MESSAGES = new Set(['segnavia:key', 'segnavia:height', 'segnavia:re
 
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
-  await page.goto(h.url('font-collection.html'))
-  await page.evaluate(() => document.fonts.ready)
-  const collectionInk = await page.locator('.collection').screenshot()
-  const standaloneInk = await page.locator('.standalone').screenshot()
-  check('a collection face has the same glyph ink as its standalone face', collectionInk.equals(standaloneInk))
   await page.goto(h.url('book.html'))
   await Promise.all(['#book-en', '#book-he'].map((book) => page.frameLocator(`${book} iframe`).locator('.segnavia-contents-list').waitFor()))
 

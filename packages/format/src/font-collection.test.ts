@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { collectionFaces, extractFace } from './font-collection.ts'
+import { collectionFaces, extractFace, sfntPostScriptNames } from './font-collection.ts'
 
 const align = (value: number) => (value + 3) & ~3
 
@@ -27,9 +27,10 @@ function fixture(): { collection: Uint8Array; sources: Map<string, Uint8Array> }
     { tag: 'cmap', data: Uint8Array.of(0, 0, 0, 0) },
     { tag: 'head', data: new Uint8Array(54) },
     { tag: 'name', data: nameTable(face.name, face.platform) },
+    { tag: 'DSIG', data: Uint8Array.of(0, 0, 0, 1) },
     { tag: 'test', data: Uint8Array.of(face.marker) },
   ])
-  const sources = new Map(faces.map((face, index) => [face.name, standalone(tableSets[index] ?? [])]))
+  const sources = new Map(faces.map((face, index) => [face.name, standalone((tableSets[index] ?? []).filter((table) => table.tag !== 'DSIG'))]))
   const header = 12 + faces.length * 4
   const directoryOffsets: number[] = []
   let cursor = header
@@ -124,6 +125,46 @@ function zeroAdjustment(bytes: Uint8Array): Uint8Array {
   return copy
 }
 
+function tableTags(bytes: Uint8Array): string[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  return Array.from({ length: view.getUint16(4) }, (_, index) => new TextDecoder().decode(bytes.subarray(12 + index * 16, 16 + index * 16)))
+}
+
+function repeatedNameTable(name: string, count: number): Uint8Array {
+  const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
+  const strings = 6 + count * 12
+  const data = new Uint8Array(strings + encoded.length)
+  const view = new DataView(data.buffer)
+  view.setUint16(2, count)
+  view.setUint16(4, strings)
+  for (let index = 0; index < count; index += 1) {
+    const record = 6 + index * 12
+    view.setUint16(record, 3)
+    view.setUint16(record + 6, 6)
+    view.setUint16(record + 8, encoded.length)
+  }
+  data.set(encoded, strings)
+  return data
+}
+
+function amplifiedNameTable(): Uint8Array {
+  const count = 17
+  const length = 65535
+  const strings = 6 + count * 12
+  const data = new Uint8Array(strings + length + count)
+  const view = new DataView(data.buffer)
+  view.setUint16(2, count)
+  view.setUint16(4, strings)
+  for (let index = 0; index < count; index += 1) {
+    const record = 6 + index * 12
+    view.setUint16(record, 3)
+    view.setUint16(record + 6, 6)
+    view.setUint16(record + 8, length)
+    view.setUint16(record + 10, index)
+  }
+  return data
+}
+
 describe('font collections', () => {
   test('lists UTF-16BE and Mac Roman names and extracts either shared-table face', () => {
     const built = fixture()
@@ -131,6 +172,7 @@ describe('font collections', () => {
     for (const [name, source] of built.sources) {
       const extracted = extractFace(built.collection, name)
       expect(extracted.format).toBe('truetype')
+      expect(tableTags(extracted.data)).not.toContain('DSIG')
       expect(zeroAdjustment(extracted.data)).toEqual(zeroAdjustment(source))
       expect(new DataView(extracted.data.buffer).getUint32(12 + 2 * 16 + 4)).not.toBe(0)
       expect(tableChecksum(extracted.data, 0, extracted.data.length)).toBe(0xb1b0afba)
@@ -152,5 +194,24 @@ describe('font collections', () => {
     const first = new DataView(broken.buffer).getUint32(12)
     new DataView(broken.buffer).setUint32(first + 12 + 8, broken.length)
     expect(() => collectionFaces(broken)).toThrow('font table cmap lies outside the font file')
+  })
+
+  test('refuses overlapping face tables', () => {
+    const { collection } = fixture()
+    const broken = collection.slice()
+    const view = new DataView(broken.buffer)
+    const first = view.getUint32(12)
+    view.setUint32(first + 12 + 16 + 8, view.getUint32(first + 12 + 8))
+    expect(() => collectionFaces(broken)).toThrow('font table head overlaps font table cmap')
+  })
+
+  test('bounds name records and decoded bytes while deduplicating shared strings', () => {
+    expect(sfntPostScriptNames(standalone([{ tag: 'name', data: repeatedNameTable('Shared-Name', 1024) }]))).toEqual(['Shared-Name'])
+    expect(() => sfntPostScriptNames(standalone([{ tag: 'name', data: repeatedNameTable('Too-Many', 1025) }]))).toThrow(
+      'font name table declares 1025 records, above the limit 1024',
+    )
+    expect(() => sfntPostScriptNames(standalone([{ tag: 'name', data: amplifiedNameTable() }]))).toThrow(
+      'font name table requires 1114095 decoded bytes, above the limit 1048576',
+    )
   })
 })

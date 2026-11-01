@@ -43,6 +43,13 @@ describe('local fonts for a render', () => {
     expect(result.faces[0]?.data.slice(0, 4)).toEqual(Uint8Array.of(0, 1, 0, 0))
   })
 
+  test('translates collection resolution refusals to the render refusal type', () => {
+    const work = () =>
+      localFontsForRender({ faces: [{ family: 'Declared Family', format: 'collection', postscriptName: 'Missing', data: truetype }] }, references)
+    expect(work).toThrow(RenderRefusedError)
+    expect(work).toThrow('font declared as a collection does not contain a font collection')
+  })
+
   test('keeps only a named face, registers it under the declared family, and reports no fallback', () => {
     const result = localFontsForRender(
       {

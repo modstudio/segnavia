@@ -1,5 +1,6 @@
 import {
   type FontFace,
+  FontFaceRefusedError,
   type FontReference,
   type LocalFacesInput,
   type LocalFontLimits,
@@ -96,6 +97,7 @@ async function readCut(font: LocalFontData, family: string, signal: AbortSignal)
     return { family, ...resolved, weight: cut.weight, style: cut.style }
   } catch (error) {
     if (isAbort(error) || signal.aborted) throw error
+    if (error instanceof FontFaceRefusedError) throw new FontRefusedError(`${font.postscriptName || font.fullName || family}: ${error.message}`)
   }
 }
 

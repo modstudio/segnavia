@@ -99,6 +99,8 @@ export { Direction, firstStrongDirection, languageDirection, resolveDirection, T
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
+export { FontFaceRefusedError } from './font-refusal.ts'
+export { COLLECTION_TAG, classifyFont } from './font-signature.ts'
 export {
   APP_FONT_NAME,
   APP_FONT_NAME_MESSAGE,
