@@ -1,25 +1,67 @@
 import type { ReportCollector } from './report.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
-import { resolveSwatchColor } from './swatch-color.ts'
 import { flattenedStyle, styleChain } from './styles.ts'
+import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlStyle, IdmlSwatch, IdmlTextNode } from './types.ts'
 
 const TABLE_HANDLED = new Set([
-  'SpaceBefore', 'SpaceAfter', 'HeaderRegionCellStyle', 'BodyRegionCellStyle', 'FooterRegionCellStyle', 'LeftColumnRegionCellStyle',
-  'RightColumnRegionCellStyle', 'AlternatingFills', 'StartRowFillColor', 'StartRowFillCount', 'EndRowFillColor', 'EndRowFillCount',
-  'SkipFirstAlternatingFillRows', 'SkipLastAlternatingFillRows', 'StartColumnFillColor', 'StartColumnFillCount', 'EndColumnFillColor',
-  'EndColumnFillCount', 'SkipFirstAlternatingFillColumns', 'SkipLastAlternatingFillColumns',
+  'SpaceBefore',
+  'SpaceAfter',
+  'HeaderRegionCellStyle',
+  'BodyRegionCellStyle',
+  'FooterRegionCellStyle',
+  'LeftColumnRegionCellStyle',
+  'RightColumnRegionCellStyle',
+  'AlternatingFills',
+  'StartRowFillColor',
+  'StartRowFillCount',
+  'EndRowFillColor',
+  'EndRowFillCount',
+  'SkipFirstAlternatingFillRows',
+  'SkipLastAlternatingFillRows',
+  'StartColumnFillColor',
+  'StartColumnFillCount',
+  'EndColumnFillColor',
+  'EndColumnFillCount',
+  'SkipFirstAlternatingFillColumns',
+  'SkipLastAlternatingFillColumns',
 ])
 const CELL_HANDLED = new Set([
-  'AppliedCellStyle', 'FillColor', 'FillTint', 'VerticalJustification', 'TopInset', 'BottomInset', 'LeftInset', 'RightInset',
-  'TopEdgeStrokeWeight', 'BottomEdgeStrokeWeight', 'LeftEdgeStrokeWeight', 'RightEdgeStrokeWeight', 'TopEdgeStrokeColor',
-  'BottomEdgeStrokeColor', 'LeftEdgeStrokeColor', 'RightEdgeStrokeColor', 'TopEdgeStrokeType', 'BottomEdgeStrokeType',
-  'LeftEdgeStrokeType', 'RightEdgeStrokeType', 'CellType', 'TextRotation', 'DiagonalLineInFront', 'TopLeftDiagonalLine',
+  'AppliedCellStyle',
+  'FillColor',
+  'FillTint',
+  'VerticalJustification',
+  'TopInset',
+  'BottomInset',
+  'LeftInset',
+  'RightInset',
+  'TopEdgeStrokeWeight',
+  'BottomEdgeStrokeWeight',
+  'LeftEdgeStrokeWeight',
+  'RightEdgeStrokeWeight',
+  'TopEdgeStrokeColor',
+  'BottomEdgeStrokeColor',
+  'LeftEdgeStrokeColor',
+  'RightEdgeStrokeColor',
+  'TopEdgeStrokeType',
+  'BottomEdgeStrokeType',
+  'LeftEdgeStrokeType',
+  'RightEdgeStrokeType',
+  'CellType',
+  'TextRotation',
+  'DiagonalLineInFront',
+  'TopLeftDiagonalLine',
   'TopRightDiagonalLine',
 ])
 
 function slug(value: string): string {
-  return value.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'style'
+  return (
+    value
+      .normalize('NFKD')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'style'
+  )
 }
 
 function uniqueClasses(styles: IdmlStyle[], kind: 'table' | 'cell', prefix: string): Map<string, string> {
@@ -83,8 +125,11 @@ export class TableStyleMapper {
     const regionProperty = `${input.region[0]?.toUpperCase()}${input.region.slice(1)}RegionCellStyle`
     const physicalFirst = input.direction === 'rtl' ? input.columnCount - 1 : 0
     const physicalLast = input.direction === 'rtl' ? 0 : input.columnCount - 1
-    const regionIds = [table[regionProperty], input.column === physicalFirst ? table.LeftColumnRegionCellStyle : undefined,
-      input.column === physicalLast ? table.RightColumnRegionCellStyle : undefined].filter((value): value is string => Boolean(value))
+    const regionIds = [
+      table[regionProperty],
+      input.column === physicalFirst ? table.LeftColumnRegionCellStyle : undefined,
+      input.column === physicalLast ? table.RightColumnRegionCellStyle : undefined,
+    ].filter((value): value is string => Boolean(value))
     const ownId = input.node.attributes.AppliedCellStyle
     const ids = [...regionIds, ownId].filter((value): value is string => Boolean(value))
     const output: string[] = []
@@ -96,7 +141,9 @@ export class TableStyleMapper {
       if (className) output.push(className)
     }
     const base = Object.assign({}, ...ids.map((id) => flattenedStyle(this.styles, id, 'cell')))
-    const local = Object.fromEntries(Object.entries(input.node.attributes).filter(([name, value]) => CELL_HANDLED.has(name) && name !== 'AppliedCellStyle' && value !== base[name]))
+    const local = Object.fromEntries(
+      Object.entries(input.node.attributes).filter(([name, value]) => CELL_HANDLED.has(name) && name !== 'AppliedCellStyle' && value !== base[name]),
+    )
     const override = this.overrideClass(this.cellDeclarations(local, input.node.location))
     if (override) output.push(override)
     this.reportFeatures(input.node)
@@ -170,7 +217,12 @@ export class TableStyleMapper {
       if (color && color !== 'none') output.push(`border-${logical}-color:${color}`)
     }
     for (const name of ['Top', 'Bottom', 'Left', 'Right'] as const) edge(name)
-    for (const [name, property] of [['TopInset', 'block-start'], ['BottomInset', 'block-end'], ['LeftInset', 'inline-start'], ['RightInset', 'inline-end']] as const) {
+    for (const [name, property] of [
+      ['TopInset', 'block-start'],
+      ['BottomInset', 'block-end'],
+      ['LeftInset', 'inline-start'],
+      ['RightInset', 'inline-end'],
+    ] as const) {
       const value = Number(values[name])
       if (Number.isFinite(value)) output.push(`padding-${property}:${value}pt`)
     }

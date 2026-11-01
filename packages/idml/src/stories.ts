@@ -67,9 +67,7 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
     } else if (node.name === 'TextFrame') result.push({ kind: 'anchored', location: node.location })
     else if (OMITTED.has(node.name)) report.add(report.unsupportedElements, node.name, node.location)
     else if (node.name === 'Properties') return true
-    else if (node.name === 'Change' && node.attributes.ChangeType !== undefined && !node.attributes.ChangeType.includes('Inserted')) {
-      report.add(report.unsupportedElements, 'Change', node.location)
-    } else return false
+    else return reportedChange(node, report)
     return true
   }
   const walk = (node: IdmlTextNode, character?: IdmlTextNode) => {
@@ -88,6 +86,12 @@ function tokens(root: IdmlTextNode, report: ReportCollector): Token[] {
   }
   walk(root)
   return result
+}
+
+function reportedChange(node: IdmlTextNode, report: ReportCollector): boolean {
+  if (node.name !== 'Change' || node.attributes.ChangeType === undefined || node.attributes.ChangeType.includes('Inserted')) return false
+  report.add(report.unsupportedElements, 'Change', node.location)
+  return true
 }
 
 function contentNodes(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl'): (Text | Element)[] {
@@ -261,6 +265,68 @@ function paragraphNode(
   )
 }
 
+interface ParagraphRenderContext {
+  story: StoryHtmlInput
+  styles: StyleMapper
+  report: ReportCollector
+  bookDirection: 'ltr' | 'rtl'
+  bookLanguage: string | undefined
+  options: StoryHtmlOptions
+}
+
+function mappedParagraph(paragraph: IdmlTextNode, paragraphTokens: Token[], context: ParagraphRenderContext, frame = context.story.frame): Element {
+  return paragraphNode(
+    paragraph,
+    paragraphTokens,
+    context.styles,
+    context.report,
+    context.bookDirection,
+    context.bookLanguage,
+    context.story.direction,
+    frame,
+    context.story.textVariables ?? [],
+    context.story.master ?? false,
+    context.options,
+  )
+}
+
+function tableContent(cell: IdmlTextNode, context: ParagraphRenderContext): Element[] {
+  return cell.children
+    .filter((child) => child.name === 'ParagraphStyleRange')
+    .map((paragraph) =>
+      mappedParagraph(
+        paragraph,
+        tokens(paragraph, context.report).filter((token) => token.kind !== 'paragraph' && token.kind !== 'table'),
+        context,
+        undefined,
+      ),
+    )
+}
+
+function renderParagraphRange(paragraph: IdmlTextNode, context: ParagraphRenderContext): Element[] {
+  const output: Element[] = []
+  const all = tokens(paragraph, context.report)
+  let current: Token[] = []
+  let wroteTable = false
+  const visible = () => current.some((token) => token.kind !== 'text' || Boolean(token.text))
+  const flush = (empty = true) => {
+    if (empty || visible()) output.push(mappedParagraph(paragraph, current, context))
+    current = []
+  }
+  for (const token of all) {
+    if (token.kind === 'paragraph') flush()
+    else if (token.kind !== 'table' || !token.node) current.push(token)
+    else {
+      flush(false)
+      if (!context.options.tableStyles) context.report.add(context.report.unsupportedElements, 'Table', token.location)
+      else output.push(tableNode(token.node, context.options.tableStyles, (cell) => tableContent(cell, context)))
+      wroteTable = true
+    }
+  }
+  if (visible() || (!wroteTable && (all.length === 0 || all.at(-1)?.kind !== 'paragraph'))) flush()
+  return output
+}
+
 export function storyHtml(
   story: StoryHtmlInput,
   styles: StyleMapper,
@@ -280,69 +346,8 @@ export function storyHtml(
     else if (node.name === 'Story' || node.name === 'XMLElement') for (const child of node.children) collectParagraphs(child)
   }
   collectParagraphs(story.root)
-  for (const paragraph of paragraphRanges) {
-    const all = tokens(paragraph, report)
-    let current: Token[] = []
-    let wroteTable = false
-    const visible = () => current.some((token) => token.kind !== 'text' || Boolean(token.text))
-    const flush = (empty = true) => {
-      if (!empty && !visible()) {
-        current = []
-        return
-      }
-      paragraphs.push(
-        paragraphNode(
-          paragraph,
-          current,
-          styles,
-          report,
-          bookDirection,
-          bookLanguage,
-          story.direction,
-          story.frame,
-          story.textVariables ?? [],
-          story.master ?? false,
-          options,
-        ),
-      )
-      current = []
-    }
-    for (const token of all) {
-      if (token.kind === 'paragraph') flush()
-      else if (token.kind === 'table' && token.node) {
-        flush(false)
-        if (!options.tableStyles) report.add(report.unsupportedElements, 'Table', token.location)
-        else {
-          paragraphs.push(
-            tableNode(token.node, options.tableStyles, (cell) => {
-              const cellParagraphs = cell.children.filter((child) => child.name === 'ParagraphStyleRange')
-              return cellParagraphs.flatMap((cellParagraph) => {
-                const cellTokens = tokens(cellParagraph, report).filter((candidate) => candidate.kind !== 'paragraph' && candidate.kind !== 'table')
-                return [
-                  paragraphNode(
-                    cellParagraph,
-                    cellTokens,
-                    styles,
-                    report,
-                    bookDirection,
-                    bookLanguage,
-                    story.direction,
-                    undefined,
-                    story.textVariables ?? [],
-                    story.master ?? false,
-                    options,
-                  ),
-                ]
-              })
-            }),
-          )
-        }
-        wroteTable = true
-      }
-      else current.push(token)
-    }
-    if (visible() || (!wroteTable && (all.length === 0 || all.at(-1)?.kind !== 'paragraph'))) flush()
-  }
+  const context = { story, styles, report, bookDirection, bookLanguage, options }
+  for (const paragraph of paragraphRanges) paragraphs.push(...renderParagraphRange(paragraph, context))
   if (paragraphs.length === 0) {
     paragraphs.push(
       new Element(options.inlineParagraphs ? 'span' : 'p', options.inlineParagraphs ? { style: 'display:block' } : {}, [new Element('br', {}, [])]),

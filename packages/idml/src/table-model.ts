@@ -23,6 +23,43 @@ function cellLabel(node: IdmlTextNode): string {
   return node.attributes.Name ?? node.location
 }
 
+function placeCell(
+  table: IdmlTextNode,
+  cell: IdmlTextNode,
+  occupied: (IdmlTextNode | undefined)[][],
+  rowCount: number,
+  columnCount: number,
+): TableGrid['cells'][number] {
+  const match = /^(\d+):(\d+)$/.exec(cell.attributes.Name ?? '')
+  const column = match ? Number(match[1]) : -1
+  const row = match ? Number(match[2]) : -1
+  const rowSpan = Math.max(1, integer(cell.attributes.RowSpan, 1))
+  const columnSpan = Math.max(1, integer(cell.attributes.ColumnSpan, 1))
+  if (row < 0 || column < 0 || row + rowSpan > rowCount || column + columnSpan > columnCount) {
+    throw refusal(`table at ${table.location} has cell ${cellLabel(cell)} outside the grid`, 'give every Cell a Name inside the declared rows and columns')
+  }
+  for (let y = row; y < row + rowSpan; y += 1) {
+    const rowCells = occupied[y]
+    if (!rowCells) throw refusal(`table at ${table.location} has cell ${cellLabel(cell)} outside the grid`, 'give every Cell a Name inside the declared rows')
+    for (let x = column; x < column + columnSpan; x += 1) {
+      const found = rowCells[x]
+      if (found) {
+        throw refusal(`table at ${table.location} has overlapping cells ${cellLabel(found)} and ${cellLabel(cell)}`, 'remove the overlapping cell spans')
+      }
+      rowCells[x] = cell
+    }
+  }
+  return { row, column, rowSpan, columnSpan, node: cell }
+}
+
+function requireAnchors(table: IdmlTextNode, occupied: (IdmlTextNode | undefined)[][]): void {
+  for (const [row, columns] of occupied.entries()) {
+    for (const [column, cell] of columns.entries()) {
+      if (!cell) throw refusal(`table at ${table.location} has a missing anchor at ${column}:${row}`, 'add a Cell that covers that grid position')
+    }
+  }
+}
+
 export function tableGrid(node: IdmlTextNode): TableGrid {
   const columns = children(node, 'Column').map((column) => Number(column.attributes.SingleColumnWidth ?? column.attributes.Width))
   const rowNodes = children(node, 'Row')
@@ -44,37 +81,8 @@ export function tableGrid(node: IdmlTextNode): TableGrid {
   }
 
   const occupied: (IdmlTextNode | undefined)[][] = Array.from({ length: rowCount }, () => Array.from({ length: widthCount }))
-  const cells: TableGrid['cells'] = []
-  for (const cell of children(node, 'Cell')) {
-    const match = /^(\d+):(\d+)$/.exec(cell.attributes.Name ?? '')
-    const column = match ? Number(match[1]) : -1
-    const row = match ? Number(match[2]) : -1
-    const rowSpan = Math.max(1, integer(cell.attributes.RowSpan, 1))
-    const columnSpan = Math.max(1, integer(cell.attributes.ColumnSpan, 1))
-    if (row < 0 || column < 0 || row + rowSpan > rowCount || column + columnSpan > widthCount) {
-      throw refusal(`table at ${node.location} has cell ${cellLabel(cell)} outside the grid`, 'give every Cell a Name inside the declared rows and columns')
-    }
-    for (let y = row; y < row + rowSpan; y += 1) {
-      for (let x = column; x < column + columnSpan; x += 1) {
-        const found = occupied[y]?.[x]
-        if (found) {
-          throw refusal(
-            `table at ${node.location} has overlapping cells ${cellLabel(found)} and ${cellLabel(cell)}`,
-            'remove the overlapping cell spans',
-          )
-        }
-        if (occupied[y]) occupied[y][x] = cell
-      }
-    }
-    cells.push({ row, column, rowSpan, columnSpan, node: cell })
-  }
-  for (let row = 0; row < rowCount; row += 1) {
-    for (let column = 0; column < widthCount; column += 1) {
-      if (!occupied[row]?.[column]) {
-        throw refusal(`table at ${node.location} has a missing anchor at ${column}:${row}`, 'add a Cell that covers that grid position')
-      }
-    }
-  }
+  const cells = children(node, 'Cell').map((cell) => placeCell(node, cell, occupied, rowCount, widthCount))
+  requireAnchors(node, occupied)
   cells.sort((a, b) => a.row - b.row || a.column - b.column)
   return { direction: node.attributes.TableDirection === 'RightToLeft' ? 'rtl' : 'ltr', columns, rows, cells }
 }

@@ -13,25 +13,43 @@ function table(cells: IdmlTextNode[], attributes: Record<string, string> = {}): 
   return {
     name: 'Table',
     attributes: { HeaderRowCount: '1', BodyRowCount: '1', FooterRowCount: '1', ...attributes },
-    children: [child('Column', { SingleColumnWidth: '42' }), child('Column', { SingleColumnWidth: '58' }), ...cells,
-      child('Row', { SingleRowHeight: '12', AutoGrow: 'false' }), child('Row', { SingleRowHeight: '13' }), child('Row', {})],
+    children: [
+      child('Column', { SingleColumnWidth: '42' }),
+      child('Column', { SingleColumnWidth: '58' }),
+      ...cells,
+      child('Row', { SingleRowHeight: '12', AutoGrow: 'false' }),
+      child('Row', { SingleRowHeight: '13' }),
+      child('Row', {}),
+    ],
     location: 'Stories/Story.xml#table',
   }
 }
 
 test('builds regions, dimensions, fixed heights, direction, and document-order-independent cells', () => {
-  const grid = tableGrid(table([
-    child('Cell', { Name: '1:0' }), child('Cell', { Name: '0:0' }),
-    child('Cell', { Name: '0:1', ColumnSpan: '2' }), child('Cell', { Name: '0:2' }), child('Cell', { Name: '1:2' }),
-  ], { TableDirection: 'RightToLeft' }))
+  const grid = tableGrid(
+    table(
+      [
+        child('Cell', { Name: '1:0' }),
+        child('Cell', { Name: '0:0' }),
+        child('Cell', { Name: '0:1', ColumnSpan: '2' }),
+        child('Cell', { Name: '0:2' }),
+        child('Cell', { Name: '1:2' }),
+      ],
+      { TableDirection: 'RightToLeft' },
+    ),
+  )
   expect(grid.direction).toBe('rtl')
   expect(grid.columns).toEqual([42, 58])
   expect(grid.rows).toEqual([
-    { region: 'header', height: 12, fixed: true }, { region: 'body', height: 13, fixed: false }, { region: 'footer', fixed: false },
+    { region: 'header', height: 12, fixed: true },
+    { region: 'body', height: 13, fixed: false },
+    { region: 'footer', fixed: false },
   ])
   expect(grid.cells.map(({ row, column, rowSpan, columnSpan }) => ({ row, column, rowSpan, columnSpan }))).toEqual([
-    { row: 0, column: 0, rowSpan: 1, columnSpan: 1 }, { row: 0, column: 1, rowSpan: 1, columnSpan: 1 },
-    { row: 1, column: 0, rowSpan: 1, columnSpan: 2 }, { row: 2, column: 0, rowSpan: 1, columnSpan: 1 },
+    { row: 0, column: 0, rowSpan: 1, columnSpan: 1 },
+    { row: 0, column: 1, rowSpan: 1, columnSpan: 1 },
+    { row: 1, column: 0, rowSpan: 1, columnSpan: 2 },
+    { row: 2, column: 0, rowSpan: 1, columnSpan: 1 },
     { row: 2, column: 1, rowSpan: 1, columnSpan: 1 },
   ])
 })

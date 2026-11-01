@@ -39,16 +39,7 @@ export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
       result.push({
         id,
         name: values.Name ?? id.split('/').at(-1) ?? id,
-        kind:
-          kind === 'ParagraphStyle'
-            ? 'paragraph'
-            : kind === 'CharacterStyle'
-              ? 'character'
-              : kind === 'TableStyle'
-                ? 'table'
-                : kind === 'CellStyle'
-                  ? 'cell'
-                  : 'object',
+        kind: STYLE_KINDS[kind],
         ...(values.BasedOn ? { basedOn: values.BasedOn } : {}),
         properties: Object.fromEntries(Object.entries(values).filter(([name]) => !['Self', 'Name', 'BasedOn'].includes(name))),
         location: `${part}#${id}`,
@@ -57,6 +48,14 @@ export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
   }
   return result
 }
+
+const STYLE_KINDS = {
+  ParagraphStyle: 'paragraph',
+  CharacterStyle: 'character',
+  ObjectStyle: 'object',
+  TableStyle: 'table',
+  CellStyle: 'cell',
+} as const satisfies Record<string, IdmlStyle['kind']>
 
 export function parseSwatches(roots: Element[]): IdmlSwatch[] {
   const result: IdmlSwatch[] = []

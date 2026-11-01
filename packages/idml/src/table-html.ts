@@ -1,6 +1,6 @@
 import serialize from 'dom-serializer'
 import { Element, type Text } from 'domhandler'
-import { tableGrid, type TableRegion } from './table-model.ts'
+import { type TableRegion, tableGrid } from './table-model.ts'
 import type { TableStyleMapper } from './table-styles.ts'
 import type { IdmlTextNode } from './types.ts'
 

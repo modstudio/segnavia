@@ -7,7 +7,10 @@ import { TableStyleMapper } from './table-styles.ts'
 import type { IdmlStyle, IdmlTextNode } from './types.ts'
 
 const node = (name: string, attributes: Record<string, string>, children: IdmlTextNode[] = []): IdmlTextNode => ({
-  name, attributes, children, location: `Story.xml#${name}-${attributes.Name ?? ''}`,
+  name,
+  attributes,
+  children,
+  location: `Story.xml#${name}-${attributes.Name ?? ''}`,
 })
 
 test('writes a native table with dimensions, regions, spans, td headers and classes', () => {
@@ -20,10 +23,15 @@ test('writes a native table with dimensions, regions, spans, td headers and clas
   const textStyles = new StyleMapper(styles, [], report, 'rtl')
   const tableStyles = new TableStyleMapper(styles, [], report, (css) => textStyles.cssOverrideClass(css))
   const table = node('Table', { AppliedTableStyle: 't', HeaderRowCount: '1', BodyRowCount: '1', FooterRowCount: '1', TableDirection: 'RightToLeft' }, [
-    node('Column', { SingleColumnWidth: '30' }), node('Column', { SingleColumnWidth: '40' }),
-    node('Cell', { Name: '0:0', ColumnSpan: '2' }), node('Cell', { Name: '0:1', AppliedCellStyle: 'body' }),
-    node('Cell', { Name: '1:1', RowSpan: '2' }), node('Cell', { Name: '0:2' }),
-    node('Row', { SingleRowHeight: '10', AutoGrow: 'false' }), node('Row', {}), node('Row', {}),
+    node('Column', { SingleColumnWidth: '30' }),
+    node('Column', { SingleColumnWidth: '40' }),
+    node('Cell', { Name: '0:0', ColumnSpan: '2' }),
+    node('Cell', { Name: '0:1', AppliedCellStyle: 'body' }),
+    node('Cell', { Name: '1:1', RowSpan: '2' }),
+    node('Cell', { Name: '0:2' }),
+    node('Row', { SingleRowHeight: '10', AutoGrow: 'false' }),
+    node('Row', {}),
+    node('Row', {}),
   ])
   const html = tableHtml(table, tableStyles, (cell) => [new Text(cell.attributes.Name ?? '')])
   expect(html).toBe(

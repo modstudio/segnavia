@@ -93,18 +93,28 @@ test('splits a paragraph around a table and maps cell paragraphs through the tex
   const allStyles = [paragraphStyle, english, character, tableStyle]
   const styles = new StyleMapper(allStyles, [], report, 'rtl')
   const tables = new TableStyleMapper(allStyles, [], report, (css) => styles.cssOverrideClass(css))
-  const table = node('Table', [
-    node('Column', [], { SingleColumnWidth: '60' }),
-    node('Cell', [
-      node('ParagraphStyleRange', [node('CharacterStyleRange', [node('Content', [], {}, 'Cell')], { AppliedCharacterStyle: 'strong' })], {
-        AppliedParagraphStyle: 'en',
-      }),
-    ], { Name: '0:0' }),
-    node('Row', [], {}),
-  ], { AppliedTableStyle: 'table', BodyRowCount: '1' })
-  const root = node('Story', [node('ParagraphStyleRange', [node('Content', [], {}, 'Before'), table, node('Content', [], {}, 'After')], {
-    AppliedParagraphStyle: 'p',
-  })])
+  const table = node(
+    'Table',
+    [
+      node('Column', [], { SingleColumnWidth: '60' }),
+      node(
+        'Cell',
+        [
+          node('ParagraphStyleRange', [node('CharacterStyleRange', [node('Content', [], {}, 'Cell')], { AppliedCharacterStyle: 'strong' })], {
+            AppliedParagraphStyle: 'en',
+          }),
+        ],
+        { Name: '0:0' },
+      ),
+      node('Row', [], {}),
+    ],
+    { AppliedTableStyle: 'table', BodyRowCount: '1' },
+  )
+  const root = node('Story', [
+    node('ParagraphStyleRange', [node('Content', [], {}, 'Before'), table, node('Content', [], {}, 'After')], {
+      AppliedParagraphStyle: 'p',
+    }),
+  ])
   const result = storyHtml({ id: 'story', root }, styles, report, 'rtl', 'he', { tableStyles: tables })
   expect(result.html).toBe(
     '<p class="idml-p-body">Before</p><table class="idml-t-ledger" dir="ltr"><colgroup><col style="width:60pt"></colgroup><tbody><tr><td><p class="idml-p-english" dir="ltr" lang="en-US"><span class="idml-c-strong">Cell</span></p></td></tr></tbody></table><p class="idml-p-body">After</p>',
