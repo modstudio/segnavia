@@ -36,7 +36,7 @@ import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } fro
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
 export { captureImage } from './capture-image.ts'
-export { type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
+export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
 export type { EffectsReport } from './effects/types.ts'
 export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'

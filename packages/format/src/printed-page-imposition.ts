@@ -1,5 +1,6 @@
-import type { Imposition, Print } from './index.ts'
+import type { Imposition } from './imposition-schema.ts'
 import { sheetMm, toMillimeters } from './paper.ts'
+import type { Print } from './print.ts'
 
 const close = (left: number, right: number) => Math.abs(left - right) <= 0.01
 

@@ -36,11 +36,17 @@ describe('Cover', () => {
     expect(() => Cover.parse({ page: { html: '', print: { paper: 'a4' } } })).toThrow('160 × 100 mm cover sheet')
   })
 
-  test('refuses print bleed and sandboxed scripts with remedies', () => {
+  test('refuses print artifacts and sandboxed scripts with remedies', () => {
     expect(() => Cover.parse({ page: { html: '', print: { paper: { width: 160, height: 100, unit: 'mm' }, bleed: 2 } } })).toThrow(
       'page.print.bleed must be 0; remove bleed',
     )
     expect(() => Cover.parse({ page: { html: '', scripts: 'sandboxed' } })).toThrow("page.scripts must be 'refuse'; refuse scripts")
+    expect(() => Cover.parse({ page: { html: '', print: { paper: { width: 160, height: 100, unit: 'mm' }, safe: 5 } } })).toThrow(
+      'page.print.safe must be 0; remove the safe area',
+    )
+    expect(() => Cover.parse({ page: { html: '', print: { paper: { width: 160, height: 100, unit: 'mm' }, marks: true } } })).toThrow(
+      'page.print.marks must be false; remove marks',
+    )
   })
 
   test('keeps a Hebrew page unchanged apart from its filled print setting', () => {
@@ -55,6 +61,24 @@ describe('cover digest', () => {
     const second = Cover.parse({ id: 'cover', page: { lang: 'en', html: 'same' }, name: 'Named' })
     expect(await coverDigest(first, { stamp: 'renderer', fonts: ['z', 'a'], motifs: [motif('z'), motif('a')] })).toBe(
       await coverDigest(second, { stamp: 'renderer', fonts: ['a', 'z'], motifs: [motif('a'), motif('z')] }),
+    )
+  })
+
+  test('is stable across motif revision order', async () => {
+    const parsed = cover()
+    const older = { ...motif('a', '1'), label: 'z' }
+    const newer = { ...motif('a', '2'), label: 'a' }
+    const digest = await coverDigest(parsed, { stamp: 'renderer', motifs: [newer, older] })
+    expect(digest).toBe(await coverDigest(parsed, { stamp: 'renderer', motifs: [older, newer] }))
+    expect(digest).toBe('f40b0a77d7d1727acd2c76e7bcdeafef0671c445af1928b09b267aa7f0c67b02')
+  })
+
+  test('is stable across canonical motif order', async () => {
+    const parsed = cover()
+    const first = motif('a')
+    const second = { ...motif('a'), label: 'different' }
+    expect(await coverDigest(parsed, { stamp: 'renderer', motifs: [second, first] })).toBe(
+      await coverDigest(parsed, { stamp: 'renderer', motifs: [first, second] }),
     )
   })
 

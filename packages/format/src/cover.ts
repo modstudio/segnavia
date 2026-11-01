@@ -1,5 +1,8 @@
 import { z } from 'zod'
-import { type Motif, Page, type Page as PageValue, sheetMm } from './index.ts'
+import type { Motif } from './motif.ts'
+import { Page, type Page as PageValue } from './page.ts'
+import { sheetMm } from './paper.ts'
+import { Print } from './print.ts'
 
 export const COVER_SHEET = { width: 160, height: 100 } as const
 
@@ -12,17 +15,16 @@ const COVER_PRINT = {
 }
 
 const CoverShape = z.object({
-  page: z.lazy(() => Page),
+  page: Page,
   id: z.string().optional(),
   name: z.string().optional(),
 })
 
 export const Cover = CoverShape.transform((cover) => ({
   ...cover,
-  page: cover.page.print ? cover.page : Page.parse({ ...cover.page, print: COVER_PRINT }),
+  page: { ...cover.page, print: cover.page.print ?? Print.parse(COVER_PRINT) },
 })).superRefine((cover, ctx) => {
   const print = cover.page.print
-  if (!print) return
   const sheet = sheetMm(print)
   if (sheet.width !== COVER_SHEET.width || sheet.height !== COVER_SHEET.height) {
     ctx.addIssue({
@@ -96,7 +98,7 @@ export async function digestCoverMaterial(material: CoverDigestMaterial): Promis
 export function coverDigest(cover: Cover, inputs: { stamp: string; fonts?: readonly string[]; motifs?: readonly Motif[] }): Promise<string> {
   return digestCoverMaterial({
     page: cover.page,
-    sheet: sheetMm(cover.page.print as NonNullable<PageValue['print']>),
+    sheet: sheetMm(cover.page.print),
     drawingVersion: COVER_DRAWING_VERSION,
     stamp: inputs.stamp,
     fonts: inputs.fonts ?? [],

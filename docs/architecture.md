@@ -405,7 +405,8 @@ is in its print setting or in an imposition. A host shows a page alone with
 imposition's cells with `<segnavia-paper>`; switching
 between them is the host's control. A page with a print setting exports
 on its paper (`pagePdf`), its trim, bleed, safe area and crop marks are carried
-into that PDF, and a deck lays out one slide on each sheet of its frame-based
+into that PDF, and `pageImage` draws it at the print sheet's size without
+growing the image to the page's content height. A deck lays out one slide on each sheet of its frame-based
 print document (`printableDeck`). The `Imposition` value and its arithmetic (`impose` and
 `fitPage`) are built in `format`; `printablePages` builds an imposition's print
 document for a browser, and `pagesPdf` renders and composes pages onto its

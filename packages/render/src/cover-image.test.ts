@@ -31,3 +31,8 @@ test('keeps PNG and refuses a non-positive or fractional width', () => {
   expect(() => coverImagePlan(cover, { width: 0 })).toThrow('positive integer pixel width')
   expect(() => coverImagePlan(cover, { width: 10.5 })).toThrow('positive integer pixel width')
 })
+
+test('refuses a missing options object by naming the width', () => {
+  expect(() => coverImagePlan(cover, undefined)).toThrow('Cover image width is undefined; use a positive integer pixel width')
+  expect(() => coverImagePlan(cover, null)).toThrow('Cover image width is undefined; use a positive integer pixel width')
+})

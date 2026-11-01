@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Print } from './index.ts'
+import type { Print } from './print.ts'
 
 export const NAMED_PAPERS = [
   'letter',

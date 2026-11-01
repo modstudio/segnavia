@@ -2,18 +2,6 @@
 // each is a Zod schema and the JSON Schema is generated from it (`jsonSchemas`)
 // for hosts that do not run TypeScript.
 
-import { z } from 'zod'
-import { Size } from './deck.ts'
-import { Direction } from './direction.ts'
-import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
-import { FontReference } from './fonts.ts'
-import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
-import { jsonSchemasFor } from './json-schemas.ts'
-import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
-import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
-import { Scripts } from './scripts.ts'
-import { Slots } from './slots.ts'
-
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
   addItem,
@@ -101,6 +89,7 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
+export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
@@ -144,6 +133,8 @@ export {
   MIN_MARK_LENGTH_MM,
   type OmittedImpositionMark,
 } from './imposition-marks.ts'
+export { Imposition, type ImpositionInput, MAX_IMPOSITION_CELLS } from './imposition-schema.ts'
+export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { LOCAL_FONT_LIMITS, type LocalFontLimitFace, type LocalFontLimits, localFontLimitRefusal } from './local-font-limits.ts'
 export {
@@ -158,6 +149,7 @@ export {
 } from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
+export { Page, type PageInput, PageSize } from './page.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
@@ -204,178 +196,11 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
+export { Margin, MarkColor, Print, type PrintInput } from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
+export * from './slots.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
-
-export const Margin = z.object({
-  top: z.number().nonnegative().default(0),
-  right: z.number().nonnegative().default(0),
-  bottom: z.number().nonnegative().default(0),
-  left: z.number().nonnegative().default(0),
-})
-
-export const MarkColor = z.enum(['black', 'registration'])
-export type MarkColor = z.infer<typeof MarkColor>
-
-// Paper exists only to export a page at a standard printed size. A page
-// without it exports at its own size. Margins are in millimeters.
-export const Print = z
-  .object({
-    paper: Paper,
-    orientation: Orientation.default('portrait'),
-    margin: Margin.optional(),
-    bleed: z.number().nonnegative().default(0),
-    safe: z.number().nonnegative().default(0),
-    marks: z.boolean().default(false),
-    markColor: MarkColor.default('black'),
-  })
-  .superRefine((print, ctx) => {
-    if (print.markColor === 'registration' && !print.marks) {
-      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-    }
-    const trim = sheetMm(print)
-    if (print.safe * 2 >= trim.width) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['safe'],
-        message: `safe is ${print.safe}mm on the left and right, but the trim is ${trim.width}mm wide; safe must leave area inside the trim`,
-      })
-    }
-    if (print.safe * 2 >= trim.height) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['safe'],
-        message: `safe is ${print.safe}mm on the top and bottom, but the trim is ${trim.height}mm high; safe must leave area inside the trim`,
-      })
-    }
-  })
-export type Print = z.infer<typeof Print>
-export type PrintInput = z.input<typeof Print>
-
-const ImpositionGap = z.object({
-  column: z.number().nonnegative().default(0),
-  row: z.number().nonnegative().default(0),
-})
-
-export const MAX_IMPOSITION_CELLS = 10_000
-
-export const Imposition = z
-  .object({
-    paper: Paper,
-    orientation: Orientation.default('portrait'),
-    unit: PaperUnit.default('mm'),
-    margin: Margin.default({ top: 0, right: 0, bottom: 0, left: 0 }),
-    columns: z.number().int().positive().optional(),
-    rows: z.number().int().positive().optional(),
-    cell: z.object({ width: z.number().positive().optional(), height: z.number().positive() }),
-    gap: ImpositionGap.default({ column: 0, row: 0 }),
-    bleed: z.number().nonnegative().default(0),
-    safe: z.number().nonnegative().default(0),
-    fit: z.enum(['contain', 'cover']).default('contain'),
-    fill: z.enum(['sequence', 'repeat']).default('sequence'),
-    sides: z.enum(['one', 'two']).optional(),
-    flip: z.enum(['long', 'short']).default('long'),
-    skip: z.number().int().nonnegative().default(0),
-    dir: z.enum(['ltr', 'rtl']).default('ltr'),
-    marks: z.boolean().default(false),
-    markColor: MarkColor.default('black'),
-    cornerMarks: z.boolean().default(false),
-    fold: z.enum(FOLD_KINDS).optional(),
-    panels: z.array(z.number().positive()).optional(),
-  })
-  .superRefine((imposition, ctx) => {
-    if (imposition.markColor === 'registration' && !imposition.marks) {
-      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-    }
-    if (imposition.cornerMarks && !imposition.marks) {
-      ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
-    }
-    if (imposition.panels !== undefined && !imposition.fold) {
-      ctx.addIssue({ code: 'custom', path: ['panels'], message: 'panels needs fold; set fold or remove panels' })
-    }
-    if (imposition.fold) {
-      const panelCount = imposition.panels?.length ?? 0
-      if (panelCount > MAX_IMPOSITION_CELLS) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['panels'],
-          message: `the fold has ${panelCount} panels and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer panels clears this refusal`,
-        })
-        return
-      }
-      refineFold(imposition, ctx)
-      return
-    }
-    if (imposition.columns === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['columns'], message: 'columns is required; give a column count to clear this refusal' })
-    }
-    if (imposition.rows === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['rows'], message: 'rows is required; give a row count to clear this refusal' })
-    }
-    if (imposition.cell.width === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['cell', 'width'], message: 'cell.width is required; give a cell width to clear this refusal' })
-    }
-    if (imposition.columns === undefined || imposition.rows === undefined || imposition.cell.width === undefined) return
-    const cellCount = BigInt(imposition.columns) * BigInt(imposition.rows)
-    if (imposition.columns > MAX_IMPOSITION_CELLS || imposition.rows > MAX_IMPOSITION_CELLS || cellCount > BigInt(MAX_IMPOSITION_CELLS)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['columns'],
-        message: `the grid has ${cellCount} cells and the ceiling is ${MAX_IMPOSITION_CELLS}; fewer columns or rows clears this refusal`,
-      })
-      return
-    }
-    const mm = (value: number) => toMillimeters(value, imposition.unit)
-    const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
-    const gridWidth = mm(
-      imposition.margin.left + imposition.columns * imposition.cell.width + (imposition.columns - 1) * imposition.gap.column + imposition.margin.right,
-    )
-    const gridHeight = mm(
-      imposition.margin.top + imposition.rows * imposition.cell.height + (imposition.rows - 1) * imposition.gap.row + imposition.margin.bottom,
-    )
-    refuseOverflow(ctx, paper, { width: gridWidth, height: gridHeight })
-    refuseSafe(ctx, mm(imposition.safe), { width: mm(imposition.cell.width), height: mm(imposition.cell.height) })
-    const cells = imposition.columns * imposition.rows
-    if (imposition.skip >= cells) {
-      ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })
-    }
-  })
-  .transform(resolveImposition)
-export type Imposition = z.infer<typeof Imposition>
-export type ImpositionInput = z.input<typeof Imposition>
-
-// A page is designed for the screen at whatever size it needs: fluid (the
-// viewer's width, as tall as its content), a fixed sheet, or a fixed width
-// that grows with its content.
-export const PageSize = z.union([z.literal('fluid'), Size, z.object({ width: z.number().int().positive(), height: z.literal('auto') })])
-export type PageSize = z.infer<typeof PageSize>
-
-export const Page = z
-  .object({
-    id: z.string().optional(),
-    html: z.string(),
-    size: PageSize.default('fluid'),
-    scripts: Scripts.default('refuse'),
-    dir: Direction.optional(),
-    lang: z.string().optional(),
-    print: Print.optional(),
-    printedPages: PrintedPages.optional(),
-    slots: Slots.optional(),
-    fonts: z.array(FontReference).optional(),
-  })
-  .superRefine((page, ctx) => {
-    for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
-  })
-export type Page = z.infer<typeof Page>
-export type PageInput = z.input<typeof Page>
-
-export function jsonSchemas() {
-  return jsonSchemasFor(Page, Imposition)
-}
-
-export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
-export * from './slots.ts'

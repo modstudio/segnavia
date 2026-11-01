@@ -4,20 +4,22 @@ import { BookShape, BookView } from './book.ts'
 import { Cover } from './cover.ts'
 import { DeckShape, Manifest, PublishedShot } from './deck.ts'
 import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
+import { Imposition } from './imposition-schema.ts'
 import { Lexicon } from './lexicon.ts'
 import { Media } from './media.ts'
 import { Motif, MotifInput } from './motif.ts'
+import { Page } from './page.ts'
 import { PrintSetting, PrintSettingInput } from './paper.ts'
 import { PlacementShape } from './placement.ts'
 import { SlotDeclaration, SlotDeclarationInput } from './slots.ts'
 
-export function jsonSchemasFor(page: z.ZodType, imposition: z.ZodType) {
+export function jsonSchemas() {
   return {
     book: z.toJSONSchema(BookShape, { io: 'input' }),
     bookView: z.toJSONSchema(BookView, { io: 'input' }),
-    page: z.toJSONSchema(page, { io: 'input' }),
+    page: z.toJSONSchema(Page, { io: 'input' }),
     lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
-    imposition: z.toJSONSchema(imposition, { io: 'input' }),
+    imposition: z.toJSONSchema(Imposition, { io: 'input' }),
     deck: z.toJSONSchema(DeckShape, { io: 'input' }),
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),

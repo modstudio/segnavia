@@ -1,6 +1,8 @@
 import { foldCellPages, foldPageCountMessage } from './fold.ts'
-import type { Imposition, Page, Print } from './index.ts'
+import type { Imposition } from './imposition-schema.ts'
+import type { Page } from './page.ts'
 import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
+import type { Print } from './print.ts'
 
 export interface MillimeterEdges {
   top: number

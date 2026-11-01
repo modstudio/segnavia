@@ -1,4 +1,4 @@
-import type { Deck } from './index.ts'
+import type { Deck } from './deck.ts'
 
 export interface ShotUse {
   slide: string
