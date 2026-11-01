@@ -10,7 +10,7 @@ import {
   textArea,
 } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
-import { BOOK_COMPOSED_ATTRIBUTE, composerScript } from './book-composer.ts'
+import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument } from './bridge.ts'
 
@@ -83,6 +83,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     relayKeys: false,
     reportHeight: false,
     readyAfterAttribute: BOOK_COMPOSED_ATTRIBUTE,
+    failureAttribute: BOOK_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
   })
 }

@@ -134,7 +134,7 @@ describe('bookDocument', () => {
   test('starts at zero height until the composer marks the root', () => {
     const html = bookDocument(book, { nonce: 'held' })
     expect(html).toContain('html:not([data-segnavia-composed])')
-    expect(html).toContain('attributeFilter:[name]')
+    expect(html).toContain('attributeFilter:[name,failureName]')
     expect(html).toContain('overflow:clip')
   })
 
@@ -171,12 +171,14 @@ describe('bookDocument', () => {
     expect(screen).toContain('BOOK_LAYOUTS.indexOf(data.layout)<0')
     expect(screen).toContain('data.place!==undefined&&place===undefined')
     expect(screen).toContain(`type:'${MESSAGE.bookPlace}'`)
+    expect(screen).toContain(`type:'${MESSAGE.composeFailure}'`)
     expect(screen).toContain('var settleBookPlace=function(key){scalePages();scrollTo(')
     expect(flow).toContain(view.flow)
     expect(flow).not.toContain(view.html)
     expect(flow).toContain('event.source!==parent')
     expect(flow).toContain('BOOK_LAYOUTS.indexOf(data.layout)<0')
     expect(flow).toContain('data.place!==undefined&&place===undefined')
+    expect(flow).not.toContain(MESSAGE.composeFailure)
     expect(flow).toContain('var settleBookPlace=function(key){scrollTo(')
     expect(print).not.toContain('"screen"')
     expect(print).not.toContain('<template data-segnavia-flow-build>')
