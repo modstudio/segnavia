@@ -313,7 +313,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
-buildFontCollectionDemo(ROOT, SITE)
+const fontCollectionDemo = buildFontCollectionDemo(ROOT, SITE)
 await buildBookDemo(SITE)
 buildPaperDemo(SITE)
 await buildSlotDemo(SITE)
@@ -363,6 +363,19 @@ writeFileSync(
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
+  const fontCollectionPage = {
+    html: '<p style="margin:0;font-family:CollectionDemo;font-size:72px">אבגדהוז</p>',
+  }
+  writeFileSync(
+    path.join(OUT, 'font-collection.pdf'),
+    await renderer.pagePdf(fontCollectionPage, {
+      fonts: [{ family: 'CollectionDemo', data: fontCollectionDemo.collection, format: 'collection', postscriptName: 'Alef-Regular' }],
+    }),
+  )
+  writeFileSync(
+    path.join(OUT, 'font-standalone.pdf'),
+    await renderer.pagePdf(fontCollectionPage, { fonts: [{ family: 'CollectionDemo', data: fontCollectionDemo.standalone, format: 'truetype' }] }),
+  )
   await buildBookPdfs(SITE, (book, options) => renderer.bookPdf(book, { effects: false, ...options }))
   writeFileSync(path.join(OUT, 'deck.pdf'), await renderer.deckPdf(printable, { inline }))
   writeFileSync(path.join(OUT, 'deck-he-notes.pdf'), await renderer.deckPdf(hebrew, { inline, layout: 'notes' }))

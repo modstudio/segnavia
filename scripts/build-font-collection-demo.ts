@@ -45,7 +45,7 @@ function collection(faces: Uint8Array[]): Uint8Array {
   return output
 }
 
-export function buildFontCollectionDemo(root: string, site: string): void {
+export function buildFontCollectionDemo(root: string, site: string): { collection: Uint8Array; standalone: Uint8Array } {
   const alef = new Uint8Array(readFileSync(path.join(root, 'fixtures/hebrew-notice/Alef-Regular.ttf')))
   const noto = new Uint8Array(readFileSync(path.join(root, 'fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')))
   const packed = collection([alef, noto])
@@ -55,4 +55,5 @@ export function buildFontCollectionDemo(root: string, site: string): void {
     path.join(site, 'font-collection.html'),
     `<!doctype html><meta charset="utf-8"><style>${collectionCss}${standaloneCss}body{margin:0}.probe{display:block;width:max-content;font-size:72px;line-height:1;font-weight:400;color:#000;background:#fff}.collection{font-family:"Collection Alef"}.standalone{font-family:"Standalone Alef"}</style><span class="probe collection">אבגדהוז</span><span class="probe standalone">אבגדהוז</span>`,
   )
+  return { collection: packed, standalone: alef }
 }
