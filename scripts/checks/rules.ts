@@ -2,6 +2,7 @@
 // imports, so the gate can test them and the runner only gathers facts.
 
 import { FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
+import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
 export interface SourceFile {
   path: string
@@ -253,18 +254,18 @@ export function checkTypeScriptSuppressions(file: SourceFile): Finding[] {
   return directive ? [{ rule: 'type-suppression', path: file.path, message: `${directive} disables type safety; fix the types instead.` }] : []
 }
 
-const CHROMIUM_ENVIRONMENT_VARIABLE = ['SEGNAVIA', 'CHROMIUM'].join('_')
-
 export function checkChromiumEnvironmentRead(file: SourceFile): Finding[] {
-  if (!file.path.startsWith('scripts/') || file.path === 'scripts/chromium-path.ts') return []
-  const offset = file.text.indexOf(CHROMIUM_ENVIRONMENT_VARIABLE)
-  if (offset === -1) return []
-  const line = file.text.slice(0, offset).split('\n').length
+  if (!file.path.startsWith('scripts/') || file.path === CHROMIUM_PATH_MODULE) return []
+  const source = stripComments(file.text)
+  const accessor = new RegExp(`(?:process|Bun)\\.env(?:\\.${CHROMIUM_ENVIRONMENT_VARIABLE}|\\[\\s*['"]${CHROMIUM_ENVIRONMENT_VARIABLE}['"]\\s*\\])`)
+  const match = accessor.exec(source)
+  if (!match) return []
+  const line = source.slice(0, match.index).split('\n').length
   return [
     {
       rule: 'chromium-path',
       path: `${file.path}:${line}`,
-      message: 'reads the Chromium environment variable directly; use chromiumPath() from scripts/chromium-path.ts.',
+      message: 'reads the Chromium environment variable directly; use the shared chromiumPath() lookup.',
     },
   ]
 }

@@ -149,7 +149,10 @@ const findings = structural(names)
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
 if (names.length === 0) console.log('! host-name rule was not enforced; create host-names.local to enable it.')
 if (findings.length === 0) {
-  const rules = names.length === 0 ? 'architecture, comments, file ceiling, test vacuity' : 'architecture, host names, comments, file ceiling, test vacuity'
+  const rules =
+    names.length === 0
+      ? 'architecture, chromium-path, comments, file ceiling, test vacuity'
+      : 'architecture, chromium-path, host names, comments, file ceiling, test vacuity'
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 
