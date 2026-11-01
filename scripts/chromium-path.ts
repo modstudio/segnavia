@@ -3,7 +3,8 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 
 export const CHROMIUM_ENVIRONMENT_VARIABLE = 'SEGNAVIA_CHROMIUM'
-export const CHROMIUM_PATH_MODULE = import.meta.path.split(path.sep).slice(-2).join('/')
+// From the module's URL, which Bun and Node both provide.
+export const CHROMIUM_PATH_MODULE = new URL(import.meta.url).pathname.split('/').slice(-2).join('/')
 
 function cacheCandidates(directory: string, executable: string): string[] {
   let builds: string[]
