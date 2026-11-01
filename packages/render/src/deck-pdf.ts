@@ -107,7 +107,7 @@ async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sh
 
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) =>
-    slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
+    'kind' in slide.content && slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
   )
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
@@ -194,7 +194,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
       const single: Deck = { ...deck, slides: [slide] }
       try {
         const html =
-          slide.content.kind === 'html'
+          'kind' in slide.content && slide.content.kind === 'html'
             ? htmlSlideDocument(deck, slide.content.html, {
                 nonce: newNonce(),
                 css,
@@ -209,7 +209,12 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             html,
             boundMs: opts.boundMs,
             ...dependencySetup(opts),
-            beforeOutput: slide.content.kind === 'html' ? waitForPrintReady : slide.content.kind === 'image' ? placeRenderedImages : undefined,
+            beforeOutput:
+              'kind' in slide.content && slide.content.kind === 'html'
+                ? waitForPrintReady
+                : 'kind' in slide.content && slide.content.kind === 'image'
+                  ? placeRenderedImages
+                  : undefined,
           },
           {
             width: `${deck.size.width}px`,

@@ -28,7 +28,7 @@ const firstSection: Board['sections'][number] = {
 const board: Board = {
   title: 'Geometry',
   direction: 'ltr',
-  items: [itemA, { id: 'b', kind: 'page', address: 'b', x: 60, y: 40, width: 50 }, { id: 'c', kind: 'image', address: 'c', x: 200, y: 30, width: 80 }],
+  items: [itemA, { id: 'b', kind: 'page', address: 'b', x: 60, y: 40, width: 50 }, { id: 'c', kind: 'media', address: 'c', x: 200, y: 30, width: 80 }],
   labels: [{ id: 'label', text: 'Label', x: -20, y: -10 }],
   sections: [firstSection],
 }

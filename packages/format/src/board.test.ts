@@ -20,6 +20,12 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
+  test('reads a stored image item as media and serializes the new kind', () => {
+    const parsed = Board.parse({ ...valid, items: [{ ...valid.items[0], kind: 'image' }] })
+    expect(parsed.items[0]?.kind).toBe('media')
+    expect(JSON.parse(JSON.stringify(parsed)).items[0].kind).toBe('media')
+  })
+
   test('refuses invalid auto-section cells', () => {
     expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [{ id: 'other', row: 0, column: 0 }] }] })).toContain('cell "other" is not a member')
     expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [] }] })).toContain('member "deck" has no cell')
@@ -63,8 +69,8 @@ describe('Board', () => {
 
   test('refuses an unknown item kind and says what clears it', () => {
     const message = refusal({ ...valid, items: [{ ...valid.items[0], kind: 'board' }] })
-    expect(message).toContain('item kind is unknown')
-    expect(message).toContain('use deck, page, paper, book, image or shot')
+    expect(message).toContain('expected one of')
+    expect(message).toContain('media')
   })
 
   test('refuses a non-positive item width and says what clears it', () => {

@@ -6,6 +6,6 @@ describe('actionsForKind', () => {
     const open: BoardItemAction = { id: 'open', label: 'Open' }
     const actions: BoardItemAction[] = [open, { id: 'download', label: 'Download', kinds: ['deck', 'page'] }]
     expect(actionsForKind(actions, 'deck')).toEqual(actions)
-    expect(actionsForKind(actions, 'image')).toEqual([open])
+    expect(actionsForKind(actions, 'media')).toEqual([open])
   })
 })

@@ -63,6 +63,9 @@ export class DeckController extends EventTarget {
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
+  set placements(value: ControllerOptions['placements']) {
+    this.options.placements = value
+  }
   destroy() {
     this.stopPresenting()
     this.stopClock()
@@ -304,7 +307,15 @@ export class DeckController extends EventTarget {
     return ready ?? this.resolveFresh(slide, index)
   }
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
-    return resolveFreshContent(slide, index, this.options.resolveSlide, (path) => this.url(path), this.shots)
+    return resolveFreshContent(
+      slide,
+      index,
+      this.options.resolveSlide,
+      (path) => this.url(path),
+      this.shots,
+      this.options.placements,
+      this.current.deck?.size.width ?? 1280,
+    )
   }
 
   url(path: string): string {

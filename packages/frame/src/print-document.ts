@@ -114,6 +114,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
+  if ('media' in content) throw new Error(`Slide "${slide.id}" places media; resolve it before printing.`)
   const frame = (html: string) =>
     `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {

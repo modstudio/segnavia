@@ -1,7 +1,25 @@
 import type { BoardItem } from '@segnavia/format'
-import { checkResolved, type ResolvedBoardItem } from './board-policy.ts'
+import type { ResolvePlacement } from '@segnavia/html'
+import { checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+
+export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>): ResolveBoardItem {
+  return async (item) => {
+    const answer = await resolve(
+      { kind: item.kind, address: item.address },
+      { purpose: 'screen', width: Math.max(1, Math.round(item.width)), signal: new AbortController().signal },
+    )
+    if (!answer) throw new Error(`The ${item.kind} at ${item.address} could not be resolved.`)
+    if (answer.kind === 'media') return { kind: 'image', src: answer.src, width: answer.media.size.width, height: answer.media.size.height }
+    if (answer.kind === 'page') {
+      const size = answer.page.size
+      if (typeof size === 'string' || size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
+      return { kind: 'page', page: answer.page, size }
+    }
+    return answer
+  }
+}
 
 interface BoardResolutionEntry {
   value?: ResolvedBoardItem

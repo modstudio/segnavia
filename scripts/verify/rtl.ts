@@ -16,7 +16,8 @@ export async function verifyRtl(h: Harness) {
   const deck = JSON.parse(readFileSync(path.join(SITE, 'deck-he.json'), 'utf8')) as Deck
   const list = deck.slides[1]?.content
   const form = deck.slides[2]
-  if (list?.kind !== 'shot' || form?.content.kind !== 'shot' || !form.narration) throw new Error('The Hebrew deck lost its shots.')
+  if (!list || !('kind' in list) || list.kind !== 'shot' || !form || !('kind' in form.content) || form.content.kind !== 'shot' || !form.narration)
+    throw new Error('The Hebrew deck lost its shots.')
   const ring = list.shot.annotations[0]?.ring
   const badge = list.shot.annotations[0]?.badge
   check('a shot of a right-to-left app records its direction', list.shot.dir === 'rtl', list.shot.dir)

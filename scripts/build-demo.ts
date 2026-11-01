@@ -324,7 +324,9 @@ for (const [name, schema] of Object.entries(jsonSchemas())) writeFileSync(path.j
 const printable = {
   ...deck,
   slides: deck.slides.map((slide) =>
-    slide.content.kind === 'shot-ref' ? { ...slide, content: { kind: 'shot' as const, src: `shots/${formShot.file}`, shot: formShot } } : slide,
+    'kind' in slide.content && slide.content.kind === 'shot-ref'
+      ? { ...slide, content: { kind: 'shot' as const, src: `shots/${formShot.file}`, shot: formShot } }
+      : slide,
   ),
 }
 writeFileSync(path.join(SITE, 'deck-print.json'), JSON.stringify(printable))

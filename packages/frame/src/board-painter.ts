@@ -1,7 +1,6 @@
 import type { BoardItem } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
-import type { BoardTier, ResolvedBoardItem } from './board-policy.ts'
+import type { BoardTier, AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 

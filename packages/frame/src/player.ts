@@ -14,6 +14,7 @@ import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
+import { DeckSourcesElement } from './deck-sources.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
@@ -65,7 +66,7 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
   return presentation === 'native' || presentation === 'off' ? presentation : 'window'
 }
 
-export class SegnaviaPlayer extends HTMLElement {
+export class SegnaviaPlayer extends DeckSourcesElement {
   static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })

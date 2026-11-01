@@ -3,8 +3,8 @@
 // natural size at the browser's 96 dpi.
 
 import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'

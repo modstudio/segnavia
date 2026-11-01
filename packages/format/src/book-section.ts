@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 
 export const BookOpens = z.enum(['recto', 'verso', 'any'])
@@ -82,9 +83,12 @@ export const BookContents = z.object({
 })
 export type BookContents = z.infer<typeof BookContents>
 
+export const PlacedSection = z.object({ kind: z.literal('placed'), placement: PlacementShape, ...sectionFields })
+export type PlacedSection = z.infer<typeof PlacedSection>
+
 const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
 
-export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, flowingFront])
+export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, PlacedSection, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
 export const Chapter = z.object({
@@ -98,7 +102,7 @@ export type Chapter = z.infer<typeof Chapter>
 
 const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
 
-export const BookChapterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, flowingChapter])
+export const BookChapterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, PlacedSection, flowingChapter])
 export type BookChapterEntry = z.infer<typeof BookChapterEntry>
 
 export interface Part extends z.infer<z.ZodObject<typeof partFields>> {
@@ -164,6 +168,10 @@ export function isDesignedSection(entry: BookItem): entry is DesignedSection {
 
 export function isTemplatedSection(entry: BookItem): entry is TemplatedSection {
   return 'kind' in entry && entry.kind === 'templated'
+}
+
+export function isPlacedSection(entry: BookItem): entry is PlacedSection {
+  return 'kind' in entry && entry.kind === 'placed'
 }
 
 export function isChapter(entry: BookChapterEntry): entry is Chapter {

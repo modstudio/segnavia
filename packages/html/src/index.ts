@@ -68,13 +68,14 @@ export {
   type PlacementRefusal,
   type PlacementReport,
   type PlacementsOptions,
+  placementPlaceholderSource,
   placementPlan,
   type ResolvedPlacement,
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
 export * from './printed-pages.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
+export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

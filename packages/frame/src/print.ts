@@ -5,7 +5,7 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { paperBoxSize } from './paper-geometry.ts'
@@ -145,7 +145,9 @@ export async function preparedDeckPrint(
   const preparedDeck = {
     ...deck,
     slides: deck.slides.map((slide) =>
-      slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: resolvedSlots.apply(slide.content.html) } } : slide,
+      'kind' in slide.content && slide.content.kind === 'html'
+        ? { ...slide, content: { ...slide.content, html: resolvedSlots.apply(slide.content.html) } }
+        : slide,
     ),
   }
   if (options.imposition) {

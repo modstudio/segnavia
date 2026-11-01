@@ -20,9 +20,10 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
-  type PlacementsOptions,
   resolvePlacements,
 } from '@segnavia/html'
+import type { AssetPlacementsOptions } from './board-policy.ts'
+import { resolveBookEntries } from './book-entry-resolution.ts'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
@@ -35,7 +36,8 @@ export interface MotifsOptions {
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
 
-export type { PlacementsOptions, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
+export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
+export type PlacementsOptions = AssetPlacementsOptions
 
 export interface ExpandedFramePage {
   page: Page
@@ -256,11 +258,12 @@ export async function expandFrameBook(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
 ): Promise<ExpandedBook<Book>> {
-  const shape = bookShape(book)
+  const entriesResolved = await resolveBookEntries(book, placements, purpose, signal)
+  const shape = bookShape(entriesResolved)
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return resolveBookShape({ book, fonts: [] }, placements, purpose, signal)
+    return resolveBookShape({ book: entriesResolved, fonts: [] }, placements, purpose, signal)
   }
   return resolveBookShape(await expandBookShape(shape, motifs, signal), placements, purpose, signal)
 }

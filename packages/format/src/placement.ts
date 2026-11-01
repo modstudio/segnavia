@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ImageFit } from './deck.ts'
+import { ImageFit } from './image-fit.ts'
 import { MEDIA_FORMATS, type Media, MediaText, PAGE_BOXES, PageBoxName, PageSelector } from './media.ts'
 import { PlacementRefusedError } from './placement-refusal.ts'
 

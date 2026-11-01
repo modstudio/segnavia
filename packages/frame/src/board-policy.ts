@@ -11,6 +11,7 @@ import {
   type Size,
   zoomAt,
 } from '@segnavia/format'
+import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 import type { ControllerOptions } from './controller.ts'
 
 interface ResolvedBase {
@@ -26,6 +27,9 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
+export type ResolvedAsset = ResolvedPlacement | Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>
+export type AssetPlacementsOptions = { resolve: ResolvePlacement<ResolvedAsset>; report?: PlacementReport }
+
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
 export const BOARD_ZOOM_FACTOR = 1.25
@@ -38,7 +42,8 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
 }
 
 export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): void {
-  if (resolved.kind !== item.kind) throw new Error(`The resolved item kind is ${resolved.kind}, not ${item.kind}; return a resolved ${item.kind}.`)
+  const expected = item.kind === 'media' ? 'image' : item.kind
+  if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
   if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(resolved))
 }
 

@@ -1,3 +1,4 @@
+export { idmlAssetFrom } from './asset-from-placement.ts'
 export { IDML_FONT_WEIGHTS, idmlFontStyle } from './fonts.ts'
 export { type IdmlImportReport, type IdmlImportResult, importIdml } from './import.ts'
 export {

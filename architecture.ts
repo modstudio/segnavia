@@ -46,6 +46,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/book-presentation.ts',
       'src/book-document.ts',
       'src/book-view-document.ts',
+      'src/book-entry-resolution.ts',
       'src/motif-expansion.ts',
       'src/placement-resolution.ts',
       'src/page-fonts.ts',

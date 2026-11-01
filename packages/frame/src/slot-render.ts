@@ -1,4 +1,5 @@
 import type { SlotDeclaration, SlotsOptions } from '@segnavia/format'
+import type { ResolvePlacement } from '@segnavia/html'
 import {
   collectSlotPrintCopies,
   hasSlotWork,
@@ -11,12 +12,21 @@ import {
   SlotFillsConflictError,
   SlotFillsRefusedError,
   type SlotPrintOptions,
+  safeImageSource,
   slotFillRefusal,
   UnmeasuredSlotsRefusedError,
   unmeasuredSlotRefusal,
 } from '@segnavia/html'
 
 export type { PreparedSlots, SlotPrintOptions }
+
+export function slotAssetFrom(resolve: ResolvePlacement): NonNullable<SlotsOptions['resolveAsset']> {
+  return async (address, { signal }) => {
+    const answer = await resolve({ kind: 'media', address }, { purpose: 'screen', width: 1, signal })
+    if (answer?.kind !== 'media' || !safeImageSource(answer.src)) throw new Error(`The media at ${address} could not be resolved for an image slot.`)
+    return answer.src
+  }
+}
 export {
   collectSlotPrintCopies,
   hasSlotWork,
