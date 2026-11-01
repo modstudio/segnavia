@@ -160,6 +160,14 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
 })
 
+const composeFailureFixture = (): BookInput => ({
+  title: 'The Book Beyond the Page Limit',
+  mode: 'paginated',
+  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+  rectoOpenings: true,
+  chapters: Array.from({ length: 251 }, (_, index) => ({ title: `Chapter ${index + 1}`, html: `<p>Chapter ${index + 1}</p>` })),
+})
+
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -274,6 +282,11 @@ export async function buildBookDemo(site: string): Promise<void> {
   await buildIdmlTableDemo(site)
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
+  writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(Book.parse(composeFailureFixture()))))
+  writeFileSync(
+    path.join(site, 'book-compose-failure.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><style>segnavia-book{display:block;block-size:70vh}</style></head><body><segnavia-book id="book-compose-failure" layout="flow" src="book-compose-failure.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
+  )
   writeFileSync(
     path.join(site, 'book.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Continuous books</title><style>

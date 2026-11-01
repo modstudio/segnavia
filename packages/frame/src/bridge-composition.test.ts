@@ -49,13 +49,8 @@ function compositionBridge(failureAttribute?: string, reportHeight = false) {
     'ResizeObserver',
     'setTimeout',
     bridgeForHost({ reportHeight, readyAfterAttribute: 'data-done', failureAttribute }),
-  )(
-    document,
-    { postMessage: (message: unknown) => messages.push(message) },
-    window,
-    MutationObserver,
-    window.ResizeObserver,
-    (callback: () => void) => timers.push(callback),
+  )(document, { postMessage: (message: unknown) => messages.push(message) }, window, MutationObserver, window.ResizeObserver, (callback: () => void) =>
+    timers.push(callback),
   )
   return {
     attributes,

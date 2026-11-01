@@ -80,6 +80,18 @@ export function frameSandbox(scripts: Scripts | undefined): string {
   return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
 }
 
+function compositionWait(options: FrameOptions): string {
+  if (!options.readyAfterAttribute) return 'null'
+  const report = options.reportHeight === false ? '' : 'report();'
+  const failure = options.failureAttribute
+    ? `var failureName=${JSON.stringify(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
+    : ''
+  const settle = options.failureAttribute ? 'settled=true;' : ''
+  const fail = options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''
+  const failureFilter = options.failureAttribute ? ',failureName' : ''
+  return `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
+}
+
 // The bridge is written to run in old engines too: it is the one script that
 // runs inside every author's document. Height is the root element's box,
 // because scrollHeight is never less than the frame's own viewport and a
@@ -196,7 +208,7 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-var composed=${options.readyAfterAttribute ? `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};${options.failureAttribute ? `var failureName=${JSON.stringify(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;` : ''}if(root.hasAttribute(name)){${options.failureAttribute ? 'settled=true;' : ''}${options.reportHeight === false ? '' : 'report();'}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''}if(root.hasAttribute(name)){observer.disconnect();${options.failureAttribute ? 'settled=true;' : ''}${options.reportHeight === false ? '' : 'report();'}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${options.failureAttribute ? ',failureName' : ''}]});})` : 'null'};
+var composed=${compositionWait(options)};
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`

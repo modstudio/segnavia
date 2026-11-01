@@ -226,10 +226,10 @@ describe('book layout lifecycle', () => {
       data: { type: 'segnavia:compose-failure', text: 'flow refused' },
     } as MessageEvent)
     expect(frames.filter((frame) => !frame.hidden).map((frame) => frame.dataset.segnaviaBookLayout)).toEqual(['pages'])
-    expect(book.layout).toBe('pages')
+    expect(book.layout as string).toBe('pages')
     expect(attributes.get('layout')).toBe('pages')
     book.layout = 'flow'
     expect(errors).toEqual(['flow refused', 'flow refused'])
-    expect(book.layout).toBe('pages')
+    expect(book.layout as string).toBe('pages')
   })
 })

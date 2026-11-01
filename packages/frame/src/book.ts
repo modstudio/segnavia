@@ -1,6 +1,6 @@
 import { BookView, type BookViewInput, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { bookLayoutFrame, bookSourceUrl, clearBookCollections, reportBookError, showBookLayoutFrames } from './book-element-support.ts'
+import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
@@ -82,7 +82,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.loadController = controller
     this.sourceLoadController = controller
     try {
-      const response = await fetch(bookSourceUrl(value), { signal: controller.signal })
+      const response = await fetch(bookElement.bookSourceUrl(value), { signal: controller.signal })
       if (!response.ok) throw new Error(`The book at ${value} answered ${response.status}.`)
       const view = BookView.parse(await response.json())
       if (generation !== this.loadGeneration) return
@@ -91,7 +91,7 @@ export class SegnaviaBook extends HTMLElementBase {
       this.mount()
     } catch (reason) {
       if (generation !== this.loadGeneration) return
-      reportBookError(this, reason)
+      bookElement.reportBookError(this, reason)
     } finally {
       if (this.sourceLoadController === controller) this.sourceLoadController = null
       if (this.loadController === controller) this.loadController = null
@@ -154,7 +154,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.latestInput = 'view'
     const parsed = BookView.safeParse(input)
     if (!parsed.success) {
-      reportBookError(this, parsed.error)
+      bookElement.reportBookError(this, parsed.error)
       return
     }
     this.currentView = parsed.data
@@ -163,22 +163,20 @@ export class SegnaviaBook extends HTMLElementBase {
 
   private changeLayout(previous: string | null, value: string | null) {
     if (this.reflectingLayout || previous === value) return
-    const layout = value === null ? 'pages' : BOOK_LAYOUTS.find((accepted) => accepted === value)
+    const layout = bookElement.acceptedBookLayout(value)
     if (!layout) {
       const accepted = BOOK_LAYOUTS.map((held) => JSON.stringify(held)).join(' and ')
-      reportBookError(this, new Error(`Unknown book layout ${JSON.stringify(value)}; accepted layouts are ${accepted}.`))
+      bookElement.reportBookError(this, new Error(`Unknown book layout ${JSON.stringify(value)}; accepted layouts are ${accepted}.`))
       this.reflectingLayout = true
-      if (previous === null) this.removeAttribute('layout')
-      else this.setAttribute('layout', previous)
+      bookElement.restoreBookLayoutAttribute(this, previous)
       this.reflectingLayout = false
       return
     }
     const failure = this.failedLayouts.get(layout)
     if (failure) {
-      reportBookError(this, failure)
+      bookElement.reportBookError(this, failure)
       this.reflectingLayout = true
-      if (previous === null) this.removeAttribute('layout')
-      else this.setAttribute('layout', previous)
+      bookElement.restoreBookLayoutAttribute(this, previous)
       this.reflectingLayout = false
       return
     }
@@ -188,10 +186,9 @@ export class SegnaviaBook extends HTMLElementBase {
       return
     }
     if (layout === 'flow' && !this.currentView.flow) {
-      reportBookError(this, new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
+      bookElement.reportBookError(this, new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
       this.reflectingLayout = true
-      if (previous === null) this.removeAttribute('layout')
-      else this.setAttribute('layout', previous)
+      bookElement.restoreBookLayoutAttribute(this, previous)
       this.reflectingLayout = false
       return
     }
@@ -203,7 +200,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.cancelLayoutHandoff()
     this.pendingLayouts.delete(previousLayout)
     this.switchPlaces.delete(previousLayout)
-    let frame = bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), layout)
+    let frame = bookElement.bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), layout)
     if (!frame && layout === 'flow') frame = this.mountLayoutFrame('flow')
     if (layout === outgoing) {
       this.showLayoutFrame(layout)
@@ -213,7 +210,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.pendingLayouts.add(layout)
     this.layoutFallbacks.set(layout, outgoing)
     this.switchPlaces.set(layout, this.places.get(outgoing))
-    const outgoingFrame = bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), outgoing)
+    const outgoingFrame = bookElement.bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), outgoing)
     if (outgoingFrame && this.readyLayouts.has(outgoing)) {
       const place = this.places.get(outgoing)
       this.layoutHandoff = {
@@ -229,14 +226,14 @@ export class SegnaviaBook extends HTMLElementBase {
 
   private dropFrame() {
     this.cancelLayoutHandoff()
-    clearBookCollections(this.readyLayouts, this.pendingLayouts, this.failedLayouts, this.places, this.switchPlaces, this.layoutFallbacks)
+    bookElement.clearBookCollections(this.readyLayouts, this.pendingLayouts, this.failedLayouts, this.places, this.switchPlaces, this.layoutFallbacks)
   }
 
   private showRequestedLayout(view: BookView): BookLayout {
     if (!view.pagination) return 'pages'
     if (!view.flow) {
       if (this.requestedLayout === 'flow') {
-        reportBookError(this, new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
+        bookElement.reportBookError(this, new Error('This book has no flow view; supply a view built with its flow to use layout "flow".'))
       }
       if (this.currentLayout !== 'pages') {
         this.currentLayout = 'pages'
@@ -267,7 +264,7 @@ export class SegnaviaBook extends HTMLElementBase {
   }
 
   private showLayoutFrame(layout: BookLayout) {
-    showBookLayoutFrames(this.querySelectorAll<HTMLIFrameElement>('iframe[data-segnavia-book-layout]'), layout)
+    bookElement.showBookLayoutFrames(this.querySelectorAll<HTMLIFrameElement>('iframe[data-segnavia-book-layout]'), layout)
     this.shownLayout = layout
   }
 
@@ -317,7 +314,7 @@ export class SegnaviaBook extends HTMLElementBase {
     this.cancelLayoutHandoff()
     this.switchPlaces.set(layout, place)
     this.showLayoutFrame(layout)
-    const frame = bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), layout)
+    const frame = bookElement.bookLayoutFrame(this.querySelectorAll('iframe[data-segnavia-book-layout]'), layout)
     if (frame && this.readyLayouts.has(layout)) this.postLayout(frame, layout, place)
   }
 
@@ -330,7 +327,7 @@ export class SegnaviaBook extends HTMLElementBase {
         const prepared = prepareBookViewWithoutSources(view)
         this.mountFrames(prepared.view, prepared.css)
       } catch (reason) {
-        reportBookError(this, reason)
+        bookElement.reportBookError(this, reason)
       }
       return
     }
@@ -345,7 +342,7 @@ export class SegnaviaBook extends HTMLElementBase {
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return
-        reportBookError(this, reason)
+        bookElement.reportBookError(this, reason)
       })
       .finally(() => {
         if (this.loadController === controller) this.loadController = null
@@ -360,26 +357,27 @@ export class SegnaviaBook extends HTMLElementBase {
     if (!message) return
     if (frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
-    if (message.type === MESSAGE.composeFailure && layout && typeof message.text === 'string') {
-      if (this.failedLayouts.has(layout)) return
-      this.failedLayouts.set(layout, message.text)
-      this.readyLayouts.delete(layout)
-      this.pendingLayouts.delete(layout)
-      this.switchPlaces.delete(layout)
-      const fallback = this.layoutFallbacks.get(layout)
-      this.layoutFallbacks.delete(layout)
-      if (this.layoutHandoff?.to === layout) this.cancelLayoutHandoff()
-      if (fallback) {
-        this.showLayoutFrame(fallback)
-        this.currentLayout = fallback
-        this.requestedLayout = fallback
-        this.reflectingLayout = true
-        this.setAttribute('layout', fallback)
-        this.reflectingLayout = false
-      }
-      reportBookError(this, message.text)
+    if (
+      bookElement.handleBookComposeFailure(message, layout, {
+        failed: this.failedLayouts,
+        ready: this.readyLayouts,
+        pending: this.pendingLayouts,
+        switchPlaces: this.switchPlaces,
+        fallbacks: this.layoutFallbacks,
+        handoffTo: this.layoutHandoff?.to,
+        cancelHandoff: () => this.cancelLayoutHandoff(),
+        restore: (fallback) => {
+          this.showLayoutFrame(fallback)
+          this.currentLayout = fallback
+          this.requestedLayout = fallback
+          this.reflectingLayout = true
+          this.setAttribute('layout', fallback)
+          this.reflectingLayout = false
+        },
+        report: (text) => bookElement.reportBookError(this, text),
+      })
+    )
       return
-    }
     if (message.type === MESSAGE.bookPlace && layout) {
       const key = bookPlaceKey((message as { key?: unknown }).key)
       if (key !== undefined) {
