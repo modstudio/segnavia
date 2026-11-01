@@ -9,6 +9,7 @@ import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import {
   checkCeiling,
+  checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
   checkImports,
@@ -105,7 +106,7 @@ function structural(names: string[]): Finding[] {
       else findings.push(...checkImports(file, workspace, all))
       findings.push(...checkHostNames(file, names))
     }
-    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkCeiling(file))
+    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))
   }
   for (const relative of testFiles()) {
     const text = readFileSync(path.join(ROOT, relative), 'utf8')
@@ -148,7 +149,10 @@ const findings = structural(names)
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
 if (names.length === 0) console.log('! host-name rule was not enforced; create host-names.local to enable it.')
 if (findings.length === 0) {
-  const rules = names.length === 0 ? 'architecture, comments, file ceiling, test vacuity' : 'architecture, host names, comments, file ceiling, test vacuity'
+  const rules =
+    names.length === 0
+      ? 'architecture, chromium-path, comments, file ceiling, test vacuity'
+      : 'architecture, chromium-path, host names, comments, file ceiling, test vacuity'
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 

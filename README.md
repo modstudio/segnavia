@@ -138,7 +138,10 @@ bun run setup:php  # the PHP host fixture's validator, once
 bun run demo       # capture, narrate, build and render; then check it in Chromium, under Bun and Node, and from PHP
 ```
 
-`SEGNAVIA_CHROMIUM` names the browser binary for the demo.
+`SEGNAVIA_CHROMIUM` names the browser binary for the demo and the rendering
+scripts. When it is set, that path is used, and a path that does not exist is
+refused. When it is unset, the scripts take the newest Playwright Chromium in
+its cache, then Google Chrome.
 Repository commands go through `bun run`, which enables workspace source
 resolution and refuses stale built output.
 

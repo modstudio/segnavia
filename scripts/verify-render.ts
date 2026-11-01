@@ -8,6 +8,7 @@ import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
+import { chromiumPath } from './chromium-path.ts'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
 import { verifyBackdropRaster } from './verify/backdrop-raster.ts'
@@ -29,7 +30,7 @@ import { verifyPressRender } from './verify/press-render.ts'
 import { verifyRenderContainment } from './verify/render-containment.ts'
 import { verifyScriptFaces } from './verify/script-faces.ts'
 
-const CHROMIUM = process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
+const CHROMIUM = chromiumPath()
 const jsHeapMb = 128
 const FACE = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
 const runtime = 'Bun' in globalThis ? 'bun' : `node ${process.version}`

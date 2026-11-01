@@ -2,6 +2,7 @@
 // imports, so the gate can test them and the runner only gathers facts.
 
 import { FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
+import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
 export interface SourceFile {
   path: string
@@ -206,6 +207,19 @@ export function comments(text: string): string[] {
   return scan(text).comments
 }
 
+// The source with each comment blanked to spaces but its line breaks kept, so
+// an offset into the result is on the same line as in the source.
+function blankComments(text: string): string {
+  let blanked = text
+  let from = 0
+  for (const comment of comments(text)) {
+    const at = blanked.indexOf(comment, from)
+    blanked = blanked.slice(0, at) + comment.replace(/[^\n]/g, ' ') + blanked.slice(at + comment.length)
+    from = at + comment.length
+  }
+  return blanked
+}
+
 export function checkHostNames(file: SourceFile, names: string[]): Finding[] {
   const lower = file.text.toLowerCase()
   return names
@@ -251,6 +265,25 @@ export function checkTypeScriptSuppressions(file: SourceFile): Finding[] {
   if (!/^(?:packages|scripts)\//.test(file.path)) return []
   const directive = TYPE_SCRIPT_SUPPRESSIONS.map((name) => `@ts-${name}`).find((candidate) => file.text.includes(candidate))
   return directive ? [{ rule: 'type-suppression', path: file.path, message: `${directive} disables type safety; fix the types instead.` }] : []
+}
+
+export function checkChromiumEnvironmentRead(file: SourceFile): Finding[] {
+  if (!file.path.startsWith('scripts/') || file.path === CHROMIUM_PATH_MODULE) return []
+  const source = blankComments(file.text)
+  const name = CHROMIUM_ENVIRONMENT_VARIABLE
+  const accessor = new RegExp(
+    `(?:process|Bun)\\.env(?:\\.${name}\\b|\\[\\s*['"]${name}['"]\\s*\\])|\\{[^}]*\\b${name}\\b[^}]*\\}\\s*=\\s*(?:process|Bun)\\.env\\b`,
+  )
+  const match = accessor.exec(source)
+  if (!match) return []
+  const line = source.slice(0, match.index).split('\n').length
+  return [
+    {
+      rule: 'chromium-path',
+      path: `${file.path}:${line}`,
+      message: 'reads the Chromium environment variable directly; use the shared chromiumPath() lookup.',
+    },
+  ]
 }
 
 export function checkCeiling(file: SourceFile): Finding[] {

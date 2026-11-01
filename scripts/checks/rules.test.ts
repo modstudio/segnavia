@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { PACKAGES, SOURCE_CONDITION } from '../../architecture.ts'
+import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import {
+  checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
   checkImports,
@@ -86,6 +88,29 @@ describe('architecture rules', () => {
 })
 
 describe('writing rules', () => {
+  test('scripts use the shared Chromium lookup', () => {
+    const direct = { path: 'scripts/example.ts', text: `const browser = process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}`, imports: [] }
+    expect(checkChromiumEnvironmentRead(direct)).toEqual([
+      {
+        rule: 'chromium-path',
+        path: 'scripts/example.ts:1',
+        message: 'reads the Chromium environment variable directly; use the shared chromiumPath() lookup.',
+      },
+    ])
+    for (const text of [
+      `process.env['${CHROMIUM_ENVIRONMENT_VARIABLE}']`,
+      `Bun.env.${CHROMIUM_ENVIRONMENT_VARIABLE}`,
+      `Bun.env["${CHROMIUM_ENVIRONMENT_VARIABLE}"]`,
+      `const { ${CHROMIUM_ENVIRONMENT_VARIABLE} } = process.env`,
+    ])
+      expect(checkChromiumEnvironmentRead({ ...direct, text })).toHaveLength(1)
+    for (const text of [`// process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}`, `const help = 'set ${CHROMIUM_ENVIRONMENT_VARIABLE} to override the browser'`])
+      expect(checkChromiumEnvironmentRead({ ...direct, text })).toEqual([])
+    const belowComment = { ...direct, text: `/*\n one\n two\n*/\nconst browser = process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}` }
+    expect(checkChromiumEnvironmentRead(belowComment)[0]?.path).toBe('scripts/example.ts:5')
+    expect(checkChromiumEnvironmentRead({ ...direct, path: CHROMIUM_PATH_MODULE })).toEqual([])
+  })
+
   test('a comment telling history is caught; the same words in a string are not', () => {
     const text = "const a = 'previously'\n// This previously used a canvas.\n// Rings are padded so the edge stays visible."
     expect(checkComments({ path: 'x.ts', text, imports: [] })).toHaveLength(1)

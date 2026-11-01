@@ -4,6 +4,7 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { type Browser, chromium, type Page } from 'playwright-core'
+import { chromiumPath } from '../chromium-path.ts'
 
 export const ROOT = path.resolve(import.meta.dir, '../..')
 export const SITE = path.join(ROOT, 'out/site')
@@ -62,7 +63,7 @@ export async function openHarness(): Promise<Harness> {
     },
   })
   const browser: Browser = await chromium.launch({
-    executablePath: process.env.SEGNAVIA_CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    executablePath: chromiumPath(),
     // Recorded narration plays without a gesture, as it would after a click on Play.
     args: ['--autoplay-policy=no-user-gesture-required'],
   })
