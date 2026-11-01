@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { jsonSchemas } from './index.ts'
 import { Media } from './media.ts'
 import { Placement } from './placement.ts'
 import { PlacementRefusedError } from './placement-refusal.ts'
@@ -23,6 +24,13 @@ describe('Placement', () => {
   test('refuses a deck placed in a book and names both kinds', () => {
     expect(() => Placement.parse({ kind: 'deck', address: 'slides' }, 'book')).toThrow(PlacementRefusedError)
     expect(() => Placement.parse({ kind: 'deck', address: 'slides' }, 'book')).toThrow(/book does not accept deck.*clear this refusal/)
+  })
+
+  test('refuses a container absent from the acceptance table', () => {
+    expect(() => Placement.parse({ kind: 'media', address: 'image' }, 'canvas' as 'page')).toThrow(PlacementRefusedError)
+    expect(() => Placement.parse({ kind: 'media', address: 'image' }, 'canvas' as 'page')).toThrow(
+      /container could not be accepted: canvas.*board, book, page, deck, paper.*clear this refusal/,
+    )
   })
 
   test.each(['page', 'box', 'crop'] as const)('refuses %s on an asset kind other than media', (field) => {
@@ -57,6 +65,29 @@ describe('Placement', () => {
       /top and bottom crop percentages leave no area.*clear this refusal/,
     )
     expect(() => Placement.parse({ kind: 'media', address: 'image', crop: { right: '101%' } }, 'page')).toThrow(/right crop percentage.*clear this refusal/)
+  })
+
+  test('treats missing and length crop edges as zero percent when checking remaining area', () => {
+    expect(() => Placement.parse({ kind: 'media', address: 'image', crop: { top: '100%' } }, 'page')).toThrow(/top crop percentage leaves no area/)
+    expect(() => Placement.parse({ kind: 'media', address: 'image', crop: { left: '100%', right: '0mm' } }, 'page')).toThrow(
+      /left crop percentage leaves no area/,
+    )
+    expect(Placement.parse({ kind: 'media', address: 'image', crop: { top: '40%' } }, 'page').crop?.top).toBe('40%')
+  })
+
+  test('reports a refined crop refusal with exactly one remedy', () => {
+    try {
+      Placement.parse({ kind: 'media', address: 'image', crop: { top: '40%', bottom: '60%' } }, 'page')
+      throw new Error('expected placement to be refused')
+    } catch (error) {
+      expect(error).toBeInstanceOf(PlacementRefusedError)
+      expect(String(error).match(/to clear this refusal/g)).toHaveLength(1)
+    }
+  })
+
+  test('publishes media and placement input schemas with their required fields', () => {
+    expect(jsonSchemas().media).toMatchObject({ type: 'object', required: ['format', 'size'] })
+    expect(jsonSchemas().placement).toMatchObject({ type: 'object', required: ['kind', 'address'] })
   })
 
   test('accepts fit and direction-bearing alternate text', () => {

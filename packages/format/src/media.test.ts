@@ -25,6 +25,15 @@ describe('Media', () => {
     expect(Media.parse({ ...input('ai'), pages }).pages).toEqual(pages)
   })
 
+  test.each([
+    [{ width: 0, height: 1 }, 'box width must be positive'],
+    [{ width: 1, height: -1 }, 'box height must be positive'],
+  ])('refuses a non-positive page box dimension', (mediaBox, message) => {
+    expect(() => Media.parse({ ...input('pdf'), pages: [{ boxes: { media: { x: 0, y: 0, ...mediaBox } } }] })).toThrow(
+      new RegExp(`${message}.*clear this refusal`),
+    )
+  })
+
   test('refuses pages on a format without pages and names the remedy', () => {
     expect(() => Media.parse({ ...input('png'), pages: [] })).toThrow(/pages could not be accepted.*clear this refusal/)
   })

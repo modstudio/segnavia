@@ -11,8 +11,10 @@ import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
 import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
+import { Media } from './media.ts'
 import { Motif, MotifInput } from './motif.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
+import { PlacementShape } from './placement.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
@@ -388,6 +390,8 @@ export function jsonSchemas() {
     localFacesTransport: z.toJSONSchema(LocalFacesTransport, { io: 'input' }),
     motif: z.toJSONSchema(Motif, { io: 'input' }),
     motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
+    media: z.toJSONSchema(Media, { io: 'input' }),
+    placement: z.toJSONSchema(PlacementShape, { io: 'input' }),
   }
 }
 

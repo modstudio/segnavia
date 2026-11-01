@@ -5,14 +5,14 @@ import { Direction, resolveDirection, type TextDirection } from './direction.ts'
 export const MediaFormat = z.enum(['png', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'ai'])
 export type MediaFormat = z.infer<typeof MediaFormat>
 
-export const MEDIA_FORMATS: Record<MediaFormat, { pages: boolean; raster: boolean; vector: boolean }> = {
-  png: { pages: false, raster: true, vector: false },
-  jpeg: { pages: false, raster: true, vector: false },
-  gif: { pages: false, raster: true, vector: false },
-  webp: { pages: false, raster: true, vector: false },
-  svg: { pages: false, raster: false, vector: true },
-  pdf: { pages: true, raster: false, vector: true },
-  ai: { pages: true, raster: false, vector: true },
+export const MEDIA_FORMATS: Record<MediaFormat, { pages: boolean; raster: boolean }> = {
+  png: { pages: false, raster: true },
+  jpeg: { pages: false, raster: true },
+  gif: { pages: false, raster: true },
+  webp: { pages: false, raster: true },
+  svg: { pages: false, raster: false },
+  pdf: { pages: true, raster: false },
+  ai: { pages: true, raster: false },
 }
 
 export const MediaText = z.object({ text: z.string().min(1), lang: z.string().optional(), dir: Direction.optional() })
@@ -30,9 +30,21 @@ const PageBox = Box.superRefine((box, ctx) => {
   if (box.height <= 0) ctx.addIssue({ code: 'custom', path: ['height'], message: 'box height must be positive; pass a positive height to clear this refusal' })
 })
 
+export const PAGE_BOXES = ['media', 'crop', 'trim', 'bleed', 'art'] as const
+export const PageBoxName = z.enum(PAGE_BOXES)
+export type PageBoxName = z.infer<typeof PageBoxName>
+
+const MediaPageBoxesShape = {
+  media: PageBox,
+  crop: PageBox.optional(),
+  trim: PageBox.optional(),
+  bleed: PageBox.optional(),
+  art: PageBox.optional(),
+} satisfies Record<PageBoxName, unknown>
+
 export const MediaPage = z.object({
   name: z.string().min(1).optional(),
-  boxes: z.object({ media: PageBox, crop: PageBox.optional(), trim: PageBox.optional(), bleed: PageBox.optional(), art: PageBox.optional() }),
+  boxes: z.object(MediaPageBoxesShape),
 })
 export type MediaPage = z.infer<typeof MediaPage>
 
@@ -66,11 +78,11 @@ export const Media = MediaShape.superRefine((media, ctx) => {
       message: `resolution could not be accepted for ${media.format}; remove resolution or use a raster format to clear this refusal`,
     })
   }
-  if (media.derivedFrom !== undefined && !(capabilities.raster || (capabilities.vector && !capabilities.pages))) {
+  if (media.derivedFrom !== undefined && capabilities.pages) {
     ctx.addIssue({
       code: 'custom',
       path: ['derivedFrom'],
-      message: `derivedFrom could not be accepted for ${media.format}; remove derivedFrom or use svg or a raster format to clear this refusal`,
+      message: `derivedFrom could not be accepted for ${media.format}; remove derivedFrom or use a format without pages to clear this refusal`,
     })
   }
 })
