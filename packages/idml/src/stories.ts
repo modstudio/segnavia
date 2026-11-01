@@ -291,16 +291,21 @@ function mappedParagraph(paragraph: IdmlTextNode, paragraphTokens: Token[], cont
 }
 
 function tableContent(cell: IdmlTextNode, context: ParagraphRenderContext): Element[] {
-  return cell.children
-    .filter((child) => child.name === 'ParagraphStyleRange')
-    .map((paragraph) =>
-      mappedParagraph(
-        paragraph,
-        tokens(paragraph, context.report).filter((token) => token.kind !== 'paragraph' && token.kind !== 'table'),
-        context,
-        undefined,
-      ),
-    )
+  const output: Element[] = []
+  for (const paragraph of cell.children.filter((child) => child.name === 'ParagraphStyleRange')) {
+    let current: Token[] = []
+    const flush = () => {
+      output.push(mappedParagraph(paragraph, current, context, undefined))
+      current = []
+    }
+    for (const token of tokens(paragraph, context.report)) {
+      if (token.kind === 'paragraph') flush()
+      else if (token.kind === 'table') context.report.add(context.report.unsupportedElements, 'Table', token.location)
+      else current.push(token)
+    }
+    flush()
+  }
+  return output
 }
 
 function renderParagraphRange(paragraph: IdmlTextNode, context: ParagraphRenderContext): Element[] {

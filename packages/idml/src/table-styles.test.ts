@@ -19,7 +19,7 @@ const cell = (attributes: Record<string, string>, location = 'Stories/Story.xml#
   location,
 })
 
-test('writes table and layered region and cell classes in source order', () => {
+test('writes table, region, and own cell classes in structural layer order', () => {
   const styles = [
     style('table', 'Ledger', 'table', { BodyRegionCellStyle: 'region', SpaceBefore: '4', SpaceAfter: '6' }),
     style('region', 'Body region', 'cell', { FillColor: 'Color/Black', TopInset: '2' }),
@@ -28,6 +28,15 @@ test('writes table and layered region and cell classes in source order', () => {
   const text = new StyleMapper(styles, [], new ReportCollector(), 'ltr')
   const tables = new TableStyleMapper(styles, [], new ReportCollector(), (css) => text.cssOverrideClass(css))
   expect(tables.tableClass('table')).toBe('idml-t-ledger')
+  expect(
+    tables.cellClasses({
+      region: 'body',
+      column: 0,
+      columnCount: 2,
+      node: cell({ AppliedCellStyle: 'own' }),
+      direction: 'ltr',
+    }),
+  ).toEqual(['idml-cell-emphasis'])
   expect(
     tables.cellClasses({
       tableStyle: 'table',
@@ -90,6 +99,25 @@ test('emits alternating fill rules with skip counts and deduplicates local overr
   expect(mapper.cellClasses({ ...input, node: cell({ TopInset: '2' }, 'two') }).at(-1)).toBe('idml-o-1')
   expect(mapper.css()).toContain('.idml-t-bands tr:nth-child(3n+2){background-color:#000}')
   expect(mapper.css()).toContain('.idml-t-bands tr:nth-child(3n+4){background-color:#fff}')
+})
+
+test('emits alternating column fills on cell selectors with column skip counts', () => {
+  const styles = [
+    style('columns', 'Column bands', 'table', {
+      AlternatingFills: 'AlternatingColumns',
+      StartColumnFillColor: 'Color/Black',
+      StartColumnFillCount: '1',
+      EndColumnFillColor: 'Color/Paper',
+      EndColumnFillCount: '2',
+      SkipFirstAlternatingFillColumns: '2',
+    }),
+  ]
+  const mapper = new TableStyleMapper(styles, [], new ReportCollector(), () => undefined)
+  mapper.tableClass('columns')
+  const css = mapper.css()
+  expect(css).toContain('.idml-t-column-bands td:nth-child(3n+3){background-color:#000}')
+  expect(css).toContain('.idml-t-column-bands td:nth-child(3n+4){background-color:#fff}')
+  expect(css).toContain('.idml-t-column-bands td:nth-child(3n+5){background-color:#fff}')
 })
 
 test('reports graphic, rotated and diagonal cells by their table feature names', () => {

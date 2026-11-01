@@ -73,4 +73,22 @@ describe('malformed grids', () => {
       'table at Stories/Story.xml#table has a missing anchor at 1:2',
     )
   })
+  test('refuses a column without a numeric width by its cause', () => {
+    const malformed = table([])
+    const column = malformed.children.find((node) => node.name === 'Column')
+    if (column) column.attributes.SingleColumnWidth = 'wide'
+    expect(() => tableGrid(malformed)).toThrow(
+      'has a column without a finite width; give every Column a numeric SingleColumnWidth or Width to clear this refusal',
+    )
+  })
+  test('refuses a table without columns by its cause', () => {
+    const malformed = table([])
+    malformed.children = malformed.children.filter((node) => node.name !== 'Column')
+    expect(() => tableGrid(malformed)).toThrow('has no columns; export at least one Column or declare a positive ColumnCount to clear this refusal')
+  })
+  test('refuses declared row counts that do not match Row elements', () => {
+    expect(() => tableGrid(table([], { BodyRowCount: '2' }))).toThrow(
+      'declares 4 rows but contains 3 Row elements; make HeaderRowCount, BodyRowCount, and FooterRowCount add up to the number of Row elements',
+    )
+  })
 })

@@ -76,9 +76,14 @@ export function tableGrid(node: IdmlTextNode): TableGrid {
     }
   })
   const widthCount = columns.length || integer(node.attributes.ColumnCount, 0)
-  if (columns.some((width) => !Number.isFinite(width)) || widthCount === 0 || rowCount !== rows.length) {
-    throw refusal(`table at ${node.location} has a missing anchor`, 'export a table with every declared row and column')
-  }
+  if (columns.some((width) => !Number.isFinite(width)))
+    throw refusal(`table at ${node.location} has a column without a finite width`, 'give every Column a numeric SingleColumnWidth or Width')
+  if (widthCount === 0) throw refusal(`table at ${node.location} has no columns`, 'export at least one Column or declare a positive ColumnCount')
+  if (rowCount !== rows.length)
+    throw refusal(
+      `table at ${node.location} declares ${rowCount} rows but contains ${rows.length} Row elements`,
+      'make HeaderRowCount, BodyRowCount, and FooterRowCount add up to the number of Row elements',
+    )
 
   const occupied: (IdmlTextNode | undefined)[][] = Array.from({ length: rowCount }, () => Array.from({ length: widthCount }))
   const cells = children(node, 'Cell').map((cell) => placeCell(node, cell, occupied, rowCount, widthCount))

@@ -1,7 +1,8 @@
 import type { ReportCollector } from './report.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
-import { flattenedStyle, styleChain } from './styles.ts'
+import { flattenedStyle, slug, styleChain } from './styles.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
+import type { TableGrid, TableRegion } from './table-model.ts'
 import type { IdmlStyle, IdmlSwatch, IdmlTextNode } from './types.ts'
 
 const TABLE_HANDLED = new Set([
@@ -54,16 +55,6 @@ const CELL_HANDLED = new Set([
   'TopRightDiagonalLine',
 ])
 
-function slug(value: string): string {
-  return (
-    value
-      .normalize('NFKD')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'style'
-  )
-}
-
 function uniqueClasses(styles: IdmlStyle[], kind: 'table' | 'cell', prefix: string): Map<string, string> {
   const result = new Map<string, string>()
   const taken = new Set<string>()
@@ -89,18 +80,19 @@ function active(value: string | undefined): boolean {
 
 export interface CellClassInput {
   tableStyle?: string
-  region: 'header' | 'body' | 'footer'
+  region: TableRegion
   column: number
   columnCount: number
   node: IdmlTextNode
-  direction: 'ltr' | 'rtl'
+  direction: TableGrid['direction']
 }
 
 export class TableStyleMapper {
   private readonly tableClasses: Map<string, string>
   private readonly cellClassesById: Map<string, string>
   private readonly usedTables = new Set<string>()
-  private readonly usedCells = new Set<string>()
+  private readonly usedRegionCells = new Set<string>()
+  private readonly usedOwnCells = new Set<string>()
   private readonly reported = new Set<string>()
 
   constructor(
@@ -131,15 +123,23 @@ export class TableStyleMapper {
       input.column === physicalLast ? table.RightColumnRegionCellStyle : undefined,
     ].filter((value): value is string => Boolean(value))
     const ownId = input.node.attributes.AppliedCellStyle
-    const ids = [...regionIds, ownId].filter((value): value is string => Boolean(value))
     const output: string[] = []
-    for (const id of ids) {
+    for (const id of regionIds) {
       const style = this.find(id, 'cell')
       if (!style) continue
-      this.usedCells.add(style.id)
+      this.usedRegionCells.add(style.id)
       const className = this.cellClassesById.get(style.id)
       if (className) output.push(className)
     }
+    if (ownId) {
+      const style = this.find(ownId, 'cell')
+      if (style) {
+        this.usedOwnCells.add(style.id)
+        const className = this.cellClassesById.get(style.id)
+        if (className) output.push(className)
+      }
+    }
+    const ids = [...regionIds, ownId].filter((value): value is string => Boolean(value))
     const base = Object.assign({}, ...ids.map((id) => flattenedStyle(this.styles, id, 'cell')))
     const local = Object.fromEntries(
       Object.entries(input.node.attributes).filter(([name, value]) => CELL_HANDLED.has(name) && name !== 'AppliedCellStyle' && value !== base[name]),
@@ -165,7 +165,7 @@ export class TableStyleMapper {
       rules.push(`.${className}{${declarations.join(';')}}`, ...this.alternatingRules(className, values, style.location))
       this.reportUnmapped(style, TABLE_HANDLED)
     }
-    for (const id of this.usedCells) {
+    for (const id of [...this.usedRegionCells, ...this.usedOwnCells]) {
       const style = this.find(id, 'cell')
       const className = style && this.cellClassesById.get(style.id)
       if (!style || !className) continue

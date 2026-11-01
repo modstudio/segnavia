@@ -80,7 +80,7 @@ test('emits columns, language and direction only where they differ and counts om
   expect(report.data().unsupportedElements).toEqual({ Table: 1 })
 })
 
-test('splits a paragraph around a table and maps cell paragraphs through the text path', () => {
+test('splits a paragraph around a table and preserves reported cell paragraph boundaries', () => {
   const report = new ReportCollector()
   const english: IdmlStyle = {
     ...paragraphStyle,
@@ -100,9 +100,16 @@ test('splits a paragraph around a table and maps cell paragraphs through the tex
       node(
         'Cell',
         [
-          node('ParagraphStyleRange', [node('CharacterStyleRange', [node('Content', [], {}, 'Cell')], { AppliedCharacterStyle: 'strong' })], {
-            AppliedParagraphStyle: 'en',
-          }),
+          node(
+            'ParagraphStyleRange',
+            [
+              node('CharacterStyleRange', [node('Content', [], {}, 'Cell')], { AppliedCharacterStyle: 'strong' }),
+              node('Br'),
+              node('Content', [], {}, 'Second'),
+              node('Table'),
+            ],
+            { AppliedParagraphStyle: 'en' },
+          ),
         ],
         { Name: '0:0' },
       ),
@@ -117,8 +124,9 @@ test('splits a paragraph around a table and maps cell paragraphs through the tex
   ])
   const result = storyHtml({ id: 'story', root }, styles, report, 'rtl', 'he', { tableStyles: tables })
   expect(result.html).toBe(
-    '<p class="idml-p-body">Before</p><table class="idml-t-ledger" dir="ltr"><colgroup><col style="width:60pt"></colgroup><tbody><tr><td><p class="idml-p-english" dir="ltr" lang="en-US"><span class="idml-c-strong">Cell</span></p></td></tr></tbody></table><p class="idml-p-body">After</p>',
+    '<p class="idml-p-body">Before</p><table class="idml-t-ledger" dir="ltr"><colgroup><col style="width:60pt"></colgroup><tbody><tr><td><p class="idml-p-english" dir="ltr" lang="en-US"><span class="idml-c-strong">Cell</span></p><p class="idml-p-english" dir="ltr" lang="en-US">Second</p></td></tr></tbody></table><p class="idml-p-body">After</p>',
   )
+  expect(report.data().unsupportedElements).toEqual({ Table: 1 })
 })
 
 test('deduplicates override classes across paragraphs and counts unmapped properties', () => {

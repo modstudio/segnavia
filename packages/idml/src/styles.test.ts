@@ -278,6 +278,14 @@ test('maps keeps and deduplicates equal local override property sets', () => {
   expect(sanitizeBookCss(css).removed).toEqual([])
 })
 
+test('allocates typed and raw override classes from one sequence', () => {
+  const mapper = new StyleMapper([], [], new ReportCollector(), 'ltr')
+  expect(mapper.overrideClass({ PointSize: '14' }, {}, 'ltr', 'one')).toBe('idml-o-1')
+  expect(mapper.cssOverrideClass('padding-block-start:2pt')).toBe('idml-o-2')
+  expect(mapper.overrideClass({ PointSize: '16' }, {}, 'ltr', 'two')).toBe('idml-o-3')
+  expect(mapper.cssOverrideClass('padding-block-start:2pt')).toBe('idml-o-2')
+})
+
 test('maps partial line keeps to orphans and widows', () => {
   const report = new ReportCollector()
   const mapper = new StyleMapper(

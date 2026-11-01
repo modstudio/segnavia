@@ -108,7 +108,7 @@ export function flattenedStyle(styles: IdmlStyle[], id: string | undefined, kind
   return Object.assign({}, ...styleChain(styles, id, kind).map((style) => style.properties))
 }
 
-function slug(value: string): string {
+export function slug(value: string): string {
   const normalized = value
     .normalize('NFKD')
     .toLowerCase()
@@ -181,6 +181,7 @@ export class StyleMapper {
     { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string; resetShading: boolean }
   >()
   private readonly rawOverrides = new Map<string, { name: string; declarations: string }>()
+  private nextOverride = 1
   private readonly reportedStyleProperties = new Set<string>()
 
   constructor(
@@ -249,7 +250,7 @@ export class StyleMapper {
     const key = JSON.stringify(Object.entries(cssProperties).sort(([a], [b]) => a.localeCompare(b))) + directionValue + resetShading
     const found = this.overrides.get(key)
     if (found) return found.name
-    const name = `idml-o-${this.overrides.size + 1}`
+    const name = `idml-o-${this.nextOverride++}`
     this.overrides.set(key, { name, properties: cssProperties, direction: directionValue, location, resetShading })
     return name
   }
@@ -258,7 +259,7 @@ export class StyleMapper {
     if (!declarations) return undefined
     const found = this.rawOverrides.get(declarations)
     if (found) return found.name
-    const name = `idml-o-${this.overrides.size + this.rawOverrides.size + 1}`
+    const name = `idml-o-${this.nextOverride++}`
     this.rawOverrides.set(declarations, { name, declarations })
     return name
   }
