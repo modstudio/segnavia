@@ -1,4 +1,4 @@
-import { gridPlacements, type Placement } from './imposition.ts'
+import { gridPlacements, type ImpositionPlacement } from './imposition.ts'
 import type { Imposition } from './index.ts'
 import { MARK_GAP_MM, MARK_LENGTH_MM, type MarkSegment, roundMillimeters } from './paper.ts'
 
@@ -43,7 +43,7 @@ function addMark(
   )
 }
 
-function outerMarks(side: ImpositionSideMarks, placements: Placement[], paper: { width: number; height: number }, foldCuts: Set<number>): void {
+function outerMarks(side: ImpositionSideMarks, placements: ImpositionPlacement[], paper: { width: number; height: number }, foldCuts: Set<number>): void {
   const verticalCuts = unique(placements.flatMap(({ trim }) => [trim.x, trim.x + trim.width]))
   const horizontalCuts = unique(placements.flatMap(({ trim }) => [trim.y, trim.y + trim.height]))
   const top = Math.min(...placements.map(({ bleedBox }) => bleedBox.y))
@@ -65,13 +65,13 @@ function outerMarks(side: ImpositionSideMarks, placements: Placement[], paper: {
   }
 }
 
-function intersectsBleed(mark: MarkSegment, boxes: Placement['bleedBox'][]): boolean {
+function intersectsBleed(mark: MarkSegment, boxes: ImpositionPlacement['bleedBox'][]): boolean {
   return boxes.some(
     (box) => Math.max(mark.x1, box.x) <= Math.min(mark.x2, box.x + box.width) && Math.max(mark.y1, box.y) <= Math.min(mark.y2, box.y + box.height),
   )
 }
 
-function rayRoom(start: number, cut: number, horizontal: boolean, direction: -1 | 1, boxes: Placement['bleedBox'][]): number {
+function rayRoom(start: number, cut: number, horizontal: boolean, direction: -1 | 1, boxes: ImpositionPlacement['bleedBox'][]): number {
   const obstacles = boxes
     .filter((box) => {
       const acrossStart = horizontal ? box.y : box.x
@@ -89,7 +89,7 @@ function rayRoom(start: number, cut: number, horizontal: boolean, direction: -1 
   return Math.max(0, Math.min(MARK_LENGTH_MM, ...obstacles))
 }
 
-function cornerMarks(side: ImpositionSideMarks, placements: Placement[], rows: number): void {
+function cornerMarks(side: ImpositionSideMarks, placements: ImpositionPlacement[], rows: number): void {
   const boxes = placements.map(({ bleedBox }) => bleedBox)
   const left = Math.min(...placements.map(({ trim }) => trim.x))
   const right = Math.max(...placements.map(({ trim }) => trim.x + trim.width))
@@ -124,7 +124,7 @@ function cornerMarks(side: ImpositionSideMarks, placements: Placement[], rows: n
   }
 }
 
-function foldCutPositions(placements: Placement[]): Set<number> {
+function foldCutPositions(placements: ImpositionPlacement[]): Set<number> {
   const left = Math.min(...placements.map(({ trim }) => trim.x))
   const right = Math.max(...placements.map(({ trim }) => trim.x + trim.width))
   return new Set(unique(placements.flatMap(({ trim }) => [trim.x, trim.x + trim.width])).filter((cut) => cut !== left && cut !== right))
@@ -135,7 +135,7 @@ export function impositionMarks(imposition: Imposition): ImpositionSideMarks[] {
   if (!imposition.marks) return []
   const { paper, placements: frontPlacements } = gridPlacements(imposition)
   const foldCuts = imposition.fold ? foldCutPositions(frontPlacements) : new Set<number>()
-  const build = (sideName: 'front' | 'back', placements: Placement[]) => {
+  const build = (sideName: 'front' | 'back', placements: ImpositionPlacement[]) => {
     const side: ImpositionSideMarks = { side: sideName, marks: [], omittedMarks: [] }
     outerMarks(side, placements, paper, foldCuts)
     if (imposition.cornerMarks) cornerMarks(side, placements, imposition.rows)

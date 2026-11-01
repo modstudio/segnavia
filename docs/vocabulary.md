@@ -61,7 +61,9 @@ something else.
 | **Motif** | Reusable designed HTML and CSS that a host supplies by key and a page places in its own markup. It may declare fields, fonts and language versions. |
 | **App font** | A face the host ships, named by the host (`serif`). Page and motif CSS write `var(--segnavia-font-<name>)` and never spell the family. The library defines that property from the host's `FontSource`. |
 | **Local font** | A face installed on the author's machine, named by its family with an app-font fallback. The page's named faces may be sent with one server render as JSON-safe base64; they are never kept, cached, logged or served. A viewer without the face sees the fallback and is told, never blocked. The notice is the host's chrome and is never printed into the page or the PDF. |
-| **Placement** | An element with `data-motif` and optional motif field attributes. Expansion keeps the element and replaces its children with the chosen motif version. |
+| **Motif placement** | An element with `data-motif` and optional motif field attributes. Expansion keeps the element and replaces its children with the chosen motif version. |
+| **Placement** | One asset placed in another, naming the placed asset and the settings belonging to this use. |
+| **Imposition placement** | The physical position where one page lands on a printing paper. |
 | **Motif version** | One rendition of a motif, keyed by values of its choice fields and chosen by most-specific match. |
 | **Parent page** | Named inherited print geometry and head or foot motif regions selected by a role for a flowing page. |
 | **Printed page** | One physical page produced by fragmenting a flowing page; it has a side, parent page, formatted number and total. |

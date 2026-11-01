@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, impose, MAX_IMPOSITION_CELLS, type Placement, PX_PER_MM, pagePlacementLayout } from './index.ts'
+import { fitPage, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS, PX_PER_MM, pagePlacementLayout } from './index.ts'
 
 const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
@@ -222,7 +222,7 @@ describe('imposition', () => {
   })
 })
 
-const placement = (overrides: Partial<Placement> = {}): Placement => ({
+const placement = (overrides: Partial<ImpositionPlacement> = {}): ImpositionPlacement => ({
   page: 0,
   paper: 0,
   side: 'front',

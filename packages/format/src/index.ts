@@ -11,8 +11,10 @@ import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
 import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
 import { Lexicon } from './lexicon.ts'
+import { Media } from './media.ts'
 import { Motif, MotifInput } from './motif.ts'
 import { Orientation, Paper, PaperUnit, PrintSetting, PrintSettingInput, sheetMm, toMillimeters } from './paper.ts'
+import { PlacementShape } from './placement.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { SlotDeclaration, SlotDeclarationInput, Slots } from './slots.ts'
@@ -121,13 +123,13 @@ export {
 export {
   fitPage,
   type Imposed,
+  type ImpositionPlacement,
   impose,
   type MillimeterEdges,
   mirrorPlacement,
   type PageFit,
   type PagePlacementKind,
   type PagePlacementLayout,
-  type Placement,
   pagePlacementLayout,
 } from './imposition.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
@@ -140,6 +142,16 @@ export {
 } from './imposition-marks.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { LOCAL_FONT_LIMITS, type LocalFontLimitFace, type LocalFontLimits, localFontLimitRefusal } from './local-font-limits.ts'
+export {
+  MEDIA_FORMATS,
+  Media,
+  MediaFormat,
+  type MediaInput,
+  MediaPage,
+  MediaText,
+  mediaTextDirection,
+  PageSelector,
+} from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
 export {
@@ -177,6 +189,17 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
+export {
+  AssetKind,
+  CropEdge,
+  PLACEMENT_ACCEPTS,
+  Placement,
+  type PlacementContainer,
+  PlacementCrop,
+  type PlacementInput,
+} from './placement.ts'
+export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
+export { PlacementRefusedError } from './placement-refusal.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'
@@ -367,6 +390,8 @@ export function jsonSchemas() {
     localFacesTransport: z.toJSONSchema(LocalFacesTransport, { io: 'input' }),
     motif: z.toJSONSchema(Motif, { io: 'input' }),
     motifInput: z.toJSONSchema(MotifInput, { io: 'input' }),
+    media: z.toJSONSchema(Media, { io: 'input' }),
+    placement: z.toJSONSchema(PlacementShape, { io: 'input' }),
   }
 }
 

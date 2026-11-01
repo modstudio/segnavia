@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { mirrorPlacement, type Placement } from './index.ts'
+import { type ImpositionPlacement, mirrorPlacement } from './index.ts'
 
-const front: Placement = {
+const front: ImpositionPlacement = {
   page: 0,
   paper: 0,
   side: 'front',

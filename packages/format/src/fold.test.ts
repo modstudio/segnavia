@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { FOLD_TUCK_IN_MM, foldPanelMap, Imposition, impose, MAX_IMPOSITION_CELLS, type Placement } from './index.ts'
+import { FOLD_TUCK_IN_MM, foldPanelMap, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS } from './index.ts'
 
 const foldInput = (overrides: Record<string, unknown> = {}) => ({
   paper: { width: 300, height: 100, unit: 'mm' as const },
@@ -10,7 +10,7 @@ const foldInput = (overrides: Record<string, unknown> = {}) => ({
 
 const parseFold = (overrides: Record<string, unknown> = {}) => Imposition.parse(foldInput(overrides))
 
-const byColumn = (placements: Placement[], side: Placement['side']) =>
+const byColumn = (placements: ImpositionPlacement[], side: ImpositionPlacement['side']) =>
   placements.filter((placement) => placement.side === side).sort((left, right) => left.column - right.column)
 
 describe('foldPanelMap', () => {

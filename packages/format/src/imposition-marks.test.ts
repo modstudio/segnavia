@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Imposition, impose, impositionMarks, type MarkSegment, mirrorPlacement, type OmittedImpositionMark, type Placement } from './index.ts'
+import { Imposition, type ImpositionPlacement, impose, impositionMarks, type MarkSegment, mirrorPlacement, type OmittedImpositionMark } from './index.ts'
 
 const markInput = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({
@@ -12,12 +12,12 @@ const markInput = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   })
 
-const segmentIntersects = (mark: MarkSegment, box: Placement['bleedBox']) =>
+const segmentIntersects = (mark: MarkSegment, box: ImpositionPlacement['bleedBox']) =>
   Math.max(mark.x1, box.x) <= Math.min(mark.x2, box.x + box.width) && Math.max(mark.y1, box.y) <= Math.min(mark.y2, box.y + box.height)
 
 const zeroEdges = { top: 0, right: 0, bottom: 0, left: 0 }
 
-const boxPlacement = (trim: Placement['trim']): Placement => ({
+const boxPlacement = (trim: ImpositionPlacement['trim']): ImpositionPlacement => ({
   page: 0,
   paper: 0,
   side: 'front',
@@ -62,7 +62,7 @@ function mirrorOmitted(
 
 const omittedKey = ({ edge, cutPosition }: Pick<OmittedImpositionMark, 'edge' | 'cutPosition'>) => `${edge}:${cutPosition}`
 
-const cutOnTrim = (mark: MarkSegment, trims: Placement['trim'][]) => {
+const cutOnTrim = (mark: MarkSegment, trims: ImpositionPlacement['trim'][]) => {
   const vertical = mark.x1 === mark.x2
   return trims.some((trim) => (vertical ? mark.x1 === trim.x || mark.x1 === trim.x + trim.width : mark.y1 === trim.y || mark.y1 === trim.y + trim.height))
 }
