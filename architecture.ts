@@ -6,6 +6,12 @@ export type Runtime = 'universal' | 'browser' | 'server'
 
 export const SOURCE_CONDITION = '@segnavia/source'
 
+export type SourceExport = string | { bun: string; node: string; default: string }
+
+export function bunSource(source: SourceExport): string {
+  return typeof source === 'string' ? source : source.bun
+}
+
 export const platformForRuntime = (runtime: Runtime): 'browser' | 'node' | 'neutral' =>
   runtime === 'server' ? 'node' : runtime === 'browser' ? 'browser' : 'neutral'
 

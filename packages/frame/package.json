@@ -43,7 +43,11 @@
       "default": "./dist/bridge.js"
     },
     "./diagrams": {
-      "@segnavia/source": "./src/diagrams.ts",
+      "@segnavia/source": {
+        "bun": "./src/diagrams.ts",
+        "node": "./dist/diagrams.js",
+        "default": "./src/diagrams.ts"
+      },
       "types": "./dist/diagrams.d.ts",
       "default": "./dist/diagrams.js"
     },

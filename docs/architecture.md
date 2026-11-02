@@ -132,7 +132,9 @@ message line instead of delaying readiness.
 Each browser entry is one self-contained file with no static sibling imports,
 so a page without a diagram loads exactly that file. The one permitted sibling
 is the relative diagram chunk, which the entry imports dynamically only after a
-document carries the diagram placeholder.
+document carries the diagram placeholder. Under the repository source
+condition, Bun reads the source diagram entry while Node reads the built string,
+because Node cannot import the Mermaid bundle as text.
 
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset

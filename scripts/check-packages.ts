@@ -3,7 +3,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { PACKAGES, SOURCE_CONDITION } from '../architecture.ts'
+import { bunSource, PACKAGES, SOURCE_CONDITION, type SourceExport } from '../architecture.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const WORK = path.join(ROOT, 'out/package-check')
@@ -11,7 +11,7 @@ const TARBALLS = path.join(WORK, 'tarballs')
 const HOST = path.join(WORK, 'host')
 
 interface ExportConditions {
-  [SOURCE_CONDITION]: string
+  [SOURCE_CONDITION]: SourceExport
   types: string
   default: string
 }
@@ -87,7 +87,7 @@ for (const { name, directory, manifest } of installed) {
     if (names.length === 0) imports.push(`import ${JSON.stringify(target)}`)
 
     const rule = PACKAGES[name]
-    const source = conditions[SOURCE_CONDITION].replace(/^\.\//, '')
+    const source = bunSource(conditions[SOURCE_CONDITION]).replace(/^\.\//, '')
     if (rule?.runtime !== 'browser' || rule.serverSafe?.includes(source)) serverImports.push(target)
   }
 }

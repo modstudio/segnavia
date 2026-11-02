@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { defineConfig, type UserConfig } from 'tsdown'
-import { PACKAGES, platformForRuntime, SOURCE_CONDITION } from './architecture.ts'
+import { bunSource, PACKAGES, platformForRuntime, SOURCE_CONDITION, type SourceExport } from './architecture.ts'
 
 interface ExportConditions {
-  [SOURCE_CONDITION]: string
+  [SOURCE_CONDITION]: SourceExport
   default: string
 }
 
@@ -13,7 +13,7 @@ function entries(name: string): Record<string, string> {
   const manifest = JSON.parse(readFileSync(file, 'utf8')) as { exports: Record<string, ExportConditions> }
   const result: Record<string, string> = {}
   for (const conditions of Object.values(manifest.exports)) {
-    const source = conditions[SOURCE_CONDITION]
+    const source = bunSource(conditions[SOURCE_CONDITION])
     if (!source) throw new Error(`${file} has an export without the ${SOURCE_CONDITION} condition.`)
     if (conditions.default.startsWith('./dist/browser/')) continue
     const output = conditions.default.replace(/^\.\/dist\//, '').replace(/\.js$/, '')
