@@ -59,6 +59,30 @@ export async function verifyMarkdownEditor(h: Harness) {
   })
   check('undo after a host markdown write leaves the host text', afterUndo === 'Second host body', afterUndo)
 
+  const sourceBoundary = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as {
+      markdown: string
+      title: string | null
+      titleSource: 'separate' | 'leading-heading'
+    }
+    element.titleSource = 'leading-heading'
+    element.markdown = '# Title\n\nBody'
+    return element.title
+  })
+  await content.click()
+  await page.keyboard.press('ControlOrMeta+Home')
+  await page.keyboard.type('X')
+  const sourceBoundaryResult = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as { title: string | null }
+    const markdown = (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.markdown.at(-1) ?? ''
+    return { markdown, title: element.title }
+  })
+  check(
+    'typing at source offset zero cannot edit the retained heading line',
+    sourceBoundary === 'Title' && sourceBoundaryResult.markdown.startsWith('# Title\n') && sourceBoundaryResult.title === 'Title',
+    JSON.stringify(sourceBoundaryResult),
+  )
+
   const titleBoundary = await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as {
       title: string | null

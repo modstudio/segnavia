@@ -18,7 +18,7 @@ describe('separate title source', () => {
 describe('leading-heading title source', () => {
   test('the body heading becomes the visible title and leaves the editable body', () => {
     const body = setModelMarkdown(markdownEditorModel(), '# שלום\n\nBody')
-    expect(setModelTitleSource(body, 'leading-heading')).toMatchObject({ title: 'שלום', editable: '\n\nBody', retained: '# שלום' })
+    expect(setModelTitleSource(body, 'leading-heading')).toMatchObject({ title: 'שלום', editable: '\nBody', retained: '# שלום\n' })
   })
 
   test('a body without a heading has a visible empty title', () => {
@@ -33,7 +33,7 @@ describe('leading-heading title source', () => {
 
   test('an empty title removes the heading line', () => {
     const leading = setModelTitleSource(setModelMarkdown(markdownEditorModel(), '# Title\n\nBody'), 'leading-heading')
-    expect(setModelTitle(leading, '')).toMatchObject({ title: '', markdown: '\n\nBody', retained: '' })
+    expect(setModelTitle(leading, '')).toMatchObject({ title: '', markdown: '\nBody', retained: '' })
   })
 
   test('a title added to a body is separated by one blank line', () => {
@@ -57,6 +57,15 @@ describe('leading-heading title source', () => {
 
   test('setting markdown is the operation that splits a newly supplied heading', () => {
     const leading = setModelTitleSource(markdownEditorModel(), 'leading-heading')
-    expect(setModelMarkdown(leading, '# Host heading\n\nBody')).toMatchObject({ title: 'Host heading', editable: '\n\nBody' })
+    expect(setModelMarkdown(leading, '# Host heading\n\nBody')).toMatchObject({ title: 'Host heading', editable: '\nBody' })
+  })
+
+  test('a source edit at offset zero cannot change the retained heading line', () => {
+    const leading = setModelTitleSource(setModelMarkdown(markdownEditorModel(), '# Title\n\nBody'), 'leading-heading')
+    expect(setModelEditable(leading, `X${leading.editable}`)).toMatchObject({
+      title: 'Title',
+      markdown: '# Title\nX\nBody',
+      retained: '# Title\n',
+    })
   })
 })

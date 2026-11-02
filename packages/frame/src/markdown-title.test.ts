@@ -10,7 +10,11 @@ test.each(['# Title\n\nBody', '\n\n# כותרת עברית\n\nגוף', 'Body wit
 )
 
 test('a Hebrew leading heading is the title and is absent from the editable body', () => {
-  expect(splitLeadingHeading('# שלום עולם\n\nEnglish body.')).toEqual({ title: 'שלום עולם', editable: '\n\nEnglish body.', retained: '# שלום עולם' })
+  expect(splitLeadingHeading('# שלום עולם\n\nEnglish body.')).toEqual({ title: 'שלום עולם', editable: '\nEnglish body.', retained: '# שלום עולם\n' })
+})
+
+test('joining a heading without a line break keeps a non-empty body on the next line', () => {
+  expect(joinLeadingHeading('Body', '# Title')).toBe('# Title\nBody')
 })
 
 test('a hash inside code is not a leading heading', () => {
