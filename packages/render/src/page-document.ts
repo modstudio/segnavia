@@ -1,14 +1,16 @@
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { printCss } from './page-paper.ts'
+import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function withFontCss(options: RenderOptions, css: string): RenderOptions {
   return { ...options, css: `${css}${options.css ?? ''}` }
@@ -81,6 +83,27 @@ export async function renderOptionsWithBookFonts(
   return { options, fontCss: css }
 }
 
+interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins'> {
+  nonce?: string
+  relayKeys?: boolean
+  reportHeight?: boolean
+}
+
+export function resolvedPageDocument(page: HtmlPage, css: string, options: ResolvedPageDocumentOptions): string {
+  const nonce = options.nonce ?? newNonce()
+  return frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
+    scripts: page.scripts,
+    nonce,
+    dir: page.dir,
+    lang: page.lang,
+    css,
+    relayKeys: options.relayKeys ?? false,
+    reportHeight: options.reportHeight ?? false,
+    dependencyOrigins: options.dependencyOrigins,
+    readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
+  })
+}
+
 export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
   const page = resolvePageHtml(Page.parse(input))
   const namedMeasure =
@@ -91,14 +114,5 @@ export function renderPageDocument(input: PageInput, options: RenderOptions, pri
   const hostCss = `${page.print ? printCss(page.print) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-  return frameDocument(page.html, {
-    scripts: page.scripts,
-    nonce: nonce ?? newNonce(),
-    dir: page.dir,
-    lang: page.lang,
-    css,
-    relayKeys: false,
-    reportHeight: false,
-    dependencyOrigins: options.dependencyOrigins,
-  })
+  return resolvedPageDocument(page, css, { dependencyOrigins: options.dependencyOrigins, nonce, relayKeys: false, reportHeight: false })
 }

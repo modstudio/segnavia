@@ -115,6 +115,27 @@ The generated overflow style is zero-specificity geometry with logical
 properties; print constrains tables to the page and wraps preformatted text.
 The sandbox and bridge message set are unchanged.
 
+Mermaid placeholders are drawn inside their sandboxed frame by the library's
+nonce-authorized script, with author scripts still refused. The exact Mermaid
+bundle is wholly inlined so screen, browser print and server rendering stay
+offline. It loads only when the final body contains a
+`pre[data-segnavia-diagram="mermaid"]` placeholder, whether that body came from
+markdown conversion or was supplied as HTML; plain documents carry none of it.
+The shipped `diagramScript` export in `dist/diagrams.js`, containing Mermaid
+12.2.0 and the drawing adapter, measures 5,497,505 bytes minified and 1,600,941
+bytes gzip. Drawing
+settles before bridge readiness and before book or printed-page composition.
+Each diagram is rendered independently, its SVG text resolves its own
+direction, and a parse failure leaves the source with the parser's first
+message line instead of delaying readiness.
+
+Each browser entry is one self-contained file with no static sibling imports,
+so a page without a diagram loads exactly that file. The one permitted sibling
+is the relative diagram chunk, which the entry imports dynamically only after a
+document carries the diagram placeholder. Under the repository source
+condition, Bun reads the source diagram entry while Node reads the built string,
+because Node cannot import the Mermaid bundle as text.
+
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset
 type.
@@ -1078,9 +1099,15 @@ The library stores no cover document, picture or digest cache.
 
 Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
-proxy. Author scripts run only when the page or deck allows them. A page that
-runs code must call `window.pageReady()`, unless the host passes
-`waitForPageReady: false`. Renders are bounded by `RENDER_BOUND_MS`, queued at
+proxy. Author scripts run only when the page or deck allows them. A render
+waits for the conjunction of the facts its document requires: a page that runs
+code must call `window.pageReady()`, and a document that carries a diagram
+placeholder must receive the library bridge's signal after every diagram has
+settled. These signals are independent, so an author's early ready call cannot
+stand in for unfinished diagrams and a drawn diagram cannot stand in for the
+author's call. Refused-script documents require only the diagram fact when they
+carry a placeholder. `waitForPageReady: false` opts out of both waits. Renders
+are bounded by `RENDER_BOUND_MS`, queued at
 the renderer's `concurrency`, and checked against the host's `limits`.
 Chromium never shares a renderer process between browser contexts, so a page
 that exhausts memory or hangs takes down only its own render. The renderer

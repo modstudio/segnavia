@@ -13,6 +13,7 @@ import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument } from './bridge.ts'
+import { withDiagramScript } from './diagram-document.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -20,6 +21,7 @@ export interface PaginatedDocumentOptions {
   css?: string
   printBackground?: boolean
   screen?: { spread: boolean }
+  diagramScript?: string
 }
 
 function px(value: number): number {
@@ -73,7 +75,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
     bookCss
-  const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
+  const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
+  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
@@ -88,10 +91,10 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   })
 }
 
-export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css'>): string {
+export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript'>): string {
   if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
   const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document')}`
-  return frameDocument(`${view.flow}<script nonce="${options.nonce}">${script}</script>`, {
+  return frameDocument(`${withDiagramScript(view.flow, options.nonce, options.diagramScript)}<script nonce="${options.nonce}">${script}</script>`, {
     scripts: 'refuse',
     nonce: options.nonce,
     dir: view.pagination.direction,

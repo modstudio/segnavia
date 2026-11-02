@@ -9,6 +9,7 @@
 
 import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
+import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 export const MESSAGE = {
   key: 'segnavia:key',
@@ -72,6 +73,9 @@ export interface FrameOptions {
   // Set only for a print document whose sandboxed frame must carry its root
   // background into the browser print pipeline.
   printBackground?: boolean
+  // Calls a host-provided binding after the library has established that the
+  // document is ready. Server render uses this independently of author code.
+  readyCallback?: string
 }
 
 // The sandbox and the document policy fail closed together: only the exact
@@ -102,6 +106,7 @@ function compositionWait(options: FrameOptions): string {
 // layout wait, and readiness waits for that report. An element without a
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
+  const readyCallback = options.readyCallback ? `var callback=window[${JSON.stringify(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
   const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
   const selection =
     options.scripts === 'refuse'
@@ -116,7 +121,7 @@ document.addEventListener('animationstart',freeze,true);document.addEventListene
 var printWaits=[];
 var waitUntil=function(promise){printWaits.push(Promise.resolve(promise).catch(function(){}));};
 var dispatchPrint=function(){var detail={atMs:printAt,waitUntil:waitUntil};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
-var finishPrint=function(){freeze();slotFit(function(){document.documentElement.setAttribute('${PRINT_READY_ATTRIBUTE}','');post({type:'${MESSAGE.ready}'});});};
+var finishPrint=function(){freeze();slotFit(function(){document.documentElement.setAttribute('${PRINT_READY_ATTRIBUTE}','');${readyCallback}post({type:'${MESSAGE.ready}'});});};
 var settlePrint=function(){if(!window.requestAnimationFrame){setTimeout(finishPrint,0);return;}var finished=false;var finish=function(){if(finished)return;finished=true;finishPrint();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});});};`
   const printBackground = options.printBackground
     ? `var printBackground=function(){
@@ -208,8 +213,8 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-var composed=${compositionWait(options)};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+var composed=${compositionWait(options)};var diagrams=${DIAGRAM_READY_EXPR};
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }

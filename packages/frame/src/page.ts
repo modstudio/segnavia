@@ -1,20 +1,15 @@
-// <segnavia-page>: shows one page in a sandboxed frame. A full page follows
-// its element and grows, while `bounded` makes it scroll. A fixed page is
-// scaled to fit the element's width, and a fixed width that grows does both; a
-// named width caps the sheet at its measure, centered. It brings no
-// appearance, only that geometry, which a host can override. Attributes: src (page JSON), label (the frame's accessible name), bounded
-// (full pages take their box), unstyled (bring no styles at all). Properties:
-// page, label, bounded, css, cspExtra, slots, motifs, fonts, pageWidths. `showUrl`
-// shows HTML the host serves itself, under its own headers, such as a
-// single-use preview ticket; that document includes the bridge itself
-// (`bridgeForHost`) to report its height. data-measured is set once the
+// <segnavia-page> shows a page in a sandboxed frame. Full pages follow the
+// element and grow; fixed pages scale to fit; named widths cap the centered
+// sheet, with only overridable geometry. `showUrl` shows host-served HTML whose
+// own `bridgeForHost` reports height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
-import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
+import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
+import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -184,17 +179,18 @@ export class SegnaviaPage extends HTMLElement {
     const iframe = this.mount(page)
     const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
-      this.resolvedSlots = resolved
-      this.slotFrame = resolved ? { frame: iframe, generation } : undefined
-      this.cancelPostedSelectionRequests()
-      this.writeDocument(
-        iframe,
-        shownPageDocument(shownPage, resolved, {
-          nonce: newNonce(),
-          css: `${fontCss}${this.css}`,
-          csp: this.cspExtra || undefined,
-          dependencyOrigins: this.dependencyOrigins,
-        }),
+      loadShownPageDocument(
+        shownPage,
+        resolved,
+        { css: `${fontCss}${this.css}`, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins },
+        (document) => {
+          if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+          this.resolvedSlots = resolved
+          this.slotFrame = resolved ? { frame: iframe, generation } : undefined
+          this.cancelPostedSelectionRequests()
+          this.writeDocument(iframe, document)
+        },
+        report,
       )
     }
     const report = (error: unknown) => {
@@ -208,18 +204,22 @@ export class SegnaviaPage extends HTMLElement {
         this.fit()
         return
       }
-      this.writeDocument(
-        iframe,
-        frameDocument(resolvedPage.html, {
+      loadPageDocument(
+        resolvedPage,
+        {
           scripts: page.scripts,
-          nonce: newNonce(),
           dir: page.dir,
           lang: page.lang,
           css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
           csp: this.cspExtra || undefined,
           dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,
-        }),
+        },
+        (document) => {
+          if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+          this.writeDocument(iframe, document)
+        },
+        report,
       )
       const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
       if (refusal) report(refusal)

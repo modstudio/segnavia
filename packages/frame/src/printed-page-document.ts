@@ -15,6 +15,7 @@ import {
 } from '@segnavia/format'
 import { type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
+import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
@@ -124,7 +125,7 @@ var config=${configJson};var source=document.querySelector('[data-segnavia-flow]
 var printedPageAt=${printedPageAt.toString()};
 var decideLayoutSettle=${decideLayoutSettle.toString()};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
-var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});Promise.all([loaded,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(source)]).then(function(){
+var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(source)]).then(function(){
 try{var parentByName={};for(var p=0;p<config.parents.length;p++)parentByName[config.parents[p].name]=config.parents[p];
 var measure=document.createElement('div');measure.setAttribute('data-segnavia-measure','');measure.style.cssText='position:absolute;visibility:hidden;inset-block-start:0;inset-inline-start:0;inline-size:'+config.geometry.textWidth+'px;block-size:'+config.geometry.textHeight+'px;column-width:'+config.geometry.textWidth+'px;column-gap:0;column-fill:auto;direction:'+config.direction+';';
 var spacer=Math.max(0,config.geometry.textHeight-config.geometry.firstHeight);if(spacer){var space=document.createElement('div');space.style.cssText='block-size:'+spacer+'px;break-after:avoid';measure.append(space);}while(source.firstChild)measure.append(source.firstChild);source.replaceWith(measure);
@@ -141,7 +142,16 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 
 export function printedPageDocument(
   input: PageInput,
-  options: { nonce: string; css?: string; only?: number; expectedCount?: number; measure?: boolean; printBackground?: boolean },
+  options: {
+    nonce: string
+    css?: string
+    only?: number
+    expectedCount?: number
+    measure?: boolean
+    printBackground?: boolean
+    diagramScript?: string
+    readyCallback?: string
+  },
 ): string {
   const page = resolvePageHtml(Page.parse(input))
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
@@ -170,7 +180,8 @@ export function printedPageDocument(
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]),html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${options.css ?? ''}`
   const parts = pageParts(page.html)
-  const body = `${parts.head}<div data-segnavia-flow>${parts.body}</div><script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const drawn = withDiagramScript(`${parts.head}<div data-segnavia-flow>${parts.body}</div>`, options.nonce, options.diagramScript)
+  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
@@ -181,6 +192,7 @@ export function printedPageDocument(
     reportHeight: options.measure === true,
     readyAfterAttribute: PRINTED_PAGE_COMPOSED_ATTRIBUTE,
     printBackground: options.printBackground,
+    readyCallback: options.readyCallback,
   })
 }
 

@@ -6,6 +6,12 @@ export type Runtime = 'universal' | 'browser' | 'server'
 
 export const SOURCE_CONDITION = '@segnavia/source'
 
+export type SourceExport = string | { bun: string; node: string; default: string }
+
+export function bunSource(source: SourceExport): string {
+  return typeof source === 'string' ? source : source.bun
+}
+
 export const platformForRuntime = (runtime: Runtime): 'browser' | 'node' | 'neutral' =>
   runtime === 'server' ? 'node' : runtime === 'browser' ? 'browser' : 'neutral'
 
@@ -45,7 +51,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/html'],
+    imports: ['@segnavia/format', '@segnavia/html', 'mermaid'],
     // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts.
     serverSafe: [
       'src/svg.ts',
@@ -70,6 +76,9 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/slot-render.ts',
       'src/styled-elements.ts',
       'src/icons.ts',
+      'src/diagrams.ts',
+      'src/diagram-document.ts',
+      'src/page-document-loading.ts',
     ],
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },

@@ -5,6 +5,7 @@ import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { DependencyAnswer, DependencyCache } from './options.ts'
 import { withinBound } from './render-deadline.ts'
+import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
@@ -13,7 +14,7 @@ export interface BrowserTabSetup {
   scripts: boolean
   scale?: number
   html: string
-  waitForReady: boolean
+  readiness: RenderReadiness
   beforeOutput?: (tab: Tab) => Promise<void>
   dependencyOrigins?: Iterable<string>
   dependencies?: DependencyCache
@@ -70,19 +71,39 @@ export async function renderInBrowserTab<T>(
   await context.routeWebSocket('**/*', (socket) => socket.close())
   const tab = await context.newPage()
   tab.on('crash', state.crashed)
-  let ready: (() => void) | undefined
-  const readyPromise = new Promise<void>((resolve) => {
-    ready = resolve
+  let authorReady = !setup.readiness.author
+  let diagramsReady = !setup.readiness.diagrams
+  let resolveAuthor: (() => void) | undefined
+  let resolveDiagrams: (() => void) | undefined
+  const authorPromise = new Promise<void>((resolve) => {
+    resolveAuthor = resolve
   })
-  if (setup.waitForReady) await tab.exposeFunction('pageReady', () => ready?.())
+  const diagramPromise = new Promise<void>((resolve) => {
+    resolveDiagrams = resolve
+  })
+  if (setup.readiness.author) {
+    await tab.exposeFunction('pageReady', () => {
+      authorReady = true
+      resolveAuthor?.()
+    })
+  }
+  if (setup.readiness.diagrams) {
+    await tab.exposeFunction(RENDER_READY_BINDING, () => {
+      diagramsReady = true
+      resolveDiagrams?.()
+    })
+  }
   await tab.setContent(setup.html, { waitUntil: 'load' })
   const refuseMissing = () => {
     if (missing.size > 0) throw new RenderRefusedError(`The host cache did not answer approved dependencies: ${[...missing].join(', ')}.`)
   }
   refuseMissing()
-  if (setup.waitForReady) {
-    await withinBound(PAGE_READY_BOUND_MS, readyPromise).catch(() => {
-      throw new RenderRefusedError(`The page did not call window.pageReady() within ${PAGE_READY_BOUND_MS / 1000}s.`)
+  if (waitsForReadiness(setup.readiness)) {
+    const waits: Promise<void>[] = []
+    if (setup.readiness.author) waits.push(authorPromise)
+    if (setup.readiness.diagrams) waits.push(diagramPromise)
+    await withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(() => {
+      throw new RenderRefusedError(readinessRefusal(setup.readiness, { author: authorReady, diagrams: diagramsReady }, PAGE_READY_BOUND_MS / 1000))
     })
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})

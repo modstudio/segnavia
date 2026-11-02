@@ -6,6 +6,7 @@ import {
   bookDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -13,6 +14,7 @@ import { RenderRefusedError } from './errors.ts'
 import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
+import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import { preparedSlotsFor } from './slot-fill.ts'
 
 async function awaitBookComposition(tab: Tab): Promise<void> {
@@ -28,7 +30,7 @@ interface TabSetup {
   viewport: { width: number; height: number }
   scripts: boolean
   html: string
-  waitForReady: boolean
+  readiness: RenderReadiness
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
@@ -44,8 +46,8 @@ export interface BrowserBookDependencies {
 
 function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean, dependencyOrigins?: Iterable<string>): string {
   const nonce = newNonce()
-  if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true })
-  return frameDocument(html, {
+  if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript })
+  return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
@@ -54,6 +56,7 @@ function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marg
     relayKeys: false,
     reportHeight: false,
     dependencyOrigins,
+    readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
   })
 }
 
@@ -82,10 +85,12 @@ function printBook(
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed'),
+      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html),
       html: srcdoc,
       slots: preparedSlotsFor(book),
-      waitForReady: !paginated && !marginLayer && book.scripts === 'sandboxed' && renderOptions.waitForPageReady !== false,
+      readiness: paginated
+        ? renderReadiness('refuse', false, false)
+        : renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
       boundMs: renderOptions.boundMs,
       beforeOutput: paginated
         ? async (tab) => {

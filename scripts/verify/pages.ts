@@ -70,6 +70,8 @@ export async function verifyPages(h: Harness) {
     markdownOverflow.scroll > markdownOverflow.client && markdownOverflow.overflow === 'auto',
     JSON.stringify(markdownOverflow),
   )
+  const diagram = await page.frameLocator('#markdown iframe').locator('[data-segnavia-diagram="mermaid"] svg').textContent()
+  check('the markdown diagram draws an SVG with its Hebrew label', diagram?.includes('התחלה') === true, diagram ?? 'missing SVG')
   // An English sentence on a right to left page is still left to right: its
   // full stop renders after its last word, to the right of its first letter.
   const order = (await measureCharacterPositions('rtl', 'p', [0, -1]))[0]
