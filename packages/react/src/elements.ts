@@ -15,6 +15,7 @@ import type {
 } from '@segnavia/frame/controls'
 import { HEADLESS_ELEMENTS } from '@segnavia/frame/headless-elements'
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
+import type { SegnaviaMarkdownEditor } from '@segnavia/frame/markdown-editor'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
@@ -25,6 +26,7 @@ import type {
   DocumentProps,
   FullscreenProps,
   ItemSettingsProps,
+  MarkdownEditorProps,
   MuteProps,
   NotesProps,
   PageProps,
@@ -46,7 +48,7 @@ export interface RuntimeElementDescriptor {
   events: Readonly<Partial<Record<string, string>>>
 }
 
-export interface ElementDescriptor<E extends HTMLElement, P extends object, Tag extends `segnavia-${string}` = `segnavia-${string}`>
+export interface ElementDescriptor<E extends object, P extends object, Tag extends `segnavia-${string}` = `segnavia-${string}`>
   extends RuntimeElementDescriptor {
   tag: Tag
   properties: readonly Extract<keyof P, string>[]
@@ -55,7 +57,7 @@ export interface ElementDescriptor<E extends HTMLElement, P extends object, Tag 
   readonly props?: P
 }
 
-function element<E extends HTMLElement, P extends object, Tag extends `segnavia-${string}`>(
+function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
   tag: Tag,
   properties: readonly Extract<keyof P, string>[],
   events: Readonly<Partial<Record<Extract<keyof P, `on${string}`>, string>>>,
@@ -102,6 +104,17 @@ export const ELEMENTS = {
     HEADLESS_ELEMENTS.page,
     ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
     {},
+  ),
+  markdownEditor: element<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'>(
+    'segnavia-markdown-editor',
+    ['markdown', 'mode', 'title', 'titleSource'],
+    {
+      onSegnaviaMarkdownChange: 'segnavia-markdown-change',
+      onSegnaviaTitleChange: 'segnavia-title-change',
+      onSegnaviaModeChange: 'segnavia-mode-change',
+      onSegnaviaSave: 'segnavia-save',
+      onSegnaviaEditorState: 'segnavia-editor-state',
+    },
   ),
   book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
     HEADLESS_ELEMENTS.book,

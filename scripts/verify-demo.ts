@@ -15,6 +15,7 @@ import { verifyFontCollection } from './verify/font-collection.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
+import { verifyMarkdownEditor } from './verify/markdown-editor.ts'
 import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
 import { verifyPaperPicker } from './verify/paper-picker.ts'
@@ -56,6 +57,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyCssSanitizer', run: () => verifyCssSanitizer(h) },
   { name: 'verifyDeckHost', run: () => verifyDeckHost(h) },
   { name: 'verifyMedia', run: () => verifyMedia(h) },
+  { name: 'verifyMarkdownEditor', run: () => verifyMarkdownEditor(h) },
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
 ]
 

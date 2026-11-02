@@ -140,6 +140,81 @@ because Node cannot import the Mermaid bundle as text.
 Titles remain host data beside a page; markdown does not create a new asset
 type.
 
+### Markdown editor
+
+`@segnavia/frame/markdown-editor` is the browser-only entry that defines
+`<segnavia-markdown-editor>`. It is an optional, ordinary package entry: the
+player, headless and controls bundles do not import it, and no server-safe
+entry reaches it. The element has an open shadow root and supplies behavior
+and zero-specificity geometry only. `unstyled` removes that geometry.
+
+The element reflects `markdown`, `mode`, `title-source` and `unstyled`.
+`dir` and `lang` are native attributes and are inherited; the title field and
+each source line resolve their own direction with `dir="auto"`. `title` is a
+property only. It deliberately does not use the native `title` attribute
+because that attribute would put a tooltip over the whole editor.
+`titleSource` is `separate` by default, or `leading-heading`. A separate title
+does not alter the body; `null` and `undefined` hide its line. In
+`leading-heading` mode the body owns the title, the title line is always
+visible, and its value is the first nonblank level-one ATX heading or the empty
+string when there is none. A non-empty title adds or replaces that heading,
+with one blank line before a non-empty body; clearing the field removes the
+heading, while setting the property to `null` or `undefined` is ignored. The
+heading is absent from the source editor and joined back into markdown. The
+split happens only when a host sets `markdown` or changes `titleSource`, so a
+heading typed into the source editor remains body text. A textless `#` heading
+also remains body text, unlike the reference transform, which retains it.
+`modes` is the read-only list of
+available modes. It contains only `source` until rich editing ships, so asking
+for `rich` leaves `mode` at `source` and emits no mode change.
+
+The source editor is CodeMirror with GFM, history, wrapping and per-line text
+direction. Fenced languages come from CodeMirror's language data; Mermaid is
+loaded lazily. It uses CodeMirror's base theme only. A host may color its small
+highlight set with these properties, all of which default to `inherit`:
+
+| Property | Syntax |
+|---|---|
+| `--segnavia-markdown-comment` | Comments |
+| `--segnavia-markdown-keyword` | Keywords and metadata |
+| `--segnavia-markdown-string` | Strings and regular expressions |
+| `--segnavia-markdown-literal` | Numbers, booleans and atoms |
+| `--segnavia-markdown-heading` | Headings and strong text |
+| `--segnavia-markdown-link` | Links and URLs |
+| `--segnavia-markdown-code` | Inline and fenced code |
+| `--segnavia-markdown-mark` | Markdown punctuation and separators |
+| `--segnavia-markdown-invalid` | Invalid syntax |
+
+Every editor event bubbles and crosses the shadow boundary.
+`segnavia-markdown-change` carries `{ markdown }` and is suppressed when that
+string was last emitted. `segnavia-title-change` carries `{ title }`.
+`segnavia-mode-change` carries `{ mode }` only after an actual mode change;
+none can occur while source is the sole mode. `segnavia-save` carries no
+detail. `segnavia-editor-state` carries `{ marks, nodes, canUndo, canRedo }`;
+marks and nodes are empty in source mode. `run(command)` supports `undo`,
+`redo` and `toggle-mode`; other commands refuse because they require rich
+mode.
+
+User edits emit change events: source edits emit
+`segnavia-markdown-change`, while title edits emit
+`segnavia-title-change` and, for a leading-heading title,
+`segnavia-markdown-change`. Host property writes emit no change events because
+the host already knows what it wrote. A host `markdown` write also starts a
+fresh source-editor history, so undo cannot restore content from before that
+write.
+
+| Key | Action |
+|---|---|
+| CodeMirror default and history keys | Source editing and history |
+| Mod-S | Emit `segnavia-save` from the source editor or title |
+| Mod-Alt-M | Toggle mode; currently a no-op |
+| Enter in the title | Refused; the title remains one line |
+
+**Data the host keeps.** The editor owns no persistence. The host keeps the
+emitted markdown and title, then supplies them back as properties. React hosts
+load the optional component from `@segnavia/react/markdown-editor`; the main
+React entry does not load the editor or CodeMirror.
+
 A render host supplies both the `playwright-core` client, any version in the
 render package's peer range, and the Chromium binary it launches through
 `executablePath`.

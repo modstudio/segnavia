@@ -51,8 +51,21 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/html', 'mermaid'],
-    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts.
+    imports: [
+      '@segnavia/format',
+      '@segnavia/html',
+      '@codemirror/commands',
+      '@codemirror/lang-markdown',
+      '@codemirror/language',
+      '@codemirror/language-data',
+      '@codemirror/state',
+      '@codemirror/view',
+      '@lezer/highlight',
+      '@lezer/markdown',
+      'codemirror-lang-mermaid',
+      'mermaid',
+    ],
+    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',
@@ -81,6 +94,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/page-document-loading.ts',
     ],
   },
+  // The markdown-editor entry alone loads frame's optional CodeMirror editor entry.
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
   render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
