@@ -1,11 +1,12 @@
-import { Editor, type JSONContent } from '@tiptap/core'
 import type { FontReference } from '@segnavia/format'
 import { safeMarkdownUrl } from '@segnavia/html'
-import { SegnaviaPage } from './page.ts'
-import type { FontsOptions } from './page-fonts.ts'
-import { richKeyboard, richEditorState, type RichEditorState } from './markdown-rich-commands.ts'
+import { Editor, type JSONContent } from '@tiptap/core'
+import type { Node } from '@tiptap/pm/model'
+import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
+import { SegnaviaPage } from './page.ts'
+import type { FontsOptions } from './page-fonts.ts'
 
 if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
 
@@ -67,7 +68,8 @@ export type RichAdapterOptions = LockedViewOptions & {
   linkOrigins?: Iterable<string>
   linkRequest: (href: string | null) => void
   mount: HTMLElement
-  save: (content: JSONContent[]) => void
+  change: (content: readonly Node[]) => void
+  save: () => void
   state: (state: RichEditorState) => void
   toggleMode: () => boolean
 }
@@ -89,7 +91,7 @@ export function mountRichEditor(options: RichAdapterOptions): Editor {
       },
       transformPastedHTML: (html) => pastedHtml(html, options.linkOrigins),
     },
-    onUpdate: ({ editor: instance }) => options.save(instance.getJSON().content ?? []),
+    onUpdate: ({ editor: instance }) => options.change(Array.from(instance.state.doc.content.content)),
     onTransaction: ({ editor: instance }) => options.state(richEditorState(instance)),
     onSelectionUpdate: ({ editor: instance }) => options.state(richEditorState(instance)),
   })

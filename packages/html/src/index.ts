@@ -54,10 +54,10 @@ export {
   type BodyHtmlOptions,
   bodyHtml,
   type HtmlPage,
-  type MarkdownHeading,
-  markdownOutline,
   isDiagramFence,
   isGithubAlertBlock,
+  type MarkdownHeading,
+  markdownOutline,
   resolvePageHtml,
 } from './markdown.ts'
 export {

@@ -78,6 +78,6 @@ test('repository leading headings stay outside the document and retain their lin
 test('an inline image survives editing its paragraph', () => {
   const markdown = 'Before ![alt](https://example.com/p.png) after.\n'
   const nodes = clone(parseRichDocument(markdown))
-  nodes[0]!.content?.push({ type: 'text', text: ' More.' })
+  nodes[0]?.content?.push({ type: 'text', text: ' More.' })
   expect(saveRichDocument(markdown, nodes)).toContain('![alt](https://example.com/p.png)')
 })

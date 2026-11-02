@@ -1,7 +1,7 @@
 import { type Editor, Extension } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
-import { LOCKED_BLOCK_NAME } from './markdown-rich-locked.ts'
 import { MARKDOWN_EDITOR_COMMANDS, type MarkdownEditorCommand } from './markdown-editor-policy.ts'
+import { LOCKED_BLOCK_NAME } from './markdown-rich-locked.ts'
 
 type Args = Record<string, unknown> | undefined
 type Apply = (editor: Editor, args: Args) => boolean
@@ -16,14 +16,28 @@ export const RICH_COMMANDS: Readonly<Record<Exclude<MarkdownEditorCommand, 'togg
   paragraph: { key: commandKeys.paragraph, apply: (editor) => editor.chain().focus().setParagraph().run() },
   heading: {
     key: commandKeys.heading,
-    apply: (editor, args) => editor.chain().focus().toggleHeading({ level: Number(args?.level) as 1 | 2 | 3 | 4 | 5 | 6 }).run(),
+    apply: (editor, args) =>
+      editor
+        .chain()
+        .focus()
+        .toggleHeading({ level: Number(args?.level) as 1 | 2 | 3 | 4 | 5 | 6 })
+        .run(),
   },
   'bullet-list': { key: commandKeys['bullet-list'], apply: (editor) => editor.chain().focus().toggleBulletList().run() },
   'ordered-list': { key: commandKeys['ordered-list'], apply: (editor) => editor.chain().focus().toggleOrderedList().run() },
   'task-list': { key: commandKeys['task-list'], apply: (editor) => editor.chain().focus().toggleTaskList().run() },
   quote: { key: commandKeys.quote, apply: (editor) => editor.chain().focus().toggleBlockquote().run() },
   'code-block': { key: commandKeys['code-block'], apply: (editor) => editor.chain().focus().toggleCodeBlock().run() },
-  link: { key: commandKeys.link, apply: (editor, args) => editor.chain().focus().extendMarkRange('link').setLink({ href: String(args?.href ?? '') }).run() },
+  link: {
+    key: commandKeys.link,
+    apply: (editor, args) =>
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: String(args?.href ?? '') })
+        .run(),
+  },
   unlink: { key: commandKeys.unlink, apply: (editor) => editor.chain().focus().extendMarkRange('link').unsetLink().run() },
   'insert-table': { key: commandKeys['insert-table'], apply: (editor) => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   'add-row': { key: commandKeys['add-row'], apply: (editor) => editor.chain().focus().addRowAfter().run() },
@@ -41,12 +55,7 @@ export function selectedLockedBlock(editor: Editor): { source: string } | null {
   return { source: typeof selection.node.attrs.source === 'string' ? selection.node.attrs.source : '' }
 }
 
-export function richKeyboard(options: {
-  editLocked: () => boolean
-  linkRequest: (href: string | null) => void
-  save: () => void
-  toggleMode: () => boolean
-}) {
+export function richKeyboard(options: { editLocked: () => boolean; linkRequest: (href: string | null) => void; save: () => void; toggleMode: () => boolean }) {
   return Extension.create({
     name: 'segnaviaKeyboard',
     priority: 1000,

@@ -1,9 +1,11 @@
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
-import type { Editor, JSONContent } from '@tiptap/core'
 import type { FontReference } from '@segnavia/format'
-import { type AlertLabels, safeMarkdownUrl, sanitizeBookCss } from '@segnavia/html'
+import { type AlertLabels, sanitizeBookCss } from '@segnavia/html'
+import type { Editor } from '@tiptap/core'
 import { ensureBaseStyle } from './base-style.ts'
+import { registerMarkdownEditorFonts } from './markdown-editor-fonts.ts'
+import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
   type MarkdownEditorModel,
   type MarkdownTitleSource,
@@ -18,36 +20,21 @@ import {
   MARKDOWN_EDITOR_COMMANDS,
   MARKDOWN_EDITOR_MODES,
   type MarkdownEditorCommand,
-  type MarkdownEditorCommandArgs,
   type MarkdownEditorMode,
   markdownEditorKeyAction,
   richModeCommandRefusal,
 } from './markdown-editor-policy.ts'
+import type { MarkdownEditorStateDetail, SegnaviaMarkdownEditor as SegnaviaMarkdownEditorInterface } from './markdown-editor-types.ts'
 import { RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
 import { mountRichEditor } from './markdown-rich-editor.ts'
-import { registerMarkdownEditorFonts } from './markdown-editor-fonts.ts'
-import { parseRichDocument, saveRichDocument } from './markdown-rich-save.ts'
+import { parseRichDocument, type RichDocumentNode, saveRichDocument } from './markdown-rich-save.ts'
 import { markdownSourceState } from './markdown-source.ts'
 import { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
-export type MarkdownEditorStateDetail = Readonly<{ marks: string[]; nodes: string[]; canUndo: boolean; canRedo: boolean }>
-export interface SegnaviaMarkdownEditor extends Omit<HTMLElement, 'title'> {
-  markdown: string
-  get mode(): MarkdownEditorMode
-  set mode(value: MarkdownEditorMode)
-  readonly modes: typeof MARKDOWN_EDITOR_MODES
-  title: string | null
-  titleSource: MarkdownTitleSource
-  lockedFences: Record<string, string>
-  css: string
-  fonts: FontsOptions | undefined
-  fontReferences: FontReference[]
-  linkOrigins: Iterable<string> | undefined
-  alertLabels: Partial<AlertLabels> | undefined
-  unstyled: boolean
-  run<C extends MarkdownEditorCommand>(command: C, args?: C extends keyof MarkdownEditorCommandArgs ? MarkdownEditorCommandArgs[C] : never): boolean
-}
+export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
+
+export interface SegnaviaMarkdownEditor extends SegnaviaMarkdownEditorInterface {}
 
 const TAG = 'segnavia-markdown-editor'
 const BODY_TRANSFORM = { split: splitLeadingHeading, join: joinLeadingHeading }
@@ -218,22 +205,18 @@ class MarkdownEditorElement extends HTMLElement {
   run(command: MarkdownEditorCommand, args?: Record<string, unknown>): boolean {
     if (!COMMAND_NAMES.has(command)) throw new Error(`Unknown markdown editor command ${JSON.stringify(command)}.`)
     if (command === 'toggle-mode') return this.setMode(this.modeValue === 'rich' ? 'source' : 'rich', true)
-    if (this.modeValue === 'source') {
-      if (command === 'undo') return this.sourceView ? undo(this.sourceView) : false
-      if (command === 'redo') return this.sourceView ? redo(this.sourceView) : false
-      throw richModeCommandRefusal(command)
-    }
+    if (this.modeValue === 'source') return this.runSourceCommand(command)
     const editor = this.richView
     if (!editor) return false
     if (command === 'edit-in-source') return this.editSelectedLockedBlock()
-    if (command === 'link') {
-      const href = String(args?.href ?? '')
-      if (!safeMarkdownUrl('href', href, this.linkOriginOptions)) {
-        const origins = this.linkOriginOptions === undefined ? '' : ', or an origin in linkOrigins'
-        throw new Error(`Refused link href ${JSON.stringify(href)}; use an allowed scheme${origins} to clear this refusal.`)
-      }
-    }
+    if (command === 'link') validateMarkdownLink(String(args?.href ?? ''), this.linkOriginOptions)
     return RICH_COMMANDS[command as keyof typeof RICH_COMMANDS].apply(editor, args)
+  }
+
+  private runSourceCommand(command: MarkdownEditorCommand): boolean {
+    if (command === 'undo') return this.sourceView ? undo(this.sourceView) : false
+    if (command === 'redo') return this.sourceView ? redo(this.sourceView) : false
+    throw richModeCommandRefusal(command)
   }
 
   private setMode(mode: MarkdownEditorMode, emit: boolean): boolean {
@@ -310,7 +293,7 @@ class MarkdownEditorElement extends HTMLElement {
       fontReferences: this.fontReferenceOptions,
       alertLabels: this.alertLabelOptions as Record<string, string> | undefined,
       linkOrigins: this.linkOriginOptions,
-      save: (content) => this.onRichChange(content),
+      change: (content) => this.onRichChange(content),
       state: (state) => this.emitState(state),
       linkRequest: (href) => this.emit('segnavia-link-request', { href }),
       save: () => this.emit('segnavia-save'),
@@ -319,7 +302,7 @@ class MarkdownEditorElement extends HTMLElement {
     })
   }
 
-  private onRichChange(content: JSONContent[]) {
+  private onRichChange(content: readonly RichDocumentNode[]) {
     const bodyTransform = this.model.titleSource === 'leading-heading' ? BODY_TRANSFORM : undefined
     const markdown = saveRichDocument(this.richOriginal, content, { bodyTransform, lockedFences: this.lockedFenceOptions })
     const editable = this.model.retained && markdown.startsWith(this.model.retained) ? markdown.slice(this.model.retained.length) : markdown
@@ -378,7 +361,10 @@ class MarkdownEditorElement extends HTMLElement {
     this.titleField.hidden = this.model.titleSource === 'separate' && this.model.title === null
     this.titleField.value = this.model.title ?? ''
   }
-  private emitSourceState(canUndo = this.sourceView ? undoDepth(this.sourceView.state) > 0 : false, canRedo = this.sourceView ? redoDepth(this.sourceView.state) > 0 : false) {
+  private emitSourceState(
+    canUndo = this.sourceView ? undoDepth(this.sourceView.state) > 0 : false,
+    canRedo = this.sourceView ? redoDepth(this.sourceView.state) > 0 : false,
+  ) {
     this.emitState({ marks: [], nodes: [], canUndo, canRedo })
   }
   private emitVisibleState() {
@@ -403,9 +389,9 @@ class MarkdownEditorElement extends HTMLElement {
   }
 }
 
-export type { FontsOptions } from './page-fonts.ts'
 export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_COMMANDS, MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
-export const SegnaviaMarkdownEditor = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
+export type { FontsOptions } from './page-fonts.ts'
+export const SegnaviaMarkdownEditor: { new (): SegnaviaMarkdownEditor } = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
 if (!customElements.get(TAG)) customElements.define(TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)

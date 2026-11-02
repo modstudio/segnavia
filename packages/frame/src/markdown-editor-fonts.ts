@@ -28,7 +28,8 @@ export async function registerMarkdownEditorFonts(
   for (const name of appNames(references)) {
     const resolved = await fonts.source.font(name, { signal })
     signal.throwIfAborted()
-    if (!resolved) throw new Error(`markdown editor could not establish app font ${JSON.stringify(name)}; make that font available from the source to clear this refusal.`)
+    if (!resolved)
+      throw new Error(`markdown editor could not establish app font ${JSON.stringify(name)}; make that font available from the source to clear this refusal.`)
     app.set(name, resolved)
     element.style.setProperty(`--segnavia-font-${name}`, `${JSON.stringify(resolved.family)},${resolved.generic ?? 'sans-serif'}`)
   }

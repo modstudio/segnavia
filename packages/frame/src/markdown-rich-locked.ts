@@ -1,5 +1,5 @@
-import { Node } from '@tiptap/core'
 import { isDiagramFence, isGithubAlertBlock } from '@segnavia/html'
+import { Node } from '@tiptap/core'
 
 export const LOCKED_BLOCK_NAME = 'lockedBlock'
 

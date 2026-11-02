@@ -103,6 +103,7 @@ function installCreateElement() {
     configurable: true,
     writable: true,
     value: {
+      documentElement: { style: {} },
       createElement(tag: string) {
         const element = new TestElement()
         element.tagName = tag
@@ -271,7 +272,7 @@ describe('document authoring rail slots', () => {
     expect(nextThumbnails[1]?.slots).toBe(bea)
 
     documentElement.slots = bea
-    expect(nextThumbnails.map((thumbnail) => thumbnail.slotWrites)).toEqual(thumbnails.map((thumbnail, index) => (writes[index] ?? 0) + 1))
+    expect(nextThumbnails.map((thumbnail) => thumbnail.slotWrites)).toEqual(thumbnails.map((_thumbnail, index) => (writes[index] ?? 0) + 1))
   })
 
   test('reconfigured thumbnails after a reorder still carry the slots', async () => {
