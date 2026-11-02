@@ -21,7 +21,7 @@ export async function verifyDiagramRender(renderer: Renderer, work: string, chec
     { effects: false },
   )
   const pageText = pdfText(work, 'diagram-page.pdf', page)
-  check('pagePdf waits for a Hebrew-labelled diagram', pageText.includes('התחלה'), pageText.trim())
+  check('pagePdf waits for a Hebrew-labeled diagram', pageText.includes('התחלה'), pageText.trim())
 
   const broken = await renderer.pagePdf({ markdown: `\`\`\`mermaid\n${BROKEN_SOURCE}\n\`\`\`` }, { effects: false })
   const brokenText = pdfText(work, 'diagram-broken.pdf', broken)
@@ -41,5 +41,5 @@ export async function verifyDiagramRender(renderer: Renderer, work: string, chec
     { effects: false },
   )
   const bookText = pdfText(work, 'diagram-book.pdf', book)
-  check('a continuous book waits for a Hebrew-labelled diagram', bookText.includes('התחלה'), bookText.trim())
+  check('a continuous book waits for a Hebrew-labeled diagram', bookText.includes('התחלה'), bookText.trim())
 }
