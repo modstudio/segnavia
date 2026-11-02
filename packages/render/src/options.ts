@@ -1,6 +1,6 @@
 import type { FontFace, FontSource, OmittedImpositionMark } from '@segnavia/format'
-import type { MotifsOptions } from '@segnavia/frame/motifs'
-import type { PlacementsOptions, SlotPrintOptions } from '@segnavia/html'
+import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
+import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'

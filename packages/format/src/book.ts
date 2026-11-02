@@ -8,6 +8,7 @@ import {
   isBookContents,
   isDesignedSection,
   isPart,
+  isPlacedSection,
   isTemplatedSection,
   MAX_PART_DEPTH,
   REGION_NAME,
@@ -17,6 +18,7 @@ import { FontReference } from './fonts.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
+import { Placement } from './placement.ts'
 import { bookParentPages, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
@@ -41,9 +43,11 @@ export {
   isChapter,
   isDesignedSection,
   isPart,
+  isPlacedSection,
   isTemplatedSection,
   MAX_PART_DEPTH,
   Part,
+  PlacedSection,
   REGION_NAME,
   TemplatedPage,
   TemplatedSection,
@@ -149,6 +153,14 @@ export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>
 
 const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
+  for (const { entry, path } of bookSections({ ...book, body: book.body ?? book.chapters ?? [] })) {
+    if (!isPlacedSection(entry)) continue
+    try {
+      Placement.parse(entry.placement, 'book')
+    } catch (error) {
+      ctx.addIssue({ code: 'custom', path: [...path, 'placement'], message: error instanceof Error ? error.message : String(error) })
+    }
+  }
   const seen = new Set<string>()
   book.notes.forEach(({ name }, index) => {
     if (seen.has(name)) {

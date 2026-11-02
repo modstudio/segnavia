@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { Box } from './deck.ts'
 import { Direction, resolveDirection, type TextDirection } from './direction.ts'
+import { Box } from './geometry.ts'
 
 export const MediaFormat = z.enum(['png', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'ai'])
 export type MediaFormat = z.infer<typeof MediaFormat>

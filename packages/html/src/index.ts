@@ -62,19 +62,23 @@ export {
   renderMotifPlacements,
 } from './motifs.ts'
 export {
+  classifyMediaAnswer,
+  type MediaAnswer,
   PLACEMENT_ATTRIBUTES,
   type PlacementPlan,
   type PlacementPlanEntry,
   type PlacementRefusal,
   type PlacementReport,
   type PlacementsOptions,
+  placementCropEdges,
+  placementPlaceholderSource,
   placementPlan,
   type ResolvedPlacement,
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
 export * from './printed-pages.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, sanitize } from './sanitize.ts'
+export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

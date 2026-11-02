@@ -23,6 +23,14 @@ const narration = (cues: Narration['cues']): Narration => ({
 })
 
 describe('deck', () => {
+  test('accepts media placements from the table and refuses other asset kinds', () => {
+    expect(Deck.parse({ title: 'Placed', slides: [{ id: 'a', content: { media: { kind: 'media', address: 'art/logo' } } }] }).slides[0]?.content).toEqual({
+      media: { kind: 'media', address: 'art/logo' },
+    })
+    expect(() => Deck.parse({ title: 'Placed', slides: [{ id: 'a', content: { media: { kind: 'page', address: 'pages/one' } } }] })).toThrow(
+      'deck does not accept page',
+    )
+  })
   test('defaults image fit and frame at the deck and keeps slide overrides', () => {
     const parsed = Deck.parse({
       title: 'Fits',

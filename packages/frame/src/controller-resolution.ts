@@ -2,6 +2,7 @@ import { PublishedShot, type Slide } from '@segnavia/format'
 import { assertValidCues } from './controller-cues.ts'
 import { referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
 import type { ControllerOptions, ResolvedContent } from './controller-types.ts'
+import { resolveMediaContent } from './print-document.ts'
 
 export async function resolveFreshContent(
   slide: Slide,
@@ -9,11 +10,15 @@ export async function resolveFreshContent(
   resolveSlide: ControllerOptions['resolveSlide'],
   resolveUrl: (path: string) => string,
   shots: Map<string, Promise<PublishedShot>>,
+  placements: ControllerOptions['placements'],
+  width: number,
+  signal: AbortSignal,
 ): Promise<ResolvedContent> {
   const content = resolveSlide ? await resolveSlide(slide, index) : slide.content
+  if ('media' in content) return resolveMediaContent(content, placements, 'screen', width, signal)
   if (content.kind === 'shot') {
     assertValidCues(slide, content.shot.annotations.length)
-    if (slide.content.kind !== 'shot-ref') return content
+    if (!('kind' in slide.content) || slide.content.kind !== 'shot-ref') return content
     return referenceOverrides(content, slide.content)
   }
   if (content.kind !== 'shot-ref') return content

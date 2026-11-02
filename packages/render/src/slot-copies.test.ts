@@ -46,7 +46,7 @@ test('deck copies keep entry order and one slide set per entry in the joined PDF
   const order: string[] = []
   const pdf = await renderSlotCopyPdfs({ fills: [ada, bea] }, async (copy) => {
     const filled = await filledDeck(deck, copy)
-    const html = filled.slides.map((slide) => (slide.content.kind === 'html' ? slide.content.html : ''))
+    const html = filled.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''))
     order.push(`${copy.fill?.id}:${html.join('|')}`)
     return pdfWithPages(filled.slides.length)
   })

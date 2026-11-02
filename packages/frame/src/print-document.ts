@@ -18,6 +18,7 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
+import { classifyMediaAnswer, type PlacementsOptions, placementPlaceholderSource } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
@@ -27,6 +28,57 @@ import { annotationSvg, escapeHtml } from './svg.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
+
+type MediaSlide = Extract<Slide['content'], { media: unknown }>
+type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
+
+function missingMedia(content: MediaSlide): ImageSlide {
+  return { kind: 'image', src: placementPlaceholderSource(), alt: content.media.alt?.text ?? '', fit: content.media.fit }
+}
+
+export async function resolveMediaContent<R extends { kind: string }>(
+  content: MediaSlide,
+  placements: PlacementsOptions<R> | undefined,
+  purpose: 'screen' | 'print',
+  width: number,
+  signal: AbortSignal,
+): Promise<ImageSlide> {
+  const placement = content.media
+  if (!placements) return missingMedia(content)
+  try {
+    const answer = await placements.resolve(placement, { purpose, width, signal })
+    signal.throwIfAborted()
+    const classified = classifyMediaAnswer({ answer })
+    if (classified.status === 'ok') {
+      return { kind: 'image', src: classified.value.src, alt: placement.alt?.text ?? classified.value.media.alt?.text ?? '', fit: placement.fit }
+    }
+    placements.report?.({
+      address: placement.address,
+      page: placement.page,
+      reason: classified.status,
+      ...(classified.message === undefined ? {} : { message: classified.message }),
+    })
+  } catch (error) {
+    if (signal.aborted) throw signal.reason
+    const classified = classifyMediaAnswer({ error })
+    placements.report?.({ address: placement.address, page: placement.page, reason: classified.status, message: classified.message })
+  }
+  return missingMedia(content)
+}
+
+export async function resolveDeckMedia<R extends { kind: string }>(
+  deck: Deck,
+  placements: PlacementsOptions<R> | undefined,
+  purpose: 'screen' | 'print',
+  signal: AbortSignal,
+): Promise<Deck> {
+  const slides = await Promise.all(
+    deck.slides.map(async (slide) =>
+      'media' in slide.content ? { ...slide, content: await resolveMediaContent(slide.content, placements, purpose, deck.size.width, signal) } : slide,
+    ),
+  )
+  return { ...deck, slides }
+}
 
 export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
@@ -114,6 +166,8 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
+  if ('media' in content)
+    return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) =>
     `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {

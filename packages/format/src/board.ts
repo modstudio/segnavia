@@ -1,10 +1,9 @@
 import { z } from 'zod'
 import { Box } from './deck.ts'
 import { TextDirection } from './direction.ts'
+import { AssetKind } from './placement.ts'
 
-const BoardKind = z.enum(['deck', 'page', 'paper', 'book', 'image', 'shot'], {
-  error: 'item kind is unknown; use deck, page, paper, book, image or shot',
-})
+const BoardKind = AssetKind
 
 export const BoardItem = z.object({
   id: z.string(),
@@ -41,13 +40,25 @@ export const BoardSection = z.object({
 })
 export type BoardSection = z.infer<typeof BoardSection>
 
-const BoardShape = z.object({
-  title: z.string(),
-  direction: TextDirection,
-  items: z.array(BoardItem),
-  labels: z.array(BoardLabel),
-  sections: z.array(BoardSection),
-})
+const BoardShape = z.preprocess(
+  (value) => {
+    if (typeof value !== 'object' || value === null || !Array.isArray((value as { items?: unknown }).items)) return value
+    const board = value as { items: unknown[] }
+    return {
+      ...board,
+      items: board.items.map((item) =>
+        typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'image' ? { ...item, kind: 'media' } : item,
+      ),
+    }
+  },
+  z.object({
+    title: z.string(),
+    direction: TextDirection,
+    items: z.array(BoardItem),
+    labels: z.array(BoardLabel),
+    sections: z.array(BoardSection),
+  }),
+)
 
 export const Board = BoardShape.superRefine((board, ctx) => {
   const ids = new Set<string>()

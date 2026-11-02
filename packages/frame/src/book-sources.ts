@@ -1,4 +1,4 @@
-import type { PlacementsOptions } from '@segnavia/html'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 

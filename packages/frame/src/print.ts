@@ -5,7 +5,7 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { paperBoxSize } from './paper-geometry.ts'
@@ -17,6 +17,7 @@ import {
   printableDeck,
   printableDeckDocument,
   printablePagesDocument,
+  resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
@@ -47,6 +48,7 @@ export interface PrintDialogOptions {
 export interface BrowserPrintOptions extends Omit<PrintOptions, 'slots'>, PrintDialogOptions {
   slots?: SlotPrintOptions
   fonts?: FontsOptions
+  placements?: PlacementsOptions
 }
 
 interface PrintFrameOptions extends PrintDialogOptions {
@@ -131,28 +133,31 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 export async function preparedDeckPrint(
   deck: Deck,
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
+  signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
-  const refusal = slotFillRefusal(deck.scripts, deck.slots, options.slots)
+  const resolvedDeck = await resolveDeckMedia(deck, options.placements, 'print', signal)
+  const refusal = slotFillRefusal(resolvedDeck.scripts, resolvedDeck.slots, options.slots)
   if (refusal) throw refusal
-  const slotWork = hasSlotWork(deck.slots, options.slots)
-  const resolvedSlots = slotWork ? await prepareSlots(deck.slots, options.slots) : EMPTY_SLOTS
+  const slotWork = hasSlotWork(resolvedDeck.slots, options.slots)
+  const resolvedSlots = slotWork ? await prepareSlots(resolvedDeck.slots, options.slots, signal) : EMPTY_SLOTS
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const notesSheetFont =
-    options.notesSheetFont ??
-    (options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, new AbortController().signal) : undefined)
+    options.notesSheetFont ?? (options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined)
   const printOptions = { ...options, notesSheetFont }
   const preparedDeck = {
-    ...deck,
-    slides: deck.slides.map((slide) =>
-      slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: resolvedSlots.apply(slide.content.html) } } : slide,
+    ...resolvedDeck,
+    slides: resolvedDeck.slides.map((slide) =>
+      'kind' in slide.content && slide.content.kind === 'html'
+        ? { ...slide, content: { ...slide.content, html: resolvedSlots.apply(slide.content.html) } }
+        : slide,
     ),
   }
   if (options.imposition) {
     const printable = printableDeckDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return { ...deck.size, html: printableDeck(preparedDeck, printOptions), ...options, slots: resolvedSlots }
+  return { ...resolvedDeck.size, html: printableDeck(preparedDeck, printOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(
@@ -203,9 +208,9 @@ export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): 
   const signal = new AbortController().signal
   const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined
   const preparedOptions = { ...options, notesSheetFont }
-  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, preparedOptions))
+  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, preparedOptions, signal))
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
-    const prepared = await preparedDeckPrint(deck, { ...preparedOptions, slots: copySlots })
+    const prepared = await preparedDeckPrint(deck, { ...preparedOptions, slots: copySlots }, signal)
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })

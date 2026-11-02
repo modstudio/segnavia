@@ -47,6 +47,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   cspExtra?: string
   dependencyOrigins?: SegnaviaPlayer['dependencyOrigins']
   resolveSlide?: ControllerOptions['resolveSlide']
+  placements?: SegnaviaPlayer['placements']
   transition?: HostTransition
   slots?: SegnaviaPlayer['slots']
   src?: string

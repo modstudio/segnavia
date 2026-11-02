@@ -210,6 +210,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
       appendTemplated(entry, `segnavia-templated-${build.templatedNumber}`, 'front', book, build, sectionEntry)
       continue
     }
+    if (!('html' in entry)) continue
     frontNumber += 1
     const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.build)
     build.sections.push(section)

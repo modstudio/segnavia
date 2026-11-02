@@ -10,8 +10,8 @@ export interface ShotUse {
 // say which decks a recapture reaches.
 export function shotsUsed(deck: Deck): ShotUse[] {
   return deck.slides.flatMap((slide): ShotUse[] => {
-    if (slide.content.kind === 'shot') return [{ slide: slide.id, key: slide.content.shot.key }]
-    if (slide.content.kind === 'shot-ref') return [{ slide: slide.id, href: slide.content.href }]
+    if ('kind' in slide.content && slide.content.kind === 'shot') return [{ slide: slide.id, key: slide.content.shot.key }]
+    if ('kind' in slide.content && slide.content.kind === 'shot-ref') return [{ slide: slide.id, href: slide.content.href }]
     return []
   })
 }

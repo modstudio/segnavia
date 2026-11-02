@@ -1,6 +1,6 @@
 import { Deck, Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
+import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
@@ -26,7 +26,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private resolution = 0
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
-  private placementOptions: PlacementsOptions | undefined
+  private placementOptions: AssetPlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
@@ -128,11 +128,11 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
-  get placements(): PlacementsOptions | undefined {
+  get placements(): AssetPlacementsOptions | undefined {
     return this.placementOptions
   }
 
-  set placements(value: PlacementsOptions | undefined) {
+  set placements(value: AssetPlacementsOptions | undefined) {
     this.placementOptions = value
     this.changed()
   }
@@ -211,7 +211,13 @@ export class SegnaviaThumbnail extends HTMLElement {
     const slide = deck?.slides[this.slideIndex]
     if (!deck || !slide || this.controller) return
     const resolution = ++this.resolution
-    const controller = new DeckController({ base: this.baseUrl, resolveSlide: this.slideResolver, hash: null, persist: false })
+    const controller = new DeckController({
+      base: this.baseUrl,
+      resolveSlide: this.slideResolver,
+      placements: this.placementOptions,
+      hash: null,
+      persist: false,
+    })
     this.controller = controller
     try {
       await controller.load(deck, this.baseUrl)

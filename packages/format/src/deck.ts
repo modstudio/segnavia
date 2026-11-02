@@ -1,24 +1,14 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
+import { Box, Point, Size } from './geometry.ts'
+import { ImageFit } from './image-fit.ts'
+import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
-export const Size = z.object({
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-})
-export type Size = z.infer<typeof Size>
-
-export const Box = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
-export type Box = z.infer<typeof Box>
-
-export const Point = z.object({ x: z.number(), y: z.number() })
-export type Point = z.infer<typeof Point>
-
-export const ImageFit = z.enum(['contain', 'cover', 'width', 'focus'])
-export type ImageFit = z.infer<typeof ImageFit>
+export { Box, ImageFit, Point, Size }
 
 // One annotation as measured on its element at capture time, in the shot's
 // CSS pixels. It belongs to the image it was measured on: a recapture that
@@ -88,7 +78,7 @@ export const Narration = z.object({
 })
 export type Narration = z.infer<typeof Narration>
 
-export const SlideContent = z.discriminatedUnion('kind', [
+const DirectSlideContent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('html'), html: z.string() }),
   // HTML the host serves itself, under its own headers: a single-use ticket,
   // a CSP, a URL that expires.
@@ -99,6 +89,7 @@ export const SlideContent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
   z.object({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
 ])
+export const SlideContent = z.union([DirectSlideContent, z.object({ media: PlacementShape })])
 export type SlideContent = z.infer<typeof SlideContent>
 
 // A slide plays for its narration and surrounding pauses, or for its hold.
@@ -156,14 +147,15 @@ function cueIssues(slide: Slide): string[] {
   if (!narration) return []
   // A shot named by reference has its annotations only once resolved, and a
   // live narration learns its words while it speaks, so neither is checked here.
-  const annotations = slide.content.kind === 'shot' ? slide.content.shot.annotations.length : null
+  const annotations = 'kind' in slide.content && slide.content.kind === 'shot' ? slide.content.shot.annotations.length : null
   const words = narration.live ? null : narration.words.length
   const issues: string[] = []
   for (const cue of narration.cues) {
     for (const word of [cue.word, cue.untilWord]) {
       if (word !== undefined && words !== null && word >= words) issues.push(`a cue names word ${word}, but the narration has ${words} words`)
     }
-    if (slide.content.kind !== 'shot' && slide.content.kind !== 'shot-ref') issues.push('a cue names an annotation, but only a shot carries annotations')
+    if (!('kind' in slide.content) || (slide.content.kind !== 'shot' && slide.content.kind !== 'shot-ref'))
+      issues.push('a cue names an annotation, but only a shot carries annotations')
   }
   if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations))
   return issues
@@ -171,6 +163,13 @@ function cueIssues(slide: Slide): string[] {
 
 export const Deck = DeckShape.superRefine((deck, ctx) => {
   deck.slides.forEach((slide, index) => {
+    if ('media' in slide.content) {
+      try {
+        Placement.parse(slide.content.media, 'deck')
+      } catch (error) {
+        ctx.addIssue({ code: 'custom', path: ['slides', index, 'content', 'media'], message: error instanceof Error ? error.message : String(error) })
+      }
+    }
     for (const message of cueIssues(slide)) ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration', 'cues'], message })
     for (const field of slideTimingIssues(slide)) {
       const kind = field === 'holdMs' ? 'without' : 'with'
@@ -207,7 +206,7 @@ export function exceedsLimits(deck: Deck, limits: DeckLimits): string[] {
     reasons.push(`the deck has ${deck.slides.length} slides; the limit is ${limits.maxSlides}`)
   }
   deck.slides.forEach((slide, index) => {
-    if (limits.maxSlideBytes !== undefined && slide.content.kind === 'html' && bytes(slide.content.html) > limits.maxSlideBytes) {
+    if (limits.maxSlideBytes !== undefined && 'kind' in slide.content && slide.content.kind === 'html' && bytes(slide.content.html) > limits.maxSlideBytes) {
       reasons.push(`slide ${index + 1} is ${bytes(slide.content.html)} bytes; the limit is ${limits.maxSlideBytes}`)
     }
     if (limits.maxNotesBytes !== undefined && slide.notes && bytes(slide.notes) > limits.maxNotesBytes) {

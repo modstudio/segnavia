@@ -38,7 +38,7 @@ describe('board policy', () => {
   test('uses natural and provisional shapes', () => {
     expect(provisionalShape('deck')).toEqual({ width: 16, height: 9 })
     expect(provisionalShape('page').height).toBeCloseTo(Math.SQRT2)
-    expect(provisionalShape('image')).toEqual({ width: 4, height: 3 })
+    expect(provisionalShape('media')).toEqual({ width: 4, height: 3 })
     expect(resolvedShape({ kind: 'image', src: 'image.png', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
   })
 

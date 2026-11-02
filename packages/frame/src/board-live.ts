@@ -1,5 +1,4 @@
-import type { PlacementsOptions } from '@segnavia/html'
-import type { ResolvedBoardItem } from './board-policy.ts'
+import type { AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
@@ -57,6 +56,7 @@ export function liveBoardItem(
     }
     thumbnail.addEventListener('segnavia-thumbnail-error', onError)
     thumbnail.resolveSlide = resolved.resolveSlide
+    thumbnail.placements = placements
     thumbnail.base = resolved.base
     thumbnail.index = 0
     thumbnail.deck = resolved.deck

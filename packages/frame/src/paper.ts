@@ -2,8 +2,8 @@
 // width. It brings no appearance, only geometry, which a host can override.
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'

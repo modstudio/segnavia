@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
 import { BoardResolutions } from './board-resolutions.ts'
 
-const item = (id: string, address = id, kind: BoardItem['kind'] = 'image'): BoardItem => ({ id, address, kind, x: 0, y: 0, width: 100 })
+const item = (id: string, address = id, kind: BoardItem['kind'] = 'media'): BoardItem => ({ id, address, kind, x: 0, y: 0, width: 100 })
 const image = { kind: 'image' as const, src: 'image.png', width: 640, height: 480 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 

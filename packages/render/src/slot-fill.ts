@@ -71,7 +71,7 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   const filled = {
     ...deck,
     slides: deck.slides.map((slide) =>
-      slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } } : slide,
+      'kind' in slide.content && slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } } : slide,
     ),
   }
   preparations.set(filled, prepared)

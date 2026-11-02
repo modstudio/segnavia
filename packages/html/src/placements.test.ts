@@ -31,6 +31,18 @@ describe('placementPlan', () => {
 })
 
 describe('resolvePlacements', () => {
+  test('reports a non-media answer as invalid and draws the placeholder', async () => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="a">', {
+      resolvePlacement: async () => ({ kind: 'page' as const, page: { html: '<p>Page</p>', size: 'fluid' as const, scripts: 'refuse' as const } }),
+      purpose: 'screen',
+      width: 100,
+      signal,
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(reports).toEqual([{ address: 'a', page: undefined, reason: 'invalid', message: 'resolved page, not media' }])
+  })
   test('keeps documents without placements byte-identical', async () => {
     const html = "<IMG src='data:image/png,x'>\n<p>held</p>"
     expect(await resolvePlacements(html, { resolvePlacement: async () => undefined, purpose: 'screen', width: 100, signal })).toBe(html)

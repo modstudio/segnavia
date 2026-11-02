@@ -1,7 +1,29 @@
 import type { BoardItem } from '@segnavia/format'
-import { checkResolved, type ResolvedBoardItem } from './board-policy.ts'
+import { classifyMediaAnswer, type ResolvePlacement } from '@segnavia/html'
+import { checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+
+export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
+  return async (item) => {
+    const answer = await resolve(
+      { kind: item.kind, address: item.address },
+      { purpose: 'screen', width: Math.max(1, Math.round(item.width)), signal: signal ?? AbortSignal.any([]) },
+    )
+    if (!answer) throw new Error(`The ${item.kind} at ${item.address} could not be resolved.`)
+    if (answer.kind === 'media') {
+      const classified = classifyMediaAnswer({ answer })
+      if (classified.status !== 'ok') throw new Error(`The media at ${item.address} could not be resolved for its board item.`)
+      return { kind: 'image', src: classified.value.src, width: classified.value.media.size.width, height: classified.value.media.size.height }
+    }
+    if (answer.kind === 'page') {
+      const size = answer.page.size
+      if (typeof size === 'string' || size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
+      return { kind: 'page', page: answer.page, size }
+    }
+    return answer
+  }
+}
 
 interface BoardResolutionEntry {
   value?: ResolvedBoardItem

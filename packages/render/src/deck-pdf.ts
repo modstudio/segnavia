@@ -17,6 +17,7 @@ import {
   type PrintOptions,
   paginateNotes,
   printableDeck,
+  resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
@@ -107,7 +108,7 @@ async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sh
 
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) =>
-    slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
+    'kind' in slide.content && slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
   )
   const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const slideCss = containFixedPageOverflow(css)
@@ -194,7 +195,7 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
       const single: Deck = { ...deck, slides: [slide] }
       try {
         const html =
-          slide.content.kind === 'html'
+          'kind' in slide.content && slide.content.kind === 'html'
             ? htmlSlideDocument(deck, slide.content.html, {
                 nonce: newNonce(),
                 css,
@@ -209,7 +210,12 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
             html,
             boundMs: opts.boundMs,
             ...dependencySetup(opts),
-            beforeOutput: slide.content.kind === 'html' ? waitForPrintReady : slide.content.kind === 'image' ? placeRenderedImages : undefined,
+            beforeOutput:
+              'kind' in slide.content && slide.content.kind === 'html'
+                ? waitForPrintReady
+                : 'kind' in slide.content && slide.content.kind === 'image'
+                  ? placeRenderedImages
+                  : undefined,
           },
           {
             width: `${deck.size.width}px`,
@@ -242,9 +248,10 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
-  if (!opts.imposition) return regularDeckPdf(deck, opts, services)
+  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', services.signal ?? AbortSignal.any([]))
+  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, services)
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
-  return imposedDeckPdf(deck, Imposition.parse(opts.imposition), opts, services)
+  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, services)
 }

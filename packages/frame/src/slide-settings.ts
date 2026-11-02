@@ -31,7 +31,7 @@ export function slideSettings(labels: PlayerLabels, openPrintFrame: SlideSetting
       id: 'print-frame',
       label: labels.printFrame,
       description: labels.printFrameDescription,
-      appliesTo: (slide, info) => slide.content.kind === 'html' && info.animated,
+      appliesTo: (slide, info) => 'kind' in slide.content && slide.content.kind === 'html' && info.animated,
       valueLabel: (slide) => (slide.printAtMs === undefined ? labels.printFrameStart : labels.printFrameAt(seconds(slide.printAtMs))),
       markLabel: (slide) => (slide.printAtMs === undefined ? undefined : labels.printFrameMark(labels.printFrameAt(seconds(slide.printAtMs)))),
       panel: openPrintFrame,

@@ -1,15 +1,15 @@
-import { type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
+import { type Media, mediaTextDirection, type Page, Placement, type Placement as PlacementValue } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
-export type ResolvedPlacement = { kind: 'media'; media: Media; src: string }
-export type ResolvePlacement = (
+export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: Page }
+export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
-  context: { purpose: 'screen' | 'print'; width: number; signal: AbortSignal },
-) => Promise<ResolvedPlacement | undefined>
+  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal },
+) => Promise<R | undefined>
 
 export interface PlacementPlanEntry {
   index: number
@@ -39,9 +39,34 @@ export type PlacementReport = (entry: {
   message?: string
 }) => void
 
-export interface PlacementsOptions {
-  resolve: ResolvePlacement
+export interface PlacementsOptions<R extends { kind: string } = ResolvedPlacement> {
+  resolve: ResolvePlacement<R>
   report?: PlacementReport
+}
+
+type ResolvedMedia = Extract<ResolvedPlacement, { kind: 'media' }>
+export type MediaAnswer =
+  | { status: 'ok'; value: ResolvedMedia }
+  | { status: 'missing' | 'refused-src'; message?: undefined }
+  | { status: 'invalid'; message: string }
+  | { status: 'failed'; message: string }
+
+export function classifyMediaAnswer(input: { answer: { kind: string } | undefined }): Exclude<MediaAnswer, { status: 'failed' }>
+export function classifyMediaAnswer(input: { error: unknown }): Extract<MediaAnswer, { status: 'failed' }>
+export function classifyMediaAnswer(input: { answer: { kind: string } | undefined } | { error: unknown }): MediaAnswer {
+  if ('error' in input) return { status: 'failed', message: input.error instanceof Error ? input.error.message : String(input.error) }
+  const answer = input.answer
+  if (!answer) return { status: 'missing' }
+  if (answer.kind !== 'media' || !('src' in answer) || !('media' in answer)) {
+    return { status: 'invalid', message: `resolved ${answer.kind}, not media` }
+  }
+  const media = answer as ResolvedMedia
+  return safeImageSource(media.src) ? { status: 'ok', value: media } : { status: 'refused-src' }
+}
+
+export function placementCropEdges(crop: PlacementValue['crop']): string | undefined {
+  if (!crop) return undefined
+  return `${crop.top ?? 0} ${crop.right ?? 0} ${crop.bottom ?? 0} ${crop.left ?? 0}`
 }
 
 function positiveInteger(value: string | undefined): number | undefined {
@@ -107,19 +132,23 @@ export function placementPlan(html: string): PlacementPlan {
   return planElements(elements(parse(html).children))
 }
 
+export function placementPlaceholderSource(width = 400, height = 300): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#eee"/><rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#aaa"/></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
 function placeholder(element: Element): void {
   const authoredWidth = positiveInteger(element.attribs.width)
   const authoredHeight = positiveInteger(element.attribs.height)
   const width = authoredWidth ?? (authoredHeight === undefined ? 400 : Math.round((authoredHeight * 4) / 3))
   const height = authoredHeight ?? (authoredWidth === undefined ? 300 : Math.round((authoredWidth * 3) / 4))
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#eee"/><rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" fill="none" stroke="#aaa"/></svg>`
-  element.attribs.src = `data:image/svg+xml,${encodeURIComponent(svg)}`
+  element.attribs.src = placementPlaceholderSource(width, height)
   element.attribs['data-segnavia-placement'] = 'missing'
   if (!('alt' in element.attribs)) element.attribs.alt = ''
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 
-function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: ResolvedPlacement): void {
+function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: ResolvedMedia): void {
   element.attribs.src = resolved.src
   if (entry.alt === undefined && resolved.media.alt) {
     element.attribs.alt = resolved.media.alt.text
@@ -128,9 +157,9 @@ function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: Re
       element.attribs.dir = mediaTextDirection(resolved.media.alt)
     }
   }
-  const crop = entry.placement.crop
+  const crop = placementCropEdges(entry.placement.crop)
   if (crop) {
-    const declaration = `object-view-box: inset(${crop.top ?? 0} ${crop.right ?? 0} ${crop.bottom ?? 0} ${crop.left ?? 0})`
+    const declaration = `object-view-box: inset(${crop})`
     const authored = element.attribs.style?.trim()
     element.attribs.style = authored ? `${authored.replace(/;?$/, ';')} ${declaration}` : declaration
   }
@@ -158,9 +187,9 @@ function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
-export async function resolvePlacements(
+export async function resolvePlacements<R extends { kind: string }>(
   html: string,
-  options: { resolvePlacement: ResolvePlacement; purpose: 'screen' | 'print'; width: number; signal: AbortSignal; report?: PlacementReport },
+  options: { resolvePlacement: ResolvePlacement<R>; purpose: 'screen' | 'print'; width: number; signal: AbortSignal; report?: PlacementReport },
 ): Promise<string> {
   const document = parse(html)
   const found = elements(document.children)
@@ -187,21 +216,26 @@ export async function resolvePlacements(
           options.signal,
         )
         options.signal.throwIfAborted()
-        if (!resolved) {
+        const classified = classifyMediaAnswer({ answer: resolved })
+        if (classified.status === 'ok') applyResolved(element, entry, classified.value)
+        else {
           placeholder(element)
-          options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'missing' })
-        } else if (!safeImageSource(resolved.src)) {
-          placeholder(element)
-          options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'refused-src' })
-        } else applyResolved(element, entry, resolved)
+          options.report?.({
+            address: entry.placement.address,
+            page: entry.placement.page,
+            reason: classified.status,
+            ...(classified.message === undefined ? {} : { message: classified.message }),
+          })
+        }
       } catch (error) {
         if (options.signal.aborted) throw options.signal.reason
+        const classified = classifyMediaAnswer({ error })
         placeholder(element)
         options.report?.({
           address: entry.placement.address,
           page: entry.placement.page,
-          reason: 'failed',
-          message: error instanceof Error ? error.message : String(error),
+          reason: classified.status,
+          message: classified.message,
         })
       }
     }),

@@ -68,7 +68,7 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENTS = {
   player: element<SegnaviaPlayer, PlayerProps, typeof STYLED_ELEMENTS.player>(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'transition', 'slots'],
+    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'],
     {
       onSegnaviaLabels: 'segnavia-labels',
     },

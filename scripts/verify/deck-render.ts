@@ -49,7 +49,7 @@ function verifyFitPdf(output: string, work: string, check: Check): void {
     ['focus', 4],
   ] as const) {
     const content = fitDeck.slides[page - 1]?.content
-    if (content?.kind !== 'shot') throw new Error(`The ${mode} fit fixture is missing.`)
+    if (!content || !('kind' in content) || content.kind !== 'shot') throw new Error(`The ${mode} fit fixture is missing.`)
     const focus = annotationFocusBox(fitShot.size, fitShot.annotations)
     const placement = fitImage(fitDeck.size, fitShot.size, content.fit ?? fitDeck.fit, focus)
     const ring = fitShot.annotations[0]?.ring

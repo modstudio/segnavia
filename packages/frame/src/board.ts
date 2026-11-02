@@ -11,7 +11,6 @@ import {
   visibleItems,
   zoomToFit,
 } from '@segnavia/format'
-import type { PlacementsOptions } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
@@ -23,6 +22,7 @@ import { BoardMounts } from './board-mounts.ts'
 import { type BoardItemNames, BoardNames } from './board-names.ts'
 import { BoardPainter } from './board-painter.ts'
 import { placeBoardItem } from './board-placement.ts'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
