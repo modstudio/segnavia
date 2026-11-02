@@ -171,7 +171,8 @@ export async function verifyMarkdownEditor(h: Harness) {
   )
 
   const locked = editor.locator('[part~="locked-block"]')
-  const nested = locked.locator('segnavia-page iframe').first()
+  const nestedPage = locked.locator('segnavia-page').first()
+  const nested = nestedPage.locator('iframe')
   await nested.waitFor()
   const sandbox = await nested.getAttribute('sandbox')
   check('locked content uses a nested page without same-origin authority', Boolean(sandbox) && !sandbox?.includes('allow-same-origin'), String(sandbox))
@@ -181,6 +182,16 @@ export async function verifyMarkdownEditor(h: Harness) {
     lockedDocuments.every((document) => !document.includes('lockedAuthorScript')),
     String(lockedDocuments.length),
   )
+  const lockedCss = '.locked-css-probe { margin-left: 17px; }'
+  await page.evaluate((css) => {
+    ;(document.getElementById('editor') as unknown as { css: string }).css = css
+  }, lockedCss)
+  await page.waitForFunction(
+    (css) => (document.getElementById('editor')?.shadowRoot?.querySelector('segnavia-page') as unknown as { css?: string } | null)?.css === css,
+    lockedCss,
+  )
+  const nestedCss = await nestedPage.evaluate((page) => (page as unknown as { css: string }).css)
+  check('a CSS change reaches an existing locked nested page', nestedCss === lockedCss, nestedCss)
 
   const beforeEdit = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
   await selectRichText(page, 'English line.')

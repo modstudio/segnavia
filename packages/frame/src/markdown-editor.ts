@@ -172,10 +172,11 @@ class MarkdownEditorElement extends HTMLElement {
   }
   set css(value: string) {
     const next = String(value ?? '')
+    if (next === this.cssValue) return
     const sanitized = sanitizeBookCss(next).css
     this.cssValue = next
-    if (this.richStyle.textContent === sanitized) return
     this.richStyle.textContent = sanitized
+    for (const page of this.richMount.querySelectorAll<HTMLElement & { css: string }>('segnavia-page')) page.css = next
   }
   get fonts() {
     return this.fontOptions
@@ -283,7 +284,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.richView = mountRichEditor({
       mount: this.richMount,
       content: parseRichDocument(this.model.editable, { lockedFences: this.lockedFenceOptions }),
-      css: this.cssValue,
+      css: () => this.cssValue,
       fonts: this.fontOptions,
       fontReferences: this.fontReferenceOptions,
       alertLabels: this.alertLabelOptions as Record<string, string> | undefined,

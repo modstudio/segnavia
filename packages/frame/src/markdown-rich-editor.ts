@@ -12,7 +12,7 @@ if (!customElements.get('segnavia-page')) customElements.define('segnavia-page',
 
 type LockedViewOptions = {
   alertLabels?: Record<string, string>
-  css: string
+  css: () => string
   fontReferences: FontReference[]
   fonts?: FontsOptions
 }
@@ -35,7 +35,7 @@ function lockedView(options: () => LockedViewOptions) {
         } else {
           const page = document.createElement('segnavia-page') as SegnaviaPage
           const current = options()
-          page.css = current.css
+          page.css = current.css()
           page.fonts = current.fonts
           page.alertLabels = current.alertLabels
           page.page = { markdown: String(node.attrs.source ?? ''), scripts: 'refuse', fonts: current.fontReferences }

@@ -106,14 +106,19 @@ test('an inline image survives editing its paragraph', () => {
   expect(saveRichDocument(markdown, nodes)).toContain('![alt](https://example.com/p.png)')
 })
 
-test('silent blocks stay after their preceding block when the following paragraph changes', () => {
+test('silent blocks keep their position on both sides of an edited paragraph', () => {
   for (const silent of ['<!-- not published -->', '[foo]: /spec']) {
-    const markdown = `First.\n\n${silent}\n\nSecond.\n`
-    const nodes = clone(parseRichDocument(markdown))
-    const second = nodes.filter((node) => node.type === 'paragraph')[1]
-    if (!second) throw new Error('expected the second paragraph')
-    second.content = [{ type: 'text', text: 'Second changed.' }]
-    expect(saveRichDocument(markdown, nodes)).toBe(`First.\n\n${silent}\n\nSecond changed.\n`)
+    for (const [markdown, expected] of [
+      [`First.\n\n${silent}\n\nSecond.\n`, `First.\n\n${silent}\n\nSecond changed.\n`],
+      [`First.\n\nSecond.\n\n${silent}\n`, `First.\n\nSecond changed.\n\n${silent}\n`],
+      [`First.\n\nSecond.\n\n${silent}\n\nThird.\n`, `First.\n\nSecond changed.\n\n${silent}\n\nThird.\n`],
+    ] as const) {
+      const nodes = clone(parseRichDocument(markdown))
+      const second = nodes.filter((node) => node.type === 'paragraph')[1]
+      if (!second) throw new Error('expected the second paragraph')
+      second.content = [{ type: 'text', text: 'Second changed.' }]
+      expect(saveRichDocument(markdown, nodes)).toBe(expected)
+    }
   }
 })
 

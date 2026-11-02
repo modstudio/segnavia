@@ -160,6 +160,15 @@ function stitch(entry: CachedOriginal, edited: readonly RichDocumentNode[], keys
     out += block.raw
     last = hit
   }
+  const emitReplacement = (end: number) => {
+    let firstEditable = blockIndex
+    while (firstEditable < end && bs[firstEditable]?.nodes.length === 0) {
+      emitOld(firstEditable)
+      firstEditable++
+    }
+    emitNew()
+    for (let index = firstEditable; index < end; index++) if (bs[index]?.nodes.length === 0) emitOld(index)
+  }
   while (keyIndex < keys.length) {
     const hit = matchingBlockIndex(entry, keys, keyIndex, blockIndex)
     if (hit < 0) {
@@ -167,14 +176,12 @@ function stitch(entry: CachedOriginal, edited: readonly RichDocumentNode[], keys
       if (node) pending.push(node)
       continue
     }
-    for (let index = blockIndex; index < hit; index++) if (bs[index]?.nodes.length === 0) emitOld(index)
-    emitNew()
+    emitReplacement(hit)
     emitOld(hit)
     keyIndex += bs[hit]?.nodes.length ?? 0
     blockIndex = hit + 1
   }
-  for (let index = blockIndex; index < bs.length; index++) if (bs[index]?.nodes.length === 0) emitOld(index)
-  emitNew()
+  emitReplacement(bs.length)
   return `${out.replace(/\n+$/, '')}\n`
 }
 
