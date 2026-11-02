@@ -1024,7 +1024,7 @@ image. Board cover tiers and standalone thumbnails contain any cover aspect
 whole and centered without cropping or stretching; a live cover is scaled from
 its own sheet rather than laid out at the tile size.
 
-A designed cover is honoured on a board item and on `<segnavia-thumbnail>`.
+A designed cover is honored on a board item and on `<segnavia-thumbnail>`.
 The host attaches it through the board's `resolveItem` result or the thumbnail's
 `designedCover` property. It is not part of `ResolvedAsset`: a designed cover
 returned through the placement seam is ignored. A thumbnail live cover receives
