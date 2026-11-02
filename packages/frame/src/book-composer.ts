@@ -31,19 +31,30 @@ export const BOOK_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 export const BOOK_MEASUREMENT_WAIT_MS = 1_000
 export const WINDOW_EDGE_INSET_PX = 0.25
 
-export interface BookMeasurementFacts {
-  frameWidth: number
+export interface FlowMeasurementFacts {
+  id: string
   sourceBlocks: number
   measuredLines: number
+}
+
+export interface BookMeasurementFacts {
+  frameWidth: number
+  flows: readonly FlowMeasurementFacts[]
   plannedPages: number
   visibleElapsedMs: number
 }
 
 export type BookMeasurementDecision = 'wait-for-width' | 'retry' | 'compose' | 'refuse'
 
+export function unmeasuredFlows(flows: readonly FlowMeasurementFacts[]): string[] {
+  return flows.filter((flow) => flow.sourceBlocks > 0 && flow.measuredLines === 0).map((flow) => flow.id)
+}
+
 export function decideBookMeasurement(facts: BookMeasurementFacts, boundMs: number): BookMeasurementDecision {
   if (facts.frameWidth <= 0) return 'wait-for-width'
-  const deferred = facts.sourceBlocks > 0 && (facts.measuredLines === 0 || facts.plannedPages === 0)
+  const hasSource = facts.flows.some((flow) => flow.sourceBlocks > 0)
+  if (!hasSource) return 'compose'
+  const deferred = unmeasuredFlows(facts.flows).length > 0 || facts.plannedPages === 0
   if (!deferred) return 'compose'
   return facts.visibleElapsedMs >= boundMs ? 'refuse' : 'retry'
 }
@@ -77,6 +88,7 @@ ${embedFunction('flowTextArea', flowTextArea)}
 ${embedFunction('spreadSlots', spreadSlots)}
 ${embedFunction('pageScale', pageScale)}
 ${embedFunction('pixelPhaseOffset', pixelPhaseOffset)}
+${embedFunction('unmeasuredFlows', unmeasuredFlows)}
 ${embedFunction('decideBookMeasurement', decideBookMeasurement)}
 ${embeddedBookPresentationFunctions()}`
 }
@@ -123,7 +135,7 @@ var measureFlow=function(element){var id=element.getAttribute('data-segnavia-flo
 var measureNotes=function(){var notes=[];var nodes=document.querySelectorAll('[data-segnavia-note]');for(var i=0;i<nodes.length;i++){var id=nodes[i].getAttribute('data-segnavia-note');var galley=nodes[i].closest('[data-segnavia-notes-galley]');var series=galley?galley.getAttribute('data-segnavia-note-series'):'';if(!id||!series)continue;notes.push({id:id,series:series,lines:blockLines(nodes[i],originTop(nodes[i]))});}return notes;};
 var noteGap=function(root){var style=getComputedStyle(root);return (parseFloat(style.borderBlockStartWidth)||0)+(parseFloat(style.paddingBlockStart)||0)+(parseFloat(style.marginBlockStart)||0);};
 var noteSeries=function(){var series=[];var nodes=document.querySelectorAll('[data-segnavia-notes-galley]');for(var i=0;i<nodes.length;i++){var name=nodes[i].getAttribute('data-segnavia-note-series');if(name)series.push({name:name,gap:noteGap(nodes[i])});}return series;};
-var measureInput=function(){var flows=[];var sourceBlocks=0;var nodes=document.querySelectorAll('[data-segnavia-flow]');for(var i=0;i<nodes.length;i++){var flow=measureFlow(nodes[i]);flows.push(flow);sourceBlocks+=flow.sourceBlocks;}var parents={};for(var p=0;p<config.parents.length;p++)parents[config.parents[p].name]=config.parents[p].textArea;return {flows:flows,sourceBlocks:sourceBlocks,notes:measureNotes(),geometry:{notesGap:config.geometry.notesGap,noteSeries:noteSeries()},parents:parents,parentNames:config.parentNames,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}};};
+var measureInput=function(){var flows=[];var nodes=document.querySelectorAll('[data-segnavia-flow]');for(var i=0;i<nodes.length;i++)flows.push(measureFlow(nodes[i]));var parents={};for(var p=0;p<config.parents.length;p++)parents[config.parents[p].name]=config.parents[p].textArea;return {flows:flows,notes:measureNotes(),geometry:{notesGap:config.geometry.notesGap,noteSeries:noteSeries()},parents:parents,parentNames:config.parentNames,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}};};
 var folioOf=function(page){var list=config.folios[page.sequence];return list&&list[page.number-1]?list[page.number-1]:String(page.number);};
 var runningHeadOf=function(page,index){if(page.blank||(page.sectionOpening&&page.role!=='body'))return undefined;var recto=index%2===1;var choice=recto?config.runningHead.recto:config.runningHead.verso;if(!choice||choice==='title')return page.runningHead;if(choice.part)return page.parts?page.parts[choice.part]:undefined;var held=page.marks&&page.marks[choice.mark];if(!held)return page.runningHead;return choice.which==='last'?held.last:held.first;};
 var pageForTarget=function(id,pages){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var page=pages[index];var result=pageReferenceFolio(id,page.number,config.folios[page.sequence]);if(result.refusal){fail(result.refusal);return '';}return result.folio;};
@@ -154,7 +166,7 @@ ${
     : 'var presentScreen=function(){};'
 }
 var compose=function(plan,seriesGeometry){var total=config.folios.body[plan.pages.length-1]||String(plan.pages.length);var pages=document.createElement('div');pages.setAttribute('data-segnavia-pages','');for(var index=0;index<plan.pages.length;index++){var page=plan.pages[index];var selected={parent:page.parent,side:page.side,folio:folioOf(page),runningHead:runningHeadOf(page,index+1)};var parent=parentByName[selected.parent];var margin=parent.margin;var textArea=parent.textArea;var paper=document.createElement('section');paper.setAttribute('data-segnavia-book-page',String(index+1));paper.setAttribute('data-segnavia-role',page.role);paper.setAttribute('data-segnavia-sequence',page.sequence);paper.setAttribute('data-segnavia-number',String(page.number));paper.setAttribute('data-segnavia-flow',page.flow);paper.setAttribute('data-segnavia-parent',parent.name);paper.setAttribute('data-segnavia-folio',folioOf(page));paper.style.cssText='position:relative;box-sizing:border-box;inline-size:'+config.geometry.paperWidth+'px;block-size:'+config.geometry.paperHeight+'px;overflow:hidden;break-after:page;direction:'+config.direction+';';var inlineStart=(selected.side==='right')===(config.direction==='ltr')?margin.inner:margin.outer;var text=document.createElement('div');text.setAttribute('data-segnavia-text','');text.style.cssText='position:absolute;overflow:visible;inset-block-start:'+margin.top+'px;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;block-size:'+textArea.height+'px';var seenFlows={};for(var w=0;w<page.windows.length;w++){var keepFlowId=!seenFlows[page.windows[w].flow];seenFlows[page.windows[w].flow]=true;placeWindow(text,page.windows[w],keepFlowId&&page.sectionOpening,textArea);}placeHeader(text,page,textArea);placeNotes(text,page.notes,textArea,seriesGeometry);paper.append(text);placeDesigned(paper,page,index,plan.pages);placeTemplated(text,page,index,plan.pages);var furniture=function(region,html){if(!html)return;var held=document.createElement('div');held.setAttribute('data-segnavia-'+region,'');held.setAttribute('data-segnavia-parent',parent.name);var regionSize=region==='head'?margin.top:margin.bottom;held.style.cssText='position:absolute;overflow:hidden;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;'+(region==='head'?'inset-block-start:0;block-size:'+regionSize+'px':'inset-block-end:0;block-size:'+regionSize+'px');var values={};if(selected.folio!==undefined)values.folio=selected.folio;if(selected.runningHead!==undefined)values.runningHead=selected.runningHead;if(page.marks!==undefined)values.marks=page.marks;held.innerHTML=fillBookFurniture(html,values,config.dir,config.lang);fillPrintedPage(held,selected.folio,total);paper.append(held);};furniture('head',parent.head);furniture('foot',parent.foot);pages.append(paper);}var galleys=document.querySelector('[data-segnavia-galleys]');if(galleys){galleys.setAttribute('data-segnavia-galley-source','');galleys.style.cssText='position:absolute;inset-inline-start:-10000px;visibility:visible;';var held=galleys.querySelectorAll('[id]');for(var i=0;i<held.length;i++)held[i].removeAttribute('id');}document.body.append(pages);alignWindowPhases();if(!alignHeldNotes())return pages;var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){var regions=filled[t].querySelectorAll('[data-region]');for(var r=0;r<regions.length;r++)fitRegion(regions[r],filled[t].getAttribute('data-template')||'');var paper=filled[t].closest('[data-segnavia-book-page]');markRegionOverflow(filled[t],paper?paper.getAttribute('data-segnavia-folio')||'':'');}var height=(plan.pages.length*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;return pages;};
-var measuredLineCount=function(input){var count=0;for(var i=0;i<input.flows.length;i++){var blocks=input.flows[i].blocks;if(!blocks)continue;for(var b=0;b<blocks.length;b++)count+=blocks[b].lines.length;}return count;};
+var measurementFlows=function(input){var facts=[];for(var i=0;i<input.flows.length;i++){var flow=input.flows[i];var lines=0;var blocks=flow.blocks||[];for(var b=0;b<blocks.length;b++)lines+=blocks[b].lines.length;facts.push({id:flow.id,sourceBlocks:flow.sourceBlocks,measuredLines:lines});}return facts;};
 var nextAnimationFrame=function(){return new Promise(function(resolve){if(window.requestAnimationFrame)window.requestAnimationFrame(resolve);else setTimeout(resolve,0);});};
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
@@ -164,7 +176,7 @@ var visibleStartedAt=null;
 var composeWhenMeasurable=function(){
 try{
 // A collapsed host gives its frame no layout viewport, so measurement starts only after the host shows it.
-var widthDecision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,sourceBlocks:0,measuredLines:0,plannedPages:0,visibleElapsedMs:visibleElapsed},${BOOK_MEASUREMENT_WAIT_MS});
+var widthDecision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,flows:[],plannedPages:0,visibleElapsedMs:visibleElapsed},${BOOK_MEASUREMENT_WAIT_MS});
 if(widthDecision==='wait-for-width'){if(visibleStartedAt!==null){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;}return nextAnimationFrame().then(composeWhenMeasurable);}
 if(visibleStartedAt===null)visibleStartedAt=performance.now();
 sizeGalleys();
@@ -184,10 +196,11 @@ if(extra===2){fail('page references to '+moved.join(', ')+' would not settle aft
 fillPageReferences(plan.pages);
 }
 if(!settled)return;
-var decision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,sourceBlocks:input.sourceBlocks,measuredLines:measuredLineCount(input),plannedPages:plan.pages.length,visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS});
+var flowMeasurements=measurementFlows(input);
+var decision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,flows:flowMeasurements,plannedPages:plan.pages.length,visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS});
 if(decision==='wait-for-width'){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;return nextAnimationFrame().then(composeWhenMeasurable);}
 if(decision==='retry')return nextLayoutFrame().then(composeWhenMeasurable);
-if(decision==='refuse'){fail('The book could not measure line boxes or plan a page because the frame or galley has no size, or layout stayed deferred; give the frame and galley a non-zero size or allow layout to finish to clear this refusal.');return;}
+if(decision==='refuse'){var missingFlows=unmeasuredFlows(flowMeasurements);if(missingFlows.length)fail('The book could not establish measured lines for source flows '+missingFlows.join(', ')+'; allow every named flow to finish layout and yield a line to clear this refusal.');else fail('The book could not measure line boxes or plan a page because the frame or galley has no size, or layout stayed deferred; give the frame and galley a non-zero size or allow layout to finish to clear this refusal.');return;}
 if(plan.pages.length>config.limit){fail('the composed book needs '+plan.pages.length+' papers, above the limit '+config.limit+'; shorten the content to clear this refusal');return;}
 var composed=compose(plan,input.geometry.noteSeries||[]);
 if(document.documentElement.hasAttribute('${BOOK_FAILURE_ATTRIBUTE}'))return;

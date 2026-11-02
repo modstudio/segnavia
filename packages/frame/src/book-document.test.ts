@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, Book, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { BOOK_FAILURE_ATTRIBUTE, BOOK_MEASUREMENT_WAIT_MS, decideBookMeasurement, flowTextArea, pixelPhaseOffset } from './book-composer.ts'
+import {
+  BOOK_FAILURE_ATTRIBUTE,
+  BOOK_MEASUREMENT_WAIT_MS,
+  decideBookMeasurement,
+  flowTextArea,
+  pixelPhaseOffset,
+  type unmeasuredFlows,
+} from './book-composer.ts'
 import { BOOK_COMPOSER_SCRIPT, bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -40,10 +47,11 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,decideBookMeasurement}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement}`)() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
+      unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
     }
     expect(
@@ -58,7 +66,9 @@ describe('bookDocument', () => {
     ).toEqual({ width: 100, height: 160 })
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
-    expect(embedded.decideBookMeasurement({ frameWidth: 100, sourceBlocks: 1, measuredLines: 0, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
+    const flows = [{ id: 'chapter-1', sourceBlocks: 1, measuredLines: 0 }]
+    expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
+    expect(embedded.decideBookMeasurement({ frameWidth: 100, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
