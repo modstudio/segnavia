@@ -1,5 +1,36 @@
 # @segnavia/frame
 
+## 0.40.0
+
+### Minor Changes
+
+- 636664c: Add full, standard, wide and numeric widths for flowing pages, with shared host overrides across browser and server surfaces.
+
+  The `FLUID_WIDTH` format export is removed. Use `PAGE_WIDTHS` or `resolvePageWidth` instead.
+
+  Legacy `fluid` page data now parses as `{ width: 'full', height: 'auto' }`. Existing cover digests therefore change once, so hosts should expect to redraw cached cover images once. Re-serializing a parsed legacy page writes the new shape, which older library versions cannot read.
+
+- e008df9: Draw markdown Mermaid diagrams offline inside page frames before readiness and pagination, with per-diagram failure output and bidirectional labels.
+
+  The diagrams entry exports the nonce-authorized drawing script. Server render inlines it and waits for the drawing before capture. Any page body carrying the `pre[data-segnavia-diagram="mermaid"]` placeholder is drawn, HTML included. Markdown outlines may now receive the markdown body object so HTML and outline conversion share one pass.
+
+- 528b896: Add rich Markdown editing with byte-preserving locked blocks, sanitized schema input, commands, editor state and page-matched CSS and fonts.
+
+  Rich mode is the default.
+
+  Markdown editor user changes now update only the live property; the `markdown` attribute remains the initial or latest host-declared value.
+
+- 2a55d52: Add the headless markdown editor element with source editing, title sources, browser events, commands, keyboard shortcuts, and a React component.
+
+### Patch Changes
+
+- Updated dependencies [636664c]
+- Updated dependencies [e008df9]
+- Updated dependencies [12c57ab]
+- Updated dependencies [528b896]
+  - @segnavia/format@0.40.0
+  - @segnavia/html@0.40.0
+
 ## 0.39.0
 
 ### Minor Changes

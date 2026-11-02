@@ -1,5 +1,19 @@
 # @segnavia/format
 
+## 0.40.0
+
+### Minor Changes
+
+- 636664c: Add full, standard, wide and numeric widths for flowing pages, with shared host overrides across browser and server surfaces.
+
+  The `FLUID_WIDTH` format export is removed. Use `PAGE_WIDTHS` or `resolvePageWidth` instead.
+
+  Legacy `fluid` page data now parses as `{ width: 'full', height: 'auto' }`. Existing cover digests therefore change once, so hosts should expect to redraw cached cover images once. Re-serializing a parsed legacy page writes the new shape, which older library versions cannot read.
+
+- 12c57ab: Add HTML or markdown page bodies, sanitized markdown conversion, outlines, and the reader geometry for wide markdown content.
+
+  A page re-serialized by this version cannot be read by an older library because its content is stored under `body`. Cover digests change, so hosts should redraw kept cover images.
+
 ## 0.39.0
 
 ### Minor Changes
