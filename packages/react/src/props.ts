@@ -100,6 +100,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   fonts?: SegnaviaThumbnail['fonts']
   placements?: SegnaviaThumbnail['placements']
   designedCover?: SegnaviaThumbnail['designedCover']
+  pageWidths?: SegnaviaThumbnail['pageWidths']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 
@@ -128,6 +129,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
   placements?: SegnaviaPage['placements']
+  pageWidths?: SegnaviaPage['pageWidths']
   src?: string
   label?: string
   bounded?: boolean
@@ -139,6 +141,7 @@ export interface BookProps extends ElementProps<SegnaviaBook> {
   fonts?: SegnaviaBook['fonts']
   motifs?: SegnaviaBook['motifs']
   placements?: SegnaviaBook['placements']
+  pageWidths?: SegnaviaBook['pageWidths']
   dependencyOrigins?: SegnaviaBook['dependencyOrigins']
   src?: string
   spread?: boolean
@@ -156,6 +159,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
   placements?: SegnaviaPaper['placements']
+  pageWidths?: SegnaviaPaper['pageWidths']
   unstyled?: boolean
 }
 
@@ -169,6 +173,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
   placements?: SegnaviaDocument['placements']
+  pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean
 }
 

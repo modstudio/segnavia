@@ -10,6 +10,7 @@ import {
   type ImpositionInput,
   impose,
   type Page,
+  type PageWidths,
   type PrintInput,
   pagePlacementLayout,
   printPadding,
@@ -219,6 +220,7 @@ export interface PrintablePagesOptions {
   cspExtra?: string
   slots?: SlotsOptions
   dependencyOrigins?: Iterable<string>
+  pageWidths?: PageWidths
 }
 
 export interface PrintablePagesDocument {
@@ -292,7 +294,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
-  const fit = fitPage(page, placement, imposition.fit)
+  const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
   const padding = layout.inset ? printPadding(placement.bleed) : ''

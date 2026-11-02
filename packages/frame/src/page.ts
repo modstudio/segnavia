@@ -1,22 +1,23 @@
-// <segnavia-page>: shows one page in a sandboxed frame. A fluid page takes
+// <segnavia-page>: shows one page in a sandboxed frame. A full page takes
 // the element's width and grows to its content's height; with `bounded`, it takes
 // the element's host-sized box and scrolls inside its frame. A fixed page is
 // scaled to fit the element's width; a fixed width that grows does both. It
 // brings no appearance, only that geometry, which a host can override.
 //
 // Attributes: src (page JSON), label (the frame's accessible name), bounded
-// (fluid pages take their box), unstyled (bring no styles at all). Properties:
+// (full pages take their box), unstyled (bring no styles at all). Properties:
 // page, label, bounded, css, cspExtra, slots, motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Page, type PageInput, printProperties, type SlotsOptions } from '@segnavia/format'
+import { Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { pageSheetLayout } from './page-layout.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
@@ -39,6 +40,7 @@ export class SegnaviaPage extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
+  private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
@@ -55,7 +57,6 @@ export class SegnaviaPage extends HTMLElement {
   get bounded(): boolean {
     return this.hasAttribute('bounded')
   }
-
   set bounded(value: boolean) {
     this.toggleAttribute('bounded', value)
   }
@@ -93,6 +94,15 @@ export class SegnaviaPage extends HTMLElement {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
+    if (this.pageValue) this.load(this.pageValue)
+  }
+
+  get pageWidths(): PageWidths | undefined {
+    return this.widthOptions
+  }
+
+  set pageWidths(value: PageWidths | undefined) {
+    this.widthOptions = value
     if (this.pageValue) this.load(this.pageValue)
   }
 
@@ -217,13 +227,13 @@ export class SegnaviaPage extends HTMLElement {
       this.fit()
       return
     }
-    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions)
+    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
       .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
       .catch(report)
     this.fit()
   }
 
-  showUrl(url: string, size: Page['size'] = 'fluid') {
+  showUrl(url: string, size: Page['size'] | 'fluid' = 'fluid') {
     this.cancelSelectionRequests()
     this.hostServed = true
     this.cancelSlotPreparation()
@@ -288,7 +298,13 @@ export class SegnaviaPage extends HTMLElement {
     // Laid out left to right whatever the host's direction: it is scaled from
     // its top-left corner, and the page inside keeps its own direction.
     sheet.dir = 'ltr'
-    sheet.style.width = typeof page.size === 'object' ? `${page.size.width}px` : '100%'
+    const width = pageSheetLayout(page.size, this.clientWidth, this.widthOptions)
+    if (typeof page.size.width === 'number') sheet.style.width = `${width.inlineSize}px`
+    else if (width.maxInlineSize === undefined) sheet.style.width = '100%'
+    else {
+      sheet.dataset.flowingMeasure = ''
+      sheet.style.setProperty('--segnavia-page-measure', `${width.maxInlineSize}px`)
+    }
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', frameSandbox(page.scripts))
     iframe.title = this.label || 'Page'
@@ -344,7 +360,7 @@ export class SegnaviaPage extends HTMLElement {
     const page = this.page
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
-    const fluidBounded = typeof page.size !== 'object' && this.bounded
+    const fluidBounded = page.size.height === 'auto' && page.size.width === 'full' && this.bounded
     if (fluidBounded) {
       sheet.style.height = '100%'
       sheet.style.removeProperty('transform')
@@ -353,7 +369,7 @@ export class SegnaviaPage extends HTMLElement {
       else delete this.dataset.height
       return
     }
-    const width = typeof page.size === 'object' ? page.size.width : null
+    const width = typeof page.size.width === 'number' ? page.size.width : null
     const scale = width === null ? 1 : Math.min(1, this.clientWidth / width)
     const height = this.contentHeight || PLACEHOLDER_HEIGHT
     sheet.style.height = `${height}px`

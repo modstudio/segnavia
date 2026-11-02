@@ -83,7 +83,7 @@ export const ELEMENTS = {
   ),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts', 'placements', 'designedCover'],
+    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts', 'placements', 'designedCover', 'pageWidths'],
     {
       onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
     },
@@ -100,22 +100,22 @@ export const ELEMENTS = {
   ),
   page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(
     HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements'],
+    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
     {},
   ),
   book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
     HEADLESS_ELEMENTS.book,
-    ['view', 'fonts', 'motifs', 'placements', 'dependencyOrigins'],
+    ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'],
     {},
   ),
   paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements'],
+    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
     {},
   ),
   document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements'],
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
     {},
   ),
   play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),

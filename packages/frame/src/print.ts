@@ -233,6 +233,7 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
     signal,
     options.placements,
     'print',
+    options.pageWidths,
   )
   const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)

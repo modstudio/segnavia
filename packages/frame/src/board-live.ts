@@ -1,3 +1,4 @@
+import type { PageWidths } from '@segnavia/format'
 import type { CheckedResolvedBoardItem, AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import { coverImage } from './cover-element.ts'
@@ -40,6 +41,7 @@ export function liveBoardItem(
   motifs?: MotifsOptions,
   fonts?: FontsOptions,
   placements?: PlacementsOptions,
+  pageWidths?: PageWidths,
 ): MountedElement {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()
@@ -50,6 +52,7 @@ export function liveBoardItem(
     thumbnail.addEventListener('segnavia-thumbnail-error', onError)
     thumbnail.resolveSlide = resolved.resolveSlide
     thumbnail.placements = placements
+    thumbnail.pageWidths = pageWidths
     thumbnail.base = resolved.base
     thumbnail.index = 0
     thumbnail.deck = resolved.deck
@@ -61,6 +64,7 @@ export function liveBoardItem(
     page.motifs = motifs
     page.fonts = fonts
     page.placements = placements
+    page.pageWidths = pageWidths
     page.load({ ...resolved.page, scripts: 'refuse' })
     return { element: page, dispose }
   }
@@ -70,6 +74,7 @@ export function liveBoardItem(
     paper.motifs = motifs
     paper.fonts = fonts
     paper.placements = placements
+    paper.pageWidths = pageWidths
     paper.load(
       resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
       resolved.imposition,
@@ -89,6 +94,7 @@ export function liveBoardItem(
   book.motifs = motifs
   book.fonts = fonts
   book.placements = placements
+  book.pageWidths = pageWidths
   book.view = { ...resolved.view, scripts: 'refuse' }
   mounting = false
   if (loadError !== undefined) throw loadError

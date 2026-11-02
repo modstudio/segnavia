@@ -1,4 +1,4 @@
-import { Deck, Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { Deck, Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
@@ -30,6 +30,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
   private placementOptions: AssetPlacementsOptions | undefined
+  private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private designedCoverInput: DesignedCover | undefined
   private designedCoverValue: ParsedDesignedCover | undefined
@@ -151,6 +152,15 @@ export class SegnaviaThumbnail extends HTMLElement {
     const parsed = value === undefined ? undefined : parseDesignedCover(value, 'The thumbnail')
     this.designedCoverInput = value
     this.designedCoverValue = parsed
+    this.changed()
+  }
+
+  get pageWidths(): PageWidths | undefined {
+    return this.widthOptions
+  }
+
+  set pageWidths(value: PageWidths | undefined) {
+    this.widthOptions = value
     this.changed()
   }
 
@@ -314,6 +324,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
     page.placements = this.placementOptions
+    page.pageWidths = this.widthOptions
     page.fonts = this.fontOptions
     page.slots = this.slotOptions
     page.css = this.stylesheet

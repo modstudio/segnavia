@@ -1,4 +1,13 @@
-import { fitPage, type Imposed, type ImpositionPlacement, type Page, type PagePlacementLayout, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import {
+  fitPage,
+  type Imposed,
+  type ImpositionPlacement,
+  type Page,
+  type PagePlacementLayout,
+  type PageWidths,
+  PX_PER_MM,
+  pagePlacementLayout,
+} from '@segnavia/format'
 import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
@@ -21,7 +30,7 @@ export interface PieceGeometry {
 }
 
 const geometryKey = (page: number, pageValue: Page, placement: ImpositionPlacement) =>
-  pageValue.size === 'fluid'
+  pageValue.size.width === 'full'
     ? JSON.stringify([
         page,
         placement.bleedBox.width,
@@ -33,12 +42,12 @@ const geometryKey = (page: number, pageValue: Page, placement: ImpositionPlaceme
       ])
     : String(page)
 
-export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover'): PieceGroup[] {
+export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover', pageWidths?: PageWidths): PieceGroup[] {
   const groups = new Map<string, PieceGroup>()
   for (const placement of imposed.placements) {
     const page = pages[placement.page]
     if (!page) throw new RangeError(`The placement names missing page ${placement.page}.`)
-    const fit = fitPage(page, placement, mode)
+    const fit = fitPage(page, placement, mode, pageWidths)
     const layout = pagePlacementLayout(page.size, placement, fit)
     const key = geometryKey(placement.page, page, placement)
     const group = groups.get(key) ?? { key, page: placement.page, placements: [] }

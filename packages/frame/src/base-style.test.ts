@@ -42,6 +42,10 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){z-index:2}')
   })
 
+  test('a named flowing page caps and centers with logical geometry', () => {
+    expect(BASE_CSS).toContain('max-inline-size:var(--segnavia-page-measure);margin-inline:auto')
+  })
+
   test('turn motion uses only geometry and opacity with the duration custom property', () => {
     expect(BASE_CSS).toContain('transition-property:opacity,translate')
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration)')

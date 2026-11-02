@@ -6,10 +6,11 @@ something else.
 
 | Term | Meaning |
 |---|---|
-| **Page** | Self-contained HTML at any size, designed for viewing on screen: fluid (the viewer's width, normally as tall as its content, or bounded), a fixed width and height, or a fixed width that grows with its content. |
+| **Page** | Self-contained HTML at any size, designed for viewing on screen: a flowing width, a fixed width and height, or an exact width that grows with its content. |
+| **Flowing width** | A page width that grows with its content: `full` follows the viewer, `standard` caps and centers at 1024 CSS pixels, `wide` caps and centers at 1440 CSS pixels, and a number is an exact width. Named caps reflow below their measure. A host may override the two named measures. Legacy `fluid` page data reads as `full`. |
 | **Cover** | A page with scripts refused and no bleed, safe area or marks, designed to represent an asset at thumbnail size. Its sheet follows its print setting and defaults to 160 × 100 mm when that setting is absent. |
 | **Designed cover** | An optional custom cover supplied by a host for an asset. A host-kept picture of that cover is preferred, followed by drawing its page live in a script-refusing frame; when the cover is absent, the asset keeps its existing cover or thumbnail behavior unchanged. |
-| **Bounded** | A fluid `<segnavia-page>` with `bounded` takes the box the host sizes and scrolls inside its own frame. Fixed pages ignore it. |
+| **Bounded** | A `full` `<segnavia-page>` with `bounded` takes the box the host sizes and scrolls inside its own frame. Fixed and measured pages ignore it. |
 | **Print** | An optional setting on a page: a paper (named or custom, in mm, inches or points), an orientation, margins, bleed, safe area and marks. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
 | **Named paper** | A trim preset: `letter`, `legal`, `tabloid`, `a0`–`a6`, `dl`, `half-letter`, `business-card-us`, `business-card-eu`, `business-card-square-us`, `business-card-slim-us`, `postcard-4x6`, `postcard-5x7`, `postcard-6x9`, `postcard-6x11`, `card-square-4in`, `rack-card-4x9`, `rack-card-3.5x8.5`, `poster-12x18`, `poster-16x20`, `poster-18x24` or `poster-24x36`. Names carry a size or region because printers use “standard”, “large” and “euro” for different sizes. |
 | **Trim** | The finished size of a printed page after cutting. It is the print setting's paper. |

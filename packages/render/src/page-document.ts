@@ -45,7 +45,7 @@ export async function prepareRenderedPage(
   purpose: 'screen' | 'print' = 'print',
 ) {
   const page = Page.parse(input)
-  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose)
+  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references)
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'

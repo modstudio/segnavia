@@ -1,4 +1,4 @@
-import type { FontFace, FontSource, OmittedImpositionMark } from '@segnavia/format'
+import type { FontFace, FontSource, OmittedImpositionMark, PageWidths } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -73,6 +73,7 @@ export interface RenderOptions {
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: SlotPrintOptions
   placements?: PlacementsOptions
+  pageWidths?: PageWidths
   effects?:
     | false
     | {

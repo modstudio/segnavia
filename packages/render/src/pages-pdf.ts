@@ -37,7 +37,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
   const imposed = impose(imposition, pages.length)
   const marks = impositionMarks(imposition)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
-  const groups = groupPieces(pages, imposed, imposition.fit)
+  const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const properties = printProperties(imposition, imposition.unit)
   const hostCss = `${services.fontFaces(opts)}${opts.css ?? ''}`
   const rendered = await Promise.all(

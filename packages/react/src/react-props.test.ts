@@ -87,6 +87,11 @@ describe('React element prop wiring', () => {
     [ELEMENTS.paper, 'fonts'],
     [ELEMENTS.thumbnail, 'fonts'],
     [ELEMENTS.document, 'fonts'],
+    [ELEMENTS.page, 'pageWidths'],
+    [ELEMENTS.paper, 'pageWidths'],
+    [ELEMENTS.document, 'pageWidths'],
+    [ELEMENTS.book, 'pageWidths'],
+    [ELEMENTS.thumbnail, 'pageWidths'],
   ] as const)('removes and replaces the %s object property', (descriptor, property) => {
     const element = new FakeElement() as unknown as HTMLElement & Record<string, unknown>
     const first = { value: 1 }

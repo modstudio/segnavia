@@ -257,6 +257,18 @@ describe('fitPage', () => {
     expect(fit.scale).toBeCloseTo((100 * PX_PER_MM) / 400)
   })
 
+  test('a named width caps, centers, reflows, and honors its override', () => {
+    const wideTrim = placement({ trim: { x: 10, y: 20, width: 600, height: 50 } })
+    const capped = fitPage({ size: { width: 'standard', height: 'auto' } }, wideTrim, 'contain', { standard: 900 })
+    expect(capped).toMatchObject({ flow: true, width: 900, scale: 1 })
+    expect(capped.x).toBeCloseTo(10 + (600 - 900 / PX_PER_MM) / 2, 2)
+    expect(fitPage({ size: { width: 'wide', height: 'auto' } }, placement(), 'contain')).toMatchObject({
+      width: 100 * PX_PER_MM,
+      scale: 1,
+      x: 10,
+    })
+  })
+
   test('contain centers wide and tall pages with bands on the other axis', () => {
     expect(fitPage({ size: { width: 400, height: 100 } }, placement(), 'contain')).toMatchObject({ x: 10, y: 32.5, bands: { inline: 0, block: 12.5 } })
     expect(fitPage({ size: { width: 100, height: 400 } }, placement(), 'contain')).toMatchObject({ x: 53.75, y: 20, bands: { inline: 43.75, block: 0 } })
