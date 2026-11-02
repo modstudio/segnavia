@@ -82,16 +82,22 @@ export async function renderOptionsWithBookFonts(
   return { options, fontCss: css }
 }
 
-export function resolvedPageDocument(page: HtmlPage, css: string, options: Pick<RenderOptions, 'dependencyOrigins'>): string {
-  const nonce = newNonce()
+interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins'> {
+  nonce?: string
+  relayKeys?: boolean
+  reportHeight?: boolean
+}
+
+export function resolvedPageDocument(page: HtmlPage, css: string, options: ResolvedPageDocumentOptions): string {
+  const nonce = options.nonce ?? newNonce()
   return frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
     scripts: page.scripts,
     nonce,
     dir: page.dir,
     lang: page.lang,
     css,
-    relayKeys: false,
-    reportHeight: false,
+    relayKeys: options.relayKeys ?? false,
+    reportHeight: options.reportHeight ?? false,
     dependencyOrigins: options.dependencyOrigins,
   })
 }
@@ -106,15 +112,5 @@ export function renderPageDocument(input: PageInput, options: RenderOptions, pri
   const hostCss = `${page.print ? printCss(page.print) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-  const heldNonce = nonce ?? newNonce()
-  return frameDocument(withDiagramScript(page.html, heldNonce, diagramScript), {
-    scripts: page.scripts,
-    nonce: heldNonce,
-    dir: page.dir,
-    lang: page.lang,
-    css,
-    relayKeys: false,
-    reportHeight: false,
-    dependencyOrigins: options.dependencyOrigins,
-  })
+  return resolvedPageDocument(page, css, { dependencyOrigins: options.dependencyOrigins, nonce, relayKeys: false, reportHeight: false })
 }

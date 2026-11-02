@@ -1,18 +1,31 @@
+import { firstStrongDirection, textDirection } from '@segnavia/format'
 import mermaidBundle from 'mermaid/dist/mermaid.min.js' with { type: 'text' }
+import { DIAGRAM_ERROR_ATTRIBUTE, DIAGRAM_FAILED_ATTRIBUTE, DIAGRAM_ID_PREFIX, DIAGRAM_READY_NAME, DIAGRAM_SELECTOR } from './diagram-document.ts'
 
 export { hasDiagram, withDiagramScript } from './diagram-document.ts'
 
-const runtime = String.raw`;(function(){
+export function diagramErrorFirstLine(error: unknown): string {
+  const message = error && typeof (error as { message?: unknown }).message === 'string' ? (error as { message: string }).message : String(error)
+  return message.split(/\r?\n/, 1)[0] || 'Diagram could not be drawn.'
+}
+
+export function diagramLabelDirection(text: string): 'ltr' | 'rtl' {
+  return firstStrongDirection(text) ?? 'ltr'
+}
+
+const runtime = `;(function(){
 var root=document.documentElement;
-var firstLine=function(error){var message=error&&typeof error.message==='string'?error.message:String(error);return message.split(/\r?\n/,1)[0]||'Diagram could not be drawn.';};
-var direction=function(text){return /^[^A-Za-z\u0590-\u08ff]*[\u0590-\u08ff]/.test(text)?'rtl':'ltr';};
-var fail=function(element,error){element.setAttribute('data-segnavia-diagram-failed','');var message=document.createElement('samp');message.setAttribute('data-segnavia-diagram-error','');message.textContent=firstLine(error);element.append(message);};
-window.__segnaviaDiagramReady=(async function(){
+${textDirection.toString()}
+${firstStrongDirection.toString()}
+${diagramErrorFirstLine.toString()}
+${diagramLabelDirection.toString()}
+var fail=function(element,error){element.setAttribute(${JSON.stringify(DIAGRAM_FAILED_ATTRIBUTE)},'');var message=document.createElement('samp');message.setAttribute(${JSON.stringify(DIAGRAM_ERROR_ATTRIBUTE)},'');message.textContent=diagramErrorFirstLine(error);element.append(message);};
+window[${JSON.stringify(DIAGRAM_READY_NAME)}]=(async function(){
 mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels:false});
-var nodes=Array.prototype.slice.call(document.querySelectorAll('[data-segnavia-diagram="mermaid"]'));
+var nodes=Array.prototype.slice.call(document.querySelectorAll(${JSON.stringify(DIAGRAM_SELECTOR)}));
 for(var index=0;index<nodes.length;index++){
 var element=nodes[index];var source=element.querySelector('code');var text=source?source.textContent:element.textContent;
-try{var id='segnavia-diagram-'+index;var drawn=await mermaid.render(id,text||'');element.innerHTML=drawn.svg;var labels=element.querySelectorAll('text');for(var labelIndex=0;labelIndex<labels.length;labelIndex++){var label=labels[labelIndex];label.setAttribute('direction',direction(label.textContent||''));label.style.unicodeBidi='plaintext';}if(drawn.bindFunctions)drawn.bindFunctions(element);}catch(error){var artifact=document.getElementById('segnavia-diagram-'+index);if(artifact&&artifact.parentElement&&!artifact.closest('[data-segnavia-diagram]'))artifact.parentElement.remove();fail(element,error);}
+try{var id=${JSON.stringify(DIAGRAM_ID_PREFIX)}+index;var drawn=await mermaid.render(id,text||'');element.innerHTML=drawn.svg;var labels=element.querySelectorAll('text');for(var labelIndex=0;labelIndex<labels.length;labelIndex++){var label=labels[labelIndex];label.setAttribute('direction',diagramLabelDirection(label.textContent||''));label.style.unicodeBidi='plaintext';}if(drawn.bindFunctions)drawn.bindFunctions(element);}catch(error){var artifact=document.getElementById(${JSON.stringify(DIAGRAM_ID_PREFIX)}+index);if(artifact&&artifact.parentElement&&!artifact.closest(${JSON.stringify(DIAGRAM_SELECTOR)}))artifact.parentElement.remove();fail(element,error);}
 }
 root.setAttribute('data-segnavia-diagrams-drawn','');
 })().catch(function(){root.setAttribute('data-segnavia-diagrams-drawn','');});

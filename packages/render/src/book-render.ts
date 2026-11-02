@@ -6,7 +6,7 @@ import {
   bookDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
+import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -86,7 +86,7 @@ function printBook(
       scripts: paginated || (!marginLayer && book.scripts === 'sandboxed'),
       html: srcdoc,
       slots: preparedSlotsFor(book),
-      waitForReady: !paginated && !marginLayer && book.scripts === 'sandboxed' && renderOptions.waitForPageReady !== false,
+      waitForReady: !paginated && ((!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html)) && renderOptions.waitForPageReady !== false,
       boundMs: renderOptions.boundMs,
       beforeOutput: paginated
         ? async (tab) => {

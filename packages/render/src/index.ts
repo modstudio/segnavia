@@ -1,4 +1,5 @@
 import { Book, Cover, type Deck, Page } from '@segnavia/format'
+import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type HtmlPage, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
@@ -159,7 +160,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots: preparedSlotsFor(page),
         html: renderedPageDocument(page, opts, true),
-        waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+        waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
@@ -201,7 +202,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots: preparedSlotsFor(page),
         html,
-        waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+        waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
@@ -271,7 +272,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             slots: preparedSlotsFor(page),
             scale: opts.scale,
             html: renderedPageDocument(page, prepared.options),
-            waitForReady: page.scripts === 'sandboxed' && opts.waitForPageReady !== false,
+            waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,

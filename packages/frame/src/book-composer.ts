@@ -21,6 +21,7 @@ import {
   windowPageIndex,
 } from '@segnavia/html'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageScale, spreadSlots } from './book-presentation.ts'
+import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 export const BOOK_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const BOOK_COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
@@ -157,7 +158,7 @@ var measuredLineCount=function(input){var count=0;for(var i=0;i<input.flows.leng
 var nextAnimationFrame=function(){return new Promise(function(resolve){if(window.requestAnimationFrame)window.requestAnimationFrame(resolve);else setTimeout(resolve,0);});};
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
-Promise.all([loaded,window.__segnaviaDiagramReady||null,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
+Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=null;
 var composeWhenMeasurable=function(){

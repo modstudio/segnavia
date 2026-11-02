@@ -6,7 +6,7 @@ import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
-import { hasDiagram, loadDiagramScript } from './diagram-document.ts'
+import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -23,7 +23,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private layoutFallbacks = new Map<BookLayout, BookLayout>()
   private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
-  private diagramDrawingScript: string | undefined
+  private diagramDrawing = { script: undefined as string | undefined, settled: false }
   private reflectingLayout = false
   private loadGeneration = 0
   private loadController: AbortController | null = null
@@ -254,7 +254,7 @@ export class SegnaviaBook extends BookSourcesElement {
         spread: this.spread,
         layout,
         dependencyOrigins: this.dependencyOrigins,
-        diagramScript: this.diagramDrawingScript,
+        diagramScript: this.diagramDrawing.script,
       }),
       layout,
     )
@@ -269,19 +269,19 @@ export class SegnaviaBook extends BookSourcesElement {
     this.resolvedFontCss = css
     if (!view.pagination) {
       this.replaceChildren(
-        this.mountFrame(bookFrame(view, { css, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawingScript })),
+        this.mountFrame(bookFrame(view, { css, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script })),
       )
       return
     }
     const pages = this.mountFrame(
-      bookFrame(view, { css, spread: this.spread, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawingScript }),
+      bookFrame(view, { css, spread: this.spread, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script }),
       'pages',
     )
     const frames = [pages]
     if (layout === 'flow' && view.flow)
       frames.push(
         this.mountFrame(
-          bookFrame(view, { css, spread: this.spread, layout: 'flow', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawingScript }),
+          bookFrame(view, { css, spread: this.spread, layout: 'flow', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script }),
           'flow',
         ),
       )
@@ -314,12 +314,12 @@ export class SegnaviaBook extends BookSourcesElement {
   private mount() {
     const view = this.currentView
     if (!view) return
-    const diagramHtml = `${view.html}${view.flow ?? ''}`
-    if (hasDiagram(diagramHtml) && !this.diagramDrawingScript) {
+    if (hasDiagram(`${view.html}${view.flow ?? ''}`) && !this.diagramDrawing.settled) {
       const diagramGeneration = this.loadGeneration
-      void loadDiagramScript(diagramHtml).then((script) => {
+      void loadDiagramScriptResult(`${view.html}${view.flow ?? ''}`).then(({ script, error }) => {
         if (diagramGeneration !== this.loadGeneration || !this.isConnected) return
-        this.diagramDrawingScript = script
+        this.diagramDrawing = { script, settled: true }
+        if (error) bookElement.reportBookError(this, error)
         this.mount()
       })
       return

@@ -35,7 +35,7 @@ describe('bodyHtml', () => {
         return '# Shared pass'
       },
     })
-    expect(bodyHtml(body)).toContain('id="shared-pass"')
+    expect(bodyHtml(body, { dir: 'rtl', lang: 'he' })).toContain('id="shared-pass"')
     const afterHtml = reads
     expect(markdownOutline(body)).toEqual([{ id: 'shared-pass', level: 1, title: 'Shared pass' }])
     expect(reads).toBe(afterHtml)

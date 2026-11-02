@@ -259,12 +259,18 @@ function markdownResult(body: Extract<PageBody, { markdown: string }>, options: 
   return result
 }
 
+function outlinedMarkdownResult(body: Extract<PageBody, { markdown: string }>): MarkdownResult {
+  const existing = memo.get(body)?.values().next().value
+  return existing ?? markdownResult(body, {})
+}
+
 export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string {
   return 'html' in body ? body.html : markdownResult(body, options).html
 }
 
 export function markdownOutline(markdown: string | Extract<PageBody, { markdown: string }>): MarkdownHeading[] {
-  return markdownResult(typeof markdown === 'string' ? { markdown } : markdown, {}).outline
+  const body = typeof markdown === 'string' ? { markdown } : markdown
+  return outlinedMarkdownResult(body).outline
 }
 
 export type HtmlPage = Omit<Page, 'body'> & { html: string }

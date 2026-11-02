@@ -190,6 +190,7 @@ export class SegnaviaPage extends HTMLElement {
           this.cancelPostedSelectionRequests()
           this.writeDocument(iframe, document)
         },
+        report,
       )
     }
     const report = (error: unknown) => {
@@ -218,6 +219,7 @@ export class SegnaviaPage extends HTMLElement {
           if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
           this.writeDocument(iframe, document)
         },
+        report,
       )
       const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
       if (refusal) report(refusal)

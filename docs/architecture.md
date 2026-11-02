@@ -118,9 +118,12 @@ The sandbox and bridge message set are unchanged.
 Mermaid placeholders are drawn inside their sandboxed frame by the library's
 nonce-authorized script, with author scripts still refused. The exact Mermaid
 bundle is wholly inlined so screen, browser print and server rendering stay
-offline. It loads only when the final body contains a diagram placeholder;
-plain documents carry none of it. The Mermaid 12.2.0 script plus the drawing
-adapter measures 5,496,532 bytes minified and 1,600,579 bytes gzip. Drawing
+offline. It loads only when the final body contains a
+`pre[data-segnavia-diagram="mermaid"]` placeholder, whether that body came from
+markdown conversion or was supplied as HTML; plain documents carry none of it.
+The shipped `diagramScript` export in `dist/diagrams.js`, containing Mermaid
+12.2.0 and the drawing adapter, measures 5,497,505 bytes minified and 1,600,941
+bytes gzip. Drawing
 settles before bridge readiness and before book or printed-page composition.
 Each diagram is rendered independently, its SVG text resolves its own
 direction, and a parse failure leaves the source with the parser's first
