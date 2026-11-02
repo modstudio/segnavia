@@ -14,7 +14,7 @@ test('idmlAssetFrom resolves each supplied URI once into a synchronous asset map
     ['held.ai', 'held.ai', 'missing.ai'],
     { purpose: 'print', width: 600, signal },
   )
-  expect(map('held.ai')).toBe('data:image/svg+xml,%3Csvg/%3E')
+  expect(map('held.ai')).toBe('<img src="data:image/svg+xml,%3Csvg/%3E" alt="">')
   expect(map('missing.ai')).toBeUndefined()
   expect(calls).toEqual([
     { placement: { kind: 'media', address: 'held.ai' }, context: { purpose: 'print', width: 600, signal } },

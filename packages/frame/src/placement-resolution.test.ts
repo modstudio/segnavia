@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Book, BookView, FLUID_WIDTH, Page, paperPixels, sheetMm } from '@segnavia/format'
+import { Book, BookView, FLUID_WIDTH, isChapter, Page, paperPixels, sheetMm } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
 import { expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
@@ -31,12 +31,40 @@ test('Book preparation resolves placed media through the book PDF field path', a
 })
 
 test('placed page entries become designed sections before the book is built', async () => {
-  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'page/one' } }] })
+  const book = Book.parse({
+    title: 'Placed',
+    mode: 'continuous',
+    chapters: [{ kind: 'placed', title: 'Placed page', contents: false, opens: 'recto', placement: { kind: 'page', address: 'page/one' } }],
+  })
   const expanded = await expandFrameBook(book, undefined, signal, {
     resolve: async () => ({ kind: 'page', page: Page.parse({ html: '<p>Resolved page</p>', size: { width: 320, height: 200 } }) }),
   })
   expect(bookDocument(expanded.book).html).toContain('<p>Resolved page</p>')
-  expect(expanded.book.body[0]).toMatchObject({ kind: 'designed', pages: [{ html: '<p>Resolved page</p>' }] })
+  expect(expanded.book.body[0]).toMatchObject({
+    kind: 'designed',
+    title: 'Placed page',
+    contents: false,
+    opens: 'recto',
+    pages: [{ html: '<p>Resolved page</p>' }],
+  })
+})
+
+test('a live placed entry without placements holds its page with a placeholder', async () => {
+  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const expanded = await expandFrameBook(book, undefined, signal)
+  expect(bookDocument(expanded.book).html).toContain('data-segnavia-placement="missing"')
+})
+
+test('print refuses the first placed entry when placements are absent', async () => {
+  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  await expect(expandFrameBook(book, undefined, signal, undefined, 'print')).rejects.toThrow(
+    'body.0 is a placed entry; pass placements to resolve placed entries',
+  )
+})
+
+test('a placed section is not a chapter', () => {
+  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  expect(isChapter(book.body[0] as never)).toBe(false)
 })
 
 test('placed media entries use image resolution and missing reporting', async () => {
@@ -50,8 +78,8 @@ test('placed media entries use image resolution and missing reporting', async ()
 test('chooses placement widths from print, fluid, fixed, and paginated book viewports', async () => {
   const widths: number[] = []
   const capture = {
-    resolve: async (_placement: unknown, context: { width: number }) => {
-      widths.push(context.width)
+    resolve: async (_placement: unknown, context: { width?: number }) => {
+      if (context.width !== undefined) widths.push(context.width)
       return { kind: 'media' as const, media: { format: 'png' as const, size: { width: 20, height: 10 } }, src }
     },
   }

@@ -11,7 +11,7 @@ export const PLACEMENT_ACCEPTS = {
   paper: ['media'],
 } as const
 
-export const AssetKind = z.enum(['deck', 'page', 'paper', 'book', 'media', 'shot'])
+export const AssetKind = z.enum(PLACEMENT_ACCEPTS.board)
 export type AssetKind = z.infer<typeof AssetKind>
 export type PlacementContainer = keyof typeof PLACEMENT_ACCEPTS
 

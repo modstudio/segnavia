@@ -62,12 +62,15 @@ export {
   renderMotifPlacements,
 } from './motifs.ts'
 export {
+  classifyMediaAnswer,
+  type MediaAnswer,
   PLACEMENT_ATTRIBUTES,
   type PlacementPlan,
   type PlacementPlanEntry,
   type PlacementRefusal,
   type PlacementReport,
   type PlacementsOptions,
+  placementCropEdges,
   placementPlaceholderSource,
   placementPlan,
   type ResolvedPlacement,

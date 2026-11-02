@@ -8,7 +8,7 @@ const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEME
 export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: Page }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
-  context: { purpose: 'screen' | 'print'; width: number; signal: AbortSignal },
+  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal },
 ) => Promise<R | undefined>
 
 export interface PlacementPlanEntry {
@@ -42,6 +42,31 @@ export type PlacementReport = (entry: {
 export interface PlacementsOptions<R extends { kind: string } = ResolvedPlacement> {
   resolve: ResolvePlacement<R>
   report?: PlacementReport
+}
+
+type ResolvedMedia = Extract<ResolvedPlacement, { kind: 'media' }>
+export type MediaAnswer =
+  | { status: 'ok'; value: ResolvedMedia }
+  | { status: 'missing' | 'refused-src'; message?: undefined }
+  | { status: 'invalid'; message: string }
+  | { status: 'failed'; message: string }
+
+export function classifyMediaAnswer(input: { answer: { kind: string } | undefined }): Exclude<MediaAnswer, { status: 'failed' }>
+export function classifyMediaAnswer(input: { error: unknown }): Extract<MediaAnswer, { status: 'failed' }>
+export function classifyMediaAnswer(input: { answer: { kind: string } | undefined } | { error: unknown }): MediaAnswer {
+  if ('error' in input) return { status: 'failed', message: input.error instanceof Error ? input.error.message : String(input.error) }
+  const answer = input.answer
+  if (!answer) return { status: 'missing' }
+  if (answer.kind !== 'media' || !('src' in answer) || !('media' in answer)) {
+    return { status: 'invalid', message: `resolved ${answer.kind}, not media` }
+  }
+  const media = answer as ResolvedMedia
+  return safeImageSource(media.src) ? { status: 'ok', value: media } : { status: 'refused-src' }
+}
+
+export function placementCropEdges(crop: PlacementValue['crop']): string | undefined {
+  if (!crop) return undefined
+  return `${crop.top ?? 0} ${crop.right ?? 0} ${crop.bottom ?? 0} ${crop.left ?? 0}`
 }
 
 function positiveInteger(value: string | undefined): number | undefined {
@@ -123,7 +148,7 @@ function placeholder(element: Element): void {
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 
-function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: Extract<ResolvedPlacement, { kind: 'media' }>): void {
+function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: ResolvedMedia): void {
   element.attribs.src = resolved.src
   if (entry.alt === undefined && resolved.media.alt) {
     element.attribs.alt = resolved.media.alt.text
@@ -132,17 +157,13 @@ function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: Ex
       element.attribs.dir = mediaTextDirection(resolved.media.alt)
     }
   }
-  const crop = entry.placement.crop
+  const crop = placementCropEdges(entry.placement.crop)
   if (crop) {
-    const declaration = `object-view-box: inset(${crop.top ?? 0} ${crop.right ?? 0} ${crop.bottom ?? 0} ${crop.left ?? 0})`
+    const declaration = `object-view-box: inset(${crop})`
     const authored = element.attribs.style?.trim()
     element.attribs.style = authored ? `${authored.replace(/;?$/, ';')} ${declaration}` : declaration
   }
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
-}
-
-function isResolvedMedia(value: { kind: string }): value is Extract<ResolvedPlacement, { kind: 'media' }> {
-  return value.kind === 'media' && 'src' in value && 'media' in value
 }
 
 function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
@@ -195,24 +216,26 @@ export async function resolvePlacements<R extends { kind: string }>(
           options.signal,
         )
         options.signal.throwIfAborted()
-        if (!resolved) {
+        const classified = classifyMediaAnswer({ answer: resolved })
+        if (classified.status === 'ok') applyResolved(element, entry, classified.value)
+        else {
           placeholder(element)
-          options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'missing' })
-        } else if (!isResolvedMedia(resolved)) {
-          placeholder(element)
-          options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'invalid', message: `resolved ${resolved.kind}, not media` })
-        } else if (!safeImageSource(resolved.src)) {
-          placeholder(element)
-          options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: 'refused-src' })
-        } else applyResolved(element, entry, resolved)
+          options.report?.({
+            address: entry.placement.address,
+            page: entry.placement.page,
+            reason: classified.status,
+            ...(classified.message === undefined ? {} : { message: classified.message }),
+          })
+        }
       } catch (error) {
         if (options.signal.aborted) throw options.signal.reason
+        const classified = classifyMediaAnswer({ error })
         placeholder(element)
         options.report?.({
           address: entry.placement.address,
           page: entry.placement.page,
-          reason: 'failed',
-          message: error instanceof Error ? error.message : String(error),
+          reason: classified.status,
+          message: classified.message,
         })
       }
     }),

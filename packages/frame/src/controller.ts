@@ -5,6 +5,7 @@ import { stateForDeckLoad } from './controller-load.ts'
 import { prefetchControllerNeighbors, syncControllerHash } from './controller-navigation.ts'
 import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { handleControllerPageKey } from './controller-page-key.ts'
+import { replacePlacementLifetime, setPlacementOptions } from './controller-placement-options.ts'
 import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
@@ -27,6 +28,7 @@ export class DeckController extends EventTarget {
   private refreshing: Promise<ContentRefreshResult> | null = null
   private shots = new Map<string, Promise<PublishedShot>>()
   private prefetched = new Map<string, Promise<ResolvedContent>>()
+  private placementLifetime = new AbortController()
   private lastCue = ''
   private presented: HTMLElement | null = null
   private bodyOverflow = ''
@@ -64,9 +66,11 @@ export class DeckController extends EventTarget {
     return this.options.resolveSlide
   }
   set placements(value: ControllerOptions['placements']) {
-    this.options.placements = value
+    if (!setPlacementOptions(this.options, value, this.current.deck, this.prefetched)) return
+    void this.show(this.current.index).catch((error) => navigationError(this, this.current.playing, this.current.index, error))
   }
   destroy() {
+    this.placementLifetime.abort()
     this.stopPresenting()
     this.stopClock()
     this.disconnectWindow()
@@ -92,16 +96,15 @@ export class DeckController extends EventTarget {
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
   }
-
   async [internalDeckLoad](input: Deck): Promise<void> {
     await this.loadDeck(input, undefined, true)
   }
-
   private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
     if (guarded) await guarded
     if (base) this.options.base = base
     const deck = parseDeckLoad(input, guarded, internal)
+    this.placementLifetime = replacePlacementLifetime(this.placementLifetime)
     this.prefetched.clear()
     this.shots.clear()
     const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, this.hashIndex(deck))
@@ -245,7 +248,6 @@ export class DeckController extends EventTarget {
     this.persistSettings()
     this.emit()
   }
-
   toggle(): Promise<void> | void {
     return this.current.playing ? this.pause() : this.play()
   }
@@ -315,9 +317,9 @@ export class DeckController extends EventTarget {
       this.shots,
       this.options.placements,
       this.current.deck?.size.width ?? 1280,
+      this.placementLifetime.signal,
     )
   }
-
   url(path: string): string {
     return new URL(path, this.options.base ?? (hasWindow ? location.href : undefined)).href
   }

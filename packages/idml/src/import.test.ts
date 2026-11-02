@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { fontReferenceRefusals } from '@segnavia/html'
+import { idmlAssetFrom } from './asset-from-placement.ts'
 import { importIdml } from './import.ts'
 import { testZip } from './zip.test-helper.ts'
 
@@ -271,6 +272,17 @@ describe('importIdml', () => {
     expect(result.report.links).toEqual([{ uri: 'file:/ornament.ai', locations: expect.any(Array) }])
     expect(result.report.links[0]?.locations).toHaveLength(2)
     expect(result.report.unsupportedElements).toMatchObject({ Rectangle: 1, Oval: 1 })
+
+    const src = 'data:image/svg+xml,%3Csvg/%3E'
+    const asset = await idmlAssetFrom(
+      async () => ({ kind: 'media', media: { format: 'svg', size: { width: 20, height: 20 }, alt: { text: 'Ornament' } }, src }),
+      ['file:/ornament.ai'],
+      { purpose: 'print', width: 20, signal: new AbortController().signal },
+    )
+    const adapted = await importIdml(bytes, { asset })
+    const adaptedChapter = adapted.book.body[0]
+    const adaptedHtml = adaptedChapter && 'html' in adaptedChapter ? (adaptedChapter.html ?? '') : ''
+    expect(adaptedHtml).toContain(`<img src="${src}" alt="Ornament">`)
   })
 
   test('keeps an unresolved opener link as an empty sized slot', async () => {

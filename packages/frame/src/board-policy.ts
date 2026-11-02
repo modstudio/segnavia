@@ -28,7 +28,8 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
 export type ResolvedAsset = ResolvedPlacement | Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>
-export type AssetPlacementsOptions = { resolve: ResolvePlacement<ResolvedAsset>; report?: PlacementReport }
+export type AssetResolver = ResolvePlacement<ResolvedAsset>
+export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }

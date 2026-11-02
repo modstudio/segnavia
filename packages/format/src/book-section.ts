@@ -175,7 +175,7 @@ export function isPlacedSection(entry: BookItem): entry is PlacedSection {
 }
 
 export function isChapter(entry: BookChapterEntry): entry is Chapter {
-  return !isDesignedSection(entry) && !isTemplatedSection(entry)
+  return !isDesignedSection(entry) && !isTemplatedSection(entry) && !isPlacedSection(entry)
 }
 
 interface NamedSection {

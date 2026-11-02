@@ -1,7 +1,7 @@
 import { Book, Cover, type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
-import { printableDeck } from '@segnavia/frame/print-document'
+import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import type { PreparedSlots } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
@@ -351,7 +351,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(deck, index, opts = {}) {
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const preparedDeck = await filledDeck(deck, opts.slots, deadline.signal)
+        const filled = await filledDeck(deck, opts.slots, deadline.signal)
+        const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal)
         const slide = preparedDeck.slides[index]
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
         const single: Deck = { ...preparedDeck, slides: [slide] }

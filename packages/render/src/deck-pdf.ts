@@ -17,6 +17,7 @@ import {
   type PrintOptions,
   paginateNotes,
   printableDeck,
+  resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
@@ -247,9 +248,10 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
-  if (!opts.imposition) return regularDeckPdf(deck, opts, services)
+  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', services.signal ?? AbortSignal.any([]))
+  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, services)
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
-  return imposedDeckPdf(deck, Imposition.parse(opts.imposition), opts, services)
+  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, services)
 }
