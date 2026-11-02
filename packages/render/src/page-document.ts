@@ -3,7 +3,7 @@ import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
@@ -80,6 +80,20 @@ export async function renderOptionsWithBookFonts(
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { options, fontCss: css }
+}
+
+export function resolvedPageDocument(page: HtmlPage, css: string, options: Pick<RenderOptions, 'dependencyOrigins'>): string {
+  const nonce = newNonce()
+  return frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
+    scripts: page.scripts,
+    nonce,
+    dir: page.dir,
+    lang: page.lang,
+    css,
+    relayKeys: false,
+    reportHeight: false,
+    dependencyOrigins: options.dependencyOrigins,
+  })
 }
 
 export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {

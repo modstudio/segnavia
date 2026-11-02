@@ -115,6 +115,17 @@ The generated overflow style is zero-specificity geometry with logical
 properties; print constrains tables to the page and wraps preformatted text.
 The sandbox and bridge message set are unchanged.
 
+Mermaid placeholders are drawn inside their sandboxed frame by the library's
+nonce-authorized script, with author scripts still refused. The exact Mermaid
+bundle is wholly inlined so screen, browser print and server rendering stay
+offline. It loads only when the final body contains a diagram placeholder;
+plain documents carry none of it. The Mermaid 12.2.0 script plus the drawing
+adapter measures 5,496,532 bytes minified and 1,600,579 bytes gzip. Drawing
+settles before bridge readiness and before book or printed-page composition.
+Each diagram is rendered independently, its SVG text resolves its own
+direction, and a parse failure leaves the source with the parser's first
+message line instead of delaying readiness.
+
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset
 type.

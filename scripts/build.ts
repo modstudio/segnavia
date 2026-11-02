@@ -1,6 +1,6 @@
 // Builds every installable artifact.
 
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES } from '../architecture.ts'
 
@@ -12,5 +12,10 @@ async function run(command: string[]): Promise<void> {
 }
 
 await run(['bunx', 'tsdown'])
+const { diagramScript } = await import('../packages/frame/src/diagrams.ts')
+writeFileSync(
+  path.join(ROOT, 'packages/frame/dist/diagrams.js'),
+  `export { hasDiagram, withDiagramScript } from './diagram-document.js';\nexport const diagramScript=${JSON.stringify(diagramScript)};\n`,
+)
 await run(['bunx', 'tsdown', '--config', 'tsdown.browser.config.ts'])
 for (const name of Object.keys(PACKAGES)) copyFileSync(path.join(ROOT, 'LICENSE'), path.join(ROOT, 'packages', name, 'LICENSE'))

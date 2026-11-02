@@ -6,7 +6,7 @@ import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
-import { loadDiagramScript } from './diagram-document.ts'
+import { hasDiagram, loadDiagramScript } from './diagram-document.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -311,12 +311,19 @@ export class SegnaviaBook extends BookSourcesElement {
     if (frame && this.readyLayouts.has(layout)) this.postLayout(frame, layout, place)
   }
 
-  private async mount() {
+  private mount() {
     const view = this.currentView
     if (!view) return
-    const diagramGeneration = this.loadGeneration
-    this.diagramDrawingScript = await loadDiagramScript(`${view.html}${view.flow ?? ''}`)
-    if (diagramGeneration !== this.loadGeneration || !this.isConnected) return
+    const diagramHtml = `${view.html}${view.flow ?? ''}`
+    if (hasDiagram(diagramHtml) && !this.diagramDrawingScript) {
+      const diagramGeneration = this.loadGeneration
+      void loadDiagramScript(diagramHtml).then((script) => {
+        if (diagramGeneration !== this.loadGeneration || !this.isConnected) return
+        this.diagramDrawingScript = script
+        this.mount()
+      })
+      return
+    }
     this.showRequestedLayout(view)
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {

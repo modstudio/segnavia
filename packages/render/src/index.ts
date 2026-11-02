@@ -1,6 +1,4 @@
 import { Book, Cover, type Deck, Page } from '@segnavia/format'
-import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type HtmlPage, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
@@ -19,7 +17,7 @@ import { fontFaces } from './font-faces.ts'
 import { dependencySetup, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts, resolvedPageDocument } from './page-document.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -196,17 +194,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   async function renderPiecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
-    const nonce = newNonce()
-    const html = frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
-      scripts: page.scripts,
-      nonce,
-      dir: page.dir,
-      lang: page.lang,
-      css: containFixedPageOverflow(css),
-      relayKeys: false,
-      reportHeight: false,
-      dependencyOrigins: opts.dependencyOrigins,
-    })
+    const html = resolvedPageDocument(page, containFixedPageOverflow(css), opts)
     return withTab(
       {
         viewport: geometry.viewport,

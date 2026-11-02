@@ -71,6 +71,8 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/styled-elements.ts',
       'src/icons.ts',
       'src/diagrams.ts',
+      'src/diagram-document.ts',
+      'src/page-document-loading.ts',
     ],
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
