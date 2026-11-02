@@ -7,19 +7,41 @@ import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
-// A page is designed for the screen at whatever size it needs: fluid (the
-// viewer's width, as tall as its content), a fixed sheet, or a fixed width
-// that grows with its content.
-export const FLUID_WIDTH = 1024
+// A page is designed for the screen at whatever size it needs: a flowing
+// measure, a fixed sheet, or an exact width that grows with its content.
+export const PAGE_WIDTHS = { standard: 1024, wide: 1440 } as const
+export const FULL_PAGE_SIZE = { width: 'full', height: 'auto' } as const
 
-export const PageSize = z.union([z.literal('fluid'), Size, z.object({ width: z.number().int().positive(), height: z.literal('auto') })])
+export const FlowingWidth = z.union([z.literal('full'), z.literal('standard'), z.literal('wide'), z.number().int().positive()])
+export type FlowingWidth = z.infer<typeof FlowingWidth>
+
+export const PageWidths = z.object({ standard: z.number().positive().optional(), wide: z.number().positive().optional() })
+export type PageWidths = z.infer<typeof PageWidths>
+
+const FlowingPageSize = z.object({ width: FlowingWidth, height: z.literal('auto') })
+const LegacyFluidPageSize = z.literal('fluid').transform(() => FULL_PAGE_SIZE)
+
+export const PageSize = z.union([LegacyFluidPageSize, Size, FlowingPageSize])
 export type PageSize = z.infer<typeof PageSize>
+
+export interface ResolvedPageWidth {
+  measure?: number
+  viewportWidth: number
+}
+
+export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): ResolvedPageWidth {
+  const width = size.width
+  if (typeof width === 'number') return { measure: width, viewportWidth: width }
+  if (width === 'full') return { viewportWidth: overrides.standard ?? PAGE_WIDTHS.standard }
+  const measure = overrides[width] ?? PAGE_WIDTHS[width]
+  return { measure, viewportWidth: measure }
+}
 
 export const Page = z
   .object({
     id: z.string().optional(),
     html: z.string(),
-    size: PageSize.default('fluid'),
+    size: PageSize.default(FULL_PAGE_SIZE),
     scripts: Scripts.default('refuse'),
     dir: Direction.optional(),
     lang: z.string().optional(),

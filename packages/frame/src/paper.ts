@@ -1,11 +1,12 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type SlotsOptions } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -25,6 +26,7 @@ export class SegnaviaPaper extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
+  private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private resolvedFontCss = ''
   private resolvedSlots: PreparedSlots | undefined
@@ -59,6 +61,18 @@ export class SegnaviaPaper extends HTMLElement {
   set placements(value: PlacementsOptions | undefined) {
     this.slotGeneration++
     this.placementOptions = value
+    if (this.imposed) this.paint()
+  }
+
+  get pageWidths(): PageWidths | undefined {
+    return this.widthOptions
+  }
+
+  set pageWidths(value: PageWidths | undefined) {
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
+    this.slotGeneration++
+    this.widthOptions = parsed
     if (this.imposed) this.paint()
   }
 
@@ -226,7 +240,7 @@ export class SegnaviaPaper extends HTMLElement {
       return
     }
     this.paintPlaceholder(imposed)
-    void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen')
+    void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen', this.widthOptions)
       .then(async (expanded) => {
         const css = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
         if (!current()) return
@@ -274,6 +288,7 @@ export class SegnaviaPaper extends HTMLElement {
         css: `${this.resolvedFontCss}${this.css}`,
         cspExtra: this.cspExtra,
         dependencyOrigins: this.dependencyOrigins,
+        pageWidths: this.widthOptions,
       },
       this.shownSide,
     )

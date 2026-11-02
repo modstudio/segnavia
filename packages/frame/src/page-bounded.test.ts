@@ -66,8 +66,8 @@ function pageHarness(size: Page['size'], bounded = false) {
   }
 }
 
-test('bounded keeps a measured fluid page in the host-sized box', () => {
-  const { page, sheet, height } = pageHarness('fluid', true)
+test('bounded keeps a measured full page in the host-sized box', () => {
+  const { page, sheet, height } = pageHarness({ width: 'full', height: 'auto' }, true)
   expect(page.dataset.height).toBeUndefined()
   height(640)
   expect(page.style.height).toBe('')
@@ -76,8 +76,8 @@ test('bounded keeps a measured fluid page in the host-sized box', () => {
   expect(page.dataset).toMatchObject({ height: '640', measured: '' })
 })
 
-test('a fluid page grows to its measured content without bounded', () => {
-  const { page, sheet, height } = pageHarness('fluid')
+test('a full page grows to its measured content without bounded', () => {
+  const { page, sheet, height } = pageHarness({ width: 'full', height: 'auto' })
   height(640)
   expect(sheet.style.height).toBe('640px')
   expect(page.style.height).toBe('640px')
@@ -91,8 +91,8 @@ test('a fixed page ignores bounded and keeps scaling', () => {
   expect(page.style.height).toBe('150px')
 })
 
-test('toggling bounded refits the same fluid frame without reloading it', () => {
-  const { page, frame, height } = pageHarness('fluid')
+test('toggling bounded refits the same full frame without reloading it', () => {
+  const { page, frame, height } = pageHarness({ width: 'full', height: 'auto' })
   height(640)
   const mounted = page.querySelector('iframe')
   page.bounded = true

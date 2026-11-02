@@ -6,6 +6,7 @@ import {
   boardBounds,
   itemAt,
   itemHeight,
+  type PageWidths,
   revealView,
   screenToBoard,
   visibleItems,
@@ -122,6 +123,9 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.placementOptions = value
     this.render()
   }
+  set pageWidths(value: PageWidths | undefined) {
+    if (this.painter.setPageWidths(value)) this.render()
+  }
   set fonts(value: FontsOptions | undefined) {
     this.painter.fonts = value
     this.render()
@@ -151,15 +155,12 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.fitInitial()
     if (dispatch) this.dispatchEvent(new CustomEvent('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
   }
-
   get view(): BoardView {
     return this.currentView
   }
-
   get kindIcon(): ((kind: BoardItemKind) => Node | null | undefined) | undefined {
     return this.chrome.kindIcon
   }
-
   set kindIcon(value: ((kind: BoardItemKind) => Node | null | undefined) | undefined) {
     this.chrome.kindIcon = value
     this.chrome.refresh()

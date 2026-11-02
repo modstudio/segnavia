@@ -8,6 +8,7 @@ import {
   isTemplatedSection,
   type MotifSource,
   type Page,
+  type PageWidths,
   PRINTED_PAGE_CONTEXT,
   printProperties,
   type SlotsOptions,
@@ -231,6 +232,7 @@ async function resolveBookShape<T extends Book | BookView>(
   placements: PlacementsOptions | undefined,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
+  pageWidths?: PageWidths,
 ): Promise<ExpandedBook<T>> {
   if (!placements) return expanded
   const shape = 'frontMatter' in expanded.book ? bookShape(expanded.book as Book) : viewShape(expanded.book as BookView)
@@ -240,7 +242,7 @@ async function resolveBookShape<T extends Book | BookView>(
         resolvePlacement: placements.resolve,
         report: placements.report,
         purpose,
-        width: bookPlacementWidth(shape.book),
+        width: bookPlacementWidth(shape.book, pageWidths),
         signal,
       }),
     ),
@@ -257,15 +259,16 @@ export async function expandFrameBook(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
 ): Promise<ExpandedBook<Book>> {
   const entriesResolved = await resolveBookEntries(book, placements, purpose, signal)
   const shape = bookShape(entriesResolved)
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return resolveBookShape({ book: entriesResolved, fonts: [] }, placements, purpose, signal)
+    return resolveBookShape({ book: entriesResolved, fonts: [] }, placements, purpose, signal, pageWidths)
   }
-  return resolveBookShape(await expandBookShape(shape, motifs, signal), placements, purpose, signal)
+  return resolveBookShape(await expandBookShape(shape, motifs, signal), placements, purpose, signal, pageWidths)
 }
 
 export async function expandFrameBookView(
@@ -273,9 +276,10 @@ export async function expandFrameBookView(
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
+  pageWidths?: PageWidths,
 ): Promise<ExpandedBook<BookView>> {
   const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal) : { book: view, fonts: [] }
-  return resolveBookShape(expanded, placements, 'screen', signal)
+  return resolveBookShape(expanded, placements, 'screen', signal, pageWidths)
 }
 
 export async function expandFramePage(
@@ -284,12 +288,13 @@ export async function expandFramePage(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage> {
   const regions = parentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    return { page: await resolvePagePlacements(page, placements, purpose, signal), fonts: [] }
+    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths), fonts: [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
   const result = await expandMotifs(page.html, {
@@ -335,7 +340,7 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal), fonts: summary.fonts }
+  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths), fonts: summary.fonts }
 }
 
 export function expandFramePages(
@@ -344,8 +349,9 @@ export function expandFramePages(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage[]> {
-  return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal, placements, purpose)))
+  return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal, placements, purpose, pageWidths)))
 }
 
 export async function prepareShownPage(
@@ -355,8 +361,9 @@ export async function prepareShownPage(
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
+  pageWidths?: PageWidths,
 ): Promise<{ page: Page; resolved?: PreparedSlots; css: string }> {
-  const expanded = await expandFramePage(page, motifs, signal, placements)
+  const expanded = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths)
   const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
   if (refusal) throw refusal
   const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined

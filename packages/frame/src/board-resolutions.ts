@@ -18,7 +18,7 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
     }
     if (answer.kind === 'page') {
       const size = answer.page.size
-      if (typeof size === 'string' || size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
+      if (size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
       return { kind: 'page', page: answer.page, size }
     }
     return answer

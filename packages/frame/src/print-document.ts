@@ -10,6 +10,7 @@ import {
   type ImpositionInput,
   impose,
   type Page,
+  PageWidths,
   type PrintInput,
   pagePlacementLayout,
   printPadding,
@@ -219,6 +220,7 @@ export interface PrintablePagesOptions {
   cspExtra?: string
   slots?: SlotsOptions
   dependencyOrigins?: Iterable<string>
+  pageWidths?: PageWidths
 }
 
 export interface PrintablePagesDocument {
@@ -292,7 +294,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
 }
 
 function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
-  const fit = fitPage(page, placement, imposition.fit)
+  const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
   const padding = layout.inset ? printPadding(placement.bleed) : ''
@@ -338,6 +340,7 @@ export function printablePaper(
 // server renderer still uses top-level page renders for PDF composition.
 export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
+  options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.

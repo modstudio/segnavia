@@ -1,4 +1,4 @@
-import type { BookView } from '@segnavia/format'
+import type { BookView, PageWidths } from '@segnavia/format'
 import { bookViewMotifRefusal, expandFrameBookView, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { expandedBookFontCss, type FontsOptions, refuseMissingFontSource } from './page-fonts.ts'
 
@@ -16,12 +16,13 @@ export async function prepareBookView(
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
+  pageWidths?: PageWidths,
 ): Promise<{ view: BookView; css: string }> {
   if (!motifs && !fonts && !placements) return prepareBookViewWithoutSources(view)
   if (!motifs) {
     const refusal = bookViewMotifRefusal(view)
     if (refusal) throw refusal
   }
-  const expanded = motifs || placements ? await expandFrameBookView(view, motifs, signal, placements) : { book: view, fonts: [] }
+  const expanded = motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths) : { book: view, fonts: [] }
   return { view: expanded.book, css: await expandedBookFontCss(expanded, fonts, signal) }
 }

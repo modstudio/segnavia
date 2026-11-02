@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Book, BookView, FLUID_WIDTH, isChapter, Page, paperPixels, sheetMm } from '@segnavia/format'
+import { Book, BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
 import { expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
@@ -75,7 +75,7 @@ test('placed media entries use image resolution and missing reporting', async ()
   expect(reports).toEqual([{ address: 'media/missing', page: undefined, reason: 'missing' }])
 })
 
-test('chooses placement widths from print, fluid, fixed, and paginated book viewports', async () => {
+test('chooses placement widths from print, flowing, fixed, and paginated book viewports', async () => {
   const widths: number[] = []
   const capture = {
     resolve: async (_placement: unknown, context: { width?: number }) => {
@@ -87,6 +87,11 @@ test('chooses placement widths from print, fluid, fixed, and paginated book view
   const printed = Page.parse({ html: image, print: { paper: 'a4' } })
   await expandFramePage(printed, undefined, signal, capture)
   await expandFramePage(Page.parse({ html: image }), undefined, signal, capture)
+  await expandFramePage(Page.parse({ html: image, size: { width: 'standard', height: 'auto' } }), undefined, signal, capture, 'screen', {
+    standard: 900,
+  })
+  await expandFramePage(Page.parse({ html: image, size: { width: 'wide', height: 'auto' } }), undefined, signal, capture)
+  await expandFramePage(Page.parse({ html: image, size: { width: 600, height: 'auto' } }), undefined, signal, capture)
   await expandFramePage(Page.parse({ html: image, size: { width: 420, height: 240 } }), undefined, signal, capture)
   const book = Book.parse({
     title: 'Widths',
@@ -98,7 +103,10 @@ test('chooses placement widths from print, fluid, fixed, and paginated book view
   if (!book.page) throw new Error('Expected the parsed paginated book to carry its page.')
   expect(widths).toEqual([
     paperPixels(sheetMm(printed.print as NonNullable<typeof printed.print>).width),
-    FLUID_WIDTH,
+    PAGE_WIDTHS.standard,
+    900,
+    PAGE_WIDTHS.wide,
+    600,
     420,
     paperPixels(sheetMm(book.page).width),
   ])

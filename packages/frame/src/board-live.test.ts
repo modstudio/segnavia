@@ -48,10 +48,12 @@ test('passes board motif and placement sources to a live book before its view', 
       motifs,
       undefined,
       placements,
+      { standard: 900 },
     )
     const book = live.element as InstanceType<typeof import('./book.ts')['SegnaviaBook']>
     expect(book.motifs).toBe(motifs)
     expect(book.placements).toBe(placements)
+    expect(book.pageWidths).toEqual({ standard: 900 })
     if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and sources')
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.foot).toContain('data-board-book-motif')

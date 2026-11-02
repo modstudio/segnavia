@@ -73,7 +73,7 @@ describe('cover digest', () => {
     const newer = { ...motif('a', '2'), label: 'a' }
     const digest = await coverDigest(parsed, { stamp: 'renderer', motifs: [newer, older] })
     expect(digest).toBe(await coverDigest(parsed, { stamp: 'renderer', motifs: [older, newer] }))
-    expect(digest).toBe('f40b0a77d7d1727acd2c76e7bcdeafef0671c445af1928b09b267aa7f0c67b02')
+    expect(digest).toBe('6c8a17d19bbcec1426d0edb2bb38ae98a6d42b40b32696a6226617424ee6888b')
   })
 
   test('is stable across canonical motif order', async () => {

@@ -1,4 +1,13 @@
-import { fitPage, type Imposed, type ImpositionPlacement, type Page, type PagePlacementLayout, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import {
+  fitPage,
+  type Imposed,
+  type ImpositionPlacement,
+  type Page,
+  type PagePlacementLayout,
+  type PageWidths,
+  PX_PER_MM,
+  pagePlacementLayout,
+} from '@segnavia/format'
 import { pdfBox } from './pdf-geometry.ts'
 
 export interface PiecePlacement {
@@ -20,27 +29,18 @@ export interface PieceGeometry {
   padding?: ImpositionPlacement['bleed']
 }
 
-const geometryKey = (page: number, pageValue: Page, placement: ImpositionPlacement) =>
-  pageValue.size === 'fluid'
-    ? JSON.stringify([
-        page,
-        placement.bleedBox.width,
-        placement.bleedBox.height,
-        placement.bleed.top,
-        placement.bleed.right,
-        placement.bleed.bottom,
-        placement.bleed.left,
-      ])
-    : String(page)
+// An inset piece is padded by its own placement's bleed, so the bleed is part of what it renders.
+const geometryKey = (page: number, layout: PagePlacementLayout, placement: ImpositionPlacement) =>
+  JSON.stringify([page, layout.piece.width, layout.piece.height, layout.inset ? placement.bleed : null])
 
-export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover'): PieceGroup[] {
+export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover', pageWidths?: PageWidths): PieceGroup[] {
   const groups = new Map<string, PieceGroup>()
   for (const placement of imposed.placements) {
     const page = pages[placement.page]
     if (!page) throw new RangeError(`The placement names missing page ${placement.page}.`)
-    const fit = fitPage(page, placement, mode)
+    const fit = fitPage(page, placement, mode, pageWidths)
     const layout = pagePlacementLayout(page.size, placement, fit)
-    const key = geometryKey(placement.page, page, placement)
+    const key = geometryKey(placement.page, layout, placement)
     const group = groups.get(key) ?? { key, page: placement.page, placements: [] }
     group.placements.push({ placement, layout })
     groups.set(key, group)

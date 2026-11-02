@@ -310,7 +310,7 @@ export class SegnaviaBook extends BookSourcesElement {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions)
+    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
         this.mountFrames(result.view, result.css)

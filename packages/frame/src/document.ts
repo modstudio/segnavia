@@ -2,12 +2,13 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
@@ -27,6 +28,7 @@ export class SegnaviaDocument extends HTMLElement {
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
+  private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
@@ -59,6 +61,17 @@ export class SegnaviaDocument extends HTMLElement {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
+    this.paint()
+  }
+
+  get pageWidths(): PageWidths | undefined {
+    return this.widthOptions
+  }
+
+  set pageWidths(value: PageWidths | undefined) {
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
+    this.widthOptions = parsed
     this.paint()
   }
 
@@ -254,6 +267,7 @@ export class SegnaviaDocument extends HTMLElement {
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
     page.placements = this.placementOptions
+    page.pageWidths = this.widthOptions
     page.fonts = this.fontOptions
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet

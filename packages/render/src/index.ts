@@ -15,7 +15,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { dependencySetup, type OverflowEntry, type RenderOptions } from './options.ts'
+import { dependencySetup, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
@@ -153,7 +153,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-    const { grows: _grows, ...viewport } = pageViewport(page)
+    const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
     return withTab(
       {
         viewport,
@@ -234,9 +234,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   const renderer: Renderer = {
-    bookPdf(input, opts = {}) {
+    async bookPdf(input, opts = {}) {
+      opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const expanded = await expandFrameBook(Book.parse(input), opts.motifs, deadline.signal, opts.placements, 'print')
+        const expanded = await expandFrameBook(Book.parse(input), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
@@ -251,6 +252,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pagePdf(input, opts = {}) {
+      opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
@@ -267,10 +269,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async pageImage(input, opts = {}) {
+      opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'screen')
         const page = await filledPage(prepared.page, opts.slots, deadline.signal)
-        const { grows, ...viewport } = pageViewport(page, opts.width)
+        const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
         return withTab(
           {
             viewport,
@@ -300,6 +303,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async pagesPdf(inputs, opts = {}) {
+      opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
           inputs.map((input) => Page.parse(input)),
@@ -307,6 +311,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           deadline.signal,
           opts.placements,
           'print',
+          opts.pageWidths,
         )
         const withFonts = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
