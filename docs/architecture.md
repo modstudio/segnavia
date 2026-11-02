@@ -180,7 +180,7 @@ alerts and raw HTML are locked atoms. Comments and link definitions are
 carried silently and keep their place: an edit beside one stays on the same
 side of it. A locked atom shows its isolated host label, or an ordinary
 nested `<segnavia-page>` rendering that block as Markdown with author scripts
-refused. It exposes `part="locked-block"` and labelled atoms also expose
+refused. It exposes `part="locked-block"` and labeled atoms also expose
 `data-locked-label`; there is no editor chrome.
 
 Rich mode holds schema nodes, including inline images. Links and images from

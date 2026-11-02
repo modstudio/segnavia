@@ -63,7 +63,7 @@ test('editing one paragraph changes only that paragraph', () => {
   expect(saveRichDocument(markdown, nodes)).toBe(`Alpha line extra.\n\n${rest}`)
 })
 
-test('labelled fences stay locked beside an edit', () => {
+test('labeled fences stay locked beside an edit', () => {
   const fence = '```articles\n```'
   const markdown = `Intro line.\n\n${fence}\n`
   const nodes = clone(parseRichDocument(markdown, { lockedFences }))
