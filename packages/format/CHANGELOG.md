@@ -1,5 +1,22 @@
 # @segnavia/format
 
+## 0.39.0
+
+### Minor Changes
+
+- d36e171: Hosts can model media assets and contextual placements and detect placement cycles.
+
+  The imposition type `Placement` is now `ImpositionPlacement`.
+
+- 35024b0: Hosts can give decks designed covers, use stable cover picture digests, and render cover images offline at an exact thumbnail width. Boards and thumbnails display designed covers. Page images with a print setting are drawn at the sheet size and no longer grow to their content height.
+- 9f1b83f: Hosts can use one asset resolver to place media in books, decks, and boards across browser and server output. Slot, board, and IDML adapters accept the same placement model.
+- 2341d56: Read a named face from a TrueType or OpenType collection. Collection faces are selected by PostScript name and extracted to standalone font bytes before browser or PDF loading.
+- 0979253: Resolve placed media in page and book HTML through one host seam: an `img` with `data-segnavia-media` is resolved through the `placements: { resolve, report? }` option on page, paper, document, book, thumbnail and board elements, browser `printPages` and the page and book render options. `@segnavia/format` exports `FLUID_WIDTH`, the viewport width of a fluid page.
+
+### Patch Changes
+
+- dd46281: Stack several page-placed note series at the foot of a paginated book page. Each used series forms a declaration-ordered group with its own measured top gap, numbering and marker, and continued notes remain in their series group on later pages.
+
 ## 0.38.0
 
 ### Minor Changes

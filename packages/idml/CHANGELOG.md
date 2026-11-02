@@ -1,5 +1,24 @@
 # @segnavia/idml
 
+## 0.39.0
+
+### Minor Changes
+
+- 8a73551: IDML imports preserve tables as native HTML tables, including their grid structure, repeating row regions, spans, direction, and layered table and cell styles.
+- 9f1b83f: Hosts can use one asset resolver to place media in books, decks, and boards across browser and server output. Slot, board, and IDML adapters accept the same placement model.
+
+### Patch Changes
+
+- Updated dependencies [d36e171]
+- Updated dependencies [35024b0]
+- Updated dependencies [f8ab208]
+- Updated dependencies [9f1b83f]
+- Updated dependencies [2341d56]
+- Updated dependencies [0979253]
+- Updated dependencies [dd46281]
+  - @segnavia/format@0.39.0
+  - @segnavia/html@0.39.0
+
 ## 0.38.0
 
 ### Patch Changes
