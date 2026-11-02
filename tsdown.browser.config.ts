@@ -9,6 +9,12 @@ interface ExportConditions {
 }
 
 const file = path.join(import.meta.dirname, 'packages/frame/package.json')
+const diagramEntry = path.join(import.meta.dirname, 'packages/frame/src/diagrams.ts')
+const diagramModule = readFileSync(path.join(import.meta.dirname, 'packages/frame/dist/diagrams.js'), 'utf8')
+const diagramExport = 'export const diagramScript='
+const diagramOffset = diagramModule.indexOf(diagramExport)
+if (diagramOffset < 0) throw new Error('The built diagram entry does not export diagramScript.')
+const diagramPayload = diagramModule.slice(diagramOffset)
 const manifest = JSON.parse(readFileSync(file, 'utf8')) as { exports: Record<string, ExportConditions> }
 const entries: Record<string, string> = {}
 for (const conditions of Object.values(manifest.exports)) {
@@ -31,5 +37,13 @@ export default defineConfig(
     dts: false,
     minify: true,
     deps: { alwaysBundle: /.*/, onlyBundle: false },
+    plugins: [
+      {
+        name: 'browser-diagram-payload',
+        load(id) {
+          if (id === diagramEntry) return diagramPayload
+        },
+      },
+    ],
   })),
 )

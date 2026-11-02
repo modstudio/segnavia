@@ -50,6 +50,17 @@ for (const name of Object.keys(PACKAGES)) {
   installed.push({ name, directory, manifest })
 }
 
+const frame = installed.find(({ name }) => name === 'frame')
+if (!frame) throw new Error('The package check did not install @segnavia/frame.')
+for (const [exportName, conditions] of Object.entries(frame.manifest.exports).filter(([, entry]) => entry.default.startsWith('./dist/browser/'))) {
+  const file = path.join(frame.directory, conditions.default)
+  const imports = new Bun.Transpiler({ loader: 'js' }).scan(readFileSync(file, 'utf8')).imports
+  const staticImports = imports.filter(({ kind }) => kind === 'import-statement')
+  if (staticImports.length > 0) {
+    throw new Error(`${specifier(frame.manifest.name, exportName)} must be one self-contained browser entry; found ${staticImports[0]?.path}.`)
+  }
+}
+
 for (const { name, manifest } of installed) {
   for (const dependency of Object.keys(manifest.dependencies ?? {}).filter((dependency) => !dependency.startsWith('@segnavia/'))) {
     const target = path.join(HOST, 'node_modules', dependency)

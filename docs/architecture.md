@@ -129,6 +129,11 @@ Each diagram is rendered independently, its SVG text resolves its own
 direction, and a parse failure leaves the source with the parser's first
 message line instead of delaying readiness.
 
+Each browser entry is one self-contained file with no static sibling imports,
+so a page without a diagram loads exactly that file. The one permitted sibling
+is the relative diagram chunk, which the entry imports dynamically only after a
+document carries the diagram placeholder.
+
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset
 type.
