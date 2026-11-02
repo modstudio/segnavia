@@ -17,6 +17,7 @@ interface MountedBox {
 const shapes: Record<string, Size> = {
   'deck-small': { width: 1280, height: 720 },
   'deck-designed': { width: 1280, height: 720 },
+  'deck-designed-picture': { width: 1280, height: 720 },
   'deck-hebrew': { width: 1280, height: 720 },
   page: { width: 640, height: 900 },
   paper: { width: 816, height: 1056 },
@@ -181,6 +182,20 @@ export async function verifyBoard(h: Harness) {
   // Let that write finish before checks start assigning newer host board values.
   await h.page.waitForFunction(
     () => (window as typeof window & { boardChanges?: Array<{ edit: { kind: string } }> }).boardChanges?.some((change) => change.edit.kind === 'settle'),
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
+  // Items resolve through the host seam after a delay, so wait until both
+  // designed covers and the fallback cover have drawn before reading them.
+  await h.page.waitForFunction(
+    () => {
+      const root = document.querySelector('segnavia-board')?.shadowRoot
+      return Boolean(
+        root?.querySelector('[data-board-item="deck-designed"] iframe') &&
+          root.querySelector('[data-board-item="deck-designed-picture"] .segnavia-designed-cover') &&
+          root.querySelector('[data-board-item="deck-small"] img'),
+      )
+    },
     undefined,
     { timeout: BOUNDED_WAIT_MS },
   )
