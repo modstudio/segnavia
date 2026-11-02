@@ -1,5 +1,27 @@
 # @segnavia/html
 
+## 0.40.0
+
+### Minor Changes
+
+- e008df9: Draw markdown Mermaid diagrams offline inside page frames before readiness and pagination, with per-diagram failure output and bidirectional labels.
+
+  The diagrams entry exports the nonce-authorized drawing script. Server render inlines it and waits for the drawing before capture. Any page body carrying the `pre[data-segnavia-diagram="mermaid"]` placeholder is drawn, HTML included. Markdown outlines may now receive the markdown body object so HTML and outline conversion share one pass.
+
+- 12c57ab: Add HTML or markdown page bodies, sanitized markdown conversion, outlines, and the reader geometry for wide markdown content.
+
+  A page re-serialized by this version cannot be read by an older library because its content is stored under `body`. Cover digests change, so hosts should redraw kept cover images.
+
+- 528b896: Add rich Markdown editing with byte-preserving locked blocks, sanitized schema input, commands, editor state and page-matched CSS and fonts.
+
+  Markdown editor user changes now update only the live property; the `markdown` attribute remains the initial or latest host-declared value.
+
+### Patch Changes
+
+- Updated dependencies [636664c]
+- Updated dependencies [12c57ab]
+  - @segnavia/format@0.40.0
+
 ## 0.39.0
 
 ### Minor Changes
