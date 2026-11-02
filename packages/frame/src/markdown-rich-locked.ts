@@ -5,6 +5,10 @@ export const LOCKED_BLOCK_NAME = 'lockedBlock'
 
 export type MarkedToken = { type: string; raw: string; lang?: string; depth?: number }
 
+export function lockedFenceLabel(lockedFences: Record<string, string>, language: string | undefined): string | undefined {
+  return lockedFences[language?.toLowerCase() ?? '']
+}
+
 function matchFrontmatter(src: string): string | undefined {
   return /^---[ \t]*\n[\s\S]*?\n---[ \t]*(?:\n|$)/.exec(src)?.[0]
 }
@@ -33,7 +37,7 @@ function isHtmlComment(raw: string): boolean {
 
 export function isLockedToken(token: MarkedToken, lockedFences: Record<string, string> = {}): boolean {
   if (token.type === 'frontmatter' || token.type === 'directive') return true
-  if (token.type === 'code' && (isDiagramFence(token.lang) || Boolean(lockedFences[token.lang?.toLowerCase() ?? '']))) return true
+  if (token.type === 'code' && (isDiagramFence(token.lang) || Boolean(lockedFenceLabel(lockedFences, token.lang)))) return true
   if (token.type === 'blockquote' && isGithubAlertBlock(token.raw)) return true
   return token.type === 'html' && !isHtmlComment(token.raw)
 }

@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 import { Node } from '@tiptap/pm/model'
 import { richMarkdownManager, richSchema } from './markdown-rich-extensions.ts'
-import { isLockedToken, isSilentToken, lockedNode, type MarkedToken } from './markdown-rich-locked.ts'
+import { isLockedToken, isSilentToken, lockedFenceLabel, lockedNode, type MarkedToken } from './markdown-rich-locked.ts'
 
 type Json = JSONContent
 export type RichDocumentNode = Json | Node
@@ -63,7 +63,7 @@ const restoreAmpersands = (markdown: string) => markdown.replace(/&amp;(?![a-zA-
 
 function parseBlock(token: MarkedToken, raw: string, lockedFences: Record<string, string>): Json[] {
   if (isSilentToken(token)) return []
-  if (isLockedToken(token, lockedFences)) return [lockedNode(raw, lockedFences[token.lang?.toLowerCase() ?? ''])]
+  if (isLockedToken(token, lockedFences)) return [lockedNode(raw, lockedFenceLabel(lockedFences, token.lang))]
   const parsed = richMarkdownManager().parse(raw)
   return (Node.fromJSON(richSchema(), parsed).toJSON().content ?? []) as Json[]
 }
@@ -167,14 +167,14 @@ function stitch(entry: CachedOriginal, edited: readonly RichDocumentNode[], keys
       if (node) pending.push(node)
       continue
     }
-    emitNew()
     for (let index = blockIndex; index < hit; index++) if (bs[index]?.nodes.length === 0) emitOld(index)
+    emitNew()
     emitOld(hit)
     keyIndex += bs[hit]?.nodes.length ?? 0
     blockIndex = hit + 1
   }
-  emitNew()
   for (let index = blockIndex; index < bs.length; index++) if (bs[index]?.nodes.length === 0) emitOld(index)
+  emitNew()
   return `${out.replace(/\n+$/, '')}\n`
 }
 

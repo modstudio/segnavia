@@ -25,7 +25,7 @@ export function uniqueFontReferences(references: FontReference[]): FontReference
   return unique
 }
 
-function appNames(references: FontReference[]): string[] {
+export function appNames(references: FontReference[]): string[] {
   const seen = new Set<string>()
   const names: string[] = []
   for (const ref of references) {
@@ -43,7 +43,7 @@ export function refuseMissingFontSource(references: FontReference[], place: stri
   throw new FontRefusedError(`${place} could not establish app font ${JSON.stringify(name)}; supply a FontSource to clear this refusal.`)
 }
 
-function requireAppFontName(name: string, place: string): void {
+export function requireAppFontName(name: string, place: string): void {
   if (APP_FONT_NAME.test(name)) return
   throw new FontRefusedError(
     `${place} could not establish an app font name matching ${APP_FONT_NAME} (${JSON.stringify(name)}); use a lowercase name of letters, digits and hyphens to clear this refusal.`,

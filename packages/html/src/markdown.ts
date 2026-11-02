@@ -7,7 +7,8 @@ import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
-import { type ConverterPolicy, sanitize } from './sanitize.ts'
+import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
+import { sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
 export type AlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution'
@@ -18,11 +19,19 @@ export const alertLabels: Readonly<Record<'en' | 'he', AlertLabels>> = {
   he: { note: 'הערה', tip: 'עצה', important: 'חשוב', warning: 'אזהרה', caution: 'זהירות' },
 }
 
+function alertMarker(value: string): { kind: AlertKind; length: number } | undefined {
+  const match = /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(value)
+  const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
+  return kind && match && Object.hasOwn(alertLabels.en, kind) ? { kind, length: match[0].length } : undefined
+}
+
 /** Whether the reader recognizes a blockquote source as a GitHub alert. */
 export function isGithubAlertBlock(raw: string): boolean {
-  const first = raw.split('\n').find((line) => line.trim() !== '')
-  const match = first ? /^ {0,3}>[ \t]*\[!([A-Za-z]+)\]/.exec(first) : null
-  return Boolean(match?.[1] && Object.hasOwn(alertLabels.en, match[1].toLowerCase()))
+  const content = raw
+    .split('\n')
+    .map((line) => /^ {0,3}>[ \t]?(.*)$/.exec(line)?.[1] ?? '')
+    .find((line) => line.trim() !== '')
+  return Boolean(content && alertMarker(content))
 }
 
 /** Whether the reader turns a fenced language into a diagram placeholder. */
@@ -54,16 +63,6 @@ type HastNode = {
   properties?: Record<string, unknown>
   value?: string
   children?: HastNode[]
-}
-
-const MARKDOWN_CONVERTER_POLICY: ConverterPolicy = {
-  urls: {
-    linkProtocols: ['https:', 'http:', 'mailto:'],
-    imageProtocols: ['https:', 'http:'],
-    linkFragments: true,
-    dataImages: true,
-  },
-  inertControls: [{ element: 'input', type: 'checkbox', attribute: 'disabled' }],
 }
 
 const GEOMETRY_STYLE =
@@ -173,10 +172,10 @@ function applyAlert(node: Node, labels: AlertLabels): void {
   if (node.type !== 'blockquote') return
   const first = node.children?.[0]?.children?.find((child) => child.type === 'text')
   if (!first) return
-  const match = /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(first.value ?? '')
-  const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
-  if (!kind || !match || !Object.hasOwn(labels, kind)) return
-  first.value = (first.value ?? '').slice(match[0].length)
+  const marker = alertMarker(first.value ?? '')
+  if (!marker) return
+  const { kind } = marker
+  first.value = (first.value ?? '').slice(marker.length)
   node.data = { hName: 'div', hProperties: { dataSegnaviaAlert: kind } }
   node.children = [{ type: 'paragraph', children: [{ type: 'text', value: labels[kind] }], data: { hName: 'bdi' } }, ...(node.children ?? [])]
 }

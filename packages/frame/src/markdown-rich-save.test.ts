@@ -22,7 +22,27 @@ const frontmatter = '---\ntitle: Pricing\n---\n\nThe fare.\n'
 const leadingTitle = '# Product pricing\n\nThe fare is public.\n'
 const wrapped = 'This paragraph is\nhard wrapped onto two lines.\n'
 const blanks = 'First block.\n\n\n\nSecond block.\n'
-const fixtures = { table, mermaid, articles, alert, directive, definition, comment, frontmatter, leadingTitle, wrapped, blanks }
+const bulletList = '- Alpha\n- Beta\n'
+const taskList = '- [x] Done\n- [ ] Pending\n'
+const orderedList = '4. Fourth\n5. Fifth\n'
+const nestedList = '- Parent\n  - Child\n- Sibling\n'
+const fixtures = {
+  table,
+  mermaid,
+  articles,
+  alert,
+  directive,
+  definition,
+  comment,
+  frontmatter,
+  leadingTitle,
+  wrapped,
+  blanks,
+  bulletList,
+  taskList,
+  orderedList,
+  nestedList,
+}
 const clone = (nodes: JSONContent[]) => structuredClone(nodes)
 
 function setParagraphText(nodes: JSONContent[], text: string) {
@@ -84,4 +104,24 @@ test('an inline image survives editing its paragraph', () => {
   const nodes = clone(parseRichDocument(markdown))
   nodes[0]?.content?.push({ type: 'text', text: ' More.' })
   expect(saveRichDocument(markdown, nodes)).toContain('![alt](https://example.com/p.png)')
+})
+
+test('silent blocks stay after their preceding block when the following paragraph changes', () => {
+  for (const silent of ['<!-- not published -->', '[foo]: /spec']) {
+    const markdown = `First.\n\n${silent}\n\nSecond.\n`
+    const nodes = clone(parseRichDocument(markdown))
+    const second = nodes.filter((node) => node.type === 'paragraph')[1]
+    if (!second) throw new Error('expected the second paragraph')
+    second.content = [{ type: 'text', text: 'Second changed.' }]
+    expect(saveRichDocument(markdown, nodes)).toBe(`First.\n\n${silent}\n\nSecond changed.\n`)
+  }
+})
+
+test('editing one list item preserves its untouched siblings', () => {
+  const markdown = '- Alpha\n- Beta\n- Gamma\n'
+  const nodes = clone(parseRichDocument(markdown))
+  const second = nodes[0]?.content?.[1]?.content?.[0]
+  if (!second) throw new Error('expected the second list item paragraph')
+  second.content = [{ type: 'text', text: 'Beta changed' }]
+  expect(saveRichDocument(markdown, nodes)).toBe('- Alpha\n- Beta changed\n- Gamma\n')
 })

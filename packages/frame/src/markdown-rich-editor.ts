@@ -65,7 +65,7 @@ function pastedHtml(html: string, linkOrigins: Iterable<string> | undefined): st
 export type RichAdapterOptions = LockedViewOptions & {
   content: JSONContent[]
   editLocked: () => boolean
-  linkOrigins?: Iterable<string>
+  linkOrigins: () => Iterable<string> | undefined
   linkRequest: (href: string | null) => void
   mount: HTMLElement
   change: (content: readonly Node[]) => void
@@ -89,7 +89,7 @@ export function mountRichEditor(options: RichAdapterOptions): Editor {
           return false
         },
       },
-      transformPastedHTML: (html) => pastedHtml(html, options.linkOrigins),
+      transformPastedHTML: (html) => pastedHtml(html, options.linkOrigins()),
     },
     onUpdate: ({ editor: instance }) => options.change(Array.from(instance.state.doc.content.content)),
     onTransaction: ({ editor: instance }) => options.state(richEditorState(instance)),

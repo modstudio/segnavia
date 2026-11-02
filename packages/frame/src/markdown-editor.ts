@@ -4,7 +4,7 @@ import type { FontReference } from '@segnavia/format'
 import { type AlertLabels, sanitizeBookCss } from '@segnavia/html'
 import type { Editor } from '@tiptap/core'
 import { ensureBaseStyle } from './base-style.ts'
-import { registerMarkdownEditorFonts } from './markdown-editor-fonts.ts'
+import { MarkdownEditorFontRegistration } from './markdown-editor-font-registration.ts'
 import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
   type MarkdownEditorModel,
@@ -16,6 +16,15 @@ import {
   setModelTitleSource,
 } from './markdown-editor-model.ts'
 import {
+  equalAlertLabels,
+  equalFontReferences,
+  equalFonts,
+  equalLockedFences,
+  normalizeAlertLabels,
+  normalizeFontReferences,
+  normalizeLockedFences,
+} from './markdown-editor-options.ts'
+import {
   availableMarkdownMode,
   MARKDOWN_EDITOR_COMMANDS,
   MARKDOWN_EDITOR_MODES,
@@ -25,11 +34,11 @@ import {
   richModeCommandRefusal,
 } from './markdown-editor-policy.ts'
 import type { MarkdownEditorStateDetail, SegnaviaMarkdownEditor as SegnaviaMarkdownEditorInterface } from './markdown-editor-types.ts'
-import { RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
+import { lockedBlockSourceOffset, RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
 import { mountRichEditor } from './markdown-rich-editor.ts'
 import { parseRichDocument, type RichDocumentNode, saveRichDocument } from './markdown-rich-save.ts'
 import { markdownSourceState } from './markdown-source.ts'
-import { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
+import { normalizeMarkdownTitle } from './markdown-title.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
 export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
@@ -37,7 +46,6 @@ export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
 export interface SegnaviaMarkdownEditor extends SegnaviaMarkdownEditorInterface {}
 
 const TAG = 'segnavia-markdown-editor'
-const BODY_TRANSFORM = { split: splitLeadingHeading, join: joinLeadingHeading }
 const COMMAND_NAMES = new Set<string>(MARKDOWN_EDITOR_COMMANDS.map(({ name }) => name))
 
 class MarkdownEditorElement extends HTMLElement {
@@ -61,8 +69,7 @@ class MarkdownEditorElement extends HTMLElement {
   private fontReferenceOptions: FontReference[] = []
   private linkOriginOptions: Iterable<string> | undefined
   private alertLabelOptions: Partial<AlertLabels> | undefined
-  private fontLoad: AbortController | undefined
-  private removeFonts: (() => void) | undefined
+  private readonly fontRegistration = new MarkdownEditorFontRegistration(this)
 
   constructor() {
     super()
@@ -94,7 +101,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.sourceView = null
     this.richView?.destroy()
     this.richView = null
-    this.clearFonts()
+    this.fontRegistration.clear()
   }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null) {
@@ -111,7 +118,7 @@ class MarkdownEditorElement extends HTMLElement {
     const model = setModelMarkdown(this.model, String(value ?? ''))
     if (model === this.model) return
     this.model = model
-    this.richOriginal = model.markdown
+    this.richOriginal = model.editable
     this.renderTitle()
     this.resetVisibleEditor()
   }
@@ -146,7 +153,7 @@ class MarkdownEditorElement extends HTMLElement {
     if (model === this.model) return
     this.reflect('title-source', next === 'separate' ? null : next)
     this.model = model
-    this.richOriginal = model.markdown
+    this.richOriginal = model.editable
     this.renderTitle()
     this.resetVisibleEditor()
   }
@@ -155,31 +162,38 @@ class MarkdownEditorElement extends HTMLElement {
     return this.lockedFenceOptions
   }
   set lockedFences(value: Record<string, string>) {
-    this.lockedFenceOptions = Object.fromEntries(Object.entries(value ?? {}).map(([name, label]) => [name.toLowerCase(), String(label)]))
+    const next = normalizeLockedFences(value)
+    if (equalLockedFences(this.lockedFenceOptions, next)) return
+    this.lockedFenceOptions = next
     if (this.modeValue === 'rich') this.resetRich()
   }
   get css() {
     return this.cssValue
   }
   set css(value: string) {
-    this.cssValue = String(value ?? '')
-    this.richStyle.textContent = sanitizeBookCss(this.cssValue).css
-    if (this.modeValue === 'rich') this.resetRich()
+    const next = String(value ?? '')
+    const sanitized = sanitizeBookCss(next).css
+    this.cssValue = next
+    if (this.richStyle.textContent === sanitized) return
+    this.richStyle.textContent = sanitized
   }
   get fonts() {
     return this.fontOptions
   }
   set fonts(value: FontsOptions | undefined) {
+    if (equalFonts(this.fontOptions, value)) return
     this.fontOptions = value
-    this.loadFonts()
+    this.fontRegistration.load(this.fontReferenceOptions, this.fontOptions)
     if (this.modeValue === 'rich') this.resetRich()
   }
   get fontReferences() {
     return this.fontReferenceOptions
   }
   set fontReferences(value: FontReference[]) {
-    this.fontReferenceOptions = [...(value ?? [])]
-    this.loadFonts()
+    const next = normalizeFontReferences(value)
+    if (equalFontReferences(this.fontReferenceOptions, next)) return
+    this.fontReferenceOptions = next
+    this.fontRegistration.load(this.fontReferenceOptions, this.fontOptions)
     if (this.modeValue === 'rich') this.resetRich()
   }
   get linkOrigins() {
@@ -192,7 +206,9 @@ class MarkdownEditorElement extends HTMLElement {
     return this.alertLabelOptions
   }
   set alertLabels(value: Partial<AlertLabels> | undefined) {
-    this.alertLabelOptions = value
+    const next = normalizeAlertLabels(value)
+    if (equalAlertLabels(this.alertLabelOptions, next)) return
+    this.alertLabelOptions = next
     if (this.modeValue === 'rich') this.resetRich()
   }
   get unstyled() {
@@ -234,28 +250,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.richMount.hidden = this.modeValue !== 'rich'
     if (this.modeValue === 'source') this.mountSource()
     else this.resetRich()
-    this.loadFonts()
-  }
-
-  private clearFonts() {
-    this.fontLoad?.abort()
-    this.fontLoad = undefined
-    this.removeFonts?.()
-    this.removeFonts = undefined
-  }
-
-  private loadFonts() {
-    this.clearFonts()
-    if (!this.isConnected || this.fontReferenceOptions.length === 0) return
-    const controller = new AbortController()
-    this.fontLoad = controller
-    void registerMarkdownEditorFonts(this, this.fontReferenceOptions, this.fontOptions, controller.signal)
-      .then((remove) => {
-        if (!controller.signal.aborted) this.removeFonts = remove
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
-      })
+    this.fontRegistration.load(this.fontReferenceOptions, this.fontOptions)
   }
 
   private mountSource() {
@@ -284,16 +279,15 @@ class MarkdownEditorElement extends HTMLElement {
     if (!this.isConnected) return
     this.richView?.destroy()
     this.richMount.replaceChildren()
-    this.richOriginal = this.model.markdown
-    const bodyTransform = this.model.titleSource === 'leading-heading' ? BODY_TRANSFORM : undefined
+    this.richOriginal = this.model.editable
     this.richView = mountRichEditor({
       mount: this.richMount,
-      content: parseRichDocument(this.model.markdown, { bodyTransform, lockedFences: this.lockedFenceOptions }),
+      content: parseRichDocument(this.model.editable, { lockedFences: this.lockedFenceOptions }),
       css: this.cssValue,
       fonts: this.fontOptions,
       fontReferences: this.fontReferenceOptions,
       alertLabels: this.alertLabelOptions as Record<string, string> | undefined,
-      linkOrigins: this.linkOriginOptions,
+      linkOrigins: () => this.linkOriginOptions,
       change: (content) => this.onRichChange(content),
       state: (state) => this.emitState(state),
       linkRequest: (href) => this.emit('segnavia-link-request', { href }),
@@ -304,9 +298,7 @@ class MarkdownEditorElement extends HTMLElement {
   }
 
   private onRichChange(content: readonly RichDocumentNode[]) {
-    const bodyTransform = this.model.titleSource === 'leading-heading' ? BODY_TRANSFORM : undefined
-    const markdown = saveRichDocument(this.richOriginal, content, { bodyTransform, lockedFences: this.lockedFenceOptions })
-    const editable = this.model.retained && markdown.startsWith(this.model.retained) ? markdown.slice(this.model.retained.length) : markdown
+    const editable = saveRichDocument(this.richOriginal, content, { lockedFences: this.lockedFenceOptions })
     const model = setModelEditable(this.model, editable)
     if (model === this.model) return
     this.model = model
@@ -316,7 +308,7 @@ class MarkdownEditorElement extends HTMLElement {
   private editSelectedLockedBlock(): boolean {
     const selected = this.richView ? selectedLockedBlock(this.richView) : null
     if (!selected) throw new Error('Cannot edit in source because no locked block is selected; select a locked block to clear this refusal.')
-    const position = this.model.editable.indexOf(selected.source)
+    const position = lockedBlockSourceOffset(this.model.editable, selected.source, selected.occurrence)
     this.setMode('source', true)
     const view = this.sourceView
     if (view && position >= 0) view.dispatch({ selection: { anchor: position }, effects: EditorView.scrollIntoView(position) })

@@ -33,6 +33,7 @@ export const MARKDOWN_EDITOR_COMMANDS = [
   { name: 'code', key: 'Mod-e' },
   { name: 'strike', key: 'Mod-Shift-s' },
   { name: 'paragraph', key: 'Mod-Alt-0' },
+  // StarterKit owns the six Mod-Alt-1..6 heading bindings.
   { name: 'heading', key: 'Mod-Alt-1..6' },
   { name: 'bullet-list', key: 'Mod-Shift-8' },
   { name: 'ordered-list', key: 'Mod-Shift-7' },

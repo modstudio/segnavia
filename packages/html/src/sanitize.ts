@@ -6,6 +6,7 @@ import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/fo
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
+import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
 import { sanitizeCss } from './sanitize-css.ts'
 
 // Elements that reach outside the document, embed another one, or submit.
@@ -130,13 +131,7 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>,
 
 /** The URL decision used when schema-based authoring admits a link or image. */
 export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
-  const converterPolicy: UrlPolicy = {
-    linkProtocols: ['https:', 'http:', 'mailto:'],
-    imageProtocols: ['https:', 'http:'],
-    linkFragments: true,
-    dataImages: true,
-  }
-  if (!safeUrl(attribute, value, new Set(), converterPolicy)) return false
+  if (!safeUrl(attribute, value, new Set(), MARKDOWN_CONVERTER_POLICY.urls)) return false
   if (attribute === 'src' || linkOrigins === undefined || value.startsWith('#')) return true
   let parsed: URL
   try {

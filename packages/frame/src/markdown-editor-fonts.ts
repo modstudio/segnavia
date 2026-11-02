@@ -1,10 +1,5 @@
 import type { AppFont, FontFace as FontFaceData, FontReference } from '@segnavia/format'
-import type { FontsOptions } from './page-fonts.ts'
-import { refuseMissingFontSource } from './page-fonts.ts'
-
-function appNames(references: FontReference[]): string[] {
-  return [...new Set(references.map((reference) => ('app' in reference ? reference.app : reference.fallback)))]
-}
+import { appNames, FontRefusedError, type FontsOptions, refuseMissingFontSource, requireAppFontName, uniqueFontReferences } from './page-fonts.ts'
 
 function nativeFace(face: FontFaceData): FontFace {
   const descriptors: FontFaceDescriptors = {}
@@ -20,29 +15,50 @@ export async function registerMarkdownEditorFonts(
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
 ): Promise<() => void> {
+  const unique = uniqueFontReferences(references)
   if (!fonts) {
-    refuseMissingFontSource(references, 'markdown editor')
+    refuseMissingFontSource(unique, 'markdown editor')
     return () => undefined
   }
   const app = new Map<string, AppFont>()
-  for (const name of appNames(references)) {
-    const resolved = await fonts.source.font(name, { signal })
-    signal.throwIfAborted()
-    if (!resolved)
-      throw new Error(`markdown editor could not establish app font ${JSON.stringify(name)}; make that font available from the source to clear this refusal.`)
-    app.set(name, resolved)
-    element.style.setProperty(`--segnavia-font-${name}`, `${JSON.stringify(resolved.family)},${resolved.generic ?? 'sans-serif'}`)
-  }
   const loaded: FontFace[] = []
-  for (const face of [...app.values()].flatMap((font) => font.faces).concat(fonts.local ?? [])) {
-    const native = nativeFace(face)
-    await native.load()
+  const properties: string[] = []
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
+    for (const face of loaded) document.fonts.delete(face)
+    for (const property of properties) element.style.removeProperty(property)
+  }
+  signal.addEventListener('abort', cleanup, { once: true })
+  try {
+    for (const name of appNames(unique)) {
+      requireAppFontName(name, 'markdown editor')
+      const resolved = await fonts.source.font(name, { signal })
+      signal.throwIfAborted()
+      if (!resolved)
+        throw new FontRefusedError(
+          `markdown editor could not establish app font ${JSON.stringify(name)}; make that font available from the source to clear this refusal.`,
+        )
+      app.set(name, resolved)
+      const property = `--segnavia-font-${name}`
+      element.style.setProperty(property, `${JSON.stringify(resolved.family)},${resolved.generic ?? 'sans-serif'}`)
+      properties.push(property)
+    }
+    for (const face of [...app.values()].flatMap((font) => font.faces).concat(fonts.local ?? [])) {
+      const native = nativeFace(face)
+      await native.load()
+      signal.throwIfAborted()
+      document.fonts.add(native)
+      loaded.push(native)
+    }
     signal.throwIfAborted()
-    document.fonts.add(native)
-    loaded.push(native)
+  } catch (error) {
+    cleanup()
+    throw error
   }
   return () => {
-    for (const face of loaded) document.fonts.delete(face)
-    for (const name of app.keys()) element.style.removeProperty(`--segnavia-font-${name}`)
+    signal.removeEventListener('abort', cleanup)
+    cleanup()
   }
 }

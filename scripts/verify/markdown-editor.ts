@@ -259,8 +259,47 @@ export async function verifyMarkdownEditor(h: Harness) {
   })
   await rich.waitFor()
   await title.fill('Changed title')
+  await selectRichText(page, 'English line. Added')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.insertText(' Again')
   const titleMarkdown = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
   check('editing a leading-heading title changes markdown first line', titleMarkdown.startsWith('# Changed title\n'), titleMarkdown)
+  check(
+    'a rich edit after a title change keeps exactly one new heading and no old heading',
+    titleMarkdown.match(/^# Changed title$/gm)?.length === 1 && !titleMarkdown.includes('# Original title'),
+    titleMarkdown,
+  )
+
+  const equalOptionAssignment = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as {
+      alertLabels: Record<string, string>
+      lockedFences: Record<string, string>
+      richView: object
+    }
+    element.lockedFences = { articles: 'Generated list' }
+    element.alertLabels = { note: 'Note' }
+    const before = element.richView
+    element.lockedFences = { articles: 'Generated list' }
+    element.alertLabels = { note: 'Note' }
+    return before === element.richView
+  })
+  check('equal rich option objects keep the mounted editor instance', equalOptionAssignment)
+
+  await resetRich(page, 'Before.\n\n```articles\n```\n\nBetween.\n\n```articles\n```\n')
+  const lockedTwins = editor.locator('[data-locked-label]')
+  await lockedTwins.nth(1).click({ position: { x: 2, y: 2 } })
+  await page.keyboard.press('Enter')
+  const secondLocked = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as EditorHandle & {
+      sourceView: { state: { selection: { main: { head: number } } } }
+    }
+    return { actual: element.sourceView.state.selection.main.head, expected: element.markdown.lastIndexOf('```articles') }
+  })
+  check('editing the second identical locked block selects its own source', secondLocked.actual === secondLocked.expected, JSON.stringify(secondLocked))
+  await page.evaluate(() => {
+    ;(document.getElementById('editor') as unknown as EditorHandle).mode = 'rich'
+  })
+  await rich.waitFor()
 
   const noHeading = await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as { markdown: string; title: string | null }
