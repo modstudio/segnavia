@@ -5,7 +5,6 @@ import {
   BOARD_ZOOM_FACTOR,
   boardTier,
   checkResolved,
-  coverPresentation,
   keyToView,
   pinchOf,
   provisionalShape,
@@ -14,6 +13,7 @@ import {
   shouldRefitReveal,
   zoomView,
 } from './board-policy.ts'
+import { coverPresentation } from './designed-cover-policy.ts'
 
 test('a pinch needs two pointers and never has a zero distance', () => {
   expect(pinchOf([{ x: 0, y: 0 }])).toBeNull()
@@ -73,7 +73,22 @@ describe('board policy', () => {
   })
 
   test('accepts a valid resolved value', () => {
-    expect(checkResolved(paperItem, { kind: 'paper', pages: [], imposition, size: { width: 10, height: 20 } })).toBeUndefined()
+    expect(checkResolved(paperItem, { kind: 'paper', pages: [], imposition, size: { width: 10, height: 20 } })).toEqual({
+      kind: 'paper',
+      pages: [],
+      imposition,
+      size: { width: 10, height: 20 },
+      designedCover: undefined,
+    })
+  })
+
+  test('returns a parsed cover without changing the host value', () => {
+    const designedCover = { cover: { page: { html: 'cover' } } }
+    const resolved = { kind: 'paper' as const, pages: [], imposition, size: { width: 10, height: 20 }, designedCover }
+    const checked = checkResolved(paperItem, resolved)
+    expect(checked.designedCover?.cover.page.print).toBeDefined()
+    expect(resolved.designedCover).toBe(designedCover)
+    expect('print' in resolved.designedCover.cover.page).toBe(false)
   })
 
   test('parses a resolved designed cover and names its field on refusal', () => {

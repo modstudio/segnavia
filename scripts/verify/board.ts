@@ -189,17 +189,35 @@ export async function verifyBoard(h: Harness) {
     const designed = root?.querySelector('[data-board-item="deck-designed"]')
     const fallback = root?.querySelector('[data-board-item="deck-small"]')
     const frame = designed?.querySelector('iframe')
+    const sheet = designed?.querySelector('.segnavia-designed-cover > div')?.getBoundingClientRect()
+    const tile = designed?.getBoundingClientRect()
+    const picture = root?.querySelector('[data-board-item="deck-designed-picture"] .segnavia-designed-cover')
     return {
       designed: Boolean(frame),
+      designedPicture: picture instanceof HTMLImageElement,
       fallback: Boolean(fallback?.querySelector('img')),
+      sheet: {
+        width: sheet?.width ?? 0,
+        height: sheet?.height ?? 0,
+        centerX: sheet && tile ? sheet.left + sheet.width / 2 - (tile.left + tile.width / 2) : Number.NaN,
+        centerY: sheet && tile ? sheet.top + sheet.height / 2 - (tile.top + tile.height / 2) : Number.NaN,
+      },
       sandbox: frame?.getAttribute('sandbox'),
       csp: frame?.getAttribute('srcdoc')?.match(/Content-Security-Policy[^>]+/)?.[0] ?? '',
     }
   })
   h.check(
     'a designed board cover and an unchanged fallback cover both draw in the board shard',
-    coverFacts.designed && coverFacts.fallback,
+    coverFacts.designed && coverFacts.designedPicture && coverFacts.fallback,
     JSON.stringify(coverFacts),
+  )
+  h.check(
+    'a live board cover has its sheet aspect and is centered',
+    coverFacts.sheet.width > 0 &&
+      Math.abs(coverFacts.sheet.width / coverFacts.sheet.height - 100 / 150) <= 1 / coverFacts.sheet.height &&
+      Math.abs(coverFacts.sheet.centerX) <= 1 &&
+      Math.abs(coverFacts.sheet.centerY) <= 1,
+    JSON.stringify(coverFacts.sheet),
   )
   h.check(
     'a live designed cover refuses author scripts without same-origin',

@@ -2,9 +2,6 @@ import {
   type BoardItem,
   type BoardView,
   type BookViewInput,
-  Cover,
-  type CoverInput,
-  type Cover as CoverValue,
   type Deck,
   type ImpositionInput,
   MAX_BOARD_ZOOM,
@@ -16,44 +13,12 @@ import {
 } from '@segnavia/format'
 import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 import type { ControllerOptions } from './controller.ts'
+import { type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 
 interface ResolvedBase {
   title?: string
   cover?: string
   designedCover?: DesignedCover
-}
-
-export interface DesignedCover {
-  cover: CoverInput
-  picture?: string
-}
-
-export type ParsedDesignedCover = { cover: CoverValue; picture?: string }
-export type CoverPresentation = { kind: 'picture'; src: string } | { kind: 'live'; cover: CoverValue } | { kind: 'fallback' }
-
-export const COVER_PREFERENCES = ['designed-picture', 'designed-live', 'fallback'] as const
-
-const COVER_PRESENTERS: Record<(typeof COVER_PREFERENCES)[number], (designed: ParsedDesignedCover | undefined) => CoverPresentation | undefined> = {
-  'designed-picture': (designed) => (designed?.picture ? { kind: 'picture', src: designed.picture } : undefined),
-  'designed-live': (designed) => (designed ? { kind: 'live', cover: designed.cover } : undefined),
-  fallback: () => ({ kind: 'fallback' }),
-}
-
-export function coverPresentation(designed: ParsedDesignedCover | undefined): CoverPresentation {
-  for (const preference of COVER_PREFERENCES) {
-    const presentation = COVER_PRESENTERS[preference](designed)
-    if (presentation) return presentation
-  }
-  return { kind: 'fallback' }
-}
-
-export function parseDesignedCover(input: DesignedCover, subject: string): ParsedDesignedCover {
-  try {
-    return { ...input, cover: Cover.parse(input.cover) }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`${subject} has an invalid designedCover.cover: ${message}`)
-  }
 }
 
 export type ResolvedBoardItem =
@@ -64,9 +29,13 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
-export type ResolvedAsset = ResolvedPlacement | Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>
+type WithoutDesignedCover<T> = T extends { designedCover?: DesignedCover } ? Omit<T, 'designedCover'> : T
+export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>>
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
 export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
+
+type Checked<T> = T extends ResolvedBoardItem ? Omit<T, 'designedCover'> & { designedCover?: ParsedDesignedCover } : never
+export type CheckedResolvedBoardItem = Checked<ResolvedBoardItem>
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
@@ -79,11 +48,12 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
   }
 }
 
-export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): void {
+export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem {
   const expected = item.kind === 'media' ? 'image' : item.kind
   if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
   if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(resolved))
-  if (resolved.designedCover) resolved.designedCover = parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
+  const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
+  return { ...resolved, designedCover } as CheckedResolvedBoardItem
 }
 
 export function resolvedShape(resolved: ResolvedBoardItem): Size {

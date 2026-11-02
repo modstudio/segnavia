@@ -5,6 +5,10 @@ export async function verifyThumbnail(h: Harness) {
   await page.goto(h.url('thumbnails.html'))
   await page.waitForFunction(() => document.querySelector('#html')?.shadowRoot?.querySelector('.segnavia-stage__canvas'))
   await page.waitForFunction(() => document.querySelector('#shot')?.shadowRoot?.querySelector('img')?.complete)
+  await page.waitForFunction(() => document.querySelector('#designed-live')?.shadowRoot?.querySelector('.segnavia-designed-cover iframe'))
+  await page.waitForFunction(
+    () => document.querySelector('#designed-picture')?.shadowRoot?.querySelector('.segnavia-designed-cover') instanceof HTMLImageElement,
+  )
 
   const facts = await page.locator('#html').evaluate((element) => {
     const thumbnail = element as HTMLElement
@@ -39,6 +43,25 @@ export async function verifyThumbnail(h: Harness) {
     image: Boolean(element.shadowRoot?.querySelector('img')),
   }))
   check('a thumbnail renders a shot slide at the host width', shot.width === 320 && shot.image, JSON.stringify(shot))
+
+  const designed = await page.locator('#designed-live').evaluate((element) => {
+    const cover = element.shadowRoot?.querySelector('.segnavia-designed-cover > div')?.getBoundingClientRect()
+    const tile = element.getBoundingClientRect()
+    return {
+      width: cover?.width ?? 0,
+      height: cover?.height ?? 0,
+      centerX: cover ? cover.left + cover.width / 2 - (tile.left + tile.width / 2) : Number.NaN,
+      centerY: cover ? cover.top + cover.height / 2 - (tile.top + tile.height / 2) : Number.NaN,
+    }
+  })
+  check(
+    'a live thumbnail cover has its sheet aspect and is centered',
+    designed.width > 0 &&
+      Math.abs(designed.width / designed.height - 100 / 150) <= 1 / designed.height &&
+      Math.abs(designed.centerX) <= 1 &&
+      Math.abs(designed.centerY) <= 1,
+    JSON.stringify(designed),
+  )
 
   await page.evaluate(() => scrollTo(0, 2600))
   await page.waitForFunction(() => !document.querySelector('#html')?.shadowRoot?.querySelector('.segnavia-stage__canvas'))

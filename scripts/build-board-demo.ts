@@ -43,6 +43,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       const items = [
         {id:'deck-small',kind:'deck',address:'deck',x:0,y:0,width:220},
         {id:'deck-designed',kind:'deck',address:'designed',x:300,y:0,width:220},
+        {id:'deck-designed-picture',kind:'deck',address:'designed-picture',x:300,y:220,width:220},
         {id:'deck-hebrew',kind:'deck',address:'hebrew',x:600,y:0,width:320},
         {id:'page',kind:'page',address:'page',x:700,y:0,width:180},
         {id:'paper',kind:'paper',address:'paper',x:930,y:0,width:180},
@@ -52,7 +53,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       ]
       const common = {title:'Board demo',direction:'ltr',labels:[{id:'label',text:'Local assets',x:-160,y:-105},{id:'label-he',text:'אוסף מקומי',x:700,y:-70}],sections:[{id:'section',title:'Two decks',rectangle:{x:-24,y:-56,width:668,height:236},items:['deck-small','deck-hebrew']}]}
       const values = {
-        deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>',print:{paper:{width:100,height:150,unit:'mm'}}}}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
+        deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>',print:{paper:{width:100,height:150,unit:'mm'}}}}}}, 'designed-picture':{kind:'deck',deck,title:'Designed cover picture',designedCover:{cover:{page:{html:'<main>Designed picture</main>',print:{paper:{width:100,height:150,unit:'mm'}}}},picture:${JSON.stringify(image)}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
         page:{kind:'page',page,size:{width:640,height:900},title:'Page'}, paper:{kind:'paper',pages:paperPages,imposition,size:{width:816,height:1056},title:'Paper'},
         empty:{kind:'paper',pages:[],imposition,size:{width:816,height:1056},title:'Empty paper'},
         image:{kind:'image',src:${JSON.stringify(image)},width:1280,height:720,title:'Image'}, shot:{kind:'shot',src:${JSON.stringify(shot)},width:1280,height:720,title:'Shot'},
@@ -64,7 +65,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       window.addEventListener('unhandledrejection', event => { window.boardUnhandled.push(String(event.reason)) })
       board.addEventListener('segnavia-board-error', event => { window.boardErrors.push(event.detail) })
       board.resolveItem = item => new Promise(resolve => setTimeout(() => resolve(values[item.address]), 150))
-      const names = {'deck-small':'Creating a class','deck-designed':'Designed cover','deck-hebrew':'מַצֶּגֶת','page':'A page with a deliberately long title that truncates','paper':'Paper','image':'Image','shot':'Shot','deck-far':'Far away deck','deck-url':'URL deck','paper-empty':'Empty paper'}
+      const names = {'deck-small':'Creating a class','deck-designed':'Designed cover','deck-designed-picture':'Designed cover picture','deck-hebrew':'מַצֶּגֶת','page':'A page with a deliberately long title that truncates','paper':'Paper','image':'Image','shot':'Shot','deck-far':'Far away deck','deck-url':'URL deck','paper-empty':'Empty paper'}
       window.itemNamesCalls = 0
       board.itemNames = async items => { window.itemNamesCalls += 1; return Object.fromEntries(items.map(item => [item.id,names[item.id]])) }
       board.board = {...common,items:items.slice(0,-1)}

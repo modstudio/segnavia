@@ -1,14 +1,13 @@
-import { sheetMm } from '@segnavia/format'
-import type { CoverPresentation, AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { fitSheet } from './fit.ts'
+import type { SlotsOptions } from '@segnavia/format'
+import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import { coverImage } from './cover-element.ts'
+import type { CoverPresentation } from './designed-cover-policy.ts'
+import { fitDesignedCover } from './fit.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
+import type { MountedElement } from './mounted-element.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
-
-export interface MountedDesignedCover {
-  element: HTMLElement
-  dispose(): void
-}
+import { projectPageOnPaper } from './paper-geometry.ts'
 
 export function mountDesignedCover(
   presentation: Exclude<CoverPresentation, { kind: 'fallback' }>,
@@ -16,38 +15,35 @@ export function mountDesignedCover(
   motifs?: MotifsOptions,
   fonts?: FontsOptions,
   placements?: PlacementsOptions,
-): MountedDesignedCover {
+  slots?: SlotsOptions,
+): MountedElement {
   if (presentation.kind === 'picture') {
-    const image = document.createElement('img')
-    image.src = presentation.src
-    image.alt = ''
-    image.part.add('cover')
-    image.className = 'segnavia-designed-cover'
-    return { element: image, dispose() {} }
+    const mounted = coverImage(presentation.src, failed)
+    mounted.element.className = 'segnavia-designed-cover'
+    return mounted
   }
   const frame = document.createElement('div')
   frame.className = 'segnavia-designed-cover'
   frame.part.add('cover')
+  const projection = projectPageOnPaper(presentation.cover.page, presentation.cover.page.print)
+  const sheet = document.createElement('div')
+  sheet.style.inlineSize = `${projection.box.width}px`
+  sheet.style.blockSize = `${projection.box.height}px`
+  sheet.style.flex = 'none'
+  sheet.style.transformOrigin = 'center'
   const page = new SegnaviaPage()
   page.motifs = motifs
   page.fonts = fonts
   page.placements = placements
-  page.page = presentation.cover.page
-  frame.append(page)
-  const sheet = sheetMm(presentation.cover.page.print)
+  page.slots = slots
+  page.style.inlineSize = `${projection.box.width}px`
+  page.style.blockSize = `${projection.box.height}px`
+  page.page = projection.page
+  sheet.append(page)
+  frame.append(sheet)
   const fit = () => {
-    const size = fitSheet({
-      width: frame.clientWidth,
-      height: frame.clientHeight,
-      paddingInlineStart: 0,
-      paddingInlineEnd: 0,
-      reserveBlockStart: 0,
-      reserveBlockEnd: 0,
-      sheetWidth: sheet.width,
-      sheetHeight: sheet.height,
-    })
-    page.style.inlineSize = `${size.width}px`
-    page.style.blockSize = `${size.height}px`
+    const fitted = fitDesignedCover({ width: frame.clientWidth, height: frame.clientHeight }, projection.box)
+    sheet.style.transform = `scale(${fitted.scale})`
   }
   const observer = new ResizeObserver(fit)
   observer.observe(frame)

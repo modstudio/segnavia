@@ -1,15 +1,15 @@
 import type { BoardItem } from '@segnavia/format'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
-import type { BoardTier, ParsedDesignedCover, AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
-import { coverPresentation } from './board-policy.ts'
+import type { BoardTier, CheckedResolvedBoardItem, AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { mountDesignedCover } from './designed-cover.ts'
+import { coverPresentation } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
 export class BoardPainter {
   fonts?: FontsOptions
   private readonly tiers = new Map<string, BoardTier>()
-  private readonly painted = new Map<string, ResolvedBoardItem | undefined>()
+  private readonly painted = new Map<string, CheckedResolvedBoardItem | undefined>()
   private readonly motifOptions = new Map<string, MotifsOptions | undefined>()
   private readonly fontOptions = new Map<string, FontsOptions | undefined>()
   private readonly placementOptions = new Map<string, PlacementsOptions | undefined>()
@@ -18,7 +18,7 @@ export class BoardPainter {
   paint(
     node: HTMLElement,
     item: BoardItem,
-    resolved: ResolvedBoardItem | undefined,
+    resolved: CheckedResolvedBoardItem | undefined,
     tier: BoardTier,
     failed: (error: unknown) => void,
     motifs?: MotifsOptions,
@@ -65,7 +65,7 @@ export class BoardPainter {
 
   private content(
     id: string,
-    resolved: ResolvedBoardItem,
+    resolved: CheckedResolvedBoardItem,
     tier: BoardTier,
     failed: (error: unknown) => void,
     motifs?: MotifsOptions,
@@ -73,7 +73,7 @@ export class BoardPainter {
     placements?: PlacementsOptions,
   ): HTMLElement {
     if (tier === 'cover') {
-      const presentation = coverPresentation(resolved.designedCover as ParsedDesignedCover | undefined)
+      const presentation = coverPresentation(resolved.designedCover)
       if (presentation.kind !== 'fallback') {
         const mounted = mountDesignedCover(presentation, failed, motifs, fonts, placements)
         this.disposals.set(id, mounted.dispose)

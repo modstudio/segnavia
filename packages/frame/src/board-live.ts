@@ -1,22 +1,15 @@
-import type { AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
+import type { CheckedResolvedBoardItem, AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
+import { coverImage } from './cover-element.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
+import type { MountedElement } from './mounted-element.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
-export interface LiveBoardItem {
-  element: HTMLElement
-  dispose(): void
-}
-
 export function boardImage(src: string): HTMLImageElement {
-  const image = document.createElement('img')
-  image.src = src
-  image.alt = ''
-  image.part.add('cover')
-  return image
+  return coverImage(src).element as HTMLImageElement
 }
 
 export function boardPlaceholder(): HTMLElement {
@@ -42,12 +35,12 @@ function listenForError(element: HTMLElement, failed: (error: unknown) => void):
 }
 
 export function liveBoardItem(
-  resolved: Exclude<ResolvedBoardItem, { kind: 'image' | 'shot' }>,
+  resolved: Exclude<CheckedResolvedBoardItem, { kind: 'image' | 'shot' }>,
   failed: (error: unknown) => void,
   motifs?: MotifsOptions,
   fonts?: FontsOptions,
   placements?: PlacementsOptions,
-): LiveBoardItem {
+): MountedElement {
   if (resolved.kind === 'deck') {
     const thumbnail = new SegnaviaThumbnail()
     const onError = (event: Event) => {
