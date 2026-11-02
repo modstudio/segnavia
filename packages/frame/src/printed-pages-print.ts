@@ -16,6 +16,7 @@ function composedFrame(page: HtmlPage, index: number, expectedCount: number, opt
     only: index,
     expectedCount,
     printBackground: true,
+    diagramScript: options.diagramScript,
   })
   return `<iframe sandbox="${frameSandbox('refuse')}" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
 }
@@ -25,7 +26,12 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
-  const srcdoc = printedPageDocument(page, { nonce: options.nonce ?? newNonce(), css: options.css, measure: true })
+  const srcdoc = printedPageDocument(page, {
+    nonce: options.nonce ?? newNonce(),
+    css: options.css,
+    measure: true,
+    diagramScript: options.diagramScript,
+  })
   return new Promise((resolve, reject) => {
     let timer = 0
     const finish = (result: number | Error) => {

@@ -45,7 +45,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/html'],
+    imports: ['@segnavia/format', '@segnavia/html', 'mermaid'],
     // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts.
     serverSafe: [
       'src/svg.ts',
@@ -70,6 +70,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/slot-render.ts',
       'src/styled-elements.ts',
       'src/icons.ts',
+      'src/diagrams.ts',
     ],
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },

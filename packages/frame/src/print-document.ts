@@ -22,6 +22,7 @@ import {
 } from '@segnavia/format'
 import { classifyMediaAnswer, type HtmlPage, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
+import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
@@ -222,6 +223,7 @@ export interface PrintablePagesOptions {
   slots?: SlotsOptions
   dependencyOrigins?: Iterable<string>
   pageWidths?: PageWidths
+  diagramScript?: string
 }
 
 export interface PrintablePagesDocument {
@@ -299,9 +301,10 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
   const padding = layout.inset ? printPadding(placement.bleed) : ''
-  const srcdoc = frameDocument(page.html, {
+  const nonce = options.nonce ?? newNonce()
+  const srcdoc = frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
     scripts: page.scripts,
-    nonce: options.nonce ?? newNonce(),
+    nonce,
     dir: page.dir,
     lang: page.lang,
     css: `${PRINT_COLOR_CSS}${properties}${padding}${options.css ?? ''}`,

@@ -1,5 +1,6 @@
 import { Book, Cover, type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type HtmlPage, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
@@ -195,9 +196,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   async function renderPiecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
-    const html = frameDocument(page.html, {
+    const nonce = newNonce()
+    const html = frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
       scripts: page.scripts,
-      nonce: newNonce(),
+      nonce,
       dir: page.dir,
       lang: page.lang,
       css: containFixedPageOverflow(css),

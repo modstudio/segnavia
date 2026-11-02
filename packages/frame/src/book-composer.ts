@@ -157,7 +157,7 @@ var measuredLineCount=function(input){var count=0;for(var i=0;i<input.flows.leng
 var nextAnimationFrame=function(){return new Promise(function(resolve){if(window.requestAnimationFrame)window.requestAnimationFrame(resolve);else setTimeout(resolve,0);});};
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
-Promise.all([loaded,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
+Promise.all([loaded,window.__segnaviaDiagramReady||null,document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=null;
 var composeWhenMeasurable=function(){

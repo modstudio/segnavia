@@ -42,6 +42,11 @@
       "types": "./dist/bridge.d.ts",
       "default": "./dist/bridge.js"
     },
+    "./diagrams": {
+      "@segnavia/source": "./src/diagrams.ts",
+      "types": "./dist/diagrams.d.ts",
+      "default": "./dist/diagrams.js"
+    },
     "./image-fit": {
       "@segnavia/source": "./src/image-fit.ts",
       "types": "./dist/image-fit.d.ts",
@@ -145,6 +150,7 @@
   },
   "dependencies": {
     "@segnavia/format": "workspace:*",
-    "@segnavia/html": "workspace:*"
+    "@segnavia/html": "workspace:*",
+    "mermaid": "12.2.0"
   }
 }

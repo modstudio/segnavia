@@ -25,6 +25,22 @@ describe('bodyHtml', () => {
     expect(labelReads - afterConversion).toBe(1)
   })
 
+  test('shares one conversion between body HTML and its outline', () => {
+    let reads = 0
+    const body = {} as { markdown: string }
+    Object.defineProperty(body, 'markdown', {
+      enumerable: true,
+      get: () => {
+        reads++
+        return '# Shared pass'
+      },
+    })
+    expect(bodyHtml(body)).toContain('id="shared-pass"')
+    const afterHtml = reads
+    expect(markdownOutline(body)).toEqual([{ id: 'shared-pass', level: 1, title: 'Shared pass' }])
+    expect(reads).toBe(afterHtml)
+  })
+
   test('emits GFM tables, tasks, strikethrough and autolinks', () => {
     const html = bodyHtml({ markdown: '| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\n~~gone~~ <https://example.test>' })
     expect(html).toContain('<div data-segnavia-overflow><table>')

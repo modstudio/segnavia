@@ -63,6 +63,11 @@ English opens this mixed line שלום.
 - [x] משימה שהושלמה
 - [ ] Task still open
 
+\`\`\`mermaid
+flowchart LR
+  start[התחלה] --> finish[Finished]
+\`\`\`
+
 | Column | A very wide English and Hebrew value |
 | --- | --- |
 | One | This table is deliberately wider than the page שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום |`,

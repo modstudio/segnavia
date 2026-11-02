@@ -1,5 +1,6 @@
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, resolvePageHtml } from '@segnavia/html'
@@ -91,9 +92,10 @@ export function renderPageDocument(input: PageInput, options: RenderOptions, pri
   const hostCss = `${page.print ? printCss(page.print) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-  return frameDocument(page.html, {
+  const heldNonce = nonce ?? newNonce()
+  return frameDocument(withDiagramScript(page.html, heldNonce, diagramScript), {
     scripts: page.scripts,
-    nonce: nonce ?? newNonce(),
+    nonce: heldNonce,
     dir: page.dir,
     lang: page.lang,
     css,

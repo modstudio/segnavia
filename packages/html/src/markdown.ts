@@ -263,8 +263,8 @@ export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string 
   return 'html' in body ? body.html : markdownResult(body, options).html
 }
 
-export function markdownOutline(markdown: string): MarkdownHeading[] {
-  return markdownResult({ markdown }, {}).outline
+export function markdownOutline(markdown: string | Extract<PageBody, { markdown: string }>): MarkdownHeading[] {
+  return markdownResult(typeof markdown === 'string' ? { markdown } : markdown, {}).outline
 }
 
 export type HtmlPage = Omit<Page, 'body'> & { html: string }

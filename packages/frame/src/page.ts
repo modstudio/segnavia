@@ -14,6 +14,7 @@ import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties,
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
+import { loadDiagramScript, withDiagramScript } from './diagram-document.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
@@ -182,15 +183,19 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
+    const show = async (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
+      if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+      const nonce = newNonce()
+      const html = slotHtml(shownPage.html, resolved)
+      const diagramScript = await loadDiagramScript(html)
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
       this.cancelPostedSelectionRequests()
       this.writeDocument(
         iframe,
-        shownPageDocument(shownPage, resolved, {
-          nonce: newNonce(),
+        shownPageDocument({ ...shownPage, html: withDiagramScript(shownPage.html, nonce, diagramScript) }, resolved, {
+          nonce,
           css: `${fontCss}${this.css}`,
           csp: this.cspExtra || undefined,
           dependencyOrigins: this.dependencyOrigins,
@@ -208,19 +213,23 @@ export class SegnaviaPage extends HTMLElement {
         this.fit()
         return
       }
-      this.writeDocument(
-        iframe,
-        frameDocument(resolvedPage.html, {
+      const nonce = newNonce()
+      void loadDiagramScript(resolvedPage.html).then((diagramScript) => {
+        if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+        this.writeDocument(
+          iframe,
+          frameDocument(withDiagramScript(resolvedPage.html, nonce, diagramScript), {
           scripts: page.scripts,
-          nonce: newNonce(),
+          nonce,
           dir: page.dir,
           lang: page.lang,
           css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
           csp: this.cspExtra || undefined,
           dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,
-        }),
-      )
+          }),
+        )
+      })
       const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
       if (refusal) report(refusal)
       else if (hasSlotWork(resolvedPage.slots, this.slotOptions))
