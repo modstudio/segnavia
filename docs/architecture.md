@@ -1035,7 +1035,9 @@ the cover picture instead.
 `coverDigest` gives the cover picture an immutable address. It hashes the
 canonical page without identity metadata, the sheet, the cover drawing
 version, the host's renderer stamp, sorted host-supplied font file identifiers
-and sorted motifs. The host may draw the cover through
+and sorted motifs. It does not hash placed media or slot data the picture
+draws, so a host whose cover places media or binds slots folds their revision
+into the renderer stamp. The host may draw the cover through
 `renderer.coverImage(cover, { width, format })`, which draws it offline with no
 approved dependencies to WebP (the default) or PNG exactly `width` pixels wide
 at the sheet's aspect, keep the picture under that digest and serve it from an
