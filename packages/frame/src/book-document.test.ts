@@ -66,7 +66,7 @@ describe('bookDocument', () => {
     ).toEqual({ width: 100, height: 160 })
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
-    const flows = [{ id: 'chapter-1', sourceBlocks: 1, measuredLines: 0 }]
+    const flows = [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 0 }]
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
     expect(embedded.decideBookMeasurement({ frameWidth: 100, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
   })
