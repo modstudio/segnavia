@@ -1,4 +1,4 @@
-import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput } from '@segnavia/format'
+import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
@@ -82,7 +82,12 @@ export async function renderOptionsWithBookFonts(
 }
 
 export function renderPageDocument(page: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
-  const hostCss = `${page.print ? printCss(page.print) : ''}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
+  const namedMeasure =
+    page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
+      ? resolvePageWidth(page.size, options.pageWidths).measure
+      : undefined
+  const measureCss = namedMeasure === undefined ? '' : `:where(body){max-inline-size:${namedMeasure}px;margin-inline:auto}`
+  const hostCss = `${page.print ? printCss(page.print) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
   return frameDocument(page.html, {

@@ -1,4 +1,4 @@
-import type { FontFace, FontSource, OmittedImpositionMark, PageWidths } from '@segnavia/format'
+import { type FontFace, type FontSource, type OmittedImpositionMark, PageWidths } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -93,6 +93,11 @@ export interface RenderOptions {
     neutralTolerance?: number
     report?: (report: PressReport) => void
   }
+}
+
+export function parseRenderOptions<T extends RenderOptions>(options: T): T {
+  if (options.pageWidths === undefined) return options
+  return { ...options, pageWidths: PageWidths.parse(options.pageWidths) }
 }
 
 export const dependencySetup = (options: RenderOptions): Pick<RenderOptions, 'dependencyOrigins' | 'dependencies'> => ({

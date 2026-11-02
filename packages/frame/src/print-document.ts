@@ -10,7 +10,7 @@ import {
   type ImpositionInput,
   impose,
   type Page,
-  type PageWidths,
+  PageWidths,
   type PrintInput,
   pagePlacementLayout,
   printPadding,
@@ -340,6 +340,7 @@ export function printablePaper(
 // server renderer still uses top-level page renders for PDF composition.
 export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
+  options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.

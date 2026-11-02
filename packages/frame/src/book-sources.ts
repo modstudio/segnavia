@@ -2,6 +2,7 @@ import type { PageWidths } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
@@ -43,7 +44,9 @@ export abstract class BookSourcesElement extends HTMLElementBase {
   }
 
   set pageWidths(value: PageWidths | undefined) {
-    this.widthOptions = value
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
+    this.widthOptions = parsed
     this.sourcesChanged()
   }
 

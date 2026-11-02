@@ -15,7 +15,9 @@ export function pageViewport(page: Page, width?: number, pageWidths?: PageWidths
 }
 
 export async function contentHeight(tab: Tab): Promise<number> {
-  const width = tab.viewportSize()?.width ?? resolvePageWidth({ width: 'full', height: 'auto' }).viewportWidth
+  const viewport = tab.viewportSize()
+  if (!viewport) throw new Error('Cannot measure page content without a viewport.')
+  const width = viewport.width
   await tab.setViewportSize({ width, height: 1 })
   const height = await tab.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0))
   await tab.setViewportSize({ width, height })

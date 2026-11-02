@@ -28,6 +28,7 @@ function pageHarness() {
   const page = new SegnaviaPage()
   const attributes = new Map<string, string>()
   let frame: { title: string; srcdoc?: string; setAttribute(name: string, value: string): void } | undefined
+  let sheet: { style: ReturnType<typeof style>; frame?: typeof frame } | undefined
   Object.defineProperties(page, {
     clientWidth: { configurable: true, value: 200 },
     dataset: { configurable: true, value: {} },
@@ -48,10 +49,11 @@ function pageHarness() {
       attributes.delete(name)
       if (oldValue !== null) void page.attributeChangedCallback(name, oldValue, null)
     },
-    replaceChildren(sheet?: { frame?: typeof frame }) {
-      frame = sheet?.frame
+    replaceChildren(next?: typeof sheet) {
+      sheet = next
+      frame = next?.frame
     },
-    querySelector: (selector: string) => (selector === 'iframe' ? (frame ?? null) : null),
+    querySelector: (selector: string) => (selector === 'iframe' ? (frame ?? null) : selector === '.segnavia-page__sheet' ? (sheet ?? null) : null),
   })
   Object.assign(globalThis, {
     document: {
@@ -113,4 +115,32 @@ test('the default frame title returns when the label is removed', () => {
   page.label = 'Notice'
   page.label = ''
   expect(page.querySelector<HTMLIFrameElement>('iframe')?.title).toBe('Page')
+})
+
+test('a named page applies its cap and centering inline, including when unstyled', () => {
+  const page = pageHarness()
+  Object.assign(page, { hasAttribute: (name: string) => name === 'unstyled' })
+  page.pageWidths = { standard: 900 }
+  page.load({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  const sheet = page.querySelector<HTMLElement>('.segnavia-page__sheet')
+  expect(sheet?.style.inlineSize).toBe('100%')
+  expect(sheet?.style.maxInlineSize).toBe('900px')
+  expect(sheet?.style.marginInline).toBe('auto')
+})
+
+test('equivalent page width assignments do not remount, while a changed width does', () => {
+  const page = pageHarness()
+  page.load({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  const initial = page.querySelector('iframe')
+  page.pageWidths = { standard: 1024 }
+  expect(page.querySelector('iframe')).toBe(initial)
+  page.pageWidths = { standard: 900 }
+  expect(page.querySelector('iframe')).not.toBe(initial)
+})
+
+test('page width assignments refuse an invalid field', () => {
+  const page = pageHarness()
+  expect(() => {
+    page.pageWidths = { standard: 0 }
+  }).toThrow('standard')
 })

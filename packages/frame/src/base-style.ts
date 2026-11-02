@@ -89,7 +89,6 @@ export const BASE_CSS = `
 :where(:host(segnavia-board-toolbar:not([unstyled])) [part~="icon"]){display:inline-block}
 :where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){transform-origin:0 0}
-:where(segnavia-page:not([unstyled]) .segnavia-page__sheet[data-flowing-measure]){inline-size:100%;max-inline-size:var(--segnavia-page-measure);margin-inline:auto}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}

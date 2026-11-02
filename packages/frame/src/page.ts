@@ -1,23 +1,24 @@
-// <segnavia-page>: shows one page in a sandboxed frame. A full page takes
-// the element's width and grows to its content's height; with `bounded`, it takes
+// <segnavia-page>: shows one page in a sandboxed frame. A full page takes the
+// element's width and grows to its content's height; with `bounded`, it takes
 // the element's host-sized box and scrolls inside its frame. A fixed page is
-// scaled to fit the element's width; a fixed width that grows does both. It
-// brings no appearance, only that geometry, which a host can override.
-//
-// Attributes: src (page JSON), label (the frame's accessible name), bounded
-// (full pages take their box), unstyled (bring no styles at all). Properties:
-// page, label, bounded, css, cspExtra, slots, motifs, fonts. `showUrl`
+// scaled to fit the element's width; named and numeric flowing widths ignore
+// `bounded`, and a fixed width that grows does both. It brings no appearance,
+// only that geometry, which a host can override.
+// Attributes: src (page JSON), label (frame name), bounded (full pages take
+// their box; other widths ignore it), unstyled (bring no styles
+// at all). Properties: page, label, bounded, css, cspExtra, slots, motifs, fonts. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
@@ -102,7 +103,9 @@ export class SegnaviaPage extends HTMLElement {
   }
 
   set pageWidths(value: PageWidths | undefined) {
-    this.widthOptions = value
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
+    this.widthOptions = parsed
     if (this.pageValue) this.load(this.pageValue)
   }
 
@@ -233,7 +236,7 @@ export class SegnaviaPage extends HTMLElement {
     this.fit()
   }
 
-  showUrl(url: string, size: Page['size'] | 'fluid' = 'fluid') {
+  showUrl(url: string, size: Page['size'] = FULL_PAGE_SIZE) {
     this.cancelSelectionRequests()
     this.hostServed = true
     this.cancelSlotPreparation()
@@ -298,13 +301,10 @@ export class SegnaviaPage extends HTMLElement {
     // Laid out left to right whatever the host's direction: it is scaled from
     // its top-left corner, and the page inside keeps its own direction.
     sheet.dir = 'ltr'
-    const width = pageSheetLayout(page.size, this.clientWidth, this.widthOptions)
-    if (typeof page.size.width === 'number') sheet.style.width = `${width.inlineSize}px`
-    else if (width.maxInlineSize === undefined) sheet.style.width = '100%'
-    else {
-      sheet.dataset.flowingMeasure = ''
-      sheet.style.setProperty('--segnavia-page-measure', `${width.maxInlineSize}px`)
-    }
+    const width = pageSheetLayout(page.size, this.widthOptions)
+    sheet.style.inlineSize = width.inlineSize
+    if (width.maxInlineSize !== undefined) sheet.style.maxInlineSize = `${width.maxInlineSize}px`
+    if (width.marginInline !== undefined) sheet.style.marginInline = width.marginInline
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', frameSandbox(page.scripts))
     iframe.title = this.label || 'Page'

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitPage, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS, PX_PER_MM, pagePlacementLayout } from './index.ts'
+import { FULL_PAGE_SIZE, fitPage, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS, PX_PER_MM, pagePlacementLayout } from './index.ts'
 
 const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
@@ -238,7 +238,7 @@ const placement = (overrides: Partial<ImpositionPlacement> = {}): ImpositionPlac
 
 describe('fitPage', () => {
   test('fluid pages lay out at the bleed box width', () => {
-    expect(fitPage({ size: 'fluid' }, placement(), 'contain')).toEqual({
+    expect(fitPage({ size: FULL_PAGE_SIZE }, placement(), 'contain')).toEqual({
       flow: true,
       width: 106 * PX_PER_MM,
       height: null,
@@ -290,7 +290,7 @@ describe('fitPage', () => {
     expect(
       fitPage(
         {
-          size: 'fluid',
+          size: FULL_PAGE_SIZE,
           print: { paper: { width: 100, height: 50, unit: 'mm' }, orientation: 'landscape', bleed: 0, safe: 0, marks: false, markColor: 'black' },
         },
         placement(),
@@ -298,8 +298,11 @@ describe('fitPage', () => {
       ).differs,
     ).toBe(false)
     expect(
-      fitPage({ size: 'fluid', print: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false, markColor: 'black' } }, placement(), 'contain')
-        .differs,
+      fitPage(
+        { size: FULL_PAGE_SIZE, print: { paper: 'a4', orientation: 'portrait', bleed: 0, safe: 0, marks: false, markColor: 'black' } },
+        placement(),
+        'contain',
+      ).differs,
     ).toBe(true)
   })
 
@@ -321,7 +324,7 @@ describe('fitPage', () => {
 describe('pagePlacementLayout', () => {
   test('a fluid piece fills the bleed box and insets its layout', () => {
     const place = placement({ bleed: { top: 1, right: 2, bottom: 3, left: 4 }, bleedBox: { x: 6, y: 19, width: 106, height: 54 } })
-    const size = 'fluid' as const
+    const size = FULL_PAGE_SIZE
     const layout = pagePlacementLayout(size, place, fitPage({ size }, place, 'contain'))
     expect(layout).toEqual({
       kind: 'fluid',
@@ -339,8 +342,17 @@ describe('pagePlacementLayout', () => {
       kind: 'growing',
       piece: { width: 400, height: (place.trim.height * PX_PER_MM) / fit.scale },
       inset: false,
-      paper: place.trim,
+      paper: { ...place.trim, width: (fit.width * fit.scale) / PX_PER_MM },
     })
+  })
+
+  test('a named piece in a wider cell keeps its physical width and is centered', () => {
+    const place = placement({ trim: { x: 10, y: 20, width: 305, height: 50 } })
+    const size = { width: 'standard', height: 'auto' } as const
+    const fit = fitPage({ size }, place, 'contain')
+    const layout = pagePlacementLayout(size, place, fit)
+    expect(layout.paper.width * PX_PER_MM).toBeCloseTo(layout.piece.width * fit.scale)
+    expect(layout.paper.x).toBeCloseTo(place.trim.x + (place.trim.width - layout.paper.width) / 2)
   })
 
   test('a fixed piece keeps its CSS size and occupies its scaled fit rectangle', () => {

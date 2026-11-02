@@ -8,6 +8,7 @@ import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } fro
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
+import { parsePageWidths } from './page-widths.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
   type PrintablePagesOptions,
@@ -225,6 +226,7 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
 }
 
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+  options = { ...options, pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(

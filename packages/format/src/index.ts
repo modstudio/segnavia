@@ -151,6 +151,7 @@ export * from './motif.ts'
 export * from './numbering.ts'
 export {
   FlowingWidth,
+  FULL_PAGE_SIZE,
   PAGE_WIDTHS,
   Page,
   type PageInput,

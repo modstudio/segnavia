@@ -8,6 +8,7 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
@@ -68,7 +69,9 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   set pageWidths(value: PageWidths | undefined) {
-    this.widthOptions = value
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
+    this.widthOptions = parsed
     this.paint()
   }
 

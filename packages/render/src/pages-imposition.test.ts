@@ -27,6 +27,25 @@ describe('imposed PDF pieces', () => {
     expect(groupPieces(pages, impose(clipped, 1), clipped.fit)).toHaveLength(2)
   })
 
+  test('groups a named page by its rendered piece geometry and carries an override', () => {
+    const page = Page.parse({ html: '<p>one</p>', size: { width: 'standard', height: 'auto' } })
+    const imposed = impose(repeat, 1)
+    const first = imposed.placements[0]
+    if (!first) throw new Error('Expected a placement.')
+    const wider = { ...first, trim: { ...first.trim, width: 300 }, bleedBox: { ...first.bleedBox, width: 300 } }
+    const narrower = {
+      ...first,
+      column: 1,
+      trim: { ...first.trim, width: 100 },
+      bleedBox: { ...first.bleedBox, width: 100 },
+    }
+    const varied = { ...imposed, placements: [wider, narrower] }
+    const groups = groupPieces([page], varied, repeat.fit, { standard: 900 })
+    expect(groups).toHaveLength(2)
+    expect(groups.map((group) => group.placements[0]?.layout.piece.width)).toEqual([900, narrower.trim.width * PX_PER_MM])
+    expect(groupPieces([page], { ...imposed, placements: [wider, { ...wider, column: 1 }] }, repeat.fit, { standard: 900 })).toHaveLength(1)
+  })
+
   test('converts a covering fit and uneven bleed from top-left millimeters to PDF points', () => {
     const imposition = Imposition.parse({
       paper: { width: 112, height: 87, unit: 'mm' },

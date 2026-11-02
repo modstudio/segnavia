@@ -252,13 +252,13 @@ function trimDiffers(page: { print?: Print }, placement: ImpositionPlacement): b
 }
 
 export function fitPage(
-  page: { size: Page['size'] | 'fluid'; print?: Print },
+  page: { size: Page['size']; print?: Print },
   placement: ImpositionPlacement,
   fit: 'contain' | 'cover',
   pageWidths?: PageWidths,
 ): PageFit {
   const differs = trimDiffers(page, placement)
-  const size = page.size === 'fluid' ? ({ width: 'full', height: 'auto' } as const) : page.size
+  const size = page.size
   if (size.height === 'auto') {
     const resolved = resolvePageWidth(size, pageWidths)
     if (size.width !== 'full') {
@@ -336,8 +336,8 @@ export function fitPage(
   }
 }
 
-export function pagePlacementLayout(size: Page['size'] | 'fluid', placement: ImpositionPlacement, fit: PageFit): PagePlacementLayout {
-  if (size === 'fluid' || size.width === 'full') {
+export function pagePlacementLayout(size: Page['size'], placement: ImpositionPlacement, fit: PageFit): PagePlacementLayout {
+  if (size.width === 'full') {
     return {
       kind: 'fluid',
       piece: { width: placement.bleedBox.width * PX_PER_MM, height: placement.bleedBox.height * PX_PER_MM },
@@ -350,7 +350,7 @@ export function pagePlacementLayout(size: Page['size'] | 'fluid', placement: Imp
       kind: 'growing',
       piece: { width: fit.width, height: (placement.trim.height * PX_PER_MM) / fit.scale },
       inset: false,
-      paper: { x: fit.x, y: fit.y, width: placement.trim.width, height: placement.trim.height },
+      paper: { x: fit.x, y: fit.y, width: (fit.width * fit.scale) / PX_PER_MM, height: placement.trim.height },
     }
   }
   return {

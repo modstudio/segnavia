@@ -6,10 +6,9 @@ import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 
-async function cssPiece(pixels: number): Promise<Uint8Array> {
+async function cssPiece(pixels: number, height = pixels): Promise<Uint8Array> {
   const document = await PDFDocument.create()
-  const size = pt(pixels / PX_PER_MM)
-  document.addPage([size, size]).drawText('Card')
+  document.addPage([pt(pixels / PX_PER_MM), pt(height / PX_PER_MM)]).drawText('Card')
   return document.save()
 }
 
@@ -51,6 +50,49 @@ test('pagesPdf renders the page objects it is given, so their slot preparation i
   )
   await expect(render).rejects.toThrow('stop after the first page')
   expect(seen[0]).toBe(page)
+})
+
+test('pagesPdf carries a named width override into the imposed piece', async () => {
+  const page = Page.parse({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  const widths: number[] = []
+  await renderPagesPdf(
+    [page],
+    {
+      pageWidths: { standard: 900 },
+      imposition: {
+        paper: 'poster-12x18',
+        orientation: 'landscape',
+        columns: 1,
+        rows: 1,
+        cell: { width: 305, height: 200 },
+      },
+    },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async (_page, geometry) => {
+        widths.push(geometry.viewport.width)
+        return cssPiece(geometry.viewport.width, geometry.viewport.height)
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(widths).toEqual([900])
+})
+
+test('pagesPdf refuses an invalid named width at the render options boundary', async () => {
+  const page = Page.parse({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  const render = renderPagesPdf(
+    [page],
+    { pageWidths: { standard: 0 } },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(render).rejects.toThrow('standard')
 })
 
 test('pagesPdf reports marks omitted from a narrow imposition margin without refusing', async () => {

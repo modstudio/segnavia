@@ -1,15 +1,14 @@
 import { type PageSize, type PageWidths, resolvePageWidth } from '@segnavia/format'
 
 export interface PageSheetLayout {
-  inlineSize: number
-  inlineStart: number
+  inlineSize: string
   maxInlineSize?: number
+  marginInline?: 'auto'
 }
 
-export function pageSheetLayout(size: PageSize, availableInlineSize: number, pageWidths?: PageWidths): PageSheetLayout {
+export function pageSheetLayout(size: PageSize, pageWidths?: PageWidths): PageSheetLayout {
   const width = resolvePageWidth(size, pageWidths)
-  if (typeof size.width === 'number') return { inlineSize: width.viewportWidth, inlineStart: 0 }
-  if (width.measure === undefined) return { inlineSize: availableInlineSize, inlineStart: 0 }
-  const inlineSize = Math.min(availableInlineSize, width.measure)
-  return { inlineSize, inlineStart: (availableInlineSize - inlineSize) / 2, maxInlineSize: width.measure }
+  if (typeof size.width === 'number') return { inlineSize: `${width.viewportWidth}px` }
+  if (width.measure === undefined) return { inlineSize: '100%' }
+  return { inlineSize: '100%', maxInlineSize: width.measure, marginInline: 'auto' }
 }

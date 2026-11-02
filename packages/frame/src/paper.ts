@@ -6,6 +6,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -68,8 +69,10 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   set pageWidths(value: PageWidths | undefined) {
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.widthOptions, parsed)) return
     this.slotGeneration++
-    this.widthOptions = value
+    this.widthOptions = parsed
     if (this.imposed) this.paint()
   }
 

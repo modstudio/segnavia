@@ -5,6 +5,7 @@ import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { parsePageWidths, samePageWidths } from './page-widths.ts'
 
 export class BoardPainter {
   fonts?: FontsOptions
@@ -16,6 +17,13 @@ export class BoardPainter {
   private readonly placementOptions = new Map<string, PlacementsOptions | undefined>()
   private readonly widthOptions = new Map<string, PageWidths | undefined>()
   private readonly disposals = new Map<string, () => void>()
+
+  setPageWidths(value: PageWidths | undefined): boolean {
+    const parsed = parsePageWidths(value)
+    if (samePageWidths(this.pageWidths, parsed)) return false
+    this.pageWidths = parsed
+    return true
+  }
 
   paint(
     node: HTMLElement,

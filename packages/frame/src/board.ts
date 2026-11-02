@@ -124,8 +124,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.render()
   }
   set pageWidths(value: PageWidths | undefined) {
-    this.painter.pageWidths = value
-    this.render()
+    if (this.painter.setPageWidths(value)) this.render()
   }
   set fonts(value: FontsOptions | undefined) {
     this.painter.fonts = value

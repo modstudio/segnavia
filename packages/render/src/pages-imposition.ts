@@ -29,18 +29,7 @@ export interface PieceGeometry {
   padding?: ImpositionPlacement['bleed']
 }
 
-const geometryKey = (page: number, pageValue: Page, placement: ImpositionPlacement) =>
-  pageValue.size.width === 'full'
-    ? JSON.stringify([
-        page,
-        placement.bleedBox.width,
-        placement.bleedBox.height,
-        placement.bleed.top,
-        placement.bleed.right,
-        placement.bleed.bottom,
-        placement.bleed.left,
-      ])
-    : String(page)
+const geometryKey = (page: number, layout: PagePlacementLayout) => JSON.stringify([page, layout.piece.width, layout.piece.height, layout.inset])
 
 export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover', pageWidths?: PageWidths): PieceGroup[] {
   const groups = new Map<string, PieceGroup>()
@@ -49,7 +38,7 @@ export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | '
     if (!page) throw new RangeError(`The placement names missing page ${placement.page}.`)
     const fit = fitPage(page, placement, mode, pageWidths)
     const layout = pagePlacementLayout(page.size, placement, fit)
-    const key = geometryKey(placement.page, page, placement)
+    const key = geometryKey(placement.page, layout)
     const group = groups.get(key) ?? { key, page: placement.page, placements: [] }
     group.placements.push({ placement, layout })
     groups.set(key, group)
