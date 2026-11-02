@@ -163,7 +163,8 @@ visible, and its value is the first nonblank level-one ATX heading or the empty
 string when there is none. A non-empty title adds or replaces that heading,
 with one blank line before a non-empty body; clearing the field removes the
 heading, while setting the property to `null` or `undefined` is ignored. The
-heading is absent from the source editor and joined back into markdown. The
+heading is absent from both the source and rich editors and joined back into
+markdown. The
 split happens only when a host sets `markdown` or changes `titleSource`, so a
 heading typed into the source editor remains body text. A textless `#` heading
 also remains body text, unlike the reference transform, which retains it.
@@ -176,7 +177,8 @@ byte-for-byte silent, while an edit stitches newly serialized nodes among the
 original block separators so every untouched block keeps its exact source.
 Frontmatter, directive containers, Mermaid and host-named fences, GitHub
 alerts and raw HTML are locked atoms. Comments and link definitions are
-carried silently. A locked atom shows its isolated host label, or an ordinary
+carried silently and keep their place: an edit beside one stays on the same
+side of it. A locked atom shows its isolated host label, or an ordinary
 nested `<segnavia-page>` rendering that block as Markdown with author scripts
 refused. It exposes `part="locked-block"` and labelled atoms also expose
 `data-locked-label`; there is no editor chrome.
@@ -189,9 +191,14 @@ and links never open on click.
 
 `lockedFences` maps case-insensitive fence languages to labels. `css` is
 sanitized as page CSS and applied in the shadow root; `html` and `body`
-selectors therefore do not match rich content. `fonts` is the page element's
-font source option and `fontReferences` is the page-style reference list.
-Faces are registered in `document.fonts` as `FontFace` objects and removed on
+selectors therefore do not match rich content. A `css` write applies to rich
+content and to every locked nested page in place, without rebuilding the
+editor. A write of `lockedFences`, `fonts`, `fontReferences` or `alertLabels`
+whose value equals the current one changes nothing, so a host may pass a fresh
+object on every render; a different value rebuilds rich mode. `fonts` is the
+page element's font source option and `fontReferences` is the page-style
+reference list, resolved and refused exactly as a page resolves and refuses
+them. Faces are registered in `document.fonts` as `FontFace` objects and removed on
 change or disconnect, because Chromium ignores shadow-root `@font-face`.
 `alertLabels` flows to locked nested pages. Every rich block carries
 `dir="auto"`.
@@ -230,7 +237,7 @@ deletion, undo, redo, mode toggle and edit-in-source. Rich-only commands refuse
 in source mode. Edit-in-source requires a selected locked atom and positions
 the source cursor at that block.
 
-User edits emit change events: source edits emit
+User edits emit change events: source and rich edits emit
 `segnavia-markdown-change`, while title edits emit
 `segnavia-title-change` and, for a leading-heading title,
 `segnavia-markdown-change`. Host property writes emit no change events because
