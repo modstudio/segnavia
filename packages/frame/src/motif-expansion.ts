@@ -7,7 +7,6 @@ import {
   isPart,
   isTemplatedSection,
   type MotifSource,
-  type Page,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
   printProperties,
@@ -17,6 +16,7 @@ import {
   documentLanguage,
   type ExpandedMotifs,
   expandMotifs,
+  type HtmlPage,
   hasHostMotifPlacement,
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
@@ -27,7 +27,6 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
@@ -88,7 +87,7 @@ function motifSourceRefusal(fields: BookHtmlField[], policy: MotifPolicy): Motif
   return undefined
 }
 
-function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot'; html: string }> {
+function parentRegions(page: HtmlPage): Array<{ name: string; region: 'head' | 'foot'; html: string }> {
   return (
     page.printedPages?.parents.flatMap((parent) =>
       (['head', 'foot'] as const).flatMap((region) => (parent[region] === undefined ? [] : [{ name: parent.name, region, html: parent[region] }])),
@@ -96,8 +95,7 @@ function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot
   )
 }
 
-export function framePageMotifRefusal(input: Page): MotifRefusedError | undefined {
-  const page = resolveParsedPageHtml(input)
+export function framePageMotifRefusal(page: HtmlPage): MotifRefusedError | undefined {
   const regions = parentRegions(page)
   const fields = [{ html: page.html, furniture: false, replace() {} }, ...regions.map(({ html }) => ({ html, furniture: true, replace() {} }))]
   return motifSourceRefusal(fields, PAGE_MOTIF_POLICY)
@@ -285,14 +283,13 @@ export async function expandFrameBookView(
 }
 
 export async function expandFramePage(
-  input: Page,
+  page: HtmlPage,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage> {
-  const page = resolveParsedPageHtml(input)
   const regions = parentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
@@ -347,7 +344,7 @@ export async function expandFramePage(
 }
 
 export function expandFramePages(
-  pages: Page[],
+  pages: HtmlPage[],
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,

@@ -96,7 +96,7 @@ by live, thumbnail and print documents.
 
 `Page` stores one `body`, either HTML or markdown; the legacy top-level `html`
 and the top-level `markdown` shorthand normalize to that body at `Page.parse`.
-`bodyHtml` in the universal HTML package passes HTML through and converts
+`bodyHtml` and the page-body resolver in the universal HTML package pass HTML through and convert
 markdown with remark before applying the library sanitizer. Frame page,
 document and browser-print loads, and render page and pages loads, resolve the
 body once at that parsing edge. Motifs, slots, placements, pagination,
@@ -108,7 +108,7 @@ The markdown dialect includes GFM tables, tasks, strikethrough and autolinks;
 YAML frontmatter as a property list; container directives with sanitized data
 attributes; GitHub alerts with isolated English or Hebrew labels; inert
 Mermaid placeholders; overflow wrappers around tables and other fences; and
-Unicode-preserving, duplicate-safe heading ids. Raw HTML is text, never markup.
+Unicode-preserving, duplicate-safe heading ids. Raw HTML inside markdown is not rendered.
 Markdown links admit fragments, HTTP, HTTPS and mail; images admit HTTP, HTTPS
 and supported data images. Other schemes and active attributes are removed.
 The generated overflow style is zero-specificity geometry with logical

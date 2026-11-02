@@ -9,7 +9,8 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
-  type Page,
+  Page,
+  type PageInput,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -19,12 +20,11 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
-import { classifyMediaAnswer, type PlacementsOptions, placementPlaceholderSource } from '@segnavia/html'
+import { classifyMediaAnswer, type HtmlPage, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
-import { asHtmlPage, type HtmlPage } from './page-html.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -323,24 +323,24 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
 // Builds only the positioned placement boxes for one physical paper, so the
 // browser element and the print document use exactly the same frame markup.
 export function printablePaper(
-  pages: Page[],
+  pages: HtmlPage[],
   imposition: Imposition,
   imposed: Imposed,
   paper: number,
   options: PrintablePagesOptions = {},
   side: 'front' | 'back' = 'front',
 ): string {
-  const resolved = pages.map(asHtmlPage)
   return imposed.placements
     .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(resolved[placement.page] as HtmlPage, imposition, placement, options))
+    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
     .join('')
 }
 
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+export function printablePagesDocument(inputs: PageInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  const pages = inputs.map((page) => resolvePageHtml(Page.parse(page)))
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)

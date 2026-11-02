@@ -1,13 +1,5 @@
-import {
-  Imposition,
-  type ImpositionInput,
-  impose,
-  impositionMarks,
-  isPrintedPageIdentityImposition,
-  type Page,
-  printPadding,
-  printProperties,
-} from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, impositionMarks, isPrintedPageIdentityImposition, printPadding, printProperties } from '@segnavia/format'
+import type { HtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { parseRenderOptions } from './options.ts'
@@ -20,8 +12,8 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: Page, options: RenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: Page, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
+  pagePdf(page: HtmlPage, options: RenderOptions, inputIndex: number): Promise<PrintResult>
+  piecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
@@ -34,7 +26,7 @@ function namePageError(error: unknown, page: number): never {
   throw new Error(`Page at index ${page} could not be rendered: ${String(error)}`)
 }
 
-async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
   const imposed = impose(imposition, pages.length)
   const marks = impositionMarks(imposition)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
@@ -77,7 +69,7 @@ async function composedPdf(pages: Page[], imposition: Imposition, opts: PagesPdf
 
 // Pages arrive parsed and filled. Each filled page object keys its slot preparation, so parsing again here would
 // hand the renderer new objects and lose the preparation, and with it overflow measurement and its refusals.
-export async function renderPagesPdf(pages: Page[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {

@@ -56,7 +56,7 @@ const PageShape = z
     fonts: z.array(FontReference).optional(),
   })
   .superRefine((page, ctx) => {
-    const fields = (['body', 'html', 'markdown'] as const).filter((field) => page[field] !== undefined)
+    const fields = bodyChoices(page).map(({ field }) => field)
     if (fields.length === 0) ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
     if (fields.length > 1) {
       const names = fields.join(', ')
@@ -66,9 +66,21 @@ const PageShape = z
     for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
   })
 
-export const Page = PageShape.transform(({ html, markdown, body, ...page }) => ({
+const BODY_SHORTHANDS = [
+  { field: 'html', body: (value: string) => ({ html: value }) },
+  { field: 'markdown', body: (value: string) => ({ markdown: value }) },
+] as const
+
+function bodyChoices(page: { body?: PageBody; html?: string; markdown?: string }): Array<{ field: 'body' | 'html' | 'markdown'; body: PageBody }> {
+  return [
+    ...(page.body === undefined ? [] : [{ field: 'body' as const, body: page.body }]),
+    ...BODY_SHORTHANDS.flatMap(({ field, body }) => (page[field] === undefined ? [] : [{ field, body: body(page[field]) }])),
+  ]
+}
+
+export const Page = PageShape.transform(({ html, markdown, ...page }) => ({
   ...page,
-  body: body ?? (html !== undefined ? { html } : markdown !== undefined ? { markdown } : { html: '' }),
+  body: bodyChoices({ ...page, html, markdown })[0]?.body as PageBody,
 }))
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>

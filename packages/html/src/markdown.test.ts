@@ -1,11 +1,28 @@
 import { describe, expect, test } from 'bun:test'
-import { bodyHtml, markdownOutline } from './markdown.ts'
+import { Page } from '@segnavia/format'
+import { bodyHtml, markdownOutline, resolvePageHtml } from './markdown.ts'
 
 describe('bodyHtml', () => {
-  test('passes HTML through unchanged and memoizes a markdown body', () => {
+  test('passes HTML through unchanged', () => {
     expect(bodyHtml({ html: '<p>unchanged</p>' })).toBe('<p>unchanged</p>')
-    const body = { markdown: '# Heading' } as const
-    expect(bodyHtml(body)).toBe(bodyHtml(body))
+  })
+
+  test('converts a body only once for the same options', () => {
+    let labelReads = 0
+    const alertLabels = {} as { note: string }
+    Object.defineProperty(alertLabels, 'note', {
+      enumerable: true,
+      get: () => {
+        labelReads++
+        return 'Memoized'
+      },
+    })
+    const body = { markdown: '> [!NOTE]\n> Read.' } as const
+    const options = { alertLabels }
+    expect(bodyHtml(body, options)).toContain('<bdi>Memoized</bdi>')
+    const afterConversion = labelReads
+    expect(bodyHtml(body, options)).toContain('<bdi>Memoized</bdi>')
+    expect(labelReads - afterConversion).toBe(1)
   })
 
   test('emits GFM tables, tasks, strikethrough and autolinks', () => {
@@ -39,6 +56,8 @@ describe('bodyHtml', () => {
     expect(bodyHtml({ markdown: '> [!NOTE]\n> Read this.' })).toMatch(/<div data-segnavia-alert="note">\s*<bdi>Note<\/bdi>/)
     expect(bodyHtml({ markdown: '> [!WARNING]\n> קראו.' }, { lang: 'he' })).toContain('<bdi>אזהרה</bdi>')
     expect(bodyHtml({ markdown: '> [!TIP]\n> Read.' }, { alertLabels: { tip: 'Hint' } })).toContain('<bdi>Hint</bdi>')
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> Read.' }, { lang: 'en', dir: 'rtl' })).toContain('<bdi>Note</bdi>')
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> קראו.' })).toContain('<bdi>הערה</bdi>')
   })
 
   test('marks mermaid and wraps other fences as overflow', () => {
@@ -66,6 +85,16 @@ describe('bodyHtml', () => {
     expect(html).toContain('white-space:pre-wrap')
     expect(html).not.toMatch(/\b(left|right|width|height):/)
   })
+})
+
+test('markdownOutline lowercases headings independently of the host locale', () => {
+  expect(markdownOutline('# Istanbul')).toEqual([{ id: 'istanbul', level: 1, title: 'Istanbul' }])
+})
+
+test('a resolved page can be parsed and resolved again without stale HTML', () => {
+  const first = resolvePageHtml(Page.parse({ markdown: '# Heading' }))
+  const second = resolvePageHtml(Page.parse(first))
+  expect(second.html).toBe(first.html)
 })
 
 test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {

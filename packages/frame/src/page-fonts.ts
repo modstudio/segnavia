@@ -66,12 +66,22 @@ export async function resolveFontReferences(references: FontReference[], fonts: 
   return fontCss({ app, local: fonts.local ?? [] })
 }
 
-export async function resolvePageFonts(page: Page, motifFonts: FontReference[], fonts: FontsOptions, signal: AbortSignal): Promise<string> {
+export async function resolvePageFonts(
+  page: Pick<Page, 'id' | 'fonts'>,
+  motifFonts: FontReference[],
+  fonts: FontsOptions,
+  signal: AbortSignal,
+): Promise<string> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
   return resolveFontReferences(uniqueFontReferences([...(page.fonts ?? []), ...motifFonts]), fonts, signal, place)
 }
 
-export async function pageFontCss(page: Page, motifFonts: FontReference[], fonts: FontsOptions | undefined, signal: AbortSignal): Promise<string> {
+export async function pageFontCss(
+  page: Pick<Page, 'id' | 'fonts'>,
+  motifFonts: FontReference[],
+  fonts: FontsOptions | undefined,
+  signal: AbortSignal,
+): Promise<string> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
   const references = uniqueFontReferences([...(page.fonts ?? []), ...motifFonts])
   if (!fonts) {
@@ -82,7 +92,7 @@ export async function pageFontCss(page: Page, motifFonts: FontReference[], fonts
 }
 
 export async function expandedPagesFontCss(
-  expanded: ReadonlyArray<{ page: Page; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<Page, 'fonts'>; fonts: FontReference[] }>,
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   place = 'page',

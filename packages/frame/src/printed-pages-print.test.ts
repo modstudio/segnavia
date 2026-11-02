@@ -1,16 +1,19 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { Imposition, Page, PRINTED_PAGE_LIMIT, PX_PER_MM } from '@segnavia/format'
+import { resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 
 const identity = Imposition.parse({ paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } })
 const printed = (dir: 'ltr' | 'rtl' = 'ltr') =>
-  Page.parse({
-    html: '<p>flow</p>',
-    dir,
-    print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body', margin: { top: 18, bottom: 18, inner: 22, outer: 12 } }], rules: { every: 'body' } },
-  })
+  resolvePageHtml(
+    Page.parse({
+      html: '<p>flow</p>',
+      dir,
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body', margin: { top: 18, bottom: 18, inner: 22, outer: 12 } }], rules: { every: 'body' } },
+    }),
+  )
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
 const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')

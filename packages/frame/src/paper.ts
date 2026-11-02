@@ -2,11 +2,11 @@
 // width. It brings no appearance, only geometry, which a host can override.
 
 import { Imposition, type ImpositionInput, impose, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
@@ -134,7 +134,7 @@ export class SegnaviaPaper extends HTMLElement {
   load(pageInputs: PageInput[], impositionInput: ImpositionInput): void {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
-    const pages = pageInputs.map((page) => resolveParsedPageHtml(PageSchema.parse(page)))
+    const pages = pageInputs.map((page) => resolvePageHtml(PageSchema.parse(page)))
     const imposition = Imposition.parse(impositionInput)
     const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')

@@ -1,7 +1,6 @@
 import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection } from '@segnavia/format'
-import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePlacements } from '@segnavia/html'
+import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
-import { resolvePageHtml } from './page-html.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
 

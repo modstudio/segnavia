@@ -6,18 +6,20 @@ import {
   isDesignedSection,
   isPart,
   isTemplatedSection,
-  type Page,
+  Page,
+  type PageInput,
 } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
+  type HtmlPage,
   hasSlotWork,
   prepareSlotCollection,
   prepareSlots,
   requiredSlotRefusal,
+  resolvePageHtml,
   type SlotPrintOptions,
   slotFillRefusal,
 } from '@segnavia/html'
-import { asHtmlPage, type HtmlPage } from './page-html.ts'
 
 const preparations = new WeakMap<object, Awaited<ReturnType<typeof prepareSlots>>>()
 
@@ -30,8 +32,8 @@ function refuseRequired(prepared: Awaited<ReturnType<typeof prepareSlots>>): voi
   if (refusal) throw refusal
 }
 
-export async function filledPage(input: Page, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage> {
-  const page = asHtmlPage(input)
+export async function filledPage(input: PageInput, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage> {
+  const page = resolvePageHtml(Page.parse(input))
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(page.scripts, page.slots, slots)
   if (refusal) throw refusal
@@ -43,8 +45,8 @@ export async function filledPage(input: Page, slots: SlotPrintOptions | undefine
   return filled
 }
 
-export async function filledPages(inputs: Page[], slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage[]> {
-  const pages = inputs.map(asHtmlPage)
+export async function filledPages(inputs: PageInput[], slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage[]> {
+  const pages = inputs.map((input) => resolvePageHtml(Page.parse(input)))
   assertSingleSlotCopy(slots)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, slots)

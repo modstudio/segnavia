@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, printedPageAt } from '@segnavia/html'
+import { bodyHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
@@ -166,7 +166,7 @@ describe('printedPageDocument', () => {
       }),
       data: async () => ({ printedPage: { number: 'host' } }),
     }
-    await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
+    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
   })
 
   test('uses the page document language for a motif in a parent region', async () => {
@@ -193,7 +193,7 @@ describe('printedPageDocument', () => {
         ],
       }),
     }
-    const expanded = await expandFramePage(placed, { source }, new AbortController().signal)
+    const expanded = await expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)
     expect(expanded.page.printedPages?.parents[0]?.head).toContain('<span>עברית</span>')
   })
 
@@ -207,7 +207,7 @@ describe('printedPageDocument', () => {
       },
     })
     const source = { motif: async () => undefined }
-    await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow(
+    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow(
       '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
     )
   })
@@ -221,7 +221,7 @@ describe('printedPageDocument', () => {
         rules: { every: 'body' },
       },
     })
-    await expect(expandFramePage(placed, undefined, new AbortController().signal)).rejects.toThrow(
+    await expect(expandFramePage(resolvePageHtml(placed), undefined, new AbortController().signal)).rejects.toThrow(
       '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
     )
   })

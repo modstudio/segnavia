@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, Page, type SlotsOptions } from '@segnavia/format'
-import { SlotFillRefusedError } from '@segnavia/html'
+import { resolvePageHtml, SlotFillRefusedError } from '@segnavia/html'
 import { expandFramePage } from './motif-expansion.ts'
 
 class TestElement extends EventTarget {}
@@ -49,7 +49,7 @@ test('page fast path and expanded print path refuse the same reserved motif plac
 
   let expanded: Error | undefined
   try {
-    await expandFramePage(page, undefined, new AbortController().signal)
+    await expandFramePage(resolvePageHtml(page), undefined, new AbortController().signal)
   } catch (error) {
     expanded = error as Error
   }

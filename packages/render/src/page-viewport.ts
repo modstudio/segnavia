@@ -8,7 +8,7 @@ export interface PageViewport {
   grows: boolean
 }
 
-export function pageViewport(page: Page, width?: number, pageWidths?: PageWidths): PageViewport {
+export function pageViewport(page: Pick<Page, 'print' | 'size'>, width?: number, pageWidths?: PageWidths): PageViewport {
   if (page.print) return { ...printViewport(page.print), grows: false }
   const viewportWidth = width ?? resolvePageWidth(page.size, pageWidths).viewportWidth
   return { width: viewportWidth, height: page.size.height === 'auto' ? 800 : page.size.height, grows: page.size.height === 'auto' }

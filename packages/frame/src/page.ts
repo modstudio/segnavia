@@ -11,11 +11,11 @@
 // content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { pageSheetLayout } from './page-layout.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
@@ -172,7 +172,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
-    const resolvedPage = resolveParsedPageHtml(page)
+    const resolvedPage = resolvePageHtml(page)
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()

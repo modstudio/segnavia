@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, fitPage, Imposition, impose, Page } from '@segnavia/format'
+import { resolvePageHtml } from '@segnavia/html'
 import {
   htmlSlideDocument,
   notesLayoutGeometry,
@@ -273,7 +274,9 @@ describe('printablePages', () => {
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
     const imposed = impose(grid, pages.length)
-    const content = Array.from({ length: imposed.papers }, (_, paper) => printablePaper(pages, grid, imposed, paper, { nonce: 'test' })).join('')
+    const content = Array.from({ length: imposed.papers }, (_, paper) =>
+      printablePaper(pages.map(resolvePageHtml), grid, imposed, paper, { nonce: 'test' }),
+    ).join('')
     const printable = printablePagesDocument(pages, grid, { nonce: 'test' })
     const wrapped = printable.html.match(/<body>([\s\S]*)<\/body>/)?.[1]?.replace(/<\/?section(?: class="paper" data-side="front")?>/g, '')
     expect(wrapped).toBe(content)

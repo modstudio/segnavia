@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Book, isPart, Page } from '@segnavia/format'
-import { bookDocument } from '@segnavia/html'
+import { bookDocument, resolvePageHtml } from '@segnavia/html'
 import { bookMotifRefusal, expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
@@ -61,7 +61,7 @@ test('expands and refuses motifs throughout a part subtree', async () => {
     ...book,
     body: [{ name: 'part', children: [{ title: 'Chapter', html: '<span data-motif="segnavia:folio"></span>' }] }],
   })
-  const expected = framePageMotifRefusal(Page.parse({ html: '<span data-motif="segnavia:folio"></span>' }))?.message
+  const expected = framePageMotifRefusal(resolvePageHtml(Page.parse({ html: '<span data-motif="segnavia:folio"></span>' })))?.message
   expect(bookMotifRefusal(reserved)?.message).toBe(expected)
   await expect(expandFrameBook(reserved, undefined, signal)).rejects.toThrow(expected as string)
 })
@@ -74,13 +74,13 @@ test('matches page missing-source behavior for body and parent-page placements',
   })
   const bodyPage = Page.parse({ html: '<p data-motif="held"></p>' })
   expect(bookMotifRefusal(bodyBook)).toBeUndefined()
-  expect(framePageMotifRefusal(bodyPage)).toBeUndefined()
+  expect(framePageMotifRefusal(resolvePageHtml(bodyPage))).toBeUndefined()
   expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
 
   const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { top: 1, bottom: 1, inner: 1, outer: 1 } }
   const parentBook = Book.parse({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
   const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], rules: { every: 'held' } } })
-  expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(parentPage)?.message)
+  expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(resolvePageHtml(parentPage))?.message)
   expect(bookMotifRefusal(parentBook)?.message).toBe(
     'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.',
   )
@@ -122,7 +122,7 @@ test('refuses library motifs in chapter and designed-page bodies without a sourc
       ...(chapter.kind === 'designed' ? { page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } } } : {}),
       chapters: [chapter],
     })
-    const expected = framePageMotifRefusal(Page.parse({ html }))?.message
+    const expected = framePageMotifRefusal(resolvePageHtml(Page.parse({ html })))?.message
     expect(bookMotifRefusal(book)?.message).toBe(expected)
     await expect(expandFrameBook(book, undefined, signal)).rejects.toThrow(expected as string)
   }

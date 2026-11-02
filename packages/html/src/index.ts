@@ -47,7 +47,17 @@ export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
-export { type AlertKind, type AlertLabels, alertLabels, type BodyHtmlOptions, bodyHtml, type MarkdownHeading, markdownOutline } from './markdown.ts'
+export {
+  type AlertKind,
+  type AlertLabels,
+  alertLabels,
+  type BodyHtmlOptions,
+  bodyHtml,
+  type HtmlPage,
+  type MarkdownHeading,
+  markdownOutline,
+  resolvePageHtml,
+} from './markdown.ts'
 export {
   documentLanguage,
   type ExpandedMotifs,

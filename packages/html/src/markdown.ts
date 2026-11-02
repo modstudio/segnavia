@@ -1,4 +1,4 @@
-import { type PageBody, resolveDirection } from '@segnavia/format'
+import { type Page, type PageBody, resolveDirection } from '@segnavia/format'
 import rehypeStringify from 'rehype-stringify'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -7,7 +7,7 @@ import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
-import { sanitize, type UrlPolicy } from './sanitize.ts'
+import { type ConverterPolicy, sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
 export type AlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution'
@@ -44,17 +44,22 @@ type HastNode = {
   children?: HastNode[]
 }
 
-const MARKDOWN_URL_POLICY: UrlPolicy = {
-  linkProtocols: ['https:', 'http:', 'mailto:'],
-  imageProtocols: ['https:', 'http:'],
-  linkFragments: true,
-  dataImages: true,
+const MARKDOWN_CONVERTER_POLICY: ConverterPolicy = {
+  urls: {
+    linkProtocols: ['https:', 'http:', 'mailto:'],
+    imageProtocols: ['https:', 'http:'],
+    linkFragments: true,
+    dataImages: true,
+  },
+  inertControls: [{ element: 'input', type: 'checkbox', attribute: 'disabled' }],
 }
 
 const GEOMETRY_STYLE =
   '<style>:where([data-segnavia-overflow]){max-inline-size:100%;overflow-x:auto}:where([data-segnavia-overflow]>table){inline-size:max-content;min-inline-size:100%}@media print{:where([data-segnavia-overflow]){overflow-x:visible}:where([data-segnavia-overflow]>table){inline-size:100%;max-inline-size:100%;min-inline-size:0}:where([data-segnavia-overflow]>pre){white-space:pre-wrap}}</style>'
 
-const memo = new WeakMap<object, Map<string, string>>()
+type MarkdownResult = { html: string; outline: MarkdownHeading[] }
+
+const memo = new WeakMap<object, Map<string, MarkdownResult>>()
 
 function textNode(value: string): HastNode {
   return { type: 'text', value }
@@ -111,7 +116,7 @@ function slug(title: string): string {
   return (
     title
       .trim()
-      .toLocaleLowerCase()
+      .toLowerCase()
       .replace(/[^\p{L}\p{N}]+/gu, '-')
       .replace(/^-+|-+$/g, '') || 'section'
   )
@@ -189,8 +194,9 @@ function markdownPlugin(outline: MarkdownHeading[], labels: AlertLabels) {
 
 function alertLanguage(markdown: string, options: BodyHtmlOptions): 'en' | 'he' {
   const primary = options.lang?.trim().toLowerCase().split(/[-_]/)[0]
-  if (primary === 'he') return 'he'
-  return resolveDirection(options.dir, options.lang, markdown) === 'rtl' ? 'he' : 'en'
+  if (primary === 'en' || primary === 'he') return primary
+  const text = markdown.replace(/^>\s*\[![A-Za-z]+\]\s*$/gm, '')
+  return resolveDirection(options.dir, options.lang, text) === 'rtl' ? 'he' : 'en'
 }
 
 function hastPlugin() {
@@ -218,7 +224,7 @@ function hastPlugin() {
   }
 }
 
-function convert(markdown: string, options: BodyHtmlOptions): { html: string; outline: MarkdownHeading[] } {
+function convert(markdown: string, options: BodyHtmlOptions): MarkdownResult {
   const outline: MarkdownHeading[] = []
   const language = alertLanguage(markdown, options)
   const labels = { ...alertLabels[language], ...options.alertLabels }
@@ -232,15 +238,14 @@ function convert(markdown: string, options: BodyHtmlOptions): { html: string; ou
     .use(hastPlugin)
     .use(rehypeStringify)
     .processSync(markdown)
-  return { html: `${GEOMETRY_STYLE}${sanitize(String(result), { urlPolicy: MARKDOWN_URL_POLICY, disabledCheckboxes: true })}`, outline }
+  return { html: `${GEOMETRY_STYLE}${sanitize(String(result), { converterPolicy: MARKDOWN_CONVERTER_POLICY })}`, outline }
 }
 
 function optionKey(options: BodyHtmlOptions): string {
   return JSON.stringify([options.dir, options.lang, options.alertLabels])
 }
 
-export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string {
-  if ('html' in body) return body.html
+function markdownResult(body: Extract<PageBody, { markdown: string }>, options: BodyHtmlOptions): MarkdownResult {
   let entries = memo.get(body)
   if (!entries) {
     entries = new Map()
@@ -249,11 +254,22 @@ export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string 
   const key = optionKey(options)
   const found = entries.get(key)
   if (found !== undefined) return found
-  const html = convert(body.markdown, options).html
-  entries.set(key, html)
-  return html
+  const result = convert(body.markdown, options)
+  entries.set(key, result)
+  return result
+}
+
+export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string {
+  return 'html' in body ? body.html : markdownResult(body, options).html
 }
 
 export function markdownOutline(markdown: string): MarkdownHeading[] {
-  return convert(markdown, {}).outline
+  return markdownResult({ markdown }, {}).outline
+}
+
+export type HtmlPage = Omit<Page, 'body'> & { html: string }
+
+export function resolvePageHtml(page: Page): HtmlPage {
+  const { body, ...fields } = page
+  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang }) }
 }

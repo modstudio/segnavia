@@ -1,14 +1,13 @@
-import { Book, type BookInput, type FontFace, type FontReference, type FontSource, type Page, type PageInput, resolvePageWidth } from '@segnavia/format'
+import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError } from '@segnavia/html'
+import { FontCssRefusedError, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { asHtmlPage, resolvePageHtml } from './page-html.ts'
 import { printCss } from './page-paper.ts'
 
 export function withFontCss(options: RenderOptions, css: string): RenderOptions {
@@ -45,7 +44,7 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const page = resolvePageHtml(input)
+  const page = resolvePageHtml(Page.parse(input))
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references)
@@ -56,7 +55,7 @@ export async function prepareRenderedPage(
 }
 
 export async function prepareRenderedPages(
-  expanded: ReadonlyArray<{ page: Page; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<PageInput, 'fonts'>; fonts: FontReference[] }>,
   options: RenderOptions,
   signal: AbortSignal,
 ): Promise<RenderOptions> {
@@ -82,8 +81,8 @@ export async function renderOptionsWithBookFonts(
   return { options, fontCss: css }
 }
 
-export function renderPageDocument(input: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
-  const page = asHtmlPage(input)
+export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
+  const page = resolvePageHtml(Page.parse(input))
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure

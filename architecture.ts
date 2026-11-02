@@ -67,7 +67,6 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/motif-expansion.ts',
       'src/placement-resolution.ts',
       'src/page-fonts.ts',
-      'src/page-html.ts',
       'src/slot-render.ts',
       'src/styled-elements.ts',
       'src/icons.ts',

@@ -3,6 +3,7 @@ import type { AppFont, FontFace, FontSource } from '@segnavia/format'
 import { Page } from '@segnavia/format'
 import { FontRefusedError } from '@segnavia/frame/fonts'
 import { expandFramePage } from '@segnavia/frame/motifs'
+import { resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 
@@ -195,7 +196,7 @@ describe('expandFramePage', () => {
       fonts: [{ app: 'serif' }],
       lang: 'en',
     })
-    const expanded = await expandFramePage(page, { source: { motif: async () => letterhead } }, signal)
+    const expanded = await expandFramePage(resolvePageHtml(page), { source: { motif: async () => letterhead } }, signal)
     expect(expanded.fonts).toEqual([{ app: 'heading' }])
   })
 })
