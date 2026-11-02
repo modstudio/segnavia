@@ -30,7 +30,7 @@ import type {
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
 import type { ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/item-settings'
-import type { MarkdownEditorMode, MarkdownEditorStateDetail, MarkdownTitleSource } from '@segnavia/frame/markdown-editor'
+import type { MarkdownEditorMode, MarkdownEditorStateDetail, MarkdownTitleSource, SegnaviaMarkdownEditor } from '@segnavia/frame/markdown-editor'
 import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -129,6 +129,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
+  alertLabels?: SegnaviaPage['alertLabels']
   placements?: SegnaviaPage['placements']
   pageWidths?: SegnaviaPage['pageWidths']
   src?: string
@@ -145,11 +146,18 @@ export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'ti
   dir?: string
   lang?: string
   unstyled?: boolean
+  lockedFences?: Record<string, string>
+  css?: string
+  fonts?: SegnaviaMarkdownEditor['fonts']
+  fontReferences?: SegnaviaMarkdownEditor['fontReferences']
+  linkOrigins?: SegnaviaMarkdownEditor['linkOrigins']
+  alertLabels?: SegnaviaMarkdownEditor['alertLabels']
   onSegnaviaMarkdownChange?: CustomEventProp<{ markdown: string }>
   onSegnaviaTitleChange?: CustomEventProp<{ title: string }>
   onSegnaviaModeChange?: CustomEventProp<{ mode: MarkdownEditorMode }>
   onSegnaviaSave?: CustomEventProp
   onSegnaviaEditorState?: CustomEventProp<MarkdownEditorStateDetail>
+  onSegnaviaLinkRequest?: CustomEventProp<{ href: string | null }>
 }
 
 export interface BookProps extends ElementProps<SegnaviaBook> {

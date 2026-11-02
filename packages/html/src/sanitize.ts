@@ -128,6 +128,25 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>,
   return false
 }
 
+/** The URL decision used when schema-based authoring admits a link or image. */
+export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
+  const converterPolicy: UrlPolicy = {
+    linkProtocols: ['https:', 'http:', 'mailto:'],
+    imageProtocols: ['https:', 'http:'],
+    linkFragments: true,
+    dataImages: true,
+  }
+  if (!safeUrl(attribute, value, new Set(), converterPolicy)) return false
+  if (attribute === 'src' || linkOrigins === undefined || value.startsWith('#')) return true
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    return true
+  }
+  return (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || originSet(linkOrigins).has(parsed.origin.toLowerCase())
+}
+
 function refusedElement(element: Element, refused: ReadonlySet<string>, options: SanitizeOptions, keepScripts: boolean): boolean {
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts

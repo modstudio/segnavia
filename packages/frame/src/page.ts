@@ -5,7 +5,7 @@
 // content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
@@ -29,6 +29,7 @@ export class SegnaviaPage extends HTMLElement {
   css = ''
   cspExtra = ''
   dependencyOrigins: Iterable<string> = []
+  private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
@@ -51,6 +52,15 @@ export class SegnaviaPage extends HTMLElement {
 
   get bounded(): boolean {
     return this.hasAttribute('bounded')
+  }
+
+  get alertLabels(): Partial<AlertLabels> | undefined {
+    return this.alertLabelOptions
+  }
+
+  set alertLabels(value: Partial<AlertLabels> | undefined) {
+    this.alertLabelOptions = value
+    if (this.pageValue) this.load(this.pageValue)
   }
   set bounded(value: boolean) {
     this.toggleAttribute('bounded', value)
@@ -167,7 +177,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
-    const resolvedPage = resolvePageHtml(page)
+    const resolvedPage = resolvePageHtml(page, { alertLabels: this.alertLabels })
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()

@@ -18,6 +18,18 @@ export const alertLabels: Readonly<Record<'en' | 'he', AlertLabels>> = {
   he: { note: 'הערה', tip: 'עצה', important: 'חשוב', warning: 'אזהרה', caution: 'זהירות' },
 }
 
+/** Whether the reader recognizes a blockquote source as a GitHub alert. */
+export function isGithubAlertBlock(raw: string): boolean {
+  const first = raw.split('\n').find((line) => line.trim() !== '')
+  const match = first ? /^ {0,3}>[ \t]*\[!([A-Za-z]+)\]/.exec(first) : null
+  return Boolean(match?.[1] && Object.hasOwn(alertLabels.en, match[1].toLowerCase()))
+}
+
+/** Whether the reader turns a fenced language into a diagram placeholder. */
+export function isDiagramFence(language: string | undefined): boolean {
+  return (language ?? '').trim().split(/[ \t]/, 1)[0]?.toLowerCase() === 'mermaid'
+}
+
 export interface BodyHtmlOptions {
   alertLabels?: Partial<AlertLabels>
   dir?: 'ltr' | 'rtl' | 'auto'
@@ -213,7 +225,8 @@ function hastPlugin() {
       if (node.tagName !== 'pre') return
       const code = node.children?.[0]
       const classes = Array.isArray(code?.properties?.className) ? code.properties.className.map(String) : []
-      if (classes.includes('language-mermaid')) node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
+      if (classes.some((name) => name.startsWith('language-') && isDiagramFence(name.slice('language-'.length))))
+        node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
       else wrap(node)
     }
     const visit = (node: HastNode) => {
@@ -275,7 +288,9 @@ export function markdownOutline(markdown: string | Extract<PageBody, { markdown:
 
 export type HtmlPage = Omit<Page, 'body'> & { html: string }
 
-export function resolvePageHtml(page: Page): HtmlPage {
+export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'>): HtmlPage
+export function resolvePageHtml(page: Page): HtmlPage
+export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): HtmlPage {
   const { body, ...fields } = page
-  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang }) }
+  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang, alertLabels: options.alertLabels }) }
 }

@@ -1,0 +1,13 @@
+import { expect, test } from 'bun:test'
+import { isLockedToken, isSilentToken } from './markdown-rich-locked.ts'
+
+test('locked and silent markdown constructs share the reader rules', () => {
+  expect(isLockedToken({ type: 'frontmatter', raw: '---\na: b\n---\n' })).toBe(true)
+  expect(isLockedToken({ type: 'directive', raw: ':::note\nx\n:::\n' })).toBe(true)
+  expect(isLockedToken({ type: 'code', raw: '```mermaid\nx\n```', lang: 'mermaid' })).toBe(true)
+  expect(isLockedToken({ type: 'code', raw: '```ARTICLES\n```', lang: 'ARTICLES' }, { articles: 'Generated' })).toBe(true)
+  expect(isLockedToken({ type: 'blockquote', raw: '> [!WARNING]\n> Stop' })).toBe(true)
+  expect(isLockedToken({ type: 'html', raw: '<aside>raw</aside>' })).toBe(true)
+  expect(isSilentToken({ type: 'html', raw: '<!-- carried -->' })).toBe(true)
+  expect(isSilentToken({ type: 'def', raw: '[x]: /target' })).toBe(true)
+})
