@@ -51,7 +51,20 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/html', 'mermaid'],
+    imports: [
+      '@segnavia/format',
+      '@segnavia/html',
+      '@codemirror/commands',
+      '@codemirror/lang-markdown',
+      '@codemirror/language',
+      '@codemirror/language-data',
+      '@codemirror/state',
+      '@codemirror/view',
+      '@lezer/highlight',
+      '@lezer/markdown',
+      'codemirror-lang-mermaid',
+      'mermaid',
+    ],
     // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts.
     serverSafe: [
       'src/svg.ts',

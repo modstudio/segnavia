@@ -8,6 +8,7 @@ import {
 } from '@segnavia/frame/document-authoring'
 import { attachItemSettings, type ItemSettingsController, type ItemSettingsHandlers, type SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import '@segnavia/frame/player'
+import '@segnavia/frame/markdown-editor'
 import type { SegnaviaDocument } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, useCallback, useEffect, useRef, useState } from 'react'
@@ -44,7 +45,8 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
     useEffect(() => {
       if (!element.current) return
       const next = values as Record<string, unknown>
-      const cleanup = syncElementProps(descriptor, element.current, next, previous.current)
+      // HTMLElement declares title as string; the markdown editor ref narrows it to its nullable editor property.
+      const cleanup = syncElementProps(descriptor, element.current as unknown as HTMLElement, next, previous.current)
       previous.current = next
       return cleanup
     })
@@ -64,6 +66,7 @@ export const Thumbnail = createComponent(ELEMENTS.thumbnail)
 export const PaperPicker = createComponent(ELEMENTS.paperPicker)
 export const ItemSettings = createComponent(ELEMENTS.itemSettings)
 export const Page = createComponent(ELEMENTS.page)
+export const MarkdownEditor = createComponent(ELEMENTS.markdownEditor)
 export const Book = createComponent(ELEMENTS.book)
 export const Paper = createComponent(ELEMENTS.paper)
 export const Document = createComponent(ELEMENTS.document)
