@@ -234,7 +234,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
 
   const renderer: Renderer = {
-    bookPdf(input, opts = {}) {
+    async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFrameBook(Book.parse(input), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)

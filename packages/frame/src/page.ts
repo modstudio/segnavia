@@ -1,12 +1,11 @@
 // <segnavia-page>: shows one page in a sandboxed frame. A full page takes the
 // element's width and grows to its content's height; with `bounded`, it takes
 // the element's host-sized box and scrolls inside its frame. A fixed page is
-// scaled to fit the element's width; named and numeric flowing widths ignore
-// `bounded`, and a fixed width that grows does both. It brings no appearance,
-// only that geometry, which a host can override.
-// Attributes: src (page JSON), label (frame name), bounded (full pages take
-// their box; other widths ignore it), unstyled (bring no styles
-// at all). Properties: page, label, bounded, css, cspExtra, slots, motifs, fonts. `showUrl`
+// scaled to fit the element's width, and a fixed width that grows does both; a
+// named width caps the sheet at its measure, centered. It brings no
+// appearance, only that geometry, which a host can override. Attributes: src (page JSON), label (the frame's accessible name), bounded
+// (full pages take their box), unstyled (bring no styles at all). Properties:
+// page, label, bounded, css, cspExtra, slots, motifs, fonts, pageWidths. `showUrl`
 // shows HTML the host serves itself, under its own headers, such as a
 // single-use preview ticket; that document includes the bridge itself
 // (`bridgeForHost`) to report its height. data-measured is set once the

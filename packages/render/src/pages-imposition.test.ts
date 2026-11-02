@@ -27,6 +27,17 @@ describe('imposed PDF pieces', () => {
     expect(groupPieces(pages, impose(clipped, 1), clipped.fit)).toHaveLength(2)
   })
 
+  test('keeps fluid pieces apart when equal boxes bleed on different sides', () => {
+    const butted = Imposition.parse({ ...repeat, rows: 1, gap: { column: 0, row: 0 } })
+    const pages = [Page.parse({ html: '<p>one</p>' })]
+    const groups = groupPieces(pages, impose(butted, 1), butted.fit)
+    const [left, right] = groups.flatMap((group) => group.placements)
+    expect(left?.layout.piece).toEqual(right?.layout.piece)
+    expect(left?.placement.bleed).not.toEqual(right?.placement.bleed)
+    expect(groups).toHaveLength(2)
+    expect(groups.map((group) => group.placements[0] && pieceGeometry(group.placements[0]).padding)).toEqual([left?.placement.bleed, right?.placement.bleed])
+  })
+
   test('groups a named page by its rendered piece geometry and carries an override', () => {
     const page = Page.parse({ html: '<p>one</p>', size: { width: 'standard', height: 'auto' } })
     const imposed = impose(repeat, 1)
