@@ -15,16 +15,23 @@ type EditorHandle = { markdown: string; mode: string; run(command: string, args?
 
 async function selectRichText(page: Harness['page'], text = 'Keyboard target.') {
   await page.evaluate((wanted) => {
-    const root = document.querySelector('segnavia-markdown-editor')?.shadowRoot
-    const paragraph = [...(root?.querySelectorAll('.ProseMirror p') ?? [])].find((node) => node.textContent?.includes(wanted))
-    const content = paragraph?.firstChild
-    if (!paragraph || !content) throw new Error(`Could not select rich text ${JSON.stringify(wanted)}.`)
-    const selection = getSelection()
-    const range = document.createRange()
-    range.selectNodeContents(paragraph)
-    selection?.removeAllRanges()
-    selection?.addRange(range)
-    ;(paragraph.closest('.ProseMirror') as HTMLElement).focus()
+    const element = document.getElementById('editor') as unknown as {
+      richView: {
+        state: { doc: { descendants(visitor: (node: { isText: boolean; text?: string }, position: number) => boolean | void): void } }
+        commands: { setTextSelection(selection: { from: number; to: number }): boolean }
+        view: { focus(): void }
+      }
+    }
+    let from = -1
+    element.richView.state.doc.descendants((node, position) => {
+      const index = node.isText ? (node.text ?? '').indexOf(wanted) : -1
+      if (index < 0) return
+      from = position + index
+      return false
+    })
+    if (from < 0) throw new Error(`Could not select rich text ${JSON.stringify(wanted)}.`)
+    element.richView.commands.setTextSelection({ from, to: from + wanted.length })
+    element.richView.view.focus()
   }, text)
 }
 
@@ -32,6 +39,7 @@ async function resetRich(page: Harness['page'], markdown = 'Keyboard target.') {
   await page.evaluate((value) => {
     const element = document.getElementById('editor') as unknown as EditorHandle
     element.mode = 'rich'
+    element.markdown = ''
     element.markdown = value
   }, markdown)
   await page.locator('segnavia-markdown-editor').locator('.ProseMirror').waitFor()
@@ -48,16 +56,17 @@ async function verifyKeyMatrix(h: Harness) {
   const { page, check } = h
   const rich = page.locator('segnavia-markdown-editor').locator('.ProseMirror')
   const marks = [
-    ['ControlOrMeta+b', 'bold'],
-    ['ControlOrMeta+i', 'italic'],
-    ['ControlOrMeta+e', 'code'],
-    ['ControlOrMeta+Shift+s', 'strike'],
+    ['ControlOrMeta+b', 'bold', '**Keyboard target.**'],
+    ['ControlOrMeta+i', 'italic', '*Keyboard target.*'],
+    ['ControlOrMeta+e', 'code', '`Keyboard target.`'],
+    ['ControlOrMeta+Shift+s', 'strike', '~~Keyboard target.~~'],
   ] as const
-  for (const [key, mark] of marks) {
+  for (const [key, mark, expected] of marks) {
     await resetRich(page)
     await selectRichText(page)
     await page.keyboard.press(key)
-    check(`${key} applies ${mark}`, (await latestState(page)).marks.includes(mark), JSON.stringify(await latestState(page)))
+    const markdown = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
+    check(`${key} applies ${mark}`, markdown.includes(expected), markdown)
   }
 
   const blocks = [
@@ -141,10 +150,15 @@ export async function verifyMarkdownEditor(h: Harness) {
   const source = editor.locator('.cm-content')
   await source.waitFor()
   const sourceDirections = await editor.locator('.cm-line').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
+  await editor.locator('.cm-scroller').evaluate((scroller) => {
+    scroller.scrollTop = scroller.scrollHeight
+  })
+  await page.waitForTimeout(50)
+  const sourceEndDirections = await editor.locator('.cm-line').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
   check(
     'English and Hebrew source lines each take their own direction',
-    sourceDirections.includes('ltr') && sourceDirections.includes('rtl'),
-    sourceDirections.join(','),
+    sourceDirections.includes('ltr') && sourceEndDirections.includes('rtl'),
+    [...sourceDirections, ...sourceEndDirections].join(','),
   )
 
   await page.evaluate(() => (document.getElementById('editor') as unknown as { run(command: string): boolean }).run('toggle-mode'))
@@ -176,10 +190,13 @@ export async function verifyMarkdownEditor(h: Harness) {
   check('typing in rich mode changes only that block byte-for-byte', afterEdit === `${beforeEdit.replace('English line.', 'English line. Added')}\n`, afterEdit)
   await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).run('toggle-mode'))
   const sourceAfterRich = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
-  const sourceBeforeEdit = await source.textContent()
-  const sourceModel = await page.evaluate(() => (document.getElementById('editor') as unknown as { model: unknown }).model)
-  await source.locator('.cm-line').last().click()
-  await page.keyboard.press('End')
+  await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as {
+      sourceView: { state: { doc: { length: number } }; dispatch(spec: unknown): void; focus(): void }
+    }
+    element.sourceView.dispatch({ selection: { anchor: element.sourceView.state.doc.length - 1 } })
+    element.sourceView.focus()
+  })
   await page.keyboard.insertText(' Source edit.')
   const sourceEdited = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
   await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).run('toggle-mode'))
@@ -188,8 +205,8 @@ export async function verifyMarkdownEditor(h: Harness) {
     'mode switches keep rich and source edits in both directions',
     sourceAfterRich === afterEdit &&
       sourceEdited === sourceAfterRich.replace('שורה בעברית.', 'שורה בעברית. Source edit.') &&
-      (await rich.textContent()).includes('Source edit.'),
-    JSON.stringify({ sourceAfterRich, sourceBeforeEdit, sourceModel, sourceEdited }),
+      (await rich.textContent())?.includes('Source edit.') === true,
+    JSON.stringify({ sourceAfterRich, sourceEdited }),
   )
 
   await selectRichText(page, 'English line. Added')
@@ -220,15 +237,10 @@ export async function verifyMarkdownEditor(h: Harness) {
   await lockedAtom.click({ position: { x: 2, y: 2 } })
   await page.keyboard.press('Enter')
   const lockedSource = await page.evaluate(() => {
-    const element = document.getElementById('editor') as unknown as EditorHandle
-    const content = document.querySelector('segnavia-markdown-editor')?.shadowRoot?.querySelector('.cm-content')
-    const selection = getSelection()
-    const range = document.createRange()
-    if (content && selection?.anchorNode) {
-      range.selectNodeContents(content)
-      range.setEnd(selection.anchorNode, selection.anchorOffset)
+    const element = document.getElementById('editor') as unknown as EditorHandle & {
+      sourceView: { state: { selection: { main: { head: number } } } }
     }
-    return { mode: element.mode, offset: range.toString().length }
+    return { mode: element.mode, offset: element.sourceView.state.selection.main.head }
   })
   check(
     'Enter on a selected locked block switches to its first source character',

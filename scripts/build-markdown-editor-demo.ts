@@ -41,6 +41,7 @@ Generated source.
 English line.
 
 שורה בעברית.`
+  const markdownScriptValue = JSON.stringify(markdown).replaceAll('<', '\\u003c')
   const result = await Bun.build({
     entrypoints: [path.join(root, 'packages/frame/src/markdown-editor.ts')],
     outdir: site,
@@ -57,7 +58,7 @@ English line.
       <script type="module">
         import './segnavia-markdown-editor.js'
         const editor = document.getElementById('editor')
-        globalThis.editorEvents = { markdown: [], title: [], modes: [], states: [], links: [], saves: 0, submits: 0, original: ${JSON.stringify(markdown)} }
+        globalThis.editorEvents = { markdown: [], title: [], modes: [], states: [], links: [], saves: 0, submits: 0, original: ${markdownScriptValue} }
         document.getElementById('editor-form').addEventListener('submit', event => {
           event.preventDefault()
           globalThis.editorEvents.submits++
@@ -70,7 +71,7 @@ English line.
         editor.addEventListener('segnavia-save', () => globalThis.editorEvents.saves++)
         editor.titleSource = 'leading-heading'
         editor.lockedFences = { articles: 'Generated list' }
-        editor.markdown = ${JSON.stringify(markdown)}
+        editor.markdown = ${markdownScriptValue}
       </script>
     </body></html>`,
   )

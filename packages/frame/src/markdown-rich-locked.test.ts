@@ -1,5 +1,9 @@
 import { expect, test } from 'bun:test'
-import { isLockedToken, isSilentToken } from './markdown-rich-locked.ts'
+
+if (globalThis.document && !globalThis.document.documentElement) {
+  Object.defineProperty(globalThis.document, 'documentElement', { configurable: true, value: { style: {} } })
+}
+const { isLockedToken, isSilentToken } = await import('./markdown-rich-locked.ts')
 
 test('locked and silent markdown constructs share the reader rules', () => {
   expect(isLockedToken({ type: 'frontmatter', raw: '---\na: b\n---\n' })).toBe(true)

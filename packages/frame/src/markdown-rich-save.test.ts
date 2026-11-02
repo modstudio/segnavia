@@ -1,9 +1,13 @@
 import { expect, test } from 'bun:test'
 import type { JSONContent } from '@tiptap/core'
 import { Node } from '@tiptap/pm/model'
-import { richSchema } from './markdown-rich-extensions.ts'
-import { parseRichDocument, saveRichDocument } from './markdown-rich-save.ts'
 import { joinLeadingHeading, splitLeadingHeading } from './markdown-title.ts'
+
+if (globalThis.document && !globalThis.document.documentElement) {
+  Object.defineProperty(globalThis.document, 'documentElement', { configurable: true, value: { style: {} } })
+}
+const { richSchema } = await import('./markdown-rich-extensions.ts')
+const { parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
 
 const bodyTransform = { split: splitLeadingHeading, join: joinLeadingHeading }
 const lockedFences = { articles: 'Generated list' }
