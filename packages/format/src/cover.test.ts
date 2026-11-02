@@ -31,9 +31,12 @@ describe('Cover', () => {
     expect(() => Cover.parse({ page: { html: '', print: { paper, orientation: 'landscape' } } })).not.toThrow()
   })
 
-  test('refuses another sheet and names its dimensions', () => {
-    expect(() => Cover.parse({ page: { html: '', print: { paper: 'a4' } } })).toThrow('210 × 297 mm sheet')
-    expect(() => Cover.parse({ page: { html: '', print: { paper: 'a4' } } })).toThrow('160 × 100 mm cover sheet')
+  test('accepts a non-default portrait sheet', () => {
+    expect(Cover.parse({ page: { html: '', print: { paper: { width: 100, height: 150, unit: 'mm' } } } }).page.print.paper).toEqual({
+      width: 100,
+      height: 150,
+      unit: 'mm',
+    })
   })
 
   test('refuses print artifacts and sandboxed scripts with remedies', () => {
@@ -102,6 +105,11 @@ describe('cover digest', () => {
     const base = await digestCoverMaterial(material)
     expect(await digestCoverMaterial({ ...material, sheet: { width: 80, height: 50 } })).not.toBe(base)
     expect(await digestCoverMaterial({ ...material, drawingVersion: COVER_DRAWING_VERSION + 1 })).not.toBe(base)
+  })
+
+  test('a parsed non-default sheet changes the digest', async () => {
+    const portrait = Cover.parse({ page: { html: '<h1>Cover</h1>', print: { paper: { width: 100, height: 150, unit: 'mm' } } } })
+    expect(await coverDigest(portrait, { stamp: 'renderer' })).not.toBe(await coverDigest(cover(), { stamp: 'renderer' }))
   })
 
   test('ignores cover identity and page id', async () => {

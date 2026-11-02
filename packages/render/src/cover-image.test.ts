@@ -26,6 +26,11 @@ test('defaults to WebP and passes no dependencies', () => {
   expect(plan.options).not.toHaveProperty('dependencyOrigins')
 })
 
+test('uses a non-default cover sheet aspect', () => {
+  const portrait = Cover.parse({ page: { html: '', print: { paper: { width: 100, height: 150, unit: 'mm' } } } })
+  expect(coverImagePlan(portrait, { width: 200 }).height).toBe(300)
+})
+
 test('keeps PNG and refuses a non-positive or fractional width', () => {
   expect(coverImagePlan(cover, { width: 160, format: 'png' }).options.format).toBe('png')
   expect(() => coverImagePlan(cover, { width: 0 })).toThrow('positive integer pixel width')

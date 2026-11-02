@@ -99,6 +99,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   motifs?: SegnaviaThumbnail['motifs']
   fonts?: SegnaviaThumbnail['fonts']
   placements?: SegnaviaThumbnail['placements']
+  designedCover?: SegnaviaThumbnail['designedCover']
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 

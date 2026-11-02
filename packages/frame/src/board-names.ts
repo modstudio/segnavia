@@ -1,5 +1,5 @@
 import type { BoardItem } from '@segnavia/format'
-import type { ResolvedBoardItem } from './board-policy.ts'
+import type { CheckedResolvedBoardItem } from './board-policy.ts'
 
 export type BoardItemNames = (items: BoardItem[]) => Promise<Record<string, string>>
 
@@ -56,7 +56,7 @@ export class BoardNames {
       })
   }
 
-  name(item: BoardItem | undefined, resolved: ResolvedBoardItem | undefined): string {
+  name(item: BoardItem | undefined, resolved: CheckedResolvedBoardItem | undefined): string {
     return (item && this.names.get(item.address)) || resolved?.title || ''
   }
 }

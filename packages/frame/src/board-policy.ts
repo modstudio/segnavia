@@ -13,10 +13,12 @@ import {
 } from '@segnavia/format'
 import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 import type { ControllerOptions } from './controller.ts'
+import { type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 
 interface ResolvedBase {
   title?: string
   cover?: string
+  designedCover?: DesignedCover
 }
 
 export type ResolvedBoardItem =
@@ -27,9 +29,13 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
-export type ResolvedAsset = ResolvedPlacement | Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>
+type WithoutDesignedCover<T> = T extends { designedCover?: DesignedCover } ? Omit<T, 'designedCover'> : T
+export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>>
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
 export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
+
+type Checked<T> = T extends ResolvedBoardItem ? Omit<T, 'designedCover'> & { designedCover?: ParsedDesignedCover } : never
+export type CheckedResolvedBoardItem = Checked<ResolvedBoardItem>
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
@@ -42,10 +48,12 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
   }
 }
 
-export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): void {
+export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem {
   const expected = item.kind === 'media' ? 'image' : item.kind
   if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
   if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(resolved))
+  const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
+  return { ...resolved, designedCover } as CheckedResolvedBoardItem
 }
 
 export function resolvedShape(resolved: ResolvedBoardItem): Size {

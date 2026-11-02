@@ -2,6 +2,8 @@ import { Deck, Page, type PageInput, Print, type PrintInput, type SlotsOptions }
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
+import { mountDesignedCover } from './designed-cover.ts'
+import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -9,6 +11,7 @@ import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
+import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
   private margin = 400
@@ -28,6 +31,9 @@ export class SegnaviaThumbnail extends HTMLElement {
   private motifOptions: MotifsOptions | undefined
   private placementOptions: AssetPlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
+  private designedCoverInput: DesignedCover | undefined
+  private designedCoverValue: ParsedDesignedCover | undefined
+  private designedCoverDisposal: (() => void) | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
@@ -137,6 +143,17 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  get designedCover(): DesignedCover | undefined {
+    return this.designedCoverInput
+  }
+
+  set designedCover(value: DesignedCover | undefined) {
+    const parsed = value === undefined ? undefined : parseDesignedCover(value, 'The thumbnail')
+    this.designedCoverInput = value
+    this.designedCoverValue = parsed
+    this.changed()
+  }
+
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
   }
@@ -192,6 +209,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private clear() {
+    this.designedCoverDisposal?.()
+    this.designedCoverDisposal = undefined
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
     this.resolution++
@@ -203,6 +222,23 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private async mount() {
+    const presentation = coverPresentation(this.designedCoverValue)
+    if (presentation.kind !== 'fallback') {
+      const sources = thumbnailCoverSources(this.motifOptions, this.fontOptions, this.placementOptions, this.slotOptions)
+      const mounted = mountThumbnailDesignedCover(this.viewport, presentation, (selected) =>
+        mountDesignedCover(
+          selected,
+          (error) => this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true })),
+          sources.motifs,
+          sources.fonts,
+          sources.placements,
+          sources.slots,
+        ),
+      )
+      if (!mounted) return
+      this.designedCoverDisposal = mounted.dispose
+      return
+    }
     if (this.pageValue) {
       this.mountPage()
       return

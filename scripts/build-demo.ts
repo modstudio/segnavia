@@ -310,7 +310,7 @@ writeFileSync(
 )
 // Completely headless: no styles from the library at all, not even geometry.
 writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare" src="deck.json" hash="off" unstyled></segnavia-stage>', 'segnavia.js'))
-buildThumbnailDemo(SITE, shell)
+buildThumbnailDemo(SITE, shell, `shots/${listShot.file}`)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
 await buildBookDemo(SITE)

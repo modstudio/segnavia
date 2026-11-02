@@ -31,4 +31,27 @@ describe('viewport fit', () => {
       }).scale,
     ).toBe(2)
   })
+
+  test.each([
+    [
+      { width: 100, height: 200 },
+      { width: 50, height: 100 },
+    ],
+    [
+      { width: 200, height: 100 },
+      { width: 100, height: 50 },
+    ],
+  ])('fits a $width by $height designed cover whole in a square tile', (sheet, fitted) => {
+    const result = fitSheet({
+      width: 100,
+      height: 100,
+      paddingInlineStart: 0,
+      paddingInlineEnd: 0,
+      reserveBlockStart: 0,
+      reserveBlockEnd: 0,
+      sheetWidth: sheet.width,
+      sheetHeight: sheet.height,
+    })
+    expect(result).toMatchObject(fitted)
+  })
 })

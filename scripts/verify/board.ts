@@ -16,6 +16,8 @@ interface MountedBox {
 
 const shapes: Record<string, Size> = {
   'deck-small': { width: 1280, height: 720 },
+  'deck-designed': { width: 1280, height: 720 },
+  'deck-designed-picture': { width: 1280, height: 720 },
   'deck-hebrew': { width: 1280, height: 720 },
   page: { width: 640, height: 900 },
   paper: { width: 816, height: 1056 },
@@ -182,6 +184,63 @@ export async function verifyBoard(h: Harness) {
     () => (window as typeof window & { boardChanges?: Array<{ edit: { kind: string } }> }).boardChanges?.some((change) => change.edit.kind === 'settle'),
     undefined,
     { timeout: BOUNDED_WAIT_MS },
+  )
+  // Items resolve through the host seam after a delay, so wait until both
+  // designed covers and the fallback cover have drawn before reading them.
+  await h.page.waitForFunction(
+    () => {
+      const root = document.querySelector('segnavia-board')?.shadowRoot
+      return Boolean(
+        root?.querySelector('[data-board-item="deck-designed"] iframe') &&
+          root.querySelector('[data-board-item="deck-designed-picture"] .segnavia-designed-cover') &&
+          root.querySelector('[data-board-item="deck-small"] img'),
+      )
+    },
+    undefined,
+    { timeout: BOUNDED_WAIT_MS },
+  )
+  const coverFacts = await board.evaluate((element) => {
+    const root = element.shadowRoot
+    const designed = root?.querySelector('[data-board-item="deck-designed"]')
+    const fallback = root?.querySelector('[data-board-item="deck-small"]')
+    const frame = designed?.querySelector('iframe')
+    const sheet = designed?.querySelector('.segnavia-designed-cover > div')?.getBoundingClientRect()
+    const tile = designed?.getBoundingClientRect()
+    const picture = root?.querySelector('[data-board-item="deck-designed-picture"] .segnavia-designed-cover')
+    return {
+      designed: Boolean(frame),
+      designedPicture: picture instanceof HTMLImageElement,
+      fallback: Boolean(fallback?.querySelector('img')),
+      sheet: {
+        width: sheet?.width ?? 0,
+        height: sheet?.height ?? 0,
+        centerX: sheet && tile ? sheet.left + sheet.width / 2 - (tile.left + tile.width / 2) : Number.NaN,
+        centerY: sheet && tile ? sheet.top + sheet.height / 2 - (tile.top + tile.height / 2) : Number.NaN,
+      },
+      sandbox: frame?.getAttribute('sandbox'),
+      csp: frame?.getAttribute('srcdoc')?.match(/Content-Security-Policy[^>]+/)?.[0] ?? '',
+    }
+  })
+  h.check(
+    'a designed board cover and an unchanged fallback cover both draw in the board shard',
+    coverFacts.designed && coverFacts.designedPicture && coverFacts.fallback,
+    JSON.stringify(coverFacts),
+  )
+  h.check(
+    'a live board cover has its sheet aspect and is centered',
+    coverFacts.sheet.width > 0 &&
+      Math.abs(coverFacts.sheet.width / coverFacts.sheet.height - 100 / 150) <= 1 / coverFacts.sheet.height &&
+      Math.abs(coverFacts.sheet.centerX) <= 1 &&
+      Math.abs(coverFacts.sheet.centerY) <= 1,
+    JSON.stringify(coverFacts.sheet),
+  )
+  h.check(
+    'a live designed cover refuses author scripts without same-origin',
+    coverFacts.sandbox !== undefined &&
+      !coverFacts.sandbox?.includes('allow-same-origin') &&
+      coverFacts.csp.includes('script-src') &&
+      coverFacts.csp.includes('nonce-'),
+    JSON.stringify(coverFacts),
   )
   await h.page.waitForFunction(() => document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('[data-board-item]').length, undefined, {
     timeout: BOUNDED_WAIT_MS,

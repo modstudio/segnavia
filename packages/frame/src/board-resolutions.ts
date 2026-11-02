@@ -1,6 +1,6 @@
 import type { BoardItem } from '@segnavia/format'
 import { classifyMediaAnswer, type ResolvePlacement } from '@segnavia/html'
-import { checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
 
@@ -26,7 +26,7 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
 }
 
 interface BoardResolutionEntry {
-  value?: ResolvedBoardItem
+  value?: CheckedResolvedBoardItem
   failed?: boolean
 }
 
@@ -38,21 +38,21 @@ export class BoardResolutions {
     for (const address of this.entries.keys()) if (!addresses.has(address)) this.entries.delete(address)
   }
 
-  value(address: string): ResolvedBoardItem | undefined {
+  value(address: string): CheckedResolvedBoardItem | undefined {
     const entry = this.entries.get(address)
     return entry?.failed ? undefined : entry?.value
   }
 
-  request(item: BoardItem, resolved: (item: BoardItem, value: ResolvedBoardItem) => void, failed: (item: BoardItem, error: unknown) => void) {
+  request(item: BoardItem, resolved: (item: BoardItem, value: CheckedResolvedBoardItem) => void, failed: (item: BoardItem, error: unknown) => void) {
     if (!this.resolver || this.entries.has(item.address)) return
     const entry: BoardResolutionEntry = {}
     this.entries.set(item.address, entry)
     Promise.resolve()
       .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
       .then((value) => {
-        checkResolved(item, value)
-        entry.value = value
-        resolved(item, value)
+        const checked = checkResolved(item, value)
+        entry.value = checked
+        resolved(item, checked)
       })
       .catch((error) => failed(item, error))
   }
