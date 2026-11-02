@@ -2,11 +2,51 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 export async function buildMarkdownEditorDemo(root: string, site: string): Promise<void> {
-  const markdown = '# Original title\n\nEnglish line.\nשורה בעברית.'
+  const markdown = `# Original title
+
+---
+draft: true
+---
+
+:::audience{name=builders}
+Directive body.
+:::
+
+\`\`\`mermaid
+flowchart LR
+A-->B
+\`\`\`
+
+\`\`\`articles
+Generated source.
+\`\`\`
+
+> [!NOTE]
+> Keep this alert.
+
+<script>globalThis.lockedAuthorScript = true</script><aside>Raw HTML</aside>
+
+<!-- carried comment -->
+
+[spec]: https://example.com/spec
+
+| Name | Value |
+| --- | --- |
+| One | 1 |
+
+- [ ] Task
+
+![Picture](https://example.com/p.png)
+
+English line.
+
+שורה בעברית.`
+  const markdownScriptValue = JSON.stringify(markdown).replaceAll('<', '\\u003c')
   const result = await Bun.build({
     entrypoints: [path.join(root, 'packages/frame/src/markdown-editor.ts')],
     outdir: site,
-    naming: 'segnavia-markdown-editor.js',
+    naming: { entry: 'segnavia-markdown-editor.js', chunk: 'segnavia-markdown-editor-[hash].[ext]' },
+    splitting: true,
     target: 'browser',
     minify: true,
   })
@@ -18,16 +58,20 @@ export async function buildMarkdownEditorDemo(root: string, site: string): Promi
       <script type="module">
         import './segnavia-markdown-editor.js'
         const editor = document.getElementById('editor')
-        globalThis.editorEvents = { markdown: [], title: [], saves: 0, submits: 0 }
+        globalThis.editorEvents = { markdown: [], title: [], modes: [], states: [], links: [], saves: 0, submits: 0, original: ${markdownScriptValue} }
         document.getElementById('editor-form').addEventListener('submit', event => {
           event.preventDefault()
           globalThis.editorEvents.submits++
         })
         editor.addEventListener('segnavia-markdown-change', event => globalThis.editorEvents.markdown.push(event.detail.markdown))
         editor.addEventListener('segnavia-title-change', event => globalThis.editorEvents.title.push(event.detail.title))
+        editor.addEventListener('segnavia-mode-change', event => globalThis.editorEvents.modes.push(event.detail.mode))
+        editor.addEventListener('segnavia-editor-state', event => globalThis.editorEvents.states.push(event.detail))
+        editor.addEventListener('segnavia-link-request', event => globalThis.editorEvents.links.push(event.detail.href))
         editor.addEventListener('segnavia-save', () => globalThis.editorEvents.saves++)
         editor.titleSource = 'leading-heading'
-        editor.markdown = ${JSON.stringify(markdown)}
+        editor.lockedFences = { articles: 'Generated list' }
+        editor.markdown = ${markdownScriptValue}
       </script>
     </body></html>`,
   )

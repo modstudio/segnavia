@@ -54,6 +54,8 @@ export {
   type BodyHtmlOptions,
   bodyHtml,
   type HtmlPage,
+  isDiagramFence,
+  isGithubAlertBlock,
   type MarkdownHeading,
   markdownOutline,
   resolvePageHtml,
@@ -89,7 +91,7 @@ export {
   resolvePlacements,
 } from './placements.ts'
 export * from './printed-pages.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize, type UrlPolicy } from './sanitize.ts'
+export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, safeMarkdownUrl, sanitize, type UrlPolicy } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

@@ -7,7 +7,8 @@ import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
-import { type ConverterPolicy, sanitize } from './sanitize.ts'
+import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
+import { sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
 export type AlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution'
@@ -16,6 +17,26 @@ export type AlertLabels = Record<AlertKind, string>
 export const alertLabels: Readonly<Record<'en' | 'he', AlertLabels>> = {
   en: { note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution' },
   he: { note: 'הערה', tip: 'עצה', important: 'חשוב', warning: 'אזהרה', caution: 'זהירות' },
+}
+
+function alertMarker(value: string): { kind: AlertKind; length: number } | undefined {
+  const match = /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(value)
+  const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
+  return kind && match && Object.hasOwn(alertLabels.en, kind) ? { kind, length: match[0].length } : undefined
+}
+
+/** Whether the reader recognizes a blockquote source as a GitHub alert. */
+export function isGithubAlertBlock(raw: string): boolean {
+  const content = raw
+    .split('\n')
+    .map((line) => /^ {0,3}>[ \t]?(.*)$/.exec(line)?.[1] ?? '')
+    .find((line) => line.trim() !== '')
+  return Boolean(content && alertMarker(content))
+}
+
+/** Whether the reader turns a fenced language into a diagram placeholder. */
+export function isDiagramFence(language: string | undefined): boolean {
+  return (language ?? '').trim().split(/[ \t]/, 1)[0]?.toLowerCase() === 'mermaid'
 }
 
 export interface BodyHtmlOptions {
@@ -42,16 +63,6 @@ type HastNode = {
   properties?: Record<string, unknown>
   value?: string
   children?: HastNode[]
-}
-
-const MARKDOWN_CONVERTER_POLICY: ConverterPolicy = {
-  urls: {
-    linkProtocols: ['https:', 'http:', 'mailto:'],
-    imageProtocols: ['https:', 'http:'],
-    linkFragments: true,
-    dataImages: true,
-  },
-  inertControls: [{ element: 'input', type: 'checkbox', attribute: 'disabled' }],
 }
 
 const GEOMETRY_STYLE =
@@ -161,10 +172,10 @@ function applyAlert(node: Node, labels: AlertLabels): void {
   if (node.type !== 'blockquote') return
   const first = node.children?.[0]?.children?.find((child) => child.type === 'text')
   if (!first) return
-  const match = /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(first.value ?? '')
-  const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
-  if (!kind || !match || !Object.hasOwn(labels, kind)) return
-  first.value = (first.value ?? '').slice(match[0].length)
+  const marker = alertMarker(first.value ?? '')
+  if (!marker) return
+  const { kind } = marker
+  first.value = (first.value ?? '').slice(marker.length)
   node.data = { hName: 'div', hProperties: { dataSegnaviaAlert: kind } }
   node.children = [{ type: 'paragraph', children: [{ type: 'text', value: labels[kind] }], data: { hName: 'bdi' } }, ...(node.children ?? [])]
 }
@@ -213,7 +224,8 @@ function hastPlugin() {
       if (node.tagName !== 'pre') return
       const code = node.children?.[0]
       const classes = Array.isArray(code?.properties?.className) ? code.properties.className.map(String) : []
-      if (classes.includes('language-mermaid')) node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
+      if (classes.some((name) => name.startsWith('language-') && isDiagramFence(name.slice('language-'.length))))
+        node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
       else wrap(node)
     }
     const visit = (node: HastNode) => {
@@ -275,7 +287,9 @@ export function markdownOutline(markdown: string | Extract<PageBody, { markdown:
 
 export type HtmlPage = Omit<Page, 'body'> & { html: string }
 
-export function resolvePageHtml(page: Page): HtmlPage {
+export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'>): HtmlPage
+export function resolvePageHtml(page: Page): HtmlPage
+export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): HtmlPage {
   const { body, ...fields } = page
-  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang }) }
+  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang, alertLabels: options.alertLabels }) }
 }

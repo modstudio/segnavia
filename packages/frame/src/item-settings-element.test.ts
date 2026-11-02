@@ -32,7 +32,7 @@ Object.assign(globalThis, { HTMLElement: TestElement })
 Object.defineProperty(globalThis, 'document', {
   configurable: true,
   writable: true,
-  value: { createElement: () => new TestElement() },
+  value: { createElement: () => new TestElement(), documentElement: { style: {} } },
 })
 
 const { ItemSettingsController } = await import('./item-settings-authoring.ts')

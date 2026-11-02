@@ -1,0 +1,23 @@
+import type { FontReference } from '@segnavia/format'
+import type { AlertLabels } from '@segnavia/html'
+import type { MarkdownTitleSource } from './markdown-editor-model.ts'
+import type { MarkdownEditorCommand, MarkdownEditorCommandArgs, MarkdownEditorMode } from './markdown-editor-policy.ts'
+import type { FontsOptions } from './page-fonts.ts'
+
+export type MarkdownEditorStateDetail = Readonly<{ marks: string[]; nodes: string[]; canUndo: boolean; canRedo: boolean }>
+
+export interface SegnaviaMarkdownEditor extends Omit<HTMLElement, 'title'> {
+  markdown: string
+  mode: MarkdownEditorMode
+  readonly modes: readonly ['rich', 'source']
+  title: string | null
+  titleSource: MarkdownTitleSource
+  lockedFences: Record<string, string>
+  css: string
+  fonts: FontsOptions | undefined
+  fontReferences: FontReference[]
+  linkOrigins: Iterable<string> | undefined
+  alertLabels: Partial<AlertLabels> | undefined
+  unstyled: boolean
+  run<C extends MarkdownEditorCommand>(command: C, args?: C extends keyof MarkdownEditorCommandArgs ? MarkdownEditorCommandArgs[C] : never): boolean
+}

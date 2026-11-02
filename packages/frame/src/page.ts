@@ -5,11 +5,12 @@
 // content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
+import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -24,11 +25,12 @@ type PostedSelectionRequest = { cancel?: SelectionCancellation }
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
-export class SegnaviaPage extends HTMLElement {
+export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
   css = ''
   cspExtra = ''
   dependencyOrigins: Iterable<string> = []
+  private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
@@ -49,22 +51,14 @@ export class SegnaviaPage extends HTMLElement {
   private postedSelectionRequests = new Set<PostedSelectionRequest>()
   private selectionReadyRequests = new Set<() => void>()
 
-  get bounded(): boolean {
-    return this.hasAttribute('bounded')
-  }
-  set bounded(value: boolean) {
-    this.toggleAttribute('bounded', value)
+  get alertLabels(): Partial<AlertLabels> | undefined {
+    return this.alertLabelOptions
   }
 
-  get label(): string {
-    return this.getAttribute('label') ?? ''
+  set alertLabels(value: Partial<AlertLabels> | undefined) {
+    this.alertLabelOptions = value
+    if (this.pageValue) this.load(this.pageValue)
   }
-
-  set label(value: string | null | undefined) {
-    if (value == null || value === '') this.removeAttribute('label')
-    else this.setAttribute('label', value)
-  }
-
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
@@ -167,7 +161,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
-    const resolvedPage = resolvePageHtml(page)
+    const resolvedPage = resolvePageHtml(page, { alertLabels: this.alertLabels })
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()

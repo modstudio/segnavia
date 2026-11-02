@@ -148,7 +148,10 @@ player, headless and controls bundles do not import it, and no server-safe
 entry reaches it. The element has an open shadow root and supplies behavior
 and zero-specificity geometry only. `unstyled` removes that geometry.
 
-The element reflects `markdown`, `mode`, `title-source` and `unstyled`.
+The element reflects `mode`, `title-source` and `unstyled`. The `markdown`
+attribute is the initial or host-declared value, like an input's `value`;
+user edits change the live property without reflecting to the attribute. A
+later attribute or property write replaces the document with fresh history.
 `dir` and `lang` are native attributes and are inherited; the title field and
 each source line resolve their own direction with `dir="auto"`. `title` is a
 property only. It deliberately does not use the native `title` attribute
@@ -160,13 +163,45 @@ visible, and its value is the first nonblank level-one ATX heading or the empty
 string when there is none. A non-empty title adds or replaces that heading,
 with one blank line before a non-empty body; clearing the field removes the
 heading, while setting the property to `null` or `undefined` is ignored. The
-heading is absent from the source editor and joined back into markdown. The
+heading is absent from both the source and rich editors and joined back into
+markdown. The
 split happens only when a host sets `markdown` or changes `titleSource`, so a
 heading typed into the source editor remains body text. A textless `#` heading
 also remains body text, unlike the reference transform, which retains it.
-`modes` is the read-only list of
-available modes. It contains only `source` until rich editing ships, so asking
-for `rich` leaves `mode` at `source` and emits no mode change.
+`modes` is the read-only `['rich', 'source']` list and rich is the default.
+Host mode writes are silent; keyboard and command changes emit a mode event.
+
+Rich mode is TipTap in the shadow root. Markdown stays the source of truth.
+Entering rich parses it; leaving rich saves it. An unchanged switch is
+byte-for-byte silent, while an edit stitches newly serialized nodes among the
+original block separators so every untouched block keeps its exact source.
+Frontmatter, directive containers, Mermaid and host-named fences, GitHub
+alerts and raw HTML are locked atoms. Comments and link definitions are
+carried silently and keep their place: an edit beside one stays on the same
+side of it. A locked atom shows its isolated host label, or an ordinary
+nested `<segnavia-page>` rendering that block as Markdown with author scripts
+refused. It exposes `part="locked-block"` and labeled atoms also expose
+`data-locked-label`; there is no editor chrome.
+
+Rich mode holds schema nodes, including inline images. Links and images from
+commands or paste use the Markdown reader URL rule. Optional `linkOrigins`
+further restricts absolute HTTP(S) links, but not images. Pasted HTML goes
+through the schema, refused links keep their text, refused images disappear,
+and links never open on click.
+
+`lockedFences` maps case-insensitive fence languages to labels. `css` is
+sanitized as page CSS and applied in the shadow root; `html` and `body`
+selectors therefore do not match rich content. A `css` write applies to rich
+content and to every locked nested page in place, without rebuilding the
+editor. A write of `lockedFences`, `fonts`, `fontReferences` or `alertLabels`
+whose value equals the current one changes nothing, so a host may pass a fresh
+object on every render; a different value rebuilds rich mode. `fonts` is the
+page element's font source option and `fontReferences` is the page-style
+reference list, resolved and refused exactly as a page resolves and refuses
+them. Faces are registered in `document.fonts` as `FontFace` objects and removed on
+change or disconnect, because Chromium ignores shadow-root `@font-face`.
+`alertLabels` flows to locked nested pages. Every rich block carries
+`dir="auto"`.
 
 The source editor is CodeMirror with GFM, history, wrapping and per-line text
 direction. Fenced languages come from CodeMirror's language data; Mermaid is
@@ -188,14 +223,21 @@ highlight set with these properties, all of which default to `inherit`:
 Every editor event bubbles and crosses the shadow boundary.
 `segnavia-markdown-change` carries `{ markdown }` and is suppressed when that
 string was last emitted. `segnavia-title-change` carries `{ title }`.
-`segnavia-mode-change` carries `{ mode }` only after an actual mode change;
-none can occur while source is the sole mode. `segnavia-save` carries no
-detail. `segnavia-editor-state` carries `{ marks, nodes, canUndo, canRedo }`;
-marks and nodes are empty in source mode. `run(command)` supports `undo`,
-`redo` and `toggle-mode`; other commands refuse because they require rich
-mode.
+`segnavia-mode-change` carries `{ mode }` after a user-requested actual mode
+change. `segnavia-save` carries no detail. `segnavia-editor-state` carries
+`{ marks, nodes, canUndo, canRedo }` in command vocabulary, fires after rich
+transactions and selection changes, and is suppressed while unchanged.
+`segnavia-link-request { href }` is emitted only by Mod-K; the host answers
+with `run('link', { href })`.
 
-User edits emit change events: source edits emit
+`run(command, args?)` returns whether it applied. Commands cover bold, italic,
+code, strike, paragraph and heading levels, bullet, ordered and task lists,
+quote, code block, link and unlink, table insertion and row, column and table
+deletion, undo, redo, mode toggle and edit-in-source. Rich-only commands refuse
+in source mode. Edit-in-source requires a selected locked atom and positions
+the source cursor at that block.
+
+User edits emit change events: source and rich edits emit
 `segnavia-markdown-change`, while title edits emit
 `segnavia-title-change` and, for a leading-heading title,
 `segnavia-markdown-change`. Host property writes emit no change events because
@@ -205,9 +247,20 @@ write.
 
 | Key | Action |
 |---|---|
-| CodeMirror default and history keys | Source editing and history |
-| Mod-S | Emit `segnavia-save` from the source editor or title |
-| Mod-Alt-M | Toggle mode; currently a no-op |
+| CodeMirror defaults; TipTap default marks, nodes and history | Editing and history in the active mode |
+| Mod-S | Emit `segnavia-save` from either editor or the title |
+| Mod-Alt-M | Toggle mode |
+| Mod-B / Mod-I / Mod-E / Mod-Shift-S | Bold / italic / code / strike |
+| Mod-Alt-0 / Mod-Alt-1…6 | Paragraph / heading level |
+| Mod-Shift-8 / Mod-Shift-7 / Mod-Shift-9 | Bullet / ordered / task list |
+| Mod-Shift-B / Mod-Alt-C | Quote / code block |
+| Mod-K / Mod-Shift-K | Request link / unlink |
+| Mod-Alt-Shift-T | Insert a 3×3 table with a header row |
+| Mod-Alt-Shift-R / Mod-Alt-Shift-Backspace | Add / delete row inside a table |
+| Mod-Alt-Shift-C / Mod-Alt-Shift-Delete | Add / delete column inside a table |
+| Mod-Alt-Shift-X | Delete table |
+| Mod-Z / Mod-Shift-Z | Undo / redo |
+| Enter on a selected locked block | Edit that block in source mode |
 | Enter in the title | Refused; the title remains one line |
 
 **Data the host keeps.** The editor owns no persistence. The host keeps the
@@ -289,6 +342,7 @@ retains the final override in every render view.
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
 | `Page.printedPages` | `pagePdf`, `pagesPdf` and browser `printPages` | Named parent pages supply inherited head and foot motif regions plus logical margins. Rules choose first, last, recto, verso or default furniture for each printed page. The frame composer measures Chromium multicol fragmentation and builds exact paper boxes; motif data remains host-expanded while the composer supplies the reserved formatted `printedPage.number` and `printedPage.total` context. Composition waits for fonts and images, and printing waits for the composer; a failure, an unready browser frame or more than `PRINTED_PAGE_LIMIT` papers is refused. Browser print first measures the composed page count, then lays out one sandboxed frame per printed paper, each composing only its numbered paper. A page with printed pages must refuse scripts and carry print paper without bleed, marks or `print.margin`. Furniture taller than its region is reported as overflow. Printed pages accept only an identity imposition: one full-paper cell at the page's own paper, with no margins, gaps, bleed, marks, skip, fold or second side. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and extra CSP directives. |
+| `alertLabels` | `<segnavia-page>`, `<segnavia-markdown-editor>` | Host overrides for the library-written GitHub alert labels in converted Markdown; locked editor views pass them to their nested page. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized frame title. `defaultFrameTitle` supplies the English default, and the position is recomputed after a reorder. |
 | `--segnavia-*` custom properties | stage, page, paper and player | Colors, radius, type, annotation color, cue fade, transition duration and transition fit scale. `--segnavia-shot-backdrop` supplies the plain canvas behind contained images and shots. `--segnavia-fit-reserve` lets a player host reserve viewport height for the host page's own chrome; the player measures its caption, bar, `.below` slot and stacked rail itself. `--segnavia-overlay-scrim` supplies the overlay caption and control scrim. `--segnavia-stage-gutter` (default `24px`) is the room around the stage in `fit="contain"`, so its shadow stays inside the player's clip; `fit="height"` and presentation keep their own padding. |
 | `neighbors` | `<segnavia-stage>` | Whether previous and next frames remain mounted, inert and visually hidden when author scripts are refused. A deck with sandboxed scripts mounts no neighbors because a running author script in a hidden frame could take the page's keyboard focus; on a turn, its `data-incoming` frame loads invisibly above the `data-active` frame and replaces it after two parent animation frames. A bounded timeout completes a stalled swap, and a later turn cancels one still pending. Reloading an open deck rebuilds a mounted frame when its resolved content, scripts mode, host CSS or extra CSP changes, while keeping the selected id and leaving the address unchanged. A bridge-declared frame that misses ready stays mounted through rerenders of its resolution and is rebuilt when the slide next resolves; a late ready recovers it. The visible frame and its annotations keep the deck's direction. |

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, markdownOutline, resolvePageHtml } from './markdown.ts'
+import { bodyHtml, isGithubAlertBlock, markdownOutline, resolvePageHtml } from './markdown.ts'
 
 describe('bodyHtml', () => {
   test('passes HTML through unchanged', () => {
@@ -74,6 +74,12 @@ describe('bodyHtml', () => {
     expect(bodyHtml({ markdown: '> [!TIP]\n> Read.' }, { alertLabels: { tip: 'Hint' } })).toContain('<bdi>Hint</bdi>')
     expect(bodyHtml({ markdown: '> [!NOTE]\n> Read.' }, { lang: 'en', dir: 'rtl' })).toContain('<bdi>Note</bdi>')
     expect(bodyHtml({ markdown: '> [!NOTE]\n> קראו.' })).toContain('<bdi>הערה</bdi>')
+  })
+
+  test('uses the converter alert rule after a bare blockquote line', () => {
+    const markdown = '>\n> [!NOTE]\n> Read this.'
+    expect(isGithubAlertBlock(markdown)).toBe(true)
+    expect(bodyHtml({ markdown })).toContain('data-segnavia-alert="note"')
   })
 
   test('marks mermaid and wraps other fences as overflow', () => {

@@ -1,9 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { classify, fill, findActiveContent, sanitize } from './index.ts'
+import { classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
 
 const prefix = 'demo'
 
 describe('sanitize', () => {
+  test('the markdown URL rule optionally restricts link origins', () => {
+    expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
+    expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)
+    expect(safeMarkdownUrl('href', 'https://inside.example/x', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('href', 'javascript:alert(1)')).toBe(false)
+  })
+
   test('a scheme hidden behind a control character is still refused', () => {
     expect(sanitize('<a href="java\tscript:alert(1)">x</a>')).toBe('<a>x</a>')
   })
