@@ -1,5 +1,13 @@
 # @segnavia/react
 
+## 0.40.1
+
+### Patch Changes
+
+- Publish every package at one version. The 0.40.0 publish stopped partway: `@segnavia/render` and `@segnavia/capture` 0.40.0 were never published. 0.40.1 has the same code as 0.40.0. Use 0.40.1 in place of 0.40.0.
+- Updated dependencies
+  - @segnavia/frame@0.40.1
+
 ## 0.40.0
 
 ### Minor Changes
