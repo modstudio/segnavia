@@ -36,9 +36,9 @@ describe('bodyHtml', () => {
   })
 
   test('renders alerts with an isolated language label', () => {
-    expect(bodyHtml({ markdown: '> [!NOTE]\n> Read this.' })).toContain('<div data-segnavia-alert="note"><bdi>Note</bdi>')
-    expect(bodyHtml({ markdown: '> [!WARNING]\n> קראו.', lang: 'he' })).toContain('<bdi>אזהרה</bdi>')
-    expect(bodyHtml({ markdown: '> [!TIP]\n> Read.', alertLabels: { tip: 'Hint' } })).toContain('<bdi>Hint</bdi>')
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> Read this.' })).toMatch(/<div data-segnavia-alert="note">\s*<bdi>Note<\/bdi>/)
+    expect(bodyHtml({ markdown: '> [!WARNING]\n> קראו.' }, { lang: 'he' })).toContain('<bdi>אזהרה</bdi>')
+    expect(bodyHtml({ markdown: '> [!TIP]\n> Read.' }, { alertLabels: { tip: 'Hint' } })).toContain('<bdi>Hint</bdi>')
   })
 
   test('marks mermaid and wraps other fences as overflow', () => {

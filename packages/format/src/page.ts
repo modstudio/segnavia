@@ -60,7 +60,8 @@ const PageShape = z
     if (fields.length === 0) ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
     if (fields.length > 1) {
       const names = fields.join(', ')
-      for (const field of fields) ctx.addIssue({ code: 'custom', path: [field], message: `${names} were all given; provide exactly one of body, html or markdown` })
+      for (const field of fields)
+        ctx.addIssue({ code: 'custom', path: [field], message: `${names} were all given; provide exactly one of body, html or markdown` })
     }
     for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
   })

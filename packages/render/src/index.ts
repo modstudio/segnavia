@@ -1,4 +1,4 @@
-import { Book, Cover, type Deck, Page } from '@segnavia/format'
+import { Book, Cover, type Deck, type Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
@@ -307,14 +307,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const expanded = await expandFramePages(
-          inputs.map(resolvePageHtml),
-          opts.motifs,
-          deadline.signal,
-          opts.placements,
-          'print',
-          opts.pageWidths,
-        )
+        const expanded = await expandFramePages(inputs.map(resolvePageHtml), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const withFonts = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {

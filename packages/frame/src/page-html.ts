@@ -4,6 +4,7 @@ import { bodyHtml } from '@segnavia/html'
 export type HtmlPage = Page & { html: string }
 
 export function resolveParsedPageHtml(page: Page): HtmlPage {
+  if (!page.body && 'html' in page && typeof page.html === 'string') return page as HtmlPage
   return { ...page, html: bodyHtml(page.body, { dir: page.dir, lang: page.lang }) }
 }
 

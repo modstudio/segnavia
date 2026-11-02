@@ -99,7 +99,7 @@ function frontmatter(source: string): HastNode[] {
   if (value == null) return []
   if (typeof value !== 'object' || Array.isArray(value)) return unreadableFrontmatter(source)
   const properties = value as Record<string, unknown>
-  return Object.keys(properties).length === 0 ? [] : propertyList(properties, new Set([properties])).children ?? []
+  return Object.keys(properties).length === 0 ? [] : (propertyList(properties, new Set([properties])).children ?? [])
 }
 
 function visibleText(node: Node): string {
@@ -123,47 +123,65 @@ function directiveSource(node: Node, source: string): string {
   return start === undefined || end === undefined ? `:${node.name ?? ''}` : source.slice(start, end)
 }
 
+function applyFrontmatter(node: Node): void {
+  if (node.type !== 'yaml' || typeof node.value !== 'string') return
+  node.type = 'paragraph'
+  node.children = []
+  node.data = { hName: 'dl', hProperties: { dataSegnaviaFrontmatter: '' }, hChildren: frontmatter(node.value) }
+}
+
+function applyHeading(node: Node, seen: Map<string, number>, outline: MarkdownHeading[]): void {
+  if (node.type !== 'heading' || !node.depth) return
+  const title = visibleText(node)
+  const base = slug(title)
+  const count = seen.get(base) ?? 0
+  seen.set(base, count + 1)
+  const id = count === 0 ? base : `${base}-${count + 1}`
+  node.data = { ...node.data, hProperties: { ...node.data?.hProperties, id } }
+  outline.push({ id, level: node.depth, title })
+}
+
+function applyDirective(node: Node): void {
+  if (node.type !== 'containerDirective') return
+  const attributes = Object.fromEntries(
+    Object.entries(node.attributes ?? {}).map(([name, value]) => [
+      `dataSegnaviaDirective${name.charAt(0).toUpperCase()}${name.slice(1).replace(/[^a-zA-Z0-9]+(.)/g, (_, next: string) => next.toUpperCase())}`,
+      value ?? '',
+    ]),
+  )
+  node.data = { hName: 'div', hProperties: { dataSegnaviaDirective: node.name ?? '', ...attributes } }
+}
+
+function applyAlert(node: Node, labels: AlertLabels): void {
+  if (node.type !== 'blockquote') return
+  const first = node.children?.[0]?.children?.find((child) => child.type === 'text')
+  if (!first) return
+  const match = /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(first.value ?? '')
+  const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
+  if (!kind || !match || !Object.hasOwn(labels, kind)) return
+  first.value = (first.value ?? '').slice(match[0].length)
+  node.data = { hName: 'div', hProperties: { dataSegnaviaAlert: kind } }
+  node.children = [{ type: 'paragraph', children: [{ type: 'text', value: labels[kind] }], data: { hName: 'bdi' } }, ...(node.children ?? [])]
+}
+
+function literalDirectives(node: Node, source: string): void {
+  if (!node.children) return
+  node.children = node.children.map((child) =>
+    child.type === 'textDirective' || child.type === 'leafDirective' ? { type: 'text', value: directiveSource(child, source) } : child,
+  )
+}
+
 function markdownPlugin(outline: MarkdownHeading[], labels: AlertLabels) {
   return (tree: Node, file: { value: unknown }) => {
     const source = String(file.value)
     const seen = new Map<string, number>()
     const visit = (node: Node) => {
-      if (node.type === 'yaml' && typeof node.value === 'string') {
-        node.type = 'paragraph'
-        node.children = []
-        node.data = { hName: 'dl', hProperties: { dataSegnaviaFrontmatter: '' }, hChildren: frontmatter(node.value) }
-      } else if (node.type === 'heading' && node.depth) {
-        const title = visibleText(node)
-        const base = slug(title)
-        const count = seen.get(base) ?? 0
-        seen.set(base, count + 1)
-        const id = count === 0 ? base : `${base}-${count + 1}`
-        node.data = { ...node.data, hProperties: { ...node.data?.hProperties, id } }
-        outline.push({ id, level: node.depth, title })
-      } else if (node.type === 'containerDirective') {
-        const attributes = Object.fromEntries(
-          Object.entries(node.attributes ?? {}).map(([name, value]) => [
-            `dataSegnaviaDirective${name.charAt(0).toUpperCase()}${name.slice(1).replace(/[^a-zA-Z0-9]+(.)/g, (_, next: string) => next.toUpperCase())}`,
-            value ?? '',
-          ]),
-        )
-        node.data = { hName: 'div', hProperties: { dataSegnaviaDirective: node.name ?? '', ...attributes } }
-      } else if (node.type === 'blockquote') {
-        const first = node.children?.[0]?.children?.find((child) => child.type === 'text')
-        const match = first ? /^\[!([A-Za-z]+)\](?:\r?\n|\s*)/.exec(first.value ?? '') : null
-        const kind = match?.[1]?.toLowerCase() as AlertKind | undefined
-        if (kind && Object.hasOwn(labels, kind)) {
-          first!.value = (first!.value ?? '').slice(match![0].length)
-          node.data = { hName: 'div', hProperties: { dataSegnaviaAlert: kind } }
-          node.children = [{ type: 'paragraph', children: [{ type: 'text', value: labels[kind] }], data: { hName: 'bdi' } }, ...(node.children ?? [])]
-        }
-      }
-      if (node.children) {
-        node.children = node.children.map((child) =>
-          child.type === 'textDirective' || child.type === 'leafDirective' ? { type: 'text', value: directiveSource(child, source) } : child,
-        )
-        for (const child of node.children) visit(child)
-      }
+      applyFrontmatter(node)
+      applyHeading(node, seen, outline)
+      applyDirective(node)
+      applyAlert(node, labels)
+      literalDirectives(node, source)
+      for (const child of node.children ?? []) visit(child)
     }
     visit(tree)
   }
@@ -177,22 +195,24 @@ function alertLanguage(markdown: string, options: BodyHtmlOptions): 'en' | 'he' 
 
 function hastPlugin() {
   return (tree: HastNode) => {
-    const visit = (node: HastNode) => {
-      for (const child of node.children ?? []) visit(child)
-      if (node.type !== 'element') return
-      if (node.tagName === 'pre') {
-        const code = node.children?.[0]
-        const classes = Array.isArray(code?.properties?.className) ? code.properties.className.map(String) : []
-        if (classes.includes('language-mermaid')) node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
-        else wrap(node)
-      }
-      if (node.tagName === 'table') wrap(node)
-    }
     const wrap = (node: HastNode) => {
       const copy = { ...node, children: node.children }
       node.tagName = 'div'
       node.properties = { dataSegnaviaOverflow: '' }
       node.children = [copy]
+    }
+    const transform = (node: HastNode) => {
+      if (node.type !== 'element') return
+      if (node.tagName === 'table') wrap(node)
+      if (node.tagName !== 'pre') return
+      const code = node.children?.[0]
+      const classes = Array.isArray(code?.properties?.className) ? code.properties.className.map(String) : []
+      if (classes.includes('language-mermaid')) node.properties = { ...node.properties, dataSegnaviaDiagram: 'mermaid' }
+      else wrap(node)
+    }
+    const visit = (node: HastNode) => {
+      for (const child of node.children ?? []) visit(child)
+      transform(node)
     }
     visit(tree)
   }

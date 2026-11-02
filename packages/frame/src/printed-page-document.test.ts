@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { printedPageAt } from '@segnavia/html'
+import { bodyHtml, printedPageAt } from '@segnavia/html'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
@@ -54,6 +54,12 @@ describe('printedPageDocument', () => {
     const html = printedPageDocument(full, { nonce: 'held' })
     expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p>Whole</p></div>')
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
+  })
+
+  test('a markdown page and its HTML equivalent have the same print geometry', () => {
+    const markdown = Page.parse({ ...page, body: { markdown: '# שלום\n\nEnglish text.' } })
+    const equivalent = Page.parse({ ...page, body: { html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
+    expect(printedPageDocument(markdown, { nonce: 'held' })).toBe(printedPageDocument(equivalent, { nonce: 'held' }))
   })
 
   test('starts at zero height and can build one numbered paper after measuring the full flow', () => {

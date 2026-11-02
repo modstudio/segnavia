@@ -8,11 +8,11 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { resolveParsedPageHtml } from './page-html.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 const MOUNT_MARGIN = 600
 

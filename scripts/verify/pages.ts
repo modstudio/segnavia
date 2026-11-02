@@ -26,7 +26,7 @@ export async function verifyPages(h: Harness) {
   await page
     .waitForFunction(
       () =>
-        ['#fluid', '#rtl', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#fixed', '#postcard'].every(
+        ['#fluid', '#rtl', '#markdown', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#fixed', '#postcard'].every(
           (id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined,
         ),
       null,
@@ -53,6 +53,23 @@ export async function verifyPages(h: Harness) {
     .locator('html')
     .evaluate((root) => `${root.getAttribute('dir')} ${root.getAttribute('lang')}`)
   check('direction and language reach the page', rtl === 'rtl he', rtl)
+  const markdownDirections = await measureCharacterPositions('markdown', 'p', [0, -1])
+  const englishMarkdown = markdownDirections[0]
+  const hebrewMarkdown = markdownDirections[1]
+  check(
+    'each mixed markdown line takes its own direction',
+    englishMarkdown !== undefined && hebrewMarkdown !== undefined && englishMarkdown[1] > englishMarkdown[0] && hebrewMarkdown[1] < hebrewMarkdown[0],
+    JSON.stringify(markdownDirections),
+  )
+  const markdownOverflow = await page
+    .frameLocator('#markdown iframe')
+    .locator('[data-segnavia-overflow]')
+    .evaluate((box) => ({ client: box.clientWidth, scroll: box.scrollWidth, overflow: getComputedStyle(box).overflowX }))
+  check(
+    'a wide markdown table scrolls inside its overflow box',
+    markdownOverflow.scroll > markdownOverflow.client && markdownOverflow.overflow === 'auto',
+    JSON.stringify(markdownOverflow),
+  )
   // An English sentence on a right to left page is still left to right: its
   // full stop renders after its last word, to the right of its first letter.
   const order = (await measureCharacterPositions('rtl', 'p', [0, -1]))[0]

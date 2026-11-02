@@ -4,10 +4,11 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { type Deck, Imposition, type ImpositionInput, type Page, type PageInput } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
+import { asHtmlPage, resolvePageHtml } from './page-html.ts'
 import { parsePageWidths } from './page-widths.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
@@ -22,7 +23,6 @@ import {
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
-import { resolvePageHtml } from './page-html.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -163,11 +163,11 @@ export async function preparedDeckPrint(
 }
 
 async function preparedPagesPrint(
-  pagesInput: PageInput[],
+  pagesInput: Page[],
   impositionInput: ImpositionInput,
   options: BrowserPagesPrintOptions & { deadlineAt?: number },
 ): Promise<PrintFrameOptions> {
-  const pages = pagesInput.map(resolvePageHtml)
+  const pages = pagesInput.map(asHtmlPage)
   const imposition = Imposition.parse(impositionInput)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, options.slots)
@@ -230,14 +230,7 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   options = { ...options, pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
-  const expanded = await expandFramePages(
-    pagesInput.map(resolvePageHtml),
-    options.motifs,
-    signal,
-    options.placements,
-    'print',
-    options.pageWidths,
-  )
+  const expanded = await expandFramePages(pagesInput.map(resolvePageHtml), options.motifs, signal, options.placements, 'print', options.pageWidths)
   const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)
   const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}`, deadlineAt }

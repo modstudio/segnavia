@@ -27,9 +27,9 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 export interface MotifsOptions {
   source: MotifSource

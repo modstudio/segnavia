@@ -1,17 +1,17 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side']

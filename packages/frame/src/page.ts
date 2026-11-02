@@ -1,6 +1,5 @@
-// <segnavia-page>: shows one page in a sandboxed frame. A full page takes the
-// element's width and grows to its content's height; with `bounded`, it takes
-// the element's host-sized box and scrolls inside its frame. A fixed page is
+// <segnavia-page>: shows one page in a sandboxed frame. A full page follows
+// its element and grows, while `bounded` makes it scroll. A fixed page is
 // scaled to fit the element's width, and a fixed width that grows does both; a
 // named width caps the sheet at its measure, centered. It brings no
 // appearance, only that geometry, which a host can override. Attributes: src (page JSON), label (the frame's accessible name), bounded
@@ -16,11 +15,11 @@ import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 import { pageSheetLayout } from './page-layout.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
-import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 const PAGE_CHANGED_SELECTION = 'Cannot read the selection because the page changed before it replied. Read the selection from the current page.'

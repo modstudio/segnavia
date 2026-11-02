@@ -92,6 +92,33 @@ server uses its geometry while composing top-level renders.
 Frame imports the universal HTML package for the one binding transform shared
 by live, thumbnail and print documents.
 
+### Markdown page bodies
+
+`Page` stores one `body`, either HTML or markdown; the legacy top-level `html`
+and the top-level `markdown` shorthand normalize to that body at `Page.parse`.
+`bodyHtml` in the universal HTML package passes HTML through and converts
+markdown with remark before applying the library sanitizer. Frame page,
+document and browser-print loads, and render page and pages loads, resolve the
+body once at that parsing edge. Motifs, slots, placements, pagination,
+thumbnails, covers and board views receive only the resolved HTML. A weak memo
+on the body object makes another resolution with the same language and labels
+free.
+
+The markdown dialect includes GFM tables, tasks, strikethrough and autolinks;
+YAML frontmatter as a property list; container directives with sanitized data
+attributes; GitHub alerts with isolated English or Hebrew labels; inert
+Mermaid placeholders; overflow wrappers around tables and other fences; and
+Unicode-preserving, duplicate-safe heading ids. Raw HTML is text, never markup.
+Markdown links admit fragments, HTTP, HTTPS and mail; images admit HTTP, HTTPS
+and supported data images. Other schemes and active attributes are removed.
+The generated overflow style is zero-specificity geometry with logical
+properties; print constrains tables to the page and wraps preformatted text.
+The sandbox and bridge message set are unchanged.
+
+**Data the host keeps.** The host keeps the markdown source as the page body.
+Titles remain host data beside a page; markdown does not create a new asset
+type.
+
 A render host supplies both the `playwright-core` client, any version in the
 render package's peer range, and the Chromium binary it launches through
 `executablePath`.

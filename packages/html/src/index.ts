@@ -45,9 +45,9 @@ export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPri
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
-export { alertLabels, type AlertKind, type AlertLabels, type BodyHtmlOptions, bodyHtml, type MarkdownHeading, markdownOutline } from './markdown.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
+export { type AlertKind, type AlertLabels, alertLabels, type BodyHtmlOptions, bodyHtml, type MarkdownHeading, markdownOutline } from './markdown.ts'
 export {
   documentLanguage,
   type ExpandedMotifs,

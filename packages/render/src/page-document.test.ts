@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
+import { bodyHtml } from '@segnavia/html'
 import { renderPageDocument } from './page-document.ts'
 
 test('a non-imposed printed named page lays out at its overridden measure and centers on the sheet', () => {
@@ -11,4 +12,10 @@ test('a non-imposed printed named page lays out at its overridden measure and ce
 test('a full printed page has no measure rule', () => {
   const page = Page.parse({ html: '<p>Full</p>', print: { paper: 'poster-12x18' } })
   expect(renderPageDocument(page, {}, true, 'test')).not.toContain('max-inline-size:')
+})
+
+test('a markdown page and its HTML equivalent build the same frame document', () => {
+  const markdown = Page.parse({ markdown: '# שלום\n\nEnglish text.', size: { width: 600, height: 400 } })
+  const equivalent = Page.parse({ html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }), size: markdown.size })
+  expect(renderPageDocument(markdown, {}, false, 'test')).toBe(renderPageDocument(equivalent, {}, false, 'test'))
 })

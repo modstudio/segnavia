@@ -54,7 +54,7 @@ describe('Cover', () => {
 
   test('keeps a Hebrew page unchanged apart from its filled print setting', () => {
     const parsed = Cover.parse({ page: { html: '<p>שלום</p>', lang: 'he', dir: 'rtl' } })
-    expect(parsed.page).toMatchObject({ html: '<p>שלום</p>', lang: 'he', dir: 'rtl' })
+    expect(parsed.page).toMatchObject({ body: { html: '<p>שלום</p>' }, lang: 'he', dir: 'rtl' })
   })
 })
 
@@ -73,7 +73,7 @@ describe('cover digest', () => {
     const newer = { ...motif('a', '2'), label: 'a' }
     const digest = await coverDigest(parsed, { stamp: 'renderer', motifs: [newer, older] })
     expect(digest).toBe(await coverDigest(parsed, { stamp: 'renderer', motifs: [older, newer] }))
-    expect(digest).toBe('6c8a17d19bbcec1426d0edb2bb38ae98a6d42b40b32696a6226617424ee6888b')
+    expect(digest).toBe('6a45a9684ad238d04265f10715c3083c7adbe3975b6960f1dfa2cddc39cc1afe')
   })
 
   test('is stable across canonical motif order', async () => {

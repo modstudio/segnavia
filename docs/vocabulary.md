@@ -6,7 +6,8 @@ something else.
 
 | Term | Meaning |
 |---|---|
-| **Page** | Self-contained HTML at any size, designed for viewing on screen: a flowing width, a fixed width and height, or an exact width that grows with its content. |
+| **Page** | A body of HTML or markdown at any size, designed for viewing on screen: a flowing width, a fixed width and height, or an exact width that grows with its content. |
+| **Page body** | A page's content in HTML or markdown. Markdown is a body format, not a type: the asset types remain page, deck, book and board. |
 | **Flowing width** | A page width that grows with its content: `full` follows the viewer, `standard` caps and centers at 1024 CSS pixels, `wide` caps and centers at 1440 CSS pixels, and a number is an exact width. Named caps reflow below their measure. A host may override the two named measures. Legacy `fluid` page data reads as `full`. |
 | **Cover** | A page with scripts refused and no bleed, safe area or marks, designed to represent an asset at thumbnail size. Its sheet follows its print setting and defaults to 160 × 100 mm when that setting is absent. |
 | **Designed cover** | An optional custom cover supplied by a host for an asset. A host-kept picture of that cover is preferred, followed by drawing its page live in a script-refusing frame; when the cover is absent, the asset keeps its existing cover or thumbnail behavior unchanged. |

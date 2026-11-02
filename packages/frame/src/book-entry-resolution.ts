@@ -1,9 +1,9 @@
 import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection } from '@segnavia/format'
 import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
+import { resolvePageHtml } from './page-html.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
-import { resolvePageHtml } from './page-html.ts'
 
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
