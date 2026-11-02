@@ -24,7 +24,7 @@ Generated source.
 > [!NOTE]
 > Keep this alert.
 
-<aside>Raw HTML</aside>
+<script>globalThis.lockedAuthorScript = true</script><aside>Raw HTML</aside>
 
 <!-- carried comment -->
 
@@ -44,7 +44,8 @@ English line.
   const result = await Bun.build({
     entrypoints: [path.join(root, 'packages/frame/src/markdown-editor.ts')],
     outdir: site,
-    naming: 'segnavia-markdown-editor.js',
+    naming: { entry: 'segnavia-markdown-editor.js', chunk: 'segnavia-markdown-editor-[hash].[ext]' },
+    splitting: true,
     target: 'browser',
     minify: true,
   })

@@ -11,6 +11,113 @@ type EditorEvents = {
   submits: number
 }
 
+type EditorHandle = { markdown: string; mode: string; run(command: string, args?: unknown): boolean }
+
+async function selectRichText(page: Harness['page'], text = 'Keyboard target.') {
+  await page.evaluate((wanted) => {
+    const root = document.querySelector('segnavia-markdown-editor')?.shadowRoot
+    const paragraph = [...(root?.querySelectorAll('.ProseMirror p') ?? [])].find((node) => node.textContent?.includes(wanted))
+    const content = paragraph?.firstChild
+    if (!paragraph || !content) throw new Error(`Could not select rich text ${JSON.stringify(wanted)}.`)
+    const selection = getSelection()
+    const range = document.createRange()
+    range.selectNodeContents(paragraph)
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    ;(paragraph.closest('.ProseMirror') as HTMLElement).focus()
+  }, text)
+}
+
+async function resetRich(page: Harness['page'], markdown = 'Keyboard target.') {
+  await page.evaluate((value) => {
+    const element = document.getElementById('editor') as unknown as EditorHandle
+    element.mode = 'rich'
+    element.markdown = value
+  }, markdown)
+  await page.locator('segnavia-markdown-editor').locator('.ProseMirror').waitFor()
+}
+
+async function latestState(page: Harness['page']): Promise<{ marks: string[]; nodes: string[] }> {
+  return page.evaluate(() => {
+    const states = (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.states
+    return states.at(-1) as { marks: string[]; nodes: string[] }
+  })
+}
+
+async function verifyKeyMatrix(h: Harness) {
+  const { page, check } = h
+  const rich = page.locator('segnavia-markdown-editor').locator('.ProseMirror')
+  const marks = [
+    ['ControlOrMeta+b', 'bold'],
+    ['ControlOrMeta+i', 'italic'],
+    ['ControlOrMeta+e', 'code'],
+    ['ControlOrMeta+Shift+s', 'strike'],
+  ] as const
+  for (const [key, mark] of marks) {
+    await resetRich(page)
+    await selectRichText(page)
+    await page.keyboard.press(key)
+    check(`${key} applies ${mark}`, (await latestState(page)).marks.includes(mark), JSON.stringify(await latestState(page)))
+  }
+
+  const blocks = [
+    ['ControlOrMeta+Shift+8', 'bullet-list'],
+    ['ControlOrMeta+Shift+7', 'ordered-list'],
+    ['ControlOrMeta+Shift+9', 'task-list'],
+    ['ControlOrMeta+Shift+b', 'quote'],
+    ['ControlOrMeta+Alt+c', 'code-block'],
+  ] as const
+  for (const [key, node] of blocks) {
+    await resetRich(page)
+    await selectRichText(page)
+    await page.keyboard.press(key)
+    check(`${key} applies ${node}`, (await latestState(page)).nodes.includes(node), JSON.stringify(await latestState(page)))
+  }
+
+  for (let level = 1; level <= 6; level++) {
+    await resetRich(page)
+    await selectRichText(page)
+    await page.keyboard.press(`ControlOrMeta+Alt+${level}`)
+    check(
+      `Mod-Alt-${level} applies heading level ${level}`,
+      (await latestState(page)).nodes.includes(`heading-${level}`),
+      JSON.stringify(await latestState(page)),
+    )
+  }
+  await page.keyboard.press('ControlOrMeta+Alt+0')
+  check('Mod-Alt-0 applies paragraph', (await latestState(page)).nodes.includes('paragraph'), JSON.stringify(await latestState(page)))
+
+  await resetRich(page)
+  await selectRichText(page)
+  await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).run('link', { href: 'https://example.com/allowed' }))
+  await page.keyboard.press('ControlOrMeta+Shift+k')
+  check('Mod-Shift-K unlinks', !(await latestState(page)).marks.includes('link'), JSON.stringify(await latestState(page)))
+
+  await resetRich(page)
+  await selectRichText(page)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+t')
+  check('Mod-Alt-Shift-T inserts a 3 by 3 table with a header', (await rich.locator('tr').count()) === 3 && (await rich.locator('th').count()) === 3)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+r')
+  check('Mod-Alt-Shift-R adds a table row', (await rich.locator('tr').count()) === 4)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+Backspace')
+  check('Mod-Alt-Shift-Backspace deletes a table row', (await rich.locator('tr').count()) === 3)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+c')
+  check('Mod-Alt-Shift-C adds a table column', (await rich.locator('tr').first().locator('th,td').count()) === 4)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+Delete')
+  check('Mod-Alt-Shift-Delete deletes a table column', (await rich.locator('tr').first().locator('th,td').count()) === 3)
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+x')
+  check('Mod-Alt-Shift-X deletes the table', (await rich.locator('table').count()) === 0)
+
+  await resetRich(page)
+  await selectRichText(page)
+  await page.keyboard.insertText('Changed')
+  await page.keyboard.press('ControlOrMeta+z')
+  const undone = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
+  await page.keyboard.press('ControlOrMeta+Shift+z')
+  const redone = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
+  check('TipTap Mod-Z and Mod-Shift-Z undo and redo', undone === 'Keyboard target.' && redone.includes('Changed'), JSON.stringify({ undone, redone }))
+}
+
 export async function verifyMarkdownEditor(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('markdown-editor.html'))
@@ -54,21 +161,38 @@ export async function verifyMarkdownEditor(h: Harness) {
   await nested.waitFor()
   const sandbox = await nested.getAttribute('sandbox')
   check('locked content uses a nested page without same-origin authority', Boolean(sandbox) && !sandbox?.includes('allow-same-origin'), String(sandbox))
+  const lockedDocuments = await locked.locator('iframe').evaluateAll((frames) => frames.map((frame) => (frame as HTMLIFrameElement).srcdoc))
+  check(
+    'locked nested pages refuse author scripts',
+    lockedDocuments.every((document) => !document.includes('lockedAuthorScript')),
+    String(lockedDocuments.length),
+  )
 
   const beforeEdit = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
-  const english = rich.locator('p').filter({ hasText: 'English line.' })
-  await english.click()
-  await page.keyboard.press('End')
-  await page.keyboard.type(' Added')
+  await selectRichText(page, 'English line.')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.insertText(' Added')
   const afterEdit = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
+  check('typing in rich mode changes only that block byte-for-byte', afterEdit === `${beforeEdit.replace('English line.', 'English line. Added')}\n`, afterEdit)
+  await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).run('toggle-mode'))
+  const sourceAfterRich = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
+  const sourceBeforeEdit = await source.textContent()
+  const sourceModel = await page.evaluate(() => (document.getElementById('editor') as unknown as { model: unknown }).model)
+  await source.locator('.cm-line').last().click()
+  await page.keyboard.press('End')
+  await page.keyboard.insertText(' Source edit.')
+  const sourceEdited = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).markdown)
+  await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).run('toggle-mode'))
+  await rich.waitFor()
   check(
-    'typing in rich mode changes the paragraph and retains locked source',
-    afterEdit.includes('English line. Added') && afterEdit.includes('```mermaid\nflowchart LR') && afterEdit.includes('<!-- carried comment -->'),
-    afterEdit,
+    'mode switches keep rich and source edits in both directions',
+    sourceAfterRich === afterEdit &&
+      sourceEdited === sourceAfterRich.replace('שורה בעברית.', 'שורה בעברית. Source edit.') &&
+      (await rich.textContent()).includes('Source edit.'),
+    JSON.stringify({ sourceAfterRich, sourceBeforeEdit, sourceModel, sourceEdited }),
   )
-  check('one rich edit leaves the rest of the fixture present', afterEdit.length > beforeEdit.length, `${beforeEdit.length} -> ${afterEdit.length}`)
 
-  await rich.locator('p').filter({ hasText: 'English line. Added' }).click()
+  await selectRichText(page, 'English line. Added')
   await page.keyboard.press('ControlOrMeta+k')
   const linkRequests = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.links)
   check('Mod-K emits a link request', linkRequests.at(-1) === null, JSON.stringify(linkRequests))
@@ -88,21 +212,40 @@ export async function verifyMarkdownEditor(h: Harness) {
     JSON.stringify(linkResult),
   )
 
-  const lockedAtom = locked.first()
-  await lockedAtom.click()
+  const lockedAtom = editor.locator('[data-locked-label]')
+  const expectedLockedOffset = await page.evaluate(() => {
+    const markdown = (document.getElementById('editor') as unknown as EditorHandle).markdown
+    return markdown.indexOf('```articles') - '# Original title\n'.length
+  })
+  await lockedAtom.click({ position: { x: 2, y: 2 } })
   await page.keyboard.press('Enter')
   const lockedSource = await page.evaluate(() => {
-    const element = document.getElementById('editor') as unknown as { mode: string }
-    const selection = document.querySelector('segnavia-markdown-editor')?.shadowRoot?.querySelector('.cm-content')?.ownerDocument.getSelection()
-    return { mode: element.mode, offset: selection?.anchorOffset }
+    const element = document.getElementById('editor') as unknown as EditorHandle
+    const content = document.querySelector('segnavia-markdown-editor')?.shadowRoot?.querySelector('.cm-content')
+    const selection = getSelection()
+    const range = document.createRange()
+    if (content && selection?.anchorNode) {
+      range.selectNodeContents(content)
+      range.setEnd(selection.anchorNode, selection.anchorOffset)
+    }
+    return { mode: element.mode, offset: range.toString().length }
   })
-  check('Enter on a selected locked block switches to source', lockedSource.mode === 'source', JSON.stringify(lockedSource))
+  check(
+    'Enter on a selected locked block switches to its first source character',
+    lockedSource.mode === 'source' && lockedSource.offset === expectedLockedOffset,
+    JSON.stringify({ ...lockedSource, expectedLockedOffset }),
+  )
 
   const title = editor.locator('input[part~="title"]')
+  const modeBeforeTitleKey = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).mode)
   await title.click()
   await page.keyboard.press('Alt+Meta+m')
   const titleMode = await page.evaluate(() => (document.getElementById('editor') as unknown as { mode: string }).mode)
-  check('Mod-Alt-M from the title field toggles mode', titleMode === 'rich', titleMode)
+  check('Mod-Alt-M from the title field toggles mode', titleMode !== modeBeforeTitleKey, `${modeBeforeTitleKey} -> ${titleMode}`)
+  await page.evaluate(() => {
+    ;(document.getElementById('editor') as unknown as EditorHandle).mode = 'rich'
+  })
+  await rich.waitFor()
   await title.fill('Changed title')
   const titleMarkdown = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
   check('editing a leading-heading title changes markdown first line', titleMarkdown.startsWith('# Changed title\n'), titleMarkdown)
@@ -119,4 +262,29 @@ export async function verifyMarkdownEditor(h: Harness) {
   await page.keyboard.press('ControlOrMeta+s')
   const savesAfter = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.saves)
   check('Mod-S in rich mode emits save', savesAfter === savesBefore + 1, `${savesBefore} -> ${savesAfter}`)
+
+  await resetRich(page)
+  await rich.click()
+  await page.evaluate(() => {
+    const root = document.querySelector('segnavia-markdown-editor')?.shadowRoot?.querySelector('.ProseMirror')
+    const data = new DataTransfer()
+    data.setData(
+      'text/html',
+      '<script>globalThis.pastedScript=true</script><img src="https://example.com/p.png" onerror="globalThis.pastedError=true"><a href="javascript:alert(1)">unsafe link</a><img src="javascript:alert(2)">',
+    )
+    root?.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }))
+  })
+  const pasted = await rich.evaluate((root) => ({
+    script: root.querySelector('script') !== null,
+    handler: root.querySelector('[onerror]') !== null,
+    link: root.querySelector('a') !== null,
+    refusedImage: [...root.querySelectorAll('img')].some((image) => image.src.startsWith('javascript:')),
+    ran: Boolean(
+      (globalThis as unknown as { pastedScript?: boolean; pastedError?: boolean }).pastedScript ||
+        (globalThis as unknown as { pastedError?: boolean }).pastedError,
+    ),
+  }))
+  check('pasted HTML drops scripts, handlers, unsafe links and unsafe images', !Object.values(pasted).some(Boolean), JSON.stringify(pasted))
+
+  await verifyKeyMatrix(h)
 }

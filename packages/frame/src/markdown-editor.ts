@@ -259,7 +259,8 @@ class MarkdownEditorElement extends HTMLElement {
   }
 
   private mountSource() {
-    if (this.sourceView) return
+    this.sourceView?.destroy()
+    this.sourceMount.replaceChildren()
     this.sourceView = new EditorView({ parent: this.sourceMount, root: this.root, state: this.sourceState() })
     this.emitSourceState(false, false)
   }
