@@ -15,6 +15,7 @@ import {
 import { printedPageAt } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
+import { asHtmlPage } from './page-html.ts'
 
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
@@ -139,9 +140,10 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 }
 
 export function printedPageDocument(
-  page: Page,
+  input: Page,
   options: { nonce: string; css?: string; only?: number; expectedCount?: number; measure?: boolean; printBackground?: boolean },
 ): string {
+  const page = asHtmlPage(input)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)

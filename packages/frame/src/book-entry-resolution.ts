@@ -3,6 +3,7 @@ import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resol
 import type { ResolvedAsset } from './board-policy.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
+import { resolvePageHtml } from './page-html.ts'
 
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
@@ -49,7 +50,7 @@ async function resolvePlaced(
       }),
     )
   }
-  if (answer?.kind === 'page') return designed(entry, answer.page.html)
+  if (answer?.kind === 'page') return designed(entry, resolvePageHtml(answer.page).html)
   const html = await resolvePlacements(placedImage(placement), {
     resolvePlacement: async () => answer,
     report: options.report,

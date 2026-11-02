@@ -22,6 +22,7 @@ import {
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
+import { resolvePageHtml } from './page-html.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -166,7 +167,7 @@ async function preparedPagesPrint(
   impositionInput: ImpositionInput,
   options: BrowserPagesPrintOptions & { deadlineAt?: number },
 ): Promise<PrintFrameOptions> {
-  const pages = pagesInput.map((page) => Page.parse(page))
+  const pages = pagesInput.map(resolvePageHtml)
   const imposition = Imposition.parse(impositionInput)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, options.slots)
@@ -230,7 +231,7 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
-    pagesInput.map((page) => Page.parse(page)),
+    pagesInput.map(resolvePageHtml),
     options.motifs,
     signal,
     options.placements,

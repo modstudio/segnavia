@@ -19,6 +19,7 @@ import { dependencySetup, type OverflowEntry, parseRenderOptions, type RenderOpt
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
+import { asHtmlPage, resolvePageHtml } from './page-html.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
@@ -194,7 +195,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     )
   }
 
-  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
+  async function renderPiecePdf(input: Page, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
+    const page = asHtmlPage(input)
     const html = frameDocument(page.html, {
       scripts: page.scripts,
       nonce: newNonce(),
@@ -306,7 +308,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => Page.parse(input)),
+          inputs.map(resolvePageHtml),
           opts.motifs,
           deadline.signal,
           opts.placements,

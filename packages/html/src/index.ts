@@ -45,6 +45,7 @@ export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPri
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
+export { alertLabels, type AlertKind, type AlertLabels, type BodyHtmlOptions, bodyHtml, type MarkdownHeading, markdownOutline } from './markdown.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export {
@@ -78,7 +79,7 @@ export {
   resolvePlacements,
 } from './placements.ts'
 export * from './printed-pages.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize } from './sanitize.ts'
+export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize, type UrlPolicy } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

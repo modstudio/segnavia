@@ -29,6 +29,9 @@ export interface ResolvedPageWidth {
   viewportWidth: number
 }
 
+export const PageBody = z.union([z.strictObject({ html: z.string() }), z.strictObject({ markdown: z.string() })])
+export type PageBody = z.infer<typeof PageBody>
+
 export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): ResolvedPageWidth {
   const width = size.width
   if (typeof width === 'number') return { measure: width, viewportWidth: width }
@@ -37,10 +40,12 @@ export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): Re
   return { measure, viewportWidth: measure }
 }
 
-export const Page = z
+const PageShape = z
   .object({
     id: z.string().optional(),
-    html: z.string(),
+    body: PageBody.optional(),
+    html: z.string().optional(),
+    markdown: z.string().optional(),
     size: PageSize.default(FULL_PAGE_SIZE),
     scripts: Scripts.default('refuse'),
     dir: Direction.optional(),
@@ -51,7 +56,18 @@ export const Page = z
     fonts: z.array(FontReference).optional(),
   })
   .superRefine((page, ctx) => {
+    const fields = (['body', 'html', 'markdown'] as const).filter((field) => page[field] !== undefined)
+    if (fields.length === 0) ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
+    if (fields.length > 1) {
+      const names = fields.join(', ')
+      for (const field of fields) ctx.addIssue({ code: 'custom', path: [field], message: `${names} were all given; provide exactly one of body, html or markdown` })
+    }
     for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
   })
+
+export const Page = PageShape.transform(({ html, markdown, body, ...page }) => ({
+  ...page,
+  body: body ?? (html !== undefined ? { html } : markdown !== undefined ? { markdown } : { html: '' }),
+}))
 export type Page = z.infer<typeof Page>
 export type PageInput = z.input<typeof Page>

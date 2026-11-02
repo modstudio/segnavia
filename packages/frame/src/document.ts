@@ -12,6 +12,7 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -191,7 +192,7 @@ export class SegnaviaDocument extends HTMLElement {
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.resolvedSlots = resolved
         this.resolvedGeneration = generation
-        this.filledHtml = this.pageValues.map((page) => resolved.apply(page.html))
+        this.filledHtml = this.pageValues.map((page) => resolved.apply(resolveParsedPageHtml(page).html))
         this.paintResolved(print)
       })
       .catch((error) => {
@@ -261,8 +262,9 @@ export class SegnaviaDocument extends HTMLElement {
     if (sheet.firstElementChild) return
     const index = Number(sheet.dataset.page)
     const source = this.pageValues[index]
+    const htmlSource = resolveParsedPageHtml(source as Page)
     const print = this.printValue
-    if (!source || !print) return
+    if (!source || !htmlSource || !print) return
     const projection = projectPageOnPaper(source, print)
     const page = new SegnaviaPage()
     page.motifs = this.motifOptions
@@ -275,7 +277,11 @@ export class SegnaviaDocument extends HTMLElement {
     page.dependencyOrigins = this.dependencyOrigins
     page.part.add('page')
     sheet.append(page)
-    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? projection.page.html })
+    page.load({
+      ...projection.page,
+      slots: this.resolvedSlots ? [] : projection.page.slots,
+      body: { html: this.filledHtml?.[index] ?? htmlSource.html },
+    })
   }
 
   private onMessage = (event: MessageEvent) => {

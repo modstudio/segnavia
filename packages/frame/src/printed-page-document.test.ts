@@ -47,7 +47,10 @@ describe('printedPageDocument', () => {
   })
 
   test('keeps whole-document head resources beside a flow holding only body children', () => {
-    const full = Page.parse({ ...page, html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' })
+    const full = Page.parse({
+      ...page,
+      body: { html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' },
+    })
     const html = printedPageDocument(full, { nonce: 'held' })
     expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p>Whole</p></div>')
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
@@ -163,7 +166,7 @@ describe('printedPageDocument', () => {
   test('uses the page document language for a motif in a parent region', async () => {
     const placed = Page.parse({
       ...page,
-      html: '<html lang="he"><body><p>Body</p></body></html>',
+      body: { html: '<html lang="he"><body><p>Body</p></body></html>' },
       lang: undefined,
       printedPages: {
         ...page.printedPages,

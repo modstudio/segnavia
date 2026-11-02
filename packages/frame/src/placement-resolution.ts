@@ -1,6 +1,7 @@
 import { type Book, type BookView, FULL_PAGE_SIZE, type Page, type PageWidths, paperPixels, resolvePageWidth, sheetMm } from '@segnavia/format'
 import { resolvePlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { HtmlPage } from './page-html.ts'
 
 export function bookPlacementWidth(book: Book | BookView, pageWidths?: PageWidths): number {
   if ('pagination' in book && book.pagination) return paperPixels(book.pagination.paper.width)
@@ -9,7 +10,7 @@ export function bookPlacementWidth(book: Book | BookView, pageWidths?: PageWidth
 }
 
 function resolvePlacementHtml(
-  page: Page,
+  page: HtmlPage,
   html: string,
   placements: PlacementsOptions | undefined,
   purpose: 'screen' | 'print',
@@ -22,12 +23,12 @@ function resolvePlacementHtml(
 }
 
 export async function resolvePagePlacements(
-  page: Page,
+  page: HtmlPage,
   placements: PlacementsOptions | undefined,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
   pageWidths?: PageWidths,
-): Promise<Page> {
+): Promise<HtmlPage> {
   if (!placements) return page
   const html = await resolvePlacementHtml(page, page.html, placements, purpose, signal, pageWidths)
   if (!page.printedPages) return { ...page, html }

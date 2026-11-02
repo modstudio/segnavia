@@ -20,6 +20,7 @@ import { pageSheetLayout } from './page-layout.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 const PLACEHOLDER_HEIGHT = 150
 const PAGE_CHANGED_SELECTION = 'Cannot read the selection because the page changed before it replied. Read the selection from the current page.'
@@ -172,6 +173,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
+    const resolvedPage = resolveParsedPageHtml(page)
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()
@@ -181,7 +183,7 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (shownPage: Page, resolved?: PreparedSlots, fontCss = '') => {
+    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
@@ -201,7 +203,7 @@ export class SegnaviaPage extends HTMLElement {
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
-      const motifRefusal = framePageMotifRefusal(page)
+      const motifRefusal = framePageMotifRefusal(resolvedPage)
       if (motifRefusal) {
         report(motifRefusal)
         this.fit()
@@ -209,7 +211,7 @@ export class SegnaviaPage extends HTMLElement {
       }
       this.writeDocument(
         iframe,
-        frameDocument(page.html, {
+        frameDocument(resolvedPage.html, {
           scripts: page.scripts,
           nonce: newNonce(),
           dir: page.dir,
@@ -220,16 +222,16 @@ export class SegnaviaPage extends HTMLElement {
           relayKeys: false,
         }),
       )
-      const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
+      const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
       if (refusal) report(refusal)
-      else if (hasSlotWork(page.slots, this.slotOptions))
-        void prepareSlots(page.slots, this.slotOptions, controller.signal)
-          .then((resolved) => show(page, resolved))
+      else if (hasSlotWork(resolvedPage.slots, this.slotOptions))
+        void prepareSlots(resolvedPage.slots, this.slotOptions, controller.signal)
+          .then((resolved) => show(resolvedPage, resolved))
           .catch(report)
       this.fit()
       return
     }
-    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
+    void prepareShownPage(resolvedPage, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
       .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
       .catch(report)
     this.fit()

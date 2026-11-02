@@ -29,6 +29,7 @@ import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
+import { type HtmlPage, resolveParsedPageHtml } from './page-html.ts'
 
 export interface MotifsOptions {
   source: MotifSource
@@ -41,7 +42,7 @@ export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type PlacementsOptions = AssetPlacementsOptions
 
 export interface ExpandedFramePage {
-  page: Page
+  page: HtmlPage
   fonts: FontReference[]
 }
 
@@ -95,7 +96,8 @@ function parentRegions(page: Page): Array<{ name: string; region: 'head' | 'foot
   )
 }
 
-export function framePageMotifRefusal(page: Page): MotifRefusedError | undefined {
+export function framePageMotifRefusal(input: Page): MotifRefusedError | undefined {
+  const page = resolveParsedPageHtml(input)
   const regions = parentRegions(page)
   const fields = [{ html: page.html, furniture: false, replace() {} }, ...regions.map(({ html }) => ({ html, furniture: true, replace() {} }))]
   return motifSourceRefusal(fields, PAGE_MOTIF_POLICY)
@@ -283,13 +285,14 @@ export async function expandFrameBookView(
 }
 
 export async function expandFramePage(
-  page: Page,
+  input: Page,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage> {
+  const page = resolveParsedPageHtml(input)
   const regions = parentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
@@ -355,14 +358,14 @@ export function expandFramePages(
 }
 
 export async function prepareShownPage(
-  page: Page,
+  page: HtmlPage,
   motifs: MotifsOptions | undefined,
   slots: SlotsOptions | undefined,
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
-): Promise<{ page: Page; resolved?: PreparedSlots; css: string }> {
+): Promise<{ page: HtmlPage; resolved?: PreparedSlots; css: string }> {
   const expanded = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths)
   const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
   if (refusal) throw refusal
@@ -372,7 +375,7 @@ export async function prepareShownPage(
 }
 
 export function shownPageDocument(
-  page: Page,
+  page: HtmlPage,
   resolved: PreparedSlots | undefined,
   options: { nonce: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
 ): string {

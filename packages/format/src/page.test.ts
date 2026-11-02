@@ -2,6 +2,20 @@ import { describe, expect, test } from 'bun:test'
 import { PAGE_WIDTHS, Page, PageSize, PageWidths, resolvePageWidth } from './page.ts'
 
 describe('PageSize', () => {
+  test('normalizes HTML and markdown shorthand to the page body', () => {
+    expect(Page.parse({ html: '<p>HTML</p>' }).body).toEqual({ html: '<p>HTML</p>' })
+    expect(Page.parse({ markdown: '# Markdown' }).body).toEqual({ markdown: '# Markdown' })
+    expect(Page.parse({ body: { markdown: 'Body' } }).body).toEqual({ markdown: 'Body' })
+  })
+
+  test.each([
+    [{ body: { html: 'body' }, html: 'shorthand' }, 'body, html'],
+    [{ body: { markdown: 'body' }, markdown: 'shorthand' }, 'body, markdown'],
+    [{ html: 'one', markdown: 'two' }, 'html, markdown'],
+  ])('refuses competing page body fields', (input, fields) => {
+    expect(() => Page.parse(input)).toThrow(fields)
+  })
+
   test.each(['full', 'standard', 'wide'] as const)('parses the %s flowing width', (width) => {
     expect(PageSize.parse({ width, height: 'auto' })).toEqual({ width, height: 'auto' })
   })

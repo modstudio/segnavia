@@ -17,6 +17,7 @@ import {
   type SlotPrintOptions,
   slotFillRefusal,
 } from '@segnavia/html'
+import { asHtmlPage, type HtmlPage } from './page-html.ts'
 
 const preparations = new WeakMap<object, Awaited<ReturnType<typeof prepareSlots>>>()
 
@@ -29,7 +30,8 @@ function refuseRequired(prepared: Awaited<ReturnType<typeof prepareSlots>>): voi
   if (refusal) throw refusal
 }
 
-export async function filledPage(page: Page, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Page> {
+export async function filledPage(input: Page, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage> {
+  const page = asHtmlPage(input)
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(page.scripts, page.slots, slots)
   if (refusal) throw refusal
@@ -41,7 +43,8 @@ export async function filledPage(page: Page, slots: SlotPrintOptions | undefined
   return filled
 }
 
-export async function filledPages(pages: Page[], slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Page[]> {
+export async function filledPages(inputs: Page[], slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage[]> {
+  const pages = inputs.map(asHtmlPage)
   assertSingleSlotCopy(slots)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, slots)

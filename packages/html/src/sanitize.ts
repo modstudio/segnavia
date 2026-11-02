@@ -46,6 +46,17 @@ export interface SanitizeOptions {
   dataFonts?: boolean
   // Elements refused in addition to, or instead of, the default set.
   refuseElements?: Iterable<string>
+  // URL schemes admitted by a format whose links do not use the host-origin rule.
+  urlPolicy?: UrlPolicy
+  // Keep inert task-list controls emitted by a trusted converter.
+  disabledCheckboxes?: boolean
+}
+
+export interface UrlPolicy {
+  linkProtocols: readonly string[]
+  imageProtocols: readonly string[]
+  linkFragments: boolean
+  dataImages: boolean
 }
 
 export function parse(html: string): Document {
@@ -89,26 +100,36 @@ export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
 }
 
-function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>): boolean {
+function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>, policy?: UrlPolicy): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
-    if (url.startsWith('#')) return true
+    if (url.startsWith('#')) return policy?.linkFragments ?? true
     try {
       const parsed = new URL(url)
+      if (policy) return policy.linkProtocols.includes(parsed.protocol)
       return parsed.protocol === 'https:' && allowed.has(parsed.origin)
     } catch {
       return false
     }
   }
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
-  if (attribute === 'src' || attribute === 'poster') return safeImageSource(value)
+  if (attribute === 'src' || attribute === 'poster') {
+    if (policy?.dataImages && safeImageSource(value)) return true
+    if (!policy) return safeImageSource(value)
+    try {
+      return policy.imageProtocols.includes(new URL(url).protocol)
+    } catch {
+      return false
+    }
+  }
   return false
 }
 
-function refusedElement(element: Element, refused: ReadonlySet<string>, keepScripts: boolean): boolean {
+function refusedElement(element: Element, refused: ReadonlySet<string>, options: SanitizeOptions, keepScripts: boolean): boolean {
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts
   if (name === 'link' && keepScripts && element.attribs.rel?.toLowerCase() === 'stylesheet') return false
+  if (name === 'input' && options.disabledCheckboxes && element.attribs.type?.toLowerCase() === 'checkbox' && 'disabled' in element.attribs) return false
   if (refused.has(name)) return true
   if (insideSvg(element) && REFUSED_SVG_ELEMENTS.has(name)) return true
   // http-equiv can set a CSP, a refresh or a cookie from inside the document.
@@ -142,7 +163,7 @@ function refusedAttribute(
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
   if (dependency !== undefined) return dependency || undefined
-  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed)) ? '' : undefined
+  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed, options.urlPolicy)) ? '' : undefined
 }
 
 function refusedSet(options: SanitizeOptions): Set<string> {
@@ -205,7 +226,7 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
   const keepScripts = options.keepScripts ?? false
   const found: string[] = []
   for (const element of elements(parse(html).children)) {
-    if (refusedElement(element, refused, keepScripts)) found.push(`<${element.name}>`)
+    if (refusedElement(element, refused, options, keepScripts)) found.push(`<${element.name}>`)
     found.push(...styleFindings(element, options, dependencies))
     for (const [name, value] of Object.entries(element.attribs)) {
       const reason = refusedAttribute(element, name, value, allowed, options, dependencies)
@@ -244,7 +265,7 @@ export function sanitize(html: string, options: SanitizeOptions = {}): string {
   const prune = (nodes: ChildNode[]): ChildNode[] =>
     nodes.filter((node) => {
       if (!isTag(node)) return true
-      if (refusedElement(node, refused, keepScripts)) return false
+      if (refusedElement(node, refused, options, keepScripts)) return false
       cleanStyleElement(node, options, dependencies)
       cleanAttributes(node, allowed, options, dependencies)
       node.children = prune(node.children)

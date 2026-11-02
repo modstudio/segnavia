@@ -9,6 +9,7 @@ import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { printCss } from './page-paper.ts'
+import { asHtmlPage, resolvePageHtml } from './page-html.ts'
 
 export function withFontCss(options: RenderOptions, css: string): RenderOptions {
   return { ...options, css: `${css}${options.css ?? ''}` }
@@ -44,7 +45,7 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const page = Page.parse(input)
+  const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references)
@@ -81,7 +82,8 @@ export async function renderOptionsWithBookFonts(
   return { options, fontCss: css }
 }
 
-export function renderPageDocument(page: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
+export function renderPageDocument(input: Page, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
+  const page = asHtmlPage(input)
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure

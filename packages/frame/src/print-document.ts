@@ -24,6 +24,7 @@ import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
+import { asHtmlPage, type HtmlPage } from './page-html.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -293,7 +294,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   return { html: imposedPaperDocument(imposed.paper, rootAttributes, imposedPaperBodies(imposed, placementBody), documentTitle(deck, options)), imposed }
 }
 
-function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
+function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
@@ -329,9 +330,10 @@ export function printablePaper(
   options: PrintablePagesOptions = {},
   side: 'front' | 'back' = 'front',
 ): string {
+  const resolved = pages.map(asHtmlPage)
   return imposed.placements
     .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
+    .map((placement) => pageFrame(resolved[placement.page] as HtmlPage, imposition, placement, options))
     .join('')
 }
 
