@@ -9,6 +9,10 @@ type Apply = (editor: Editor, args: Args) => boolean
 
 const commandKeys = Object.fromEntries(MARKDOWN_EDITOR_COMMANDS.map(({ name, key }) => [name, key])) as Record<MarkdownEditorCommand, string>
 
+export const RICH_KEYBOARD_COMMANDS = MARKDOWN_EDITOR_COMMANDS.filter(
+  ({ name }) => name !== 'heading' && name !== 'toggle-mode' && name !== 'edit-in-source',
+).map(({ name }) => name) as readonly Exclude<MarkdownEditorCommand, 'heading' | 'toggle-mode' | 'edit-in-source'>[]
+
 export const RICH_COMMANDS: Readonly<Record<Exclude<MarkdownEditorCommand, 'toggle-mode' | 'edit-in-source'>, { apply: Apply }>> = {
   bold: { apply: (editor) => editor.chain().focus().toggleBold().run() },
   italic: { apply: (editor) => editor.chain().focus().toggleItalic().run() },
@@ -72,10 +76,14 @@ export function richKeyboard(options: { editLocked: () => boolean; linkRequest: 
     addKeyboardShortcuts() {
       const tableOnly = (command: keyof Pick<typeof RICH_COMMANDS, 'add-row' | 'delete-row' | 'add-column' | 'delete-column' | 'delete-table'>) =>
         this.editor.isActive('table') && RICH_COMMANDS[command].apply(this.editor, undefined)
+      const commandShortcuts = Object.fromEntries(
+        RICH_KEYBOARD_COMMANDS.map((command) => [commandKeys[command], () => RICH_COMMANDS[command].apply(this.editor, undefined)]),
+      )
       const saveKey = MARKDOWN_EDITOR_KEYS.find(({ action }) => action === 'save')?.key
       const toggleKey = MARKDOWN_EDITOR_KEYS.find(({ action }) => action === 'toggle-mode')?.key
       if (!saveKey || !toggleKey) throw new Error('Markdown editor save and mode-toggle keys must be declared.')
       return {
+        ...commandShortcuts,
         [saveKey]: () => {
           options.save()
           return true
