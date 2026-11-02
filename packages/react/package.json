@@ -23,6 +23,11 @@
       "@segnavia/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./markdown-editor": {
+      "@segnavia/source": "./src/markdown-editor.ts",
+      "types": "./dist/markdown-editor.d.ts",
+      "default": "./dist/markdown-editor.js"
     }
   },
   "dependencies": {

@@ -148,14 +148,23 @@ player, headless and controls bundles do not import it, and no server-safe
 entry reaches it. The element has an open shadow root and supplies behavior
 and zero-specificity geometry only. `unstyled` removes that geometry.
 
-The element reflects `markdown`, `mode`, `title-source`, `dir`, `lang` and
-`unstyled`. `title` is a property only and may be `null`, which hides its
-line. It deliberately does not use the native `title` attribute because that
-attribute would put a tooltip over the whole editor.
+The element reflects `markdown`, `mode`, `title-source` and `unstyled`.
+`dir` and `lang` are native attributes and are inherited; the title field and
+each source line resolve their own direction with `dir="auto"`. `title` is a
+property only. It deliberately does not use the native `title` attribute
+because that attribute would put a tooltip over the whole editor.
 `titleSource` is `separate` by default, or `leading-heading`. A separate title
-does not alter the body. A leading-heading title owns the first nonblank
-level-one ATX heading: that heading is absent from the source editor, and the
-element joins it back into emitted markdown. `modes` is the read-only list of
+does not alter the body; `null` and `undefined` hide its line. In
+`leading-heading` mode the body owns the title, the title line is always
+visible, and its value is the first nonblank level-one ATX heading or the empty
+string when there is none. A non-empty title adds or replaces that heading,
+with one blank line before a non-empty body; clearing the field removes the
+heading, while setting the property to `null` or `undefined` is ignored. The
+heading is absent from the source editor and joined back into markdown. The
+split happens only when a host sets `markdown` or changes `titleSource`, so a
+heading typed into the source editor remains body text. A textless `#` heading
+also remains body text, unlike the reference transform, which retains it.
+`modes` is the read-only list of
 available modes. It contains only `source` until rich editing ships, so asking
 for `rich` leaves `mode` at `source` and emits no mode change.
 
@@ -186,6 +195,14 @@ marks and nodes are empty in source mode. `run(command)` supports `undo`,
 `redo` and `toggle-mode`; other commands refuse because they require rich
 mode.
 
+User edits emit change events: source edits emit
+`segnavia-markdown-change`, while title edits emit
+`segnavia-title-change` and, for a leading-heading title,
+`segnavia-markdown-change`. Host property writes emit no change events because
+the host already knows what it wrote. A host `markdown` write also starts a
+fresh source-editor history, so undo cannot restore content from before that
+write.
+
 | Key | Action |
 |---|---|
 | CodeMirror default and history keys | Source editing and history |
@@ -194,7 +211,9 @@ mode.
 | Enter in the title | Refused; the title remains one line |
 
 **Data the host keeps.** The editor owns no persistence. The host keeps the
-emitted markdown and title, then supplies them back as properties.
+emitted markdown and title, then supplies them back as properties. React hosts
+load the optional component from `@segnavia/react/markdown-editor`; the main
+React entry does not load the editor or CodeMirror.
 
 A render host supplies both the `playwright-core` client, any version in the
 render package's peer range, and the Chromium binary it launches through

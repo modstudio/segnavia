@@ -14,11 +14,15 @@ export async function buildMarkdownEditorDemo(root: string, site: string): Promi
   writeFileSync(
     path.join(site, 'markdown-editor.html'),
     `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:system-ui;margin:24px}segnavia-markdown-editor{display:block;block-size:360px}</style></head><body>
-      <segnavia-markdown-editor id="editor"></segnavia-markdown-editor>
+      <form id="editor-form"><segnavia-markdown-editor id="editor"></segnavia-markdown-editor></form>
       <script type="module">
         import './segnavia-markdown-editor.js'
         const editor = document.getElementById('editor')
-        globalThis.editorEvents = { markdown: [], title: [], saves: 0 }
+        globalThis.editorEvents = { markdown: [], title: [], saves: 0, submits: 0 }
+        document.getElementById('editor-form').addEventListener('submit', event => {
+          event.preventDefault()
+          globalThis.editorEvents.submits++
+        })
         editor.addEventListener('segnavia-markdown-change', event => globalThis.editorEvents.markdown.push(event.detail.markdown))
         editor.addEventListener('segnavia-title-change', event => globalThis.editorEvents.title.push(event.detail.title))
         editor.addEventListener('segnavia-save', () => globalThis.editorEvents.saves++)

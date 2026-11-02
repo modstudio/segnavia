@@ -2,22 +2,31 @@ import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
 import { ensureBaseStyle } from './base-style.ts'
 import {
+  type MarkdownEditorModel,
+  type MarkdownTitleSource,
+  markdownEditorModel,
+  setModelEditable,
+  setModelMarkdown,
+  setModelTitle,
+  setModelTitleSource,
+} from './markdown-editor-model.ts'
+import {
   availableMarkdownMode,
   MARKDOWN_EDITOR_MODES,
   type MarkdownEditorCommand,
   type MarkdownEditorMode,
-  markdownChanged,
+  markdownEditorKeyAction,
   richModeCommandRefusal,
 } from './markdown-editor-policy.ts'
 import { markdownSourceState } from './markdown-source.ts'
-import { joinLeadingHeading, normalizeMarkdownTitle, retainedLeadingHeading, splitLeadingHeading } from './markdown-title.ts'
+import { normalizeMarkdownTitle } from './markdown-title.ts'
 
-export type MarkdownTitleSource = 'separate' | 'leading-heading'
 export type MarkdownEditorStateDetail = Readonly<{ marks: []; nodes: []; canUndo: boolean; canRedo: boolean }>
 export interface SegnaviaMarkdownEditor extends Omit<HTMLElement, 'title'> {
   markdown: string
-  mode: 'source'
-  readonly modes: readonly ['source']
+  get mode(): MarkdownEditorMode
+  set mode(value: MarkdownEditorMode)
+  readonly modes: typeof MARKDOWN_EDITOR_MODES
   title: string | null
   titleSource: MarkdownTitleSource
   unstyled: boolean
@@ -34,11 +43,8 @@ class MarkdownEditorElement extends HTMLElement {
   private readonly titleField = document.createElement('input')
   private readonly sourceMount = document.createElement('div')
   private view: EditorView | null = null
-  private markdownValue = ''
-  private titleValue: string | null = null
-  private titleSourceValue: MarkdownTitleSource = 'separate'
-  private retainedHeading = ''
-  private lastMarkdown = ''
+  private model: MarkdownEditorModel = markdownEditorModel()
+  private modeValue: (typeof MARKDOWN_EDITOR_MODES)[number] = availableMarkdownMode('source')
   private reflecting = false
 
   constructor() {
@@ -73,61 +79,59 @@ class MarkdownEditorElement extends HTMLElement {
   attributeChangedCallback(name: string, _old: string | null, value: string | null) {
     if (this.reflecting) return
     if (name === 'markdown') this.markdown = value ?? ''
-    else if (name === 'mode') this.mode = value === 'rich' ? 'rich' : 'source'
+    else if (name === 'mode') this.mode = value as MarkdownEditorMode
     else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
   }
 
   get markdown(): string {
-    return this.markdownValue
+    return this.model.markdown
   }
 
   set markdown(value: string) {
     const next = String(value ?? '')
-    if (next === this.markdownValue || next === this.lastMarkdown) return
-    this.markdownValue = next
-    this.lastMarkdown = next
-    this.reflect('markdown', next)
-    this.parseMarkdown()
-    this.replaceSource()
+    const model = setModelMarkdown(this.model, next)
+    if (model === this.model) return
+    this.applyModel(model)
+    this.resetSource()
+    this.emitState()
   }
 
-  get mode(): 'source' {
-    return 'source'
+  get mode(): MarkdownEditorMode {
+    return this.modeValue
   }
 
   set mode(value: MarkdownEditorMode) {
-    this.reflect('mode', availableMarkdownMode(value))
+    const next = availableMarkdownMode(value)
+    if (next === this.modeValue && this.getAttribute('mode') === next) return
+    this.modeValue = next
+    this.reflect('mode', next)
   }
 
-  get modes(): readonly ['source'] {
+  get modes(): typeof MARKDOWN_EDITOR_MODES {
     return MARKDOWN_EDITOR_MODES
   }
 
   get title(): string {
-    // The published editor interface narrows HTMLElement's tooltip title to the nullable editor title.
-    return this.titleValue as unknown as string
+    // HTMLElement declares title as string.
+    return this.model.title as unknown as string
   }
 
-  set title(value: string | null) {
-    const next = value === null ? null : normalizeMarkdownTitle(String(value))
-    if (next === this.titleValue) return
-    this.titleValue = next
-    if (this.titleSourceValue === 'leading-heading') this.rebuildLeadingMarkdown()
-    this.renderTitle()
+  set title(value: string | null | undefined) {
+    const model = setModelTitle(this.model, value)
+    if (model !== this.model) this.applyModel(model)
   }
 
   get titleSource(): MarkdownTitleSource {
-    return this.titleSourceValue
+    return this.model.titleSource
   }
 
   set titleSource(value: MarkdownTitleSource) {
     const next = value === 'leading-heading' ? value : 'separate'
-    if (next === this.titleSourceValue) return
-    this.titleSourceValue = next
+    const model = setModelTitleSource(this.model, next)
+    if (model === this.model) return
     this.reflect('title-source', next === 'separate' ? null : next)
-    this.parseMarkdown()
+    this.applyModel(model)
     this.replaceSource()
-    this.renderTitle()
   }
 
   get unstyled(): boolean {
@@ -157,7 +161,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.view = new EditorView({
       parent: this.sourceMount,
       root: this.root,
-      state: markdownSourceState(this.editableMarkdown(), {
+      state: markdownSourceState(this.model.editable, {
         change: (markdown) => this.onSourceChange(markdown),
         save: () => this.emit('segnavia-save'),
         toggleMode: () => this.run('toggle-mode'),
@@ -167,52 +171,52 @@ class MarkdownEditorElement extends HTMLElement {
     this.emitState(false, false)
   }
 
-  private editableMarkdown(): string {
-    return this.titleSourceValue === 'leading-heading' ? splitLeadingHeading(this.markdownValue).editable : this.markdownValue
-  }
-
-  private parseMarkdown() {
-    if (this.titleSourceValue !== 'leading-heading') return
-    const split = splitLeadingHeading(this.markdownValue)
-    this.titleValue = split.title
-    this.retainedHeading = split.retained
-    this.renderTitle()
-  }
-
   private replaceSource() {
     const view = this.view
     if (!view) return
-    const next = this.editableMarkdown()
+    const next = this.model.editable
     if (next === view.state.doc.toString()) return
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } })
   }
 
+  private resetSource() {
+    const view = this.view
+    if (!view) return
+    view.setState(
+      markdownSourceState(this.model.editable, {
+        change: (markdown) => this.onSourceChange(markdown),
+        save: () => this.emit('segnavia-save'),
+        toggleMode: () => this.run('toggle-mode'),
+        state: (canUndo, canRedo) => this.emitState(canUndo, canRedo),
+      }),
+    )
+  }
+
   private onSourceChange(editable: string) {
-    const next = this.titleSourceValue === 'leading-heading' ? joinLeadingHeading(editable, this.retainedHeading) : editable
-    this.markdownValue = next
-    this.reflect('markdown', next)
-    this.emitMarkdown(next)
+    const model = setModelEditable(this.model, editable)
+    if (model === this.model) return
+    this.applyModel(model)
+    this.emit('segnavia-markdown-change', { markdown: model.markdown })
   }
 
   private onTitleInput = () => {
     const normalized = normalizeMarkdownTitle(this.titleField.value)
     this.titleField.value = normalized
-    this.titleValue = normalized
+    const model = setModelTitle(this.model, normalized)
+    if (model === this.model) return
+    this.applyModel(model)
     this.emit('segnavia-title-change', { title: normalized })
-    if (this.titleSourceValue === 'leading-heading') {
-      this.rebuildLeadingMarkdown()
-      this.emitMarkdown(this.markdownValue)
-    }
+    if (model.titleSource === 'leading-heading') this.emit('segnavia-markdown-change', { markdown: model.markdown })
   }
 
   private onTitleKeyDown = (event: KeyboardEvent) => {
-    const mod = event.metaKey || event.ctrlKey
     if (event.key === 'Enter') event.preventDefault()
-    if (mod && event.key.toLowerCase() === 's') {
+    const action = markdownEditorKeyAction(event)
+    if (action === 'save') {
       event.preventDefault()
       this.emit('segnavia-save')
     }
-    if (mod && event.altKey && event.key.toLowerCase() === 'm') {
+    if (action === 'toggle-mode') {
       event.preventDefault()
       this.run('toggle-mode')
     }
@@ -226,23 +230,15 @@ class MarkdownEditorElement extends HTMLElement {
     this.onTitleInput()
   }
 
-  private rebuildLeadingMarkdown() {
-    const editable = this.view?.state.doc.toString() ?? splitLeadingHeading(this.markdownValue).editable
-    const previous = splitLeadingHeading(this.markdownValue)
-    this.retainedHeading = retainedLeadingHeading(this.titleValue, previous)
-    this.markdownValue = joinLeadingHeading(editable, this.retainedHeading)
-    this.reflect('markdown', this.markdownValue)
+  private applyModel(model: MarkdownEditorModel) {
+    this.model = model
+    this.reflect('markdown', model.markdown)
+    this.renderTitle()
   }
 
   private renderTitle() {
-    this.titleField.hidden = this.titleValue === null
-    this.titleField.value = this.titleValue ?? ''
-  }
-
-  private emitMarkdown(markdown: string) {
-    if (!markdownChanged(markdown, this.lastMarkdown)) return
-    this.lastMarkdown = markdown
-    this.emit('segnavia-markdown-change', { markdown })
+    this.titleField.hidden = this.model.titleSource === 'separate' && this.model.title === null
+    this.titleField.value = this.model.title ?? ''
   }
 
   private emitState(canUndo = this.view ? undoDepth(this.view.state) > 0 : false, canRedo = this.view ? redoDepth(this.view.state) > 0 : false) {
@@ -262,10 +258,12 @@ class MarkdownEditorElement extends HTMLElement {
   }
 }
 
+export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
 
+// HTMLElement declares title as string.
 export const SegnaviaMarkdownEditor = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
 
-// HTMLElement declares title as string; the editor interface uses null to hide its title line.
+// HTMLElement declares title as string.
 if (!customElements.get(TAG)) customElements.define(TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)

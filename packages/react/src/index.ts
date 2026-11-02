@@ -8,7 +8,6 @@ import {
 } from '@segnavia/frame/document-authoring'
 import { attachItemSettings, type ItemSettingsController, type ItemSettingsHandlers, type SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import '@segnavia/frame/player'
-import '@segnavia/frame/markdown-editor'
 import type { SegnaviaDocument } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { createElement, forwardRef, type ReactNode, type Ref, useCallback, useEffect, useRef, useState } from 'react'
@@ -66,7 +65,6 @@ export const Thumbnail = createComponent(ELEMENTS.thumbnail)
 export const PaperPicker = createComponent(ELEMENTS.paperPicker)
 export const ItemSettings = createComponent(ELEMENTS.itemSettings)
 export const Page = createComponent(ELEMENTS.page)
-export const MarkdownEditor = createComponent(ELEMENTS.markdownEditor)
 export const Book = createComponent(ELEMENTS.book)
 export const Paper = createComponent(ELEMENTS.paper)
 export const Document = createComponent(ELEMENTS.document)

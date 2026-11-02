@@ -1,6 +1,6 @@
 import type { Harness } from './harness.ts'
 
-type EditorEvents = { markdown: string[]; title: string[]; saves: number }
+type EditorEvents = { markdown: string[]; title: string[]; saves: number; submits: number }
 
 export async function verifyMarkdownEditor(h: Harness) {
   const { page, check } = h
@@ -27,11 +27,54 @@ export async function verifyMarkdownEditor(h: Harness) {
   const title = editor.locator('input[part~="title"]')
   await title.click()
   await page.keyboard.press('End')
+  const submitsBefore = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.submits)
   await page.keyboard.press('Enter')
-  const titleValue = await title.inputValue()
-  check('Enter in the title field adds no newline', !titleValue.includes('\n') && !titleValue.includes('\r'), JSON.stringify(titleValue))
+  const submitsAfter = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.submits)
+  check('Enter in the title field does not submit its form', submitsAfter === submitsBefore, `${submitsBefore} -> ${submitsAfter}`)
 
   await title.fill('Changed title')
   const titleMarkdown = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.markdown.at(-1) ?? '')
   check('editing a leading-heading title changes emitted markdown first line', titleMarkdown.startsWith('# Changed title\n'), titleMarkdown)
+
+  const titleWithoutHeading = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as { markdown: string; title: string | null }
+    element.markdown = 'Body without heading'
+    return element.title
+  })
+  check(
+    'leading-heading mode shows an empty title for a body without a heading',
+    titleWithoutHeading === '' && (await title.isVisible()),
+    String(titleWithoutHeading),
+  )
+  await title.fill('Added title')
+  const addedTitleMarkdown = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.markdown.at(-1) ?? '')
+  check('typing a title for a body without one emits a leading heading', addedTitleMarkdown.startsWith('# Added title\n\n'), addedTitleMarkdown)
+
+  const afterUndo = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as { markdown: string; run(command: string): void }
+    element.markdown = 'First host body'
+    element.markdown = 'Second host body'
+    element.run('undo')
+    return element.markdown
+  })
+  check('undo after a host markdown write leaves the host text', afterUndo === 'Second host body', afterUndo)
+
+  const titleBoundary = await page.evaluate(() => {
+    const element = document.getElementById('editor') as unknown as {
+      title: string | null
+      titleSource: 'separate' | 'leading-heading'
+      hasAttribute(name: string): boolean
+      setAttribute(name: string, value: string): void
+    }
+    element.titleSource = 'separate'
+    element.title = null
+    const propertyWroteAttribute = element.hasAttribute('title')
+    element.setAttribute('title', 'native tooltip')
+    return { propertyWroteAttribute, propertyAfterAttribute: element.title }
+  })
+  check(
+    'the nullable editor title neither writes nor reads the native title attribute',
+    !titleBoundary.propertyWroteAttribute && titleBoundary.propertyAfterAttribute === null && !(await title.isVisible()),
+    JSON.stringify(titleBoundary),
+  )
 }

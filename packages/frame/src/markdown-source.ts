@@ -6,6 +6,7 @@ import { EditorState, Prec } from '@codemirror/state'
 import { Decoration, EditorView, keymap } from '@codemirror/view'
 import { styleTags, Tag, tags } from '@lezer/highlight'
 import { GFM } from '@lezer/markdown'
+import { MARKDOWN_EDITOR_KEYS, type MarkdownEditorKeyAction } from './markdown-editor-policy.ts'
 
 const mermaidLanguage = LanguageDescription.of({
   name: 'Mermaid',
@@ -56,29 +57,22 @@ export type MarkdownSourceCallbacks = Readonly<{
 }>
 
 export function markdownSourceState(doc: string, callbacks: MarkdownSourceCallbacks): EditorState {
+  const actions: Record<MarkdownEditorKeyAction, () => void> = { save: callbacks.save, 'toggle-mode': callbacks.toggleMode }
   return EditorState.create({
     doc,
     extensions: [
       history(),
       Prec.highest(
-        keymap.of([
-          {
-            key: 'Mod-s',
+        keymap.of(
+          MARKDOWN_EDITOR_KEYS.map((binding) => ({
+            key: binding.key,
             preventDefault: true,
             run: () => {
-              callbacks.save()
+              actions[binding.action]()
               return true
             },
-          },
-          {
-            key: 'Mod-Alt-m',
-            preventDefault: true,
-            run: () => {
-              callbacks.toggleMode()
-              return true
-            },
-          },
-        ]),
+          })),
+        ),
       ),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.lineWrapping,

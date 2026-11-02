@@ -65,7 +65,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'codemirror-lang-mermaid',
       'mermaid',
     ],
-    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts.
+    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',
@@ -94,6 +94,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/page-document-loading.ts',
     ],
   },
+  // The markdown-editor entry alone loads frame's optional CodeMirror editor entry.
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
   render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },

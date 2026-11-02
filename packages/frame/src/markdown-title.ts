@@ -27,6 +27,7 @@ export function joinLeadingHeading(editable: string, retained: string): string {
 /** Replaces the retained heading while preserving blank lines before it and its line break. */
 export function retainedLeadingHeading(title: string | null, previous: LeadingHeadingSplit): string {
   if (title === null || title === '') return ''
+  if (!previous.retained) return `# ${title}${previous.editable ? '\n\n' : ''}`
   const separator = previous.editable.startsWith('\n') || previous.editable === '' ? '' : '\n'
   const leading = previous.retained.slice(0, previous.retained.lastIndexOf('\n') + 1)
   return `${leading}# ${title}${separator}`
