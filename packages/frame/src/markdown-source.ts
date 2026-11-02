@@ -3,7 +3,7 @@ import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import { EditorState, Prec } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { Decoration, EditorView, keymap } from '@codemirror/view'
 import { styleTags, Tag, tags } from '@lezer/highlight'
 import { GFM } from '@lezer/markdown'
 
@@ -19,6 +19,21 @@ function codeLanguage(info: string) {
 }
 
 const inlineCode = Tag.define(tags.monospace)
+const autoDirectionLine = Decoration.line({ attributes: { dir: 'auto' } })
+
+const lineDirections = EditorView.decorations.of((view) => {
+  const ranges = []
+  let previous = -1
+  for (const visible of view.visibleRanges) {
+    for (let position = visible.from; position <= visible.to; ) {
+      const line = view.state.doc.lineAt(position)
+      if (line.from !== previous) ranges.push(autoDirectionLine.range(line.from))
+      previous = line.from
+      position = line.to + 1
+    }
+  }
+  return Decoration.set(ranges)
+})
 
 // Each color is host-owned. Inheriting by default leaves source mode wholly headless.
 const highlight = HighlightStyle.define([
@@ -67,6 +82,7 @@ export function markdownSourceState(doc: string, callbacks: MarkdownSourceCallba
       ),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.lineWrapping,
+      lineDirections,
       EditorView.perLineTextDirection.of(true),
       markdown({ extensions: [GFM, { props: [styleTags({ InlineCode: inlineCode })] }], codeLanguages: codeLanguage }),
       syntaxHighlighting(highlight),

@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 export async function buildMarkdownEditorDemo(root: string, site: string): Promise<void> {
+  const markdown = '# Original title\n\nEnglish line.\nשורה בעברית.'
   const result = await Bun.build({
     entrypoints: [path.join(root, 'packages/frame/src/markdown-editor.ts')],
     outdir: site,
@@ -22,7 +23,7 @@ export async function buildMarkdownEditorDemo(root: string, site: string): Promi
         editor.addEventListener('segnavia-title-change', event => globalThis.editorEvents.title.push(event.detail.title))
         editor.addEventListener('segnavia-save', () => globalThis.editorEvents.saves++)
         editor.titleSource = 'leading-heading'
-        editor.markdown = '# Original title\n\nEnglish line.\nשורה בעברית.'
+        editor.markdown = ${JSON.stringify(markdown)}
       </script>
     </body></html>`,
   )
