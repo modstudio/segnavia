@@ -337,5 +337,31 @@ export async function verifyMarkdownEditor(h: Harness) {
   }))
   check('pasted HTML drops scripts, handlers, unsafe links and unsafe images', !Object.values(pasted).some(Boolean), JSON.stringify(pasted))
 
+  await resetRich(page, 'Paste here: ')
+  const pasteOrigin = async (origin: string, href: string, label: string) => {
+    await page.evaluate(
+      ({ allowed, link, text }) => {
+        const element = document.getElementById('editor') as unknown as { linkOrigins: string[]; shadowRoot: ShadowRoot | null }
+        element.linkOrigins = [allowed]
+        const root = element.shadowRoot?.querySelector('.ProseMirror')
+        const data = new DataTransfer()
+        data.setData('text/html', `<a href="${link}">${text}</a>`)
+        root?.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }))
+      },
+      { allowed: origin, link: href, text: label },
+    )
+  }
+  await pasteOrigin('https://first.example', 'https://first.example/kept', 'kept')
+  await pasteOrigin('https://second.example', 'https://first.example/refused', 'refused')
+  const pastedLinks = await rich.locator('a').evaluateAll((links) => links.map((link) => ({ href: link.getAttribute('href'), text: link.textContent })))
+  check(
+    'paste reads the current linkOrigins after mount',
+    pastedLinks.length === 1 && pastedLinks[0]?.href === 'https://first.example/kept' && (await rich.textContent())?.includes('refused') === true,
+    JSON.stringify(pastedLinks),
+  )
+  await page.evaluate(() => {
+    ;(document.getElementById('editor') as unknown as { linkOrigins: string[] | undefined }).linkOrigins = undefined
+  })
+
   await verifyKeyMatrix(h)
 }
