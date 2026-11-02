@@ -135,6 +135,10 @@ jobs:
           bun --conditions=@segnavia/source scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      # Node cannot import Mermaid as text, so under the source condition it reads the built diagram string.
+      - name: Build packages for Node
+        if: matrix.runtime == 'node'
+        run: bun scripts/build.ts
       - name: Verify rendering under Node
         if: matrix.runtime == 'node'
         run: |
