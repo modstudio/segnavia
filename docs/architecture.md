@@ -1009,15 +1009,19 @@ no text.
 
 ## Covers
 
-A designed cover is a page built at thumbnail size on the fixed 160 × 100 mm
-cover sheet, with a 16:10 aspect. Wherever an asset is shown small, the host's
-designed cover comes first; when the host supplies none, the asset's own cover
-or thumbnail is drawn as it would be without one.
+A designed cover is a page built at thumbnail size. Its sheet follows its print
+setting and defaults to `COVER_SHEET`, 160 × 100 mm, when that setting is
+absent. Wherever an asset is shown small, one ordered preference list chooses
+the host's kept designed-cover picture, then the designed cover drawn live in a
+script-refusing frame, then the asset's existing cover or thumbnail unchanged.
 
-`Cover.parse` fills the cover sheet when the page has no print setting and
-refuses any other sheet, bleed, a safe area, marks and page scripts: a cover is
-a picture for the screen and is drawn live in a script-refusing frame, so it
-must look the same there as in its image.
+`Cover.parse` fills the default cover sheet when the page has no print setting
+and accepts the sheet described by an explicit print setting. It refuses bleed,
+a safe area, marks and page scripts: a cover is a picture for the screen and is
+drawn live in a script-refusing frame, so it must look the same there as in its
+image. Board cover tiers and standalone thumbnails contain any cover aspect
+whole and centered without cropping or stretching; a live cover is scaled from
+its own sheet rather than laid out at the tile size.
 
 `coverDigest` gives the cover picture an immutable address. It hashes the
 canonical page without identity metadata, the sheet, the cover drawing

@@ -25,14 +25,6 @@ export const Cover = CoverShape.transform((cover) => ({
   page: { ...cover.page, print: cover.page.print ?? Print.parse(COVER_PRINT) },
 })).superRefine((cover, ctx) => {
   const print = cover.page.print
-  const sheet = sheetMm(print)
-  if (sheet.width !== COVER_SHEET.width || sheet.height !== COVER_SHEET.height) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['page', 'print', 'paper'],
-      message: `page.print describes a ${sheet.width} × ${sheet.height} mm sheet; use the ${COVER_SHEET.width} × ${COVER_SHEET.height} mm cover sheet`,
-    })
-  }
   if (print.bleed !== 0) {
     ctx.addIssue({ code: 'custom', path: ['page', 'print', 'bleed'], message: 'page.print.bleed must be 0; remove bleed from the cover' })
   }

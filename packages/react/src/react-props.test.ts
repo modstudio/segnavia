@@ -76,6 +76,7 @@ describe('React element prop wiring', () => {
     [ELEMENTS.page, 'page'],
     [ELEMENTS.thumbnail, 'page'],
     [ELEMENTS.thumbnail, 'print'],
+    [ELEMENTS.thumbnail, 'designedCover'],
     [ELEMENTS.document, 'pages'],
     [ELEMENTS.document, 'print'],
     [ELEMENTS.page, 'motifs'],

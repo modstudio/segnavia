@@ -1,7 +1,8 @@
 import { Deck, Page, type PageInput, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import type { AssetPlacementsOptions } from './board-policy.ts'
+import { type AssetPlacementsOptions, coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
+import { mountDesignedCover } from './designed-cover.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -28,6 +29,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   private motifOptions: MotifsOptions | undefined
   private placementOptions: AssetPlacementsOptions | undefined
   private fontOptions: FontsOptions | undefined
+  private designedCoverValue: ParsedDesignedCover | undefined
+  private designedCoverDisposal: (() => void) | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
@@ -137,6 +140,15 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  get designedCover(): DesignedCover | undefined {
+    return this.designedCoverValue
+  }
+
+  set designedCover(value: DesignedCover | undefined) {
+    this.designedCoverValue = value === undefined ? undefined : parseDesignedCover(value, 'The thumbnail')
+    this.changed()
+  }
+
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
   }
@@ -192,6 +204,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private clear() {
+    this.designedCoverDisposal?.()
+    this.designedCoverDisposal = undefined
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
     this.resolution++
@@ -203,6 +217,19 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private async mount() {
+    const presentation = coverPresentation(this.designedCoverValue)
+    if (presentation.kind !== 'fallback') {
+      const mounted = mountDesignedCover(
+        presentation,
+        (error) => this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true })),
+        this.motifOptions,
+        this.fontOptions,
+        this.placementOptions,
+      )
+      this.designedCoverDisposal = mounted.dispose
+      this.viewport.append(mounted.element)
+      return
+    }
     if (this.pageValue) {
       this.mountPage()
       return

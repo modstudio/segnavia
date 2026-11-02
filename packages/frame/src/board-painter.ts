@@ -1,6 +1,8 @@
 import type { BoardItem } from '@segnavia/format'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
-import type { BoardTier, AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
+import type { BoardTier, ParsedDesignedCover, AssetPlacementsOptions as PlacementsOptions, ResolvedBoardItem } from './board-policy.ts'
+import { coverPresentation } from './board-policy.ts'
+import { mountDesignedCover } from './designed-cover.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
@@ -70,8 +72,17 @@ export class BoardPainter {
     fonts?: FontsOptions,
     placements?: PlacementsOptions,
   ): HTMLElement {
+    if (tier === 'cover') {
+      const presentation = coverPresentation(resolved.designedCover as ParsedDesignedCover | undefined)
+      if (presentation.kind !== 'fallback') {
+        const mounted = mountDesignedCover(presentation, failed, motifs, fonts, placements)
+        this.disposals.set(id, mounted.dispose)
+        return mounted.element
+      }
+      if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
+      return resolved.cover ? boardImage(resolved.cover) : boardPlaceholder()
+    }
     if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
-    if (tier === 'cover') return resolved.cover ? boardImage(resolved.cover) : boardPlaceholder()
     const live = liveBoardItem(resolved, failed, motifs, fonts, placements)
     this.disposals.set(id, live.dispose)
     return live.element

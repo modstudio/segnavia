@@ -16,6 +16,7 @@ interface MountedBox {
 
 const shapes: Record<string, Size> = {
   'deck-small': { width: 1280, height: 720 },
+  'deck-designed': { width: 1280, height: 720 },
   'deck-hebrew': { width: 1280, height: 720 },
   page: { width: 640, height: 900 },
   paper: { width: 816, height: 1056 },
@@ -182,6 +183,31 @@ export async function verifyBoard(h: Harness) {
     () => (window as typeof window & { boardChanges?: Array<{ edit: { kind: string } }> }).boardChanges?.some((change) => change.edit.kind === 'settle'),
     undefined,
     { timeout: BOUNDED_WAIT_MS },
+  )
+  const coverFacts = await board.evaluate((element) => {
+    const root = element.shadowRoot
+    const designed = root?.querySelector('[data-board-item="deck-designed"]')
+    const fallback = root?.querySelector('[data-board-item="deck-small"]')
+    const frame = designed?.querySelector('iframe')
+    return {
+      designed: Boolean(frame),
+      fallback: Boolean(fallback?.querySelector('img')),
+      sandbox: frame?.getAttribute('sandbox'),
+      csp: frame?.getAttribute('srcdoc')?.match(/Content-Security-Policy[^>]+/)?.[0] ?? '',
+    }
+  })
+  h.check(
+    'a designed board cover and an unchanged fallback cover both draw in the board shard',
+    coverFacts.designed && coverFacts.fallback,
+    JSON.stringify(coverFacts),
+  )
+  h.check(
+    'a live designed cover refuses author scripts without same-origin',
+    coverFacts.sandbox !== undefined &&
+      !coverFacts.sandbox?.includes('allow-same-origin') &&
+      coverFacts.csp.includes('script-src') &&
+      coverFacts.csp.includes('nonce-'),
+    JSON.stringify(coverFacts),
   )
   await h.page.waitForFunction(() => document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('[data-board-item]').length, undefined, {
     timeout: BOUNDED_WAIT_MS,

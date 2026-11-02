@@ -41,6 +41,8 @@ export const BASE_CSS = `
 @media (prefers-reduced-motion:reduce){:where(segnavia-stage:not([unstyled]) [data-annotation]){transition:none}}
 :where(:host(segnavia-thumbnail)){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(:host(segnavia-thumbnail) [part~="thumbnail"]){position:absolute;inset:0;overflow:hidden;border-radius:inherit}
+:where(:host(segnavia-thumbnail) .segnavia-designed-cover){position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain}
+:where(:host(segnavia-thumbnail) div.segnavia-designed-cover){display:flex;align-items:center;justify-content:center}
 :where(:host(segnavia-thumbnail) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--segnavia-thumbnail-canvas,transparent);pointer-events:none}
 :where(:host(segnavia-thumbnail) .segnavia-stage__canvas > iframe){position:absolute;inset:0;inline-size:100%;block-size:100%;border:0;margin:0}
 :where(:host(segnavia-thumbnail) .segnavia-stage__annotations){pointer-events:none;color:var(--segnavia-annotation-color,#e5484d)}
@@ -56,6 +58,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="item"]){position:absolute;overflow:hidden;background:var(--segnavia-board-item,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"] > :not(.shield)){display:block;position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain}
+:where(:host(segnavia-board:not([unstyled])) div.segnavia-designed-cover){display:flex;align-items:center;justify-content:center}
 :where(:host(segnavia-board:not([unstyled])) .shield){position:absolute;inset:0;z-index:2;background:var(--segnavia-board-shield,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="cover"]){background:var(--segnavia-board-cover,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}

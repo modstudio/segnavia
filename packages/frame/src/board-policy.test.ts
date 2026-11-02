@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
+import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
 import {
   BOARD_ZOOM_FACTOR,
   boardTier,
   checkResolved,
+  coverPresentation,
   keyToView,
   pinchOf,
   provisionalShape,
@@ -35,6 +36,17 @@ const paperItem: BoardItem = { id: 'paper', kind: 'paper', address: 'paper', x: 
 const imposition = { paper: 'letter' as const, orientation: 'portrait' as const, columns: 1, rows: 1, cell: { width: 100, height: 100 } }
 
 describe('board policy', () => {
+  test.each([
+    [
+      { cover: { page: { html: 'designed' } }, picture: 'kept.webp' },
+      { kind: 'picture', src: 'kept.webp' },
+    ],
+    [{ cover: { page: { html: 'designed' } } }, { kind: 'live', cover: expect.any(Object) }],
+    [undefined, { kind: 'fallback' }],
+  ] as const)('applies each ordered cover preference', (designed, expected) => {
+    const parsed = designed ? { ...designed, cover: Cover.parse(designed.cover) } : undefined
+    expect(coverPresentation(parsed)).toEqual(expected)
+  })
   test('uses natural and provisional shapes', () => {
     expect(provisionalShape('deck')).toEqual({ width: 16, height: 9 })
     expect(provisionalShape('page').height).toBeCloseTo(Math.SQRT2)
@@ -62,6 +74,17 @@ describe('board policy', () => {
 
   test('accepts a valid resolved value', () => {
     expect(checkResolved(paperItem, { kind: 'paper', pages: [], imposition, size: { width: 10, height: 20 } })).toBeUndefined()
+  })
+
+  test('parses a resolved designed cover and names its field on refusal', () => {
+    const resolved = {
+      kind: 'paper' as const,
+      pages: [],
+      imposition,
+      size: { width: 10, height: 20 },
+      designedCover: { cover: { page: { html: '', scripts: 'sandboxed' as const } } },
+    }
+    expect(() => checkResolved(paperItem, resolved)).toThrow('resolved board item "paper" has an invalid designedCover.cover')
   })
 
   test('chooses live detail at the threshold', () => {
