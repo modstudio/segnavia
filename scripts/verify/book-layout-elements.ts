@@ -1,6 +1,6 @@
 import type { Locator, Page } from 'playwright-core'
 import { LARGE_BOOK_WAIT_MS } from './book-stress-ready.ts'
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface PageIdentity {
   count: number
@@ -102,7 +102,31 @@ export async function verifyBookLayoutSwitching(h: Harness) {
     await host.evaluate((element: HTMLElement) => {
       element.style.inlineSize = '320px'
     })
-    await page.waitForTimeout(50)
+    const narrowFrameWidth = await flowHtml.evaluate(
+      (_, { maximum, timeout }) =>
+        new Promise<number>((resolve) => {
+          let finished = false
+          let timer = 0
+          const finish = (width: number) => {
+            if (finished) return
+            finished = true
+            window.clearTimeout(timer)
+            resolve(width)
+          }
+          const poll = () => {
+            if (finished) return
+            const width = document.documentElement.clientWidth
+            if (width <= maximum) finish(width)
+            else requestAnimationFrame(poll)
+          }
+          timer = window.setTimeout(() => finish(document.documentElement.clientWidth), timeout)
+          poll()
+        }),
+      { maximum: 320, timeout: BOUNDED_WAIT_MS },
+    )
+    if (narrowFrameWidth > 320) {
+      throw new Error(`The flow frame width never dropped to 320px or less after the host was set to 320px; last saw ${narrowFrameWidth}px.`)
+    }
     const narrow = await flowHtml.evaluate(flowFacts)
     check(`${id} flow falls back to one column at a narrow frame`, narrow.columns === '1', JSON.stringify(narrow))
 
