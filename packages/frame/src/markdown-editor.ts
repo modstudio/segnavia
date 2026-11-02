@@ -313,6 +313,7 @@ class MarkdownEditorElement extends HTMLElement {
       save: (content) => this.onRichChange(content),
       state: (state) => this.emitState(state),
       linkRequest: (href) => this.emit('segnavia-link-request', { href }),
+      save: () => this.emit('segnavia-save'),
       toggleMode: () => this.setMode('source', true),
       editLocked: () => this.editSelectedLockedBlock(),
     })

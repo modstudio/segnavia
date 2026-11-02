@@ -44,6 +44,7 @@ export function selectedLockedBlock(editor: Editor): { source: string } | null {
 export function richKeyboard(options: {
   editLocked: () => boolean
   linkRequest: (href: string | null) => void
+  save: () => void
   toggleMode: () => boolean
 }) {
   return Extension.create({
@@ -53,6 +54,10 @@ export function richKeyboard(options: {
       const tableOnly = (command: keyof Pick<typeof RICH_COMMANDS, 'add-row' | 'delete-row' | 'add-column' | 'delete-column' | 'delete-table'>) =>
         this.editor.isActive('table') && RICH_COMMANDS[command].apply(this.editor, undefined)
       return {
+        'Mod-s': () => {
+          options.save()
+          return true
+        },
         'Mod-Alt-m': options.toggleMode,
         'Mod-k': () => {
           const href = this.editor.isActive('link') ? String(this.editor.getAttributes('link').href ?? '') : null
