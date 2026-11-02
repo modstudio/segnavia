@@ -14,6 +14,7 @@ import { RenderRefusedError } from './errors.ts'
 import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
+import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import { preparedSlotsFor } from './slot-fill.ts'
 
 async function awaitBookComposition(tab: Tab): Promise<void> {
@@ -29,7 +30,7 @@ interface TabSetup {
   viewport: { width: number; height: number }
   scripts: boolean
   html: string
-  waitForReady: boolean
+  readiness: RenderReadiness
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
@@ -55,6 +56,7 @@ function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marg
     relayKeys: false,
     reportHeight: false,
     dependencyOrigins,
+    readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
   })
 }
 
@@ -86,7 +88,9 @@ function printBook(
       scripts: paginated || (!marginLayer && book.scripts === 'sandboxed'),
       html: srcdoc,
       slots: preparedSlotsFor(book),
-      waitForReady: !paginated && ((!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html)) && renderOptions.waitForPageReady !== false,
+      readiness: paginated
+        ? renderReadiness('refuse', false, false)
+        : renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
       boundMs: renderOptions.boundMs,
       beforeOutput: paginated
         ? async (tab) => {

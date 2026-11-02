@@ -1,6 +1,6 @@
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { diagramScript, withDiagramScript } from '@segnavia/frame/diagrams'
+import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'
@@ -10,6 +10,7 @@ import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { printCss } from './page-paper.ts'
+import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function withFontCss(options: RenderOptions, css: string): RenderOptions {
   return { ...options, css: `${css}${options.css ?? ''}` }
@@ -99,6 +100,7 @@ export function resolvedPageDocument(page: HtmlPage, css: string, options: Resol
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
     dependencyOrigins: options.dependencyOrigins,
+    readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
   })
 }
 

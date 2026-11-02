@@ -1099,12 +1099,15 @@ The library stores no cover document, picture or digest cache.
 
 Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
-proxy. Author scripts run only when the page or deck allows them. A page that
-runs code must call `window.pageReady()`, unless the host passes
-`waitForPageReady: false`. A document that carries a diagram placeholder is
-captured only after the frame reports ready, which it does once every diagram
-has settled, even when its scripts are refused; `waitForPageReady: false`
-opts out of that wait too. Renders are bounded by `RENDER_BOUND_MS`, queued at
+proxy. Author scripts run only when the page or deck allows them. A render
+waits for the conjunction of the facts its document requires: a page that runs
+code must call `window.pageReady()`, and a document that carries a diagram
+placeholder must receive the library bridge's signal after every diagram has
+settled. These signals are independent, so an author's early ready call cannot
+stand in for unfinished diagrams and a drawn diagram cannot stand in for the
+author's call. Refused-script documents require only the diagram fact when they
+carry a placeholder. `waitForPageReady: false` opts out of both waits. Renders
+are bounded by `RENDER_BOUND_MS`, queued at
 the renderer's `concurrency`, and checked against the host's `limits`.
 Chromium never shares a renderer process between browser contexts, so a page
 that exhausts memory or hangs takes down only its own render. The renderer

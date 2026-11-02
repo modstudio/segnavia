@@ -7,10 +7,16 @@ import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { RenderOptions } from './options.ts'
 import { renderPageDocument } from './page-document.ts'
+import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false): string {
   if (!page.printedPages) return renderPageDocument(page, options, printing)
-  return printedPageDocument(page, { nonce: newNonce(), css: `${fontFaces(options.fonts)}${options.css ?? ''}`, diagramScript })
+  return printedPageDocument(page, {
+    nonce: newNonce(),
+    css: `${fontFaces(options.fonts)}${options.css ?? ''}`,
+    diagramScript,
+    readyCallback: RENDER_READY_BINDING,
+  })
 }
 
 export async function awaitPrintedPageComposition(tab: Tab, page: HtmlPage): Promise<void> {

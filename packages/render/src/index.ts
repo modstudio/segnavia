@@ -29,6 +29,7 @@ import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './pro
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
+import { renderReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
@@ -147,8 +148,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     deadline?: RenderDeadline,
   ): Promise<Uint8Array> {
     if (!options.press) return finishPdf(pdf, options)
-    return withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
-      finishPdf(pdf, options, browserJpegDecoder(tab)),
+    return withTab(
+      { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },
+      (tab) => finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
   async function renderPagePdf(page: HtmlPage, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
@@ -160,7 +162,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots: preparedSlotsFor(page),
         html: renderedPageDocument(page, opts, true),
-        waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
+        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
@@ -202,7 +204,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots: preparedSlotsFor(page),
         html,
-        waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
+        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
@@ -272,7 +274,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             slots: preparedSlotsFor(page),
             scale: opts.scale,
             html: renderedPageDocument(page, prepared.options),
-            waitForReady: (page.scripts === 'sandboxed' || hasDiagram(page.html)) && opts.waitForPageReady !== false,
+            readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,
@@ -332,7 +334,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { ...opts, press: undefined },
             {
               renderPdf: (setup, pdf) =>
-                withTab({ ...setup, slots: preparedSlotsFor(prepared), waitForReady: false, deadline }, (tab) =>
+                withTab({ ...setup, slots: preparedSlotsFor(prepared), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
                   pdfWithBackdropRasters(tab, pdf, opts.effects),
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
@@ -361,7 +363,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scale: opts.scale,
             html,
             slots: preparedSlotsFor(preparedDeck),
-            waitForReady: false,
+            readiness: renderReadiness('refuse', false, false),
             boundMs: opts.boundMs,
             deadline,
             beforeOutput: opts.beforeOutput,
@@ -374,8 +376,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     proofImage(input, opts) {
       return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
-        withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', waitForReady: false, deadline }, (tab) =>
-          proofRasterImage(tab, input, opts),
+        withTab(
+          { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },
+          (tab) => proofRasterImage(tab, input, opts),
         ),
       )
     },

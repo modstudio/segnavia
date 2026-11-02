@@ -18,6 +18,7 @@ import { verifyClippedBleed } from './verify/clipped-bleed.ts'
 import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
 import { verifyDeckRender } from './verify/deck-render.ts'
 import { verifyDependencyRender } from './verify/dependency-render.ts'
+import { verifyDiagramRender } from './verify/diagram-render.ts'
 import { verifyFontSource } from './verify/font-source.ts'
 import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
@@ -44,7 +45,6 @@ const refusal = (work: Promise<unknown>) =>
     () => 'rendered',
     (error: unknown) => (error instanceof RenderRefusedError ? `refused: ${error.message}` : `other: ${String(error)}`),
   )
-
 // With no output root, pdftoppm writes the single page to stdout; an empty
 // image would make the comparison pass without comparing anything.
 const collectionPdf = execFileSync('pdftoppm', ['-singlefile', '-gray', '-r', '96', path.resolve(import.meta.dirname, '../out/font-collection.pdf')])
@@ -72,6 +72,7 @@ const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, 
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
   await verifyDependencyRender(renderer, work, refusal, check)
+  await verifyDiagramRender(renderer, work, check)
   const ready = await refusal(
     renderer.pagePdf({
       html: '<p id="p">waiting</p><script>setTimeout(() => { p.textContent = "ready"; pageReady() }, 300)</script>',

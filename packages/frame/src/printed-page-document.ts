@@ -142,7 +142,16 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 
 export function printedPageDocument(
   input: PageInput,
-  options: { nonce: string; css?: string; only?: number; expectedCount?: number; measure?: boolean; printBackground?: boolean; diagramScript?: string },
+  options: {
+    nonce: string
+    css?: string
+    only?: number
+    expectedCount?: number
+    measure?: boolean
+    printBackground?: boolean
+    diagramScript?: string
+    readyCallback?: string
+  },
 ): string {
   const page = resolvePageHtml(Page.parse(input))
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
@@ -183,6 +192,7 @@ export function printedPageDocument(
     reportHeight: options.measure === true,
     readyAfterAttribute: PRINTED_PAGE_COMPOSED_ATTRIBUTE,
     printBackground: options.printBackground,
+    readyCallback: options.readyCallback,
   })
 }
 
