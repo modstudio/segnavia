@@ -3,6 +3,7 @@
 // natural size at the browser's 96 dpi.
 
 import { Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -19,7 +20,8 @@ export class SegnaviaDocument extends HTMLElement {
   private stylesheet = ''
   private extraCsp = ''
   dependencyOrigins: Iterable<string> = []
-  private pageValues: Page[] = []
+  private sourceValues: Page[] = []
+  private pageValues: HtmlPage[] = []
   private printValue: Print | null = null
   private observer: IntersectionObserver | null = null
   private pageObserver: IntersectionObserver | null = null
@@ -104,7 +106,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   get pages(): Page[] {
-    return this.pageValues
+    return this.sourceValues
   }
 
   get currentPageIndex(): number {
@@ -112,7 +114,8 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   set pages(value: PageInput[] | undefined) {
-    this.pageValues = (value ?? []).map((page) => Page.parse(page))
+    this.sourceValues = (value ?? []).map((page) => Page.parse(page))
+    this.pageValues = this.sourceValues.map(resolvePageHtml)
     this.paint()
     this.changed()
   }
@@ -142,9 +145,11 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   load(pageInputs: PageInput[], printInput: PrintInput): void {
-    const pages = pageInputs.map((page) => Page.parse(page))
+    const sources = pageInputs.map((page) => Page.parse(page))
+    const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
+    this.sourceValues = sources
     this.pageValues = pages
     this.printValue = print
     this.paint()
@@ -208,7 +213,7 @@ export class SegnaviaDocument extends HTMLElement {
     this.observer?.disconnect()
     this.pageObserver?.disconnect()
     this.replaceChildren()
-    const projection = projectPageOnPaper(this.pageValues[0] as Page, print)
+    const projection = projectPageOnPaper(this.pageValues[0] as HtmlPage, print)
     this.style.setProperty('--segnavia-document-paper-aspect', String(projection.aspect))
     const layout = document.createElement('div')
     layout.className = 'segnavia-document__layout'
@@ -275,7 +280,7 @@ export class SegnaviaDocument extends HTMLElement {
     page.dependencyOrigins = this.dependencyOrigins
     page.part.add('page')
     sheet.append(page)
-    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? projection.page.html })
+    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html })
   }
 
   private onMessage = (event: MessageEvent) => {

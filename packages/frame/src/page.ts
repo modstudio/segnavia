@@ -1,6 +1,5 @@
-// <segnavia-page>: shows one page in a sandboxed frame. A full page takes the
-// element's width and grows to its content's height; with `bounded`, it takes
-// the element's host-sized box and scrolls inside its frame. A fixed page is
+// <segnavia-page>: shows one page in a sandboxed frame. A full page follows
+// its element and grows, while `bounded` makes it scroll. A fixed page is
 // scaled to fit the element's width, and a fixed width that grows does both; a
 // named width caps the sheet at its measure, centered. It brings no
 // appearance, only that geometry, which a host can override. Attributes: src (page JSON), label (the frame's accessible name), bounded
@@ -12,6 +11,7 @@
 // content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameDocument, frameSandbox, MESSAGE, messageFrom, newNonce, type PageSelection } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage, shownPageDocument } from './motif-expansion.ts'
@@ -172,6 +172,7 @@ export class SegnaviaPage extends HTMLElement {
 
   load(input: PageInput | unknown) {
     const page = Page.parse(input)
+    const resolvedPage = resolvePageHtml(page)
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()
@@ -181,7 +182,7 @@ export class SegnaviaPage extends HTMLElement {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (shownPage: Page, resolved?: PreparedSlots, fontCss = '') => {
+    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       this.resolvedSlots = resolved
       this.slotFrame = resolved ? { frame: iframe, generation } : undefined
@@ -201,7 +202,7 @@ export class SegnaviaPage extends HTMLElement {
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
-      const motifRefusal = framePageMotifRefusal(page)
+      const motifRefusal = framePageMotifRefusal(resolvedPage)
       if (motifRefusal) {
         report(motifRefusal)
         this.fit()
@@ -209,7 +210,7 @@ export class SegnaviaPage extends HTMLElement {
       }
       this.writeDocument(
         iframe,
-        frameDocument(page.html, {
+        frameDocument(resolvedPage.html, {
           scripts: page.scripts,
           nonce: newNonce(),
           dir: page.dir,
@@ -220,16 +221,16 @@ export class SegnaviaPage extends HTMLElement {
           relayKeys: false,
         }),
       )
-      const refusal = slotFillRefusal(page.scripts, page.slots, this.slotOptions)
+      const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
       if (refusal) report(refusal)
-      else if (hasSlotWork(page.slots, this.slotOptions))
-        void prepareSlots(page.slots, this.slotOptions, controller.signal)
-          .then((resolved) => show(page, resolved))
+      else if (hasSlotWork(resolvedPage.slots, this.slotOptions))
+        void prepareSlots(resolvedPage.slots, this.slotOptions, controller.signal)
+          .then((resolved) => show(resolvedPage, resolved))
           .catch(report)
       this.fit()
       return
     }
-    void prepareShownPage(page, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
+    void prepareShownPage(resolvedPage, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
       .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
       .catch(report)
     this.fit()

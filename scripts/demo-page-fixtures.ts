@@ -45,6 +45,31 @@ export const hebrewPage: PageInput = {
   lang: 'he',
 }
 
+export const markdownPage: PageInput = {
+  markdown: `---
+title: דוגמת Markdown
+published: true
+---
+
+# עברית and English
+
+English opens this mixed line שלום.
+
+עברית פותחת את השורה mixed English.
+
+> [!NOTE]
+> This alert follows the page language.
+
+- [x] משימה שהושלמה
+- [ ] Task still open
+
+| Column | A very wide English and Hebrew value |
+| --- | --- |
+| One | This table is deliberately wider than the page שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום |`,
+  size: { width: 420, height: 'auto' },
+  lang: 'he',
+}
+
 export const ownDirectionPage: PageInput = {
   html: '<p dir="ltr">שלום This sentence stays left to right.</p>',
   size: { width: 600, height: 'auto' },

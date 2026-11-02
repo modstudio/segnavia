@@ -1,4 +1,5 @@
-import { type Imposition, impose, isPrintedPageIdentityImposition, type Page, PRINTED_PAGE_LIMIT, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Imposition, impose, isPrintedPageIdentityImposition, PRINTED_PAGE_LIMIT, PX_PER_MM, sheetMm } from '@segnavia/format'
+import type { HtmlPage } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
 import { printedPageDocument } from './printed-page-document.ts'
@@ -7,8 +8,8 @@ import { escapeHtml } from './svg.ts'
 export const PRINTED_PAGE_COUNT_REFUSAL =
   'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
 
-function composedFrame(page: Page, index: number, expectedCount: number, options: PrintablePagesOptions): string {
-  const paper = sheetMm(page.print as NonNullable<Page['print']>)
+function composedFrame(page: HtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
+  const paper = sheetMm(page.print as NonNullable<HtmlPage['print']>)
   const srcdoc = printedPageDocument(page, {
     nonce: options.nonce ?? newNonce(),
     css: options.css,
@@ -19,8 +20,8 @@ function composedFrame(page: Page, index: number, expectedCount: number, options
   return `<iframe sandbox="${frameSandbox('refuse')}" srcdoc="${escapeHtml(srcdoc)}" style="width:${paper.width}mm;height:${paper.height}mm;border:0;display:block"></iframe>`
 }
 
-function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadlineAt: number): Promise<number> {
-  const paper = sheetMm(page.print as NonNullable<Page['print']>)
+function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, deadlineAt: number): Promise<number> {
+  const paper = sheetMm(page.print as NonNullable<HtmlPage['print']>)
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${paper.width * PX_PER_MM}px;height:${paper.height * PX_PER_MM}px;border:0;opacity:0;pointer-events:none`
@@ -51,7 +52,7 @@ function measurePrintedPage(page: Page, options: PrintablePagesOptions, deadline
 }
 
 export async function printedPagesPrintDocument(
-  pages: Page[],
+  pages: HtmlPage[],
   imposition: Imposition,
   options: PrintablePagesOptions & { deadlineAt: number },
 ): Promise<{ html: string; paper: { width: number; height: number } }> {
@@ -63,7 +64,7 @@ export async function printedPagesPrintDocument(
       )
     }
   }
-  const counts = new Map<Page, number>()
+  const counts = new Map<HtmlPage, number>()
   for (const page of printed) counts.set(page, await measurePrintedPage(page, options, options.deadlineAt))
   const paper = sheetMm(imposition)
   const bodies: PrintablePaperBody[] = pages.flatMap((page) => {

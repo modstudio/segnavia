@@ -1,7 +1,8 @@
 import {
   defaultPageNumbering,
   formatNumber,
-  type Page,
+  Page,
+  type PageInput,
   PRINTED_PAGE_LIMIT,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
@@ -12,7 +13,7 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { printedPageAt } from '@segnavia/html'
+import { type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
@@ -34,7 +35,7 @@ interface Geometry {
   firstHeight: number
 }
 
-function geometry(page: Page, parents: ResolvedParentPage[], width: number, height: number): Geometry {
+function geometry(page: HtmlPage, parents: ResolvedParentPage[], width: number, height: number): Geometry {
   const printed = page.printedPages as NonNullable<Page['printedPages']>
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
   const normal = byName.get(printed.rules.every) as ResolvedParentPage
@@ -139,9 +140,10 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 }
 
 export function printedPageDocument(
-  page: Page,
+  input: PageInput,
   options: { nonce: string; css?: string; only?: number; expectedCount?: number; measure?: boolean; printBackground?: boolean },
 ): string {
+  const page = resolvePageHtml(Page.parse(input))
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)

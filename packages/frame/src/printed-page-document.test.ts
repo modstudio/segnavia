@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { printedPageAt } from '@segnavia/html'
+import { bodyHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
@@ -47,10 +47,19 @@ describe('printedPageDocument', () => {
   })
 
   test('keeps whole-document head resources beside a flow holding only body children', () => {
-    const full = Page.parse({ ...page, html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' })
+    const full = Page.parse({
+      ...page,
+      body: { html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' },
+    })
     const html = printedPageDocument(full, { nonce: 'held' })
     expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p>Whole</p></div>')
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
+  })
+
+  test('a markdown page and its HTML equivalent have the same print geometry', () => {
+    const markdown = Page.parse({ ...page, body: { markdown: '# שלום\n\nEnglish text.' } })
+    const equivalent = Page.parse({ ...page, body: { html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
+    expect(printedPageDocument(markdown, { nonce: 'held' })).toBe(printedPageDocument(equivalent, { nonce: 'held' }))
   })
 
   test('starts at zero height and can build one numbered paper after measuring the full flow', () => {
@@ -157,13 +166,13 @@ describe('printedPageDocument', () => {
       }),
       data: async () => ({ printedPage: { number: 'host' } }),
     }
-    await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
+    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
   })
 
   test('uses the page document language for a motif in a parent region', async () => {
     const placed = Page.parse({
       ...page,
-      html: '<html lang="he"><body><p>Body</p></body></html>',
+      body: { html: '<html lang="he"><body><p>Body</p></body></html>' },
       lang: undefined,
       printedPages: {
         ...page.printedPages,
@@ -184,7 +193,7 @@ describe('printedPageDocument', () => {
         ],
       }),
     }
-    const expanded = await expandFramePage(placed, { source }, new AbortController().signal)
+    const expanded = await expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)
     expect(expanded.page.printedPages?.parents[0]?.head).toContain('<span>עברית</span>')
   })
 
@@ -198,7 +207,7 @@ describe('printedPageDocument', () => {
       },
     })
     const source = { motif: async () => undefined }
-    await expect(expandFramePage(placed, { source }, new AbortController().signal)).rejects.toThrow(
+    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow(
       '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
     )
   })
@@ -212,7 +221,7 @@ describe('printedPageDocument', () => {
         rules: { every: 'body' },
       },
     })
-    await expect(expandFramePage(placed, undefined, new AbortController().signal)).rejects.toThrow(
+    await expect(expandFramePage(resolvePageHtml(placed), undefined, new AbortController().signal)).rejects.toThrow(
       '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
     )
   })

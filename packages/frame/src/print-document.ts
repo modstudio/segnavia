@@ -9,7 +9,8 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
-  type Page,
+  Page,
+  type PageInput,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -19,7 +20,7 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
-import { classifyMediaAnswer, type PlacementsOptions, placementPlaceholderSource } from '@segnavia/html'
+import { classifyMediaAnswer, type HtmlPage, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
@@ -293,7 +294,7 @@ export function printableDeckDocument(deck: Deck, options: PrintOptions & { impo
   return { html: imposedPaperDocument(imposed.paper, rootAttributes, imposedPaperBodies(imposed, placementBody), documentTitle(deck, options)), imposed }
 }
 
-function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
+function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = printProperties(imposition, imposition.unit)
@@ -322,7 +323,7 @@ function pageFrame(page: Page, imposition: Imposition, placement: ReturnType<typ
 // Builds only the positioned placement boxes for one physical paper, so the
 // browser element and the print document use exactly the same frame markup.
 export function printablePaper(
-  pages: Page[],
+  pages: HtmlPage[],
   imposition: Imposition,
   imposed: Imposed,
   paper: number,
@@ -331,14 +332,15 @@ export function printablePaper(
 ): string {
   return imposed.placements
     .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(pages[placement.page] as Page, imposition, placement, options))
+    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
     .join('')
 }
 
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-export function printablePagesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+export function printablePagesDocument(inputs: PageInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  const pages = inputs.map((page) => resolvePageHtml(Page.parse(page)))
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)

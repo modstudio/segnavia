@@ -48,6 +48,17 @@ export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export {
+  type AlertKind,
+  type AlertLabels,
+  alertLabels,
+  type BodyHtmlOptions,
+  bodyHtml,
+  type HtmlPage,
+  type MarkdownHeading,
+  markdownOutline,
+  resolvePageHtml,
+} from './markdown.ts'
+export {
   documentLanguage,
   type ExpandedMotifs,
   type ExpandMotifsOptions,
@@ -78,7 +89,7 @@ export {
   resolvePlacements,
 } from './placements.ts'
 export * from './printed-pages.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize } from './sanitize.ts'
+export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, sanitize, type UrlPolicy } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

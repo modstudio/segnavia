@@ -1,14 +1,17 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
+import { resolvePageHtml } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { awaitPrintedPageComposition } from './printed-page-render.ts'
 
-const composed = Page.parse({
-  html: '<p>body</p>',
-  print: { paper: 'letter' },
-  printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
-})
+const composed = resolvePageHtml(
+  Page.parse({
+    html: '<p>body</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  }),
+)
 
 test('turns a composer failure including its page bound into a render refusal', async () => {
   const tab = {

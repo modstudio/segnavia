@@ -5,6 +5,7 @@
 // never reports cannot hold the dialog closed for ever.
 
 import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
@@ -162,11 +163,10 @@ export async function preparedDeckPrint(
 }
 
 async function preparedPagesPrint(
-  pagesInput: PageInput[],
+  pages: HtmlPage[],
   impositionInput: ImpositionInput,
   options: BrowserPagesPrintOptions & { deadlineAt?: number },
 ): Promise<PrintFrameOptions> {
-  const pages = pagesInput.map((page) => Page.parse(page))
   const imposition = Imposition.parse(impositionInput)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, options.slots)
@@ -230,7 +230,7 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
-    pagesInput.map((page) => Page.parse(page)),
+    pagesInput.map((page) => resolvePageHtml(Page.parse(page))),
     options.motifs,
     signal,
     options.placements,

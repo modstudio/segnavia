@@ -1,5 +1,5 @@
 import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection } from '@segnavia/format'
-import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePlacements } from '@segnavia/html'
+import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
@@ -49,7 +49,7 @@ async function resolvePlaced(
       }),
     )
   }
-  if (answer?.kind === 'page') return designed(entry, answer.page.html)
+  if (answer?.kind === 'page') return designed(entry, resolvePageHtml(answer.page).html)
   const html = await resolvePlacements(placedImage(placement), {
     resolvePlacement: async () => answer,
     report: options.report,

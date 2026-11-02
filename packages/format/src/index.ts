@@ -154,6 +154,7 @@ export {
   FULL_PAGE_SIZE,
   PAGE_WIDTHS,
   Page,
+  PageBody,
   type PageInput,
   PageSize,
   PageWidths,

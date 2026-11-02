@@ -1,0 +1,106 @@
+import { describe, expect, test } from 'bun:test'
+import { Page } from '@segnavia/format'
+import { bodyHtml, markdownOutline, resolvePageHtml } from './markdown.ts'
+
+describe('bodyHtml', () => {
+  test('passes HTML through unchanged', () => {
+    expect(bodyHtml({ html: '<p>unchanged</p>' })).toBe('<p>unchanged</p>')
+  })
+
+  test('converts a body only once for the same options', () => {
+    let labelReads = 0
+    const alertLabels = {} as { note: string }
+    Object.defineProperty(alertLabels, 'note', {
+      enumerable: true,
+      get: () => {
+        labelReads++
+        return 'Memoized'
+      },
+    })
+    const body = { markdown: '> [!NOTE]\n> Read.' } as const
+    const options = { alertLabels }
+    expect(bodyHtml(body, options)).toContain('<bdi>Memoized</bdi>')
+    const afterConversion = labelReads
+    expect(bodyHtml(body, options)).toContain('<bdi>Memoized</bdi>')
+    expect(labelReads - afterConversion).toBe(1)
+  })
+
+  test('emits GFM tables, tasks, strikethrough and autolinks', () => {
+    const html = bodyHtml({ markdown: '| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\n~~gone~~ <https://example.test>' })
+    expect(html).toContain('<div data-segnavia-overflow><table>')
+    expect(html).toContain('type="checkbox" checked disabled')
+    expect(html).toContain('<del>gone</del>')
+    expect(html).toContain('href="https://example.test"')
+  })
+
+  test('renders readable, cyclic and unreadable frontmatter without an hr', () => {
+    const readable = bodyHtml({ markdown: '---\nenabled: true\nnested:\n  values: &values [one, *values]\n---\nText' })
+    expect(readable).toContain('<dl data-segnavia-frontmatter>')
+    expect(readable).toContain('<dt>enabled</dt><dd>yes</dd>')
+    expect(readable).toContain('(cycle)')
+    expect(readable).not.toContain('<hr>')
+    const unreadable = bodyHtml({ markdown: '---\n[broken\n---' })
+    expect(unreadable).toContain('Frontmatter could not be read.')
+    expect(unreadable).toContain('[broken')
+  })
+
+  test('renders container directives and leaves inline and leaf directives literal', () => {
+    const html = bodyHtml({ markdown: ':::panel{kind="aside"}\nInside\n:::\n\nTime 16:41 :mark[kept]\n\n::leaf[value]' })
+    expect(html).toContain('<div data-segnavia-directive="panel" data-segnavia-directive-kind="aside">')
+    expect(html).toContain(':mark[kept]')
+    expect(html).toContain('::leaf[value]')
+    expect(html).toContain('16:41')
+  })
+
+  test('renders alerts with an isolated language label', () => {
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> Read this.' })).toMatch(/<div data-segnavia-alert="note">\s*<bdi>Note<\/bdi>/)
+    expect(bodyHtml({ markdown: '> [!WARNING]\n> קראו.' }, { lang: 'he' })).toContain('<bdi>אזהרה</bdi>')
+    expect(bodyHtml({ markdown: '> [!TIP]\n> Read.' }, { alertLabels: { tip: 'Hint' } })).toContain('<bdi>Hint</bdi>')
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> Read.' }, { lang: 'en', dir: 'rtl' })).toContain('<bdi>Note</bdi>')
+    expect(bodyHtml({ markdown: '> [!NOTE]\n> קראו.' })).toContain('<bdi>הערה</bdi>')
+  })
+
+  test('marks mermaid and wraps other fences as overflow', () => {
+    const html = bodyHtml({ markdown: '```mermaid\ngraph TD\n```\n\n```txt\nwide\n```' })
+    expect(html).toContain('<pre data-segnavia-diagram="mermaid"><code class="language-mermaid">graph TD')
+    expect(html).toContain('<div data-segnavia-overflow><pre><code class="language-txt">wide')
+  })
+
+  test('does not render raw HTML and sanitizes markdown URLs', () => {
+    const html = bodyHtml({
+      markdown:
+        '<img src="https://images.test/a.png" onerror="alert(1)">\n\n[bad](javascript:alert(1)) [web](https://example.test) [mail](mailto:a@example.test) ![remote](https://images.test/a.png)',
+    })
+    expect(html).not.toContain('onerror')
+    expect(html).not.toContain('javascript:')
+    expect(html).toContain('href="https://example.test"')
+    expect(html).toContain('href="mailto:a@example.test"')
+    expect(html).toContain('src="https://images.test/a.png"')
+  })
+
+  test('adds only logical geometry for overflow on screen and print', () => {
+    const html = bodyHtml({ markdown: '| A |\n| - |\n| B |' })
+    expect(html).toContain(':where([data-segnavia-overflow]){max-inline-size:100%;overflow-x:auto}')
+    expect(html).toContain('@media print')
+    expect(html).toContain('white-space:pre-wrap')
+    expect(html).not.toMatch(/\b(left|right|width|height):/)
+  })
+})
+
+test('markdownOutline lowercases headings independently of the host locale', () => {
+  expect(markdownOutline('# Istanbul')).toEqual([{ id: 'istanbul', level: 1, title: 'Istanbul' }])
+})
+
+test('a resolved page can be parsed and resolved again without stale HTML', () => {
+  const first = resolvePageHtml(Page.parse({ markdown: '# Heading' }))
+  const second = resolvePageHtml(Page.parse(first))
+  expect(second.html).toBe(first.html)
+})
+
+test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {
+  expect(markdownOutline('---\ntitle: "# skipped"\n---\n# שלום עולם\n## שלום עולם\n```md\n# skipped\n```\n### English')).toEqual([
+    { id: 'שלום-עולם', level: 1, title: 'שלום עולם' },
+    { id: 'שלום-עולם-2', level: 2, title: 'שלום עולם' },
+    { id: 'english', level: 3, title: 'English' },
+  ])
+})

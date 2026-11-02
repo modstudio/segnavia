@@ -24,7 +24,24 @@ export interface PackageRule {
 export const PACKAGES: Record<string, PackageRule> = {
   // Board placement geometry stays universal because callers supply every measured shape.
   format: { runtime: 'universal', imports: ['zod'] },
-  html: { runtime: 'universal', imports: ['@segnavia/format', 'htmlparser2', 'domhandler', 'dom-serializer', 'qrcode-generator'] },
+  html: {
+    runtime: 'universal',
+    imports: [
+      '@segnavia/format',
+      'htmlparser2',
+      'domhandler',
+      'dom-serializer',
+      'qrcode-generator',
+      'unified',
+      'remark-parse',
+      'remark-gfm',
+      'remark-frontmatter',
+      'remark-directive',
+      'remark-rehype',
+      'rehype-stringify',
+      'yaml',
+    ],
+  },
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   frame: {
     runtime: 'browser',

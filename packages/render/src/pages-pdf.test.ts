@@ -1,10 +1,13 @@
 import { expect, test } from 'bun:test'
-import { Page, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { Page as PageSchema, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { resolvePageHtml } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
+
+const Page = { parse: (input: unknown) => resolvePageHtml(PageSchema.parse(input)) }
 
 async function cssPiece(pixels: number, height = pixels): Promise<Uint8Array> {
   const document = await PDFDocument.create()

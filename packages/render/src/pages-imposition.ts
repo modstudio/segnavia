@@ -33,7 +33,7 @@ export interface PieceGeometry {
 const geometryKey = (page: number, layout: PagePlacementLayout, placement: ImpositionPlacement) =>
   JSON.stringify([page, layout.piece.width, layout.piece.height, layout.inset ? placement.bleed : null])
 
-export function groupPieces(pages: Page[], imposed: Imposed, mode: 'contain' | 'cover', pageWidths?: PageWidths): PieceGroup[] {
+export function groupPieces(pages: Array<Pick<Page, 'size'>>, imposed: Imposed, mode: 'contain' | 'cover', pageWidths?: PageWidths): PieceGroup[] {
   const groups = new Map<string, PieceGroup>()
   for (const placement of imposed.placements) {
     const page = pages[placement.page]

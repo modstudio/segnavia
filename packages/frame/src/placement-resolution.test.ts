@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Book, BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
-import { bookDocument } from '@segnavia/html'
+import { bookDocument, resolvePageHtml } from '@segnavia/html'
 import { expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
@@ -11,7 +11,7 @@ const placements = {
 
 test('frame page preparation resolves placed media into the document HTML', async () => {
   const page = Page.parse({ html: '<img data-segnavia-media="cover">', size: { width: 320, height: 200 } })
-  expect((await expandFramePage(page, undefined, signal, placements)).page.html).toContain(`src="${src}"`)
+  expect((await expandFramePage(resolvePageHtml(page), undefined, signal, placements)).page.html).toContain(`src="${src}"`)
 })
 
 test('frame book preparation resolves placed media into the document HTML', async () => {
@@ -85,14 +85,14 @@ test('chooses placement widths from print, flowing, fixed, and paginated book vi
   }
   const image = '<img data-segnavia-media="cover">'
   const printed = Page.parse({ html: image, print: { paper: 'a4' } })
-  await expandFramePage(printed, undefined, signal, capture)
-  await expandFramePage(Page.parse({ html: image }), undefined, signal, capture)
-  await expandFramePage(Page.parse({ html: image, size: { width: 'standard', height: 'auto' } }), undefined, signal, capture, 'screen', {
+  await expandFramePage(resolvePageHtml(printed), undefined, signal, capture)
+  await expandFramePage(resolvePageHtml(Page.parse({ html: image })), undefined, signal, capture)
+  await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 'standard', height: 'auto' } })), undefined, signal, capture, 'screen', {
     standard: 900,
   })
-  await expandFramePage(Page.parse({ html: image, size: { width: 'wide', height: 'auto' } }), undefined, signal, capture)
-  await expandFramePage(Page.parse({ html: image, size: { width: 600, height: 'auto' } }), undefined, signal, capture)
-  await expandFramePage(Page.parse({ html: image, size: { width: 420, height: 240 } }), undefined, signal, capture)
+  await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 'wide', height: 'auto' } })), undefined, signal, capture)
+  await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 600, height: 'auto' } })), undefined, signal, capture)
+  await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 420, height: 240 } })), undefined, signal, capture)
   const book = Book.parse({
     title: 'Widths',
     mode: 'paginated',
@@ -126,7 +126,7 @@ test('placements introduced by motif expansion resolve afterward', async () => {
       }),
     },
   }
-  expect((await expandFramePage(page, motifs, signal, placements)).page.html).toContain(`src="${src}"`)
+  expect((await expandFramePage(resolvePageHtml(page), motifs, signal, placements)).page.html).toContain(`src="${src}"`)
 })
 
 test('page parent furniture resolves placed media before document building', async () => {
@@ -135,6 +135,6 @@ test('page parent furniture resolves placed media before document building', asy
     ...page,
     printedPages: { parents: [{ name: 'body', head: '<img data-segnavia-media="cover">' }] },
   } as unknown as Page
-  const resolved = await expandFramePage(withParent, undefined, signal, placements)
+  const resolved = await expandFramePage(resolvePageHtml(withParent), undefined, signal, placements)
   expect(resolved.page.printedPages?.parents[0]?.head).toContain(`src="${src}"`)
 })

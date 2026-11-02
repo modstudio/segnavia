@@ -1,7 +1,8 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type Page, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
@@ -17,7 +18,7 @@ export class SegnaviaPaper extends HTMLElement {
   css = ''
   cspExtra = ''
   dependencyOrigins: Iterable<string> = []
-  private pages: Page[] = []
+  private pages: HtmlPage[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
   private paperIndex = 0
@@ -133,7 +134,7 @@ export class SegnaviaPaper extends HTMLElement {
   load(pageInputs: PageInput[], impositionInput: ImpositionInput): void {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
-    const pages = pageInputs.map((page) => PageSchema.parse(page))
+    const pages = pageInputs.map((page) => resolvePageHtml(PageSchema.parse(page)))
     const imposition = Imposition.parse(impositionInput)
     const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
@@ -199,7 +200,7 @@ export class SegnaviaPaper extends HTMLElement {
       pages === this.pages &&
       imposition === this.imposition &&
       imposed === this.imposed
-    const commit = (shown: Page[], resolved?: PreparedSlots) => {
+    const commit = (shown: HtmlPage[], resolved?: PreparedSlots) => {
       if (!current()) return
       this.resolvedSlots = resolved
       this.resolvedGeneration = resolved ? generation : 0
@@ -212,7 +213,7 @@ export class SegnaviaPaper extends HTMLElement {
       if (showOriginal && !this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
       this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    const continuePaint = (shown: Page[]) => {
+    const continuePaint = (shown: HtmlPage[]) => {
       const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
       if (refusal) throw refusal
       const declarations = shown.map((page) => page.slots)

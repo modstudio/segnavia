@@ -2,7 +2,7 @@ import { Book, Cover, type Deck, Page } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
-import type { PreparedSlots } from '@segnavia/html'
+import { type HtmlPage, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
@@ -151,7 +151,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
-  async function renderPagePdf(page: Page, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
+  async function renderPagePdf(page: HtmlPage, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
     if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
     const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
     return withTab(
@@ -194,7 +194,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     )
   }
 
-  async function renderPiecePdf(page: Page, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
+  async function renderPiecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
     const html = frameDocument(page.html, {
       scripts: page.scripts,
       nonce: newNonce(),
@@ -306,7 +306,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => Page.parse(input)),
+          inputs.map((input) => resolvePageHtml(Page.parse(input))),
           opts.motifs,
           deadline.signal,
           opts.placements,

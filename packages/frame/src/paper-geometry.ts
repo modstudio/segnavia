@@ -4,13 +4,13 @@ export function paperBoxSize(paper: { width: number; height: number }): { width:
   return { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM }
 }
 
-export interface PageOnPaper {
+export interface PageOnPaper<T extends Pick<Page, 'size'> = Page> {
   aspect: number
   box: { width: number; height: number }
-  page: Page
+  page: T
 }
 
-export function projectPageOnPaper(page: Page, print: Print): PageOnPaper {
+export function projectPageOnPaper<T extends Pick<Page, 'size'>>(page: T, print: Print): PageOnPaper<T> {
   const box = paperBoxSize(sheetMm(print))
   const fixed = typeof page.size === 'object' && page.size.height !== 'auto'
   return {
