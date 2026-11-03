@@ -91,6 +91,21 @@ if (typeof diagramScriptModule.diagramScript !== 'string' || diagramScriptModule
   throw new Error('@segnavia/diagrams/script must export a non-empty diagramScript string.')
 }
 
+const diagramProviderKey = Symbol.for('segnavia.diagrams')
+const diagramRegistry = globalThis as typeof globalThis & { [diagramProviderKey]?: () => Promise<string> }
+if (typeof diagramRegistry[diagramProviderKey] === 'function') {
+  throw new Error('@segnavia/diagrams/auto must be the entry that registers the diagram provider.')
+}
+await import(pathToFileURL(path.join(ROOT, 'packages/diagrams/dist/auto.js')).href)
+const builtDiagramProvider: unknown = Reflect.get(diagramRegistry, diagramProviderKey)
+if (typeof builtDiagramProvider !== 'function') {
+  throw new Error('@segnavia/diagrams/auto must register a diagram provider when imported.')
+}
+const providedDiagramScript = await builtDiagramProvider()
+if (typeof providedDiagramScript !== 'string' || providedDiagramScript.length === 0) {
+  throw new Error('@segnavia/diagrams/auto must register a provider that resolves to a non-empty diagram script.')
+}
+
 for (const { name, manifest } of installed) {
   for (const dependency of Object.keys(manifest.dependencies ?? {}).filter((dependency) => !dependency.startsWith('@segnavia/'))) {
     const target = path.join(HOST, 'node_modules', dependency)
