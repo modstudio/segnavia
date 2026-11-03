@@ -16,9 +16,10 @@ import {
 
 const workspace = (name: string, exports = ['.']): Workspace => ({
   name: `@segnavia/${name}`,
+  path: `packages/${name}/package.json`,
   rule: PACKAGES[name] as Workspace['rule'],
   exports,
-  dependencies: PACKAGES[name]?.imports ?? [],
+  manifestImports: PACKAGES[name]?.imports ?? [],
   sources: [],
 })
 const all = new Map([
@@ -67,7 +68,7 @@ describe('architecture rules', () => {
   })
 
   test('package.json and architecture.ts must agree both ways', () => {
-    const drifted = { ...workspace('voice'), dependencies: ['@segnavia/format', 'left-pad'] }
+    const drifted = { ...workspace('voice'), manifestImports: ['@segnavia/format', 'left-pad'] }
     expect(checkManifest(drifted).map((f) => f.message)).toEqual(['left-pad is a dependency that architecture.ts does not allow.'])
   })
 

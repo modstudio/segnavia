@@ -10,7 +10,7 @@ format  ◄── html          (universal: browser and server)
   ├── frame ◄── diagrams  (browser; diagrams is optional and its payload is server-safe)
   │     ▲  ▲
   │     │  └── markdown-editor (browser; optional editor engines are required peers)
-  │     └───── react      (browser adapter; React is a peer dependency here only)
+  │     └───── react      (browser adapter; React is a peer dependency here only; its markdown-editor subpath needs markdown-editor)
   │     ▲
   │     ├── render        (server: host-supplied playwright-core and Chromium, pdf-lib)
   │     │     ▲
@@ -161,9 +161,11 @@ type.
 `@segnavia/markdown-editor` is the browser-only package that defines
 `<segnavia-markdown-editor>`. It is an optional, ordinary package entry: the
 frame, player, headless and controls bundles do not import it. The editor
-depends on frame only for its public page, font and base-style helpers. Its
-Tiptap, CodeMirror, Lezer and Mermaid-language engines are required peers, so
-a host supplies one shared copy. The element has an open shadow root and
+uses frame's `createPageElement`, `HEADLESS_ELEMENTS`, `SegnaviaPage`, fonts
+entry and `ensureStyle` helpers. `ensureStyle` installs a named stylesheet once
+per document or shadow root; `ensureBaseStyle` uses it for frame's base style.
+The editor's Tiptap, CodeMirror, Lezer and Mermaid-language engines are required
+peers, so a host supplies one shared copy. The element has an open shadow root and
 supplies behavior and zero-specificity geometry only. `unstyled` removes
 that geometry. Its stylesheet is installed once per document or shadow root
 and is not part of frame's `BASE_CSS`.

@@ -48,12 +48,19 @@ function workspaces(): Map<string, Workspace> {
       exports: Record<string, string>
       dependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
+      optionalDependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
     }
     map.set(manifest.name, {
       name: manifest.name,
+      path: `packages/${name}/package.json`,
       rule,
       exports: Object.keys(manifest.exports),
-      dependencies: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+      manifestImports: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+      dependencies: manifest.dependencies,
+      peerDependencies: manifest.peerDependencies,
+      optionalDependencies: manifest.optionalDependencies,
+      devDependencies: manifest.devDependencies,
       sources: sources().filter((source) => source.startsWith(`packages/${name}/`)),
     })
   }
@@ -82,20 +89,7 @@ function structural(names: string[]): Finding[] {
   const all = workspaces()
   const findings: Finding[] = []
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
-  const packageManifests = Object.keys(PACKAGES).map((name) => {
-    const relative = `packages/${name}/package.json`
-    return {
-      ...(JSON.parse(readFileSync(path.join(ROOT, relative), 'utf8')) as {
-        name: string
-        dependencies?: Record<string, string>
-        peerDependencies?: Record<string, string>
-        optionalDependencies?: Record<string, string>
-        devDependencies?: Record<string, string>
-      }),
-      path: relative,
-    }
-  })
-  findings.push(...checkReactDependencies(packageManifests, REACT_PACKAGE_ALLOWLIST))
+  findings.push(...checkReactDependencies([...all.values()], REACT_PACKAGE_ALLOWLIST))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {

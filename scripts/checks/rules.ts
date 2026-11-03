@@ -12,9 +12,14 @@ export interface SourceFile {
 
 export interface Workspace {
   name: string
+  path: string
   rule: PackageRule
   exports: string[]
-  dependencies: string[]
+  manifestImports: string[]
+  dependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
   sources: string[]
 }
 
@@ -117,9 +122,9 @@ export function checkManifest(workspace: Workspace): Finding[] {
   const path = `packages/${packageName}/package.json`
   const findings: Finding[] = []
   for (const name of workspace.rule.imports) {
-    if (!workspace.dependencies.includes(name)) findings.push({ rule: 'architecture', path, message: `${name} is allowed but not a dependency.` })
+    if (!workspace.manifestImports.includes(name)) findings.push({ rule: 'architecture', path, message: `${name} is allowed but not a dependency.` })
   }
-  for (const name of workspace.dependencies) {
+  for (const name of workspace.manifestImports) {
     if (!workspace.rule.imports.includes(name))
       findings.push({ rule: 'architecture', path, message: `${name} is a dependency that architecture.ts does not allow.` })
   }

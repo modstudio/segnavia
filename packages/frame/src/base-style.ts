@@ -105,14 +105,18 @@ export const BASE_CSS = `
 :where([data-presenting]),:where(:host([data-presenting])){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}
 `
 
-// Adds the base styles once to the document, or to the shadow root an
-// element lives in, since a document's styles do not reach inside one.
-export function ensureBaseStyle(element: Element) {
+// Adds styles once to the document, or to the shadow root an element lives
+// in, since a document's styles do not reach inside one.
+export function ensureStyle(element: Element, name: string, css: string) {
   const root = element.getRootNode()
   const target = root instanceof ShadowRoot ? root : document.head
-  if (target.querySelector('style[data-segnavia-base]')) return
+  if (target.querySelector(`style[data-segnavia-${name}]`)) return
   const style = document.createElement('style')
-  style.dataset.segnaviaBase = ''
-  style.textContent = BASE_CSS
+  style.setAttribute(`data-segnavia-${name}`, '')
+  style.textContent = css
   target.prepend(style)
+}
+
+export function ensureBaseStyle(element: Element) {
+  ensureStyle(element, 'base', BASE_CSS)
 }
