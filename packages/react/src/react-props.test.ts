@@ -52,13 +52,26 @@ describe('React element prop wiring', () => {
   test('uses a custom DOM event name when it does not match the React key', () => {
     const element = new FakeElement()
     let picks = 0
+    let boardSelections = 0
     const descriptor = { tag: 'segnavia-board', properties: [], events: { onPick: 'segnavia-board-select' } } as const
-    const cleanup = syncElementProps(descriptor, element as unknown as HTMLElement, { onPick: () => picks++ }, {})
+    const cleanup = syncElementProps(
+      descriptor,
+      element as unknown as HTMLElement,
+      {
+        onPick: (event: Event) => {
+          if (event.type === 'pick') picks++
+          if (event.type === 'segnavia-board-select') boardSelections++
+        },
+      },
+      {},
+    )
     element.dispatchEvent(new Event('pick'))
     element.dispatchEvent(new Event('segnavia-board-select'))
+    expect(picks).toBe(0)
+    expect(boardSelections).toBe(1)
     cleanup()
     element.dispatchEvent(new Event('segnavia-board-select'))
-    expect(picks).toBe(1)
+    expect(boardSelections).toBe(1)
   })
 
   test('reflects the page bounded boolean as an attribute', () => {
