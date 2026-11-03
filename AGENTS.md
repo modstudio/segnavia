@@ -100,7 +100,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   scripted frame adds `allow-forms` under `form-action 'none'`; a refused-script
   frame does not. Under `scripts: 'refuse'` a nonce CSP keeps author scripts
   from running while the bridge still runs. A thumbnail without a filled
-  `shrink` or `refuse` slot omits the bridge, uses an empty sandbox and sets
+  `shrink`, `truncate` or `refuse` slot omits the bridge, uses an empty sandbox and sets
   `script-src 'none'`. Never add `allow-same-origin`.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,

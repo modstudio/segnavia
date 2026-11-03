@@ -246,13 +246,15 @@ const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => st
   ],
 }
 
-/** Whether filled HTML contains a slot whose overflow must be measured by the bridge. */
+// The overflow modes the bridge's slot fitting acts on; a `wrap` slot is never marked.
+const FITTED_SLOT_MODES = new Set(['shrink', 'truncate', 'refuse'])
+
+/** Whether filled HTML contains a slot whose overflow the bridge must fit. */
 export function documentNeedsSlotFit(html: string): boolean {
   const marker = /\bdata-slot-overflow\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
   for (const match of html.matchAll(marker)) {
     const value = match[1] ?? match[2] ?? match[3] ?? ''
-    const mode = value.split(':')[1]
-    if (mode === 'shrink' || mode === 'refuse') return true
+    if (FITTED_SLOT_MODES.has(value.split(':')[1] ?? '')) return true
   }
   return false
 }

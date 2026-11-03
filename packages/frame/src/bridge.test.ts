@@ -64,9 +64,10 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
 }
 
 describe('frame document', () => {
-  test('only shrink and refuse slot markers need fitting', () => {
+  test('shrink, truncate and refuse slot markers need fitting', () => {
     expect(documentNeedsSlotFit('<p>No slots</p>')).toBe(false)
-    expect(documentNeedsSlotFit('<p data-slot-overflow="name:fit">Fit</p>')).toBe(false)
+    expect(documentNeedsSlotFit('<p data-slot-overflow="name:wrap">Wrap</p>')).toBe(false)
+    expect(documentNeedsSlotFit('<p data-slot-overflow="name:truncate">Truncate</p>')).toBe(true)
     expect(documentNeedsSlotFit('<p data-slot-overflow="name:shrink:6">Shrink</p>')).toBe(true)
     expect(documentNeedsSlotFit("<p data-slot-overflow='name:refuse'>Refuse</p>")).toBe(true)
   })
