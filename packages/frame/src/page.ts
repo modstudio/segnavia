@@ -1,5 +1,4 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed
-// pages scale to fit; named widths cap the sheet. `showUrl` shows host-served
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; named widths cap the sheet. `showUrl` shows host-served
 // HTML whose bridge reports data-height and sets data-measured.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'

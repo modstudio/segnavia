@@ -3,8 +3,7 @@
 // Give it a controller, or a deck: attributes src, hash ("off" to leave the
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
-// State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction. A visible canvas has data-active, and
+// State is mirrored as data-slide, data-playing, data-word, data-shown and data-direction. A visible canvas has data-active, and
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 

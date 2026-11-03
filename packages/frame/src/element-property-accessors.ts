@@ -10,7 +10,7 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
   for (const name of Object.keys(defaults()) as (keyof T)[]) {
     Object.defineProperty(prototype, name, {
       configurable: true,
-      enumerable: true,
+      enumerable: false,
       get(this: object) {
         return valueFor(this)[name]
       },

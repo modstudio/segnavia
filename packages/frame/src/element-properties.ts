@@ -1,17 +1,22 @@
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 
-export interface ElementDescriptor<Tag extends `segnavia-${string}` = `segnavia-${string}`, Property extends string = string, Event extends string = string> {
+export interface ElementDescriptor<
+  Tag extends `segnavia-${string}` = `segnavia-${string}`,
+  Property extends string = string,
+  Event extends string = string,
+  ReactEvent extends `on${string}` = `on${string}`,
+> {
   tag: Tag
   properties: readonly Property[]
-  events: Readonly<Record<Event, `on${string}`>>
+  events: Readonly<Record<Event, ReactEvent>>
 }
 
-const descriptor = <Tag extends `segnavia-${string}`, Property extends string, Event extends string>(
+const descriptor = <Tag extends `segnavia-${string}`, Property extends string, Event extends string, ReactEvent extends `on${string}`>(
   tag: Tag,
   properties: readonly Property[],
-  events: Readonly<Record<Event, `on${string}`>>,
-): ElementDescriptor<Tag, Property, Event> => ({ tag, properties, events })
+  events: Readonly<Record<Event, ReactEvent>>,
+): ElementDescriptor<Tag, Property, Event, ReactEvent> => ({ tag, properties, events })
 
 const controlProperties = ['controller', 'labels'] as const
 

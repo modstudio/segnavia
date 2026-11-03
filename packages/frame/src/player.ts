@@ -4,8 +4,7 @@
 // transition-duration, playback, captions, presentation and fit. Properties:
 // controller, resolveSlide, css, cspExtra, labels and transition. The actions
 // and below slots add host chrome. Parts expose the player, stage, notes,
-// caption, bar, controls, track segments and caption words. Data attributes
-// mirror the state for styling: data-slide, data-playing, data-word,
+// caption, bar, controls, track segments and caption words. State mirrors data-slide, data-playing, data-word,
 // data-shown, data-direction and data-actions.
 
 import { parsePlayback, type SlotsOptions, type TransitionInput } from '@segnavia/format'

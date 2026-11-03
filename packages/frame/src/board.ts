@@ -6,7 +6,6 @@ import {
   boardBounds,
   itemAt,
   itemHeight,
-  type PageWidths,
   revealView,
   screenToBoard,
   visibleItems,
@@ -125,7 +124,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.placementOptions = value
     this.render()
   }
-  set pageWidths(value: PageWidths | undefined) {
+  set pageWidths(value: Parameters<BoardPainter['setPageWidths']>[0]) {
     if (this.painter.setPageWidths(value)) this.render()
   }
   set fonts(value: FontsOptions | undefined) {

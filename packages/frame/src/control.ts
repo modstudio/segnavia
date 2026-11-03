@@ -5,7 +5,7 @@
 // nearest ancestor that has one, so it works beside a host's own controls.
 
 import type { DeckController, DeckState } from './controller.ts'
-import { upgradeProperties } from './element-properties.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 
 interface HasController {
@@ -26,7 +26,7 @@ export abstract class SegnaviaControl extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ['controller', 'labels'])
+    upgradeProperties(this, ELEMENT_PROPERTIES.play.properties)
   }
 
   get controller(): DeckController | null {

@@ -43,7 +43,7 @@ test('unlisted owned properties stay untouched', () => {
 })
 
 test('the table covers every public frame element and safe event name', () => {
-  const tags = new Set(ELEMENT_PROPERTY_DESCRIPTORS.map(({ tag }) => tag))
+  const tags = new Set<string>(ELEMENT_PROPERTY_DESCRIPTORS.map(({ tag }) => tag))
   for (const tag of [...HEADLESS_ELEMENT_NAMES, ...STYLED_ELEMENT_NAMES, 'segnavia-item-settings']) expect(tags.has(tag)).toBeTrue()
   for (const { events } of ELEMENT_PROPERTY_DESCRIPTORS) {
     for (const name of Object.keys(events)) expect(name).not.toMatch(/(?:once|passive|capture)$/i)
