@@ -65,6 +65,10 @@ export function checkSideEffects(pkg: SideEffectsPackage): Finding[] {
       [sourcePath(source.path), source.path],
     ]),
   )
+  if (pkg.path === 'packages/diagrams/package.json') {
+    required.set('./src/auto.ts', 'packages/diagrams/src/auto.ts')
+    required.set('./dist/auto.js', 'packages/diagrams/src/auto.ts')
+  }
   const listed = new Set(pkg.sideEffects)
   const findings: Finding[] = []
   for (const [entry, source] of required) {

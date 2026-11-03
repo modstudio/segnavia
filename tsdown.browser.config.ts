@@ -9,8 +9,9 @@ interface ExportConditions {
 }
 
 const file = path.join(import.meta.dirname, 'packages/frame/package.json')
-const diagramEntry = path.join(import.meta.dirname, 'packages/frame/src/diagrams.ts')
-const diagramModule = readFileSync(path.join(import.meta.dirname, 'packages/frame/dist/diagrams.js'), 'utf8')
+const diagramEntry = path.join(import.meta.dirname, 'packages/diagrams/src/script.ts')
+const diagramDocument = path.join(import.meta.dirname, 'packages/frame/src/diagram-document.ts')
+const diagramModule = readFileSync(path.join(import.meta.dirname, 'packages/diagrams/dist/script.js'), 'utf8')
 const diagramExport = 'export const diagramScript='
 const diagramOffset = diagramModule.indexOf(diagramExport)
 if (diagramOffset < 0) throw new Error('The built diagram entry does not export diagramScript.')
@@ -26,24 +27,31 @@ for (const conditions of Object.values(manifest.exports)) {
 }
 
 export default defineConfig(
-  Object.entries(entries).map(([name, entry]) => ({
-    name: `frame browser ${name}`,
-    cwd: path.join(import.meta.dirname, 'packages/frame'),
-    entry: { [name]: entry },
-    outDir: 'dist/browser',
-    clean: false,
-    platform: platformForRuntime(PACKAGES.frame?.runtime ?? 'universal'),
-    format: 'esm' as const,
-    dts: false,
-    minify: true,
-    deps: { alwaysBundle: /.*/, onlyBundle: false },
-    plugins: [
-      {
-        name: 'browser-diagram-payload',
-        load(id) {
-          if (id === diagramEntry) return diagramPayload
+  Object.entries(entries).map(([name, entry]) => {
+    const entryFile = path.join(import.meta.dirname, 'packages/frame', entry)
+    return {
+      name: `frame browser ${name}`,
+      cwd: path.join(import.meta.dirname, 'packages/frame'),
+      entry: { [name]: entry },
+      outDir: 'dist/browser',
+      clean: false,
+      platform: platformForRuntime(PACKAGES.frame?.runtime ?? 'universal'),
+      format: 'esm' as const,
+      dts: false,
+      minify: true,
+      deps: { alwaysBundle: /.*/, onlyBundle: false },
+      plugins: [
+        {
+          name: 'browser-diagram-payload',
+          load(id) {
+            if (id === diagramEntry) return diagramPayload
+          },
+          transform(code, id) {
+            if (id !== entryFile) return
+            return `${code}\nimport { registerDiagramProvider as registerBrowserDiagramProvider } from ${JSON.stringify(diagramDocument)};\nregisterBrowserDiagramProvider(() => import(${JSON.stringify(diagramEntry)}).then((module) => module.diagramScript));\n`
+          },
         },
-      },
-    ],
-  })),
+      ],
+    }
+  }),
 )

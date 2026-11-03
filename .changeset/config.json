@@ -3,7 +3,17 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [
-    ["@segnavia/capture", "@segnavia/format", "@segnavia/frame", "@segnavia/html", "@segnavia/idml", "@segnavia/react", "@segnavia/render", "@segnavia/voice"]
+    [
+      "@segnavia/capture",
+      "@segnavia/diagrams",
+      "@segnavia/format",
+      "@segnavia/frame",
+      "@segnavia/html",
+      "@segnavia/idml",
+      "@segnavia/react",
+      "@segnavia/render",
+      "@segnavia/voice"
+    ]
   ],
   "linked": [],
   "access": "public",

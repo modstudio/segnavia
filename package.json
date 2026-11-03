@@ -27,6 +27,7 @@
     "zod": "^4.1.0",
     "@segnavia/format": "workspace:*",
     "@segnavia/capture": "workspace:*",
+    "@segnavia/diagrams": "workspace:*",
     "@segnavia/voice": "workspace:*",
     "@segnavia/render": "workspace:*",
     "@segnavia/frame": "workspace:*",

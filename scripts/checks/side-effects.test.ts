@@ -19,6 +19,17 @@ describe('side-effect declarations', () => {
     expect(checkSideEffects({ path: packagePath, sideEffects: manifest.sideEffects, sources })).toEqual([])
   })
 
+  test('the diagrams package declares only its auto registration entry', () => {
+    const root = path.resolve(import.meta.dir, '../..')
+    const packagePath = 'packages/diagrams/package.json'
+    const manifest = JSON.parse(readFileSync(path.join(root, packagePath), 'utf8')) as { sideEffects: string[] }
+    const sources = [...new Bun.Glob('packages/diagrams/src/**/*.ts').scanSync({ cwd: root })].map((source) => ({
+      path: source,
+      text: readFileSync(path.join(root, source), 'utf8'),
+    }))
+    expect(checkSideEffects({ path: packagePath, sideEffects: manifest.sideEffects, sources })).toEqual([])
+  })
+
   test('refuses a missing registering entry', () => {
     const pkg = example([], [{ path: 'packages/example/src/register.ts', text: `customElements.define('x-one', Element)` }])
     expect(checkSideEffects(pkg)[0]?.message).toBe(

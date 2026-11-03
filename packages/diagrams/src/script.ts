@@ -1,8 +1,5 @@
-import { firstStrongDirection, textDirection } from '@segnavia/format'
+import { DIAGRAM_ERROR_ATTRIBUTE, DIAGRAM_FAILED_ATTRIBUTE, DIAGRAM_ID_PREFIX, DIAGRAM_READY_NAME, DIAGRAM_SELECTOR } from '@segnavia/frame/diagrams'
 import mermaidBundle from 'mermaid/dist/mermaid.min.js' with { type: 'text' }
-import { DIAGRAM_ERROR_ATTRIBUTE, DIAGRAM_FAILED_ATTRIBUTE, DIAGRAM_ID_PREFIX, DIAGRAM_READY_NAME, DIAGRAM_SELECTOR } from './diagram-document.ts'
-
-export { hasDiagram, withDiagramScript } from './diagram-document.ts'
 
 export function diagramErrorFirstLine(error: unknown): string {
   const message = error && typeof (error as { message?: unknown }).message === 'string' ? (error as { message: string }).message : String(error)
@@ -10,13 +7,18 @@ export function diagramErrorFirstLine(error: unknown): string {
 }
 
 export function diagramLabelDirection(text: string): 'ltr' | 'rtl' {
-  return firstStrongDirection(text) ?? 'ltr'
+  const rtlLetter =
+    /[\p{Script=Hebrew}\p{Script=Arabic}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}\p{Script=Adlam}\p{Script=Hanifi_Rohingya}\p{Script=Mende_Kikakui}\p{Script=Old_Hungarian}\p{Script=Imperial_Aramaic}\p{Script=Phoenician}]/u
+  const letter = /\p{L}/u
+  for (const char of text) {
+    if (rtlLetter.test(char)) return 'rtl'
+    if (letter.test(char)) return 'ltr'
+  }
+  return 'ltr'
 }
 
 const runtime = `;(function(){
 var root=document.documentElement;
-${textDirection.toString()}
-${firstStrongDirection.toString()}
 ${diagramErrorFirstLine.toString()}
 ${diagramLabelDirection.toString()}
 var fail=function(element,error){element.setAttribute(${JSON.stringify(DIAGRAM_FAILED_ATTRIBUTE)},'');var message=document.createElement('samp');message.setAttribute(${JSON.stringify(DIAGRAM_ERROR_ATTRIBUTE)},'');message.textContent=diagramErrorFirstLine(error);element.append(message);};

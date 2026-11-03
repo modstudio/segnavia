@@ -1,6 +1,7 @@
+import { diagramScript } from '@segnavia/diagrams'
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
+import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'

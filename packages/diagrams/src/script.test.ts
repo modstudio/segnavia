@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { diagramErrorFirstLine, diagramLabelDirection, diagramScript } from './diagrams.ts'
+import { diagramErrorFirstLine, diagramLabelDirection, diagramScript } from './script.ts'
 
 describe('diagram drawing runtime', () => {
   test('is valid JavaScript after the bundle and adapter are assembled', () => {
@@ -12,7 +12,7 @@ describe('diagram drawing runtime', () => {
     expect(diagramErrorFirstLine('')).toBe('Diagram could not be drawn.')
   })
 
-  test('uses the shared first-strong-letter direction rule', () => {
+  test('uses the first strong letter direction rule', () => {
     expect(diagramLabelDirection('42 שלום')).toBe('rtl')
     expect(diagramLabelDirection('42 English שלום')).toBe('ltr')
     expect(diagramLabelDirection('42 العربية')).toBe('rtl')

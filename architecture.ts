@@ -49,6 +49,11 @@ export const PACKAGES: Record<string, PackageRule> = {
     ],
   },
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
+  diagrams: {
+    runtime: 'browser',
+    imports: ['@segnavia/frame', 'mermaid'],
+    serverSafe: ['src/index.ts', 'src/script.ts'],
+  },
   frame: {
     runtime: 'browser',
     imports: [
@@ -70,7 +75,6 @@ export const PACKAGES: Record<string, PackageRule> = {
       '@tiptap/pm',
       '@tiptap/starter-kit',
       'codemirror-lang-mermaid',
-      'mermaid',
     ],
     // Optional browser entries (package.json): authoring, deck, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
     serverSafe: [
@@ -104,7 +108,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   // The markdown-editor entry alone loads frame's optional CodeMirror editor entry.
   react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
-  render: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
+  render: { runtime: 'server', imports: ['@segnavia/diagrams', '@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }
 

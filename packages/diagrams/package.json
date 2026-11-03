@@ -1,0 +1,44 @@
+{
+  "name": "@segnavia/diagrams",
+  "version": "0.41.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modstudio/segnavia.git",
+    "directory": "packages/diagrams"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "./src/auto.ts",
+    "./dist/auto.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "@segnavia/source": {
+        "bun": "./src/index.ts",
+        "node": "./dist/index.js",
+        "default": "./src/index.ts"
+      },
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./auto": {
+      "@segnavia/source": "./src/auto.ts",
+      "types": "./dist/auto.d.ts",
+      "default": "./dist/auto.js"
+    }
+  },
+  "dependencies": {
+    "@segnavia/frame": "workspace:*",
+    "mermaid": "12.2.0"
+  }
+}
