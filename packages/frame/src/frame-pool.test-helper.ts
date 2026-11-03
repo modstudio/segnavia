@@ -119,6 +119,10 @@ function dataKey(attribute: string) {
   return attribute.slice(5).replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
 }
 
-export function installFramePoolTestDocument() {
+// Test files share one process, so the stub document is installed for a file's tests and then removed:
+// a module another file loads later would otherwise read the stub as the real document.
+export function installFramePoolTestDocument(): () => void {
+  const previous = { document: Reflect.get(globalThis, 'document'), window: Reflect.get(globalThis, 'window') }
   Object.assign(globalThis, { document: { createElement: (name: string) => new FramePoolTestElement(name) }, window: {} })
+  return () => Object.assign(globalThis, previous)
 }

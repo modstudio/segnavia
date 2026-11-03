@@ -1,11 +1,15 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { installFramePoolTestDocument } from './frame-pool.test-helper.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
-installFramePoolTestDocument()
+let restoreDocument = () => {}
+beforeAll(() => {
+  restoreDocument = installFramePoolTestDocument()
+})
+afterAll(() => restoreDocument())
 
 const controller = { url: (src: string) => src } as DeckController
 
