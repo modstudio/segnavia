@@ -12,7 +12,19 @@
     "dist",
     "THIRD-PARTY-NOTICES"
   ],
-  "sideEffects": true,
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/deck.js",
+    "./dist/player-entry.js",
+    "./dist/controls-entry.js",
+    "./dist/document-authoring.js",
+    "./dist/item-settings.js",
+    "./dist/markdown-editor.js",
+    "./dist/markdown-rich-editor.js",
+    "./dist/browser/headless.js",
+    "./dist/browser/controls.js",
+    "./dist/browser/player.js"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -26,6 +38,11 @@
       "@segnavia/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./deck": {
+      "@segnavia/source": "./src/deck.ts",
+      "types": "./dist/deck.d.ts",
+      "default": "./dist/deck.js"
     },
     "./svg": {
       "@segnavia/source": "./src/svg.ts",

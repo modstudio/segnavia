@@ -315,7 +315,8 @@ export class SegnaviaThumbnail extends HTMLElement {
     const print = this.printValue ?? source?.print ?? null
     if (!source || !print || this.viewport.firstElementChild) return
     const projection = projectPageOnPaper(source, print)
-    const page = new SegnaviaPage()
+    if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
+    const page = document.createElement('segnavia-page') as SegnaviaPage
     page.motifs = this.motifOptions
     page.placements = this.placementOptions
     page.pageWidths = this.widthOptions
