@@ -97,21 +97,66 @@ export const ELEMENTS = {
     ...FRAME_ELEMENTS.itemSettings,
     events: itemSettingsEvents,
   }),
-  page: element<SegnaviaPage, PageProps, typeof FRAME_ELEMENTS.page.tag>({ ...FRAME_ELEMENTS.page, events: {} }),
-  book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({ ...FRAME_ELEMENTS.book, events: {} }),
-  paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({ ...FRAME_ELEMENTS.paper, events: {} }),
-  document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({ ...FRAME_ELEMENTS.document, events: {} }),
-  play: element<SegnaviaPlay, PlayProps, typeof FRAME_ELEMENTS.play.tag>({ ...FRAME_ELEMENTS.play, events: {} }),
-  step: element<SegnaviaStep, StepProps, typeof FRAME_ELEMENTS.step.tag>({ ...FRAME_ELEMENTS.step, events: {} }),
-  track: element<SegnaviaTrack, TrackProps, typeof FRAME_ELEMENTS.track.tag>({ ...FRAME_ELEMENTS.track, events: {} }),
-  counter: element<SegnaviaCounter, CounterProps, typeof FRAME_ELEMENTS.counter.tag>({ ...FRAME_ELEMENTS.counter, events: {} }),
-  time: element<SegnaviaTime, TimeProps, typeof FRAME_ELEMENTS.time.tag>({ ...FRAME_ELEMENTS.time, events: {} }),
-  mute: element<SegnaviaMute, MuteProps, typeof FRAME_ELEMENTS.mute.tag>({ ...FRAME_ELEMENTS.mute, events: {} }),
-  captions: element<SegnaviaCaptions, CaptionsProps, typeof FRAME_ELEMENTS.captions.tag>({ ...FRAME_ELEMENTS.captions, events: {} }),
-  caption: element<SegnaviaCaption, CaptionProps, typeof FRAME_ELEMENTS.caption.tag>({ ...FRAME_ELEMENTS.caption, events: {} }),
-  notes: element<SegnaviaNotes, NotesProps, typeof FRAME_ELEMENTS.notes.tag>({ ...FRAME_ELEMENTS.notes, events: {} }),
-  fullscreen: element<SegnaviaFullscreen, FullscreenProps, typeof FRAME_ELEMENTS.fullscreen.tag>({ ...FRAME_ELEMENTS.fullscreen, events: {} }),
-  rail: element<SegnaviaRail, RailProps, typeof FRAME_ELEMENTS.rail.tag>({ ...FRAME_ELEMENTS.rail, events: {} }),
+  page: element<SegnaviaPage, PageProps, typeof FRAME_ELEMENTS.page.tag>({
+    ...FRAME_ELEMENTS.page,
+    events: reactEvents<PageProps>()(FRAME_ELEMENTS.page.events, {}),
+  }),
+  book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
+    ...FRAME_ELEMENTS.book,
+    events: reactEvents<BookProps>()(FRAME_ELEMENTS.book.events, {}),
+  }),
+  paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
+    ...FRAME_ELEMENTS.paper,
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, {}),
+  }),
+  document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
+    ...FRAME_ELEMENTS.document,
+    events: reactEvents<DocumentProps>()(FRAME_ELEMENTS.document.events, {}),
+  }),
+  play: element<SegnaviaPlay, PlayProps, typeof FRAME_ELEMENTS.play.tag>({
+    ...FRAME_ELEMENTS.play,
+    events: reactEvents<PlayProps>()(FRAME_ELEMENTS.play.events, {}),
+  }),
+  step: element<SegnaviaStep, StepProps, typeof FRAME_ELEMENTS.step.tag>({
+    ...FRAME_ELEMENTS.step,
+    events: reactEvents<StepProps>()(FRAME_ELEMENTS.step.events, {}),
+  }),
+  track: element<SegnaviaTrack, TrackProps, typeof FRAME_ELEMENTS.track.tag>({
+    ...FRAME_ELEMENTS.track,
+    events: reactEvents<TrackProps>()(FRAME_ELEMENTS.track.events, {}),
+  }),
+  counter: element<SegnaviaCounter, CounterProps, typeof FRAME_ELEMENTS.counter.tag>({
+    ...FRAME_ELEMENTS.counter,
+    events: reactEvents<CounterProps>()(FRAME_ELEMENTS.counter.events, {}),
+  }),
+  time: element<SegnaviaTime, TimeProps, typeof FRAME_ELEMENTS.time.tag>({
+    ...FRAME_ELEMENTS.time,
+    events: reactEvents<TimeProps>()(FRAME_ELEMENTS.time.events, {}),
+  }),
+  mute: element<SegnaviaMute, MuteProps, typeof FRAME_ELEMENTS.mute.tag>({
+    ...FRAME_ELEMENTS.mute,
+    events: reactEvents<MuteProps>()(FRAME_ELEMENTS.mute.events, {}),
+  }),
+  captions: element<SegnaviaCaptions, CaptionsProps, typeof FRAME_ELEMENTS.captions.tag>({
+    ...FRAME_ELEMENTS.captions,
+    events: reactEvents<CaptionsProps>()(FRAME_ELEMENTS.captions.events, {}),
+  }),
+  caption: element<SegnaviaCaption, CaptionProps, typeof FRAME_ELEMENTS.caption.tag>({
+    ...FRAME_ELEMENTS.caption,
+    events: reactEvents<CaptionProps>()(FRAME_ELEMENTS.caption.events, {}),
+  }),
+  notes: element<SegnaviaNotes, NotesProps, typeof FRAME_ELEMENTS.notes.tag>({
+    ...FRAME_ELEMENTS.notes,
+    events: reactEvents<NotesProps>()(FRAME_ELEMENTS.notes.events, {}),
+  }),
+  fullscreen: element<SegnaviaFullscreen, FullscreenProps, typeof FRAME_ELEMENTS.fullscreen.tag>({
+    ...FRAME_ELEMENTS.fullscreen,
+    events: reactEvents<FullscreenProps>()(FRAME_ELEMENTS.fullscreen.events, {}),
+  }),
+  rail: element<SegnaviaRail, RailProps, typeof FRAME_ELEMENTS.rail.tag>({
+    ...FRAME_ELEMENTS.rail,
+    events: reactEvents<RailProps>()(FRAME_ELEMENTS.rail.events, {}),
+  }),
 } as const
 
 export type AnyElementDescriptor = RuntimeElementDescriptor
