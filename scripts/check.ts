@@ -2,11 +2,13 @@
 // raised it. `bun run check` runs it, and the pre-commit hook runs it before
 // any commit is made.
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
+import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkCeiling,
   checkChromiumEnvironmentRead,
@@ -159,6 +161,42 @@ async function run(name: string, command: string[]): Promise<boolean> {
   return code === 0
 }
 
+async function checkPlannedReleaseBumps(): Promise<boolean> {
+  const directory = mkdtempSync(path.join(tmpdir(), 'segnavia-changeset-status-'))
+  const output = path.join(directory, 'status.json')
+  try {
+    const proc = Bun.spawn(['bunx', 'changeset', 'status', '--output', output], {
+      cwd: ROOT,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: cleanGitEnv(),
+    })
+    const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
+    if (code !== 0) {
+      console.error(`\n✗ release plan\n${(out + err).trim()}`)
+      return false
+    }
+    const status = JSON.parse(readFileSync(output, 'utf8')) as {
+      changesets: DeclaredChangeset[]
+      releases: ChangesetRelease[]
+    }
+    const releaseFindings = checkReleasePlan(status.changesets, status.releases)
+    if (releaseFindings.length === 0) {
+      console.log('✓ release plan')
+      return true
+    }
+    console.error('\n✗ release plan')
+    for (const finding of releaseFindings) {
+      console.error(
+        `${finding.name}: planned ${finding.planned} exceeds declared maximum ${finding.declaredMaximum}; a peer or dependency range is pulling a larger bump.`,
+      )
+    }
+    return false
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
+
 function gitLines(args: string[]): string[] {
   const result = Bun.spawnSync(['git', ...args], { cwd: ROOT, stderr: 'pipe' })
   if (result.exitCode !== 0) throw new Error(result.stderr.toString().trim() || `git ${args.join(' ')} failed.`)
@@ -197,6 +235,7 @@ if (testPaths.length > 0) results.push(await run(`unit tests (${testPaths.join('
 else console.log('✓ unit tests (none selected)')
 if (!selection || selection.packageChecks) {
   results.push(await run('package shape', ['bun', '--conditions=@segnavia/source', 'scripts/check-packages.ts']))
+  results.push(await checkPlannedReleaseBumps())
   results.push(await run('release dry run', ['bun', 'run', 'release', '--dry-run', '--offline']))
 }
 

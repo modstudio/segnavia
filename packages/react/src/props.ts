@@ -33,8 +33,8 @@ import type { ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/i
 import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
-type ElementProps<E> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
-type CustomEventProp<D = unknown> = (event: CustomEvent<D>) => void
+export type ElementProps<E> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
+export type CustomEventProp<D = unknown> = (event: CustomEvent<D>) => void
 type ControlProps<E extends HTMLElement> = ElementProps<E> & {
   controller?: DeckController | null
   labels?: Partial<PlayerLabels>

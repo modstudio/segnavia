@@ -1,11 +1,8 @@
 import '@segnavia/markdown-editor'
 import type { MarkdownEditorMode, MarkdownEditorStateDetail, MarkdownTitleSource, SegnaviaMarkdownEditor } from '@segnavia/markdown-editor'
-import type { HTMLAttributes, ReactNode } from 'react'
 import type { ElementDescriptor, PropsFor } from './elements.ts'
 import { createComponent } from './index.ts'
-
-type ElementProps<E> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
-type CustomEventProp<D = unknown> = (event: CustomEvent<D>) => void
+import type { CustomEventProp, ElementProps } from './props.ts'
 
 export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'title'> {
   markdown?: string

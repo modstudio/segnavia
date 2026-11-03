@@ -36,7 +36,13 @@ export function packedPackageRefusal(
   hasLicense: boolean,
   workspaceNames: ReadonlySet<string>,
 ): string | undefined {
-  const dependencyKinds = [manifest.dependencies, manifest.devDependencies, manifest.optionalDependencies, manifest.peerDependencies]
+  const peerDependencies = manifest.peerDependencies ?? {}
+  for (const [name, range] of Object.entries(peerDependencies)) {
+    if (range.startsWith('workspace:')) return `${manifest.name} still contains workspace: for ${name}. Pack it with Bun before publishing.`
+    if (workspaceNames.has(name) && !Bun.semver.satisfies(sharedVersion, range))
+      return `${manifest.name}@${manifest.version} has internal peer ${name} at ${range}, which does not include shared version ${sharedVersion}.`
+  }
+  const dependencyKinds = [manifest.dependencies, manifest.devDependencies, manifest.optionalDependencies]
   for (const dependencies of dependencyKinds) {
     for (const [name, range] of Object.entries(dependencies ?? {})) {
       if (range.startsWith('workspace:')) return `${manifest.name} still contains workspace: for ${name}. Pack it with Bun before publishing.`
