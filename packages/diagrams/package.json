@@ -23,7 +23,11 @@
   },
   "exports": {
     ".": {
-      "@segnavia/source": "./src/index.ts",
+      "@segnavia/source": {
+        "bun": "./src/index.ts",
+        "node": "./dist/index.js",
+        "default": "./src/index.ts"
+      },
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
@@ -37,7 +41,11 @@
       "default": "./dist/script.js"
     },
     "./auto": {
-      "@segnavia/source": "./src/auto.ts",
+      "@segnavia/source": {
+        "bun": "./src/auto.ts",
+        "node": "./dist/auto.js",
+        "default": "./src/auto.ts"
+      },
       "types": "./dist/auto.d.ts",
       "default": "./dist/auto.js"
     }
