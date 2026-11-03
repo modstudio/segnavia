@@ -44,6 +44,28 @@ describe('packedPackageRefusal', () => {
     )
   })
 
+  test('accepts an internal peer range that includes the shared version', () => {
+    expect(
+      packedPackageRefusal(
+        { name: '@segnavia/frame', version: '0.42.0', peerDependencies: { '@segnavia/format': '>=0.41.0 <1.0.0' } },
+        '0.42.0',
+        true,
+        workspaceNames,
+      ),
+    ).toBeUndefined()
+  })
+
+  test('refuses an internal peer range that excludes the shared version', () => {
+    expect(
+      packedPackageRefusal(
+        { name: '@segnavia/frame', version: '0.42.0', peerDependencies: { '@segnavia/format': '>=0.43.0 <1.0.0' } },
+        '0.42.0',
+        true,
+        workspaceNames,
+      ),
+    ).toBe('@segnavia/frame@0.42.0 has internal peer @segnavia/format at >=0.43.0 <1.0.0, which does not include shared version 0.42.0.')
+  })
+
   test('refuses a version different from the other packages', () => {
     expect(packedPackageRefusal({ name: '@segnavia/frame', version: '0.2.0' }, '0.1.0', true, workspaceNames)).toContain('does not match 0.1.0')
   })

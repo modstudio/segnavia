@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { PACKAGES, SOURCE_CONDITION } from '../../architecture.ts'
+import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import {
   checkChromiumEnvironmentRead,
@@ -7,6 +7,7 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
+  checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
   type ResolutionInputs,
@@ -15,9 +16,10 @@ import {
 
 const workspace = (name: string, exports = ['.']): Workspace => ({
   name: `@segnavia/${name}`,
+  path: `packages/${name}/package.json`,
   rule: PACKAGES[name] as Workspace['rule'],
   exports,
-  dependencies: PACKAGES[name]?.imports ?? [],
+  manifestImports: PACKAGES[name]?.imports ?? [],
   sources: [],
 })
 const all = new Map([
@@ -66,8 +68,20 @@ describe('architecture rules', () => {
   })
 
   test('package.json and architecture.ts must agree both ways', () => {
-    const drifted = { ...workspace('voice'), dependencies: ['@segnavia/format', 'left-pad'] }
+    const drifted = { ...workspace('voice'), manifestImports: ['@segnavia/format', 'left-pad'] }
     expect(checkManifest(drifted).map((f) => f.message)).toEqual(['left-pad is a dependency that architecture.ts does not allow.'])
+  })
+
+  test('only the modeled adapter package may name React in any dependency field', () => {
+    const manifests = [
+      { name: '@segnavia/react', path: 'packages/react/package.json', peerDependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' } },
+      { name: '@segnavia/frame', path: 'packages/frame/package.json', devDependencies: { react: '^19.0.0' } },
+      { name: '@segnavia/html', path: 'packages/html/package.json', optionalDependencies: { 'react-dom': '^19.0.0' } },
+    ]
+    expect(checkReactDependencies(manifests, REACT_PACKAGE_ALLOWLIST).map((finding) => finding.path)).toEqual([
+      'packages/frame/package.json',
+      'packages/html/package.json',
+    ])
   })
 
   test('a server-safe entry must name an existing source file', () => {

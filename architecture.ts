@@ -6,6 +6,8 @@ export type Runtime = 'universal' | 'browser' | 'server'
 
 export const SOURCE_CONDITION = '@segnavia/source'
 
+export const REACT_PACKAGE_ALLOWLIST = new Set(['@segnavia/react'])
+
 export type SourceExport = string | { bun: string; node: string; default: string }
 
 export function bunSource(source: SourceExport): string {
@@ -55,9 +57,10 @@ export const PACKAGES: Record<string, PackageRule> = {
     // The provider and explicit script entries are server-safe; auto registration is browser-only.
     serverSafe: ['src/index.ts', 'src/script.ts', 'src/runtime.ts'],
   },
-  frame: {
+  'markdown-editor': {
     runtime: 'browser',
     imports: [
+      '@segnavia/frame',
       '@segnavia/format',
       '@segnavia/html',
       '@codemirror/commands',
@@ -77,7 +80,11 @@ export const PACKAGES: Record<string, PackageRule> = {
       '@tiptap/starter-kit',
       'codemirror-lang-mermaid',
     ],
-    // Optional browser entries (package.json): authoring, deck, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
+  },
+  frame: {
+    runtime: 'browser',
+    imports: ['@segnavia/format', '@segnavia/html'],
+    // Optional browser entries (package.json): authoring, deck, document-authoring, board-editing, item-settings and local-fonts.
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',
@@ -105,8 +112,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/page-document-loading.ts',
     ],
   },
-  // The markdown-editor entry alone loads frame's optional CodeMirror editor entry.
-  react: { runtime: 'browser', imports: ['@segnavia/frame', 'react', 'react-dom'] },
+  react: { runtime: 'browser', imports: ['@segnavia/frame', '@segnavia/markdown-editor', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
   render: { runtime: 'server', imports: ['@segnavia/diagrams', '@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },

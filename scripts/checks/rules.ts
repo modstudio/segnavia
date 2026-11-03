@@ -12,9 +12,14 @@ export interface SourceFile {
 
 export interface Workspace {
   name: string
+  path: string
   rule: PackageRule
   exports: string[]
-  dependencies: string[]
+  manifestImports: string[]
+  dependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
   sources: string[]
 }
 
@@ -29,6 +34,15 @@ export interface ResolutionInputs {
   packages: { path: string; exports: Record<string, Record<string, string>> }[]
   customConditions: string[]
   scripts: Record<string, string>
+}
+
+export interface PackageManifestDependencies {
+  name: string
+  path: string
+  dependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
 }
 
 const NODE_GLOBALS = /\b(?:Buffer|process|__dirname|require)\b/
@@ -108,15 +122,33 @@ export function checkManifest(workspace: Workspace): Finding[] {
   const path = `packages/${packageName}/package.json`
   const findings: Finding[] = []
   for (const name of workspace.rule.imports) {
-    if (!workspace.dependencies.includes(name)) findings.push({ rule: 'architecture', path, message: `${name} is allowed but not a dependency.` })
+    if (!workspace.manifestImports.includes(name)) findings.push({ rule: 'architecture', path, message: `${name} is allowed but not a dependency.` })
   }
-  for (const name of workspace.dependencies) {
+  for (const name of workspace.manifestImports) {
     if (!workspace.rule.imports.includes(name))
       findings.push({ rule: 'architecture', path, message: `${name} is a dependency that architecture.ts does not allow.` })
   }
   for (const entry of workspace.rule.serverSafe ?? []) {
     if (!workspace.sources.includes(`packages/${packageName}/${entry}`))
       findings.push({ rule: 'architecture', path: 'architecture.ts', message: `${workspace.name} serverSafe entry ${entry} names no source file.` })
+  }
+  return findings
+}
+
+export function checkReactDependencies(manifests: PackageManifestDependencies[], allowed: ReadonlySet<string>): Finding[] {
+  const fields = ['dependencies', 'peerDependencies', 'optionalDependencies', 'devDependencies'] as const
+  const findings: Finding[] = []
+  for (const manifest of manifests) {
+    if (allowed.has(manifest.name)) continue
+    for (const field of fields) {
+      for (const dependency of Object.keys(manifest[field] ?? {}).filter((name) => name === 'react' || name === 'react-dom')) {
+        findings.push({
+          rule: 'react-dependencies',
+          path: manifest.path,
+          message: `${manifest.name} names ${dependency} in ${field}; only an allowed React adapter package may name React.`,
+        })
+      }
+    }
   }
   return findings
 }

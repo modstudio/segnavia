@@ -43,7 +43,7 @@ English line.
 שורה בעברית.`
   const markdownScriptValue = JSON.stringify(markdown).replaceAll('<', '\\u003c')
   const result = await Bun.build({
-    entrypoints: [path.join(root, 'packages/frame/src/markdown-editor.ts')],
+    entrypoints: [path.join(root, 'packages/markdown-editor/src/markdown-editor.ts')],
     outdir: site,
     naming: { entry: 'segnavia-markdown-editor.js', chunk: 'segnavia-markdown-editor-[hash].[ext]' },
     splitting: true,

@@ -1,6 +1,6 @@
 import type { FontReference } from '@segnavia/format'
+import type { FontsOptions } from '@segnavia/frame/fonts'
 import { registerMarkdownEditorFonts } from './markdown-editor-fonts.ts'
-import type { FontsOptions } from './page-fonts.ts'
 
 export class MarkdownEditorFontRegistration {
   private loadController: AbortController | undefined

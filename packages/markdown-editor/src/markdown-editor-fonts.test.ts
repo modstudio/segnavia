@@ -1,11 +1,16 @@
 import { expect, test } from 'bun:test'
 import type { AppFont, FontFace as FontFaceData } from '@segnavia/format'
+import { FontRefusedError } from '@segnavia/frame/fonts'
 import { registerMarkdownEditorFonts } from './markdown-editor-fonts.ts'
-import { FontRefusedError } from './page-fonts.ts'
 
 const data = new Uint8Array([1])
 const face: FontFaceData = { family: 'Body', data, format: 'truetype' }
 const font: AppFont = { family: 'Body', faces: [face] }
+
+function restoreGlobal(name: 'document' | 'FontFace', descriptor: PropertyDescriptor | undefined) {
+  if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+  else Reflect.deleteProperty(globalThis, name)
+}
 
 function elementStyle() {
   const values = new Map<string, string>()
@@ -25,8 +30,8 @@ test('font registration follows the page app-name refusal', async () => {
 })
 
 test('font registration rolls back properties and faces after a partial failure', async () => {
-  const originalDocument = globalThis.document
-  const originalFontFace = globalThis.FontFace
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const originalFontFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace')
   const added = new Set<object>()
   class TestFontFace {
     async load() {
@@ -46,14 +51,14 @@ test('font registration rolls back properties and faces after a partial failure'
     expect(values.size).toBe(0)
     expect(added.size).toBe(0)
   } finally {
-    Object.defineProperty(globalThis, 'FontFace', { configurable: true, value: originalFontFace })
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
+    restoreGlobal('FontFace', originalFontFace)
+    restoreGlobal('document', originalDocument)
   }
 })
 
 test('font registration rolls back work when aborted during a face load', async () => {
-  const originalDocument = globalThis.document
-  const originalFontFace = globalThis.FontFace
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const originalFontFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace')
   let finishLoad: (() => void) | undefined
   class TestFontFace {
     load() {
@@ -75,7 +80,7 @@ test('font registration rolls back work when aborted during a face load', async 
     await expect(registration).rejects.toThrow()
     expect(values.size).toBe(0)
   } finally {
-    Object.defineProperty(globalThis, 'FontFace', { configurable: true, value: originalFontFace })
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
+    restoreGlobal('FontFace', originalFontFace)
+    restoreGlobal('document', originalDocument)
   }
 })

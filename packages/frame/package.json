@@ -25,10 +25,6 @@
     "./dist/document-authoring.js",
     "./src/item-settings.ts",
     "./dist/item-settings.js",
-    "./src/markdown-editor.ts",
-    "./dist/markdown-editor.js",
-    "./src/markdown-rich-editor.ts",
-    "./dist/markdown-rich-editor.js",
     "./dist/browser/headless.js",
     "./dist/browser/controls.js",
     "./dist/browser/player.js"
@@ -147,11 +143,6 @@
       "types": "./dist/item-settings.d.ts",
       "default": "./dist/item-settings.js"
     },
-    "./markdown-editor": {
-      "@segnavia/source": "./src/markdown-editor.ts",
-      "types": "./dist/markdown-editor.d.ts",
-      "default": "./dist/markdown-editor.js"
-    },
     "./local-fonts": {
       "@segnavia/source": "./src/local-fonts.ts",
       "types": "./dist/local-fonts.d.ts",
@@ -179,23 +170,7 @@
     }
   },
   "dependencies": {
-    "@codemirror/commands": "6.11.1",
-    "@codemirror/lang-markdown": "6.5.2",
-    "@codemirror/language": "6.13.1",
-    "@codemirror/language-data": "6.5.2",
-    "@codemirror/state": "6.7.6",
-    "@codemirror/view": "6.43.15",
-    "@lezer/highlight": "1.2.5",
-    "@lezer/markdown": "1.8.1",
-    "@tiptap/core": "3.32.0",
-    "@tiptap/extension-image": "3.32.0",
-    "@tiptap/extension-list": "3.32.0",
-    "@tiptap/extension-table": "3.32.0",
-    "@tiptap/markdown": "3.32.0",
-    "@tiptap/pm": "3.32.0",
-    "@tiptap/starter-kit": "3.32.0",
     "@segnavia/format": "workspace:*",
-    "@segnavia/html": "workspace:*",
-    "codemirror-lang-mermaid": "0.5.0"
+    "@segnavia/html": "workspace:*"
   }
 }

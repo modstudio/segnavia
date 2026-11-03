@@ -1,8 +1,8 @@
 import type { FontReference } from '@segnavia/format'
+import type { FontsOptions } from '@segnavia/frame/fonts'
 import type { AlertLabels } from '@segnavia/html'
 import type { MarkdownTitleSource } from './markdown-editor-model.ts'
 import type { MarkdownEditorCommand, MarkdownEditorCommandArgs, MarkdownEditorMode } from './markdown-editor-policy.ts'
-import type { FontsOptions } from './page-fonts.ts'
 
 export type MarkdownEditorStateDetail = Readonly<{ marks: string[]; nodes: string[]; canUndo: boolean; canRedo: boolean }>
 

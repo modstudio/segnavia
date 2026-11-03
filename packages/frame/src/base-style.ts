@@ -19,7 +19,6 @@
 //   --segnavia-board-handle-color the board editing handle border
 //   --segnavia-board-handle-background the board editing handle fill
 //   --segnavia-board-drop-marker-color the grid insertion marker
-//   --segnavia-markdown-*       source editor syntax colors (documented in architecture.md)
 
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
@@ -103,30 +102,21 @@ export const BASE_CSS = `
 :where(segnavia-document:not([unstyled]) .segnavia-document__sheet){position:relative;max-inline-size:100%;aspect-ratio:var(--segnavia-document-paper-aspect);overflow:hidden;background:var(--segnavia-paper,#fff);box-shadow:0 0 0 1px var(--segnavia-sheet-edge,rgb(0 0 0/.12)),0 1px 3px rgb(0 0 0/.06)}
 :where(segnavia-document:not([unstyled]) .segnavia-document__sheet > segnavia-page){position:absolute;inset:0;inline-size:100%;block-size:100%}
 :where(segnavia-document:not([unstyled]) .segnavia-document__number){margin-block-start:8px;color:var(--segnavia-document-number,currentColor);unicode-bidi:isolate}
-:where(:host(segnavia-markdown-editor:not([unstyled]))){display:block}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="editor"]){display:grid;grid-template-rows:auto minmax(0,1fr);min-block-size:0}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="title"]){box-sizing:border-box;inline-size:100%}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="source"]){min-inline-size:0;min-block-size:0}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="source"] .cm-editor){block-size:100%}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"]){min-inline-size:0;min-block-size:0;overflow:auto}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] .ProseMirror){min-block-size:100%;outline:0}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] table){border-collapse:collapse;inline-size:max-content;min-inline-size:100%}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] th),:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] td){min-inline-size:1em}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] [data-type="taskList"]){list-style:none;padding-inline-start:0}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] [data-type="taskItem"]){display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--segnavia-markdown-task-gap,.5em)}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"]){display:block;position:relative;min-block-size:1em}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"] segnavia-page){display:block}
 :where([data-presenting]),:where(:host([data-presenting])){position:fixed;inset-block:0;inset-inline:0;z-index:2147483647;background:var(--segnavia-backdrop,#111);overflow:auto}
 `
 
-// Adds the base styles once to the document, or to the shadow root an
-// element lives in, since a document's styles do not reach inside one.
-export function ensureBaseStyle(element: Element) {
+// Adds styles once to the document, or to the shadow root an element lives
+// in, since a document's styles do not reach inside one.
+export function ensureStyle(element: Element, name: string, css: string) {
   const root = element.getRootNode()
   const target = root instanceof ShadowRoot ? root : document.head
-  if (target.querySelector('style[data-segnavia-base]')) return
+  if (target.querySelector(`style[data-segnavia-${name}]`)) return
   const style = document.createElement('style')
-  style.dataset.segnaviaBase = ''
-  style.textContent = BASE_CSS
+  style.setAttribute(`data-segnavia-${name}`, '')
+  style.textContent = css
   target.prepend(style)
+}
+
+export function ensureBaseStyle(element: Element) {
+  ensureStyle(element, 'base', BASE_CSS)
 }

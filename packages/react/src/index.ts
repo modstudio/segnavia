@@ -44,7 +44,6 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
     useEffect(() => {
       if (!element.current) return
       const next = values as Record<string, unknown>
-      // HTMLElement declares title as string; the markdown editor ref narrows it to its nullable editor property.
       const cleanup = syncElementProps(descriptor, element.current as unknown as HTMLElement, next, previous.current)
       previous.current = next
       return cleanup

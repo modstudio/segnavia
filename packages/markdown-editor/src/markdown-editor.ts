@@ -1,9 +1,10 @@
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
 import type { FontReference } from '@segnavia/format'
+import type { FontsOptions } from '@segnavia/frame/fonts'
 import { type AlertLabels, sanitizeBookCss } from '@segnavia/html'
 import type { Editor } from '@tiptap/core'
-import { ensureBaseStyle } from './base-style.ts'
+import { ensureEditorStyle } from './editor-style.ts'
 import { MarkdownEditorFontRegistration } from './markdown-editor-font-registration.ts'
 import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
@@ -39,7 +40,6 @@ import { mountRichEditor } from './markdown-rich-editor.ts'
 import { parseRichDocument, type RichDocumentNode, saveRichDocument } from './markdown-rich-save.ts'
 import { markdownSourceState } from './markdown-source.ts'
 import { normalizeMarkdownTitle } from './markdown-title.ts'
-import type { FontsOptions } from './page-fonts.ts'
 
 export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
 
@@ -85,7 +85,7 @@ class MarkdownEditorElement extends HTMLElement {
   }
 
   connectedCallback() {
-    ensureBaseStyle(this.container)
+    ensureEditorStyle(this.container)
     this.titleField.addEventListener('input', this.onTitleInput)
     this.titleField.addEventListener('keydown', this.onTitleKeyDown)
     this.titleField.addEventListener('paste', this.onTitlePaste)
@@ -383,9 +383,9 @@ class MarkdownEditorElement extends HTMLElement {
   }
 }
 
+export type { FontsOptions } from '@segnavia/frame/fonts'
 export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_COMMANDS, MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
-export type { FontsOptions } from './page-fonts.ts'
 export const SegnaviaMarkdownEditor: { new (): SegnaviaMarkdownEditor } = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
 if (!customElements.get(TAG)) customElements.define(TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)

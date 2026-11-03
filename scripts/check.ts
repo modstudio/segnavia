@@ -4,9 +4,11 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { PACKAGES, SOURCE_CONDITION } from '../architecture.ts'
+import getReleasePlan from '@changesets/get-release-plan'
+import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
+import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkCeiling,
   checkChromiumEnvironmentRead,
@@ -14,6 +16,7 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
+  checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
   type Finding,
@@ -45,12 +48,19 @@ function workspaces(): Map<string, Workspace> {
       exports: Record<string, string>
       dependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
+      optionalDependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
     }
     map.set(manifest.name, {
       name: manifest.name,
+      path: `packages/${name}/package.json`,
       rule,
       exports: Object.keys(manifest.exports),
-      dependencies: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+      manifestImports: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+      dependencies: manifest.dependencies,
+      peerDependencies: manifest.peerDependencies,
+      optionalDependencies: manifest.optionalDependencies,
+      devDependencies: manifest.devDependencies,
       sources: sources().filter((source) => source.startsWith(`packages/${name}/`)),
     })
   }
@@ -79,6 +89,7 @@ function structural(names: string[]): Finding[] {
   const all = workspaces()
   const findings: Finding[] = []
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
+  findings.push(...checkReactDependencies([...all.values()], REACT_PACKAGE_ALLOWLIST))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {
@@ -144,6 +155,22 @@ async function run(name: string, command: string[]): Promise<boolean> {
   return code === 0
 }
 
+async function checkPlannedReleaseBumps(): Promise<boolean> {
+  const plan = await getReleasePlan(ROOT)
+  const releaseFindings = checkReleasePlan(plan.changesets as DeclaredChangeset[], plan.releases as ChangesetRelease[])
+  if (releaseFindings.length === 0) {
+    console.log('✓ release plan')
+    return true
+  }
+  console.error('\n✗ release plan')
+  for (const finding of releaseFindings) {
+    console.error(
+      `${finding.name}: planned ${finding.planned} exceeds declared maximum ${finding.declaredMaximum}; a peer or dependency range is pulling a larger bump.`,
+    )
+  }
+  return false
+}
+
 function gitLines(args: string[]): string[] {
   const result = Bun.spawnSync(['git', ...args], { cwd: ROOT, stderr: 'pipe' })
   if (result.exitCode !== 0) throw new Error(result.stderr.toString().trim() || `git ${args.join(' ')} failed.`)
@@ -182,6 +209,7 @@ if (testPaths.length > 0) results.push(await run(`unit tests (${testPaths.join('
 else console.log('✓ unit tests (none selected)')
 if (!selection || selection.packageChecks) {
   results.push(await run('package shape', ['bun', '--conditions=@segnavia/source', 'scripts/check-packages.ts']))
+  results.push(await checkPlannedReleaseBumps())
   results.push(await run('release dry run', ['bun', 'run', 'release', '--dry-run', '--offline']))
 }
 
