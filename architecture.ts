@@ -72,7 +72,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'codemirror-lang-mermaid',
       'mermaid',
     ],
-    // Optional browser entries (package.json): authoring, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
+    // Optional browser entries (package.json): authoring, deck, document-authoring, board-editing, item-settings, local-fonts, markdown-editor.
     serverSafe: [
       'src/svg.ts',
       'src/timeline.ts',

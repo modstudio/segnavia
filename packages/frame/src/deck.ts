@@ -1,5 +1,5 @@
-// The slim headless deck entry point: the controller, stage and thumbnail,
-// without the board, book, paper or document elements from the full entry.
+// The slim headless deck entry point registers the stage and thumbnail at load;
+// a page thumbnail defines `<segnavia-page>` when it mounts one.
 
 import { formatTime } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'

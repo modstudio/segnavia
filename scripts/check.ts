@@ -20,6 +20,7 @@ import {
   packageOf,
   type Workspace,
 } from './checks/rules.ts'
+import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
 import { cleanGitEnv } from './review-artifact.ts'
 
@@ -95,6 +96,21 @@ function structural(names: string[]): Finding[] {
   for (const name of Object.keys(PACKAGES)) {
     if (!sources().some((file) => file.startsWith(`packages/${name}/`)))
       findings.push({ rule: 'architecture', path: `packages/${name}`, message: 'declared in architecture.ts but has no source.' })
+  }
+  for (const name of Object.keys(PACKAGES)) {
+    const manifestPath = `packages/${name}/package.json`
+    const manifest = JSON.parse(readFileSync(path.join(ROOT, manifestPath), 'utf8')) as { sideEffects?: boolean | string[] }
+    if (!Array.isArray(manifest.sideEffects)) continue
+    const sourcePattern = `packages/${name}/src/**/*.ts`
+    const sideEffectsPackage: SideEffectsPackage = {
+      path: manifestPath,
+      sideEffects: manifest.sideEffects,
+      sources: [...new Bun.Glob(sourcePattern).scanSync({ cwd: ROOT })].map((relative) => ({
+        path: relative,
+        text: readFileSync(path.join(ROOT, relative), 'utf8'),
+      })),
+    }
+    findings.push(...checkSideEffects(sideEffectsPackage))
   }
   for (const relative of sources()) {
     const text = readFileSync(path.join(ROOT, relative), 'utf8')
