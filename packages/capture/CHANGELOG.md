@@ -1,5 +1,17 @@
 # @segnavia/capture
 
+## 0.41.0
+
+### Patch Changes
+
+- Updated dependencies [c5e08f1]
+- Updated dependencies [31161b0]
+- Updated dependencies [ca7e3a2]
+- Updated dependencies [c27abf8]
+  - @segnavia/frame@0.41.0
+  - @segnavia/render@0.41.0
+  - @segnavia/format@0.41.0
+
 ## 0.40.1
 
 ### Patch Changes

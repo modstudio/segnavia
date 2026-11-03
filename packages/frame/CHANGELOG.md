@@ -1,5 +1,19 @@
 # @segnavia/frame
 
+## 0.41.0
+
+### Minor Changes
+
+- c5e08f1: A `<segnavia-thumbnail>` frame no longer carries a script unless a `shrink`, `truncate` or `refuse` slot needs fitting: without one its sandbox is empty and its policy refuses every script. Rail thumbnails keep the bridge.
+- 31161b0: `DeckController.goToSlide(id)` navigates by slide id. It resolves `true` when the deck is on that slide afterward, and `false` for an unknown id or a navigation that did not land there. A navigation that waited on a navigation guard while a new deck loaded is dropped rather than applied to the new deck.
+- ca7e3a2: Add a slim `@segnavia/frame/deck` entry for headless deck viewing, export `formatTime` from the main entry, and precisely declare registration side effects.
+- c27abf8: A `DeckController` you construct no longer reads or writes `location.hash`; pass `hash: 'slide-'` to keep the old behavior. `<segnavia-player>` and `<segnavia-stage src>` are unchanged.
+
+### Patch Changes
+
+- @segnavia/format@0.41.0
+- @segnavia/html@0.41.0
+
 ## 0.40.1
 
 ### Patch Changes

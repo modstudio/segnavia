@@ -1,5 +1,7 @@
 # @segnavia/format
 
+## 0.41.0
+
 ## 0.40.1
 
 ### Patch Changes
