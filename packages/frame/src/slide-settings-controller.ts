@@ -1,4 +1,5 @@
 import type { Slide } from '@segnavia/format'
+import { slideIndexById } from './controller-navigation.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { RailSlideSettingsItem, SegnaviaRail } from './rail.ts'
 import type { SlideSetting, SlideSettingInfo } from './slide-settings.ts'
@@ -134,8 +135,9 @@ export class SlideSettingsController {
   }
 
   private async navigateToSlide(slideId: string): Promise<boolean> {
-    const index = this.player.controller.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1
-    if (index < 0) return false
+    const deck = this.player.controller.state.deck
+    const index = deck ? slideIndexById(deck, slideId) : undefined
+    if (index === undefined) return false
     if (this.player.controller.state.index === index) return true
     this.internalNavigation = true
     try {

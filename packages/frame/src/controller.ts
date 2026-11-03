@@ -121,7 +121,7 @@ export class DeckController extends EventTarget {
     const index = this.current.deck ? slideIndexById(this.current.deck, id) : undefined
     if (index === undefined) return false
     await this.go(index)
-    return true
+    return this.current.slide?.id === id
   }
   contentFor(index: number): Promise<ResolvedContent> {
     const slide = this.current.deck?.slides[index]

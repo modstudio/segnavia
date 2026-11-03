@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
-import { DeckController } from './controller.ts'
+import { DeckController, type ResolvedContent } from './controller.ts'
 import { slideIndexById } from './controller-navigation.ts'
 
 const deck = (ids: string[]) =>
@@ -50,6 +50,29 @@ describe('slide id navigation', () => {
   test('does nothing without a loaded deck', async () => {
     const controller = new DeckController({ hash: null, persist: false })
     expect(await controller.goToSlide('a')).toBe(false)
+  })
+
+  test('reports when a newer navigation supersedes the target slide', async () => {
+    const pending = Promise.withResolvers<ResolvedContent>()
+    const resolving = Promise.withResolvers<void>()
+    const controller = new DeckController({
+      hash: null,
+      persist: false,
+      resolveSlide: (slide) => {
+        if (slide.id !== 'b') return slide.content
+        resolving.resolve()
+        return pending.promise
+      },
+    })
+    await controller.load(deck(['a', 'b', 'c']))
+
+    const target = controller.goToSlide('b')
+    await resolving.promise
+    await controller.go(2)
+    pending.resolve({ kind: 'html', html: '<p>b</p>' })
+
+    expect(await target).toBe(false)
+    expect(controller.state.slide?.id).toBe('c')
   })
 
   test('uses the id position from a newly loaded deck', async () => {
