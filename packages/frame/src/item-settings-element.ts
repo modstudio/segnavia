@@ -1,7 +1,7 @@
 import { type Fill, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
 import { type FieldsActions, renderFields } from './item-settings-fields.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import {
   addFill,
   cloneFill,

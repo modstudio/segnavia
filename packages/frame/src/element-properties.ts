@@ -1,11 +1,7 @@
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 
-export interface ElementDescriptor<
-  Tag extends `segnavia-${string}` = `segnavia-${string}`,
-  Property extends string = string,
-  Event extends string = string,
-> {
+export interface ElementDescriptor<Tag extends `segnavia-${string}` = `segnavia-${string}`, Property extends string = string, Event extends string = string> {
   tag: Tag
   properties: readonly Property[]
   events: Readonly<Record<Event, `on${string}`>>
@@ -32,7 +28,22 @@ export const ELEMENT_PROPERTIES = {
   ),
   board: descriptor(
     HEADLESS_ELEMENTS.board,
-    ['board', 'motifs', 'placements', 'pageWidths', 'fonts', 'view', 'kindIcon', 'selection', 'selected', 'itemActions', 'labels', 'liveWidth', 'resolveItem', 'itemNames'],
+    [
+      'board',
+      'motifs',
+      'placements',
+      'pageWidths',
+      'fonts',
+      'view',
+      'kindIcon',
+      'selection',
+      'selected',
+      'itemActions',
+      'labels',
+      'liveWidth',
+      'resolveItem',
+      'itemNames',
+    ],
     {
       'segnavia-board-change': 'onSegnaviaBoardChange',
       'segnavia-board-error': 'onSegnaviaBoardError',
@@ -52,15 +63,25 @@ export const ELEMENT_PROPERTIES = {
     'segnavia-board-list-toggle': 'onSegnaviaBoardListToggle',
     'segnavia-board-share': 'onSegnaviaBoardShare',
   }),
-  page: descriptor(HEADLESS_ELEMENTS.page, ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'alertLabels', 'placements', 'pageWidths'], {}),
-  paper: descriptor(HEADLESS_ELEMENTS.paper, ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'], {}),
-  document: descriptor(HEADLESS_ELEMENTS.document, ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'], {}),
-  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], {}),
-  player: descriptor(
-    STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'],
-    { 'segnavia-labels': 'onSegnaviaLabels' },
+  page: descriptor(
+    HEADLESS_ELEMENTS.page,
+    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'alertLabels', 'placements', 'pageWidths'],
+    {},
   ),
+  paper: descriptor(
+    HEADLESS_ELEMENTS.paper,
+    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
+    {},
+  ),
+  document: descriptor(
+    HEADLESS_ELEMENTS.document,
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
+    {},
+  ),
+  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], {}),
+  player: descriptor(STYLED_ELEMENTS.player, ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'], {
+    'segnavia-labels': 'onSegnaviaLabels',
+  }),
   play: descriptor(STYLED_ELEMENTS.play, controlProperties, {}),
   step: descriptor(STYLED_ELEMENTS.step, controlProperties, {}),
   track: descriptor(STYLED_ELEMENTS.track, controlProperties, {}),
@@ -82,7 +103,7 @@ export const ELEMENT_PROPERTY_DESCRIPTORS: readonly ElementDescriptor[] = Object
 
 export function upgradeProperties(element: object, names: readonly string[]): void {
   for (const name of names) {
-    if (!Object.prototype.hasOwnProperty.call(element, name)) continue
+    if (!Object.hasOwn(element, name)) continue
     const value = Reflect.get(element, name)
     if (!Reflect.deleteProperty(element, name)) throw new TypeError(`Could not upgrade the ${name} property.`)
     Reflect.set(element, name, value)

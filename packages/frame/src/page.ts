@@ -1,8 +1,6 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages follow the
-// element and grow; fixed pages scale to fit; named widths cap the centered
-// sheet, with only overridable geometry. `showUrl` shows host-served HTML whose
-// own `bridgeForHost` reports height. data-measured is set once the
-// content has reported its height, and data-height holds it.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed
+// pages scale to fit; named widths cap the sheet. `showUrl` shows host-served
+// HTML whose bridge reports data-height and sets data-measured.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
@@ -29,9 +27,6 @@ export { SELECTION_REPLY_MS } from './selection-request.ts'
 
 export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
-  private stylesheet = ''
-  private extraCsp = ''
-  private origins: Iterable<string> = []
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
   private contentHeight = 0
@@ -56,30 +51,6 @@ export class SegnaviaPage extends PageElementAttributes {
   constructor() {
     super()
     upgradeProperties(this, ELEMENT_PROPERTIES.page.properties)
-  }
-
-  get css(): string {
-    return this.stylesheet
-  }
-
-  set css(value: string) {
-    this.stylesheet = value
-  }
-
-  get cspExtra(): string {
-    return this.extraCsp
-  }
-
-  set cspExtra(value: string) {
-    this.extraCsp = value
-  }
-
-  get dependencyOrigins(): Iterable<string> {
-    return this.origins
-  }
-
-  set dependencyOrigins(value: Iterable<string>) {
-    this.origins = value
   }
 
   get alertLabels(): Partial<AlertLabels> | undefined {

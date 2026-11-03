@@ -1,5 +1,4 @@
-// <segnavia-player>: the finished player, for a host that wants the whole layout. A host
-// that wants only some of it places the components itself; a host that wants
+// <segnavia-player>: the finished player. A host that wants only some of it places the components itself; a host that wants
 // none of it uses the headless stage and controller.
 // Attributes: src, theme, notes, hash, prefetch, transition,
 // transition-duration, playback, captions, presentation and fit. Properties:

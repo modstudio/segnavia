@@ -1,10 +1,10 @@
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { SegnaviaBoard } from './board.ts'
 import type { SegnaviaBoardList } from './board-list.ts'
 import { BoardTargetBinding, TargetBinding } from './board-target.ts'
 import { type ToolbarNavigationKey, toolbarNextIndex } from './board-toolbar-policy.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 
 export interface BoardToolbarLabels {
   toolbar: string

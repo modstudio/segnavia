@@ -1,8 +1,5 @@
-// <segnavia-stage>: shows the current slide of a DeckController, scaled to
-// fit the box the host gives it, with a shot's annotations shown on cue. It
-// draws no controls and brings no appearance: a host styles it, and builds
-// its own controls from `stage.controller`.
-//
+// <segnavia-stage>: shows the current slide scaled to fit the host's box, with annotations shown on cue. It draws no controls
+// or appearance: a host styles it and builds controls from `stage.controller`.
 // Give it a controller, or a deck: attributes src, hash ("off" to leave the
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
@@ -16,16 +13,17 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
-import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
+import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
@@ -38,11 +36,14 @@ export interface StageReserve {
 
 export class SegnaviaStage extends HTMLElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
-  private stylesheet = ''
-  private extraCsp = ''
-  private origins: Iterable<string> = []
-  private bridgeTimeout = 10_000
-  private title: FrameTitle = defaultFrameTitle
+  static {
+    defineStagePropertyAccessors(SegnaviaStage.prototype)
+  }
+  declare css: string
+  declare cspExtra: string
+  declare dependencyOrigins: Iterable<string>
+  declare bridgeReadyTimeoutMs: number
+  declare frameTitle: FrameTitle
   private owned: DeckController | null = null
   private attached: DeckController | null = null
   private room: StageReserve = {}
@@ -68,47 +69,6 @@ export class SegnaviaStage extends HTMLElement {
   constructor() {
     super()
     upgradeProperties(this, ELEMENT_PROPERTIES.stage.properties)
-  }
-
-  // Styles applied inside every slide, such as a host's house style.
-  get css(): string {
-    return this.stylesheet
-  }
-
-  set css(value: string) {
-    this.stylesheet = value
-  }
-
-  get cspExtra(): string {
-    return this.extraCsp
-  }
-
-  set cspExtra(value: string) {
-    this.extraCsp = value
-  }
-
-  get dependencyOrigins(): Iterable<string> {
-    return this.origins
-  }
-
-  set dependencyOrigins(value: Iterable<string>) {
-    this.origins = value
-  }
-
-  get bridgeReadyTimeoutMs(): number {
-    return this.bridgeTimeout
-  }
-
-  set bridgeReadyTimeoutMs(value: number) {
-    this.bridgeTimeout = value
-  }
-
-  get frameTitle(): FrameTitle {
-    return this.title
-  }
-
-  set frameTitle(value: FrameTitle) {
-    this.title = value
   }
 
   get slots(): SlotsOptions | undefined {

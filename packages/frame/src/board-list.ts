@@ -1,11 +1,11 @@
 import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { SegnaviaBoard } from './board.ts'
 import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
 import { BoardTargetBinding } from './board-target.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 
 export type BoardItemSearch = (query: string, signal: AbortSignal) => Promise<string[]>
 

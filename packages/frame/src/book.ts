@@ -6,8 +6,8 @@ import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -30,19 +30,9 @@ export class SegnaviaBook extends BookSourcesElement {
   private loadController: AbortController | null = null
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
-  private origins: Iterable<string> = []
-
   constructor() {
     super()
     upgradeProperties(this, ELEMENT_PROPERTIES.book.properties)
-  }
-
-  get dependencyOrigins(): Iterable<string> {
-    return this.origins
-  }
-
-  set dependencyOrigins(value: Iterable<string>) {
-    this.origins = value
   }
 
   connectedCallback() {
@@ -107,14 +97,6 @@ export class SegnaviaBook extends BookSourcesElement {
       if (this.sourceLoadController === controller) this.sourceLoadController = null
       if (this.loadController === controller) this.loadController = null
     }
-  }
-
-  get spread(): boolean {
-    return this.hasAttribute('spread')
-  }
-
-  set spread(value: boolean) {
-    this.toggleAttribute('spread', value)
   }
 
   get layout(): BookLayout {

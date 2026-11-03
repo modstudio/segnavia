@@ -1,4 +1,13 @@
+import { defineElementPropertyAccessors } from './element-property-accessors.ts'
+
 export class PageElementAttributes extends HTMLElement {
+  static {
+    defineElementPropertyAccessors(PageElementAttributes.prototype, () => ({ css: '', cspExtra: '', dependencyOrigins: [] as Iterable<string> }))
+  }
+  declare css: string
+  declare cspExtra: string
+  declare dependencyOrigins: Iterable<string>
+
   get bounded(): boolean {
     return this.hasAttribute('bounded')
   }

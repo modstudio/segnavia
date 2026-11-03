@@ -13,7 +13,7 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
-import { ELEMENT_PROPERTIES as FRAME_ELEMENTS, type ElementDescriptor as FrameElementDescriptor } from '@segnavia/frame/element-properties'
+import { ELEMENT_PROPERTIES as FRAME_ELEMENTS } from '@segnavia/frame/element-properties'
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import type {
@@ -39,20 +39,22 @@ import type {
   TrackProps,
 } from './props.ts'
 
-export type RuntimeElementDescriptor = FrameElementDescriptor
+export interface RuntimeElementDescriptor {
+  tag: `segnavia-${string}`
+  properties: readonly string[]
+  events: Readonly<Record<string, string>>
+}
 
 export interface ElementDescriptor<E extends object, P extends object, Tag extends `segnavia-${string}` = `segnavia-${string}`>
-  extends FrameElementDescriptor {
+  extends RuntimeElementDescriptor {
   tag: Tag
   properties: readonly Extract<keyof P, string>[]
-  events: Readonly<Partial<Record<string, Extract<keyof P, `on${string}`>>>>
+  events: Readonly<Record<string, Extract<keyof P, `on${string}`>>>
   readonly element?: E
   readonly props?: P
 }
 
-function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
-  value: ElementDescriptor<E, P, Tag>,
-): ElementDescriptor<E, P, Tag> {
+function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(value: ElementDescriptor<E, P, Tag>): ElementDescriptor<E, P, Tag> {
   return value
 }
 
