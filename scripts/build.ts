@@ -12,10 +12,7 @@ async function run(command: string[]): Promise<void> {
 }
 
 await run(['bunx', 'tsdown'])
-const { diagramErrorFirstLine, diagramLabelDirection, diagramScript } = await import('../packages/diagrams/src/script.ts')
-writeFileSync(
-  path.join(ROOT, 'packages/diagrams/dist/script.js'),
-  `export ${diagramErrorFirstLine.toString()};\nexport ${diagramLabelDirection.toString()};\nexport const diagramScript=${JSON.stringify(diagramScript)};\n`,
-)
+const { diagramScript } = await import('../packages/diagrams/src/script.ts')
+writeFileSync(path.join(ROOT, 'packages/diagrams/dist/script.js'), `export const diagramScript=${JSON.stringify(diagramScript)};\n`)
 await run(['bunx', 'tsdown', '--config', 'tsdown.browser.config.ts'])
 for (const name of Object.keys(PACKAGES)) copyFileSync(path.join(ROOT, 'LICENSE'), path.join(ROOT, 'packages', name, 'LICENSE'))
