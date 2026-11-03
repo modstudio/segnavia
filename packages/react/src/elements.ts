@@ -42,20 +42,26 @@ import type {
 export interface RuntimeElementDescriptor {
   tag: `segnavia-${string}`
   properties: readonly string[]
-  events: Readonly<Record<string, string>>
+  events: Readonly<Partial<Record<string, string>>>
 }
 
 export interface ElementDescriptor<E extends object, P extends object, Tag extends `segnavia-${string}` = `segnavia-${string}`>
   extends RuntimeElementDescriptor {
   tag: Tag
   properties: readonly Extract<keyof P, string>[]
-  events: Readonly<Record<string, Extract<keyof P, `on${string}`>>>
+  events: Readonly<Partial<Record<Extract<keyof P, `on${string}`>, string>>>
   readonly element?: E
   readonly props?: P
 }
 
-function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(value: ElementDescriptor<E, P, Tag>): ElementDescriptor<E, P, Tag> {
-  return value
+export function invertEvents<ReactEvent extends `on${string}`>(events: Readonly<Record<string, ReactEvent>>): Readonly<Partial<Record<ReactEvent, string>>> {
+  return Object.fromEntries(Object.entries(events).map(([event, reactEvent]) => [reactEvent, event])) as Partial<Record<ReactEvent, string>>
+}
+
+function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
+  value: Omit<ElementDescriptor<E, P, Tag>, 'events'> & { events: Readonly<Record<string, Extract<keyof P, `on${string}`>>> },
+): ElementDescriptor<E, P, Tag> {
+  return { ...value, events: invertEvents(value.events) }
 }
 
 export const ELEMENTS = {

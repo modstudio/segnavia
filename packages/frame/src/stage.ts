@@ -1,9 +1,13 @@
-// <segnavia-stage>: shows the current slide scaled to fit the host's box, with annotations shown on cue. It draws no controls
-// or appearance: a host styles it and builds controls from `stage.controller`.
+// <segnavia-stage>: shows the current slide of a DeckController, scaled to
+// fit the box the host gives it, with a shot's annotations shown on cue. It
+// draws no controls and brings no appearance: a host styles it, and builds
+// its own controls from `stage.controller`.
+//
 // Give it a controller, or a deck: attributes src, hash ("off" to leave the
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
-// State is mirrored as data-slide, data-playing, data-word, data-shown and data-direction. A visible canvas has data-active, and
+// State is mirrored as data attributes for styling: data-slide, data-playing,
+// data-word, data-shown, data-direction. A visible canvas has data-active, and
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
@@ -24,14 +28,10 @@ import { stageFrameEvents } from './stage-frame-events.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
+import type { StageReserve } from './stage-reserve.ts'
 import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
-
-export interface StageReserve {
-  blockStart?: number
-  blockEnd?: number
-}
 
 export class SegnaviaStage extends HTMLElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']

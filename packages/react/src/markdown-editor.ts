@@ -6,7 +6,7 @@ import {
   type MarkdownTitleSource,
   type SegnaviaMarkdownEditor,
 } from '@segnavia/markdown-editor'
-import type { ElementDescriptor, PropsFor } from './elements.ts'
+import { type ElementDescriptor, invertEvents, type PropsFor } from './elements.ts'
 import { createComponent } from './index.ts'
 import type { CustomEventProp, ElementProps } from './props.ts'
 
@@ -34,6 +34,7 @@ export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'ti
 
 const markdownEditor: ElementDescriptor<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'> = {
   ...MARKDOWN_EDITOR_PROPERTIES,
+  events: invertEvents(MARKDOWN_EDITOR_PROPERTIES.events),
 }
 
 export const MarkdownEditor = createComponent(markdownEditor)

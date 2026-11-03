@@ -6,6 +6,7 @@ import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { defineElementPropertyAccessors } from './element-property-accessors.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -16,9 +17,12 @@ import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal
 
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side']
-  private stylesheet = ''
-  private extraCsp = ''
-  private origins: Iterable<string> = []
+  static {
+    defineElementPropertyAccessors(SegnaviaPaper.prototype, () => ({ css: '', cspExtra: '', dependencyOrigins: [] as Iterable<string> }))
+  }
+  declare css: string
+  declare cspExtra: string
+  declare dependencyOrigins: Iterable<string>
   private pages: HtmlPage[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
@@ -39,30 +43,6 @@ export class SegnaviaPaper extends HTMLElement {
   constructor() {
     super()
     upgradeProperties(this, ELEMENT_PROPERTIES.paper.properties)
-  }
-
-  get css(): string {
-    return this.stylesheet
-  }
-
-  set css(value: string) {
-    this.stylesheet = value
-  }
-
-  get cspExtra(): string {
-    return this.extraCsp
-  }
-
-  set cspExtra(value: string) {
-    this.extraCsp = value
-  }
-
-  get dependencyOrigins(): Iterable<string> {
-    return this.origins
-  }
-
-  set dependencyOrigins(value: Iterable<string>) {
-    this.origins = value
   }
 
   get slots(): SlotsOptions | undefined {

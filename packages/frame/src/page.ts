@@ -1,5 +1,8 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; named widths cap the sheet. `showUrl` shows host-served
-// HTML whose bridge reports data-height and sets data-measured.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages follow the
+// element and grow; fixed pages scale to fit; named widths cap the centered
+// sheet, with only overridable geometry. `showUrl` shows host-served HTML whose
+// own `bridgeForHost` reports height. data-measured is set once the
+// content has reported its height, and data-height holds it.
 
 import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
@@ -12,15 +15,12 @@ import { loadPageDocument, loadShownPageDocument } from './page-document-loading
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
+import { PAGE_CHANGED_SELECTION, type PostedSelectionRequest, type SelectionCancellation } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
-const PAGE_CHANGED_SELECTION = 'Cannot read the selection because the page changed before it replied. Read the selection from the current page.'
-
-type SelectionCancellation = (reason: Error) => void
-type PostedSelectionRequest = { cancel?: SelectionCancellation }
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
