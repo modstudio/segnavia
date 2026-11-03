@@ -1,9 +1,107 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { DeckController } from './controller.ts'
+import { Deck } from '@segnavia/format'
+import { DeckController, type ResolvedContent } from './controller.ts'
+import { slideIndexById } from './controller-navigation.ts'
+import { setNavigationGuard } from './navigation-guard.ts'
 
-const deck = (ids: string[]) => ({
-  title: 'Deck',
-  slides: ids.map((id) => ({ id, content: { kind: 'html' as const, html: `<p>${id}</p>` } })),
+const deck = (ids: string[]) =>
+  Deck.parse({
+    title: 'Deck',
+    slides: ids.map((id) => ({ id, content: { kind: 'html' as const, html: `<p>${id}</p>` } })),
+  })
+
+describe('slide id navigation', () => {
+  test('finds a slide index by id', () => {
+    const loaded = deck(['a', 'b', 'c'])
+    expect(slideIndexById(loaded, 'b')).toBe(1)
+    expect(slideIndexById(loaded, 'missing')).toBeUndefined()
+  })
+
+  test('navigates with the same events as go', async () => {
+    const byId = new DeckController({ hash: null, persist: false })
+    const byIndex = new DeckController({ hash: null, persist: false })
+    await byId.load(deck(['a', 'b', 'c']))
+    await byIndex.load(deck(['a', 'b', 'c']))
+    const idEvents: string[] = []
+    const indexEvents: string[] = []
+    for (const type of ['change', 'slide']) {
+      byId.addEventListener(type, () => idEvents.push(type))
+      byIndex.addEventListener(type, () => indexEvents.push(type))
+    }
+
+    expect(await byId.goToSlide('c')).toBe(true)
+    await byIndex.go(2)
+
+    expect(byId.state.index).toBe(2)
+    expect(idEvents).toEqual(indexEvents)
+  })
+
+  test('does nothing for an unknown id', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    await controller.load(deck(['a', 'b']))
+    const events: string[] = []
+    for (const type of ['change', 'slide']) controller.addEventListener(type, () => events.push(type))
+
+    expect(await controller.goToSlide('missing')).toBe(false)
+
+    expect(controller.state.index).toBe(0)
+    expect(events).toEqual([])
+  })
+
+  test('does nothing without a loaded deck', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    expect(await controller.goToSlide('a')).toBe(false)
+  })
+
+  test('reports when a newer navigation supersedes the target slide', async () => {
+    const pending = Promise.withResolvers<ResolvedContent>()
+    const resolving = Promise.withResolvers<void>()
+    const controller = new DeckController({
+      hash: null,
+      persist: false,
+      resolveSlide: (slide) => {
+        if (slide.id !== 'b') return slide.content
+        resolving.resolve()
+        return pending.promise
+      },
+    })
+    await controller.load(deck(['a', 'b', 'c']))
+
+    const target = controller.goToSlide('b')
+    await resolving.promise
+    await controller.go(2)
+    pending.resolve({ kind: 'html', html: '<p>b</p>' })
+
+    expect(await target).toBe(false)
+    expect(controller.state.slide?.id).toBe('c')
+  })
+
+  test('uses the id position from a newly loaded deck', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    await controller.load(deck(['a', 'b', 'c']))
+    expect(await controller.goToSlide('b')).toBe(true)
+    expect(controller.state.index).toBe(1)
+
+    await controller.load(deck(['c', 'a', 'b']))
+    expect(await controller.goToSlide('b')).toBe(true)
+
+    expect(controller.state.index).toBe(2)
+  })
+
+  test('drops navigation when the deck changes while its guard is pending', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    await controller.load(deck(['a', 'b', 'c']))
+    const pending = Promise.withResolvers<void>()
+    setNavigationGuard(controller, () => pending.promise)
+
+    const loading = controller.load(deck(['x', 'y', 'z']))
+    const navigating = controller.goToSlide('c')
+    pending.resolve()
+    await Promise.all([loading, navigating])
+
+    expect(await navigating).toBe(false)
+    expect(controller.state.slide?.id).toBe('x')
+  })
 })
 
 describe('controller reloads', () => {

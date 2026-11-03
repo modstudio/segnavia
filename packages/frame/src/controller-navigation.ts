@@ -2,6 +2,11 @@ import type { Deck } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { neighborWindow } from './deck-window.ts'
 
+export function slideIndexById(deck: Deck, id: string): number | undefined {
+  const index = deck.slides.findIndex((slide) => slide.id === id)
+  return index === -1 ? undefined : index
+}
+
 export function prefetchControllerNeighbors(
   enabled: boolean | undefined,
   deck: Deck | null,
