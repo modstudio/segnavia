@@ -26,9 +26,19 @@ describe('side-effect declarations', () => {
     )
   })
 
+  test('refuses a registering module listed only in its dist form', () => {
+    const pkg = example(['./dist/register.js'], [{ path: 'packages/example/src/register.ts', text: `customElements.define('x-one', Element)` }])
+    expect(checkSideEffects(pkg)[0]?.message).toBe(
+      'defines an element at load but ./src/register.ts is not in packages/example/package.json sideEffects; add it.',
+    )
+  })
+
   test('refuses a stale entry that registers nothing', () => {
-    const pkg = example(['./dist/plain.js'], [{ path: 'packages/example/src/plain.ts', text: 'export const value = 1' }])
-    expect(checkSideEffects(pkg)[0]?.message).toBe('./dist/plain.js does not register an element at load; remove it from sideEffects.')
+    const pkg = example(['./src/plain.ts', './dist/plain.js'], [{ path: 'packages/example/src/plain.ts', text: 'export const value = 1' }])
+    expect(checkSideEffects(pkg).map((finding) => finding.message)).toEqual([
+      './src/plain.ts does not register an element at load; remove it from sideEffects.',
+      './dist/plain.js does not register an element at load; remove it from sideEffects.',
+    ])
   })
 
   test('does not count a definition inside a function body', () => {

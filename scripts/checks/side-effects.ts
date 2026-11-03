@@ -1,5 +1,7 @@
 // Keeps package side-effect declarations aligned with modules that register
-// custom elements when imported.
+// custom elements when imported. The source condition and browser build resolve
+// src modules, while published consumers resolve dist modules, so both forms
+// must be declared side-effecting.
 
 import ts from 'typescript'
 import type { Finding } from './rules.ts'
@@ -51,24 +53,30 @@ function builtPath(source: string): string {
   return `./dist/${relative.replace(/\.ts$/, '.js')}`
 }
 
+function sourcePath(source: string): string {
+  return `./${source.slice(source.indexOf('/src/') + 1)}`
+}
+
 export function checkSideEffects(pkg: SideEffectsPackage): Finding[] {
-  const registering = new Map(
-    pkg.sources
-      .filter((source) => !TEST_FILE.test(source.path) && registersCustomElementAtModuleLevel(source.path, source.text))
-      .map((source) => [builtPath(source.path), source.path]),
+  const registering = pkg.sources.filter((source) => !TEST_FILE.test(source.path) && registersCustomElementAtModuleLevel(source.path, source.text))
+  const required = new Map(
+    registering.flatMap((source) => [
+      [builtPath(source.path), source.path],
+      [sourcePath(source.path), source.path],
+    ]),
   )
   const listed = new Set(pkg.sideEffects)
   const findings: Finding[] = []
-  for (const [output, source] of registering) {
-    if (!listed.has(output))
-      findings.push({ rule: 'side-effects', path: source, message: `defines an element at load but ${output} is not in ${pkg.path} sideEffects; add it.` })
+  for (const [entry, source] of required) {
+    if (!listed.has(entry))
+      findings.push({ rule: 'side-effects', path: source, message: `defines an element at load but ${entry} is not in ${pkg.path} sideEffects; add it.` })
   }
-  for (const output of listed) {
+  for (const entry of listed) {
     // Browser outputs are bundles declared by the browser build config rather
     // than one-to-one source outputs, so their listed names are accepted.
-    if (output.startsWith('./dist/browser/')) continue
-    if (!registering.has(output))
-      findings.push({ rule: 'side-effects', path: pkg.path, message: `${output} does not register an element at load; remove it from sideEffects.` })
+    if (entry.startsWith('./dist/browser/')) continue
+    if (!required.has(entry))
+      findings.push({ rule: 'side-effects', path: pkg.path, message: `${entry} does not register an element at load; remove it from sideEffects.` })
   }
   return findings
 }
