@@ -1,11 +1,9 @@
 import { expect, test } from 'bun:test'
+import './prosemirror-environment.test-helper.ts'
 import type { JSONContent } from '@tiptap/core'
 import { Node } from '@tiptap/pm/model'
 import { joinLeadingHeading, splitLeadingHeading } from './markdown-title.ts'
 
-if (globalThis.document && !globalThis.document.documentElement) {
-  Object.defineProperty(globalThis.document, 'documentElement', { configurable: true, value: { style: {} } })
-}
 const { richSchema } = await import('./markdown-rich-extensions.ts')
 const { parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
 

@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
+    "@changesets/get-release-plan": "^4.0.16",
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "2",
     "@types/bun": "latest",

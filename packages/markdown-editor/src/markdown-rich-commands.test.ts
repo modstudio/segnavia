@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import './prosemirror-environment.test-helper.ts'
 import { lockedBlockSourceOffset, RICH_KEYBOARD_COMMANDS } from './markdown-rich-commands.ts'
 
 test('the selected occurrence of an identical locked source resolves to its own offset', () => {

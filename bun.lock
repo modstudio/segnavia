@@ -23,6 +23,7 @@
         "@arethetypeswrong/cli": "^0.18.5",
         "@biomejs/biome": "2",
         "@changesets/cli": "^2.29.7",
+        "@changesets/get-release-plan": "^4.0.16",
         "@types/bun": "latest",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",

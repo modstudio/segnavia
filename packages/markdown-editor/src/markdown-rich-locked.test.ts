@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test'
+import './prosemirror-environment.test-helper.ts'
 
-if (globalThis.document && !globalThis.document.documentElement) {
-  Object.defineProperty(globalThis.document, 'documentElement', { configurable: true, value: { style: {} } })
-}
 const { isLockedToken, isSilentToken, lockedFenceLabel } = await import('./markdown-rich-locked.ts')
 
 test('locked and silent markdown constructs share the reader rules', () => {
