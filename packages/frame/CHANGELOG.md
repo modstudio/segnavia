@@ -1,5 +1,22 @@
 # @segnavia/frame
 
+## 0.42.0
+
+### Minor Changes
+
+- 7551f97: Move the Markdown editor into the optional `@segnavia/markdown-editor` package.
+
+  Hosts that used `@segnavia/frame/markdown-editor` install `@segnavia/markdown-editor` and its peers and import from it. `@segnavia/react/markdown-editor` keeps its path but now needs `@segnavia/markdown-editor` installed.
+
+- 30ed75c: Move Mermaid drawing into the optional `@segnavia/diagrams` package behind a provider seam.
+
+  Hosts that draw diagrams in their own bundle add `import '@segnavia/diagrams/auto'`, or call `registerDiagramProvider(diagrams)`.
+
+### Patch Changes
+
+- @segnavia/format@0.42.0
+- @segnavia/html@0.42.0
+
 ## 0.41.0
 
 ### Minor Changes
