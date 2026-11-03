@@ -1,10 +1,14 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { installFramePoolTestDocument } from './frame-pool.test-helper.ts'
 import { stageCanvas } from './stage-content.ts'
 
-installFramePoolTestDocument()
+let restoreDocument = () => {}
+beforeAll(() => {
+  restoreDocument = installFramePoolTestDocument()
+})
+afterAll(() => restoreDocument())
 
 const deck = Deck.parse({
   title: 'Stage frames',

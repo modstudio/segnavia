@@ -9,8 +9,7 @@ import { SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
-import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 
@@ -37,8 +36,6 @@ export class SegnaviaThumbnail extends HTMLElement {
   private designedCoverValue: ParsedDesignedCover | undefined
   private designedCoverDisposal: (() => void) | undefined
   private slotPreparation: AbortController | undefined
-  private resolvedSlots: PreparedSlots | undefined
-  private resolvedGeneration = 0
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly viewport = document.createElement('div')
 
@@ -187,7 +184,6 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   connectedCallback() {
     ensureBaseStyle(this.viewport)
-    window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
     this.observe()
   }
@@ -209,7 +205,6 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   disconnectedCallback() {
     this.observer?.disconnect()
-    window.removeEventListener('message', this.onMessage)
     this.observer = null
     this.resize.disconnect()
     this.near = false
@@ -227,8 +222,6 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
     this.resolution++
-    this.resolvedSlots = undefined
-    this.resolvedGeneration = 0
     this.viewport.replaceChildren()
     this.controller?.destroy()
     this.controller = null
@@ -287,9 +280,7 @@ export class SegnaviaThumbnail extends HTMLElement {
       try {
         const slots = await prepareSlots(deck.slots, this.slotOptions, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-        this.resolvedSlots = slots
-        this.resolvedGeneration = resolution
-        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet, false, slots)
+        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet, slots)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
         this.measure()
@@ -336,10 +327,5 @@ export class SegnaviaThumbnail extends HTMLElement {
     page.style.inlineSize = '100%'
     this.viewport.append(page)
     page.load(projection.page)
-  }
-
-  private onMessage = (event: MessageEvent) => {
-    if (!this.resolvedSlots || this.resolvedGeneration !== this.resolution) return
-    mergeOwnedSlotFit(event, this.viewport.querySelectorAll('iframe'), this.resolvedSlots)
   }
 }

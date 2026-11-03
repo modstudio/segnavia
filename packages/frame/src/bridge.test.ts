@@ -3,6 +3,7 @@ import { animationReport } from './animation-timing.ts'
 import {
   BLOCK_DIRECTION_CSS,
   bridgeForHost,
+  documentNeedsSlotFit,
   type FrameOptions,
   frameDocument,
   frameSandbox,
@@ -63,6 +64,38 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
 }
 
 describe('frame document', () => {
+  test('shrink, truncate and refuse slot markers need fitting', () => {
+    expect(documentNeedsSlotFit('<p>No slots</p>')).toBe(false)
+    expect(documentNeedsSlotFit('<p data-slot-overflow="name:wrap">Wrap</p>')).toBe(false)
+    expect(documentNeedsSlotFit('<p data-slot-overflow="name:truncate">Truncate</p>')).toBe(true)
+    expect(documentNeedsSlotFit('<p data-slot-overflow="name:shrink:6">Shrink</p>')).toBe(true)
+    expect(documentNeedsSlotFit("<p data-slot-overflow='name:refuse'>Refuse</p>")).toBe(true)
+  })
+
+  test('can omit the bridge while preserving the rest of the document head', () => {
+    const html = frameDocument('<p>x</p>', {
+      scripts: 'refuse',
+      nonce: 'n',
+      bridge: false,
+      dir: 'rtl',
+      lang: 'he',
+      css: 'p{color:red}',
+      csp: "img-src 'none'",
+      printAtMs: 0,
+    })
+    expect(html).not.toContain('<script')
+    expect(html).toContain("script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'")
+    expect(html).toContain('<style>*,*::before,*::after{animation-play-state:paused!important}</style>')
+    expect(html).toContain(BLOCK_DIRECTION_CSS)
+    expect(html).toContain('<style>p{color:red}</style>')
+    expect(html).toContain('<html dir="rtl" lang="he">')
+    const sandboxed = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n', bridge: false, dependencyOrigins: ['https://cdn.example'] })
+    expect(sandboxed).toContain("script-src 'none'")
+    expect(sandboxed).toContain("style-src 'unsafe-inline' https://cdn.example")
+    expect(sandboxed).toContain('font-src data: https://cdn.example')
+    expect(sandboxed).toContain("connect-src 'none'")
+  })
+
   test('sandbox tokens allow forms only for the exact scripted mode and never same-origin', () => {
     const sandboxes = [frameSandbox('sandboxed'), frameSandbox('refuse'), frameSandbox(undefined)]
     expect(sandboxes).toEqual(['allow-scripts allow-forms', 'allow-scripts', 'allow-scripts'])

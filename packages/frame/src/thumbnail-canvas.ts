@@ -1,8 +1,8 @@
 import type { Deck, Slide } from '@segnavia/format'
-import { frameSandbox } from './bridge.ts'
+import { documentNeedsSlotFit } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { defaultFrameTitle } from './frame-title.ts'
-import type { PreparedSlots } from './slot-render.ts'
+import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
 
 export function thumbnailScale(width: number, deckWidth: number): number {
@@ -16,17 +16,19 @@ export function thumbnailCanvas(
   index: number,
   content: ResolvedContent,
   css = '',
-  bridge = false,
   slots?: PreparedSlots,
+  // A caller that inspects the slide's animation through its frame needs the bridge to answer.
+  reportsAnimation = false,
 ): HTMLElement {
+  const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
   const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, {
     css,
     csp: '',
     frameTitle: defaultFrameTitle,
     loaded: () => {},
     slots,
+    bridge,
   })
-  canvas.querySelector('iframe')?.setAttribute('sandbox', bridge ? frameSandbox('refuse') : '')
   return canvas
 }
 

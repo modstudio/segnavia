@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { initialDeckState } from './controller-types.ts'
@@ -8,7 +8,11 @@ import type { PoolOptions } from './frame-pool-options.ts'
 
 type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent; connected?: boolean }
 
-installFramePoolTestDocument()
+let restoreDocument = () => {}
+beforeAll(() => {
+  restoreDocument = installFramePoolTestDocument()
+})
+afterAll(() => restoreDocument())
 
 const deck = Deck.parse({
   title: 'Frames',
