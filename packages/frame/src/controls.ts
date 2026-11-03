@@ -18,7 +18,6 @@ import { SegnaviaControl } from './control.ts'
 import { captionsControlVisible, deckHasNarration, deckPlayable, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
@@ -142,11 +141,6 @@ export class SegnaviaCounter extends SegnaviaControl {
 
 export class SegnaviaFullscreen extends SegnaviaControl {
   private explicitTarget: Element | null = null
-
-  constructor() {
-    super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.fullscreen.properties)
-  }
 
   connectedCallback() {
     super.connectedCallback()

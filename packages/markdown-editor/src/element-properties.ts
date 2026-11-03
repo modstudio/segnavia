@@ -1,14 +1,9 @@
-import type { ElementDescriptor } from '@segnavia/frame/element-properties'
+import type { ElementPropertyTable } from '@segnavia/frame/element-properties'
+
+export const MARKDOWN_EDITOR_TAG = 'segnavia-markdown-editor'
 
 export const MARKDOWN_EDITOR_PROPERTIES = {
-  tag: 'segnavia-markdown-editor',
+  tag: MARKDOWN_EDITOR_TAG,
   properties: ['markdown', 'mode', 'title', 'titleSource', 'lockedFences', 'css', 'fonts', 'fontReferences', 'linkOrigins', 'alertLabels'],
-  events: {
-    'segnavia-markdown-change': 'onSegnaviaMarkdownChange',
-    'segnavia-title-change': 'onSegnaviaTitleChange',
-    'segnavia-mode-change': 'onSegnaviaModeChange',
-    'segnavia-save': 'onSegnaviaSave',
-    'segnavia-editor-state': 'onSegnaviaEditorState',
-    'segnavia-link-request': 'onSegnaviaLinkRequest',
-  },
-} as const satisfies ElementDescriptor
+  events: ['segnavia-markdown-change', 'segnavia-title-change', 'segnavia-mode-change', 'segnavia-save', 'segnavia-editor-state', 'segnavia-link-request'],
+} as const satisfies ElementPropertyTable

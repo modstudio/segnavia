@@ -1,8 +1,8 @@
-import { defineElementPropertyAccessors } from './element-property-accessors.ts'
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 
 export class PageElementAttributes extends HTMLElement {
   static {
-    defineElementPropertyAccessors(PageElementAttributes.prototype, () => ({ css: '', cspExtra: '', dependencyOrigins: [] as Iterable<string> }))
+    defineStylesheetPropertyAccessors(PageElementAttributes.prototype)
   }
   declare css: string
   declare cspExtra: string

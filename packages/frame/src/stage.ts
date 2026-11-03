@@ -16,7 +16,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -67,7 +67,7 @@ export class SegnaviaStage extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.stage.properties)
+    upgradeProperties(this)
   }
 
   get slots(): SlotsOptions | undefined {

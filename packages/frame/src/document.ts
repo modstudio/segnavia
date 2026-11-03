@@ -6,7 +6,8 @@ import { Page, type PageInput, type PageWidths, Print, type PrintInput, type Slo
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -18,9 +19,12 @@ import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal
 const MOUNT_MARGIN = 600
 
 export class SegnaviaDocument extends HTMLElement {
+  static {
+    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['dependencyOrigins'])
+  }
   private stylesheet = ''
   private extraCsp = ''
-  private origins: Iterable<string> = []
+  declare dependencyOrigins: Iterable<string>
   private sourceValues: Page[] = []
   private pageValues: HtmlPage[] = []
   private printValue: Print | null = null
@@ -41,15 +45,7 @@ export class SegnaviaDocument extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.document.properties)
-  }
-
-  get dependencyOrigins(): Iterable<string> {
-    return this.origins
-  }
-
-  set dependencyOrigins(value: Iterable<string>) {
-    this.origins = value
+    upgradeProperties(this)
   }
 
   get slots(): SlotsOptions | undefined {

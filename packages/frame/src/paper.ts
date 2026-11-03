@@ -5,8 +5,8 @@ import { Imposition, type ImpositionInput, impose, type PageInput, Page as PageS
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
-import { defineElementPropertyAccessors } from './element-property-accessors.ts'
+import { upgradeProperties } from './element-properties.ts'
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -18,7 +18,7 @@ import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side']
   static {
-    defineElementPropertyAccessors(SegnaviaPaper.prototype, () => ({ css: '', cspExtra: '', dependencyOrigins: [] as Iterable<string> }))
+    defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
   }
   declare css: string
   declare cspExtra: string
@@ -42,7 +42,7 @@ export class SegnaviaPaper extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.paper.properties)
+    upgradeProperties(this)
   }
 
   get slots(): SlotsOptions | undefined {

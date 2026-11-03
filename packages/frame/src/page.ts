@@ -8,7 +8,7 @@ import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties,
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
@@ -49,7 +49,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.page.properties)
+    upgradeProperties(this)
   }
 
   get alertLabels(): Partial<AlertLabels> | undefined {

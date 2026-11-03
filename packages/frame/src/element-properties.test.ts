@@ -1,10 +1,13 @@
 import { expect, test } from 'bun:test'
-import { ELEMENT_PROPERTIES, ELEMENT_PROPERTY_DESCRIPTORS, upgradeProperties } from './element-properties.ts'
+import { ELEMENT_PROPERTIES, ELEMENT_PROPERTY_DESCRIPTORS, ITEM_SETTINGS_TAG, upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENT_NAMES } from './headless-elements.ts'
 import { STYLED_ELEMENT_NAMES } from './styled-elements.ts'
 
-class ValueElement {
+const HTMLElementBase = globalThis.HTMLElement ?? class {}
+
+class ValueElement extends HTMLElementBase {
   private current = 0
+  applied = 0
 
   get value(): number {
     return this.current
@@ -13,45 +16,87 @@ class ValueElement {
   set value(value: number) {
     if (value < 0) throw new RangeError('The value must not be negative.')
     this.current = value
+    this.applied++
   }
 }
 
-test('owned properties replay through their accessors', () => {
+const settle = () => new Promise<void>((resolve) => queueMicrotask(resolve))
+
+test('replay runs after the scheduling call, not during it', async () => {
   const element = new ValueElement()
   Object.defineProperty(element, 'value', { configurable: true, value: 4, writable: true })
-  upgradeProperties(element, ['value'])
+  upgradeProperties(element)
+  expect(Object.hasOwn(element, 'value')).toBeTrue()
+  expect(element.applied).toBe(0)
+  await settle()
   expect(element.value).toBe(4)
   expect(Object.hasOwn(element, 'value')).toBeFalse()
 })
 
-test('replayed properties receive the same refusal as a late assignment', () => {
-  const late = new ValueElement()
-  expect(() => {
-    late.value = -1
-  }).toThrow('The value must not be negative.')
-
-  const early = new ValueElement()
-  Object.defineProperty(early, 'value', { configurable: true, value: -1, writable: true })
-  expect(() => upgradeProperties(early, ['value'])).toThrow('The value must not be negative.')
+test('a late own-property set wins before replay', async () => {
+  const element = new ValueElement()
+  Object.defineProperty(element, 'value', { configurable: true, value: 1, writable: true })
+  upgradeProperties(element)
+  element.value = 5
+  await settle()
+  expect(element.value).toBe(5)
 })
 
-test('unlisted owned properties stay untouched', () => {
-  const element = Object.assign(new ValueElement(), { other: 3 })
-  upgradeProperties(element, ['value'])
+test('a throwing setter is reported and remaining properties replay', async () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'reportError')
+  const reported: unknown[] = []
+  Object.defineProperty(globalThis, 'reportError', { configurable: true, value: (error: unknown) => reported.push(error) })
+  try {
+    const element = new ValueElement() as ValueElement & { other: number }
+    Object.defineProperty(ValueElement.prototype, 'other', {
+      configurable: true,
+      set(this: { applied: number }) {
+        this.applied++
+      },
+    })
+    Object.defineProperty(element, 'value', { configurable: true, value: -1, writable: true })
+    Object.defineProperty(element, 'other', { configurable: true, value: 2, writable: true })
+    upgradeProperties(element)
+    await settle()
+    expect(reported).toHaveLength(1)
+    expect(reported[0]).toBeInstanceOf(RangeError)
+    expect(element.applied).toBe(1)
+  } finally {
+    Reflect.deleteProperty(ValueElement.prototype, 'other')
+    if (previous) Object.defineProperty(globalThis, 'reportError', previous)
+    else Reflect.deleteProperty(globalThis, 'reportError')
+  }
+})
+
+test('only setters defined by the element classes replay', async () => {
+  const element = Object.assign(new ValueElement(), { other: 3, title: 'native' })
+  upgradeProperties(element)
+  await settle()
   expect(element.other).toBe(3)
   expect(Object.hasOwn(element, 'other')).toBeTrue()
+  expect(Object.hasOwn(element, 'title')).toBeTrue()
+})
+
+test('scheduling twice replays once', async () => {
+  const element = new ValueElement()
+  Object.defineProperty(element, 'value', { configurable: true, value: 4, writable: true })
+  upgradeProperties(element)
+  upgradeProperties(element)
+  await settle()
+  expect(element.applied).toBe(1)
 })
 
 test('the table covers every public frame element and safe event name', () => {
   const tags = new Set<string>(ELEMENT_PROPERTY_DESCRIPTORS.map(({ tag }) => tag))
-  for (const tag of [...HEADLESS_ELEMENT_NAMES, ...STYLED_ELEMENT_NAMES, 'segnavia-item-settings']) expect(tags.has(tag)).toBeTrue()
+  for (const tag of [...HEADLESS_ELEMENT_NAMES, ...STYLED_ELEMENT_NAMES, ITEM_SETTINGS_TAG]) expect(tags.has(tag)).toBeTrue()
   for (const { events } of ELEMENT_PROPERTY_DESCRIPTORS) {
-    for (const name of Object.keys(events)) expect(name).not.toMatch(/(?:once|passive|capture)$/i)
+    for (const name of events) expect(name).not.toMatch(/(?:once|passive|capture)$/i)
   }
   expect(ELEMENT_PROPERTIES.board.properties).toContain('selected')
 })
 
 test('every declared property is an accessor on its element prototype', async () => {
+  // Per-class upgrade tests require a real browser because these elements build shadow DOM and frames; they belong to the browser check.
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class HTMLElement extends EventTarget {} })
   try {
@@ -106,7 +151,7 @@ test('every declared property is an accessor on its element prototype', async ()
           accessor = Object.getOwnPropertyDescriptor(prototype, property)
           prototype = Object.getPrototypeOf(prototype)
         }
-        expect(accessor?.get || accessor?.set, `${descriptor.tag}.${property}`).toBeFunction()
+        expect(accessor?.set, `${descriptor.tag}.${property}`).toBeFunction()
       }
     }
     const freshStage = Object.create(stage.SegnaviaStage.prototype) as InstanceType<typeof stage.SegnaviaStage>

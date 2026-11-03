@@ -7,7 +7,7 @@ import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from '
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -32,7 +32,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private latestInput: 'src' | 'view' | null = null
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.book.properties)
+    upgradeProperties(this)
   }
 
   connectedCallback() {

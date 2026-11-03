@@ -5,7 +5,7 @@ import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
 import { BoardTargetBinding } from './board-target.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 export type BoardItemSearch = (query: string, signal: AbortSignal) => Promise<string[]>
 
@@ -32,7 +32,7 @@ export class SegnaviaBoardList extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.boardList.properties)
+    upgradeProperties(this)
     this.input.type = 'search'
     this.input.dir = 'auto'
     this.input.part.add('search')

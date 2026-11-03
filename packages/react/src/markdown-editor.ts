@@ -34,7 +34,14 @@ export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'ti
 
 const markdownEditor: ElementDescriptor<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'> = {
   ...MARKDOWN_EDITOR_PROPERTIES,
-  events: invertEvents(MARKDOWN_EDITOR_PROPERTIES.events),
+  events: invertEvents({
+    'segnavia-markdown-change': 'onSegnaviaMarkdownChange',
+    'segnavia-title-change': 'onSegnaviaTitleChange',
+    'segnavia-mode-change': 'onSegnaviaModeChange',
+    'segnavia-save': 'onSegnaviaSave',
+    'segnavia-editor-state': 'onSegnaviaEditorState',
+    'segnavia-link-request': 'onSegnaviaLinkRequest',
+  } satisfies Record<(typeof MARKDOWN_EDITOR_PROPERTIES.events)[number], Extract<keyof MarkdownEditorProps, `on${string}`>>),
 }
 
 export const MarkdownEditor = createComponent(markdownEditor)

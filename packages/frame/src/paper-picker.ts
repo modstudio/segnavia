@@ -16,7 +16,7 @@ import {
   toMillimeters,
 } from '@segnavia/format'
 import { TOKENS_CSS } from './controls-style.ts'
-import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 const CUSTOM_VALUE = 'custom'
 
@@ -79,7 +79,7 @@ export class SegnaviaPaperPicker extends HTMLElement {
 
   constructor() {
     super()
-    upgradeProperties(this, ELEMENT_PROPERTIES.paperPicker.properties)
+    upgradeProperties(this)
   }
 
   get value(): PrintSetting {

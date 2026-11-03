@@ -1,4 +1,4 @@
-import { defineElementPropertyAccessors } from './element-property-accessors.ts'
+import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 
 export interface StagePropertyValues {
@@ -11,10 +11,8 @@ export interface StagePropertyValues {
 }
 
 export function defineStagePropertyAccessors(prototype: object): void {
-  defineElementPropertyAccessors<StagePropertyValues>(prototype, () => ({
-    css: '',
-    cspExtra: '',
-    dependencyOrigins: [],
+  defineStylesheetPropertyAccessors(prototype)
+  defineElementPropertyAccessors(prototype, () => ({
     bridgeReadyTimeoutMs: 10_000,
     frameTitle: defaultFrameTitle,
   }))

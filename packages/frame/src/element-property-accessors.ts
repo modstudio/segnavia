@@ -20,3 +20,19 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
     })
   }
 }
+
+interface StylesheetPropertyValues {
+  css: string
+  cspExtra: string
+  dependencyOrigins: Iterable<string>
+}
+
+export function defineStylesheetPropertyAccessors(
+  prototype: object,
+  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'dependencyOrigins'],
+): void {
+  defineElementPropertyAccessors(prototype, () => {
+    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', dependencyOrigins: [] }
+    return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
+  })
+}
