@@ -2,7 +2,7 @@ import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { type Clock, speechClock, timedClock } from './clock.ts'
 import { emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
-import { prefetchControllerNeighbors, syncControllerHash } from './controller-navigation.ts'
+import { prefetchControllerNeighbors, slideIndexById, syncControllerHash } from './controller-navigation.ts'
 import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { handleControllerPageKey } from './controller-page-key.ts'
 import { replacePlacementLifetime, setPlacementOptions } from './controller-placement-options.ts'
@@ -117,7 +117,12 @@ export class DeckController extends EventTarget {
     if (index !== this.current.index) await runNavigationGuard(this)
     await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
-
+  async goToSlide(id: string): Promise<boolean> {
+    const index = this.current.deck ? slideIndexById(this.current.deck, id) : undefined
+    if (index === undefined) return false
+    await this.go(index)
+    return true
+  }
   contentFor(index: number): Promise<ResolvedContent> {
     const slide = this.current.deck?.slides[index]
     if (!slide) return Promise.reject(new RangeError(`Slide ${index + 1} is outside the deck.`))
@@ -129,7 +134,6 @@ export class DeckController extends EventTarget {
     }
     return ready
   }
-
   refreshContent(): Promise<ContentRefreshResult> {
     if (!this.options.resolveSlide) return Promise.resolve('refreshed')
     const { index, slide } = this.current
@@ -150,11 +154,9 @@ export class DeckController extends EventTarget {
     this.refreshing = refreshing
     return refreshing
   }
-
   forgetContent(slideId: string) {
     this.prefetched.delete(slideId)
   }
-
   present(element: HTMLElement) {
     if (this.presented === element) return
     this.stopPresenting()
@@ -165,7 +167,6 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, presenting: true }
     this.emit()
   }
-
   stopPresenting() {
     if (!this.presented) return
     this.presented.removeAttribute('data-presenting')
@@ -174,7 +175,6 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, presenting: false }
     this.emit()
   }
-
   async next(): Promise<void> {
     const deck = this.current.deck
     if (deck && this.current.index < deck.slides.length - 1) return this.go(this.current.index + 1)
