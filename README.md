@@ -20,6 +20,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
 | An IDML package read into a validated Book: document setup, master parent pages with marks and folios, opener title blocks with outlined SVG art and claimed headers, story styles and columns, and host-mapped fonts and SVG assets; unmapped features and linked resources are reported, and linked files are never fetched | `@segnavia/idml` |
 | Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, segmented or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
+| Slim headless deck viewing: `DeckController`, `HEADLESS_ELEMENTS` and `formatTime`, defining only `<segnavia-stage>` and `<segnavia-thumbnail>` (a page thumbnail defines `<segnavia-page>` when it mounts one), without board, book, paper or document code | `@segnavia/frame/deck` |
 | Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
 | The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
 | A finished player, a layout of those components, with an optional thumbnail rail: `<segnavia-player>` | `@segnavia/frame/player` |
