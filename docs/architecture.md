@@ -7,7 +7,7 @@ format  ◄── html          (universal: browser and server)
   ▲       ▲
   └── idml ┘              (universal: IDML package import)
   ▲
-  ├── frame               (browser; svg, timeline, bridge, fit and print-document are server-safe)
+  ├── frame ◄── diagrams  (browser; diagrams is optional and its payload is server-safe)
   │     ▲
   │     └── react         (browser adapter; React is a peer dependency here only)
   │     ▲
@@ -122,8 +122,9 @@ bundle is wholly inlined so screen, browser print and server rendering stay
 offline. It loads only when the final body contains a
 `pre[data-segnavia-diagram="mermaid"]` placeholder, whether that body came from
 markdown conversion or was supplied as HTML; plain documents carry none of it.
-The shipped `diagramScript` export in `dist/diagrams.js`, containing Mermaid
-12.2.0 and the drawing adapter, measures 5,497,505 bytes minified and 1,600,941
+The optional `@segnavia/diagrams` package owns Mermaid. Its explicit
+`@segnavia/diagrams/script` entry exports the complete `diagramScript`, containing Mermaid
+12.2.0 and the drawing adapter, measures 5,496,971 bytes minified and 1,600,754
 bytes gzip. Drawing
 settles before bridge readiness and before book or printed-page composition.
 Each diagram is rendered independently, its SVG text resolves its own
@@ -132,10 +133,23 @@ message line instead of delaying readiness.
 
 Each browser entry is one self-contained file with no static sibling imports,
 so a page without a diagram loads exactly that file. The one permitted sibling
-is the relative diagram chunk, which the entry imports dynamically only after a
-document carries the diagram placeholder. Under the repository source
-condition, Bun reads the source diagram entry while Node reads the built string,
-because Node cannot import the Mermaid bundle as text.
+is the relative diagram chunk built from the diagrams package's prebuilt script.
+The headless, controls and player bundles each register a provider that imports
+that chunk dynamically only after a document carries the diagram placeholder.
+Under the repository source condition, Bun reads the source diagram entry while
+Node reads the built string, because Node cannot import the Mermaid bundle as
+text.
+
+Ordinary hosts opt into drawing by calling `registerDiagramProvider(diagrams)`,
+where `diagrams` is the lazy provider from `@segnavia/diagrams`, or by importing
+`@segnavia/diagrams/auto`. The registry is shared through
+`globalThis[Symbol.for('segnavia.diagrams')]`, so duplicate copies of frame see
+the same provider. The diagrams package's main entry exports only the lazy
+provider: it has no import side effect and does not statically load the script
+module. Only its `./auto` entry registers. A page, book or browser print containing a
+diagram refuses through its existing load-error path when no provider is
+registered. Server render depends on the diagrams package directly and embeds
+the script exported from `@segnavia/diagrams/script`.
 
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset
@@ -282,7 +296,7 @@ hit-testing and grid or row arrangement live in universal
 without loading an element.
 A board's unbounded surface is its canvas, while a slide's canvas is bounded.
 
-The eight packages are built as ESM JavaScript and declarations with tsdown;
+The nine packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so
@@ -336,6 +350,7 @@ retains the final override in every render view.
 
 | Seam | Where | What the host supplies |
 |---|---|---|
+| `registerDiagramProvider` | `@segnavia/frame/diagrams` | A `() => Promise<string>` provider for the complete offline diagram script. `@segnavia/diagrams` exports the lazy provider and its `/auto` entry registers it. |
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
 | `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |

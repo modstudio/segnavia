@@ -18,6 +18,7 @@ const workspace = (name: string, exports = ['.']): Workspace => ({
   rule: PACKAGES[name] as Workspace['rule'],
   exports,
   dependencies: PACKAGES[name]?.imports ?? [],
+  sources: [],
 })
 const all = new Map([
   ['@segnavia/format', workspace('format')],
@@ -67,6 +68,12 @@ describe('architecture rules', () => {
   test('package.json and architecture.ts must agree both ways', () => {
     const drifted = { ...workspace('voice'), dependencies: ['@segnavia/format', 'left-pad'] }
     expect(checkManifest(drifted).map((f) => f.message)).toEqual(['left-pad is a dependency that architecture.ts does not allow.'])
+  })
+
+  test('a server-safe entry must name an existing source file', () => {
+    const frame = workspace('frame')
+    const drifted = { ...frame, sources: (frame.rule.serverSafe ?? []).filter((entry) => entry !== 'src/bridge.ts').map((entry) => `packages/frame/${entry}`) }
+    expect(checkManifest(drifted).map((finding) => finding.message)).toEqual(['@segnavia/frame serverSafe entry src/bridge.ts names no source file.'])
   })
 
   test('source resolution stays consistent across manifests, TypeScript and commands', () => {

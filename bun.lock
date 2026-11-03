@@ -6,6 +6,7 @@
       "name": "segnavia-poc",
       "dependencies": {
         "@segnavia/capture": "workspace:*",
+        "@segnavia/diagrams": "workspace:*",
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -42,6 +43,15 @@
         "playwright-core": "1.55.1",
       },
     },
+    "packages/diagrams": {
+      "name": "@segnavia/diagrams",
+      "version": "0.41.0",
+      "dependencies": {
+        "@segnavia/format": "workspace:*",
+        "@segnavia/frame": "workspace:*",
+        "mermaid": "12.2.0",
+      },
+    },
     "packages/format": {
       "name": "@segnavia/format",
       "version": "0.41.0",
@@ -71,7 +81,6 @@
         "@tiptap/pm": "3.32.0",
         "@tiptap/starter-kit": "3.32.0",
         "codemirror-lang-mermaid": "0.5.0",
-        "mermaid": "12.2.0",
       },
     },
     "packages/html": {
@@ -119,6 +128,7 @@
       "name": "@segnavia/render",
       "version": "0.41.0",
       "dependencies": {
+        "@segnavia/diagrams": "workspace:*",
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -377,6 +387,8 @@
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
 
     "@segnavia/capture": ["@segnavia/capture@workspace:packages/capture"],
+
+    "@segnavia/diagrams": ["@segnavia/diagrams@workspace:packages/diagrams"],
 
     "@segnavia/format": ["@segnavia/format@workspace:packages/format"],
 

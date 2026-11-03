@@ -26,6 +26,7 @@
     }
   },
   "dependencies": {
+    "@segnavia/diagrams": "workspace:*",
     "@segnavia/format": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",

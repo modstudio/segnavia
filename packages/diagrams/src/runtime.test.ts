@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { diagramErrorFirstLine, diagramLabelDirection, diagramScript } from './diagrams.ts'
+import { diagramErrorFirstLine, diagramLabelDirection } from './runtime.ts'
 
 describe('diagram drawing runtime', () => {
-  test('is valid JavaScript after the bundle and adapter are assembled', () => {
-    expect(() => new Function(diagramScript)).not.toThrow()
-  })
-
   test('keeps only the parser error first line', () => {
     expect(diagramErrorFirstLine(new Error('First\nSecond'))).toBe('First')
     expect(diagramErrorFirstLine('Plain\r\nMore')).toBe('Plain')

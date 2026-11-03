@@ -3,6 +3,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { bunSource, PACKAGES, SOURCE_CONDITION, type SourceExport } from '../architecture.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -59,6 +60,50 @@ for (const [exportName, conditions] of Object.entries(frame.manifest.exports).fi
   if (staticImports.length > 0) {
     throw new Error(`${specifier(frame.manifest.name, exportName)} must be one self-contained browser entry; found ${staticImports[0]?.path}.`)
   }
+}
+
+const diagramsIndex = path.join(ROOT, 'packages/diagrams/dist/index.js')
+const diagramsIndexImports = new Bun.Transpiler({ loader: 'js' }).scan(readFileSync(diagramsIndex, 'utf8')).imports
+const staticDiagramScript = diagramsIndexImports.find(
+  ({ kind, path: importPath }) => kind === 'import-statement' && /^\.\/script(?:\.[cm]?js)?$/.test(importPath),
+)
+if (staticDiagramScript) {
+  throw new Error(`@segnavia/diagrams must load its script lazily; found static import ${staticDiagramScript.path}.`)
+}
+
+const diagramsScript = path.join(ROOT, 'packages/diagrams/dist/script.js')
+const diagramsScriptDeclarationsPath = path.join(ROOT, 'packages/diagrams/dist/script.d.ts')
+const diagramScriptModule = await import(pathToFileURL(diagramsScript).href)
+const diagramScriptExports = Object.keys(diagramScriptModule).sort()
+const diagramScriptDeclarations = [
+  ...readFileSync(diagramsScriptDeclarationsPath, 'utf8').matchAll(
+    /^export declare (?:const|let|var|function|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm,
+  ),
+]
+  .map((match) => match[1] as string)
+  .sort()
+if (JSON.stringify(diagramScriptExports) !== JSON.stringify(diagramScriptDeclarations)) {
+  throw new Error(
+    `@segnavia/diagrams/script exports must match its declarations; JavaScript has ${diagramScriptExports.join(', ') || 'none'}, declarations have ${diagramScriptDeclarations.join(', ') || 'none'}.`,
+  )
+}
+if (typeof diagramScriptModule.diagramScript !== 'string' || diagramScriptModule.diagramScript.length === 0) {
+  throw new Error('@segnavia/diagrams/script must export a non-empty diagramScript string.')
+}
+
+const diagramProviderKey = Symbol.for('segnavia.diagrams')
+const diagramRegistry = globalThis as typeof globalThis & { [diagramProviderKey]?: () => Promise<string> }
+if (typeof diagramRegistry[diagramProviderKey] === 'function') {
+  throw new Error('@segnavia/diagrams/auto must be the entry that registers the diagram provider.')
+}
+await import(pathToFileURL(path.join(ROOT, 'packages/diagrams/dist/auto.js')).href)
+const builtDiagramProvider: unknown = Reflect.get(diagramRegistry, diagramProviderKey)
+if (typeof builtDiagramProvider !== 'function') {
+  throw new Error('@segnavia/diagrams/auto must register a diagram provider when imported.')
+}
+const providedDiagramScript = await builtDiagramProvider()
+if (typeof providedDiagramScript !== 'string' || providedDiagramScript.length === 0) {
+  throw new Error('@segnavia/diagrams/auto must register a provider that resolves to a non-empty diagram script.')
 }
 
 for (const { name, manifest } of installed) {

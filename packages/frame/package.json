@@ -68,13 +68,9 @@
       "default": "./dist/bridge.js"
     },
     "./diagrams": {
-      "@segnavia/source": {
-        "bun": "./src/diagrams.ts",
-        "node": "./dist/diagrams.js",
-        "default": "./src/diagrams.ts"
-      },
-      "types": "./dist/diagrams.d.ts",
-      "default": "./dist/diagrams.js"
+      "@segnavia/source": "./src/diagram-document.ts",
+      "types": "./dist/diagram-document.d.ts",
+      "default": "./dist/diagram-document.js"
     },
     "./image-fit": {
       "@segnavia/source": "./src/image-fit.ts",
@@ -200,7 +196,6 @@
     "@tiptap/starter-kit": "3.32.0",
     "@segnavia/format": "workspace:*",
     "@segnavia/html": "workspace:*",
-    "codemirror-lang-mermaid": "0.5.0",
-    "mermaid": "12.2.0"
+    "codemirror-lang-mermaid": "0.5.0"
   }
 }

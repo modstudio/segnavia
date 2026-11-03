@@ -1,5 +1,5 @@
+import { diagramScript } from '@segnavia/diagrams/script'
 import { newNonce } from '@segnavia/frame/bridge'
-import { diagramScript } from '@segnavia/frame/diagrams'
 import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { HtmlPage } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'

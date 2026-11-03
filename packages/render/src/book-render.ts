@@ -1,3 +1,4 @@
+import { diagramScript } from '@segnavia/diagrams/script'
 import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
@@ -6,7 +7,7 @@ import {
   bookDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
-import { diagramScript, hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
+import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'

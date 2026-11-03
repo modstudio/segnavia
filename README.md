@@ -19,6 +19,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, a helper turning a host's slide rows into a deck, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
 | An IDML package read into a validated Book: document setup, master parent pages with marks and folios, opener title blocks with outlined SVG art and claimed headers, story styles and columns, and host-mapped fonts and SVG assets; unmapped features and linked resources are reported, and linked files are never fetched | `@segnavia/idml` |
+| Optional offline Mermaid drawing for page and book diagram placeholders | `@segnavia/diagrams` |
 | Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, segmented or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
 | Slim headless deck viewing: `DeckController`, `HEADLESS_ELEMENTS` and `formatTime`, defining only `<segnavia-stage>` and `<segnavia-thumbnail>` (a page thumbnail defines `<segnavia-page>` when it mounts one), without board, book, paper or document code | `@segnavia/frame/deck` |
 | Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
@@ -82,6 +83,25 @@ const controller = stage.controller
 controller.addEventListener('change', ({ detail: state }) => render(state))   // index, playing, word, shown, progress, direction
 nextButton.onclick = () => controller.next()
 ```
+
+Install `@segnavia/diagrams` only when the host draws Mermaid placeholders. Register it once with the convenience entry:
+
+```js
+import '@segnavia/diagrams/auto'
+```
+
+Or register its lazy provider explicitly:
+
+```js
+import { diagrams } from '@segnavia/diagrams'
+import { registerDiagramProvider } from '@segnavia/frame/diagrams'
+
+registerDiagramProvider(diagrams)
+```
+
+The main diagrams entry exports only this lazy provider. Code that needs the
+complete payload string directly imports `diagramScript` from
+`@segnavia/diagrams/script`.
 
 Fill a reusable design through its existing inert bindings before it enters a
 sandboxed frame:

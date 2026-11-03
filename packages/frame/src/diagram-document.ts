@@ -4,6 +4,15 @@ export const DIAGRAM_ERROR_ATTRIBUTE = 'data-segnavia-diagram-error'
 export const DIAGRAM_ID_PREFIX = 'segnavia-diagram-'
 export const DIAGRAM_READY_NAME = '__segnaviaDiagramReady'
 export const DIAGRAM_READY_EXPR = `window.${DIAGRAM_READY_NAME}||null`
+const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
+
+type DiagramProvider = () => Promise<string>
+
+type DiagramRegistry = typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: DiagramProvider }
+
+export function registerDiagramProvider(provider: DiagramProvider): void {
+  ;(globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY] = provider
+}
 
 const selector = /^([a-z]+)\[([a-z-]+)="([^"]+)"\]$/.exec(DIAGRAM_SELECTOR)
 if (!selector) throw new Error('The diagram selector must be an element with one exact attribute value.')
@@ -22,7 +31,13 @@ export function withDiagramScript(html: string, nonce: string, script: string | 
 
 export async function loadDiagramScript(html: string): Promise<string | undefined> {
   if (!hasDiagram(html)) return undefined
-  return (await import('./diagrams.ts')).diagramScript
+  const provider = (globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY]
+  if (!provider) {
+    throw new Error(
+      "This page draws a diagram, but no diagram provider is registered. Call registerDiagramProvider(diagrams) from '@segnavia/diagrams', or import '@segnavia/diagrams/auto', to draw it.",
+    )
+  }
+  return provider()
 }
 
 export async function loadDiagramScriptResult(html: string): Promise<{ script?: string; error?: unknown }> {

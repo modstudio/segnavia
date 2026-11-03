@@ -1,6 +1,12 @@
-import { describe, expect, test } from 'bun:test'
-import { hasDiagram, withDiagramScript } from './diagram-document.ts'
-import { diagramScript } from './diagrams.ts'
+import { afterEach, describe, expect, test } from 'bun:test'
+import { hasDiagram, loadDiagramScript, registerDiagramProvider, withDiagramScript } from './diagram-document.ts'
+
+const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
+const registry = globalThis as typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: () => Promise<string> }
+
+afterEach(() => {
+  delete registry[DIAGRAM_PROVIDER_KEY]
+})
 
 describe('diagram script loading', () => {
   test('is decided only by the final document body', () => {
@@ -17,15 +23,26 @@ describe('diagram script loading', () => {
     )
   })
 
-  test('keeps replacement tokens and the complete renderer literal before a closing body', () => {
+  test('keeps replacement tokens literal before a closing body', () => {
     const html = '<body><p>AUTHOR_TEXT_OUTSIDE_SCRIPT</p><pre data-segnavia-diagram="mermaid"></pre></body>'
     const tokens = `var values = ["$&", "${'$`'}", "$'", "$$"];`
     const tokenOutput = withDiagramScript(html, 'held', tokens)
     expect(tokenOutput).toContain(`<script nonce="held">${tokens}</script>`)
     expect(tokenOutput.match(/AUTHOR_TEXT_OUTSIDE_SCRIPT/g)).toHaveLength(1)
     expect(tokenOutput.match(/<script nonce="held">([\s\S]*?)<\/script>/)?.[1]).not.toContain('AUTHOR_TEXT_OUTSIDE_SCRIPT')
+  })
 
-    const output = withDiagramScript(html, 'held', diagramScript)
-    expect(output).toContain(`<script nonce="held">${diagramScript}</script>`)
+  test('refuses a placeholder when no provider is registered', async () => {
+    expect(loadDiagramScript('<pre data-segnavia-diagram="mermaid"></pre>')).rejects.toThrow(
+      "This page draws a diagram, but no diagram provider is registered. Call registerDiagramProvider(diagrams) from '@segnavia/diagrams', or import '@segnavia/diagrams/auto', to draw it.",
+    )
+  })
+
+  test('uses a provider registered through the shared global slot', async () => {
+    registry[DIAGRAM_PROVIDER_KEY] = () => Promise.resolve('DRAW')
+    expect(await loadDiagramScript('<pre data-segnavia-diagram="mermaid"></pre>')).toBe('DRAW')
+
+    registerDiagramProvider(() => Promise.resolve('REPLACED'))
+    expect(await loadDiagramScript('<pre data-segnavia-diagram="mermaid"></pre>')).toBe('REPLACED')
   })
 })

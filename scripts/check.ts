@@ -51,6 +51,7 @@ function workspaces(): Map<string, Workspace> {
       rule,
       exports: Object.keys(manifest.exports),
       dependencies: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+      sources: sources().filter((source) => source.startsWith(`packages/${name}/`)),
     })
   }
   return map
