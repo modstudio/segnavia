@@ -36,7 +36,7 @@ export class DeckController extends EventTarget {
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
     super()
-    this.options = { hash: 'slide-', keys: 'stage', ...options }
+    this.options = { hash: null, keys: 'stage', ...options }
     this.settings = readViewerSettings(this.options.persist !== false)
     this.current = { ...this.current, ...this.settings }
     this.connectWindow()

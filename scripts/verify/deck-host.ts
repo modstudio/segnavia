@@ -12,6 +12,57 @@ export async function verifyDeckHost(h: Harness) {
   await page.waitForFunction(() => document.querySelectorAll('#deck iframe').length === 2)
   check('deck host: a 40-slide first window mounts two frames', (await page.locator(`${STAGE} iframe`).count()) === 2)
 
+  const hostHash = await page.evaluate(async () => {
+    const host = (
+      window as unknown as {
+        __deckHost: {
+          controller: {
+            constructor: new () => {
+              state: { index: number }
+              connectWindow(): void
+              destroy(): void
+              go(index: number): Promise<void>
+              load(deck: unknown): Promise<void>
+            }
+            connectWindow(): void
+            disconnectWindow(): void
+          }
+        }
+      }
+    ).__deckHost
+    host.controller.disconnectWindow()
+    history.replaceState(null, '', '#host-route')
+    const controller = new host.controller.constructor()
+    controller.connectWindow()
+    const deck = {
+      title: 'Embedded deck',
+      slides: ['one', 'two', 'three'].map((id) => ({ id, content: { kind: 'html' as const, html: '' } })),
+    }
+    await controller.load(deck)
+    const loaded = { index: controller.state.index, hash: location.hash }
+    await controller.go(2)
+    const navigated = { index: controller.state.index, hash: location.hash }
+    history.replaceState(null, '', '#slide-3')
+    await controller.go(0)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const changed = { index: controller.state.index, hash: location.hash }
+    controller.destroy()
+    history.replaceState(null, '', location.pathname + location.search)
+    host.controller.connectWindow()
+    return { loaded, navigated, changed }
+  })
+  check(
+    'deck host: a constructed controller leaves the host hash alone and ignores hash changes by default',
+    hostHash.loaded.index === 0 &&
+      hostHash.loaded.hash === '#host-route' &&
+      hostHash.navigated.index === 2 &&
+      hostHash.navigated.hash === '#host-route' &&
+      hostHash.changed.index === 0 &&
+      hostHash.changed.hash === '#slide-3',
+    JSON.stringify(hostHash),
+  )
+
   const turn = await neighborTurnFacts(h)
   check('deck host: a turn reveals the unchanged neighbor frame and mounts three', turn.same && turn.count === 3, JSON.stringify(turn))
 

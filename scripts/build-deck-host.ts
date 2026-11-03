@@ -24,7 +24,7 @@ const makeSlide = (id, suffix='') => ({id,content:{kind:'html',html:'<!doctype h
 const makeDeck = (ids, edits={}, scripts='refuse', transition={kind:'none'}, dir) => ({title:'Window deck',scripts,transition,dir,slides:ids.map(id=>makeSlide(id,edits[id]||''))})
 let ids = Array.from({length:Number(new URLSearchParams(location.search).get('slides')||40)},(_,index)=>'slide-'+(index+1))
 let scripts = 'refuse'
-const controller = new lib.DeckController({keys:'page'})
+const controller = new lib.DeckController({keys:'page',hash:'slide-'})
 stage.controller = controller
 stage.css = 'h1{color:rgb(200, 0, 0)}'
 stage.reserve = {blockStart:140,blockEnd:172}
