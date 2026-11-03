@@ -1,6 +1,6 @@
 import type { FontReference } from '@segnavia/format'
+import { type FontsOptions, uniqueFontReferences } from '@segnavia/frame/fonts'
 import type { AlertLabels } from '@segnavia/html'
-import { type FontsOptions, uniqueFontReferences } from './page-fonts.ts'
 
 function equalValue(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true

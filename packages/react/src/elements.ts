@@ -15,7 +15,6 @@ import type {
 } from '@segnavia/frame/controls'
 import { HEADLESS_ELEMENTS } from '@segnavia/frame/headless-elements'
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
-import type { SegnaviaMarkdownEditor } from '@segnavia/frame/markdown-editor'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
@@ -26,7 +25,6 @@ import type {
   DocumentProps,
   FullscreenProps,
   ItemSettingsProps,
-  MarkdownEditorProps,
   MuteProps,
   NotesProps,
   PageProps,
@@ -104,18 +102,6 @@ export const ELEMENTS = {
     HEADLESS_ELEMENTS.page,
     ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'alertLabels', 'placements', 'pageWidths'],
     {},
-  ),
-  markdownEditor: element<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'>(
-    'segnavia-markdown-editor',
-    ['markdown', 'mode', 'title', 'titleSource', 'lockedFences', 'css', 'fonts', 'fontReferences', 'linkOrigins', 'alertLabels'],
-    {
-      onSegnaviaMarkdownChange: 'segnavia-markdown-change',
-      onSegnaviaTitleChange: 'segnavia-title-change',
-      onSegnaviaModeChange: 'segnavia-mode-change',
-      onSegnaviaSave: 'segnavia-save',
-      onSegnaviaEditorState: 'segnavia-editor-state',
-      onSegnaviaLinkRequest: 'segnavia-link-request',
-    },
   ),
   book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
     HEADLESS_ELEMENTS.book,

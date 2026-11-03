@@ -1,13 +1,12 @@
 import type { FontReference } from '@segnavia/format'
+import { createPageElement, HEADLESS_ELEMENTS, SegnaviaPage } from '@segnavia/frame'
+import type { FontsOptions } from '@segnavia/frame/fonts'
 import { safeMarkdownUrl } from '@segnavia/html'
 import { Editor, type JSONContent } from '@tiptap/core'
 import type { Node } from '@tiptap/pm/model'
-import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
-import { createPageElement, SegnaviaPage } from './page.ts'
-import type { FontsOptions } from './page-fonts.ts'
 
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 

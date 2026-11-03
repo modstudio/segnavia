@@ -8,8 +8,9 @@ format  ◄── html          (universal: browser and server)
   └── idml ┘              (universal: IDML package import)
   ▲
   ├── frame ◄── diagrams  (browser; diagrams is optional and its payload is server-safe)
-  │     ▲
-  │     └── react         (browser adapter; React is a peer dependency here only)
+  │     ▲  ▲
+  │     │  └── markdown-editor (browser; optional editor engines are required peers)
+  │     └───── react      (browser adapter; React is a peer dependency here only)
   │     ▲
   │     ├── render        (server: host-supplied playwright-core and Chromium, pdf-lib)
   │     │     ▲
@@ -157,11 +158,15 @@ type.
 
 ### Markdown editor
 
-`@segnavia/frame/markdown-editor` is the browser-only entry that defines
+`@segnavia/markdown-editor` is the browser-only package that defines
 `<segnavia-markdown-editor>`. It is an optional, ordinary package entry: the
-player, headless and controls bundles do not import it, and no server-safe
-entry reaches it. The element has an open shadow root and supplies behavior
-and zero-specificity geometry only. `unstyled` removes that geometry.
+frame, player, headless and controls bundles do not import it. The editor
+depends on frame only for its public page, font and base-style helpers. Its
+Tiptap, CodeMirror, Lezer and Mermaid-language engines are required peers, so
+a host supplies one shared copy. The element has an open shadow root and
+supplies behavior and zero-specificity geometry only. `unstyled` removes
+that geometry. Its stylesheet is installed once per document or shadow root
+and is not part of frame's `BASE_CSS`.
 
 The element reflects `mode`, `title-source` and `unstyled`. The `markdown`
 attribute is the initial or host-declared value, like an input's `value`;
@@ -296,7 +301,7 @@ hit-testing and grid or row arrangement live in universal
 without loading an element.
 A board's unbounded surface is its canvas, while a slide's canvas is bounded.
 
-The nine packages are built as ESM JavaScript and declarations with tsdown;
+The ten packages are built as ESM JavaScript and declarations with tsdown;
 their tsdown platform comes from each package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so

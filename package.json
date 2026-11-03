@@ -28,6 +28,7 @@
     "@segnavia/format": "workspace:*",
     "@segnavia/capture": "workspace:*",
     "@segnavia/diagrams": "workspace:*",
+    "@segnavia/markdown-editor": "workspace:*",
     "@segnavia/voice": "workspace:*",
     "@segnavia/render": "workspace:*",
     "@segnavia/frame": "workspace:*",

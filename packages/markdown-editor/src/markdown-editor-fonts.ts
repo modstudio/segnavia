@@ -1,5 +1,5 @@
 import type { AppFont, FontFace as FontFaceData, FontReference } from '@segnavia/format'
-import { appNames, FontRefusedError, type FontsOptions, refuseMissingFontSource, requireAppFontName, uniqueFontReferences } from './page-fonts.ts'
+import { appNames, FontRefusedError, type FontsOptions, refuseMissingFontSource, requireAppFontName, uniqueFontReferences } from '@segnavia/frame/fonts'
 
 function nativeFace(face: FontFaceData): FontFace {
   const descriptors: FontFaceDescriptors = {}

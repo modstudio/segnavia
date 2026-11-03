@@ -9,6 +9,7 @@ describe('changed test selection', () => {
       'html',
       'idml',
       'diagrams',
+      'markdown-editor',
       'frame',
       'react',
       'voice',
@@ -19,7 +20,7 @@ describe('changed test selection', () => {
 
   test('both paths of a package move select their packages and dependents', () => {
     expect(selectChangedTests(['packages/html/src/moved.ts', 'packages/voice/src/moved.ts'], PACKAGES)).toEqual({
-      packages: ['html', 'idml', 'diagrams', 'frame', 'react', 'voice', 'render', 'capture'],
+      packages: ['html', 'idml', 'diagrams', 'markdown-editor', 'frame', 'react', 'voice', 'render', 'capture'],
       scripts: true,
       packageChecks: false,
     })

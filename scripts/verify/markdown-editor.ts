@@ -1,3 +1,4 @@
+import type { SegnaviaMarkdownEditor } from '@segnavia/markdown-editor'
 import type { Harness } from './harness.ts'
 
 type EditorEvents = {
@@ -11,7 +12,7 @@ type EditorEvents = {
   submits: number
 }
 
-type EditorHandle = { markdown: string; mode: string; run(command: string, args?: unknown): boolean }
+type EditorHandle = Pick<SegnaviaMarkdownEditor, 'markdown' | 'mode' | 'run'>
 
 async function selectRichText(page: Harness['page'], text = 'Keyboard target.') {
   await page.evaluate((wanted) => {

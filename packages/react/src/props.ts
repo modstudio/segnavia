@@ -30,7 +30,6 @@ import type {
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
 import type { ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/item-settings'
-import type { MarkdownEditorMode, MarkdownEditorStateDetail, MarkdownTitleSource, SegnaviaMarkdownEditor } from '@segnavia/frame/markdown-editor'
 import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -136,28 +135,6 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   label?: string
   bounded?: boolean
   unstyled?: boolean
-}
-
-export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'title'> {
-  markdown?: string
-  mode?: MarkdownEditorMode
-  title?: string | null
-  titleSource?: MarkdownTitleSource
-  dir?: string
-  lang?: string
-  unstyled?: boolean
-  lockedFences?: Record<string, string>
-  css?: string
-  fonts?: SegnaviaMarkdownEditor['fonts']
-  fontReferences?: SegnaviaMarkdownEditor['fontReferences']
-  linkOrigins?: SegnaviaMarkdownEditor['linkOrigins']
-  alertLabels?: SegnaviaMarkdownEditor['alertLabels']
-  onSegnaviaMarkdownChange?: CustomEventProp<{ markdown: string }>
-  onSegnaviaTitleChange?: CustomEventProp<{ title: string }>
-  onSegnaviaModeChange?: CustomEventProp<{ mode: MarkdownEditorMode }>
-  onSegnaviaSave?: CustomEventProp
-  onSegnaviaEditorState?: CustomEventProp<MarkdownEditorStateDetail>
-  onSegnaviaLinkRequest?: CustomEventProp<{ href: string | null }>
 }
 
 export interface BookProps extends ElementProps<SegnaviaBook> {

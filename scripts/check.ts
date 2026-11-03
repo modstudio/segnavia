@@ -4,7 +4,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { PACKAGES, SOURCE_CONDITION } from '../architecture.ts'
+import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import {
@@ -14,6 +14,7 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
+  checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
   type Finding,
@@ -79,6 +80,20 @@ function structural(names: string[]): Finding[] {
   const all = workspaces()
   const findings: Finding[] = []
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
+  const packageManifests = Object.keys(PACKAGES).map((name) => {
+    const relative = `packages/${name}/package.json`
+    return {
+      ...(JSON.parse(readFileSync(path.join(ROOT, relative), 'utf8')) as {
+        name: string
+        dependencies?: Record<string, string>
+        peerDependencies?: Record<string, string>
+        optionalDependencies?: Record<string, string>
+        devDependencies?: Record<string, string>
+      }),
+      path: relative,
+    }
+  })
+  findings.push(...checkReactDependencies(packageManifests, REACT_PACKAGE_ALLOWLIST))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {
