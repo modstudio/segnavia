@@ -17,8 +17,10 @@ export function thumbnailCanvas(
   content: ResolvedContent,
   css = '',
   slots?: PreparedSlots,
+  // A caller that inspects the slide's animation through its frame needs the bridge to answer.
+  reportsAnimation = false,
 ): HTMLElement {
-  const bridge = content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots))
+  const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
   const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, {
     css,
     csp: '',

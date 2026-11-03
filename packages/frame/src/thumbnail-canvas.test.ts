@@ -9,11 +9,11 @@ installFramePoolTestDocument()
 
 const controller = { url: (src: string) => src } as DeckController
 
-function htmlThumbnail(html: string, slots?: PreparedSlots) {
+function htmlThumbnail(html: string, slots?: PreparedSlots, reportsAnimation = false) {
   const deck = Deck.parse({ title: 'Thumbnail', slides: [{ id: 'one', content: { kind: 'html', html } }] })
   const slide = deck.slides[0]
   if (!slide) throw new Error('Expected a slide.')
-  return thumbnailCanvas(controller, deck, slide, 0, slide.content as ResolvedContent, '', slots).querySelector('iframe')
+  return thumbnailCanvas(controller, deck, slide, 0, slide.content as ResolvedContent, '', slots, reportsAnimation).querySelector('iframe')
 }
 
 describe('thumbnail geometry and resolution identity', () => {
@@ -48,7 +48,10 @@ describe('thumbnail geometry and resolution identity', () => {
     expect(frame?.getAttribute('sandbox')).not.toContain('allow-same-origin')
   })
 
-  test('the unfilled canvas used by the rail is script-free', () => {
-    expect(htmlThumbnail('<p>Rail preview</p>')?.srcdoc).not.toContain('<script')
+  test('a preview that reports its animation keeps the bridge without allowing author scripts', () => {
+    const frame = htmlThumbnail('<p>Rail preview</p>', undefined, true)
+    expect(frame?.srcdoc).toContain('<script nonce="')
+    expect(frame?.srcdoc).toContain("script-src 'nonce-")
+    expect(frame?.getAttribute('sandbox')).toBe('allow-scripts')
   })
 })

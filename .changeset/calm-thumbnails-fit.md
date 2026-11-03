@@ -2,4 +2,4 @@
 '@segnavia/frame': minor
 ---
 
-Thumbnails no longer carry a script unless a filled slot needs fitting, and rail thumbnails are script-free.
+A `<segnavia-thumbnail>` frame no longer carries a script unless a `shrink`, `truncate` or `refuse` slot needs fitting: without one its sandbox is empty and its policy refuses every script. Rail thumbnails keep the bridge.
