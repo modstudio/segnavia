@@ -1,4 +1,4 @@
-import { diagramScript } from '@segnavia/diagrams'
+import { diagramScript } from '@segnavia/diagrams/script'
 import { newNonce } from '@segnavia/frame/bridge'
 import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { HtmlPage } from '@segnavia/html'

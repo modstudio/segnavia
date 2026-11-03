@@ -1,4 +1,4 @@
-import { diagramScript } from '@segnavia/diagrams'
+import { diagramScript } from '@segnavia/diagrams/script'
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'

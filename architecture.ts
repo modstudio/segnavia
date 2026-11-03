@@ -52,6 +52,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   diagrams: {
     runtime: 'browser',
     imports: ['@segnavia/frame', 'mermaid'],
+    // The provider and explicit script entries are server-safe; auto registration is browser-only.
     serverSafe: ['src/index.ts', 'src/script.ts'],
   },
   frame: {

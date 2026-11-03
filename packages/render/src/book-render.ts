@@ -1,4 +1,4 @@
-import { diagramScript } from '@segnavia/diagrams'
+import { diagramScript } from '@segnavia/diagrams/script'
 import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,

@@ -90,7 +90,18 @@ Install `@segnavia/diagrams` only when the host draws Mermaid placeholders. Regi
 import '@segnavia/diagrams/auto'
 ```
 
-Or register its lazy provider explicitly with `registerDiagramProvider(diagrams)` from `@segnavia/frame/diagrams` and `@segnavia/diagrams`.
+Or register its lazy provider explicitly:
+
+```js
+import { diagrams } from '@segnavia/diagrams'
+import { registerDiagramProvider } from '@segnavia/frame/diagrams'
+
+registerDiagramProvider(diagrams)
+```
+
+The main diagrams entry exports only this lazy provider. Code that needs the
+complete payload string directly imports `diagramScript` from
+`@segnavia/diagrams/script`.
 
 Fill a reusable design through its existing inert bindings before it enters a
 sandboxed frame:

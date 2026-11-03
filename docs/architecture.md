@@ -122,8 +122,8 @@ bundle is wholly inlined so screen, browser print and server rendering stay
 offline. It loads only when the final body contains a
 `pre[data-segnavia-diagram="mermaid"]` placeholder, whether that body came from
 markdown conversion or was supplied as HTML; plain documents carry none of it.
-The optional `@segnavia/diagrams` package owns Mermaid and exports its complete
-`diagramScript`, containing Mermaid
+The optional `@segnavia/diagrams` package owns Mermaid. Its explicit
+`@segnavia/diagrams/script` entry exports the complete `diagramScript`, containing Mermaid
 12.2.0 and the drawing adapter, measures 5,496,971 bytes minified and 1,600,754
 bytes gzip. Drawing
 settles before bridge readiness and before book or printed-page composition.
@@ -144,11 +144,12 @@ Ordinary hosts opt into drawing by calling `registerDiagramProvider(diagrams)`,
 where `diagrams` is the lazy provider from `@segnavia/diagrams`, or by importing
 `@segnavia/diagrams/auto`. The registry is shared through
 `globalThis[Symbol.for('segnavia.diagrams')]`, so duplicate copies of frame see
-the same provider. The diagrams package's main entry has no import side effect;
-only its `./auto` entry registers. A page, book or browser print containing a
+the same provider. The diagrams package's main entry exports only the lazy
+provider: it has no import side effect and does not statically load the script
+module. Only its `./auto` entry registers. A page, book or browser print containing a
 diagram refuses through its existing load-error path when no provider is
 registered. Server render depends on the diagrams package directly and embeds
-its exported script.
+the script exported from `@segnavia/diagrams/script`.
 
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset

@@ -61,6 +61,15 @@ for (const [exportName, conditions] of Object.entries(frame.manifest.exports).fi
   }
 }
 
+const diagramsIndex = path.join(ROOT, 'packages/diagrams/dist/index.js')
+const diagramsIndexImports = new Bun.Transpiler({ loader: 'js' }).scan(readFileSync(diagramsIndex, 'utf8')).imports
+const staticDiagramScript = diagramsIndexImports.find(
+  ({ kind, path: importPath }) => kind === 'import-statement' && /^\.\/script(?:\.[cm]?js)?$/.test(importPath),
+)
+if (staticDiagramScript) {
+  throw new Error(`@segnavia/diagrams must load its script lazily; found static import ${staticDiagramScript.path}.`)
+}
+
 for (const { name, manifest } of installed) {
   for (const dependency of Object.keys(manifest.dependencies ?? {}).filter((dependency) => !dependency.startsWith('@segnavia/'))) {
     const target = path.join(HOST, 'node_modules', dependency)
