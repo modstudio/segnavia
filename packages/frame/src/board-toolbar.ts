@@ -1,5 +1,6 @@
 import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { SegnaviaBoard } from './board.ts'
 import type { SegnaviaBoardList } from './board-list.ts'
 import { BoardTargetBinding, TargetBinding } from './board-target.ts'
@@ -56,6 +57,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.boardToolbar.properties)
     this.toolbar.part.add('toolbar')
     this.toolbar.setAttribute('role', 'toolbar')
     this.listButton = this.button('list')

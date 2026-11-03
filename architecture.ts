@@ -107,6 +107,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/page-fonts.ts',
       'src/slot-render.ts',
       'src/styled-elements.ts',
+      'src/element-properties.ts',
       'src/icons.ts',
       'src/diagram-document.ts',
       'src/page-document-loading.ts',

@@ -3,6 +3,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
@@ -41,6 +42,7 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.thumbnail.properties)
     this.viewport.part.add('thumbnail')
     this.root.append(this.viewport)
   }

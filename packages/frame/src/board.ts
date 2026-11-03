@@ -13,6 +13,7 @@ import {
   zoomToFit,
 } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
@@ -108,6 +109,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
     super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.board.properties)
     this.surface.part.add('surface')
     this.surface.dir = 'ltr'
     this.root.append(this.surface)

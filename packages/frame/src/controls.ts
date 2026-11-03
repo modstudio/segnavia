@@ -17,6 +17,7 @@
 import { SegnaviaControl } from './control.ts'
 import { captionsControlVisible, deckHasNarration, deckPlayable, formatTime, timeValues } from './control-values.ts'
 import type { DeckState } from './controller.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
@@ -140,6 +141,13 @@ export class SegnaviaCounter extends SegnaviaControl {
 }
 
 export class SegnaviaFullscreen extends SegnaviaControl {
+  private explicitTarget: Element | null = null
+
+  constructor() {
+    super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.fullscreen.properties)
+  }
+
   connectedCallback() {
     super.connectedCallback()
     document.addEventListener('fullscreenchange', this.onFullscreen)
@@ -150,7 +158,13 @@ export class SegnaviaFullscreen extends SegnaviaControl {
   }
   // An element set directly wins over the `target` id, for a host whose
   // target is outside the component's own root.
-  targetElement: Element | null = null
+  get targetElement(): Element | null {
+    return this.explicitTarget
+  }
+
+  set targetElement(value: Element | null) {
+    this.explicitTarget = value
+  }
   private target(): Element | null {
     if (this.targetElement) return this.targetElement
     const id = this.getAttribute('target') ?? this.getAttribute('for')

@@ -38,7 +38,7 @@ export function syncElementProps(
     if (/^on[A-Z]/.test(name)) {
       if (typeof value === 'function') {
         const listener = value as EventListener
-        const type = descriptor.events[name] ?? eventName(name)
+        const type = Object.entries(descriptor.events).find(([, reactName]) => reactName === name)?.[0] ?? eventName(name)
         element.addEventListener(type, listener)
         cleanups.push(() => element.removeEventListener(type, listener))
       }

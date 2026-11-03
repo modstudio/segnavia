@@ -19,6 +19,7 @@ import { resumeController, suspendController } from './controller-connection.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
@@ -37,14 +38,13 @@ export interface StageReserve {
 
 export class SegnaviaStage extends HTMLElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
-  // Styles applied inside every slide, such as a host's house style.
-  css = ''
-  cspExtra = ''
-  dependencyOrigins: Iterable<string> = []
-  bridgeReadyTimeoutMs = 10_000
+  private stylesheet = ''
+  private extraCsp = ''
+  private origins: Iterable<string> = []
+  private bridgeTimeout = 10_000
+  private title: FrameTitle = defaultFrameTitle
   private owned: DeckController | null = null
   private attached: DeckController | null = null
-  frameTitle: FrameTitle = defaultFrameTitle
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
@@ -64,6 +64,52 @@ export class SegnaviaStage extends HTMLElement {
     (state) => this.update(state),
   )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
+
+  constructor() {
+    super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.stage.properties)
+  }
+
+  // Styles applied inside every slide, such as a host's house style.
+  get css(): string {
+    return this.stylesheet
+  }
+
+  set css(value: string) {
+    this.stylesheet = value
+  }
+
+  get cspExtra(): string {
+    return this.extraCsp
+  }
+
+  set cspExtra(value: string) {
+    this.extraCsp = value
+  }
+
+  get dependencyOrigins(): Iterable<string> {
+    return this.origins
+  }
+
+  set dependencyOrigins(value: Iterable<string>) {
+    this.origins = value
+  }
+
+  get bridgeReadyTimeoutMs(): number {
+    return this.bridgeTimeout
+  }
+
+  set bridgeReadyTimeoutMs(value: number) {
+    this.bridgeTimeout = value
+  }
+
+  get frameTitle(): FrameTitle {
+    return this.title
+  }
+
+  set frameTitle(value: FrameTitle) {
+    this.title = value
+  }
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions

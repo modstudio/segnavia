@@ -1,6 +1,7 @@
 import { type Fill, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
 import { type FieldsActions, renderFields } from './item-settings-fields.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import {
   addFill,
   cloneFill,
@@ -48,6 +49,7 @@ export class SegnaviaItemSettings extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.itemSettings.properties)
     const style = document.createElement('style')
     style.textContent = ITEM_SETTINGS_CSS
     this.sectionsEl = document.createElement('div')

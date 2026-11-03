@@ -2,9 +2,11 @@ import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
 import type { FontReference } from '@segnavia/format'
 import type { FontsOptions } from '@segnavia/frame/fonts'
+import { upgradeProperties } from '@segnavia/frame/element-properties'
 import { type AlertLabels, sanitizeBookCss } from '@segnavia/html'
 import type { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
+import { MARKDOWN_EDITOR_PROPERTIES } from './element-properties.ts'
 import { MarkdownEditorFontRegistration } from './markdown-editor-font-registration.ts'
 import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
@@ -73,6 +75,7 @@ class MarkdownEditorElement extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this, MARKDOWN_EDITOR_PROPERTIES.properties)
     this.container.part.add('editor')
     this.titleField.part.add('title')
     this.titleField.type = 'text'
@@ -384,6 +387,7 @@ class MarkdownEditorElement extends HTMLElement {
 }
 
 export type { FontsOptions } from '@segnavia/frame/fonts'
+export { MARKDOWN_EDITOR_PROPERTIES } from './element-properties.ts'
 export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_COMMANDS, MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'

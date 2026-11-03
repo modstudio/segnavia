@@ -6,6 +6,7 @@ import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
@@ -29,7 +30,20 @@ export class SegnaviaBook extends BookSourcesElement {
   private loadController: AbortController | null = null
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
-  dependencyOrigins: Iterable<string> = []
+  private origins: Iterable<string> = []
+
+  constructor() {
+    super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.book.properties)
+  }
+
+  get dependencyOrigins(): Iterable<string> {
+    return this.origins
+  }
+
+  set dependencyOrigins(value: Iterable<string>) {
+    this.origins = value
+  }
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)

@@ -113,6 +113,11 @@
       "types": "./dist/headless-elements.d.ts",
       "default": "./dist/headless-elements.js"
     },
+    "./element-properties": {
+      "@segnavia/source": "./src/element-properties.ts",
+      "types": "./dist/element-properties.d.ts",
+      "default": "./dist/element-properties.js"
+    },
     "./player": {
       "@segnavia/source": "./src/player-entry.ts",
       "types": "./dist/player-entry.d.ts",

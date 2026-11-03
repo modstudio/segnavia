@@ -1,5 +1,6 @@
 import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import type { SegnaviaBoard } from './board.ts'
 import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
@@ -31,6 +32,7 @@ export class SegnaviaBoardList extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.boardList.properties)
     this.input.type = 'search'
     this.input.dir = 'auto'
     this.input.part.add('search')

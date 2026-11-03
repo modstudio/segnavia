@@ -8,6 +8,7 @@ import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties,
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
@@ -28,9 +29,9 @@ export { SELECTION_REPLY_MS } from './selection-request.ts'
 
 export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
-  css = ''
-  cspExtra = ''
-  dependencyOrigins: Iterable<string> = []
+  private stylesheet = ''
+  private extraCsp = ''
+  private origins: Iterable<string> = []
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
   private contentHeight = 0
@@ -51,6 +52,35 @@ export class SegnaviaPage extends PageElementAttributes {
   private selectionRequests = new Set<SelectionCancellation>()
   private postedSelectionRequests = new Set<PostedSelectionRequest>()
   private selectionReadyRequests = new Set<() => void>()
+
+  constructor() {
+    super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.page.properties)
+  }
+
+  get css(): string {
+    return this.stylesheet
+  }
+
+  set css(value: string) {
+    this.stylesheet = value
+  }
+
+  get cspExtra(): string {
+    return this.extraCsp
+  }
+
+  set cspExtra(value: string) {
+    this.extraCsp = value
+  }
+
+  get dependencyOrigins(): Iterable<string> {
+    return this.origins
+  }
+
+  set dependencyOrigins(value: Iterable<string>) {
+    this.origins = value
+  }
 
   get alertLabels(): Partial<AlertLabels> | undefined {
     return this.alertLabelOptions

@@ -1,6 +1,7 @@
 import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
@@ -53,7 +54,7 @@ export interface RailSlideSettingsItem {
 }
 
 export class SegnaviaRail extends SegnaviaControl {
-  mountMargin = 400
+  private margin = 400
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => {
     this.measure()
@@ -72,6 +73,19 @@ export class SegnaviaRail extends SegnaviaControl {
   private slideSettings = new Map<string, RailSlideSettingsItem>()
   private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
   private itemSettings: { label: string; open: () => void } | null = null
+
+  constructor() {
+    super()
+    upgradeProperties(this, ELEMENT_PROPERTIES.rail.properties)
+  }
+
+  get mountMargin(): number {
+    return this.margin
+  }
+
+  set mountMargin(value: number) {
+    this.margin = value
+  }
 
   protected styles() {
     return RAIL_CSS

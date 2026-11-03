@@ -15,6 +15,7 @@ import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
+import { ELEMENT_PROPERTIES, upgradeProperties } from './element-properties.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
@@ -103,6 +104,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
       this.scheduleMeasure()
     })
     this.syncAssignedActions()
+    upgradeProperties(this, ELEMENT_PROPERTIES.player.properties)
   }
 
   get labels(): PlayerLabels {

@@ -1,5 +1,11 @@
 import '@segnavia/markdown-editor'
-import type { MarkdownEditorMode, MarkdownEditorStateDetail, MarkdownTitleSource, SegnaviaMarkdownEditor } from '@segnavia/markdown-editor'
+import {
+  MARKDOWN_EDITOR_PROPERTIES,
+  type MarkdownEditorMode,
+  type MarkdownEditorStateDetail,
+  type MarkdownTitleSource,
+  type SegnaviaMarkdownEditor,
+} from '@segnavia/markdown-editor'
 import type { ElementDescriptor, PropsFor } from './elements.ts'
 import { createComponent } from './index.ts'
 import type { CustomEventProp, ElementProps } from './props.ts'
@@ -27,16 +33,7 @@ export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'ti
 }
 
 const markdownEditor: ElementDescriptor<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'> = {
-  tag: 'segnavia-markdown-editor',
-  properties: ['markdown', 'mode', 'title', 'titleSource', 'lockedFences', 'css', 'fonts', 'fontReferences', 'linkOrigins', 'alertLabels'],
-  events: {
-    onSegnaviaMarkdownChange: 'segnavia-markdown-change',
-    onSegnaviaTitleChange: 'segnavia-title-change',
-    onSegnaviaModeChange: 'segnavia-mode-change',
-    onSegnaviaSave: 'segnavia-save',
-    onSegnaviaEditorState: 'segnavia-editor-state',
-    onSegnaviaLinkRequest: 'segnavia-link-request',
-  },
+  ...MARKDOWN_EDITOR_PROPERTIES,
 }
 
 export const MarkdownEditor = createComponent(markdownEditor)
