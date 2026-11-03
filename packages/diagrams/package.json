@@ -51,6 +51,7 @@
     }
   },
   "dependencies": {
+    "@segnavia/format": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "mermaid": "12.2.0"
   }

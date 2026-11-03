@@ -51,7 +51,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   diagrams: {
     runtime: 'browser',
-    imports: ['@segnavia/frame', 'mermaid'],
+    imports: ['@segnavia/format', '@segnavia/frame', 'mermaid'],
     // The provider and explicit script entries are server-safe; auto registration is browser-only.
     serverSafe: ['src/index.ts', 'src/script.ts'],
   },
@@ -101,7 +101,6 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/slot-render.ts',
       'src/styled-elements.ts',
       'src/icons.ts',
-      'src/diagrams.ts',
       'src/diagram-document.ts',
       'src/page-document-loading.ts',
     ],

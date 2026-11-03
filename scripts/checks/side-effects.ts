@@ -1,7 +1,7 @@
-// Keeps package side-effect declarations aligned with modules that register
-// custom elements when imported. The source condition and browser build resolve
-// src modules, while published consumers resolve dist modules, so both forms
-// must be declared side-effecting.
+// Keeps package side-effect declarations aligned with modules that run code
+// when imported. The source condition and browser build resolve src modules,
+// while published consumers resolve dist modules, so both forms must be
+// declared side-effecting.
 
 import ts from 'typescript'
 import type { Finding } from './rules.ts'
@@ -12,7 +12,7 @@ export interface SideEffectsPackage {
   sources: { path: string; text: string }[]
 }
 
-const TEST_FILE = /\.(?:test|spec)\.[mc]?[jt]sx?$/
+const TEST_FILE = /\.(?:test|spec|test-helper)\.[mc]?[jt]sx?$/
 
 function functionOrClass(node: ts.Node): boolean {
   return (
@@ -28,20 +28,25 @@ function functionOrClass(node: ts.Node): boolean {
   )
 }
 
-function isCustomElementDefinition(node: ts.Node): node is ts.CallExpression {
-  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false
-  const receiver = node.expression.expression
-  return ts.isIdentifier(receiver) && receiver.text === 'customElements' && node.expression.name.text === 'define'
+function callsFunction(node: ts.Node): boolean {
+  if (ts.isCallExpression(node)) return true
+  if (functionOrClass(node)) return false
+  let found = false
+  ts.forEachChild(node, (child) => {
+    if (!found && callsFunction(child)) found = true
+  })
+  return found
 }
 
-// A call is at module level when no function-like or class node contains it.
-// Control-flow bodies do not change that status, so a top-level loop counts.
-export function registersCustomElementAtModuleLevel(path: string, text: string): boolean {
+// An effect statement is at module level when no function-like or class node
+// contains it. Control-flow bodies do not change that status, so a top-level
+// loop counts. Calls in declaration initializers are not effect statements.
+export function runsCodeAtModuleLevel(path: string, text: string): boolean {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true)
   let found = false
   const visit = (node: ts.Node, insideFunctionOrClass: boolean) => {
     const inside = insideFunctionOrClass || functionOrClass(node)
-    if (!inside && isCustomElementDefinition(node)) found = true
+    if (!inside && ts.isExpressionStatement(node) && callsFunction(node.expression)) found = true
     if (!found) ts.forEachChild(node, (child) => visit(child, inside))
   }
   visit(source, false)
@@ -58,29 +63,25 @@ function sourcePath(source: string): string {
 }
 
 export function checkSideEffects(pkg: SideEffectsPackage): Finding[] {
-  const registering = pkg.sources.filter((source) => !TEST_FILE.test(source.path) && registersCustomElementAtModuleLevel(source.path, source.text))
+  const effectful = pkg.sources.filter((source) => !TEST_FILE.test(source.path) && runsCodeAtModuleLevel(source.path, source.text))
   const required = new Map(
-    registering.flatMap((source) => [
+    effectful.flatMap((source) => [
       [builtPath(source.path), source.path],
       [sourcePath(source.path), source.path],
     ]),
   )
-  if (pkg.path === 'packages/diagrams/package.json') {
-    required.set('./src/auto.ts', 'packages/diagrams/src/auto.ts')
-    required.set('./dist/auto.js', 'packages/diagrams/src/auto.ts')
-  }
   const listed = new Set(pkg.sideEffects)
   const findings: Finding[] = []
   for (const [entry, source] of required) {
     if (!listed.has(entry))
-      findings.push({ rule: 'side-effects', path: source, message: `defines an element at load but ${entry} is not in ${pkg.path} sideEffects; add it.` })
+      findings.push({ rule: 'side-effects', path: source, message: `runs code when imported but ${entry} is not in ${pkg.path} sideEffects; add it.` })
   }
   for (const entry of listed) {
     // Browser outputs are bundles declared by the browser build config rather
     // than one-to-one source outputs, so their listed names are accepted.
     if (entry.startsWith('./dist/browser/')) continue
     if (!required.has(entry))
-      findings.push({ rule: 'side-effects', path: pkg.path, message: `${entry} does not register an element at load; remove it from sideEffects.` })
+      findings.push({ rule: 'side-effects', path: pkg.path, message: `${entry} does not run code when imported; remove it from sideEffects.` })
   }
   return findings
 }

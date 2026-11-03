@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { checkSideEffects, registersCustomElementAtModuleLevel, type SideEffectsPackage } from './side-effects.ts'
+import { checkSideEffects, runsCodeAtModuleLevel, type SideEffectsPackage } from './side-effects.ts'
 
 function example(sideEffects: string[], sources: SideEffectsPackage['sources']): SideEffectsPackage {
   return { path: 'packages/example/package.json', sideEffects, sources }
@@ -33,30 +33,41 @@ describe('side-effect declarations', () => {
   test('refuses a missing registering entry', () => {
     const pkg = example([], [{ path: 'packages/example/src/register.ts', text: `customElements.define('x-one', Element)` }])
     expect(checkSideEffects(pkg)[0]?.message).toBe(
-      'defines an element at load but ./dist/register.js is not in packages/example/package.json sideEffects; add it.',
+      'runs code when imported but ./dist/register.js is not in packages/example/package.json sideEffects; add it.',
     )
   })
 
   test('refuses a registering module listed only in its dist form', () => {
     const pkg = example(['./dist/register.js'], [{ path: 'packages/example/src/register.ts', text: `customElements.define('x-one', Element)` }])
-    expect(checkSideEffects(pkg)[0]?.message).toBe(
-      'defines an element at load but ./src/register.ts is not in packages/example/package.json sideEffects; add it.',
-    )
+    expect(checkSideEffects(pkg)[0]?.message).toBe('runs code when imported but ./src/register.ts is not in packages/example/package.json sideEffects; add it.')
   })
 
   test('refuses a stale entry that registers nothing', () => {
     const pkg = example(['./src/plain.ts', './dist/plain.js'], [{ path: 'packages/example/src/plain.ts', text: 'export const value = 1' }])
     expect(checkSideEffects(pkg).map((finding) => finding.message)).toEqual([
-      './src/plain.ts does not register an element at load; remove it from sideEffects.',
-      './dist/plain.js does not register an element at load; remove it from sideEffects.',
+      './src/plain.ts does not run code when imported; remove it from sideEffects.',
+      './dist/plain.js does not run code when imported; remove it from sideEffects.',
     ])
   })
 
-  test('does not count a definition inside a function body', () => {
-    expect(registersCustomElementAtModuleLevel('x.ts', `function install() { customElements.define('x-one', Element) }`)).toBeFalse()
+  test('counts a top-level registration call', () => {
+    expect(runsCodeAtModuleLevel('x.ts', 'registerDiagramProvider(diagrams)')).toBeTrue()
   })
 
-  test('counts a definition in a top-level for loop', () => {
-    expect(registersCustomElementAtModuleLevel('x.ts', `for (const tag of tags) customElements.define(tag, Element)`)).toBeTrue()
+  test('does not count a call inside a declaration initializer', () => {
+    expect(runsCodeAtModuleLevel('x.ts', 'const registered = registerDiagramProvider(diagrams)')).toBeFalse()
+  })
+
+  test('does not require test-helper modules with top-level calls to be listed', () => {
+    const pkg = example([], [{ path: 'packages/example/src/setup.test-helper.ts', text: 'installTestGlobals()' }])
+    expect(checkSideEffects(pkg)).toEqual([])
+  })
+
+  test('does not count a definition inside a function body', () => {
+    expect(runsCodeAtModuleLevel('x.ts', `function install() { customElements.define('x-one', Element) }`)).toBeFalse()
+  })
+
+  test('counts a custom element definition in a top-level for loop', () => {
+    expect(runsCodeAtModuleLevel('x.ts', `for (const tag of tags) customElements.define(tag, Element)`)).toBeTrue()
   })
 })

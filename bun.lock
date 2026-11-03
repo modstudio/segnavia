@@ -47,6 +47,7 @@
       "name": "@segnavia/diagrams",
       "version": "0.41.0",
       "dependencies": {
+        "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "mermaid": "12.2.0",
       },

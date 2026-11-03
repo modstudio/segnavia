@@ -15,6 +15,7 @@ export interface Workspace {
   rule: PackageRule
   exports: string[]
   dependencies: string[]
+  sources: string[]
 }
 
 export interface Finding {
@@ -103,7 +104,8 @@ export function checkImports(file: SourceFile, workspace: Workspace, all: Map<st
 // What package.json declares must be exactly what architecture.ts allows, so
 // neither can drift without the other.
 export function checkManifest(workspace: Workspace): Finding[] {
-  const path = `packages/${workspace.name.replace('@segnavia/', '')}/package.json`
+  const packageName = workspace.name.replace('@segnavia/', '')
+  const path = `packages/${packageName}/package.json`
   const findings: Finding[] = []
   for (const name of workspace.rule.imports) {
     if (!workspace.dependencies.includes(name)) findings.push({ rule: 'architecture', path, message: `${name} is allowed but not a dependency.` })
@@ -111,6 +113,10 @@ export function checkManifest(workspace: Workspace): Finding[] {
   for (const name of workspace.dependencies) {
     if (!workspace.rule.imports.includes(name))
       findings.push({ rule: 'architecture', path, message: `${name} is a dependency that architecture.ts does not allow.` })
+  }
+  for (const entry of workspace.rule.serverSafe ?? []) {
+    if (!workspace.sources.includes(`packages/${packageName}/${entry}`))
+      findings.push({ rule: 'architecture', path: 'architecture.ts', message: `${workspace.name} serverSafe entry ${entry} names no source file.` })
   }
   return findings
 }
