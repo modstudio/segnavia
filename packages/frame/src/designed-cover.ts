@@ -5,7 +5,7 @@ import type { CoverPresentation } from './designed-cover-policy.ts'
 import { fitDesignedCover } from './fit.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
-import { SegnaviaPage } from './page.ts'
+import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
@@ -31,7 +31,7 @@ export function mountDesignedCover(
   sheet.style.blockSize = `${projection.box.height}px`
   sheet.style.flex = 'none'
   sheet.style.transformOrigin = 'center'
-  const page = new SegnaviaPage()
+  const page = createPageElement()
   page.motifs = motifs
   page.fonts = fonts
   page.placements = placements

@@ -2,13 +2,14 @@ import type { FontReference } from '@segnavia/format'
 import { safeMarkdownUrl } from '@segnavia/html'
 import { Editor, type JSONContent } from '@tiptap/core'
 import type { Node } from '@tiptap/pm/model'
+import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
-import { SegnaviaPage } from './page.ts'
+import { createPageElement, SegnaviaPage } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
-if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
+if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 
 type LockedViewOptions = {
   alertLabels?: Record<string, string>
@@ -33,7 +34,7 @@ function lockedView(options: () => LockedViewOptions) {
           text.textContent = label
           dom.append(text)
         } else {
-          const page = document.createElement('segnavia-page') as SegnaviaPage
+          const page = createPageElement()
           const current = options()
           page.css = current.css()
           page.fonts = current.fonts
