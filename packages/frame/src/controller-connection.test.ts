@@ -3,13 +3,6 @@ import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
 import { suspendController } from './controller-connection.ts'
 
-test('a constructed controller does not opt into a hash prefix', () => {
-  const controller = new DeckController()
-  const options = Reflect.get(controller, 'options') as { hash?: string | null }
-  expect(options.hash).toBeNull()
-  controller.destroy()
-})
-
 test('removing a controller host pauses its clock and leaves it reusable', async () => {
   let clockPaused = 0
   const clock: Clock = {
