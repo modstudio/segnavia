@@ -115,6 +115,7 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck
     if (!deck || index < 0 || index >= deck.slides.length) return
     if (index !== this.current.index) await runNavigationGuard(this)
+    if (this.current.deck !== deck) return
     await this.show(index, true).catch((error) => navigationError(this, this.current.playing, index, error))
   }
   async goToSlide(id: string): Promise<boolean> {
@@ -394,6 +395,5 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck
     syncControllerHash(this, deck ? this.hashIndex(deck) : null)
   }
-
   private onPageKey = (event: KeyboardEvent) => handleControllerPageKey(this, event)
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { DeckController, type ResolvedContent } from './controller.ts'
 import { slideIndexById } from './controller-navigation.ts'
+import { setNavigationGuard } from './navigation-guard.ts'
 
 const deck = (ids: string[]) =>
   Deck.parse({
@@ -85,6 +86,21 @@ describe('slide id navigation', () => {
     expect(await controller.goToSlide('b')).toBe(true)
 
     expect(controller.state.index).toBe(2)
+  })
+
+  test('drops navigation when the deck changes while its guard is pending', async () => {
+    const controller = new DeckController({ hash: null, persist: false })
+    await controller.load(deck(['a', 'b', 'c']))
+    const pending = Promise.withResolvers<void>()
+    setNavigationGuard(controller, () => pending.promise)
+
+    const loading = controller.load(deck(['x', 'y', 'z']))
+    const navigating = controller.goToSlide('c')
+    pending.resolve()
+    await Promise.all([loading, navigating])
+
+    expect(await navigating).toBe(false)
+    expect(controller.state.slide?.id).toBe('x')
   })
 })
 
