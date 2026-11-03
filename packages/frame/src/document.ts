@@ -7,7 +7,7 @@ import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
-import { SegnaviaPage } from './page.ts'
+import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
@@ -269,7 +269,7 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!source || !print) return
     const projection = projectPageOnPaper(source, print)
-    const page = new SegnaviaPage()
+    const page = createPageElement()
     page.motifs = this.motifOptions
     page.placements = this.placementOptions
     page.pageWidths = this.widthOptions

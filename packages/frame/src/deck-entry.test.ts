@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Page, Print } from '@segnavia/format'
+import { Cover, Page, Print } from '@segnavia/format'
 
 const definitions = new Map<string, CustomElementConstructor>()
 
@@ -74,7 +74,7 @@ function installGlobals() {
   })
 }
 
-test('the deck entry defines only deck elements and a page thumbnail defines its page on demand', async () => {
+test('the deck entry defines only deck elements and thumbnails define pages on demand', async () => {
   installGlobals()
   const deck = await import('./deck.ts')
 
@@ -83,6 +83,22 @@ test('the deck entry defines only deck elements and a page thumbnail defines its
   expect(definitions.has('segnavia-board')).toBeFalse()
   expect(definitions.has('segnavia-book')).toBeFalse()
   expect(definitions.has('segnavia-page')).toBeFalse()
+
+  const coverViewport = new TestElement()
+  const coverThumbnail = {
+    designedCoverValue: { cover: Cover.parse({ page: { html: '<p>Cover</p>' } }) },
+    designedCoverDisposal: undefined,
+    viewport: coverViewport,
+    motifOptions: undefined,
+    fontOptions: undefined,
+    placementOptions: undefined,
+    slotOptions: undefined,
+    dispatchEvent() {},
+  }
+  const mount = deck.SegnaviaThumbnail.prototype as unknown as { mount(this: typeof coverThumbnail): Promise<void> }
+  await mount.mount.call(coverThumbnail)
+  expect(definitions.has('segnavia-page')).toBeTrue()
+  expect(coverViewport.children).toHaveLength(1)
 
   const viewport = new TestElement()
   const thumbnail = {
@@ -98,7 +114,6 @@ test('the deck entry defines only deck elements and a page thumbnail defines its
   }
   const mountPage = deck.SegnaviaThumbnail.prototype as unknown as { mountPage(this: typeof thumbnail): void }
   expect(() => mountPage.mountPage.call(thumbnail)).not.toThrow()
-  expect(definitions.has('segnavia-page')).toBeTrue()
   expect(viewport.children).toHaveLength(1)
 
   const main = await import('./index.ts')

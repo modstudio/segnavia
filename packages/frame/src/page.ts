@@ -8,6 +8,7 @@ import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties,
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
@@ -390,4 +391,9 @@ export class SegnaviaPage extends PageElementAttributes {
     this.dataset.measured = ''
     this.fit()
   }
+}
+
+export function createPageElement(): SegnaviaPage {
+  if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
+  return document.createElement(HEADLESS_ELEMENTS.page) as SegnaviaPage
 }

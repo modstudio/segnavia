@@ -4,7 +4,7 @@ import { SegnaviaBook } from './book.ts'
 import { coverImage } from './cover-element.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
-import { SegnaviaPage } from './page.ts'
+import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
@@ -59,7 +59,7 @@ export function liveBoardItem(
     return { element: thumbnail, dispose: () => thumbnail.removeEventListener('segnavia-thumbnail-error', onError) }
   }
   if (resolved.kind === 'page') {
-    const page = new SegnaviaPage()
+    const page = createPageElement()
     const dispose = listenForError(page, failed)
     page.motifs = motifs
     page.fonts = fonts

@@ -5,7 +5,7 @@ import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
-import { SegnaviaPage } from './page.ts'
+import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
@@ -315,8 +315,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     const print = this.printValue ?? source?.print ?? null
     if (!source || !print || this.viewport.firstElementChild) return
     const projection = projectPageOnPaper(source, print)
-    if (!customElements.get('segnavia-page')) customElements.define('segnavia-page', SegnaviaPage)
-    const page = document.createElement('segnavia-page') as SegnaviaPage
+    const page = createPageElement()
     page.motifs = this.motifOptions
     page.placements = this.placementOptions
     page.pageWidths = this.widthOptions
