@@ -30,6 +30,7 @@ export function stageCanvas(
     frameTitle: FrameTitle
     loaded: () => void
     slots?: PreparedSlots
+    bridge?: boolean
   },
 ): HTMLElement {
   const canvas = document.createElement('div')
@@ -40,7 +41,7 @@ export function stageCanvas(
     const iframe = document.createElement('iframe')
     iframe.className = 'segnavia-stage__frame'
     // A URL slide's host-served document is outside the frame policy that blocks form submission.
-    iframe.setAttribute('sandbox', frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
+    iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
     iframe.title = options.frameTitle(deck.title, index + 1)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
@@ -53,6 +54,7 @@ export function stageCanvas(
         csp: options.csp || undefined,
         dependencyOrigins: options.dependencyOrigins,
         reportHeight: false,
+        bridge: options.bridge,
       })
     } else iframe.src = controller.url(content.src)
     canvas.append(iframe)

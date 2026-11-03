@@ -54,6 +54,8 @@ export const RELAYED_KEYS = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'E
 export interface FrameOptions {
   scripts: Scripts
   nonce: string
+  // A document that has no library work to run can omit the bridge entirely.
+  bridge?: boolean
   dir?: 'ltr' | 'rtl' | 'auto'
   lang?: string
   // Styles the host applies to every document it shows, such as its house style.
@@ -97,7 +99,7 @@ function compositionWait(options: FrameOptions): string {
 }
 
 // The bridge is written to run in old engines too: it is the one script that
-// runs inside every author's document. Height is the root element's box,
+// runs inside a bridged author document. Height is the root element's box,
 // because scrollHeight is never less than the frame's own viewport and a
 // frame would then never shrink to a short page. Reports are batched with a
 // timer, not an animation frame: a browser may stop animation frames in a
@@ -244,16 +246,29 @@ const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => st
   ],
 }
 
+/** Whether filled HTML contains a slot whose overflow must be measured by the bridge. */
+export function documentNeedsSlotFit(html: string): boolean {
+  const marker = /\bdata-slot-overflow\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
+  for (const match of html.matchAll(marker)) {
+    const value = match[1] ?? match[2] ?? match[3] ?? ''
+    const mode = value.split(':')[1]
+    if (mode === 'shrink' || mode === 'refuse') return true
+  }
+  return false
+}
+
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
 export function frameDocument(html: string, options: FrameOptions): string {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
+  const bridge = options.bridge !== false
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
   const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
   const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
+  const scriptDirectives = scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](withOrigins)
   const directives = [
-    ...(scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](withOrigins)),
+    ...(bridge ? scriptDirectives : ["script-src 'none'", ...scriptDirectives.filter((directive) => !directive.startsWith('script-src '))]),
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -262,7 +277,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
-    `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>`,
+    bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
     options.css ? `<style>${options.css}</style>` : '',

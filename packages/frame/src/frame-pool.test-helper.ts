@@ -4,7 +4,9 @@ export class FramePoolTestElement {
   className = ''
   dataset: Record<string, string> = {}
   style = { setProperty() {}, removeProperty() {} }
+  part = { add() {} }
   title = ''
+  srcdoc = ''
   inert = false
   isConnected = false
   contentWindow: Record<string, never> | null = null
