@@ -15,7 +15,16 @@
 //   <segnavia-track for="stage">            one segment per slide, filling as narration runs
 
 import { SegnaviaControl } from './control.ts'
-import { captionsControlVisible, deckHasNarration, deckPlayable, formatTime, timeValues } from './control-values.ts'
+import {
+  captionsControlVisible,
+  deckHasNarration,
+  deckPlayable,
+  formatTime,
+  stepForwardDisabled,
+  timeValues,
+  trackReach,
+  trackSegmentState,
+} from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
@@ -117,8 +126,7 @@ export class SegnaviaStep extends SegnaviaControl {
     icon(this.root, 'previous').hidden = this.forward
     icon(this.root, 'next').hidden = !this.forward
     button.setAttribute('aria-label', this.forward ? this.labels.next : this.labels.previous)
-    const total = state.deck?.slides.length ?? 0
-    button.disabled = this.forward ? state.index >= total - 1 : state.index === 0
+    button.disabled = this.forward ? stepForwardDisabled(state) : state.index === 0
   }
   protected clicked() {
     void (this.forward ? this.controller?.next() : this.controller?.previous())?.catch(() => {})
@@ -218,7 +226,8 @@ export class SegnaviaTrack extends SegnaviaControl {
   }
   protected styles() {
     return `${TOKENS_CSS}:host{display:block;min-inline-size:60px}
-      ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none}li{flex:1;display:flex}
+      ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none;position:relative}li{flex:1;display:flex}
+      ol::after{content:"";position:absolute;z-index:1;pointer-events:none;inset-block:0;inset-inline-start:calc(var(--segnavia-reach,1) * 100%);inset-inline-end:0;background:color-mix(in srgb,var(--_surface) 65%,transparent)}
       button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:4px;position:relative;cursor:pointer}
       button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:2px;background:var(--_line)}
@@ -226,6 +235,7 @@ export class SegnaviaTrack extends SegnaviaControl {
       .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
       [data-state="done"] .fill{inline-size:100%;background:var(--_muted)}
       [data-state="current"] .fill{inline-size:calc(var(--progress,1) * 100%)}
+      [data-state="locked"]{opacity:.45}
       ol.continuous{cursor:pointer;touch-action:none}
       ol.continuous li{flex:none;position:relative;block-size:20px}
       ol.continuous li.timed{flex-grow:var(--duration)}
@@ -244,6 +254,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     list.dir = state.direction
     const continuous = state.playback === 'continuous'
     list.classList.toggle('continuous', continuous)
+    list.style.setProperty('--segnavia-reach', String(trackReach(state)))
     this.configureAccessibility(list, state, continuous)
     if (this.count !== slides.length || this.mode !== state.playback) {
       this.count = slides.length
@@ -290,7 +301,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
       const index = Number(item.dataset.go)
       const segment = (continuous ? item.querySelector('.segment') : item) as HTMLElement
-      segment.dataset.state = index < state.index ? 'done' : index === state.index ? 'current' : 'upcoming'
+      segment.dataset.state = trackSegmentState(state, index, state.index)
       segment.style.setProperty('--progress', continuous ? String(state.progress) : state.playing ? String(state.progress) : '1')
       if (!continuous) {
         segment.setAttribute('aria-label', this.labels.slide(index + 1, slides.length))
