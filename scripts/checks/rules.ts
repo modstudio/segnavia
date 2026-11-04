@@ -13,6 +13,7 @@ export interface SourceFile {
 export interface Workspace {
   name: string
   path: string
+  engines?: Record<string, string>
   rule: PackageRule
   exports: string[]
   manifestImports: string[]
@@ -39,10 +40,40 @@ export interface ResolutionInputs {
 export interface PackageManifestDependencies {
   name: string
   path: string
+  engines?: Record<string, string>
   dependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+}
+
+export function checkBunEngine(workflow: string, manifests: PackageManifestDependencies[]): Finding[] {
+  const lines = workflow.split('\n')
+  const start = lines.findIndex((line) => /^ {2}verify-render:\s*$/.test(line))
+  const end = lines.findIndex((line, index) => index > start && /^ {2}[\w-]+:\s*$/.test(line))
+  const job = start === -1 ? undefined : lines.slice(start + 1, end === -1 ? undefined : end).join('\n')
+  const ciVersion = job?.match(/^\s+ bun-version:\s*['"]?([^\s'"]+)['"]?\s*$/m)?.[1]
+  if (!ciVersion) {
+    return [
+      {
+        rule: 'bun-engine',
+        path: '.github/workflows/ci.yml',
+        message: "could not read verify-render's bun-version; set it explicitly in .github/workflows/ci.yml.",
+      },
+    ]
+  }
+  const expected = `>=${ciVersion}`
+  return manifests.flatMap((manifest) => {
+    const declared = manifest.engines?.bun
+    if (!declared || declared === expected) return []
+    return [
+      {
+        rule: 'bun-engine',
+        path: manifest.path,
+        message: `engines.bun is ${declared}, but .github/workflows/ci.yml verify-render runs Bun ${ciVersion}; change ${manifest.path} or .github/workflows/ci.yml so the floor and CI version match.`,
+      },
+    ]
+  })
 }
 
 const NODE_GLOBALS = /\b(?:Buffer|process|__dirname|require)\b/

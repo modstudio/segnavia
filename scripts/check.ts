@@ -10,6 +10,7 @@ import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
+  checkBunEngine,
   checkCeiling,
   checkChromiumEnvironmentRead,
   checkComments,
@@ -48,6 +49,7 @@ function workspaces(): Map<string, Workspace> {
     const manifest = JSON.parse(readFileSync(path.join(ROOT, 'packages', name, 'package.json'), 'utf8')) as {
       name: string
       exports: Record<string, string>
+      engines?: Record<string, string>
       dependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
       optionalDependencies?: Record<string, string>
@@ -57,6 +59,7 @@ function workspaces(): Map<string, Workspace> {
       name: manifest.name,
       path: `packages/${name}/package.json`,
       rule,
+      engines: manifest.engines,
       exports: Object.keys(manifest.exports),
       manifestImports: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
       dependencies: manifest.dependencies,
@@ -93,6 +96,7 @@ function structural(names: string[]): Finding[] {
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
   findings.push(...checkReactDependencies([...all.values()], REACT_PACKAGE_ALLOWLIST))
   findings.push(...checkVueDependencies([...all.values()]))
+  findings.push(...checkBunEngine(readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8'), [...all.values()]))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {

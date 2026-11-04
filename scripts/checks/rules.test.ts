@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import {
+  checkBunEngine,
   checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
@@ -11,6 +12,7 @@ import {
   checkSourceResolution,
   checkTypeScriptSuppressions,
   checkVueDependencies,
+  type PackageManifestDependencies,
   type ResolutionInputs,
   type Workspace,
 } from './rules.ts'
@@ -30,6 +32,23 @@ const all = new Map([
 ])
 
 describe('architecture rules', () => {
+  test('a declared Bun floor must match the version verify-render proves', () => {
+    const workflow = `jobs:\n  check:\n    steps: []\n  verify-render:\n    steps:\n      - uses: oven-sh/setup-bun@sha\n        with:\n          bun-version: 1.4.2\n  ci:\n    steps: []\n`
+    const manifests: PackageManifestDependencies[] = [
+      { name: '@segnavia/render', path: 'packages/render/package.json', engines: { node: '>=22', bun: '>=1.5.0' } },
+      { name: '@segnavia/format', path: 'packages/format/package.json', engines: { node: '>=22', bun: '>=1.4.2' } },
+      { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22' } },
+    ]
+    expect(checkBunEngine(workflow, manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/render/package.json',
+        message:
+          'engines.bun is >=1.5.0, but .github/workflows/ci.yml verify-render runs Bun 1.4.2; change packages/render/package.json or .github/workflows/ci.yml so the floor and CI version match.',
+      },
+    ])
+  })
+
   test('a universal package may not import Node', () => {
     const findings = checkImports({ path: 'packages/format/src/index.ts', text: '', imports: ['node:fs'] }, workspace('format'), all)
     expect(findings.map((f) => f.message)).toEqual(['a universal package imports node:fs.'])
