@@ -51,6 +51,21 @@ describe('watched state', () => {
     expect(watchedState(watched).share).toBeCloseTo(2 / 3)
     expect(watchedState(watched, 0.5).complete).toBe(true)
   })
+
+  test('zero-duration timed and untimed slides use equal weight', () => {
+    let watched = createWatchedModel([0, null])
+    expect(watchedState(watched)).toMatchObject({ share: 0.5, complete: false })
+    watched = showWatchedSlide(watched, 1)
+    expect(watchedState(watched)).toMatchObject({ share: 1, complete: true })
+  })
+
+  test('an untimed slide has no weight in a deck with timed duration', () => {
+    let watched = createWatchedModel([100, null])
+    watched = showWatchedSlide(watched, 1)
+    expect(watchedState(watched)).toMatchObject({ share: 0, complete: false })
+    watched = addWatchedSpan(watched, 0, 0, 100)
+    expect(watchedState(watched)).toMatchObject({ share: 1, complete: true })
+  })
 })
 
 describe('limitNavigation', () => {

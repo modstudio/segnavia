@@ -85,10 +85,11 @@ export function watchedState(model: WatchedModel, completeAt = 1): WatchedState 
     ms += slide.spans.reduce((sum, span) => sum + span.endMs - span.startMs, 0)
     if (reach.index === model.slides.length && !watchedSlideComplete(slide)) reach = { index, ms: slide.durationMs === null ? 0 : prefixEnd(slide) }
   }
-  const timedWeight = model.slides.reduce((sum, slide) => sum + (slide.durationMs ?? 0), 0)
-  const allUntimed = model.slides.every((slide) => slide.durationMs === null)
-  const totalWeight = allUntimed ? model.slides.length : timedWeight
-  const watchedWeight = allUntimed ? model.slides.filter((slide) => slide.shown).length : ms
+  const timedDuration = model.slides.reduce((sum, slide) => sum + (slide.durationMs ?? 0), 0)
+  const durationWeights = timedDuration > 0
+  const weight = (slide: WatchedSlide) => (durationWeights ? (slide.durationMs ?? 0) : 1)
+  const totalWeight = model.slides.reduce((sum, slide) => sum + weight(slide), 0)
+  const watchedWeight = durationWeights ? ms : model.slides.reduce((sum, slide) => sum + (watchedSlideComplete(slide) ? weight(slide) : 0), 0)
   const share = totalWeight === 0 ? 0 : watchedWeight / totalWeight
   return { ms, share, reach, complete: share >= completeAt }
 }
