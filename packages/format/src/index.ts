@@ -17,6 +17,18 @@ export {
   describeBoard,
 } from './board-describe.ts'
 export {
+  type BoardCommandOptions,
+  DEFAULT_BOARD_ITEM_WIDTH,
+} from './board-command-items.ts'
+export {
+  BoardCommand,
+  type BoardCommandOf,
+  BoardEntityRef,
+  BoardItemRef,
+  BoardSectionRef,
+  BoardTarget,
+} from './board-commands.ts'
+export {
   addItem,
   type BoardItemAnchor,
   MIN_BOARD_ITEM_WIDTH,
@@ -25,6 +37,14 @@ export {
   removeItems,
   resizeItem,
 } from './board-edit.ts'
+export type {
+  BoardChangedEntity,
+  BoardChangedKind,
+  BoardEditAdjustment,
+  BoardEditFailure,
+  BoardEditResult,
+  BoardEditSuccess,
+} from './board-edit-result.ts'
 export {
   type ArrangeOptions,
   arrange,
@@ -117,6 +137,7 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
+export { editBoard } from './edit-board.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
