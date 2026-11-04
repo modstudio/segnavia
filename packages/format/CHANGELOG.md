@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.43.0
+
+### Patch Changes
+
+- 4f77670: Declare Bun 1.4.2 or later as a supported runtime.
+
 ## 0.42.0
 
 ## 0.41.0

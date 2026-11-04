@@ -1,5 +1,16 @@
 # @segnavia/diagrams
 
+## 0.43.0
+
+### Patch Changes
+
+- Updated dependencies [0a67036]
+- Updated dependencies [a039f61]
+- Updated dependencies [9501964]
+- Updated dependencies [4f77670]
+  - @segnavia/frame@0.43.0
+  - @segnavia/format@0.43.0
+
 ## 0.42.0
 
 ### Minor Changes
