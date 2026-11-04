@@ -75,7 +75,7 @@ test('drops entries outside the kept addresses', async () => {
     () => {},
   )
   await settle()
-  resolutions.keep(new Set())
+  resolutions.keep([])
   resolutions.request(
     dropped,
     () => {},
@@ -83,4 +83,30 @@ test('drops entries outside the kept addresses', async () => {
   )
   await settle()
   expect(calls).toBe(2)
+})
+
+test('drops a cached entry when an address changes kind', async () => {
+  const resolutions = new BoardResolutions()
+  let calls = 0
+  resolutions.resolver = async (requested) => {
+    calls += 1
+    return requested.kind === 'media' ? image : { kind: 'page', page: { html: '' }, size: { width: 8, height: 11 } }
+  }
+  const media = item('asset', 'shared', 'media')
+  resolutions.request(
+    media,
+    () => {},
+    () => {},
+  )
+  await settle()
+  const page = item('asset', 'shared', 'page')
+  resolutions.keep([page])
+  resolutions.request(
+    page,
+    () => {},
+    () => {},
+  )
+  await settle()
+  expect(calls).toBe(2)
+  expect(resolutions.value('shared')?.kind).toBe('page')
 })

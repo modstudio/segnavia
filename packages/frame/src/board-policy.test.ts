@@ -1,7 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, provisionalShape, resolvedShape } from '@segnavia/format'
-import { BOARD_ZOOM_FACTOR, boardTier, checkResolved, keyToView, pinchOf, shouldMountItem, shouldRefitReveal, zoomView } from './board-policy.ts'
+import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
+import {
+  BOARD_ZOOM_FACTOR,
+  boardItemFact,
+  boardShapeFacts,
+  boardTier,
+  checkResolved,
+  keyToView,
+  pinchOf,
+  shouldMountItem,
+  shouldRefitReveal,
+  zoomView,
+} from './board-policy.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
 
 test('a pinch needs two pointers and never has a zero distance', () => {
@@ -36,11 +47,24 @@ describe('board policy', () => {
     const parsed = designed ? { ...designed, cover: Cover.parse(designed.cover) } : undefined
     expect(coverPresentation(parsed)).toEqual(expected)
   })
-  test('uses natural and provisional shapes', () => {
-    expect(provisionalShape('deck')).toEqual({ width: 16, height: 9 })
-    expect(provisionalShape('page').height).toBeCloseTo(Math.SQRT2)
-    expect(provisionalShape('media')).toEqual({ width: 4, height: 3 })
-    expect(resolvedShape({ kind: 'media', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
+  test('adapts every resolved board item to a shape fact', () => {
+    type Resolved = Parameters<typeof boardItemFact>[0]
+    const fact = (value: unknown) => boardItemFact(value as Resolved)
+    expect(fact({ kind: 'image', width: 640, height: 480 })).toEqual({ kind: 'media', width: 640, height: 480 })
+    expect(fact({ kind: 'shot', width: 1280, height: 720 })).toEqual({ kind: 'shot', width: 1280, height: 720 })
+    expect(fact({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })).toEqual({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })
+    for (const kind of ['page', 'paper', 'book'] as const)
+      expect(fact({ kind, size: { width: 8, height: 11 } })).toEqual({ kind, size: { width: 8, height: 11 } })
+  })
+
+  test('keys resolved facts by address, shares them and omits unresolved addresses', () => {
+    type Resolved = NonNullable<ReturnType<Parameters<typeof boardShapeFacts>[1]>>
+    const shared = { id: 'shared', kind: 'media' as const, address: 'asset', x: 0, y: 0, width: 100 }
+    const items = [shared, { ...shared, id: 'also-shared' }, { ...shared, id: 'missing', address: 'missing' }]
+    const facts = boardShapeFacts(items, (address) =>
+      address === 'asset' ? ({ kind: 'image', src: 'image.png', width: 640, height: 480 } as Resolved) : undefined,
+    )
+    expect(facts).toEqual({ asset: { kind: 'media', width: 640, height: 480 } })
   })
 
   test('refuses resolved values that do not match the item kind', () => {

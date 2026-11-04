@@ -4,7 +4,6 @@ import {
   type BoardShapes,
   type BoardView,
   boardBounds,
-  boardShapes,
   itemAt,
   itemHeight,
   resolvedShape,
@@ -144,9 +143,8 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
     this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
-    const addresses = new Set(this.value?.items.map((item) => item.address) ?? [])
-    this.resolutions.keep(addresses)
-    this.shapes = this.value ? boardShapes(this.value, this.shapeFacts()).shapes : { items: {}, labels: {} }
+    this.resolutions.keep(this.value?.items ?? [])
+    if (!this.value) this.shapes = { items: {}, labels: {} }
     if (this.value) this.dir = this.value.direction
     this.names.update(this.value?.items ?? [], this.nameProvider)
     this.mounts.reconcile(previous, this.value)
@@ -378,8 +376,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
           this.pendingReveal?.height ?? 0,
           pendingItem ? itemHeight(pendingItem, shape) : 0,
         )
-        if (refit && resolvedId) this.revealItem(resolvedId, false)
-        else this.render()
+        if (refit && resolvedId) {
+          this.shapes = this.value ? this.decorations.shapes(this.value, this.shapeFacts(), this.currentView.zoom) : { items: {}, labels: {} }
+          this.revealItem(resolvedId, false)
+        } else this.render()
         if (resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
       },
       (failedItem, error) => this.fail(failedItem, error),

@@ -102,6 +102,18 @@ export const Board = BoardShape.superRefine((board, ctx) => {
   checkIds(board.labels, 'labels')
   checkIds(board.sections, 'sections')
 
+  const itemsByAddress = new Map<string, (typeof board.items)[number]>()
+  board.items.forEach((item, index) => {
+    const shared = itemsByAddress.get(item.address)
+    if (shared && shared.kind !== item.kind) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, 'address'],
+        message: `board items "${shared.id}" and "${item.id}" share address "${item.address}" with kinds ${shared.kind} and ${item.kind}; one address names one asset, so give each kind its own address`,
+      })
+    } else if (!shared) itemsByAddress.set(item.address, item)
+  })
+
   const itemIds = new Set(board.items.map((item) => item.id))
   board.sections.forEach((section, sectionIndex) => {
     section.items.forEach((id, itemIndex) => {

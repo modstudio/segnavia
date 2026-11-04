@@ -1,4 +1,5 @@
-import type { Board, BoardItem } from './board.ts'
+import type { Board, BoardItem, BoardLabel } from './board.ts'
+import type { BoardShapes } from './board-geometry.ts'
 import type { Size } from './deck.ts'
 import { resolveDirection } from './direction.ts'
 import type { AssetKind } from './placement.ts'
@@ -16,9 +17,14 @@ export interface BoardShapesOptions {
 }
 
 export interface ComputedBoardShapes {
-  shapes: { items: Record<string, Size>; labels: Record<string, Size> }
+  shapes: BoardShapes
   provisional: string[]
   estimated: string[]
+}
+
+export interface LabelShapeResult {
+  shape: Size
+  source: 'stored' | 'measured' | 'estimated'
 }
 
 // This is the browser-independent fallback for a label whose rendered box is not available.
@@ -54,17 +60,21 @@ function estimatedLabelShape(text: string): Size {
   return { width: Math.max(1, text.length * BOARD_LABEL_ESTIMATE.widthPerCharacter), height: BOARD_LABEL_ESTIMATE.height }
 }
 
+export function labelShape(label: BoardLabel, measureLabel?: BoardShapesOptions['measureLabel']): LabelShapeResult {
+  if (label.size) return { shape: label.size, source: 'stored' }
+  const measured = measureLabel?.(label.text, resolveDirection(undefined, undefined, label.text))
+  return measured ? { shape: measured, source: 'measured' } : { shape: estimatedLabelShape(label.text), source: 'estimated' }
+}
+
 export function boardShapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, options: BoardShapesOptions = {}): ComputedBoardShapes {
   const provisional: string[] = []
   const estimated: string[] = []
   const items = Object.fromEntries(board.items.map((item) => [item.id, itemShape(item, facts, provisional)]))
   const labels = Object.fromEntries(
     board.labels.map((label) => {
-      if (label.size) return [label.id, label.size]
-      const measured = options.measureLabel?.(label.text, resolveDirection(undefined, undefined, label.text))
-      if (measured) return [label.id, measured]
-      estimated.push(label.id)
-      return [label.id, estimatedLabelShape(label.text)]
+      const result = labelShape(label, options.measureLabel)
+      if (result.source === 'estimated') estimated.push(label.id)
+      return [label.id, result.shape]
     }),
   )
   return { shapes: { items, labels }, provisional, estimated }

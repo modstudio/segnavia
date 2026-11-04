@@ -60,6 +60,8 @@ export {
   type BoardShapesOptions,
   boardShapes,
   type ComputedBoardShapes,
+  type LabelShapeResult,
+  labelShape,
   provisionalShape,
   resolvedShape,
 } from './board-shapes.ts'

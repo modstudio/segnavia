@@ -101,4 +101,13 @@ describe('Board', () => {
     expect(message).toContain('item address is empty')
     expect(message).toContain('non-empty address')
   })
+
+  test('refuses one address shared by different item kinds and says what clears it', () => {
+    const message = refusal({
+      ...valid,
+      items: [valid.items[0], { ...valid.items[0], id: 'paper', kind: 'paper' as const }],
+    })
+    expect(message).toContain('board items "deck" and "paper" share address "decks/one.json" with kinds deck and paper')
+    expect(message).toContain('one address names one asset, so give each kind its own address')
+  })
 })

@@ -288,7 +288,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     const measured = this.board.measuredLabelSizes()
     const labels = current.labels.map((label) => (label.size || !measured[label.id] ? label : { ...label, size: measured[label.id] }))
     const sized = labels.some((label, index) => label !== current.labels[index]) ? { ...current, labels } : current
-    const ids = [...current.sections.map((section) => section.id), ...Object.keys(measured)]
+    const ids = current.sections.map((section) => section.id)
     const settled = settleBoard(current, sized, this.bridge.shapes(), ids)
     if (JSON.stringify(settled) !== JSON.stringify(current)) this.apply(settled, { kind: 'settle', ids })
   }

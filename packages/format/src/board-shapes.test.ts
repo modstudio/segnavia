@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
-import { BOARD_LABEL_ESTIMATE, type BoardItemFact, boardShapes, provisionalShape, resolvedShape } from './board-shapes.ts'
+import { BOARD_LABEL_ESTIMATE, type BoardItemFact, boardShapes, labelShape, provisionalShape, resolvedShape } from './board-shapes.ts'
 
 const board: Board = {
   title: 'Shapes',
@@ -15,6 +15,18 @@ const board: Board = {
 }
 
 describe('boardShapes', () => {
+  test('reports whether a label shape was stored, measured or estimated', () => {
+    expect(labelShape(board.labels[0] as Board['labels'][number])).toEqual({ shape: { width: 60, height: 20 }, source: 'stored' })
+    expect(labelShape(board.labels[1] as Board['labels'][number], () => ({ width: 80, height: 21 }))).toEqual({
+      shape: { width: 80, height: 21 },
+      source: 'measured',
+    })
+    expect(labelShape(board.labels[2] as Board['labels'][number])).toEqual({
+      shape: { width: 64, height: 19 },
+      source: 'estimated',
+    })
+  })
+
   test('prefers a stored label size, then a measured size, then the documented estimate', () => {
     const measured: string[] = []
     const result = boardShapes(
@@ -58,7 +70,7 @@ describe('boardShapes', () => {
           deck: { width: 16, height: 10 },
           page: { width: 8, height: 11 },
           media: { width: 640, height: 480 },
-          missing: provisionalShape('shot'),
+          missing: { width: 4, height: 3 },
         },
         labels: {},
       },
@@ -89,6 +101,15 @@ describe('boardShapes', () => {
     expect(resolvedShape({ kind: 'book', size: { width: 6, height: 9 } })).toEqual({ width: 6, height: 9 })
     expect(resolvedShape({ kind: 'media', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
     expect(resolvedShape({ kind: 'shot', width: 1280, height: 720 })).toEqual({ width: 1280, height: 720 })
+  })
+
+  test('uses the documented provisional shape for every item kind', () => {
+    expect(provisionalShape('deck')).toEqual({ width: 16, height: 9 })
+    expect(provisionalShape('page')).toEqual({ width: 1, height: Math.SQRT2 })
+    expect(provisionalShape('paper')).toEqual({ width: 1, height: Math.SQRT2 })
+    expect(provisionalShape('book')).toEqual({ width: 1, height: Math.SQRT2 })
+    expect(provisionalShape('media')).toEqual({ width: 4, height: 3 })
+    expect(provisionalShape('shot')).toEqual({ width: 4, height: 3 })
   })
 
   test('refuses a fact whose kind differs from the item', () => {

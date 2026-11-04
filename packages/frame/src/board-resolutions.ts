@@ -26,6 +26,7 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
 }
 
 interface BoardResolutionEntry {
+  kind: BoardItem['kind']
   value?: CheckedResolvedBoardItem
   failed?: boolean
 }
@@ -34,8 +35,9 @@ export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
   private readonly entries = new Map<string, BoardResolutionEntry>()
 
-  keep(addresses: ReadonlySet<string>) {
-    for (const address of this.entries.keys()) if (!addresses.has(address)) this.entries.delete(address)
+  keep(items: readonly BoardItem[]) {
+    const kinds = new Map(items.map((item) => [item.address, item.kind]))
+    for (const [address, entry] of this.entries) if (kinds.get(address) !== entry.kind) this.entries.delete(address)
   }
 
   value(address: string): CheckedResolvedBoardItem | undefined {
@@ -45,7 +47,7 @@ export class BoardResolutions {
 
   request(item: BoardItem, resolved: (item: BoardItem, value: CheckedResolvedBoardItem) => void, failed: (item: BoardItem, error: unknown) => void) {
     if (!this.resolver || this.entries.has(item.address)) return
-    const entry: BoardResolutionEntry = {}
+    const entry: BoardResolutionEntry = { kind: item.kind }
     this.entries.set(item.address, entry)
     Promise.resolve()
       .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
