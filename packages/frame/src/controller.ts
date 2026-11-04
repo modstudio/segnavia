@@ -210,6 +210,7 @@ export class DeckController extends EventTarget {
   }
 
   pause() {
+    this.playback.cancelTick()
     this.playback.clock?.pause()
     this.playback.readClock()
     this.current = { ...this.current, playing: false }

@@ -67,9 +67,13 @@ export class ControllerPlayback {
     })
   }
 
-  stopClock() {
+  cancelTick() {
     this.cancel?.()
     this.cancel = null
+  }
+
+  stopClock() {
+    this.cancelTick()
     this.clock?.stop()
     this.clock = null
   }
