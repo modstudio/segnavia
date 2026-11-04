@@ -1,5 +1,19 @@
 # @segnavia/react
 
+## 0.43.0
+
+### Minor Changes
+
+- a039f61: Properties set on an element before its definition loads now take effect. Frame also adds the `@segnavia/frame/element-properties` entry.
+- 9501964: Add typed stage frame mount and release event props.
+
+### Patch Changes
+
+- Updated dependencies [0a67036]
+- Updated dependencies [a039f61]
+- Updated dependencies [9501964]
+  - @segnavia/frame@0.43.0
+
 ## 0.42.0
 
 ### Minor Changes

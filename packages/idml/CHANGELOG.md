@@ -1,5 +1,14 @@
 # @segnavia/idml
 
+## 0.43.0
+
+### Patch Changes
+
+- Updated dependencies [817cfb2]
+- Updated dependencies [4f77670]
+  - @segnavia/html@0.43.0
+  - @segnavia/format@0.43.0
+
 ## 0.42.0
 
 ### Patch Changes

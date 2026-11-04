@@ -1,5 +1,23 @@
 # @segnavia/markdown-editor
 
+## 0.43.0
+
+### Minor Changes
+
+- a039f61: Properties set on an element before its definition loads now take effect. Frame also adds the `@segnavia/frame/element-properties` entry.
+- 9501964: Add opt-in Vue 3.5 template types for every public custom element prop and event.
+
+### Patch Changes
+
+- Updated dependencies [0a67036]
+- Updated dependencies [817cfb2]
+- Updated dependencies [a039f61]
+- Updated dependencies [9501964]
+- Updated dependencies [4f77670]
+  - @segnavia/frame@0.43.0
+  - @segnavia/html@0.43.0
+  - @segnavia/format@0.43.0
+
 ## 0.42.0
 
 ### Minor Changes
