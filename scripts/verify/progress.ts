@@ -57,14 +57,38 @@ export async function verifyProgress(h: Harness) {
   check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(facts))
 
   await loadProgressDeck(h, 'furthest')
-  await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
-  await page.waitForFunction(() => {
-    const player = document.querySelector('#progress-player') as HTMLElement & { controller: { state: { watched: { reach: { ms: number } } } } }
-    return player.controller.state.watched.reach.ms >= 100
-  })
-  await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { pause(): void } }) => player.controller.pause())
+  await page.locator(PLAYER).evaluate(
+    (
+      player: HTMLElement & {
+        controller: EventTarget & {
+          state: { index: number; watched: { reach: { ms: number } } }
+          pause(): void
+          play(): Promise<void>
+        }
+      },
+    ) =>
+      new Promise<void>((resolve, reject) => {
+        const onChange = () => {
+          const { state } = player.controller
+          if (state.index !== 0 || state.watched.reach.ms < 100) return
+          player.controller.removeEventListener('change', onChange)
+          player.controller.pause()
+          resolve()
+        }
+        player.controller.addEventListener('change', onChange)
+        player.controller.play().catch(reject)
+      }),
+  )
 
   const currentSlide = async () => (await h.state(PLAYER)).slide
+  const pausedReachIndex = await page
+    .locator(PLAYER)
+    .evaluate((player: HTMLElement & { controller: { state: { watched: { reach: { index: number } } } } }) => player.controller.state.watched.reach.index)
+  check(
+    'furthest mode pauses on the first slide before testing the limit',
+    (await currentSlide()) === '1' && pausedReachIndex === 0,
+    JSON.stringify({ slide: await currentSlide(), reachIndex: pausedReachIndex }),
+  )
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowRight')
   check('furthest mode refuses the keyboard next key past the watched limit', (await currentSlide()) === '1')
   await page.locator(`${PLAYER} segnavia-track button[data-go="2"]`).click()
