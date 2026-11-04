@@ -1,5 +1,5 @@
 import type { Board, BoardSection } from './board.ts'
-import { itemHeight } from './board-geometry.ts'
+import { itemRectangle, labelRectangle } from './board-geometry.ts'
 import { layoutSection } from './board-section-grid.ts'
 import { overlaps } from './board-sections.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
@@ -57,6 +57,7 @@ export interface BoardDescription {
   sections: BoardDescriptionSection[]
   items: BoardDescriptionItem[]
   labels: BoardDescriptionLabel[]
+  /** May name an entity outside the returned arrays when it overlaps a selected entity. */
   overlaps: BoardDescriptionOverlap[]
   provisional: string[]
   estimated: string[]
@@ -93,20 +94,6 @@ interface GeometryEntity extends BoardDescriptionEntity {
   memberOf?: string
 }
 
-function itemBox(board: Board, shapes: ComputedBoardShapes, id: string): Box {
-  const item = board.items.find((entry) => entry.id === id)
-  const shape = shapes.shapes.items[id]
-  if (!item || !shape) throw new Error(`item "${id}" has no supplied shape; supply shapes.shapes.items["${id}"]`)
-  return { x: item.x, y: item.y, width: item.width, height: itemHeight(item, shape) }
-}
-
-function labelBox(board: Board, shapes: ComputedBoardShapes, id: string): Box {
-  const label = board.labels.find((entry) => entry.id === id)
-  const shape = shapes.shapes.labels[id]
-  if (!label || !shape) throw new Error(`label "${id}" has no supplied shape; supply shapes.shapes.labels["${id}"]`)
-  return { x: label.x, y: label.y, ...shape }
-}
-
 function sectionMembers(board: Board, shapes: ComputedBoardShapes, section: BoardSection): BoardDescriptionMember[] {
   const laidOut = section.layout === 'manual' ? section : layoutSection(board, shapes.shapes, section.id).sections.find((entry) => entry.id === section.id)
   const cells = new Map(laidOut?.cells?.map((cell) => [cell.id, cell]))
@@ -127,27 +114,39 @@ function fullEntities(board: Board, shapes: ComputedBoardShapes): PageEntity[] {
   const memberIds = new Set(board.sections.flatMap((section) => section.items))
   const sections: PageEntity[] = board.sections.map((section) => {
     const members = sectionMembers(board, shapes, section)
+    const sectionGeometry: GeometryEntity = { kind: 'section', id: section.id, box: section.rectangle }
+    const geometry: GeometryEntity[] = [
+      sectionGeometry,
+      ...members.map((member): GeometryEntity => {
+        const item = board.items.find((entry) => entry.id === member.id)
+        if (!item) throw new Error(`section "${section.id}" member "${member.id}" is not a board item; provide a valid Board`)
+        return { kind: 'item', id: member.id, box: itemRectangle(item, shapes.shapes), memberOf: section.id }
+      }),
+    ]
     return {
       kind: 'section',
-      value: { id: section.id, title: section.title, layout: section.layout ?? 'auto', box: section.rectangle, members },
-      geometry: [
-        { kind: 'section', id: section.id, box: section.rectangle },
-        ...members.map((member): GeometryEntity => ({ kind: 'item', id: member.id, box: itemBox(board, shapes, member.id), memberOf: section.id })),
-      ],
+      value: { id: section.id, title: section.title, layout: section.layout ?? 'auto', box: sectionGeometry.box, members },
+      geometry,
     }
   })
   const items: PageEntity[] = board.items
     .filter((item) => !memberIds.has(item.id))
-    .map((item) => ({
-      kind: 'item',
-      value: { id: item.id, address: item.address, kind: item.kind, box: itemBox(board, shapes, item.id) },
-      geometry: [{ kind: 'item', id: item.id, box: itemBox(board, shapes, item.id) }],
-    }))
-  const labels: PageEntity[] = board.labels.map((label) => ({
-    kind: 'label',
-    value: { id: label.id, text: label.text, box: labelBox(board, shapes, label.id) },
-    geometry: [{ kind: 'label', id: label.id, box: labelBox(board, shapes, label.id) }],
-  }))
+    .map((item) => {
+      const geometry: GeometryEntity = { kind: 'item', id: item.id, box: itemRectangle(item, shapes.shapes) }
+      return {
+        kind: 'item',
+        value: { id: item.id, address: item.address, kind: item.kind, box: geometry.box },
+        geometry: [geometry],
+      }
+    })
+  const labels: PageEntity[] = board.labels.map((label) => {
+    const geometry: GeometryEntity = { kind: 'label', id: label.id, box: labelRectangle(label, shapes.shapes) }
+    return {
+      kind: 'label',
+      value: { id: label.id, text: label.text, box: geometry.box },
+      geometry: [geometry],
+    }
+  })
   return [...sections, ...items, ...labels]
 }
 
@@ -217,13 +216,13 @@ export function describeBoard(board: Board, shapes: ComputedBoardShapes, options
   const start = pageStart(options.cursor, filtered.length)
   const limit = pageLimit(options.limit)
   const page = filtered.slice(start, start + limit)
+  const allGeometry = all.flatMap((entity) => entity.geometry)
   const pageGeometry = page.flatMap((entity) => entity.geometry)
   const selectedGeometry = filtered.flatMap((entity) => entity.geometry)
-  const geometry = section && !options.region ? all.flatMap((entity) => entity.geometry) : selectedGeometry
   const selectedIds = new Set(selectedGeometry.map((entity) => entity.id))
   const pageIds = new Set(pageGeometry.map((entity) => entity.id))
   const owners = new Map(filtered.flatMap((entity, index) => entity.geometry.map((geometryEntity) => [geometryEntity.id, index] as const)))
-  const pairs = intersectingPairs(geometry).filter((pair) => {
+  const pairs = intersectingPairs(allGeometry).filter((pair) => {
     if (!selectedIds.has(pair.a.id) && !selectedIds.has(pair.b.id)) return false
     const owner = Math.min(owners.get(pair.a.id) ?? Number.POSITIVE_INFINITY, owners.get(pair.b.id) ?? Number.POSITIVE_INFINITY)
     return owner >= start && owner < start + page.length

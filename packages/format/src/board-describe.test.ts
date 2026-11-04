@@ -69,6 +69,18 @@ describe('describeBoard', () => {
     expect(section.labels).toEqual([])
   })
 
+  test('reports overlaps with unselected entities when section and region filters are combined', () => {
+    const { board, shapes } = fixture()
+    const loose = board.items.find((item) => item.id === 'loose')
+    if (!loose) throw new Error('fixture has no loose item')
+    loose.x = 38
+    loose.y = 32
+
+    const description = describeBoard(board, shapes, { section: 'main', region: { x: 0, y: 0, width: 250, height: 80 } })
+
+    expect(description.overlaps).toContainEqual({ a: { kind: 'item', id: 'second' }, b: { kind: 'item', id: 'loose' } })
+  })
+
   test('omits boxes in concise output', () => {
     const { board, shapes } = fixture()
     const description = describeBoard(board, shapes)
@@ -81,23 +93,46 @@ describe('describeBoard', () => {
   test('pages every section with its members, then loose items and labels exactly once', () => {
     const { board, shapes } = fixture()
     const ids: string[] = []
+    const overlaps: Array<{ page: string[]; overlap: ReturnType<typeof describeBoard>['overlaps'][number] }> = []
+    const confidence: Array<{ page: string[]; provisional: string[]; estimated: string[] }> = []
     let cursor: string | undefined
     do {
       const page = describeBoard(board, shapes, { cursor, limit: 1 })
-      ids.push(...page.sections.flatMap((section) => [section.id, ...section.members.map((member) => member.id)]))
-      ids.push(...page.items.map((item) => item.id), ...page.labels.map((label) => label.id))
+      const pageIds = [
+        ...page.sections.flatMap((section) => [section.id, ...section.members.map((member) => member.id)]),
+        ...page.items.map((item) => item.id),
+        ...page.labels.map((label) => label.id),
+      ]
+      ids.push(...pageIds)
+      overlaps.push(...page.overlaps.map((overlap) => ({ page: pageIds, overlap })))
+      confidence.push({ page: pageIds, provisional: page.provisional, estimated: page.estimated })
       cursor = page.next
     } while (cursor)
 
     expect(ids).toEqual(['main', 'second', 'first', 'later', 'last', 'loose', 'note'])
     expect(new Set(ids).size).toBe(ids.length)
+    expect(overlaps).toEqual([{ page: ['loose'], overlap: { a: { kind: 'item', id: 'loose' }, b: { kind: 'label', id: 'note' } } }])
+    expect(confidence).toEqual([
+      { page: ['main', 'second', 'first'], provisional: [], estimated: [] },
+      { page: ['later', 'last'], provisional: [], estimated: [] },
+      { page: ['loose'], provisional: ['loose'], estimated: [] },
+      { page: ['note'], provisional: [], estimated: ['note'] },
+    ])
   })
 
-  test('reports the board resolved direction without reordering', () => {
-    const { board, shapes } = fixture('rtl')
-    const description = describeBoard(board, shapes)
+  test('reports direction-sensitive auto-section cells', () => {
+    const ltr = fixture('ltr')
+    const rtl = fixture('rtl')
+    const ltrMembers = describeBoard(ltr.board, ltr.shapes, { detail: 'full' }).sections[0]?.members
+    const rtlMembers = describeBoard(rtl.board, rtl.shapes, { detail: 'full' }).sections[0]?.members
 
-    expect(description.direction).toBe('rtl')
-    expect(description.sections.map((section) => section.id)).toEqual(['main', 'later'])
+    expect(ltrMembers).toEqual([
+      { id: 'second', address: 'page:second', kind: 'page', cell: { row: 0, column: 1 } },
+      { id: 'first', address: 'deck:first', kind: 'deck', cell: { row: 0, column: 0 } },
+    ])
+    expect(rtlMembers).toEqual([
+      { id: 'second', address: 'page:second', kind: 'page', cell: { row: 0, column: 0 } },
+      { id: 'first', address: 'deck:first', kind: 'deck', cell: { row: 0, column: 1 } },
+    ])
   })
 })
