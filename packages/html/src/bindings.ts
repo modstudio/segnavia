@@ -4,7 +4,7 @@
 // as plain HTML anywhere else.
 //
 //   value    replaces the element's text with a string or finite number
-//   href     sets href to an https link on an allowed origin
+//   href     sets href by the host's links policy, or to https on an allowed origin by default
 //   src      sets src to a data:image URL
 //   each     repeats the element once per item of a list
 //   when     keeps the element only where the item's `state` equals it
@@ -15,7 +15,7 @@
 // each leading `../` steps out one repeat.
 
 import { type ChildNode, cloneNode, type Document, type Element, isTag, Text } from 'domhandler'
-import { linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
+import { defaultLinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
 import { elements, parse, type SanitizeOptions, sanitize, serialize } from './sanitize.ts'
 
 export const BINDINGS = ['value', 'href', 'src', 'each', 'when', 'present', 'width'] as const
@@ -110,7 +110,7 @@ export function fill(html: string, options: FillOptions): Filled {
   const names = bindingNames(options.prefix)
   const links = options.links
     ? resolveLinkPolicy(options.links)
-    : { protocols: new Set(['https:']), origins: new Set([...(options.linkOrigins ?? [])].map((origin) => new URL(origin).origin)), fragments: false }
+    : defaultLinkPolicy(new Set([...(options.linkOrigins ?? [])].map((origin) => new URL(origin).origin)), false)
   const unavailable = new Set(options.unavailable ?? [])
   const values: string[] = []
   const deferred = new Set(options.deferPaths ?? [])

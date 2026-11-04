@@ -8,6 +8,7 @@ describe('sanitize', () => {
     expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('href', 'https://inside.example/x', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('href', 'https://exa mple.com/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', ['https://inside.example'])).toBe(true)
     expect(safeMarkdownUrl('href', 'javascript:alert(1)')).toBe(false)
   })
@@ -43,6 +44,12 @@ describe('sanitize', () => {
       inertControls: [],
     }
     expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')
+  })
+
+  test('active-content findings follow the host link policy', () => {
+    const html = '<a href="mailto:a@b.c">x</a>'
+    expect(findActiveContent(html, { links: { protocols: ['mailto:'] } })).toEqual([])
+    expect(findActiveContent(html)).toEqual(['a[href]'])
   })
 
   test('an image may only be inline data, in src and in style alike', () => {
@@ -223,6 +230,16 @@ describe('bindings', () => {
 
   test('bound fragments stay refused by default', () => {
     const filled = fill('<a data-demo-href="link">details</a>', { prefix, data: { link: '#details' } })
+    expect(filled.html).toBe('<a>details</a>')
+    expect(filled.unavailable).toEqual(['link'])
+  })
+
+  test('a malformed bound link is dropped and reported unavailable', () => {
+    const filled = fill('<a data-demo-href="link">details</a>', {
+      prefix,
+      data: { link: 'https://in side.example/x' },
+      linkOrigins: ['https://inside.example'],
+    })
     expect(filled.html).toBe('<a>details</a>')
     expect(filled.unavailable).toEqual(['link'])
   })

@@ -6,7 +6,7 @@ import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/fo
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
-import { type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
+import { defaultLinkPolicy, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
 import { sanitizeCss } from './sanitize-css.ts'
 
@@ -107,12 +107,15 @@ export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
 }
 
-function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy, policy?: UrlPolicy, linksGiven = false): boolean {
-  const url = normalizeUrl(value)
+function linkPolicyFromConverter(urls: UrlPolicy, origins?: Set<string>): ResolvedLinkPolicy {
+  return { protocols: new Set(urls.linkProtocols), origins, fragments: urls.linkFragments }
+}
+
+function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy | undefined, policy?: UrlPolicy): boolean {
   if (attribute === 'href' || attribute === 'xlink:href') {
-    if (linksGiven || !policy) return linkAllowed(value, links)
-    return linkAllowed(value, { protocols: new Set(policy.linkProtocols), fragments: policy.linkFragments })
+    return links !== undefined && linkAllowed(value, links)
   }
+  const url = normalizeUrl(value)
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
   if (attribute === 'src' || attribute === 'poster') {
     if (policy?.dataImages && safeImageSource(value)) return true
@@ -128,12 +131,8 @@ function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy, po
 
 /** The URL decision used when schema-based authoring admits a link or image. */
 export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
-  if (attribute === 'src') return safeUrl(attribute, value, { protocols: new Set(), fragments: false }, MARKDOWN_CONVERTER_POLICY.urls)
-  return linkAllowed(value, {
-    protocols: new Set(MARKDOWN_CONVERTER_POLICY.urls.linkProtocols),
-    origins: linkOrigins === undefined ? undefined : originSet(linkOrigins),
-    fragments: MARKDOWN_CONVERTER_POLICY.urls.linkFragments,
-  })
+  if (attribute === 'src') return safeUrl(attribute, value, undefined, MARKDOWN_CONVERTER_POLICY.urls)
+  return linkAllowed(value, linkPolicyFromConverter(MARKDOWN_CONVERTER_POLICY.urls, linkOrigins === undefined ? undefined : originSet(linkOrigins)))
 }
 
 function refusedElement(element: Element, refused: ReadonlySet<string>, options: SanitizeOptions, keepScripts: boolean): boolean {
@@ -179,8 +178,7 @@ function refusedAttribute(
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
   if (dependency !== undefined) return dependency || undefined
-  return REFUSED_ATTRIBUTES.has(attribute) ||
-    (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls, options.links !== undefined))
+  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls))
     ? ''
     : undefined
 }
@@ -277,7 +275,8 @@ function cleanAttributes(element: Element, links: ResolvedLinkPolicy, options: S
 
 function sanitizeLinkPolicy(options: SanitizeOptions): ResolvedLinkPolicy {
   if (options.links !== undefined) return resolveLinkPolicy(options.links)
-  return { protocols: new Set(['https:']), origins: originSet(options.linkOrigins), fragments: true }
+  if (options.converterPolicy !== undefined) return linkPolicyFromConverter(options.converterPolicy.urls)
+  return defaultLinkPolicy(originSet(options.linkOrigins), true)
 }
 
 export function sanitize(html: string, options: SanitizeOptions = {}): string {

@@ -1,6 +1,9 @@
 export interface LinkPolicy {
+  // Absolute URL protocols a link may use.
   protocols: Iterable<string>
+  // Origins that http(s) links may use.
   origins?: Iterable<string>
+  // Whether fragment-only links are allowed; defaults to true.
   fragments?: boolean
 }
 
@@ -39,18 +42,24 @@ export function resolveLinkPolicy(policy: LinkPolicy): ResolvedLinkPolicy {
   }
 }
 
-// Browsers ignore controls and whitespace inside a scheme, so the decision
-// judges the same normalized spelling that navigation uses.
+export function defaultLinkPolicy(origins: Set<string>, fragments: boolean): ResolvedLinkPolicy {
+  return { protocols: new Set(['https:']), origins, fragments }
+}
+
+// The URL parser removes tabs and newlines throughout and trims surrounding
+// C0 controls and spaces, so the decision uses the raw value it navigates.
 export function linkAllowed(value: string, policy: ResolvedLinkPolicy): boolean {
-  const normalized = [...value]
-    .filter((character) => character.charCodeAt(0) > 0x20 && character.charCodeAt(0) !== 0x7f)
-    .join('')
-    .toLowerCase()
-  if (normalized.startsWith('#')) return policy.fragments
+  let start = 0
+  while (start < value.length && value.charCodeAt(start) <= 0x20) start += 1
+  let end = value.length
+  while (end > start && value.charCodeAt(end - 1) <= 0x20) end -= 1
+  const trimmed = value.slice(start, end)
+  if (trimmed.startsWith('#')) return policy.fragments
   try {
-    const parsed = new URL(normalized)
+    const parsed = new URL(value)
     if (FORBIDDEN_LINK_PROTOCOLS.has(parsed.protocol) || !policy.protocols.has(parsed.protocol)) return false
-    return policy.origins === undefined || parsed.origin === 'null' || policy.origins.has(parsed.origin.toLowerCase())
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true
+    return policy.origins === undefined || policy.origins.has(parsed.origin.toLowerCase())
   } catch {
     return false
   }
