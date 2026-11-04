@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { BoardCommand, BoardTarget } from './board-commands.ts'
+import { jsonSchemas } from './json-schemas.ts'
 
 describe('BoardCommand', () => {
   test('parses each item verb and arrange as a discriminated command', () => {
@@ -18,4 +19,6 @@ describe('BoardCommand', () => {
     for (const target of targets) expect(BoardTarget.safeParse(target).success).toBe(true)
     expect(BoardTarget.safeParse({ section: { id: 's' }, after: { id: 'a' }, before: { id: 'b' } }).success).toBe(false)
   })
+
+  test('publishes the command input schema', () => expect(jsonSchemas().boardCommand).toHaveProperty('oneOf'))
 })

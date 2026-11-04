@@ -17,8 +17,11 @@ const board: Board = {
 }
 
 describe('board command resolvers', () => {
-  test('resolves globally unique entity ids without a kind tag', () =>
-    expect(resolveEntity(board, { id: 'l' })).toEqual({ kind: 'label', value: board.labels[0] }))
+  test('resolves globally unique entity ids without a kind tag', () => {
+    const label = board.labels[0]
+    if (!label) throw new Error('test board has no label')
+    expect(resolveEntity(board, { id: 'l' })).toEqual({ kind: 'label', value: label })
+  })
 
   test('names every id in ambiguous item addresses and section titles', () => {
     expect(() => resolveItem(board, { address: 'same' })).toThrow('matches a, b')
