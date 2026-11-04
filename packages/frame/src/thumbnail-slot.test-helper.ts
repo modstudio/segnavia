@@ -48,26 +48,30 @@ export class TestNode extends TestElement {
   }
 }
 
-// Some runtimes define these globals read-only, so they are redefined rather than assigned.
-const testGlobals: Record<string, unknown> = {
-  HTMLElement: TestElement,
-  CustomEvent: class<T> extends Event {
-    detail: T
-    constructor(type: string, options: CustomEventInit<T> = {}) {
-      super(type, options)
-      this.detail = options.detail as T
-    }
-  },
-  document: { createElement: (tag: string) => new TestNode(tag) },
-}
-for (const [name, value] of Object.entries(testGlobals)) {
-  Object.defineProperty(globalThis, name, { configurable: true, writable: true, value })
+function installTestGlobals() {
+  const testGlobals: Record<string, unknown> = {
+    HTMLElement: TestElement,
+    CustomEvent: class<T> extends Event {
+      detail: T
+      constructor(type: string, options: CustomEventInit<T> = {}) {
+        super(type, options)
+        this.detail = options.detail as T
+      }
+    },
+    document: { createElement: (tag: string) => new TestNode(tag) },
+  }
+  // Some runtimes define these globals read-only, so they are redefined rather than assigned.
+  for (const [name, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, name, { configurable: true, writable: true, value })
+  }
 }
 
+installTestGlobals()
 const { SegnaviaThumbnail } = await import('./thumbnail.ts')
 const textSlot = [{ key: 'name', label: 'Name', type: 'text' as const, required: false }]
 
 export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: SlotsOptions) {
+  installTestGlobals()
   const viewport = new TestNode()
   const errors: unknown[] = []
   const thumbnail = {
