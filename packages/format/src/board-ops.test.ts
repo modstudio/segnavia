@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
-import { applyBoardOps, type BoardOp } from './board-ops.ts'
+import { applyBoardOps, BoardOp, type BoardOp as BoardOpValue } from './board-ops.ts'
+import { jsonSchemas } from './json-schemas.ts'
 
 const item = (id: string, x = 0) => ({ id, kind: 'page' as const, address: `pages/${id}`, x, y: 0, width: 100 })
 const label = (id: string, x = 0) => ({ id, text: id, x, y: 0 })
@@ -9,7 +10,7 @@ const empty: Board = { title: 'Board', direction: 'ltr', items: [], labels: [], 
 
 describe('applyBoardOps', () => {
   test('applies every operation type and exact anchors', () => {
-    const ops: BoardOp[] = [
+    const ops: BoardOpValue[] = [
       { type: 'board-set', from: { title: 'Board' }, to: { title: 'Changed' } },
       { type: 'section-add', id: 's', section: { title: 'Section', rectangle, layout: null }, after: null },
       { type: 'item-add', id: 'a', item: item('a'), after: null },
@@ -86,10 +87,54 @@ describe('applyBoardOps', () => {
     ['missing anchor', [{ type: 'item-add', id: 'a', item: item('a'), after: 'missing' }]],
     ['stale from', [{ type: 'board-set', from: { title: 'Old' }, to: { title: 'New' } }]],
   ] as const)('refuses a %s and names the op and remedy', (_name, ops) => {
-    expect(() => applyBoardOps(empty, ops as unknown as BoardOp[])).toThrow(/board op \d+ \(.+\) refused: .+; diff again from the current board/)
+    expect(() => applyBoardOps(empty, ops as unknown as BoardOpValue[])).toThrow(/board op \d+ \(.+\) refused: .+; diff again from the current board/)
   })
 
-  test('refuses a result that Board cannot parse', () => {
-    expect(() => applyBoardOps(empty, [{ type: 'item-add', id: 'a', item: { ...item('a'), width: 0 }, after: null }])).toThrow(/not a valid board/)
+  test('refuses malformed operations and an invalid final board', () => {
+    const invalid = { ...item('a'), width: 0 }
+    expect(() => applyBoardOps(empty, [{ type: 'item-add', id: 'a', item: invalid, after: null }] as BoardOpValue[])).toThrow(
+      /board op 0 \(item-add\) refused: .+; diff again from the current board/,
+    )
+    expect(() => applyBoardOps({ ...empty, items: [invalid] }, [])).toThrow(
+      /board op list refused: the result is not a valid board \(.+\); diff again from the current board/,
+    )
+  })
+
+  test('validates operation rows and publishes their JSON Schema', () => {
+    expect(BoardOp.safeParse({ type: 'item-set', id: 'a', from: { x: 'wrong' }, to: { x: 2 } }).success).toBe(false)
+    expect(() => applyBoardOps(empty, [{ type: 'item-set', id: 'a' }] as unknown as BoardOpValue[])).toThrow(
+      /board op 0 \(item-set\) refused: .+; diff again from the current board/,
+    )
+    expect(() => applyBoardOps(empty, [{ nope: true }] as unknown as BoardOpValue[])).toThrow(
+      /board op 0 \(unknown\) refused: .+; diff again from the current board/,
+    )
+    expect(jsonSchemas().boardOp).toHaveProperty('oneOf')
+  })
+
+  test('refuses stale or out-of-order removals with the contractual remedy', () => {
+    const populated: Board = {
+      ...empty,
+      items: [item('a'), item('b')],
+      labels: [label('l')],
+      sections: [{ id: 's', title: 'S', rectangle, items: ['a'], cells: [{ id: 'a', row: 0, column: 0 }] }],
+    }
+    const removable: Board = { ...populated, sections: [{ id: 's', title: 'S', rectangle, items: [], cells: [] }] }
+    const cases: BoardOpValue[][] = [
+      [{ type: 'section-remove', id: 's', section: { title: 'S', rectangle, layout: null }, after: null }],
+      [{ type: 'item-remove', id: 'a', item: item('a'), after: null }],
+      [{ type: 'item-remove', id: 'b', item: item('b', 1), after: 'a' }],
+      [{ type: 'label-remove', id: 'l', label: label('l', 1), after: null }],
+      [{ type: 'section-remove', id: 's', section: { title: 'Other', rectangle, layout: null }, after: null }],
+      [{ type: 'item-remove', id: 'b', item: item('b'), after: null }],
+    ]
+    const boards = [populated, populated, populated, populated, removable, populated]
+    cases.forEach((ops, index) => {
+      expect(() => applyBoardOps(boards[index] as Board, ops)).toThrow(/board op 0 \(.+-remove\) refused: .+; diff again from the current board/)
+    })
+  })
+
+  test('removes an empty section whose cells list is present', () => {
+    const board: Board = { ...empty, sections: [{ id: 's', title: 'S', rectangle, items: [], cells: [] }] }
+    expect(applyBoardOps(board, [{ type: 'section-remove', id: 's', section: { title: 'S', rectangle, layout: null }, after: null }]).sections).toEqual([])
   })
 })

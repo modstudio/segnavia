@@ -40,20 +40,38 @@ export const BoardSection = z.object({
 })
 export type BoardSection = z.infer<typeof BoardSection>
 
+export const BoardProperties = z.object({
+  title: z.string(),
+  direction: TextDirection,
+})
+
 const BoardShape = z.preprocess(
   (value) => {
-    if (typeof value !== 'object' || value === null || !Array.isArray((value as { items?: unknown }).items)) return value
-    const board = value as { items: unknown[] }
+    if (typeof value !== 'object' || value === null) return value
+    const board = value as { items?: unknown; sections?: unknown }
+    if (!Array.isArray(board.items)) return value
     return {
       ...board,
       items: board.items.map((item) =>
         typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'image' ? { ...item, kind: 'media' } : item,
       ),
+      sections: Array.isArray(board.sections)
+        ? board.sections.map((section) => {
+            if (typeof section !== 'object' || section === null || !Array.isArray((section as { items?: unknown }).items)) return section
+            const seen = new Set<unknown>()
+            return {
+              ...section,
+              items: (section as { items: unknown[] }).items.filter((id) => {
+                if (seen.has(id)) return false
+                seen.add(id)
+                return true
+              }),
+            }
+          })
+        : board.sections,
     }
   },
-  z.object({
-    title: z.string(),
-    direction: TextDirection,
+  BoardProperties.extend({
     items: z.array(BoardItem),
     labels: z.array(BoardLabel),
     sections: z.array(BoardSection),

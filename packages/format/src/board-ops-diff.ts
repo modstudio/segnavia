@@ -1,18 +1,14 @@
-import type { Board, BoardItem, BoardLabel, BoardSection } from './board.ts'
-import { applyBoardOps, type BoardOp, type SectionFields } from './board-ops.ts'
+import { type Board, BoardItem, BoardLabel, BoardProperties, BoardSection, type BoardSection as BoardSectionValue } from './board.ts'
+import { insertAfter, predecessor } from './board-op-anchor.ts'
+import { sameValue } from './board-op-equal.ts'
+import type { BoardOp, SectionFields } from './board-ops.ts'
 
-function equal(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true
-  if (typeof left !== 'object' || left === null || typeof right !== 'object' || right === null) return false
-  if (Array.isArray(left) || Array.isArray(right))
-    return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => equal(value, right[index]))
-  const a = left as Record<string, unknown>
-  const b = right as Record<string, unknown>
-  const keys = Object.keys(a)
-  return keys.length === Object.keys(b).length && keys.every((key) => key in b && equal(a[key], b[key]))
-}
+const ITEM_FIELDS = BoardItem.keyof().options.filter((key) => key !== 'id') as Exclude<keyof Board['items'][number], 'id'>[]
+const LABEL_FIELDS = BoardLabel.keyof().options.filter((key) => key !== 'id') as Exclude<keyof Board['labels'][number], 'id'>[]
+const SECTION_FIELDS = BoardSection.keyof().options.filter((key) => !['id', 'items', 'cells'].includes(key)) as (keyof SectionFields)[]
+const BOARD_FIELDS = BoardProperties.keyof().options as (keyof Pick<Board, 'title' | 'direction'>)[]
 
-function sectionFields(section: BoardSection): SectionFields {
+function sectionFields(section: BoardSectionValue): SectionFields {
   return { title: section.title, rectangle: section.rectangle, layout: section.layout ?? null }
 }
 
@@ -37,21 +33,12 @@ function longestCommonIds(before: readonly { id: string }[], after: readonly { i
   return kept
 }
 
-function structuralChanges(before: readonly { id: string }[], after: readonly { id: string }[]): Set<string> {
+function changedIds(before: readonly { id: string }[], after: readonly { id: string }[]): { removed: Set<string>; added: Set<string> } {
   const kept = longestCommonIds(before, after)
-  const afterIds = new Set(after.map((entry) => entry.id))
-  return new Set(before.filter((entry) => !kept.has(entry.id) || !afterIds.has(entry.id)).map((entry) => entry.id))
-}
-
-function addedChanges(before: readonly { id: string }[], after: readonly { id: string }[]): Set<string> {
-  const kept = longestCommonIds(before, after)
-  const beforeIds = new Set(before.map((entry) => entry.id))
-  return new Set(after.filter((entry) => !kept.has(entry.id) || !beforeIds.has(entry.id)).map((entry) => entry.id))
-}
-
-function predecessor(entries: readonly { id: string }[], id: string): string | null {
-  const at = entries.findIndex((entry) => entry.id === id)
-  return at <= 0 ? null : (entries[at - 1]?.id ?? null)
+  return {
+    removed: new Set(before.filter((entry) => !kept.has(entry.id)).map((entry) => entry.id)),
+    added: new Set(after.filter((entry) => !kept.has(entry.id)).map((entry) => entry.id)),
+  }
 }
 
 function removeEntity<T extends { id: string }>(entries: T[], id: string): T[] {
@@ -59,26 +46,29 @@ function removeEntity<T extends { id: string }>(entries: T[], id: string): T[] {
 }
 
 function insertEntity<T extends { id: string }>(entries: T[], entry: T, after: string | null): T[] {
-  const at = after === null ? 0 : entries.findIndex((candidate) => candidate.id === after) + 1
-  return [...entries.slice(0, at), entry, ...entries.slice(at)]
+  return insertAfter(
+    entries,
+    entry,
+    after,
+    (candidate) => candidate.id,
+    (reason) => {
+      throw new Error(`diffBoards invariant refused: ${reason}`)
+    },
+  )
 }
 
 function changed<T extends object>(before: T, after: T, keys: readonly (keyof T)[]): { from: Partial<T>; to: Partial<T> } | null {
   const from: Partial<T> = {}
   const to: Partial<T> = {}
   for (const key of keys)
-    if (!equal(before[key], after[key])) {
+    if (!sameValue(before[key], after[key])) {
       from[key] = before[key]
       to[key] = after[key]
     }
   return Object.keys(from).length === 0 ? null : { from, to }
 }
 
-interface Working {
-  items: BoardItem[]
-  labels: BoardLabel[]
-  sections: BoardSection[]
-}
+type Working = Pick<Board, 'items' | 'labels' | 'sections'>
 
 function removeDependencies(working: Working, after: Board, removedItems: ReadonlySet<string>, removedSections: ReadonlySet<string>, ops: BoardOp[]): void {
   const afterSections = new Map(after.sections.map((section) => [section.id, section]))
@@ -90,9 +80,8 @@ function removeDependencies(working: Working, after: Board, removedItems: Readon
     const target = afterSections.get(section.id)
     for (const item of [...section.items]) {
       if (!removedSections.has(section.id) && !removedItems.has(item) && target?.items.includes(item)) continue
-      const at = section.items.indexOf(item)
-      ops.push({ type: 'member-set', section: section.id, item, from: { after: at === 0 ? null : (section.items[at - 1] ?? null) }, to: null })
-      section.items.splice(at, 1)
+      ops.push({ type: 'member-set', section: section.id, item, from: { after: predecessor(section.items, item, (id) => id) }, to: null })
+      section.items = section.items.filter((id) => id !== item)
     }
   }
 }
@@ -106,17 +95,22 @@ function removeRows(
 ): void {
   for (const item of [...working.items])
     if (removedItems.has(item.id)) {
-      ops.push({ type: 'item-remove', id: item.id, item, after: predecessor(working.items, item.id) })
+      ops.push({ type: 'item-remove', id: item.id, item, after: predecessor(working.items, item.id, (entry) => entry.id) })
       working.items = removeEntity(working.items, item.id)
     }
   for (const label of [...working.labels])
     if (removedLabels.has(label.id)) {
-      ops.push({ type: 'label-remove', id: label.id, label, after: predecessor(working.labels, label.id) })
+      ops.push({ type: 'label-remove', id: label.id, label, after: predecessor(working.labels, label.id, (entry) => entry.id) })
       working.labels = removeEntity(working.labels, label.id)
     }
   for (const section of [...working.sections])
     if (removedSections.has(section.id)) {
-      ops.push({ type: 'section-remove', id: section.id, section: sectionFields(section), after: predecessor(working.sections, section.id) })
+      ops.push({
+        type: 'section-remove',
+        id: section.id,
+        section: sectionFields(section),
+        after: predecessor(working.sections, section.id, (entry) => entry.id),
+      })
       working.sections = removeEntity(working.sections, section.id)
     }
 }
@@ -131,19 +125,19 @@ function addRows(
 ): void {
   for (const section of after.sections)
     if (addedSections.has(section.id)) {
-      const afterId = predecessor(after.sections, section.id)
+      const afterId = predecessor(after.sections, section.id, (entry) => entry.id)
       ops.push({ type: 'section-add', id: section.id, section: sectionFields(section), after: afterId })
       working.sections = insertEntity(working.sections, { ...section, items: [], cells: undefined }, afterId)
     }
   for (const item of after.items)
     if (addedItems.has(item.id)) {
-      const afterId = predecessor(after.items, item.id)
+      const afterId = predecessor(after.items, item.id, (entry) => entry.id)
       ops.push({ type: 'item-add', id: item.id, item, after: afterId })
       working.items = insertEntity(working.items, item, afterId)
     }
   for (const label of after.labels)
     if (addedLabels.has(label.id)) {
-      const afterId = predecessor(after.labels, label.id)
+      const afterId = predecessor(after.labels, label.id, (entry) => entry.id)
       ops.push({ type: 'label-add', id: label.id, label, after: afterId })
       working.labels = insertEntity(working.labels, label, afterId)
     }
@@ -152,41 +146,45 @@ function addRows(
 function setRows(working: Working, after: Board, ops: BoardOp[]): void {
   for (const item of working.items) {
     const target = after.items.find((entry) => entry.id === item.id)
-    if (!target || equal(item, target)) continue
-    const change = changed(item, target, ['kind', 'address', 'x', 'y', 'width'])
+    if (!target) continue
+    const change = changed(item, target, ITEM_FIELDS)
     if (change) ops.push({ type: 'item-set', id: item.id, ...change })
   }
   for (const label of working.labels) {
     const target = after.labels.find((entry) => entry.id === label.id)
-    if (!target || equal(label, target)) continue
-    const change = changed(label, target, ['text', 'x', 'y'])
+    if (!target) continue
+    const change = changed(label, target, LABEL_FIELDS)
     if (change) ops.push({ type: 'label-set', id: label.id, ...change })
   }
   for (const section of working.sections) {
     const target = after.sections.find((entry) => entry.id === section.id)
     if (!target) continue
-    const currentFields = sectionFields(section)
-    const targetFields = sectionFields(target)
-    const change = changed(currentFields, targetFields, ['title', 'rectangle', 'layout'])
+    const change = changed(sectionFields(section), sectionFields(target), SECTION_FIELDS)
     if (change) ops.push({ type: 'section-set', id: section.id, ...change })
   }
 }
 
-function reconcileSection(section: BoardSection, target: BoardSection, ops: BoardOp[]): void {
+function reconcileSection(section: BoardSectionValue, target: BoardSectionValue, ops: BoardOp[]): void {
   for (let index = 0; index < target.items.length; index += 1) {
     const item = target.items[index] as string
-    const at = section.items.indexOf(item)
-    const from = at < 0 ? null : { after: at === 0 ? null : (section.items[at - 1] ?? null) }
+    const from = section.items.includes(item) ? { after: predecessor(section.items, item, (id) => id) } : null
     const to = { after: index === 0 ? null : (target.items[index - 1] ?? null) }
-    if (equal(from, to)) continue
+    if (sameValue(from, to)) continue
     ops.push({ type: 'member-set', section: section.id, item, from, to })
-    if (at >= 0) section.items.splice(at, 1)
-    const insertAt = to.after === null ? 0 : section.items.indexOf(to.after) + 1
-    section.items.splice(insertAt, 0, item)
+    const withoutItem = section.items.filter((id) => id !== item)
+    section.items = insertAfter(
+      withoutItem,
+      item,
+      to.after,
+      (id) => id,
+      (reason) => {
+        throw new Error(`diffBoards invariant refused: ${reason}`)
+      },
+    )
   }
   const fromCells = section.cells ?? null
   const toCells = target.cells ?? null
-  if (!equal(fromCells, toCells)) ops.push({ type: 'cells-set', section: section.id, from: fromCells, to: toCells })
+  if (!sameValue(fromCells, toCells)) ops.push({ type: 'cells-set', section: section.id, from: fromCells, to: toCells })
 }
 
 function reconcileMembersAndCells(working: Working, after: Board, ops: BoardOp[]): void {
@@ -199,42 +197,15 @@ function reconcileMembersAndCells(working: Working, after: Board, ops: BoardOp[]
 export function diffBoards(before: Board, after: Board): BoardOp[] {
   const ops: BoardOp[] = []
   const working: Working = structuredClone(before)
-  const removedItems = structuralChanges(before.items, after.items)
-  const removedLabels = structuralChanges(before.labels, after.labels)
-  const removedSections = structuralChanges(before.sections, after.sections)
-  const addedItems = addedChanges(before.items, after.items)
-  const addedLabels = addedChanges(before.labels, after.labels)
-  const addedSections = addedChanges(before.sections, after.sections)
-  removeDependencies(working, after, removedItems, removedSections, ops)
-  removeRows(working, removedItems, removedLabels, removedSections, ops)
-  addRows(working, after, addedSections, addedItems, addedLabels, ops)
-  const boardChange = changed(before, after, ['title', 'direction'])
+  const items = changedIds(before.items, after.items)
+  const labels = changedIds(before.labels, after.labels)
+  const sections = changedIds(before.sections, after.sections)
+  removeDependencies(working, after, items.removed, sections.removed, ops)
+  removeRows(working, items.removed, labels.removed, sections.removed, ops)
+  addRows(working, after, sections.added, items.added, labels.added, ops)
+  const boardChange = changed(before, after, BOARD_FIELDS)
   if (boardChange) ops.push({ type: 'board-set', ...boardChange })
   setRows(working, after, ops)
   reconcileMembersAndCells(working, after, ops)
   return ops
-}
-
-function invertOp(op: BoardOp): BoardOp {
-  switch (op.type) {
-    case 'item-add':
-      return { ...op, type: 'item-remove' }
-    case 'item-remove':
-      return { ...op, type: 'item-add' }
-    case 'label-add':
-      return { ...op, type: 'label-remove' }
-    case 'label-remove':
-      return { ...op, type: 'label-add' }
-    case 'section-add':
-      return { ...op, type: 'section-remove' }
-    case 'section-remove':
-      return { ...op, type: 'section-add' }
-    default:
-      return { ...op, from: op.to, to: op.from } as BoardOp
-  }
-}
-
-export function invertOps(ops: readonly BoardOp[], before: Board): BoardOp[] {
-  applyBoardOps(before, ops)
-  return [...ops].reverse().map(invertOp)
 }

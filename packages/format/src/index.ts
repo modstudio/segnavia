@@ -31,8 +31,8 @@ export {
   zoomToFit,
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
-export { applyBoardOps, type BoardOp } from './board-ops.ts'
-export { diffBoards, invertOps } from './board-ops-diff.ts'
+export { applyBoardOps, BoardOp, invertOps, SectionFields } from './board-ops.ts'
+export { diffBoards } from './board-ops-diff.ts'
 export {
   deriveSectionCells,
   type GridDropTarget,

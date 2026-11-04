@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import type { Board } from './board.ts'
+import { Board, BoardItem, BoardLabel, BoardProperties, BoardSection } from './board.ts'
 import { addItem, moveItems, moveSection, removeItems, resizeItem } from './board-edit.ts'
 import { arrange, type BoardShapes } from './board-geometry.ts'
-import { applyBoardOps } from './board-ops.ts'
-import { diffBoards, invertOps } from './board-ops-diff.ts'
+import { applyBoardOps, invertOps } from './board-ops.ts'
+import { diffBoards } from './board-ops-diff.ts'
 import { makeRoom, settleBoard } from './board-sections.ts'
 
 const item = (id: string, x = 0) => ({ id, kind: 'page' as const, address: `pages/${id}`, x, y: 0, width: 100 })
@@ -25,6 +25,12 @@ describe('diffBoards and invertOps', () => {
     const ops = diffBoards(before, after)
     expect(ops).toEqual([{ type: 'member-set', section: 's', item: 'c', from: { after: 'b' }, to: { after: null } }])
     expect(applyBoardOps(before, ops)).toEqual(after)
+  })
+
+  test('a parsed repeated member normalizes before diffing and applying', () => {
+    const before = Board.parse({ ...board(), sections: [{ ...board().sections[0], items: ['a', 'a'] }] })
+    const after = board(['a', 'b'])
+    expect(applyBoardOps(before, diffBoards(before, after))).toEqual(after)
   })
 
   test('a section move emits a leave and join', () => {
@@ -51,6 +57,38 @@ describe('diffBoards and invertOps', () => {
       { type: 'board-set', from: { title: 'Board', direction: 'ltr' }, to: { title: 'Other', direction: 'rtl' } },
       { type: 'item-set', id: 'a', from: { x: 0 }, to: { x: 20 } },
     ])
+  })
+
+  test('diffs every model field owned by a set operation', () => {
+    const before = board()
+    before.labels = [{ id: 'l', text: 'L', x: 0, y: 0 }]
+    const after = structuredClone(before)
+    Object.assign(after, { title: 'After', direction: 'rtl' })
+    const changedItem = after.items[0]
+    const changedLabel = after.labels[0]
+    const changedSection = after.sections[0]
+    if (!changedItem || !changedLabel || !changedSection) throw new Error('test board is incomplete')
+    Object.assign(changedItem, { kind: 'deck', address: 'decks/a', x: 1, y: 2, width: 101 })
+    Object.assign(changedLabel, { text: 'After', x: 1, y: 2 })
+    Object.assign(changedSection, { title: 'After', rectangle: { ...rectangle, x: 1 }, layout: undefined })
+    const ops = diffBoards(before, after)
+    const keys = (type: string) => Object.keys((ops.find((op) => op.type === type) as { from: object }).from).sort()
+    expect(keys('board-set')).toEqual([...BoardProperties.keyof().options].sort())
+    expect(keys('item-set')).toEqual(
+      BoardItem.keyof()
+        .options.filter((key) => key !== 'id')
+        .sort(),
+    )
+    expect(keys('label-set')).toEqual(
+      BoardLabel.keyof()
+        .options.filter((key) => key !== 'id')
+        .sort(),
+    )
+    expect(keys('section-set')).toEqual(
+      BoardSection.keyof()
+        .options.filter((key) => !['id', 'items', 'cells'].includes(key))
+        .sort(),
+    )
   })
 
   test('round trips additions, removals, top-level order, cells and inverse', () => {
@@ -125,12 +163,6 @@ describe('diffBoards and invertOps', () => {
       expect(applyBoardOps(before, ops)).toEqual(after)
       expect(applyBoardOps(after, invertOps(ops, before))).toEqual(before)
     }
-
-    const before = generatedBoard(random)
-    const after = { ...before, sections: before.sections.map((section) => (section.id === 's' ? { ...section, items: ['b', 'a'] } : section)) }
-    const ops = diffBoards(before, after)
-    const broken = ops.map((op) => (op.type === 'member-set' ? { ...op, from: { after: 'missing' } } : op))
-    expect(() => applyBoardOps(before, broken)).toThrow(/refused/)
   })
 })
 
@@ -153,7 +185,8 @@ function generatedBoard(random: () => number): Board {
     labels: [{ id: 'l', text: 'Label', x: 250, y: 300 }],
     sections: [
       { id: 's', title: 'S', rectangle: { x: offset - 20, y: -30, width: 270, height: 160 }, items: ['a', 'b'], layout: 'manual' },
-      { id: 't', title: 'T', rectangle: { x: 480 + offset, y: -30, width: 140, height: 140 }, items: ['c'], layout: 'manual' },
+      { id: 't', title: 'T', rectangle: { x: 700 + offset, y: -30, width: 140, height: 140 }, items: [], layout: 'manual' },
+      { id: 'u', title: 'U', rectangle: { x: 480 + offset, y: -30, width: 140, height: 140 }, items: ['c'], cells: [{ id: 'c', row: 0, column: 0 }] },
     ],
   }
 }
