@@ -32,7 +32,8 @@ export function captionsControlVisible(state: Pick<DeckState, 'deck'>, policy: '
 type NavigationState = Pick<DeckState, 'deck' | 'index' | 'playback' | 'seek' | 'totalMs' | 'watched'>
 
 export function stepForwardDisabled(state: NavigationState): boolean {
-  return limitNavigation(state.seek, state.watched.reach, { kind: 'slide', to: { index: state.index + 1, ms: 0 } }) === null
+  const lastIndex = (state.deck?.slides.length ?? 0) - 1
+  return state.index >= lastIndex || limitNavigation(state.seek, state.watched.reach, { kind: 'slide', to: { index: state.index + 1, ms: 0 } }) === null
 }
 
 export function trackSegmentLocked(state: Pick<NavigationState, 'seek' | 'watched'>, index: number): boolean {
