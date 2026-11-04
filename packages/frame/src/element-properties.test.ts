@@ -98,7 +98,14 @@ test('the table covers every public frame element and safe event name', () => {
 test('every declared property is an accessor on its element prototype', async () => {
   // Per-class upgrade tests require a real browser because these elements build shadow DOM and frames; they belong to the browser check.
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class HTMLElement extends EventTarget {} })
+  Object.defineProperty(globalThis, 'HTMLElement', {
+    configurable: true,
+    value: class HTMLElement extends EventTarget {
+      attachShadow() {
+        return { append() {} }
+      }
+    },
+  })
   try {
     const [stage, thumbnail, board, boardList, boardToolbar, page, paper, document, book, player, controls, caption, rail, paperPicker, itemSettings] =
       await Promise.all([

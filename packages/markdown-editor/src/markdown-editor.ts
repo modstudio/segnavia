@@ -36,7 +36,7 @@ import {
   markdownEditorKeyAction,
   richModeCommandRefusal,
 } from './markdown-editor-policy.ts'
-import { renderMarkdownEditorTitle } from './markdown-editor-title.ts'
+import { renderMarkdownEditorTitle, updateMarkdownEditorTitle } from './markdown-editor-title.ts'
 import type { MarkdownEditorStateDetail, SegnaviaMarkdownEditor as SegnaviaMarkdownEditorInterface } from './markdown-editor-types.ts'
 import { lockedBlockSourceOffset, RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
 import { mountRichEditor } from './markdown-rich-editor.ts'
@@ -113,8 +113,7 @@ class MarkdownEditorElement extends HTMLElement {
     else if (name === 'mode') this.mode = value as MarkdownEditorMode
     else if (name === 'title') {
       if (value === null) return
-      this.setTitle(value)
-      this.reflect('title', null)
+      this.setTitle(value, 'attribute')
     } else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
   }
 
@@ -144,15 +143,16 @@ class MarkdownEditorElement extends HTMLElement {
     return this.model.title as unknown as string
   }
   set title(value: string | null | undefined) {
-    this.setTitle(value)
+    this.setTitle(value, 'property')
   }
 
-  private setTitle(value: string | null | undefined) {
-    const model = setModelTitle(this.model, value)
+  private setTitle(value: string | null | undefined, source: 'attribute' | 'property') {
+    const { model, removeTitleAttribute } = updateMarkdownEditorTitle(this.model, value, source)
     if (model !== this.model) {
       this.model = model
       renderMarkdownEditorTitle(this.titleField, this.model)
     }
+    if (removeTitleAttribute) this.reflect('title', null)
   }
 
   get titleSource() {
