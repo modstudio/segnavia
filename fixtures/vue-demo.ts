@@ -30,6 +30,19 @@ const vueElements = (late: boolean) => [
     id: `${late ? 'late' : 'early'}-thumbnail`,
     [late ? '.deck' : 'deck']: deck,
   }),
+  h('segnavia-thumbnail', {
+    id: `${late ? 'late' : 'early'}-error-thumbnail`,
+    [late ? '.deck' : 'deck']: deck,
+    [late ? '.resolveSlide' : 'resolveSlide']: async () => {
+      throw new Error('Vue thumbnail event detail')
+    },
+    onSegnaviaThumbnailError: event(`${late ? 'late' : 'early'}-thumbnail-error`),
+  }),
+  h('segnavia-markdown-editor', {
+    id: `${late ? 'late' : 'early'}-editor`,
+    mode: 'source',
+    onSegnaviaEditorState: event(`${late ? 'late' : 'early'}-editor-state`),
+  }),
 ]
 
 createApp({ render: () => h('div', vueElements(true)) }).mount('#late-root')
@@ -89,7 +102,8 @@ for (const [tag, replay] of replayElements) {
   facts.weakReplayTags.push(tag)
 }
 facts.lateReplay[ELEMENT_PROPERTIES.stage.tag] = (document.querySelector('#late-stage') as { controller?: unknown } | null)?.controller === controller
-facts.lateReplay[ELEMENT_PROPERTIES.thumbnail.tag] = (document.querySelector('#late-thumbnail') as { deck?: unknown } | null)?.deck === deck
+facts.lateReplay[ELEMENT_PROPERTIES.thumbnail.tag] =
+  (document.querySelector('#late-thumbnail') as { deck?: { title?: unknown } } | null)?.deck?.title === deck.title
 facts.lateReplay[MARKDOWN_EDITOR_PROPERTIES.tag] = Reflect.get(upgradingEditor, 'title') === 'Title present at upgrade'
 
 facts.titles.upgrade = { title: Reflect.get(upgradingEditor, 'title'), attribute: upgradingEditor.getAttribute('title') }

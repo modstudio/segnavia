@@ -107,10 +107,14 @@ function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Work
 
 export function checkImports(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>): Finding[] {
   const within = file.path.slice(`packages/${packageOf(file.path)}/`.length)
-  const findings = file.imports.flatMap((specifier) =>
+  const typeImports = [...file.text.matchAll(/\b(?:import|export)\s+type\s+[^'"\n]*?\sfrom\s+['"]([^'"]+)['"]/g)]
+    .map((match) => match[1] as string)
+    .filter((specifier) => specifier === 'vue' || specifier.endsWith('/vue') || specifier === './vue.ts')
+  const imports = [...new Set([...file.imports, ...typeImports])]
+  const findings = imports.flatMap((specifier) =>
     specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
   )
-  for (const specifier of file.imports) {
+  for (const specifier of imports) {
     if ((specifier.endsWith('/vue') || specifier === './vue.ts') && !VUE_TYPE_ENTRIES.has(file.path)) {
       findings.push({ rule: 'architecture', path: file.path, message: `a runtime module may not import the types-only Vue entry ${specifier}.` })
     }

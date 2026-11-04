@@ -36,10 +36,14 @@ export async function verifyVue(h: Harness) {
   )
 
   const eventNames = facts.events.map(({ name }) => name)
-  const editorState = facts.events.find(({ name }) => name === 'editor-state')?.detail as { canUndo?: unknown } | undefined
+  const editorState = facts.events.find(({ name }) => name === 'late-editor-state')?.detail as { canUndo?: unknown } | undefined
   check(
-    'Vue listeners receive stage and editor CustomEvents with their details',
-    eventNames.includes('late-stage-fit') && eventNames.includes('early-stage-fit') && typeof editorState?.canUndo === 'boolean',
+    'Vue listeners receive stage, thumbnail, and editor CustomEvents with their details',
+    eventNames.includes('late-stage-fit') &&
+      eventNames.includes('early-stage-fit') &&
+      eventNames.includes('late-thumbnail-error') &&
+      eventNames.includes('early-thumbnail-error') &&
+      typeof editorState?.canUndo === 'boolean',
     JSON.stringify(facts.events),
   )
 

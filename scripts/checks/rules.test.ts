@@ -94,10 +94,12 @@ describe('architecture rules', () => {
   })
 
   test('only the Vue type entries may import Vue and runtime modules cannot import them', () => {
-    expect(checkImports({ path: 'packages/frame/src/vue.ts', text: '', imports: ['vue'] }, workspace('frame'), all)).toEqual([])
-    expect(checkImports({ path: 'packages/frame/src/index.ts', text: '', imports: ['vue'] }, workspace('frame'), all)[0]?.message).toContain(
-      'may not import vue',
-    )
+    expect(
+      checkImports({ path: 'packages/frame/src/vue.ts', text: "import type { DefineComponent } from 'vue'", imports: [] }, workspace('frame'), all),
+    ).toEqual([])
+    expect(
+      checkImports({ path: 'packages/frame/src/index.ts', text: "import type {} from 'vue'", imports: [] }, workspace('frame'), all)[0]?.message,
+    ).toContain('may not import vue')
     expect(checkImports({ path: 'packages/frame/src/index.ts', text: '', imports: ['./vue.ts'] }, workspace('frame'), all)[0]?.message).toContain(
       'runtime module may not import',
     )
