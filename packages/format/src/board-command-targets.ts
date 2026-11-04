@@ -1,9 +1,9 @@
 import type { Board } from './board.ts'
 import { BoardCommandRefusal, resolveEntity, resolveItem, resolveSection } from './board-command-resolvers.ts'
 import type { BoardTarget } from './board-commands.ts'
-import { type BoardShapes, boardBounds, itemRectangle } from './board-geometry.ts'
+import { type BoardShapes, boardBounds, itemRectangle, labelRectangle } from './board-geometry.ts'
 import { gridDropTarget, insertIntoGrid, removeFromGrid } from './board-section-grid.ts'
-import { assignMembership, SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
+import { assignMembership, overlaps, SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
 import type { Box, Point } from './deck.ts'
 
 function itemBox(board: Board, shapes: BoardShapes, id: string): Box {
@@ -18,7 +18,7 @@ function entityBox(board: Board, shapes: BoardShapes, target: ReturnType<typeof 
   if (target.kind === 'item') return itemBox(board, shapes, target.value.id)
   const shape = shapes.labels[target.value.id]
   if (!shape) throw new BoardCommandRefusal(`label "${target.value.id}" has no resolved shape`, `pass the resolved shape for label "${target.value.id}"`)
-  return { x: target.value.x, y: target.value.y, ...shape }
+  return labelRectangle(target.value, shapes)
 }
 
 function translate(board: Board, ids: readonly string[], point: Point): Board {
@@ -95,10 +95,6 @@ export interface BoardTargetPlacement {
   board: Board
   nudges: Array<{ kind: 'item' | 'label' | 'section'; id: string }>
   usedEstimatedLabels: string[]
-}
-
-function overlaps(left: Box, right: Box): boolean {
-  return left.x < right.x + right.width && left.x + left.width > right.x && left.y < right.y + right.height && left.y + left.height > right.y
 }
 
 function movedBoxes(board: Board, shapes: BoardShapes, ids: readonly string[]): Box[] {

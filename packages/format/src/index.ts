@@ -4,6 +4,18 @@
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
+  type BoardCommandOptions,
+  DEFAULT_BOARD_ITEM_WIDTH,
+} from './board-command-items.ts'
+export {
+  BoardCommand,
+  type BoardCommandOf,
+  BoardEntityRef,
+  BoardItemRef,
+  BoardSectionRef,
+  BoardTarget,
+} from './board-commands.ts'
+export {
   type BoardDescription,
   type BoardDescriptionCell,
   type BoardDescriptionEntity,
@@ -16,18 +28,6 @@ export {
   type DescribeBoardOptions,
   describeBoard,
 } from './board-describe.ts'
-export {
-  type BoardCommandOptions,
-  DEFAULT_BOARD_ITEM_WIDTH,
-} from './board-command-items.ts'
-export {
-  BoardCommand,
-  type BoardCommandOf,
-  BoardEntityRef,
-  BoardItemRef,
-  BoardSectionRef,
-  BoardTarget,
-} from './board-commands.ts'
 export {
   addItem,
   type BoardItemAnchor,
