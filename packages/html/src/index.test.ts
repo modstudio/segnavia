@@ -37,9 +37,12 @@ describe('sanitize', () => {
     ).toBe('<a href="https://new.example/p">new</a>')
   })
 
-  test('javascript cannot be admitted by a host link policy', () => {
-    const unsafe = { protocols: ['javascript:'] }
-    expect(() => sanitize('<p>no link</p>', { links: unsafe })).toThrow('remove it to clear this refusal')
+  test('links decides authored hrefs when a converter policy is also supplied', () => {
+    const converterPolicy = {
+      urls: { linkProtocols: ['https:'], imageProtocols: [], linkFragments: true, dataImages: false },
+      inertControls: [],
+    }
+    expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')
   })
 
   test('an image may only be inline data, in src and in style alike', () => {

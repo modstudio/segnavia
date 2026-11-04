@@ -107,10 +107,10 @@ export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
 }
 
-function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy, policy?: UrlPolicy): boolean {
+function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy, policy?: UrlPolicy, linksGiven = false): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
-    if (!policy) return linkAllowed(value, links)
+    if (linksGiven || !policy) return linkAllowed(value, links)
     return linkAllowed(value, { protocols: new Set(policy.linkProtocols), fragments: policy.linkFragments })
   }
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
@@ -179,7 +179,8 @@ function refusedAttribute(
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
   if (dependency !== undefined) return dependency || undefined
-  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls))
+  return REFUSED_ATTRIBUTES.has(attribute) ||
+    (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls, options.links !== undefined))
     ? ''
     : undefined
 }
@@ -275,7 +276,7 @@ function cleanAttributes(element: Element, links: ResolvedLinkPolicy, options: S
 }
 
 function sanitizeLinkPolicy(options: SanitizeOptions): ResolvedLinkPolicy {
-  if (options.links) return resolveLinkPolicy(options.links)
+  if (options.links !== undefined) return resolveLinkPolicy(options.links)
   return { protocols: new Set(['https:']), origins: originSet(options.linkOrigins), fragments: true }
 }
 

@@ -10,13 +10,15 @@ export interface ResolvedLinkPolicy {
   fragments: boolean
 }
 
+const FORBIDDEN_LINK_PROTOCOLS = new Set(['javascript:', 'vbscript:', 'data:'])
+
 function normalizedProtocol(protocol: string): string {
   const normalized = protocol.toLowerCase()
   if (!/^[a-z][a-z\d+.-]*:$/.test(normalized)) {
     throw new TypeError(`links.protocols contains ${JSON.stringify(protocol)}; use URL protocols such as "https:" to clear this refusal`)
   }
-  if (normalized === 'javascript:') {
-    throw new TypeError('links.protocols contains "javascript:", which is always refused; remove it to clear this refusal')
+  if (FORBIDDEN_LINK_PROTOCOLS.has(normalized)) {
+    throw new TypeError(`links.protocols contains ${JSON.stringify(protocol)}; remove it from links.protocols to clear this refusal`)
   }
   return normalized
 }
@@ -33,7 +35,7 @@ export function resolveLinkPolicy(policy: LinkPolicy): ResolvedLinkPolicy {
   return {
     protocols: new Set([...policy.protocols].map(normalizedProtocol)),
     origins: policy.origins === undefined ? undefined : new Set([...policy.origins].map(normalizedOrigin)),
-    fragments: policy.fragments ?? false,
+    fragments: policy.fragments ?? true,
   }
 }
 
@@ -47,7 +49,7 @@ export function linkAllowed(value: string, policy: ResolvedLinkPolicy): boolean 
   if (normalized.startsWith('#')) return policy.fragments
   try {
     const parsed = new URL(normalized)
-    if (parsed.protocol === 'javascript:' || !policy.protocols.has(parsed.protocol)) return false
+    if (FORBIDDEN_LINK_PROTOCOLS.has(parsed.protocol) || !policy.protocols.has(parsed.protocol)) return false
     return policy.origins === undefined || parsed.origin === 'null' || policy.origins.has(parsed.origin.toLowerCase())
   } catch {
     return false
