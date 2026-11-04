@@ -18,9 +18,11 @@ format  ◄── html          (universal: browser and server)
   └── voice               (server: providers, cache)
 ```
 
-| Frame entry | What it provides |
+The types-only Vue opt-ins live in `frame` and `markdown-editor`; Vue itself is supplied by the consumer.
+
+| Package entry | What it provides |
 |---|---|
-| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and DOM event names; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, and React owns its typed `on…` maps. |
+| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and DOM event names; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. |
 | `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed custom events for every frame descriptor. Its JavaScript is empty and no runtime entry imports it. |
 | `@segnavia/markdown-editor/vue` | The editor's types-only Vue 3.5+ global component opt-in, derived from its property and event descriptor. Its JavaScript is empty and no runtime entry imports it. |
 
@@ -299,6 +301,7 @@ write.
 emitted markdown and title, then supplies them back as properties. React hosts
 load the optional component from `@segnavia/react/markdown-editor`; the main
 React entry does not load the editor or CodeMirror.
+Vue hosts opt into the editor's types through `@segnavia/markdown-editor/vue`.
 
 A render host supplies both the `playwright-core` client, any version in the
 render package's peer range, and the Chromium binary it launches through

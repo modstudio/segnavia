@@ -1,4 +1,4 @@
-import { type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
+import { type Board, type BoardItem, type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, resolveDirection } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
 import { createKindIcon } from './board-chrome.ts'
@@ -8,6 +8,13 @@ import { BoardTargetBinding } from './board-target.ts'
 import { upgradeProperties } from './element-properties.ts'
 
 export type BoardItemSearch = (query: string, signal: AbortSignal) => Promise<string[]>
+
+export interface BoardSearchErrorDetail {
+  query: string
+  error: unknown
+}
+
+export type BoardSelectDetail = { item: BoardItem; section?: never } | { item?: never; section: NonNullable<Board['sections']>[number] }
 
 export class SegnaviaBoardList extends HTMLElement {
   static observedAttributes = ['for']
@@ -127,7 +134,7 @@ export class SegnaviaBoardList extends HTMLElement {
       this.render()
     } catch (error) {
       if (!request.signal.aborted && this.searchPolicy.accepts(request.version)) {
-        this.dispatchEvent(new CustomEvent('segnavia-board-search-error', { detail: { query, error }, bubbles: true, composed: true }))
+        this.dispatchEvent(new CustomEvent<BoardSearchErrorDetail>('segnavia-board-search-error', { detail: { query, error }, bubbles: true, composed: true }))
       }
     } finally {
       if (this.searchPolicy.accepts(request.version)) this.removeAttribute('data-searching')
@@ -209,10 +216,10 @@ export class SegnaviaBoardList extends HTMLElement {
     if (item) {
       target.reveal(item.id)
       target.selection = [item.id]
-      this.dispatchEvent(new CustomEvent('segnavia-board-select', { detail: { item }, bubbles: true, composed: true }))
+      this.dispatchEvent(new CustomEvent<BoardSelectDetail>('segnavia-board-select', { detail: { item }, bubbles: true, composed: true }))
     } else if (section) {
       target.reveal(section.id)
-      this.dispatchEvent(new CustomEvent('segnavia-board-select', { detail: { section }, bubbles: true, composed: true }))
+      this.dispatchEvent(new CustomEvent<BoardSelectDetail>('segnavia-board-select', { detail: { section }, bubbles: true, composed: true }))
     }
   }
 }

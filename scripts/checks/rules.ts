@@ -1,8 +1,7 @@
 // The repository's own rules as pure decisions over a file's path, text and
 // imports, so the gate can test them and the runner only gathers facts.
 
-import ts from 'typescript'
-import { FILE_CEILING_LINES, type PackageRule, VUE_TYPE_ENTRIES } from '../../architecture.ts'
+import { FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
 export interface SourceFile {
@@ -88,7 +87,6 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
 }
 
 function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>, specifier: string): Finding[] {
-  if (specifier === 'vue' && VUE_TYPE_ENTRIES.has(file.path)) return []
   if (specifier === 'bun:test') return []
   if (specifier.startsWith('node:')) {
     return workspace.rule.runtime === 'server'
@@ -108,19 +106,9 @@ function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Work
 
 export function checkImports(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>): Finding[] {
   const within = file.path.slice(`packages/${packageOf(file.path)}/`.length)
-  const parsedImports = ts
-    .preProcessFile(file.text)
-    .importedFiles.map(({ fileName }) => fileName)
-    .filter((specifier) => specifier === 'vue' || specifier.endsWith('/vue') || specifier === './vue.ts')
-  const imports = [...new Set([...file.imports, ...parsedImports])]
-  const findings = imports.flatMap((specifier) =>
-    specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
-  )
-  for (const specifier of imports) {
-    if ((specifier.endsWith('/vue') || specifier === './vue.ts') && !VUE_TYPE_ENTRIES.has(file.path)) {
-      findings.push({ rule: 'architecture', path: file.path, message: `a runtime module may not import the types-only Vue entry ${specifier}.` })
-    }
-  }
+  const findings = file.imports
+    .filter((specifier) => specifier !== 'vue')
+    .flatMap((specifier) => (specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier)))
   if (workspace.rule.runtime !== 'server' && !file.path.endsWith('.test.ts') && NODE_GLOBALS.test(stripComments(file.text))) {
     findings.push({ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package uses a Node global.` })
   }

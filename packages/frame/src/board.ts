@@ -16,6 +16,7 @@ import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
+import type * as BoardEvent from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
@@ -77,7 +78,8 @@ export class SegnaviaBoard extends BoardSelectionElement {
       this.render()
       this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
     },
-    (items, error) => this.dispatchEvent(new CustomEvent('segnavia-board-error', { detail: { items, error }, bubbles: true, composed: true })),
+    (items, error) =>
+      this.dispatchEvent(new CustomEvent<BoardEvent.BoardErrorDetail>('segnavia-board-error', { detail: { items, error }, bubbles: true, composed: true })),
   )
   private readonly gestures = new BoardGestures(
     this,
@@ -94,7 +96,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     selectAll: () => {
       this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
     },
-    open: (item) => this.dispatchEvent(new CustomEvent('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
+    open: (item) => this.dispatchEvent(new CustomEvent<BoardEvent.BoardOpenDetail>('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
     boardKey: (event) =>
       boardPolicy.applyBoardKey(
         event,
@@ -102,7 +104,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
         () => this.fitAll(),
         (view) => this.setView(view),
       ),
-    action: (action, item) => this.dispatchEvent(new CustomEvent('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
+    action: (action, item) =>
+      this.dispatchEvent(
+        new CustomEvent<BoardEvent.BoardItemActionDetail>('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true }),
+      ),
     focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
@@ -154,7 +159,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.mounts.reconcile(previous, this.value)
     this.render()
     this.fitInitial()
-    if (dispatch) this.dispatchEvent(new CustomEvent('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
+    if (dispatch)
+      this.dispatchEvent(
+        new CustomEvent<BoardEvent.BoardChangeDetail>('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }),
+      )
   }
   get view(): BoardView {
     return this.currentView
@@ -325,7 +333,9 @@ export class SegnaviaBoard extends BoardSelectionElement {
     if (this.viewEvent) return
     this.viewEvent = requestAnimationFrame(() => {
       this.viewEvent = 0
-      this.dispatchEvent(new CustomEvent('segnavia-board-view', { detail: { view: this.currentView }, bubbles: true, composed: true }))
+      this.dispatchEvent(
+        new CustomEvent<BoardEvent.BoardViewDetail>('segnavia-board-view', { detail: { view: this.currentView }, bubbles: true, composed: true }),
+      )
     })
   }
 
@@ -393,7 +403,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.painter.dispose(current.id)
-    this.dispatchEvent(new CustomEvent('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
+    this.dispatchEvent(new CustomEvent<BoardEvent.BoardErrorDetail>('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
     this.render()
   }
 }

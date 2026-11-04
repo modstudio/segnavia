@@ -28,6 +28,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | A finished player, a layout of those components, with an optional thumbnail rail: `<segnavia-player>` | `@segnavia/frame/player` |
 | Opt-in editing for a host's own app: reorder slides and edit notes, with the host owning every write | `@segnavia/frame/authoring` |
 | React components for the player and controls, with `useDeckController` and `useAuthoring` | `@segnavia/react` |
+| Opt-in Vue template props and custom-event types, with Vue supplied by the consumer | `@segnavia/frame/vue`, `@segnavia/markdown-editor/vue` |
 | Pages, slides and decks to PDF or PNG/WebP/JPEG, offline, at their own size or on paper | `@segnavia/render` |
 | Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
 | Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |

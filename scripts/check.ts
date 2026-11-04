@@ -26,6 +26,7 @@ import {
 } from './checks/rules.ts'
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
+import { checkVueImports } from './checks/vue-imports.ts'
 import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -133,7 +134,7 @@ function structural(names: string[]): Finding[] {
     if (owner) {
       const workspace = all.get(`@segnavia/${owner}`)
       if (!workspace) findings.push({ rule: 'architecture', path: relative, message: `packages/${owner} is not declared in architecture.ts.` })
-      else findings.push(...checkImports(file, workspace, all))
+      else findings.push(...checkImports(file, workspace, all), ...checkVueImports(file))
       findings.push(...checkHostNames(file, names))
     }
     findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))

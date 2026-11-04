@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { bunSource, PACKAGES, SOURCE_CONDITION, type SourceExport } from '../architecture.ts'
+import { bunSource, PACKAGES, SOURCE_CONDITION, type SourceExport, VUE_MODULE_NAMES, VUE_TYPE_ENTRIES } from '../architecture.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const WORK = path.join(ROOT, 'out/package-check')
@@ -39,10 +39,24 @@ function linkConsumerModules(directory: string, includeVue: boolean): void {
   const modules = path.join(directory, 'node_modules')
   mkdirSync(modules, { recursive: true })
   for (const name of readdirSync(path.join(ROOT, 'node_modules'))) {
-    if (name === '@segnavia' || name === '.bin' || name === '.bun' || (!includeVue && (name === 'vue' || name === 'vue-tsc' || name === '@vue'))) continue
+    if (name === '@segnavia' || name === '.bin' || name === '.bun' || (!includeVue && (VUE_MODULE_NAMES as readonly string[]).includes(name))) continue
     symlinkSync(path.join(ROOT, 'node_modules', name), path.join(modules, name))
   }
   symlinkSync(path.join(HOST, 'node_modules', '@segnavia'), path.join(modules, '@segnavia'))
+}
+
+function isVueTypeEntry(packageName: string, exportName: string): boolean {
+  const entry = VUE_TYPE_ENTRIES[packageName as keyof typeof VUE_TYPE_ENTRIES]
+  return entry?.exportName === exportName
+}
+
+function assertEmptyVueEntry(packageName: string, exportName: string, javascript: string): void {
+  if (!isVueTypeEntry(packageName, exportName)) return
+  const source = new Bun.Transpiler({ loader: 'js' }).scan(javascript)
+  const withoutComments = javascript.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '').trim()
+  if (source.imports.length > 0 || (withoutComments !== '' && withoutComments !== 'export {};')) {
+    throw new Error(`@segnavia/${packageName}${exportName.slice(1)} must contain no runtime statements; expected only an empty export {}.`)
+  }
 }
 
 function specifier(packageName: string, exportName: string): string {
@@ -140,6 +154,7 @@ for (const { name, directory, manifest } of installed) {
   for (const [exportName, conditions] of Object.entries(manifest.exports)) {
     const target = specifier(manifest.name, exportName)
     const javascript = readFileSync(path.join(directory, conditions.default), 'utf8')
+    assertEmptyVueEntry(name, exportName, javascript)
     const names = new Bun.Transpiler({ loader: 'js' }).scan(javascript).exports
     const defaults = names.filter((exported) => exported === 'default')
     const named = names.filter((exported) => exported !== 'default')
@@ -150,7 +165,7 @@ for (const { name, directory, manifest } of installed) {
     }
     if (names.length === 0) entryImports.push(`import ${JSON.stringify(target)}`)
     imports.push(...entryImports)
-    if (exportName !== './vue') importsWithoutVue.push(...entryImports)
+    if (!isVueTypeEntry(name, exportName)) importsWithoutVue.push(...entryImports)
 
     const rule = PACKAGES[name]
     const source = bunSource(conditions[SOURCE_CONDITION]).replace(/^\.\//, '')
