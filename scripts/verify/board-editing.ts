@@ -1,5 +1,6 @@
 import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
+import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -39,24 +40,12 @@ type DemoWindow = typeof window & {
     add(input: { kind: string; address: string }): string | undefined
     detach(): void
   }
-  attachBoardEditingForCheck(target: BoardElement): { editing: { detach(): void }; changes(): number }
 }
 
 export async function checkBoardEditing(h: Harness) {
   const board = h.page.locator('segnavia-board')
   const original = await board.evaluate((element) => structuredClone((element as BoardElement).board))
-  const settledAttachChanges = await board.evaluate(async (element) => {
-    const settled = document.createElement('segnavia-board') as BoardElement
-    settled.style.cssText = 'position:fixed;inline-size:800px;block-size:600px;inset-inline-start:-2000px'
-    document.body.append(settled)
-    settled.board = structuredClone((element as BoardElement).board)
-    const check = (window as unknown as DemoWindow).attachBoardEditingForCheck(settled)
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    check.editing.detach()
-    settled.remove()
-    return check.changes()
-  })
-  h.check('attaching editing to a board with stored label sizes sends no settle change', settledAttachChanges === 0, String(settledAttachChanges))
+  await checkBoardEditingLabelSizes(h, board)
   const reset = async (direction: 'ltr' | 'rtl' = 'ltr') => {
     await board.evaluate(
       (element, args) => {

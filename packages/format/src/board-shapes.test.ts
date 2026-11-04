@@ -67,6 +67,21 @@ describe('boardShapes', () => {
     })
   })
 
+  test('uses one address fact for every item that shares the address', () => {
+    const shared: Board = {
+      ...board,
+      labels: [],
+      items: [
+        { id: 'first', kind: 'page', address: 'shared', x: 0, y: 0, width: 10 },
+        { id: 'second', kind: 'page', address: 'shared', x: 20, y: 0, width: 10 },
+      ],
+    }
+    expect(boardShapes(shared, { shared: { kind: 'page', size: { width: 8, height: 11 } } }).shapes.items).toEqual({
+      first: { width: 8, height: 11 },
+      second: { width: 8, height: 11 },
+    })
+  })
+
   test('maps every fact variant to its stated shape', () => {
     expect(resolvedShape({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })).toEqual({ width: 16, height: 9 })
     expect(resolvedShape({ kind: 'page', size: { width: 8, height: 11 } })).toEqual({ width: 8, height: 11 })
