@@ -10,9 +10,11 @@ import {
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
+  checkVueDependencies,
   type ResolutionInputs,
   type Workspace,
 } from './rules.ts'
+import { checkVueImports } from './vue-imports.ts'
 
 const workspace = (name: string, exports = ['.']): Workspace => ({
   name: `@segnavia/${name}`,
@@ -82,6 +84,46 @@ describe('architecture rules', () => {
       'packages/frame/package.json',
       'packages/html/package.json',
     ])
+  })
+
+  test('no package may name Vue in any dependency field', () => {
+    const manifests = [
+      { name: '@segnavia/frame', path: 'packages/frame/package.json', dependencies: { vue: '^3.5.0' } },
+      { name: '@segnavia/html', path: 'packages/html/package.json', peerDependencies: { vue: '^3.5.0' } },
+      { name: '@segnavia/format', path: 'packages/format/package.json', optionalDependencies: { vue: '^3.5.0' } },
+      { name: '@segnavia/render', path: 'packages/render/package.json', devDependencies: { vue: '^3.5.0' } },
+    ]
+    expect(checkVueDependencies(manifests).map((finding) => finding.path)).toEqual([
+      'packages/frame/package.json',
+      'packages/html/package.json',
+      'packages/format/package.json',
+      'packages/render/package.json',
+    ])
+  })
+
+  test('only the Vue type entries may import Vue and runtime modules cannot import them', () => {
+    expect(checkVueImports({ path: 'packages/frame/src/vue.ts', text: "import type { DefineComponent } from 'vue'", imports: [] })).toEqual([])
+    expect(checkVueImports({ path: 'packages/frame/src/index.ts', text: "import type {} from 'vue'", imports: [] })[0]?.message).toContain('may import vue')
+    expect(checkVueImports({ path: 'packages/frame/src/index.ts', text: "import './vue.ts'", imports: [] })[0]?.message).toContain(
+      'runtime module may not import',
+    )
+    for (const text of ["import type { Ref } from 'vue'", "import type {\n  Ref,\n  App,\n} from 'vue'", "import { type Ref } from 'vue'"]) {
+      expect(checkVueImports({ path: 'packages/frame/src/index.ts', text, imports: [] })).toHaveLength(1)
+    }
+    expect(
+      checkVueImports({ path: 'packages/frame/src/index.ts', text: "import type {\n  FrameVueEventDetails,\n} from './vue.ts'", imports: [] }),
+    ).toHaveLength(1)
+    expect(checkVueImports({ path: 'packages/frame/src/index.ts', text: "export type { FrameVueEventDetails } from './vue.ts'", imports: [] })).toHaveLength(1)
+  })
+
+  test('a Vue entry refuses a value import with the type-only fix', () => {
+    const findings = checkVueImports({ path: 'packages/frame/src/vue.ts', text: "import { h } from 'vue'", imports: [] })
+    expect(findings.map((finding) => finding.message)).toEqual(["a types-only Vue entry may import vue only with 'import type' or type-only specifiers."])
+  })
+
+  test('a nested relative import resolving to a Vue entry is refused', () => {
+    const findings = checkVueImports({ path: 'packages/frame/src/nested/example.ts', text: "import type {} from '../vue.ts'", imports: [] })
+    expect(findings[0]?.message).toContain('runtime module may not import the types-only Vue entry ../vue.ts')
   })
 
   test('a server-safe entry must name an existing source file', () => {

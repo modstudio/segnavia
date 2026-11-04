@@ -29,6 +29,7 @@ import { verifyScriptedDependencies } from './verify/scripted-dependencies.ts'
 import { verifySelection } from './verify/selection.ts'
 import { verifySlots } from './verify/slots.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
+import { verifyVue } from './verify/vue.ts'
 import { parseVerifyShard, sectionsForShard, unlistedSections, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
 
 type VerifySection = Readonly<{ name: string; run: () => void | Promise<void> }>
@@ -59,6 +60,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyMedia', run: () => verifyMedia(h) },
   { name: 'verifyMarkdownEditor', run: () => verifyMarkdownEditor(h) },
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
+  { name: 'verifyVue', run: () => verifyVue(h) },
 ]
 
 const listing = unlistedSections(

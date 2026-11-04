@@ -33,6 +33,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyImageFit',
   'verifyCapture',
   'verifySlots',
+  'verifyVue',
 ] as const
 
 export function parseVerifyShard(value: string | undefined): VerifyShard | undefined {

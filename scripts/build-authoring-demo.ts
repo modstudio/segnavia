@@ -69,7 +69,11 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
     path.join(site, 'react.html'),
     '<!doctype html><html><head><meta charset="utf-8"><style>html,body,#root,segnavia-player{height:100%;margin:0}</style></head><body><div id="root"></div><script type="module" src="react-demo.js"></script></body></html>',
   )
-  for (const entry of ['authoring-demo', 'react-demo']) {
+  writeFileSync(
+    path.join(site, 'vue.html'),
+    '<!doctype html><html><head><meta charset="utf-8"><style>segnavia-stage,segnavia-thumbnail{display:block;width:320px;height:180px}</style></head><body><div id="late-root"></div><div id="early-root"></div><script type="module" src="vue-demo.js"></script></body></html>',
+  )
+  for (const entry of ['authoring-demo', 'react-demo', 'vue-demo']) {
     const built = await Bun.build({ entrypoints: [path.join(root, 'fixtures', `${entry}.ts`)], target: 'browser', format: 'esm', minify: true })
     if (!built.success || !built.outputs[0]) throw new Error(`Could not build ${entry}: ${built.logs.join('\n')}`)
     await Bun.write(path.join(site, `${entry}.js`), built.outputs[0])

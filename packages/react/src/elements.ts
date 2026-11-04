@@ -70,6 +70,8 @@ const playerEvents = reactEvents<PlayerProps>()(FRAME_ELEMENTS.player.events, { 
 const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
   'segnavia-controller': 'onSegnaviaController',
   'segnavia-fit': 'onSegnaviaFit',
+  'segnavia-frame-mount': 'onSegnaviaFrameMount',
+  'segnavia-frame-release': 'onSegnaviaFrameRelease',
 })
 const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.events, {
   'segnavia-thumbnail-error': 'onSegnaviaThumbnailError',

@@ -106,9 +106,9 @@ function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Work
 
 export function checkImports(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>): Finding[] {
   const within = file.path.slice(`packages/${packageOf(file.path)}/`.length)
-  const findings = file.imports.flatMap((specifier) =>
-    specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
-  )
+  const findings = file.imports
+    .filter((specifier) => specifier !== 'vue')
+    .flatMap((specifier) => (specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier)))
   if (workspace.rule.runtime !== 'server' && !file.path.endsWith('.test.ts') && NODE_GLOBALS.test(stripComments(file.text))) {
     findings.push({ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package uses a Node global.` })
   }
@@ -148,6 +148,22 @@ export function checkReactDependencies(manifests: PackageManifestDependencies[],
           message: `${manifest.name} names ${dependency} in ${field}; only an allowed React adapter package may name React.`,
         })
       }
+    }
+  }
+  return findings
+}
+
+export function checkVueDependencies(manifests: PackageManifestDependencies[]): Finding[] {
+  const fields = ['dependencies', 'peerDependencies', 'optionalDependencies', 'devDependencies'] as const
+  const findings: Finding[] = []
+  for (const manifest of manifests) {
+    for (const field of fields) {
+      if (!manifest[field]?.vue) continue
+      findings.push({
+        rule: 'vue-dependencies',
+        path: manifest.path,
+        message: `${manifest.name} names vue in ${field}; Vue is supplied only by consumers of a types-only opt-in entry.`,
+      })
     }
   }
   return findings

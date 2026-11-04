@@ -118,6 +118,16 @@
       "types": "./dist/element-properties.d.ts",
       "default": "./dist/element-properties.js"
     },
+    "./vue": {
+      "@segnavia/source": "./src/vue.ts",
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
+    },
+    "./vue-types": {
+      "@segnavia/source": "./src/vue-types.ts",
+      "types": "./dist/vue-types.d.ts",
+      "default": "./dist/vue-types.js"
+    },
     "./player": {
       "@segnavia/source": "./src/player-entry.ts",
       "types": "./dist/player-entry.d.ts",

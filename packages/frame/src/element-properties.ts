@@ -25,7 +25,7 @@ export const ELEMENT_PROPERTIES = {
   stage: descriptor(
     HEADLESS_ELEMENTS.stage,
     ['controller', 'css', 'cspExtra', 'dependencyOrigins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots'],
-    ['segnavia-controller', 'segnavia-fit'],
+    ['segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release'],
   ),
   thumbnail: descriptor(
     HEADLESS_ELEMENTS.thumbnail,

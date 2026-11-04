@@ -1,5 +1,10 @@
 import type { BoardItem } from '@segnavia/format'
 
+export interface BoardSelectionDetail {
+  items: BoardItem[]
+  item: BoardItem | null
+}
+
 export function reconcileBoardSelection(selection: readonly string[], items: readonly BoardItem[]): string[] {
   const selected = new Set(selection)
   return items.flatMap((item) => (selected.has(item.id) ? [item.id] : []))
@@ -41,7 +46,7 @@ export class BoardSelection {
     for (const [id, node] of this.nodes()) this.update(node, id)
     const items = value.flatMap((id) => (this.items().get(id) ? [this.items().get(id) as BoardItem] : []))
     this.host.dispatchEvent(
-      new CustomEvent('segnavia-board-selection', {
+      new CustomEvent<BoardSelectionDetail>('segnavia-board-selection', {
         detail: { items, item: items[0] ?? null },
         bubbles: true,
         composed: true,

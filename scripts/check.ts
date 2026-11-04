@@ -19,12 +19,14 @@ import {
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
+  checkVueDependencies,
   type Finding,
   packageOf,
   type Workspace,
 } from './checks/rules.ts'
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
+import { checkVueImports } from './checks/vue-imports.ts'
 import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -90,6 +92,7 @@ function structural(names: string[]): Finding[] {
   const findings: Finding[] = []
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
   findings.push(...checkReactDependencies([...all.values()], REACT_PACKAGE_ALLOWLIST))
+  findings.push(...checkVueDependencies([...all.values()]))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {
@@ -131,7 +134,7 @@ function structural(names: string[]): Finding[] {
     if (owner) {
       const workspace = all.get(`@segnavia/${owner}`)
       if (!workspace) findings.push({ rule: 'architecture', path: relative, message: `packages/${owner} is not declared in architecture.ts.` })
-      else findings.push(...checkImports(file, workspace, all))
+      else findings.push(...checkImports(file, workspace, all), ...checkVueImports(file))
       findings.push(...checkHostNames(file, names))
     }
     findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))
