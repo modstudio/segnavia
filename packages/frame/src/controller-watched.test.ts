@@ -104,6 +104,62 @@ test('furthest clamps seeks and refuses slide navigation before consulting guard
   expect({ guards, errors }).toEqual({ guards: 0, errors: 0 })
 })
 
+test('furthest refuses next from a partly watched slide without consulting guards', async () => {
+  const { controller, clocks, tick } = harness({ seek: 'furthest' })
+  await controller.load(timedDeck(2))
+  await controller.play()
+  const clock = clocks[0]
+  if (!clock) throw new Error('clock was not created')
+  clock.elapsed = 300
+  await tick()
+  let guards = 0
+  let errors = 0
+  controller.addNavigationGuard(() => {
+    guards++
+  })
+  controller.addEventListener('error', () => errors++)
+  const before = controller.state
+  await controller.next()
+  expect(controller.state).toBe(before)
+  expect(controller.state.index).toBe(0)
+  expect({ guards, errors }).toEqual({ guards: 0, errors: 0 })
+})
+
+test('furthest refuses next from a partly watched last slide without ending or completing', async () => {
+  const { controller, clocks, tick } = harness({ seek: 'furthest' })
+  let ends = 0
+  let completes = 0
+  controller.addEventListener('end', () => ends++)
+  controller.addEventListener('complete', () => completes++)
+  await controller.load(timedDeck(2))
+  await controller.play()
+  const first = clocks[0]
+  if (!first) throw new Error('clock was not created')
+  first.elapsed = 1000
+  first.ended = true
+  await tick()
+  const last = clocks.at(-1)
+  if (!last || last === first) throw new Error('last slide clock was not created')
+  last.elapsed = 300
+  await tick()
+  await controller.next()
+  expect(controller.state.index).toBe(1)
+  expect({ ends, completes }).toEqual({ ends: 0, completes: 0 })
+})
+
+test('the next key observes the furthest limit on a partly watched slide', async () => {
+  const { controller, clocks, tick } = harness({ seek: 'furthest' })
+  await controller.load(timedDeck(2))
+  await controller.play()
+  const clock = clocks[0]
+  if (!clock) throw new Error('clock was not created')
+  clock.elapsed = 300
+  await tick()
+  expect(controller.key('ArrowRight')).toBe('next')
+  await Bun.sleep(0)
+  expect(controller.state.index).toBe(0)
+})
+
 test('complete fires once at the threshold after the carrying change', async () => {
   const { controller, clocks, tick } = harness({ completeAt: 0.5 })
   const events: string[] = []
