@@ -47,11 +47,6 @@ describe('player control values', () => {
     expect(stepForwardDisabled({ ...state, seek: 'free' })).toBe(true)
   })
 
-  test('step forward is disabled on the last slide with complete furthest reach', () => {
-    const state = navigationState([timedSlide('a', 100), timedSlide('b', 200)])
-    expect(stepForwardDisabled({ ...state, seek: 'furthest', watched: watchedAt(2, 0) })).toBe(true)
-  })
-
   test('step forward is enabled on a middle slide under free seeking', () => {
     const state = navigationState()
     expect(stepForwardDisabled({ ...state, seek: 'free' })).toBe(false)

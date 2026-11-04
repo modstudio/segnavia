@@ -2,7 +2,7 @@ import { type Clock, speechClock, timedClock } from './clock.ts'
 import type { ControllerOptions, DeckState } from './controller-types.ts'
 import { defaultSchedule } from './schedule.ts'
 import { annotationsAt, deckTimeline, slideDurationMs, slideStateAt } from './timeline.ts'
-import { addWatchedSpan, createWatchedModel, type Position, showWatchedSlide, type WatchedModel, watchedState } from './watched.ts'
+import { addWatchedSpan, createWatchedModel, type Position, showWatchedSlide, type WatchedModel, type WatchedState, watchedState } from './watched.ts'
 
 interface PlaybackHost {
   state(): DeckState
@@ -46,7 +46,11 @@ export class ControllerPlayback {
 
   private updateWatched() {
     const current = this.host.state()
-    this.host.setState({ ...current, watched: watchedState(this.watched, this.host.options().completeAt) })
+    this.host.setState({ ...current, watched: this.currentWatched() })
+  }
+
+  private currentWatched(): WatchedState {
+    return watchedState(this.watched, this.host.options().completeAt)
   }
 
   startClock(position = 0) {
@@ -96,7 +100,7 @@ export class ControllerPlayback {
       progress: clock.progress(),
       slideElapsedMs,
       elapsedMs: startMs + slideElapsedMs,
-      watched: watchedState(this.watched, this.host.options().completeAt),
+      watched: this.currentWatched(),
     })
   }
 

@@ -1,7 +1,10 @@
 import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { Clock } from './clock.ts'
-import type { SeekPolicy, WatchedState } from './watched.ts'
+import type { SeekPolicy } from './navigation-limit.ts'
+import type { WatchedState } from './watched.ts'
+
+export type { SeekPolicy, WatchedState }
 
 type FormatResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' } | { media: unknown }>
 export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {

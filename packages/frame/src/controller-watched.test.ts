@@ -1,13 +1,14 @@
 import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
+import type { SeekPolicy } from './navigation-limit.ts'
 
 const timedDeck = (count = 1) => ({
   title: 'Watched',
   slides: Array.from({ length: count }, (_, index) => ({ id: String(index), content: { kind: 'html' as const, html: '' }, holdMs: 1000 })),
 })
 
-function harness(options: { completeAt?: number; seek?: 'free' | 'furthest' } = {}) {
+function harness(options: { completeAt?: number; seek?: SeekPolicy } = {}) {
   const clocks: Array<{ elapsed: number; ended: boolean }> = []
   let pending: (() => void) | null = null
   const controller = new DeckController({
@@ -175,6 +176,22 @@ test('complete fires once at the threshold after the carrying change', async () 
   await tick()
   expect(events.filter((event) => event.startsWith('complete'))).toEqual(['complete:0.5'])
   expect(events.indexOf('complete:0.5')).toBeGreaterThan(events.indexOf('change:0.5'))
+})
+
+test('complete fires once for each loaded deck', async () => {
+  const { controller, clocks, tick } = harness({ completeAt: 0.5 })
+  let completes = 0
+  controller.addEventListener('complete', () => completes++)
+  await controller.load(timedDeck())
+  await controller.play()
+  const clock = clocks[0]
+  if (!clock) throw new Error('clock was not created')
+  clock.elapsed = 500
+  await tick()
+  expect(completes).toBe(1)
+
+  await controller.load({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
+  expect(completes).toBe(2)
 })
 
 test('autoplay observes the final tick before furthest navigation ends', async () => {

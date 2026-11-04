@@ -25,13 +25,6 @@ export interface WatchedState {
   complete: boolean
 }
 
-export type SeekPolicy = 'free' | 'furthest'
-
-export interface NavigationRequest {
-  kind: 'position' | 'slide'
-  to: Position
-}
-
 export function mergeSpans(spans: readonly PlayedSpan[]): PlayedSpan[] {
   const ordered = spans
     .filter(({ startMs, endMs }) => endMs > startMs)
@@ -92,13 +85,4 @@ export function watchedState(model: WatchedModel, completeAt = 1): WatchedState 
   const watchedWeight = durationWeights ? ms : model.slides.reduce((sum, slide) => sum + (watchedSlideComplete(slide) ? weight(slide) : 0), 0)
   const share = totalWeight === 0 ? 0 : watchedWeight / totalWeight
   return { ms, share, reach, complete: share >= completeAt }
-}
-
-function comparePosition(left: Position, right: Position): number {
-  return left.index - right.index || left.ms - right.ms
-}
-
-export function limitNavigation(policy: SeekPolicy, reach: Position, request: NavigationRequest): Position | null {
-  if (policy === 'free' || comparePosition(request.to, reach) <= 0) return request.to
-  return request.kind === 'position' ? reach : null
 }

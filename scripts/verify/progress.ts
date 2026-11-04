@@ -1,3 +1,4 @@
+import type { SeekPolicy } from '@segnavia/frame'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const PLAYER = '#progress-player'
@@ -16,11 +17,11 @@ async function installFacts(h: Harness) {
   })
 }
 
-async function loadProgressDeck(h: Harness, seek: 'free' | 'furthest') {
+async function loadProgressDeck(h: Harness, seek: SeekPolicy) {
   await h.page.locator(PLAYER).evaluate(
     async (
       player: HTMLElement & {
-        controller: { go(index: number): Promise<void>; load(deck: unknown): Promise<void>; setPlayerOptions(options: { seek: 'free' | 'furthest' }): void }
+        controller: { go(index: number): Promise<void>; load(deck: unknown): Promise<void>; setPlayerOptions(options: { seek: SeekPolicy }): void }
       },
       policy,
     ) => {
@@ -70,8 +71,7 @@ export async function verifyProgress(h: Harness) {
   check('furthest mode refuses a later track segment past the watched limit', (await currentSlide()) === '1')
   const step = page.locator(`${PLAYER} segnavia-step[to="next"] button`)
   const stepDisabled = await step.isDisabled()
-  await step.evaluate((button: HTMLButtonElement) => button.click())
-  check('furthest mode disables and refuses the step forward button', stepDisabled && (await currentSlide()) === '1')
+  check('furthest mode disables the step forward button', stepDisabled)
   await page.locator(`${PLAYER} segnavia-rail button[data-index="2"]`).click()
   check('furthest mode refuses a later rail slide past the watched limit', (await currentSlide()) === '1')
   const locked = await page

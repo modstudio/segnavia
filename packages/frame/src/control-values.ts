@@ -1,6 +1,6 @@
 import type { DeckState } from './controller-types.ts'
+import { limitNavigation, slideRequest } from './navigation-limit.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
-import { limitNavigation } from './watched.ts'
 
 export function formatTime(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
@@ -33,11 +33,11 @@ type NavigationState = Pick<DeckState, 'deck' | 'index' | 'playback' | 'seek' | 
 
 export function stepForwardDisabled(state: NavigationState): boolean {
   const lastIndex = (state.deck?.slides.length ?? 0) - 1
-  return state.index >= lastIndex || limitNavigation(state.seek, state.watched.reach, { kind: 'slide', to: { index: state.index + 1, ms: 0 } }) === null
+  return state.index >= lastIndex || trackSegmentLocked(state, state.index + 1)
 }
 
 export function trackSegmentLocked(state: Pick<NavigationState, 'seek' | 'watched'>, index: number): boolean {
-  return limitNavigation(state.seek, state.watched.reach, { kind: 'slide', to: { index, ms: 0 } }) === null
+  return limitNavigation(state.seek, state.watched.reach, slideRequest(index)) === null
 }
 
 export function trackSegmentState(state: Pick<NavigationState, 'seek' | 'watched'>, index: number, current: number) {

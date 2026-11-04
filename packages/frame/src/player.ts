@@ -7,10 +7,11 @@
 // caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
 // data-playing, data-word, data-shown, data-direction and data-actions.
 
-import { parsePlayback, type SlotsOptions, type TransitionInput } from '@segnavia/format'
+import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
-import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
+import { DeckController, type DeckState } from './controller.ts'
+import { playerAttributeOptions } from './controller-options.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -50,15 +51,6 @@ const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="pl
 const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
   .join(',')
-
-function playerOptions(player: HTMLElement): Pick<ControllerOptions, 'playback' | 'captions'> {
-  const playback = player.getAttribute('playback')
-  const captions = player.getAttribute('captions')
-  return {
-    playback: parsePlayback(playback),
-    captions: captions === 'on' || captions === 'off' || captions === 'viewer' ? captions : undefined,
-  }
-}
 
 function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
   const presentation = player.getAttribute('presentation')
@@ -258,7 +250,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   }
 
   private passPlayerOptions() {
-    this.controller.setPlayerOptions(playerOptions(this))
+    this.controller.setPlayerOptions(playerAttributeOptions(this))
   }
 
   private passTransitionAttributes() {

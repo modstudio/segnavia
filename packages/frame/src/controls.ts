@@ -227,7 +227,7 @@ export class SegnaviaTrack extends SegnaviaControl {
   protected styles() {
     return `${TOKENS_CSS}:host{display:block;min-inline-size:60px}
       ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none;position:relative}li{flex:1;display:flex}
-      ol::after{content:"";position:absolute;z-index:1;pointer-events:none;inset-block:0;inset-inline-start:calc(var(--segnavia-reach,1) * 100%);inset-inline-end:0;background:color-mix(in srgb,var(--_surface) 65%,transparent)}
+      ol::after{content:"";position:absolute;z-index:1;pointer-events:none;inset-block:0;inset-inline-start:calc(var(--_reach,1) * 100%);inset-inline-end:0;background:color-mix(in srgb,var(--_surface) 65%,transparent)}
       button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:4px;position:relative;cursor:pointer}
       button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:2px;background:var(--_line)}
@@ -254,7 +254,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     list.dir = state.direction
     const continuous = state.playback === 'continuous'
     list.classList.toggle('continuous', continuous)
-    list.style.setProperty('--segnavia-reach', String(trackReach(state)))
+    list.style.setProperty('--_reach', String(trackReach(state)))
     this.configureAccessibility(list, state, continuous)
     if (this.count !== slides.length || this.mode !== state.playback) {
       this.count = slides.length

@@ -1,8 +1,8 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
-import { prefetchControllerNeighbors, slideIndexById, syncControllerHash } from './controller-navigation.ts'
-import { captionsPolicy, playerOptionState } from './controller-options.ts'
+import { controllerHashIndex, goControllerToSlide, handleControllerHash, prefetchControllerNeighbors, writeControllerHash } from './controller-navigation.ts'
+import { captionsPolicy, type PlayerOptions, playerOptionState } from './controller-options.ts'
 import { handleControllerPageKey } from './controller-page-key.ts'
 import { replacePlacementLifetime, setPlacementOptions } from './controller-placement-options.ts'
 import { ControllerPlayback } from './controller-playback.ts'
@@ -10,17 +10,15 @@ import { type ContentRefreshResult, refreshControllerContent } from './controlle
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { internalDeckLoad } from './deck-load-origin.ts'
-import { hashSlideIndex } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
 import { addNavigationGuard, type NavigationGuardReason, parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
+import { limitNavigation, slideRequest } from './navigation-limit.ts'
 import { hasWindow } from './schedule.ts'
 import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
-import { limitNavigation } from './watched.ts'
 
-export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
-export type { SeekPolicy, WatchedState } from './watched.ts'
+export type { ControllerOptions, DeckState, ResolvedContent, SeekPolicy, WatchedState } from './controller-types.ts'
 export class DeckController extends EventTarget {
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
@@ -67,7 +65,7 @@ export class DeckController extends EventTarget {
     return captionsPolicy(this.current.deck, this.options)
   }
 
-  setPlayerOptions(options: Pick<ControllerOptions, 'playback' | 'captions' | 'seek'>) {
+  setPlayerOptions(options: PlayerOptions) {
     Object.assign(this.options, options)
     const deck = this.current.deck
     if (!deck) return
@@ -125,7 +123,7 @@ export class DeckController extends EventTarget {
     this.placementLifetime = replacePlacementLifetime(this.placementLifetime)
     this.prefetched.clear()
     this.shots.clear()
-    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, this.hashIndex(deck))
+    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, controllerHashIndex(deck, this.options.hash))
     this.current = { ...this.current, ...loaded }
     this.completeEmitted = false
     this.playback.resetWatched(
@@ -135,7 +133,7 @@ export class DeckController extends EventTarget {
     await this.show(loaded.index)
   }
   async go(index: number): Promise<void> {
-    if (!limitNavigation(this.current.seek, this.current.watched.reach, { kind: 'slide', to: { index, ms: 0 } })) return
+    if (!limitNavigation(this.current.seek, this.current.watched.reach, slideRequest(index))) return
     await this.navigate(index)
   }
   private async navigate(index: number): Promise<void> {
@@ -150,10 +148,7 @@ export class DeckController extends EventTarget {
     }
   }
   async goToSlide(id: string): Promise<boolean> {
-    const index = this.current.deck ? slideIndexById(this.current.deck, id) : undefined
-    if (index === undefined) return false
-    await this.go(index)
-    return this.current.slide?.id === id
+    return goControllerToSlide(this, id)
   }
   contentFor(index: number): Promise<ResolvedContent> {
     const slide = this.current.deck?.slides[index]
@@ -210,12 +205,11 @@ export class DeckController extends EventTarget {
   async next(): Promise<void> {
     const deck = this.current.deck
     const index = this.current.index + 1
-    if (!limitNavigation(this.current.seek, this.current.watched.reach, { kind: 'slide', to: { index, ms: 0 } })) return
+    if (!limitNavigation(this.current.seek, this.current.watched.reach, slideRequest(index))) return
     if (deck && this.current.index < deck.slides.length - 1) return this.navigate(index)
     this.pause()
     this.dispatchEvent(new CustomEvent('end'))
   }
-
   async previous(): Promise<void> {
     if (this.current.index > 0) await this.navigate(this.current.index - 1)
   }
@@ -331,8 +325,7 @@ export class DeckController extends EventTarget {
     if (shown !== this.shows) return false
     if (commitNavigation) {
       this.current = { ...this.current, index }
-      const prefix = this.options.hash
-      if (hasWindow && prefix) history.replaceState(null, '', `#${prefix}${index + 1}`)
+      writeControllerHash(this.options.hash, index)
     }
     const duration = slideDurationMs(slide)
     const playing = this.current.playing && duration !== null
@@ -381,19 +374,6 @@ export class DeckController extends EventTarget {
     this.completeEmitted = emitControllerComplete(this, this.current, this.completeEmitted)
   }
 
-  private hashIndex(deck: Deck): number | null {
-    const prefix = this.options.hash
-    return hasWindow && prefix ? hashSlideIndex(location.hash, prefix, deck.slides.length) : null
-  }
-
-  private onHash = () => {
-    const deck = this.current.deck
-    const index = deck ? this.hashIndex(deck) : null
-    const allowed = index === null || limitNavigation(this.current.seek, this.current.watched.reach, { kind: 'slide', to: { index, ms: 0 } }) !== null
-    syncControllerHash(this, index, allowed, () => {
-      const prefix = this.options.hash
-      if (prefix) history.replaceState(null, '', `#${prefix}${this.current.index + 1}`)
-    })
-  }
+  private onHash = () => handleControllerHash(this, this.current.deck, this.options.hash, this.current.seek, this.current.watched.reach)
   private onPageKey = (event: KeyboardEvent) => handleControllerPageKey(this, event)
 }
