@@ -40,6 +40,20 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 
 `unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
+Hosts read watched progress from `DeckController.state.watched` and the
+controller's `change` and `complete` events; this works directly from custom
+elements and does not require React. `seek: 'furthest'` is an optional client
+navigation policy, and ordered host navigation guards can refuse an allowed
+target. These progress values and events are client reports, not proof: a host
+that gates anything on them verifies the report on its server.
+
+Slide HTML remains in a sandbox without same-origin authority. A host content
+security policy must allow the inline nonce-bearing bridge script inherited by
+the slide's `srcdoc`; a host `script-src 'self'` policy without `unsafe-inline`
+currently renders the slide but blocks that bridge. Narration from the host
+loads when `media-src` allows its origin (for example, `media-src 'self'` for
+same-origin audio). The frame's own policy still limits execution to its bridge.
+
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. The gate also runs `checkVueDependencies`: no
 package manifest may name Vue in a dependency field, because consumers supply

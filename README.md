@@ -135,6 +135,75 @@ When an element may be defined after Vue renders it, use a property binding such
 Vue 3.5 or later hosts opt into template prop and event types by importing
 `@segnavia/frame/vue` and, when needed, `@segnavia/markdown-editor/vue`.
 
+For a Vue host that reads playback progress, configure the compiler and wire the
+controller when the element mounts:
+
+```ts
+// vite.config.ts
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+
+export default defineConfig({ plugins: [vue({ template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('segnavia-') } } })] })
+```
+
+```vue
+<script setup lang="ts">
+import '@segnavia/frame/player'
+import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
+import { onMounted, onUnmounted, ref } from 'vue'
+
+const player = ref<SegnaviaPlayer | null>(null)
+const watched = ref<DeckState['watched']>()
+let removeGuard = () => {}
+const changed = (event: Event) => (watched.value = (event as CustomEvent<DeckState>).detail.watched)
+const completed = (event: Event) => reportComplete((event as CustomEvent<{ watchedMs: number; share: number }>).detail)
+
+onMounted(() => {
+  const controller = player.value!.controller
+  controller.setPlayerOptions({ seek: 'furthest' })
+  controller.addEventListener('change', changed)
+  controller.addEventListener('complete', completed)
+  removeGuard = controller.addNavigationGuard(async () => {
+    if (!(await hostAllowsNavigation())) throw new Error('Navigation is not available yet.')
+  })
+})
+onUnmounted(() => {
+  const controller = player.value?.controller
+  controller?.removeEventListener('change', changed)
+  controller?.removeEventListener('complete', completed)
+  removeGuard()
+})
+</script>
+
+<template><segnavia-player ref="player" src="/deck.json" /></template>
+```
+
+The same controller API works with plain custom elements:
+
+```ts
+import '@segnavia/frame/player'
+import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
+
+const player = document.querySelector<SegnaviaPlayer>('segnavia-player')!
+const controller = player.controller
+controller.setPlayerOptions({ seek: 'furthest' })
+controller.addEventListener('change', (event) => {
+  const watched = (event as CustomEvent<DeckState>).detail.watched
+  renderProgress(watched)
+})
+controller.addEventListener('complete', (event) => {
+  reportComplete((event as CustomEvent<{ watchedMs: number; share: number }>).detail)
+})
+const removeGuard = controller.addNavigationGuard(async () => {
+  if (!(await hostAllowsNavigation())) throw new Error('Navigation is not available yet.')
+})
+// Call removeGuard() when the host view unmounts.
+```
+
+`watched`, `complete`, and anything a host shares from them are client reports,
+not proof. A host that gates access or records credit from those reports verifies
+them on its server.
+
 Fill a reusable design through its existing inert bindings before it enters a
 sandboxed frame:
 

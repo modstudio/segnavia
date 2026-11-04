@@ -10,6 +10,7 @@ export type VerifyShard = Readonly<{ index: number; count: number }>
 export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyPlayer',
   'verifyPlayerLayout',
+  'verifyProgress',
   'verifyRtl',
   'verifyDeckHost',
   'verifyPages',

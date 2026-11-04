@@ -21,6 +21,7 @@ import { buildMarkdownEditorDemo } from './build-markdown-editor-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
 import { buildPaperDemo } from './build-paper-demo.ts'
+import { buildProgressDemo } from './build-progress-demo.ts'
 import { buildSandboxDemo } from './build-sandbox-demo.ts'
 import { buildSlotDemo, buildSlotPdf } from './build-slot-demo.ts'
 import { buildThumbnailDemo } from './build-thumbnail-demo.ts'
@@ -239,6 +240,7 @@ writeFileSync(path.join(SITE, 'continuous.html'), shell(`<segnavia-player playba
 writeFileSync(path.join(SITE, 'icons.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${testIcons}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'parts.html'), shell(`${partStyles}<segnavia-player playback="continuous" src="deck.json"></segnavia-player>`))
 writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off" presentation="native"></segnavia-player>'))
+buildProgressDemo(SITE, shell)
 writeFileSync(
   path.join(SITE, 'he.html'),
   shell(`<segnavia-player id="player" src="deck-he.json" notes theme="light"></segnavia-player>
