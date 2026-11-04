@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { captionsControlVisible, deckHasNarration, formatTime, timeValues } from './control-values.ts'
+import { captionsControlVisible, deckHasNarration, formatTime, stepForwardDisabled, timeValues, trackReach, trackSegmentState } from './control-values.ts'
 import { type DeckState, initialDeckState } from './controller-types.ts'
 
 describe('player control values', () => {
@@ -36,4 +36,52 @@ describe('player control values', () => {
     expect(captionsControlVisible(narrated, 'on')).toBe(false)
     expect(captionsControlVisible({ deck: { slides: [] } } as never, 'viewer')).toBe(false)
   })
+
+  test('step forward is disabled when the seek policy refuses it', () => {
+    const state = navigationState()
+    expect(stepForwardDisabled({ ...state, seek: 'furthest', watched: watchedAt(1, 40) })).toBe(true)
+  })
+
+  test('step forward is disabled on the last slide under free seeking', () => {
+    const state = navigationState([timedSlide('a', 100), timedSlide('b', 200)])
+    expect(stepForwardDisabled({ ...state, seek: 'free' })).toBe(true)
+  })
+
+  test('step forward is enabled on a middle slide under free seeking', () => {
+    const state = navigationState()
+    expect(stepForwardDisabled({ ...state, seek: 'free' })).toBe(false)
+  })
+
+  test('track segments lock only after the furthest reach', () => {
+    const state = { ...navigationState(), seek: 'furthest' as const, watched: watchedAt(1, 40) }
+    expect([0, 1, 2].map((index) => trackSegmentState(state, index, 1))).toEqual(['done', 'current', 'locked'])
+    expect([0, 1, 2].map((index) => trackSegmentState({ ...state, seek: 'free' }, index, 1))).toEqual(['done', 'current', 'upcoming'])
+  })
+
+  test('track reach follows continuous and segmented track space', () => {
+    const state = { ...navigationState(), seek: 'furthest' as const, watched: watchedAt(1, 50) }
+    expect(trackReach({ ...state, playback: 'continuous' })).toBe(0.25)
+    expect(trackReach({ ...state, playback: 'segmented' })).toBeCloseTo(5 / 12)
+    expect(trackReach({ ...state, seek: 'free', playback: 'continuous' })).toBe(1)
+  })
+
+  test('a zero-duration continuous track falls back to slide shares', () => {
+    const state = navigationState([untimedSlide('a'), untimedSlide('b'), untimedSlide('c')])
+    expect(trackReach({ ...state, seek: 'furthest', playback: 'continuous', totalMs: 0, watched: watchedAt(1, 0) })).toBe(1 / 3)
+  })
 })
+
+const timedSlide = (id: string, holdMs: number) => ({ id, content: { kind: 'html' as const, html: '' }, holdMs })
+const untimedSlide = (id: string) => ({ id, content: { kind: 'html' as const, html: '' } })
+const watchedAt = (index: number, ms: number) => ({ ms: 0, share: 0, reach: { index, ms }, complete: false })
+
+function navigationState(slides: NonNullable<DeckState['deck']>['slides'] = [timedSlide('a', 100), timedSlide('b', 200), timedSlide('c', 300)]): DeckState {
+  return {
+    ...initialDeckState(),
+    deck: { slides },
+    index: 1,
+    slide: slides[1] ?? null,
+    totalMs: slides.reduce((total, slide) => total + (slide.holdMs ?? 0), 0),
+    watched: watchedAt(1, 50),
+  } as DeckState
+}

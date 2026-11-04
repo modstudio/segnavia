@@ -22,6 +22,7 @@ import { verifyPaperPicker } from './verify/paper-picker.ts'
 import { verifyPapers } from './verify/papers.ts'
 import { verifyPlayer } from './verify/player.ts'
 import { verifyPlayerLayout } from './verify/player-layout.ts'
+import { verifyProgress } from './verify/progress.ts'
 import { verifyRailAuthoring } from './verify/rail-authoring.ts'
 import { verifyResponsive } from './verify/responsive.ts'
 import { verifyRtl } from './verify/rtl.ts'
@@ -38,6 +39,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyCapture', run: () => verifyCapture(h) },
   { name: 'verifyPlayer', run: () => verifyPlayer(h) },
   { name: 'verifyPlayerLayout', run: () => verifyPlayerLayout(h) },
+  { name: 'verifyProgress', run: () => verifyProgress(h) },
   { name: 'verifyRailAuthoring', run: () => verifyRailAuthoring(h) },
   { name: 'verifyPages', run: () => verifyPages(h) },
   { name: 'verifyBooks', run: () => verifyBooks(h) },

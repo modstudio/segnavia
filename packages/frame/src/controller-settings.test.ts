@@ -43,14 +43,16 @@ describe('viewer settings', () => {
 
   test('player options apply before and after a deck loads', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    controller.setPlayerOptions({ playback: 'continuous', captions: 'off' })
+    controller.setPlayerOptions({ playback: 'continuous', captions: 'off', seek: 'furthest' })
     await controller.load({ ...deck('viewer'), playback: 'segmented' })
     expect(controller.state.playback).toBe('continuous')
     expect(controller.state.captionsVisible).toBe(false)
+    expect(controller.state.seek).toBe('furthest')
 
-    controller.setPlayerOptions({ playback: undefined, captions: 'on' })
+    controller.setPlayerOptions({ playback: undefined, captions: 'on', seek: 'free' })
     expect(controller.state.playback).toBe('segmented')
     expect(controller.state.captionsVisible).toBe(true)
+    expect(controller.state.seek).toBe('free')
   })
 
   test('mute and viewer captions persist together', async () => {

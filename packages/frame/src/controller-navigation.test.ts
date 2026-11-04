@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { DeckController, type ResolvedContent } from './controller.ts'
-import { slideIndexById } from './controller-navigation.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
+import { slideIndexById, syncControllerHash } from './controller-navigation.ts'
 
 const deck = (ids: string[]) =>
   Deck.parse({
@@ -92,7 +91,7 @@ describe('slide id navigation', () => {
     const controller = new DeckController({ hash: null, persist: false })
     await controller.load(deck(['a', 'b', 'c']))
     const pending = Promise.withResolvers<void>()
-    setNavigationGuard(controller, () => pending.promise)
+    controller.addNavigationGuard(() => pending.promise)
 
     const loading = controller.load(deck(['x', 'y', 'z']))
     const navigating = controller.goToSlide('c')
@@ -102,6 +101,15 @@ describe('slide id navigation', () => {
     expect(await navigating).toBe(false)
     expect(controller.state.slide?.id).toBe('x')
   })
+})
+
+test('a refused hash change restores the current slide without navigating', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.load(deck(['a', 'b']))
+  let restores = 0
+  syncControllerHash(controller, 1, false, () => restores++)
+  expect(controller.state.index).toBe(0)
+  expect(restores).toBe(1)
 })
 
 describe('controller reloads', () => {

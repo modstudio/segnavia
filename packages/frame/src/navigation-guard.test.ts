@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
 import { deckPreservesNotes, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
-import { activeNavigationGuard, runNavigationGuard, setNavigationGuard } from './navigation-guard.ts'
+import { activeNavigationGuard, addNavigationGuard, runNavigationGuard } from './navigation-guard.ts'
 
 const deck = {
   title: 'Guarded deck',
@@ -19,7 +19,7 @@ test('concurrent navigations wait for the same running guard', async () => {
   const pending = new Promise<void>((resolve) => {
     release = resolve
   })
-  setNavigationGuard(controller, () => pending)
+  addNavigationGuard(controller, () => pending)
 
   const first = controller.go(1)
   const second = controller.go(2)
@@ -39,7 +39,7 @@ test('concurrent navigations wait for the same running guard', async () => {
 test('concurrent loads have distinct provenance while awaiting one guard', async () => {
   const target = new EventTarget()
   let release = () => {}
-  setNavigationGuard(
+  addNavigationGuard(
     target,
     () =>
       new Promise<void>((resolve) => {
@@ -60,20 +60,40 @@ test('concurrent loads have distinct provenance while awaiting one guard', async
   expect(deckPreservesNotes(parseDeckLoad(deck, second), 'one')).toBe(false)
 })
 
-test('an old guard disposer does not remove its replacement', async () => {
+test('guards run in order and a removed guard stops running', async () => {
   const target = new EventTarget()
   const calls: string[] = []
-  const removeOld = setNavigationGuard(target, async () => {
-    calls.push('old')
+  const removeFirst = addNavigationGuard(target, async () => {
+    calls.push('first')
   })
-  setNavigationGuard(target, async () => {
-    calls.push('new')
+  addNavigationGuard(target, async () => {
+    calls.push('second')
   })
 
-  removeOld()
+  await runNavigationGuard(target)
+  removeFirst()
   await runNavigationGuard(target)
 
-  expect(calls).toEqual(['new'])
+  expect(calls).toEqual(['first', 'second', 'second'])
+})
+
+test('the first rejecting guard takes the controller error path and stops the list', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.load(deck)
+  const calls: string[] = []
+  const errors: string[] = []
+  controller.addNavigationGuard(() => {
+    calls.push('first')
+    throw new Error('stay here')
+  })
+  controller.addNavigationGuard(() => {
+    calls.push('second')
+  })
+  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail.message))
+
+  await expect(controller.go(1)).rejects.toThrow('stay here')
+  expect(calls).toEqual(['first'])
+  expect(errors).toEqual(['stay here'])
 })
 
 test('cross-slide seek awaits the navigation guard but same-slide seek does not', async () => {
@@ -87,7 +107,7 @@ test('cross-slide seek awaits the navigation guard but same-slide seek does not'
   })
   let guards = 0
   let release = () => {}
-  setNavigationGuard(
+  addNavigationGuard(
     controller,
     () =>
       new Promise<void>((resolve) => {
@@ -110,7 +130,7 @@ test('identifies host reloads separately from slide navigation', async () => {
   const controller = new DeckController({ hash: null, persist: false })
   await controller.load(deck)
   const reasons: string[] = []
-  setNavigationGuard(controller, async (reason) => {
+  addNavigationGuard(controller, async (reason) => {
     reasons.push(reason)
   })
 

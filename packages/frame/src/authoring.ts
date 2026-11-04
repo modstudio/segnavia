@@ -5,7 +5,7 @@ import { AuthoringPrintMoment, type SavePrintMoment, type SavePrintMomentInput }
 import { NOTES_CSS } from './authoring-style.ts'
 import { deckPreservesNotes, internalDeckLoad, isInternalDeck, preserveNotesForLoad } from './deck-load-origin.ts'
 import type { ItemSettingsSection } from './item-settings-section.ts'
-import { activeNavigationGuard, type NavigationGuardReason, setNavigationGuard } from './navigation-guard.ts'
+import { activeNavigationGuard, addNavigationGuard, type NavigationGuardReason } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import type { SegnaviaPlayer } from './player.ts'
 import type { SegnaviaRail } from './rail.ts'
@@ -248,7 +248,7 @@ export class AuthoringController extends EventTarget {
   private syncNavigationGuard() {
     this.removeNavigationGuard?.()
     this.removeNavigationGuard = null
-    if (this.notes || this.printMoment) this.removeNavigationGuard = setNavigationGuard(this.player.controller, this.beforeNavigate)
+    if (this.notes || this.printMoment) this.removeNavigationGuard = addNavigationGuard(this.player.controller, this.beforeNavigate)
   }
 
   private emitDirty() {

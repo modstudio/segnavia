@@ -38,7 +38,7 @@ export { type BoardToolbarLabels, SegnaviaBoardToolbar } from './board-toolbar.t
 export { SegnaviaBook } from './book.ts'
 export { bridgeForHost, frameDocument, MESSAGE, type PageSelection, RELAYED_KEYS } from './bridge.ts'
 export { formatTime } from './control-values.ts'
-export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent } from './controller.ts'
+export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent, type SeekPolicy, type WatchedState } from './controller.ts'
 export type { DesignedCover } from './designed-cover-policy.ts'
 export { SegnaviaDocument } from './document.ts'
 export { type FitInputs, type FittedSize, fitDesignedCover, fitSheet } from './fit.ts'
