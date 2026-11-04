@@ -20,6 +20,12 @@ export const BoardLabel = z.object({
   text: z.string(),
   x: z.number(),
   y: z.number(),
+  size: z
+    .object({
+      width: z.number().positive(),
+      height: z.number().positive(),
+    })
+    .optional(),
 })
 export type BoardLabel = z.infer<typeof BoardLabel>
 

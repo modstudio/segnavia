@@ -1,5 +1,6 @@
 import {
   type BoardItem,
+  type BoardItemFact,
   type BoardView,
   type BookViewInput,
   type Deck,
@@ -8,6 +9,7 @@ import {
   MIN_BOARD_ZOOM,
   type PageInput,
   type Point,
+  resolvedShape,
   type Size,
   zoomAt,
 } from '@segnavia/format'
@@ -51,21 +53,28 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
 export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem {
   const expected = item.kind === 'media' ? 'image' : item.kind
   if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
-  if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(resolved))
+  if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(boardItemFact(resolved)))
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
   return { ...resolved, designedCover } as CheckedResolvedBoardItem
 }
 
-export function resolvedShape(resolved: ResolvedBoardItem): Size {
-  if (resolved.kind === 'deck') return resolved.deck.size
-  if (resolved.kind === 'image' || resolved.kind === 'shot') return { width: resolved.width, height: resolved.height }
-  return resolved.size
+export function boardItemFact(resolved: CheckedResolvedBoardItem | ResolvedBoardItem): BoardItemFact {
+  if (resolved.kind === 'image') return { kind: 'media', width: resolved.width, height: resolved.height }
+  if (resolved.kind === 'deck') return { kind: 'deck', deck: resolved.deck }
+  if (resolved.kind === 'shot') return { kind: 'shot', width: resolved.width, height: resolved.height }
+  return { kind: resolved.kind, size: resolved.size }
 }
 
-export function provisionalShape(kind: BoardItem['kind']): Size {
-  if (kind === 'deck') return { width: 16, height: 9 }
-  if (kind === 'page' || kind === 'paper' || kind === 'book') return { width: 1, height: Math.SQRT2 }
-  return { width: 4, height: 3 }
+export function boardShapeFacts(
+  items: readonly BoardItem[],
+  resolved: (address: string) => CheckedResolvedBoardItem | undefined,
+): Record<string, BoardItemFact> {
+  return Object.fromEntries(
+    items.flatMap((item) => {
+      const value = resolved(item.address)
+      return value ? [[item.address, boardItemFact(value)]] : []
+    }),
+  )
 }
 
 export function boardTier(screenWidth: number, liveWidth: number): BoardTier {

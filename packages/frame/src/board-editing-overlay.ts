@@ -9,10 +9,10 @@ import {
   gridDropMarkerBox,
   itemHeight,
   type Point,
+  provisionalShape,
   resizeItem,
   screenToBoard,
 } from '@segnavia/format'
-import { provisionalShape } from './board-policy.ts'
 
 const anchors: Record<string, BoardItemAnchor> = {
   'top-left': 'bottom-right',

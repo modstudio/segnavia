@@ -20,6 +20,12 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
+  test('parses labels with and without a stored size', () => {
+    const label = valid.labels[0] as (typeof valid.labels)[number]
+    const labels = [label, { ...label, id: 'measured', size: { width: 72.5, height: 19.25 } }]
+    expect(Board.parse({ ...valid, labels }).labels).toEqual(labels)
+  })
+
   test('reads a stored image item as media and serializes the new kind', () => {
     const parsed = Board.parse({ ...valid, items: [{ ...valid.items[0], kind: 'image' }] })
     expect(parsed.items[0]?.kind).toBe('media')

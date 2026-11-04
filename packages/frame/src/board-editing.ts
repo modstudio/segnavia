@@ -5,6 +5,7 @@ import {
   type Board,
   type BoardItem,
   type Point,
+  provisionalShape,
   removeFromGrid,
   removeItems,
   screenToBoard,
@@ -27,7 +28,6 @@ import {
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardInputDelegate, boardEditing } from './board-editing-seam.ts'
-import { provisionalShape } from './board-policy.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
@@ -285,8 +285,11 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
   private settleInitial() {
     const current = this.state?.value
     if (!current || this.stopped) return
-    const ids = current.sections.map((section) => section.id)
-    const settled = settleBoard(current, current, this.bridge.shapes(), ids)
+    const measured = this.board.measuredLabelSizes()
+    const labels = current.labels.map((label) => (label.size || !measured[label.id] ? label : { ...label, size: measured[label.id] }))
+    const sized = labels.some((label, index) => label !== current.labels[index]) ? { ...current, labels } : current
+    const ids = [...current.sections.map((section) => section.id), ...Object.keys(measured)]
+    const settled = settleBoard(current, sized, this.bridge.shapes(), ids)
     if (JSON.stringify(settled) !== JSON.stringify(current)) this.apply(settled, { kind: 'settle', ids })
   }
 

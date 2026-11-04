@@ -1,18 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
-import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
-import {
-  BOARD_ZOOM_FACTOR,
-  boardTier,
-  checkResolved,
-  keyToView,
-  pinchOf,
-  provisionalShape,
-  resolvedShape,
-  shouldMountItem,
-  shouldRefitReveal,
-  zoomView,
-} from './board-policy.ts'
+import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, provisionalShape, resolvedShape } from '@segnavia/format'
+import { BOARD_ZOOM_FACTOR, boardTier, checkResolved, keyToView, pinchOf, shouldMountItem, shouldRefitReveal, zoomView } from './board-policy.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
 
 test('a pinch needs two pointers and never has a zero distance', () => {
@@ -51,7 +40,7 @@ describe('board policy', () => {
     expect(provisionalShape('deck')).toEqual({ width: 16, height: 9 })
     expect(provisionalShape('page').height).toBeCloseTo(Math.SQRT2)
     expect(provisionalShape('media')).toEqual({ width: 4, height: 3 })
-    expect(resolvedShape({ kind: 'image', src: 'image.png', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
+    expect(resolvedShape({ kind: 'media', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
   })
 
   test('refuses resolved values that do not match the item kind', () => {
