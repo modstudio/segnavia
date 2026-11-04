@@ -43,13 +43,23 @@ interface BoardEventDetails {
 
 type BoardSignalEventName = 'segnavia-board-icons' | 'segnavia-board-names'
 
-const eventOptions = { bubbles: true, composed: true } as const
+// A listener may veto only the list toggle; every other board event reports what already happened.
+const CANCELABLE: Record<keyof BoardEventDetails | BoardSignalEventName, boolean> = {
+  'segnavia-board-change': false,
+  'segnavia-board-error': false,
+  'segnavia-board-icons': false,
+  'segnavia-board-item-action': false,
+  'segnavia-board-list-toggle': true,
+  'segnavia-board-names': false,
+  'segnavia-board-open': false,
+  'segnavia-board-share': false,
+  'segnavia-board-view': false,
+}
 
 export function boardEvent<Name extends keyof BoardEventDetails>(name: Name, detail: BoardEventDetails[Name]): CustomEvent<BoardEventDetails[Name]>
 export function boardEvent(name: BoardSignalEventName): CustomEvent
 export function boardEvent(name: keyof BoardEventDetails | BoardSignalEventName, detail?: BoardEventDetails[keyof BoardEventDetails]): CustomEvent {
-  const options = name === 'segnavia-board-list-toggle' ? { ...eventOptions, cancelable: true } : eventOptions
-  return new CustomEvent(name, detail === undefined ? options : { ...options, detail })
+  return new CustomEvent(name, { bubbles: true, composed: true, cancelable: CANCELABLE[name], detail })
 }
 
 export class BoardViewEventDispatcher {

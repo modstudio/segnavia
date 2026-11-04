@@ -163,12 +163,12 @@ export class SegnaviaBoard extends BoardSelectionElement {
   get kindIcon(): ((kind: BoardItemKind) => Node | null | undefined) | undefined {
     return this.chrome.kindIcon
   }
-
   set kindIcon(value: ((kind: BoardItemKind) => Node | null | undefined) | undefined) {
     this.chrome.kindIcon = value
     this.chrome.refresh()
     this.dispatchEvent(boardEvent('segnavia-board-icons'))
   }
+
   get selection(): readonly string[] {
     return this.selectionState.selection
   }
