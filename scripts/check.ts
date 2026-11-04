@@ -19,6 +19,7 @@ import {
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
+  checkVueDependencies,
   type Finding,
   packageOf,
   type Workspace,
@@ -90,6 +91,7 @@ function structural(names: string[]): Finding[] {
   const findings: Finding[] = []
   for (const workspace of all.values()) findings.push(...checkManifest(workspace))
   findings.push(...checkReactDependencies([...all.values()], REACT_PACKAGE_ALLOWLIST))
+  findings.push(...checkVueDependencies([...all.values()]))
   const rootManifest = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
   const tsconfig = JSON.parse(readFileSync(path.join(ROOT, 'tsconfig.json'), 'utf8')) as { compilerOptions: { customConditions?: string[] } }
   const packages = Object.keys(PACKAGES).map((name) => {

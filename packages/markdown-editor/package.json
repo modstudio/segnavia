@@ -28,6 +28,11 @@
       "@segnavia/source": "./src/markdown-editor.ts",
       "types": "./dist/markdown-editor.d.ts",
       "default": "./dist/markdown-editor.js"
+    },
+    "./vue": {
+      "@segnavia/source": "./src/vue.ts",
+      "types": "./dist/vue.d.ts",
+      "default": "./dist/vue.js"
     }
   },
   "dependencies": {

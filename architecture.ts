@@ -7,6 +7,7 @@ export type Runtime = 'universal' | 'browser' | 'server'
 export const SOURCE_CONDITION = '@segnavia/source'
 
 export const REACT_PACKAGE_ALLOWLIST = new Set(['@segnavia/react'])
+export const VUE_TYPE_ENTRIES = new Set(['packages/frame/src/vue.ts', 'packages/markdown-editor/src/vue.ts'])
 
 export type SourceExport = string | { bun: string; node: string; default: string }
 

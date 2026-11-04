@@ -21,6 +21,8 @@ format  ◄── html          (universal: browser and server)
 | Frame entry | What it provides |
 |---|---|
 | `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and DOM event names; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, and React owns its typed `on…` maps. |
+| `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed custom events for every frame descriptor. Its JavaScript is empty and no runtime entry imports it. |
+| `@segnavia/markdown-editor/vue` | The editor's types-only Vue 3.5+ global component opt-in, derived from its property and event descriptor. Its JavaScript is empty and no runtime entry imports it. |
 
 Inside `frame` there are three layers. A host takes the first two, or all three:
 
@@ -36,7 +38,9 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 `unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
 `architecture.ts` declares each package's runtime and imports, and
-`bun run check` enforces it. `format`, `html` and `idml` run anywhere. `idml`
+`bun run check` enforces it. The gate also runs `checkVueDependencies`: no
+package manifest may name Vue in a dependency field, because consumers supply
+it for the types-only opt-ins. `format`, `html` and `idml` run anywhere. `idml`
 accepts package bytes, refuses unsupported ZIP forms and bounded-resource
 violations, and returns a validated `Book` plus an import report. Body stories
 become chapters, and the paragraph and character styles they use become

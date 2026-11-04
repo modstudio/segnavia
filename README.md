@@ -111,6 +111,25 @@ Lezer peers only when the host edits Markdown:
 import '@segnavia/markdown-editor'
 ```
 
+Vue hosts define the elements before mounting, then use the custom elements directly:
+
+```ts
+import '@segnavia/frame'
+import '@segnavia/markdown-editor'
+import { createApp } from 'vue'
+
+createApp(App).mount('#app')
+```
+
+```vue
+<segnavia-thumbnail :deck="deck" @segnavia-thumbnail-error="onThumbnailError" />
+```
+
+When an element may be defined after Vue renders it, use a property binding such as
+`:deck.prop="deck"`; a plain late binding writes the attribute as `[object Object]`.
+Vue 3.5 or later hosts opt into template prop and event types by importing
+`@segnavia/frame/vue` and, when needed, `@segnavia/markdown-editor/vue`.
+
 React hosts keep importing the wrapper from
 `@segnavia/react/markdown-editor` and install `@segnavia/markdown-editor`
 beside it.

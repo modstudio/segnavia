@@ -1,7 +1,7 @@
 // The repository's own rules as pure decisions over a file's path, text and
 // imports, so the gate can test them and the runner only gathers facts.
 
-import { FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
+import { FILE_CEILING_LINES, type PackageRule, VUE_TYPE_ENTRIES } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
 export interface SourceFile {
@@ -87,6 +87,7 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
 }
 
 function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Workspace>, specifier: string): Finding[] {
+  if (specifier === 'vue' && VUE_TYPE_ENTRIES.has(file.path)) return []
   if (specifier === 'bun:test') return []
   if (specifier.startsWith('node:')) {
     return workspace.rule.runtime === 'server'
@@ -109,6 +110,11 @@ export function checkImports(file: SourceFile, workspace: Workspace, all: Map<st
   const findings = file.imports.flatMap((specifier) =>
     specifier.startsWith('.') ? checkRelative(file, workspace, within, specifier) : checkBare(file, workspace, all, specifier),
   )
+  for (const specifier of file.imports) {
+    if ((specifier.endsWith('/vue') || specifier === './vue.ts') && !VUE_TYPE_ENTRIES.has(file.path)) {
+      findings.push({ rule: 'architecture', path: file.path, message: `a runtime module may not import the types-only Vue entry ${specifier}.` })
+    }
+  }
   if (workspace.rule.runtime !== 'server' && !file.path.endsWith('.test.ts') && NODE_GLOBALS.test(stripComments(file.text))) {
     findings.push({ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package uses a Node global.` })
   }
@@ -148,6 +154,22 @@ export function checkReactDependencies(manifests: PackageManifestDependencies[],
           message: `${manifest.name} names ${dependency} in ${field}; only an allowed React adapter package may name React.`,
         })
       }
+    }
+  }
+  return findings
+}
+
+export function checkVueDependencies(manifests: PackageManifestDependencies[]): Finding[] {
+  const fields = ['dependencies', 'peerDependencies', 'optionalDependencies', 'devDependencies'] as const
+  const findings: Finding[] = []
+  for (const manifest of manifests) {
+    for (const field of fields) {
+      if (!manifest[field]?.vue) continue
+      findings.push({
+        rule: 'vue-dependencies',
+        path: manifest.path,
+        message: `${manifest.name} names vue in ${field}; Vue is supplied only by consumers of a types-only opt-in entry.`,
+      })
     }
   }
   return findings

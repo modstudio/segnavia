@@ -1,7 +1,8 @@
 // Proves the exact tarballs a host installs: every workspace builds, packs,
 // passes metadata checks, exposes matching declarations and loads where safe.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { bunSource, PACKAGES, SOURCE_CONDITION, type SourceExport } from '../architecture.ts'
@@ -26,6 +27,22 @@ interface Manifest {
 async function run(command: string[], cwd = ROOT): Promise<void> {
   const process = Bun.spawn(command, { cwd, stdout: 'inherit', stderr: 'inherit' })
   if ((await process.exited) !== 0) throw new Error(`${command.join(' ')} failed.`)
+}
+
+async function output(command: string[], cwd: string): Promise<{ code: number; text: string }> {
+  const process = Bun.spawn(command, { cwd, stdout: 'pipe', stderr: 'pipe' })
+  const [stdout, stderr, code] = await Promise.all([new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited])
+  return { code, text: `${stdout}${stderr}` }
+}
+
+function linkConsumerModules(directory: string, includeVue: boolean): void {
+  const modules = path.join(directory, 'node_modules')
+  mkdirSync(modules, { recursive: true })
+  for (const name of readdirSync(path.join(ROOT, 'node_modules'))) {
+    if (name === '@segnavia' || name === '.bin' || name === '.bun' || (!includeVue && (name === 'vue' || name === 'vue-tsc' || name === '@vue'))) continue
+    symlinkSync(path.join(ROOT, 'node_modules', name), path.join(modules, name))
+  }
+  symlinkSync(path.join(HOST, 'node_modules', '@segnavia'), path.join(modules, '@segnavia'))
 }
 
 function specifier(packageName: string, exportName: string): string {
@@ -156,3 +173,77 @@ await run(
   HOST,
 )
 await run(['node', '--input-type=module', '--eval', `await Promise.all(${JSON.stringify(serverImports)}.map((name) => import(name)))`], HOST)
+
+const consumers = mkdtempSync(path.join(tmpdir(), 'segnavia-package-consumers-'))
+try {
+  const withoutVue = path.join(consumers, 'without-vue')
+  linkConsumerModules(withoutVue, false)
+  writeFileSync(path.join(withoutVue, 'index.ts'), "import '@segnavia/frame'\nimport '@segnavia/markdown-editor'\n")
+  writeFileSync(
+    path.join(withoutVue, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        skipLibCheck: false,
+        noEmit: true,
+        target: 'ES2022',
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+      },
+      files: ['index.ts'],
+    }),
+  )
+  await run([path.join(ROOT, 'node_modules/.bin/tsc'), '-p', 'tsconfig.json'], withoutVue)
+
+  const withVue = path.join(consumers, 'with-vue')
+  linkConsumerModules(withVue, true)
+  writeFileSync(
+    path.join(withVue, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        skipLibCheck: false,
+        noEmit: true,
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+      },
+      include: ['*.ts', '*.vue'],
+    }),
+  )
+  writeFileSync(
+    path.join(withVue, 'App.vue'),
+    `<script setup lang="ts">
+import '@segnavia/frame/vue'
+import '@segnavia/markdown-editor/vue'
+import type { Deck } from '@segnavia/format'
+
+const deck = { title: 'Typed', slides: [{ id: 'one', content: { kind: 'html', html: '<h1>Typed</h1>' } }] } as Deck
+const onMarkdown = (event: CustomEvent<{ markdown: string }>) => event.detail.markdown.toUpperCase()
+</script>
+<template>
+  <segnavia-thumbnail :deck="deck" />
+  <segnavia-markdown-editor markdown="Hello" @segnavia-markdown-change="onMarkdown" />
+</template>
+`,
+  )
+  const vueTsc = path.join(ROOT, 'node_modules/.bin/vue-tsc')
+  await run([vueTsc, '--noEmit', '-p', 'tsconfig.json'], withVue)
+  writeFileSync(
+    path.join(withVue, 'Bad.vue'),
+    `<script setup lang="ts">
+import '@segnavia/frame/vue'
+</script>
+<template><segnavia-thumbnail :deck="'wrong'" /></template>
+`,
+  )
+  const bad = await output([vueTsc, '--noEmit', '-p', 'tsconfig.json'], withVue)
+  if (bad.code === 0) throw new Error('vue-tsc accepted a string for the object-valued segnavia-thumbnail deck property.')
+  if (!bad.text.includes('Bad.vue') || !bad.text.includes("Type 'string' is not assignable")) {
+    throw new Error(`vue-tsc rejected the bad template for an unexpected reason:\n${bad.text}`)
+  }
+} finally {
+  rmSync(consumers, { recursive: true, force: true })
+}

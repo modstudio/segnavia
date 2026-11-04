@@ -10,6 +10,7 @@ import {
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
+  checkVueDependencies,
   type ResolutionInputs,
   type Workspace,
 } from './rules.ts'
@@ -82,6 +83,24 @@ describe('architecture rules', () => {
       'packages/frame/package.json',
       'packages/html/package.json',
     ])
+  })
+
+  test('no package may name Vue in any dependency field', () => {
+    const manifests = [
+      { name: '@segnavia/frame', path: 'packages/frame/package.json', peerDependencies: { vue: '^3.5.0' } },
+      { name: '@segnavia/html', path: 'packages/html/package.json', devDependencies: { vue: '^3.5.0' } },
+    ]
+    expect(checkVueDependencies(manifests).map((finding) => finding.path)).toEqual(['packages/frame/package.json', 'packages/html/package.json'])
+  })
+
+  test('only the Vue type entries may import Vue and runtime modules cannot import them', () => {
+    expect(checkImports({ path: 'packages/frame/src/vue.ts', text: '', imports: ['vue'] }, workspace('frame'), all)).toEqual([])
+    expect(checkImports({ path: 'packages/frame/src/index.ts', text: '', imports: ['vue'] }, workspace('frame'), all)[0]?.message).toContain(
+      'may not import vue',
+    )
+    expect(checkImports({ path: 'packages/frame/src/index.ts', text: '', imports: ['./vue.ts'] }, workspace('frame'), all)[0]?.message).toContain(
+      'runtime module may not import',
+    )
   })
 
   test('a server-safe entry must name an existing source file', () => {
