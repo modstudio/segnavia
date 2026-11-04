@@ -26,6 +26,11 @@ describe('Board', () => {
     expect(JSON.parse(JSON.stringify(parsed)).items[0].kind).toBe('media')
   })
 
+  test('keeps the first occurrence of a repeated stored section member', () => {
+    const parsed = Board.parse({ ...valid, sections: [{ ...valid.sections[0], items: ['deck', 'deck', 'deck'] }] })
+    expect(parsed.sections[0]?.items).toEqual(['deck'])
+  })
+
   test('refuses invalid auto-section cells', () => {
     expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [{ id: 'other', row: 0, column: 0 }] }] })).toContain('cell "other" is not a member')
     expect(refusal({ ...valid, sections: [{ ...valid.sections[0], cells: [] }] })).toContain('member "deck" has no cell')
