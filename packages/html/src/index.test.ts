@@ -228,10 +228,13 @@ describe('bindings', () => {
     expect(filled.unavailable).toEqual([])
   })
 
-  test('bound fragments stay refused by default', () => {
-    const filled = fill('<a data-demo-href="link">details</a>', { prefix, data: { link: '#details' } })
-    expect(filled.html).toBe('<a>details</a>')
-    expect(filled.unavailable).toEqual(['link'])
+  test('bound fragments and mailto links stay refused by default', () => {
+    const filled = fill('<a data-demo-href="link">details</a><a data-demo-href="mail">mail</a>', {
+      prefix,
+      data: { link: '#details', mail: 'mailto:a@example.com' },
+    })
+    expect(filled.html).toBe('<a>details</a><a>mail</a>')
+    expect(filled.unavailable.sort()).toEqual(['link', 'mail'])
   })
 
   test('a malformed bound link is dropped and reported unavailable', () => {
