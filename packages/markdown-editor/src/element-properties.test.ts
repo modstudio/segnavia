@@ -72,18 +72,20 @@ test('a title attribute set before upgrade becomes the document title', () => {
   element.attributes.set('title', 'Before upgrade')
   element.attributeChangedCallback('title', null, 'Before upgrade')
   expect(element.title).toBe('Before upgrade')
+  expect(element.getAttribute('title')).toBeNull()
 })
 
 test('changing the title attribute after upgrade changes the document title', () => {
   const element = editorState()
-  element.attributeChangedCallback('title', null, 'First')
-  element.attributeChangedCallback('title', 'First', 'Changed')
+  element.attributes.set('title', 'Changed')
+  element.attributeChangedCallback('title', null, 'Changed')
   expect(element.title).toBe('Changed')
+  expect(element.getAttribute('title')).toBeNull()
 })
 
-test('setting the title property after upgrade reflects the title attribute', () => {
+test('setting the title property after upgrade does not add a title attribute', () => {
   const element = editorState()
   element.title = 'Property title'
   expect(element.title).toBe('Property title')
-  expect(element.getAttribute('title')).toBe('Property title')
+  expect(element.getAttribute('title')).toBeNull()
 })

@@ -18,6 +18,10 @@ format  ◄── html          (universal: browser and server)
   └── voice               (server: providers, cache)
 ```
 
+| Frame entry | What it provides |
+|---|---|
+| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and DOM event names; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, and React owns its typed `on…` maps. |
+
 Inside `frame` there are three layers. A host takes the first two, or all three:
 
 | Layer | What it is | Appearance |
@@ -162,7 +166,8 @@ type.
 `<segnavia-markdown-editor>`. It is an optional, ordinary package entry: the
 frame, player, headless and controls bundles do not import it. The editor
 uses frame's `createPageElement`, `HEADLESS_ELEMENTS`, `SegnaviaPage`, fonts
-entry and `ensureStyle` helpers. `ensureStyle` installs a named stylesheet once
+entry and `ensureStyle` helpers, and its `@segnavia/frame/element-properties`
+entry for late-set property replay. `ensureStyle` installs a named stylesheet once
 per document or shadow root; `ensureBaseStyle` uses it for frame's base style.
 The editor's Tiptap, CodeMirror, Lezer and Mermaid-language engines are required
 peers, so a host supplies one shared copy. The element has an open shadow root and
@@ -176,8 +181,9 @@ user edits change the live property without reflecting to the attribute. A
 later attribute or property write replaces the document with fresh history.
 `dir` and `lang` are native attributes and are inherited; the title field and
 each source line resolve their own direction with `dir="auto"`. `title` is a
-property only. It deliberately does not use the native `title` attribute
-because that attribute would put a tooltip over the whole editor.
+property. A `title` attribute, including one a framework wrote before the
+element was defined, is read once as the document title and then removed,
+because a native `title` attribute would put a tooltip over the whole editor.
 `titleSource` is `separate` by default, or `leading-heading`. A separate title
 does not alter the body; `null` and `undefined` hide its line. In
 `leading-heading` mode the body owns the title, the title line is always

@@ -111,8 +111,11 @@ class MarkdownEditorElement extends HTMLElement {
     if (this.reflecting) return
     if (name === 'markdown') this.markdown = value ?? ''
     else if (name === 'mode') this.mode = value as MarkdownEditorMode
-    else if (name === 'title') this.setTitle(value, false)
-    else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
+    else if (name === 'title') {
+      if (value === null) return
+      this.setTitle(value)
+      this.reflect('title', null)
+    } else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
   }
 
   get markdown() {
@@ -141,16 +144,15 @@ class MarkdownEditorElement extends HTMLElement {
     return this.model.title as unknown as string
   }
   set title(value: string | null | undefined) {
-    this.setTitle(value, true)
+    this.setTitle(value)
   }
 
-  private setTitle(value: string | null | undefined, reflect: boolean) {
+  private setTitle(value: string | null | undefined) {
     const model = setModelTitle(this.model, value)
     if (model !== this.model) {
       this.model = model
       renderMarkdownEditorTitle(this.titleField, this.model)
     }
-    if (reflect) this.reflect('title', model.title)
   }
 
   get titleSource() {
