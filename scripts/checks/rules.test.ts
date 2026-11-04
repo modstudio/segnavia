@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
+import { BUN_SUPPORTED_PACKAGES, PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import {
   checkBunEngine,
@@ -30,23 +30,59 @@ const all = new Map([
   ['@segnavia/format', workspace('format')],
   ['@segnavia/frame', workspace('frame', ['.', './svg', './bridge'])],
 ])
+const bunWorkflow = (version: string) =>
+  `jobs:\n  check:\n    steps: []\n  verify-render:\n    steps:\n      - uses: oven-sh/setup-bun@sha\n        with:\n          bun-version: ${version}\n  ci:\n    steps: []\n`
+const bunManifests = (): PackageManifestDependencies[] => [
+  ...BUN_SUPPORTED_PACKAGES.map((name) => ({
+    name: `@segnavia/${name}`,
+    path: `packages/${name}/package.json`,
+    engines: { node: '>=22', bun: '>=1.4.2' },
+  })),
+  { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22' } },
+]
 
 describe('architecture rules', () => {
   test('a declared Bun floor must match the version verify-render proves', () => {
-    const workflow = `jobs:\n  check:\n    steps: []\n  verify-render:\n    steps:\n      - uses: oven-sh/setup-bun@sha\n        with:\n          bun-version: 1.4.2\n  ci:\n    steps: []\n`
-    const manifests: PackageManifestDependencies[] = [
-      { name: '@segnavia/render', path: 'packages/render/package.json', engines: { node: '>=22', bun: '>=1.5.0' } },
-      { name: '@segnavia/format', path: 'packages/format/package.json', engines: { node: '>=22', bun: '>=1.4.2' } },
-      { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22' } },
-    ]
-    expect(checkBunEngine(workflow, manifests)).toEqual([
+    const manifests = bunManifests()
+    manifests[0] = { name: '@segnavia/render', path: 'packages/render/package.json', engines: { node: '>=22', bun: '>=1.5.0' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
       {
         rule: 'bun-engine',
         path: 'packages/render/package.json',
         message:
-          'engines.bun is >=1.5.0, but .github/workflows/ci.yml verify-render runs Bun 1.4.2; change packages/render/package.json or .github/workflows/ci.yml so the floor and CI version match.',
+          '@segnavia/render has >=1.5.0, expected >=1.4.2; change packages/render/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
       },
     ])
+  })
+
+  test('a package in the Bun support list must declare engines.bun', () => {
+    const manifests = bunManifests()
+    manifests[1] = { name: '@segnavia/format', path: 'packages/format/package.json', engines: { node: '>=22' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/format/package.json',
+        message:
+          '@segnavia/format has no engines.bun declaration, expected >=1.4.2; change packages/format/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
+      },
+    ])
+  })
+
+  test('a package outside the Bun support list must not declare engines.bun', () => {
+    const manifests = bunManifests()
+    manifests[4] = { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22', bun: '>=1.4.2' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/frame/package.json',
+        message:
+          '@segnavia/frame has >=1.4.2, expected no engines.bun declaration; change packages/frame/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
+      },
+    ])
+  })
+
+  test('a trailing YAML comment does not hide the verify-render Bun version', () => {
+    expect(checkBunEngine(bunWorkflow('1.4.2 # pinned for the Bun leg'), bunManifests())).toEqual([])
   })
 
   test('a universal package may not import Node', () => {

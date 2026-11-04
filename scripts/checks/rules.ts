@@ -1,7 +1,7 @@
 // The repository's own rules as pure decisions over a file's path, text and
 // imports, so the gate can test them and the runner only gathers facts.
 
-import { FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
+import { BUN_SUPPORTED_PACKAGES, FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
 export interface SourceFile {
@@ -51,7 +51,13 @@ export function checkBunEngine(workflow: string, manifests: PackageManifestDepen
   const lines = workflow.split('\n')
   const start = lines.findIndex((line) => /^ {2}verify-render:\s*$/.test(line))
   const end = lines.findIndex((line, index) => index > start && /^ {2}[\w-]+:\s*$/.test(line))
-  const job = start === -1 ? undefined : lines.slice(start + 1, end === -1 ? undefined : end).join('\n')
+  const job =
+    start === -1
+      ? undefined
+      : lines
+          .slice(start + 1, end === -1 ? undefined : end)
+          .map((line) => line.replace(/\s+#.*$/, ''))
+          .join('\n')
   const ciVersion = job?.match(/^\s+ bun-version:\s*['"]?([^\s'"]+)['"]?\s*$/m)?.[1]
   if (!ciVersion) {
     return [
@@ -65,12 +71,16 @@ export function checkBunEngine(workflow: string, manifests: PackageManifestDepen
   const expected = `>=${ciVersion}`
   return manifests.flatMap((manifest) => {
     const declared = manifest.engines?.bun
-    if (!declared || declared === expected) return []
+    const packageName = manifest.name.replace(/^@segnavia\//, '')
+    const supported = BUN_SUPPORTED_PACKAGES.some((name) => name === packageName)
+    if ((supported && declared === expected) || (!supported && !declared)) return []
+    const expectedValue = supported ? expected : 'no engines.bun declaration'
+    const declaredValue = declared ?? 'no engines.bun declaration'
     return [
       {
         rule: 'bun-engine',
         path: manifest.path,
-        message: `engines.bun is ${declared}, but .github/workflows/ci.yml verify-render runs Bun ${ciVersion}; change ${manifest.path} or .github/workflows/ci.yml so the floor and CI version match.`,
+        message: `${manifest.name} has ${declaredValue}, expected ${expectedValue}; change ${manifest.path} or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.`,
       },
     ]
   })
