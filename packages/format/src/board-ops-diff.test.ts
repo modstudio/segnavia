@@ -69,7 +69,7 @@ describe('diffBoards and invertOps', () => {
     const changedSection = after.sections[0]
     if (!changedItem || !changedLabel || !changedSection) throw new Error('test board is incomplete')
     Object.assign(changedItem, { kind: 'deck', address: 'decks/a', x: 1, y: 2, width: 101 })
-    Object.assign(changedLabel, { text: 'After', x: 1, y: 2 })
+    Object.assign(changedLabel, { text: 'After', x: 1, y: 2, size: { width: 40, height: 20 } })
     Object.assign(changedSection, { title: 'After', rectangle: { ...rectangle, x: 1 }, layout: undefined })
     const ops = diffBoards(before, after)
     const keys = (type: string) => Object.keys((ops.find((op) => op.type === type) as { from: object }).from).sort()

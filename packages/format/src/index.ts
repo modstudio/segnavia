@@ -54,6 +54,17 @@ export {
   SECTION_TITLE_ROOM,
   settleBoard,
 } from './board-sections.ts'
+export {
+  BOARD_LABEL_ESTIMATE,
+  type BoardItemFact,
+  type BoardShapesOptions,
+  boardShapes,
+  type ComputedBoardShapes,
+  type LabelShapeResult,
+  labelShape,
+  provisionalShape,
+  resolvedShape,
+} from './board-shapes.ts'
 export * from './book-exports.ts'
 export {
   COVER_DRAWING_VERSION,

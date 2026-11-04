@@ -1,5 +1,6 @@
 import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
+import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -44,6 +45,7 @@ type DemoWindow = typeof window & {
 export async function checkBoardEditing(h: Harness) {
   const board = h.page.locator('segnavia-board')
   const original = await board.evaluate((element) => structuredClone((element as BoardElement).board))
+  await checkBoardEditingLabelSizes(h, board)
   const reset = async (direction: 'ltr' | 'rtl' = 'ltr') => {
     await board.evaluate(
       (element, args) => {

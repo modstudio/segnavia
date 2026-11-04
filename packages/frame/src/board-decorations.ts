@@ -1,4 +1,4 @@
-import { type Board, type BoardView, resolveDirection } from '@segnavia/format'
+import { type Board, type BoardItemFact, type BoardShapes, type BoardView, boardShapes, labelShape, resolveDirection } from '@segnavia/format'
 import { placeBoardNode } from './board-placement.ts'
 
 export class BoardDecorations {
@@ -39,13 +39,27 @@ export class BoardDecorations {
     this.labelNodes.clear()
   }
 
-  labelShapes(zoom: number) {
+  measureLabel(text: string, direction: Board['direction'], zoom: number) {
+    const node = [...this.labelNodes.values()].find((entry) => {
+      const content = entry.firstElementChild as HTMLElement | null
+      return content?.textContent === text && content.dir === direction
+    })
+    if (!node) return undefined
+    const rectangle = node.getBoundingClientRect()
+    return rectangle.width > 0 && rectangle.height > 0 ? { width: rectangle.width / zoom, height: rectangle.height / zoom } : undefined
+  }
+
+  measureMissingLabels(labels: Board['labels'], zoom: number): Record<string, { width: number; height: number }> {
     return Object.fromEntries(
-      [...this.labelNodes].flatMap(([id, node]) => {
-        const rectangle = node.getBoundingClientRect()
-        return rectangle.width > 0 && rectangle.height > 0 ? [[id, { width: rectangle.width / zoom, height: rectangle.height / zoom }]] : []
+      labels.flatMap((label) => {
+        const result = labelShape(label, (text, direction) => this.measureLabel(text, direction, zoom))
+        return result.source === 'measured' ? [[label.id, result.shape]] : []
       }),
     )
+  }
+
+  shapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, zoom: number): BoardShapes {
+    return boardShapes(board, facts, { measureLabel: (text, direction) => this.measureLabel(text, direction, zoom) }).shapes
   }
 
   setDropTarget(id?: string) {

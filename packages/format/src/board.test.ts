@@ -20,6 +20,12 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
+  test('parses labels with and without a stored size', () => {
+    const label = valid.labels[0] as (typeof valid.labels)[number]
+    const labels = [label, { ...label, id: 'measured', size: { width: 72.5, height: 19.25 } }]
+    expect(Board.parse({ ...valid, labels }).labels).toEqual(labels)
+  })
+
   test('reads a stored image item as media and serializes the new kind', () => {
     const parsed = Board.parse({ ...valid, items: [{ ...valid.items[0], kind: 'image' }] })
     expect(parsed.items[0]?.kind).toBe('media')
@@ -94,5 +100,14 @@ describe('Board', () => {
     const message = refusal({ ...valid, items: [{ ...valid.items[0], address: '' }] })
     expect(message).toContain('item address is empty')
     expect(message).toContain('non-empty address')
+  })
+
+  test('refuses one address shared by different item kinds and says what clears it', () => {
+    const message = refusal({
+      ...valid,
+      items: [valid.items[0], { ...valid.items[0], id: 'paper', kind: 'paper' as const }],
+    })
+    expect(message).toContain('board items "deck" and "paper" share address "decks/one.json" with kinds deck and paper')
+    expect(message).toContain('one address names one asset, so give each kind its own address')
   })
 })

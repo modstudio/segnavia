@@ -60,6 +60,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       }
       window.boardErrors = []
       window.boardUnhandled = []
+      window.attachBoardEditingForCheck = target => { let changes=0; const editing=attachBoardEditing(target,{change:async()=>{changes+=1}}); return {editing,changes:()=>changes} }
       window.boardScriptRan = false
       window.addEventListener('message', event => { if (event.data === 'board-script-ran') window.boardScriptRan = true })
       window.addEventListener('unhandledrejection', event => { window.boardUnhandled.push(String(event.reason)) })
