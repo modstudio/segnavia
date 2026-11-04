@@ -16,7 +16,7 @@ import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
-import type * as BoardEvent from './board-events.ts'
+import type * as E from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
@@ -79,7 +79,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
       this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
     },
     (items, error) =>
-      this.dispatchEvent(new CustomEvent<BoardEvent.BoardErrorDetail>('segnavia-board-error', { detail: { items, error }, bubbles: true, composed: true })),
+      this.dispatchEvent(new CustomEvent<E.BoardErrorDetail>('segnavia-board-error', { detail: { items, error }, bubbles: true, composed: true })),
   )
   private readonly gestures = new BoardGestures(
     this,
@@ -96,7 +96,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     selectAll: () => {
       this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
     },
-    open: (item) => this.dispatchEvent(new CustomEvent<BoardEvent.BoardOpenDetail>('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
+    open: (item) => this.dispatchEvent(new CustomEvent<E.BoardOpenDetail>('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
     boardKey: (event) =>
       boardPolicy.applyBoardKey(
         event,
@@ -105,9 +105,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
         (view) => this.setView(view),
       ),
     action: (action, item) =>
-      this.dispatchEvent(
-        new CustomEvent<BoardEvent.BoardItemActionDetail>('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true }),
-      ),
+      this.dispatchEvent(new CustomEvent<E.BoardItemActionDetail>('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
     focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
@@ -160,9 +158,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.render()
     this.fitInitial()
     if (dispatch)
-      this.dispatchEvent(
-        new CustomEvent<BoardEvent.BoardChangeDetail>('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }),
-      )
+      this.dispatchEvent(new CustomEvent<E.BoardChangeDetail>('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
   }
   get view(): BoardView {
     return this.currentView
@@ -175,7 +171,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.refresh()
     this.dispatchEvent(new CustomEvent('segnavia-board-icons', { bubbles: true, composed: true }))
   }
-
   get selection(): readonly string[] {
     return this.selectionState.selection
   }
@@ -183,7 +178,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
   set selection(value: readonly string[]) {
     this.selectionState.selection = value
   }
-
   get itemActions(): readonly BoardItemAction[] {
     return this.chrome.itemActions
   }
@@ -192,7 +186,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.itemActions = value
     this.chrome.refresh()
   }
-
   get labels(): Partial<BoardLabels> {
     return this.chrome.labels
   }
@@ -201,7 +194,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.labels = value
     this.chrome.refresh()
   }
-
   set view(value: BoardView) {
     this.viewWasSet = true
     this.setView(value)
@@ -333,9 +325,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     if (this.viewEvent) return
     this.viewEvent = requestAnimationFrame(() => {
       this.viewEvent = 0
-      this.dispatchEvent(
-        new CustomEvent<BoardEvent.BoardViewDetail>('segnavia-board-view', { detail: { view: this.currentView }, bubbles: true, composed: true }),
-      )
+      this.dispatchEvent(new CustomEvent<E.BoardViewDetail>('segnavia-board-view', { detail: { view: this.currentView }, bubbles: true, composed: true }))
     })
   }
 
@@ -403,7 +393,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.painter.dispose(current.id)
-    this.dispatchEvent(new CustomEvent<BoardEvent.BoardErrorDetail>('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
+    this.dispatchEvent(new CustomEvent<E.BoardErrorDetail>('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
     this.render()
   }
 }

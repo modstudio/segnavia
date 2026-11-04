@@ -21,6 +21,14 @@ function moduleSpecifier(node: ts.Node): string | null {
   if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
     return node.moduleSpecifier.text
   }
+  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+    const argument = node.arguments[0]
+    if (node.arguments.length === 1 && argument && ts.isStringLiteral(argument)) return argument.text
+  }
+  if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+    const expression = node.moduleReference.expression
+    if (expression && ts.isStringLiteral(expression)) return expression.text
+  }
   return null
 }
 
@@ -39,13 +47,16 @@ export function checkVueImports(file: SourceFile): Finding[] {
   const source = ts.createSourceFile(file.path, file.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const entry = vueEntries.find(({ path: entryPath }) => entryPath === file.path)
   const findings: Finding[] = []
-  for (const statement of source.statements) {
-    const specifier = moduleSpecifier(statement)
-    if (!specifier) continue
+  const visit = (node: ts.Node) => {
+    const specifier = moduleSpecifier(node)
+    if (!specifier) {
+      ts.forEachChild(node, visit)
+      return
+    }
     if (specifier === 'vue') {
       if (!entry) {
         findings.push({ rule: 'vue-imports', path: file.path, message: 'only a declared types-only Vue entry may import vue.' })
-      } else if (!typeOnlyVueImport(statement)) {
+      } else if (!typeOnlyVueImport(node)) {
         findings.push({
           rule: 'vue-imports',
           path: file.path,
@@ -57,5 +68,6 @@ export function checkVueImports(file: SourceFile): Finding[] {
       findings.push({ rule: 'vue-imports', path: file.path, message: `a runtime module may not import the types-only Vue entry ${specifier}.` })
     }
   }
+  ts.forEachChild(source, visit)
   return findings
 }
