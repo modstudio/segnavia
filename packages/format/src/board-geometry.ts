@@ -1,4 +1,4 @@
-import type { Board, BoardItem } from './board.ts'
+import type { Board, BoardItem, BoardLabel } from './board.ts'
 import type { Box, Point, Size } from './deck.ts'
 
 export interface BoardShapes {
@@ -44,9 +44,14 @@ export function itemHeight(item: BoardItem, shape: Size): number {
   return (item.width * shape.height) / shape.width
 }
 
-function itemRectangle(item: BoardItem, shapes: BoardShapes): Box {
+export function itemRectangle(item: BoardItem, shapes: BoardShapes): Box {
   const shape = requireShape(shapes, 'items', item.id)
   return { x: item.x, y: item.y, width: item.width, height: itemHeight(item, shape) }
+}
+
+export function labelRectangle(label: BoardLabel, shapes: BoardShapes): Box {
+  const shape = requireShape(shapes, 'labels', label.id)
+  return { x: label.x, y: label.y, width: shape.width, height: shape.height }
 }
 
 function union(rectangles: Box[]): Box {
@@ -61,10 +66,7 @@ function union(rectangles: Box[]): Box {
 export function boardBounds(board: Board, shapes: BoardShapes): Box {
   return union([
     ...board.items.map((item) => itemRectangle(item, shapes)),
-    ...board.labels.map((label) => {
-      const shape = requireShape(shapes, 'labels', label.id)
-      return { x: label.x, y: label.y, width: shape.width, height: shape.height }
-    }),
+    ...board.labels.map((label) => labelRectangle(label, shapes)),
     ...board.sections.map((section) => section.rectangle),
   ])
 }

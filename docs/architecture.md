@@ -336,6 +336,15 @@ kind differs from its item's kind is refused. Frame re-exports
 transforms, visibility, hit-testing and grid or row arrangement live in universal
 `@segnavia/format`, so browser and server callers use the same calculations
 without loading an element.
+`describeBoard(board, shapes, options)` reads a board's structure for an agent
+without a browser: sections in board order with their members and auto-layout
+cells, loose items, labels, the board's title and direction, and the overlaps
+between them. A `section` or `region` option narrows the entities, and an
+overlap is reported when either of its two entities is selected, so it may name
+one outside the result. Entities page by cursor in one order (sections with
+their members, then loose items, then labels), each overlap on the page of its
+earlier selected entity. `concise` omits boxes, and `provisional` and
+`estimated` name the boxes on the page that are still guesses.
 A board's unbounded surface is its canvas, while a slide's canvas is bounded.
 
 The ten packages are built as ESM JavaScript and declarations with tsdown;

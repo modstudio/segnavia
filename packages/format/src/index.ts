@@ -4,6 +4,19 @@
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export {
+  type BoardDescription,
+  type BoardDescriptionCell,
+  type BoardDescriptionEntity,
+  type BoardDescriptionEntityKind,
+  type BoardDescriptionItem,
+  type BoardDescriptionLabel,
+  type BoardDescriptionMember,
+  type BoardDescriptionOverlap,
+  type BoardDescriptionSection,
+  type DescribeBoardOptions,
+  describeBoard,
+} from './board-describe.ts'
+export {
   addItem,
   type BoardItemAnchor,
   MIN_BOARD_ITEM_WIDTH,
