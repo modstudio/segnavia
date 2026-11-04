@@ -50,7 +50,7 @@ describe('architecture rules', () => {
         rule: 'bun-engine',
         path: 'packages/render/package.json',
         message:
-          '@segnavia/render has >=1.5.0, expected >=1.4.2; change packages/render/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
+          '@segnavia/render has >=1.5.0, expected >=1.4.2, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/render/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
       },
     ])
   })
@@ -63,7 +63,7 @@ describe('architecture rules', () => {
         rule: 'bun-engine',
         path: 'packages/format/package.json',
         message:
-          '@segnavia/format has no engines.bun declaration, expected >=1.4.2; change packages/format/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
+          '@segnavia/format has no engines.bun declaration, expected >=1.4.2, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/format/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
       },
     ])
   })
@@ -76,7 +76,7 @@ describe('architecture rules', () => {
         rule: 'bun-engine',
         path: 'packages/frame/package.json',
         message:
-          '@segnavia/frame has >=1.4.2, expected no engines.bun declaration; change packages/frame/package.json or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.',
+          '@segnavia/frame has >=1.4.2, expected no engines.bun declaration, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/frame/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
       },
     ])
   })

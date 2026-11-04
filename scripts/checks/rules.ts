@@ -80,7 +80,7 @@ export function checkBunEngine(workflow: string, manifests: PackageManifestDepen
       {
         rule: 'bun-engine',
         path: manifest.path,
-        message: `${manifest.name} has ${declaredValue}, expected ${expectedValue}; change ${manifest.path} or BUN_SUPPORTED_PACKAGES in architecture.ts to clear this refusal.`,
+        message: `${manifest.name} has ${declaredValue}, expected ${expectedValue}, because verify-render in .github/workflows/ci.yml runs Bun ${ciVersion}; change ${manifest.path}, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.`,
       },
     ]
   })
