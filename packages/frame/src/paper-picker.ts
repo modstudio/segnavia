@@ -16,6 +16,7 @@ import {
   toMillimeters,
 } from '@segnavia/format'
 import { TOKENS_CSS } from './controls-style.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 const CUSTOM_VALUE = 'custom'
 
@@ -75,6 +76,11 @@ export class SegnaviaPaperPicker extends HTMLElement {
   private custom: Extract<PrintSetting['paper'], object> = DEFAULT_CUSTOM
   private words = ENGLISH_PAPER_PICKER_LABELS
   private drawn = false
+
+  constructor() {
+    super()
+    upgradeProperties(this)
+  }
 
   get value(): PrintSetting {
     return this.setting

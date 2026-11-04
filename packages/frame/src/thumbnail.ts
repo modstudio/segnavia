@@ -4,6 +4,7 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
+import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -41,6 +42,7 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this)
     this.viewport.part.add('thumbnail')
     this.root.append(this.viewport)
   }

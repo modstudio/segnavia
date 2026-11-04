@@ -4,6 +4,7 @@ import type { SegnaviaBoard } from './board.ts'
 import type { SegnaviaBoardList } from './board-list.ts'
 import { BoardTargetBinding, TargetBinding } from './board-target.ts'
 import { type ToolbarNavigationKey, toolbarNextIndex } from './board-toolbar-policy.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 export interface BoardToolbarLabels {
   toolbar: string
@@ -56,6 +57,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this)
     this.toolbar.part.add('toolbar')
     this.toolbar.setAttribute('role', 'toolbar')
     this.listButton = this.button('list')

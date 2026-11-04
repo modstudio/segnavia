@@ -140,6 +140,8 @@ export class SegnaviaCounter extends SegnaviaControl {
 }
 
 export class SegnaviaFullscreen extends SegnaviaControl {
+  private explicitTarget: Element | null = null
+
   connectedCallback() {
     super.connectedCallback()
     document.addEventListener('fullscreenchange', this.onFullscreen)
@@ -150,7 +152,13 @@ export class SegnaviaFullscreen extends SegnaviaControl {
   }
   // An element set directly wins over the `target` id, for a host whose
   // target is outside the component's own root.
-  targetElement: Element | null = null
+  get targetElement(): Element | null {
+    return this.explicitTarget
+  }
+
+  set targetElement(value: Element | null) {
+    this.explicitTarget = value
+  }
   private target(): Element | null {
     if (this.targetElement) return this.targetElement
     const id = this.getAttribute('target') ?? this.getAttribute('for')

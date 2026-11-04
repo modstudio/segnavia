@@ -53,7 +53,7 @@ export interface RailSlideSettingsItem {
 }
 
 export class SegnaviaRail extends SegnaviaControl {
-  mountMargin = 400
+  private margin = 400
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => {
     this.measure()
@@ -72,6 +72,14 @@ export class SegnaviaRail extends SegnaviaControl {
   private slideSettings = new Map<string, RailSlideSettingsItem>()
   private openSlideSettings: ((slideId: string, anchor: HTMLButtonElement) => void) | null = null
   private itemSettings: { label: string; open: () => void } | null = null
+
+  get mountMargin(): number {
+    return this.margin
+  }
+
+  set mountMargin(value: number) {
+    this.margin = value
+  }
 
   protected styles() {
     return RAIL_CSS

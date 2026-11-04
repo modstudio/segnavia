@@ -1,5 +1,6 @@
 import type { PageWidths } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -7,10 +8,22 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
 
 export abstract class BookSourcesElement extends HTMLElementBase {
+  static {
+    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['dependencyOrigins'])
+  }
+  declare dependencyOrigins: Iterable<string>
   protected fontOptions: FontsOptions | undefined
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined
   protected widthOptions: PageWidths | undefined
+
+  get spread(): boolean {
+    return this.hasAttribute('spread')
+  }
+
+  set spread(value: boolean) {
+    this.toggleAttribute('spread', value)
+  }
 
   get fonts(): FontsOptions | undefined {
     return this.fontOptions

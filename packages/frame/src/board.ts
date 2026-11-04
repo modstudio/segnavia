@@ -6,7 +6,6 @@ import {
   boardBounds,
   itemAt,
   itemHeight,
-  type PageWidths,
   revealView,
   screenToBoard,
   visibleItems,
@@ -30,6 +29,7 @@ import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
+import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -108,6 +108,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
     super()
+    upgradeProperties(this)
     this.surface.part.add('surface')
     this.surface.dir = 'ltr'
     this.root.append(this.surface)
@@ -123,7 +124,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.placementOptions = value
     this.render()
   }
-  set pageWidths(value: PageWidths | undefined) {
+  set pageWidths(value: Parameters<BoardPainter['setPageWidths']>[0]) {
     if (this.painter.setPageWidths(value)) this.render()
   }
   set fonts(value: FontsOptions | undefined) {

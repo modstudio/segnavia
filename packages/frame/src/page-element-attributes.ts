@@ -1,4 +1,13 @@
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
+
 export class PageElementAttributes extends HTMLElement {
+  static {
+    defineStylesheetPropertyAccessors(PageElementAttributes.prototype)
+  }
+  declare css: string
+  declare cspExtra: string
+  declare dependencyOrigins: Iterable<string>
+
   get bounded(): boolean {
     return this.hasAttribute('bounded')
   }

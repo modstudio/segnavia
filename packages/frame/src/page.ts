@@ -8,29 +8,24 @@ import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties,
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { pageSheetLayout } from './page-layout.ts'
+import { PAGE_CHANGED_SELECTION, type PostedSelectionRequest, type SelectionCancellation } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
-const PAGE_CHANGED_SELECTION = 'Cannot read the selection because the page changed before it replied. Read the selection from the current page.'
-
-type SelectionCancellation = (reason: Error) => void
-type PostedSelectionRequest = { cancel?: SelectionCancellation }
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
 export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
-  css = ''
-  cspExtra = ''
-  dependencyOrigins: Iterable<string> = []
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
   private contentHeight = 0
@@ -51,6 +46,11 @@ export class SegnaviaPage extends PageElementAttributes {
   private selectionRequests = new Set<SelectionCancellation>()
   private postedSelectionRequests = new Set<PostedSelectionRequest>()
   private selectionReadyRequests = new Set<() => void>()
+
+  constructor() {
+    super()
+    upgradeProperties(this)
+  }
 
   get alertLabels(): Partial<AlertLabels> | undefined {
     return this.alertLabelOptions

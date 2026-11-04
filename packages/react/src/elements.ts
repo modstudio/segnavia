@@ -13,10 +13,9 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
-import { HEADLESS_ELEMENTS } from '@segnavia/frame/headless-elements'
+import { ELEMENT_PROPERTIES as FRAME_ELEMENTS } from '@segnavia/frame/element-properties'
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
-import { STYLED_ELEMENTS } from '@segnavia/frame/styled-elements'
 import type {
   BookProps,
   CaptionProps,
@@ -55,84 +54,109 @@ export interface ElementDescriptor<E extends object, P extends object, Tag exten
   readonly props?: P
 }
 
-function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
-  tag: Tag,
-  properties: readonly Extract<keyof P, string>[],
-  events: Readonly<Partial<Record<Extract<keyof P, `on${string}`>, string>>>,
-): ElementDescriptor<E, P, Tag> {
-  return { tag, properties, events }
+export function invertEvents<ReactEvent extends `on${string}`>(events: Readonly<Record<string, ReactEvent>>): Readonly<Partial<Record<ReactEvent, string>>> {
+  return Object.fromEntries(Object.entries(events).map(([event, reactEvent]) => [reactEvent, event])) as Partial<Record<ReactEvent, string>>
 }
 
-const controlProperties = ['controller', 'labels'] as const
+const reactEvents =
+  <P extends object>() =>
+  <Events extends readonly string[]>(
+    _events: Events,
+    names: Readonly<Record<Events[number], Extract<keyof P, `on${string}`>>>,
+  ): Readonly<Record<Events[number], Extract<keyof P, `on${string}`>>> =>
+    names
+
+const playerEvents = reactEvents<PlayerProps>()(FRAME_ELEMENTS.player.events, { 'segnavia-labels': 'onSegnaviaLabels' })
+const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
+  'segnavia-controller': 'onSegnaviaController',
+  'segnavia-fit': 'onSegnaviaFit',
+})
+const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.events, {
+  'segnavia-thumbnail-error': 'onSegnaviaThumbnailError',
+})
+const paperPickerEvents = reactEvents<PaperPickerProps>()(FRAME_ELEMENTS.paperPicker.events, { change: 'onChange' })
+const itemSettingsEvents = reactEvents<ItemSettingsProps>()(FRAME_ELEMENTS.itemSettings.events, {
+  'segnavia-fill-select': 'onSegnaviaFillSelect',
+})
+
+function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
+  value: Omit<ElementDescriptor<E, P, Tag>, 'events'> & { events: Readonly<Record<string, Extract<keyof P, `on${string}`>>> },
+): ElementDescriptor<E, P, Tag> {
+  return { ...value, events: invertEvents(value.events) }
+}
 
 export const ELEMENTS = {
-  player: element<SegnaviaPlayer, PlayerProps, typeof STYLED_ELEMENTS.player>(
-    STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'],
-    {
-      onSegnaviaLabels: 'segnavia-labels',
-    },
-  ),
-  stage: element<SegnaviaStage, StageProps, typeof HEADLESS_ELEMENTS.stage>(
-    HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'dependencyOrigins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots'],
-    {
-      onSegnaviaController: 'segnavia-controller',
-      onSegnaviaFit: 'segnavia-fit',
-    },
-  ),
-  thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof HEADLESS_ELEMENTS.thumbnail>(
-    HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts', 'placements', 'designedCover', 'pageWidths'],
-    {
-      onSegnaviaThumbnailError: 'segnavia-thumbnail-error',
-    },
-  ),
-  paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof STYLED_ELEMENTS.paperPicker>(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], {
-    onChange: 'change',
+  player: element<SegnaviaPlayer, PlayerProps, typeof FRAME_ELEMENTS.player.tag>({ ...FRAME_ELEMENTS.player, events: playerEvents }),
+  stage: element<SegnaviaStage, StageProps, typeof FRAME_ELEMENTS.stage.tag>({ ...FRAME_ELEMENTS.stage, events: stageEvents }),
+  thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof FRAME_ELEMENTS.thumbnail.tag>({ ...FRAME_ELEMENTS.thumbnail, events: thumbnailEvents }),
+  paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof FRAME_ELEMENTS.paperPicker.tag>({
+    ...FRAME_ELEMENTS.paperPicker,
+    events: paperPickerEvents,
   }),
-  itemSettings: element<SegnaviaItemSettings, ItemSettingsProps, 'segnavia-item-settings'>(
-    'segnavia-item-settings',
-    ['declarations', 'fills', 'fill', 'source', 'report', 'labels'],
-    {
-      onSegnaviaFillSelect: 'segnavia-fill-select',
-    },
-  ),
-  page: element<SegnaviaPage, PageProps, typeof HEADLESS_ELEMENTS.page>(
-    HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'alertLabels', 'placements', 'pageWidths'],
-    {},
-  ),
-  book: element<SegnaviaBook, BookProps, typeof HEADLESS_ELEMENTS.book>(
-    HEADLESS_ELEMENTS.book,
-    ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'],
-    {},
-  ),
-  paper: element<SegnaviaPaper, PaperProps, typeof HEADLESS_ELEMENTS.paper>(
-    HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
-    {},
-  ),
-  document: element<SegnaviaDocument, DocumentProps, typeof HEADLESS_ELEMENTS.document>(
-    HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
-    {},
-  ),
-  play: element<SegnaviaPlay, PlayProps, typeof STYLED_ELEMENTS.play>(STYLED_ELEMENTS.play, controlProperties, {}),
-  step: element<SegnaviaStep, StepProps, typeof STYLED_ELEMENTS.step>(STYLED_ELEMENTS.step, controlProperties, {}),
-  track: element<SegnaviaTrack, TrackProps, typeof STYLED_ELEMENTS.track>(STYLED_ELEMENTS.track, controlProperties, {}),
-  counter: element<SegnaviaCounter, CounterProps, typeof STYLED_ELEMENTS.counter>(STYLED_ELEMENTS.counter, controlProperties, {}),
-  time: element<SegnaviaTime, TimeProps, typeof STYLED_ELEMENTS.time>(STYLED_ELEMENTS.time, controlProperties, {}),
-  mute: element<SegnaviaMute, MuteProps, typeof STYLED_ELEMENTS.mute>(STYLED_ELEMENTS.mute, controlProperties, {}),
-  captions: element<SegnaviaCaptions, CaptionsProps, typeof STYLED_ELEMENTS.captions>(STYLED_ELEMENTS.captions, controlProperties, {}),
-  caption: element<SegnaviaCaption, CaptionProps, typeof STYLED_ELEMENTS.caption>(STYLED_ELEMENTS.caption, controlProperties, {}),
-  notes: element<SegnaviaNotes, NotesProps, typeof STYLED_ELEMENTS.notes>(STYLED_ELEMENTS.notes, controlProperties, {}),
-  fullscreen: element<SegnaviaFullscreen, FullscreenProps, typeof STYLED_ELEMENTS.fullscreen>(
-    STYLED_ELEMENTS.fullscreen,
-    [...controlProperties, 'targetElement'],
-    {},
-  ),
-  rail: element<SegnaviaRail, RailProps, typeof STYLED_ELEMENTS.rail>(STYLED_ELEMENTS.rail, [...controlProperties, 'mountMargin'], {}),
+  itemSettings: element<SegnaviaItemSettings, ItemSettingsProps, typeof FRAME_ELEMENTS.itemSettings.tag>({
+    ...FRAME_ELEMENTS.itemSettings,
+    events: itemSettingsEvents,
+  }),
+  page: element<SegnaviaPage, PageProps, typeof FRAME_ELEMENTS.page.tag>({
+    ...FRAME_ELEMENTS.page,
+    events: reactEvents<PageProps>()(FRAME_ELEMENTS.page.events, {}),
+  }),
+  book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
+    ...FRAME_ELEMENTS.book,
+    events: reactEvents<BookProps>()(FRAME_ELEMENTS.book.events, {}),
+  }),
+  paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
+    ...FRAME_ELEMENTS.paper,
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, {}),
+  }),
+  document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
+    ...FRAME_ELEMENTS.document,
+    events: reactEvents<DocumentProps>()(FRAME_ELEMENTS.document.events, {}),
+  }),
+  play: element<SegnaviaPlay, PlayProps, typeof FRAME_ELEMENTS.play.tag>({
+    ...FRAME_ELEMENTS.play,
+    events: reactEvents<PlayProps>()(FRAME_ELEMENTS.play.events, {}),
+  }),
+  step: element<SegnaviaStep, StepProps, typeof FRAME_ELEMENTS.step.tag>({
+    ...FRAME_ELEMENTS.step,
+    events: reactEvents<StepProps>()(FRAME_ELEMENTS.step.events, {}),
+  }),
+  track: element<SegnaviaTrack, TrackProps, typeof FRAME_ELEMENTS.track.tag>({
+    ...FRAME_ELEMENTS.track,
+    events: reactEvents<TrackProps>()(FRAME_ELEMENTS.track.events, {}),
+  }),
+  counter: element<SegnaviaCounter, CounterProps, typeof FRAME_ELEMENTS.counter.tag>({
+    ...FRAME_ELEMENTS.counter,
+    events: reactEvents<CounterProps>()(FRAME_ELEMENTS.counter.events, {}),
+  }),
+  time: element<SegnaviaTime, TimeProps, typeof FRAME_ELEMENTS.time.tag>({
+    ...FRAME_ELEMENTS.time,
+    events: reactEvents<TimeProps>()(FRAME_ELEMENTS.time.events, {}),
+  }),
+  mute: element<SegnaviaMute, MuteProps, typeof FRAME_ELEMENTS.mute.tag>({
+    ...FRAME_ELEMENTS.mute,
+    events: reactEvents<MuteProps>()(FRAME_ELEMENTS.mute.events, {}),
+  }),
+  captions: element<SegnaviaCaptions, CaptionsProps, typeof FRAME_ELEMENTS.captions.tag>({
+    ...FRAME_ELEMENTS.captions,
+    events: reactEvents<CaptionsProps>()(FRAME_ELEMENTS.captions.events, {}),
+  }),
+  caption: element<SegnaviaCaption, CaptionProps, typeof FRAME_ELEMENTS.caption.tag>({
+    ...FRAME_ELEMENTS.caption,
+    events: reactEvents<CaptionProps>()(FRAME_ELEMENTS.caption.events, {}),
+  }),
+  notes: element<SegnaviaNotes, NotesProps, typeof FRAME_ELEMENTS.notes.tag>({
+    ...FRAME_ELEMENTS.notes,
+    events: reactEvents<NotesProps>()(FRAME_ELEMENTS.notes.events, {}),
+  }),
+  fullscreen: element<SegnaviaFullscreen, FullscreenProps, typeof FRAME_ELEMENTS.fullscreen.tag>({
+    ...FRAME_ELEMENTS.fullscreen,
+    events: reactEvents<FullscreenProps>()(FRAME_ELEMENTS.fullscreen.events, {}),
+  }),
+  rail: element<SegnaviaRail, RailProps, typeof FRAME_ELEMENTS.rail.tag>({
+    ...FRAME_ELEMENTS.rail,
+    events: reactEvents<RailProps>()(FRAME_ELEMENTS.rail.events, {}),
+  }),
 } as const
 
 export type AnyElementDescriptor = RuntimeElementDescriptor

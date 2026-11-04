@@ -1,4 +1,5 @@
 import { type Fill, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
+import { upgradeProperties } from './element-properties.ts'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
 import { type FieldsActions, renderFields } from './item-settings-fields.ts'
 import {
@@ -18,7 +19,8 @@ import type { ItemSettingsSection, ItemSettingsSectionContext } from './item-set
 import { ITEM_SETTINGS_CSS } from './item-settings-style.ts'
 import { overrideValue } from './item-settings-values.ts'
 
-export const ITEM_SETTINGS_TAG = 'segnavia-item-settings'
+export { ITEM_SETTINGS_TAG } from './element-properties.ts'
+
 const FIELDS_ID = 'fields'
 
 interface FocusSnapshot {
@@ -48,6 +50,7 @@ export class SegnaviaItemSettings extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this)
     const style = document.createElement('style')
     style.textContent = ITEM_SETTINGS_CSS
     this.sectionsEl = document.createElement('div')

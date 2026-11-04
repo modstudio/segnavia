@@ -1,13 +1,11 @@
-// <segnavia-player>: the finished player, for a host that wants the whole layout. A host
-// that wants only some of it places the components itself; a host that wants
-// none of it uses the headless stage and controller.
+// <segnavia-player>: the finished player, for a host that wants the whole layout. A host that wants only some of it places
+// the components itself; a host that wants none of it uses the headless stage and controller.
 // Attributes: src, theme, notes, hash, prefetch, transition,
 // transition-duration, playback, captions, presentation and fit. Properties:
 // controller, resolveSlide, css, cspExtra, labels and transition. The actions
 // and below slots add host chrome. Parts expose the player, stage, notes,
-// caption, bar, controls, track segments and caption words. Data attributes
-// mirror the state for styling: data-slide, data-playing, data-word,
-// data-shown, data-direction and data-actions.
+// caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
+// data-playing, data-word, data-shown, data-direction and data-actions.
 
 import { parsePlayback, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
@@ -15,6 +13,7 @@ import { deckHasNarration } from './control-values.ts'
 import { type ControllerOptions, DeckController, type DeckState } from './controller.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
+import { upgradeProperties } from './element-properties.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
@@ -103,6 +102,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
       this.scheduleMeasure()
     })
     this.syncAssignedActions()
+    upgradeProperties(this)
   }
 
   get labels(): PlayerLabels {

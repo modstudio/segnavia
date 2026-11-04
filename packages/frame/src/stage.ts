@@ -16,35 +16,35 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
+import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
-import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { layoutStageCanvas } from './stage-content.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { stageCanvasLayout } from './stage-layout.ts'
+import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
+import type { StageReserve } from './stage-reserve.ts'
 import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
-export interface StageReserve {
-  blockStart?: number
-  blockEnd?: number
-}
-
 export class SegnaviaStage extends HTMLElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
-  // Styles applied inside every slide, such as a host's house style.
-  css = ''
-  cspExtra = ''
-  dependencyOrigins: Iterable<string> = []
-  bridgeReadyTimeoutMs = 10_000
+  static {
+    defineStagePropertyAccessors(SegnaviaStage.prototype)
+  }
+  declare css: string
+  declare cspExtra: string
+  declare dependencyOrigins: Iterable<string>
+  declare bridgeReadyTimeoutMs: number
+  declare frameTitle: FrameTitle
   private owned: DeckController | null = null
   private attached: DeckController | null = null
-  frameTitle: FrameTitle = defaultFrameTitle
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
@@ -64,6 +64,11 @@ export class SegnaviaStage extends HTMLElement {
     (state) => this.update(state),
   )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
+
+  constructor() {
+    super()
+    upgradeProperties(this)
+  }
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions

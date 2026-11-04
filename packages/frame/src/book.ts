@@ -7,6 +7,7 @@ import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from '
 import { BookSourcesElement } from './book-sources.ts'
 import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
+import { upgradeProperties } from './element-properties.ts'
 
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -29,7 +30,10 @@ export class SegnaviaBook extends BookSourcesElement {
   private loadController: AbortController | null = null
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
-  dependencyOrigins: Iterable<string> = []
+  constructor() {
+    super()
+    upgradeProperties(this)
+  }
 
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
@@ -93,14 +97,6 @@ export class SegnaviaBook extends BookSourcesElement {
       if (this.sourceLoadController === controller) this.sourceLoadController = null
       if (this.loadController === controller) this.loadController = null
     }
-  }
-
-  get spread(): boolean {
-    return this.hasAttribute('spread')
-  }
-
-  set spread(value: boolean) {
-    this.toggleAttribute('spread', value)
   }
 
   get layout(): BookLayout {

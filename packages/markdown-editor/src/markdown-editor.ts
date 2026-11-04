@@ -1,10 +1,12 @@
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { EditorView } from '@codemirror/view'
 import type { FontReference } from '@segnavia/format'
+import { upgradeProperties } from '@segnavia/frame/element-properties'
 import type { FontsOptions } from '@segnavia/frame/fonts'
 import { type AlertLabels, sanitizeBookCss } from '@segnavia/html'
 import type { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
+import { MARKDOWN_EDITOR_TAG } from './element-properties.ts'
 import { MarkdownEditorFontRegistration } from './markdown-editor-font-registration.ts'
 import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
@@ -34,6 +36,7 @@ import {
   markdownEditorKeyAction,
   richModeCommandRefusal,
 } from './markdown-editor-policy.ts'
+import { renderMarkdownEditorTitle, updateMarkdownEditorTitle } from './markdown-editor-title.ts'
 import type { MarkdownEditorStateDetail, SegnaviaMarkdownEditor as SegnaviaMarkdownEditorInterface } from './markdown-editor-types.ts'
 import { lockedBlockSourceOffset, RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
 import { mountRichEditor } from './markdown-rich-editor.ts'
@@ -45,11 +48,10 @@ export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
 
 export interface SegnaviaMarkdownEditor extends SegnaviaMarkdownEditorInterface {}
 
-const TAG = 'segnavia-markdown-editor'
 const COMMAND_NAMES = new Set<string>(MARKDOWN_EDITOR_COMMANDS.map(({ name }) => name))
 
 class MarkdownEditorElement extends HTMLElement {
-  static observedAttributes = ['markdown', 'mode', 'title-source']
+  static observedAttributes = ['markdown', 'mode', 'title', 'title-source']
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly container = document.createElement('div')
   private readonly titleField = document.createElement('input')
@@ -73,6 +75,7 @@ class MarkdownEditorElement extends HTMLElement {
 
   constructor() {
     super()
+    upgradeProperties(this)
     this.container.part.add('editor')
     this.titleField.part.add('title')
     this.titleField.type = 'text'
@@ -90,7 +93,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.titleField.addEventListener('keydown', this.onTitleKeyDown)
     this.titleField.addEventListener('paste', this.onTitlePaste)
     this.mountMode()
-    this.renderTitle()
+    renderMarkdownEditorTitle(this.titleField, this.model)
   }
 
   disconnectedCallback() {
@@ -108,7 +111,10 @@ class MarkdownEditorElement extends HTMLElement {
     if (this.reflecting) return
     if (name === 'markdown') this.markdown = value ?? ''
     else if (name === 'mode') this.mode = value as MarkdownEditorMode
-    else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
+    else if (name === 'title') {
+      if (value === null) return
+      this.setTitle(value, 'attribute')
+    } else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
   }
 
   get markdown() {
@@ -119,7 +125,7 @@ class MarkdownEditorElement extends HTMLElement {
     if (model === this.model) return
     this.model = model
     this.richOriginal = model.editable
-    this.renderTitle()
+    renderMarkdownEditorTitle(this.titleField, this.model)
     this.resetVisibleEditor()
   }
 
@@ -137,11 +143,16 @@ class MarkdownEditorElement extends HTMLElement {
     return this.model.title as unknown as string
   }
   set title(value: string | null | undefined) {
-    const model = setModelTitle(this.model, value)
+    this.setTitle(value, 'property')
+  }
+
+  private setTitle(value: string | null | undefined, source: 'attribute' | 'property') {
+    const { model, removeTitleAttribute } = updateMarkdownEditorTitle(this.model, value, source)
     if (model !== this.model) {
       this.model = model
-      this.renderTitle()
+      renderMarkdownEditorTitle(this.titleField, this.model)
     }
+    if (removeTitleAttribute) this.reflect('title', null)
   }
 
   get titleSource() {
@@ -154,7 +165,7 @@ class MarkdownEditorElement extends HTMLElement {
     this.reflect('title-source', next === 'separate' ? null : next)
     this.model = model
     this.richOriginal = model.editable
-    this.renderTitle()
+    renderMarkdownEditorTitle(this.titleField, this.model)
     this.resetVisibleEditor()
   }
 
@@ -351,10 +362,6 @@ class MarkdownEditorElement extends HTMLElement {
     this.onTitleInput()
   }
 
-  private renderTitle() {
-    this.titleField.hidden = this.model.titleSource === 'separate' && this.model.title === null
-    this.titleField.value = this.model.title ?? ''
-  }
   private emitSourceState(
     canUndo = this.sourceView ? undoDepth(this.sourceView.state) > 0 : false,
     canRedo = this.sourceView ? redoDepth(this.sourceView.state) > 0 : false,
@@ -384,8 +391,9 @@ class MarkdownEditorElement extends HTMLElement {
 }
 
 export type { FontsOptions } from '@segnavia/frame/fonts'
+export { MARKDOWN_EDITOR_PROPERTIES, MARKDOWN_EDITOR_TAG } from './element-properties.ts'
 export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_COMMANDS, MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
 export const SegnaviaMarkdownEditor: { new (): SegnaviaMarkdownEditor } = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
-if (!customElements.get(TAG)) customElements.define(TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)
+if (!customElements.get(MARKDOWN_EDITOR_TAG)) customElements.define(MARKDOWN_EDITOR_TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)
