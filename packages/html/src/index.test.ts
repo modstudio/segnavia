@@ -8,6 +8,7 @@ describe('sanitize', () => {
     expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('href', 'https://inside.example/x', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('href', 'https://exa mple.com/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', ['https://inside.example'])).toBe(true)
     expect(safeMarkdownUrl('href', 'javascript:alert(1)')).toBe(false)
   })
@@ -19,6 +20,36 @@ describe('sanitize', () => {
   test('a link survives only to an allowed https origin', () => {
     const html = '<a href="https://ok.example/p">a</a><a href="https://other.example/">b</a><a href="#top">c</a>'
     expect(sanitize(html, { linkOrigins: ['https://ok.example'] })).toBe('<a href="https://ok.example/p">a</a><a>b</a><a href="#top">c</a>')
+  })
+
+  test('a host link policy selects protocols, origins, and fragments', () => {
+    const html =
+      '<a href="mailto:editor@example.com">mail</a><a href="https://ok.example/p">ok</a><a href="https://other.example/p">other</a><a href="#top">top</a>'
+    const links = { protocols: ['https:', 'mailto:'], origins: ['https://ok.example'], fragments: false }
+    expect(sanitize(html, { links })).toBe('<a href="mailto:editor@example.com">mail</a><a href="https://ok.example/p">ok</a><a>other</a><a>top</a>')
+  })
+
+  test('links overrides the legacy linkOrigins option', () => {
+    const html = '<a href="https://new.example/p">new</a><a href="https://old.example/p">old</a>'
+    const links = { protocols: ['https:'], origins: ['https://new.example'] }
+    expect(sanitize(html, { links, linkOrigins: ['https://old.example'] })).toBe('<a href="https://new.example/p">new</a><a>old</a>')
+    expect(
+      fill('<a data-demo-href="link">new</a>', { prefix, links, linkOrigins: ['https://old.example'], data: { link: 'https://new.example/p' } }).html,
+    ).toBe('<a href="https://new.example/p">new</a>')
+  })
+
+  test('links decides authored hrefs when a converter policy is also supplied', () => {
+    const converterPolicy = {
+      urls: { linkProtocols: ['https:'], imageProtocols: [], linkFragments: true, dataImages: false },
+      inertControls: [],
+    }
+    expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')
+  })
+
+  test('active-content findings follow the host link policy', () => {
+    const html = '<a href="mailto:a@b.c">x</a>'
+    expect(findActiveContent(html, { links: { protocols: ['mailto:'] } })).toEqual([])
+    expect(findActiveContent(html)).toEqual(['a[href]'])
   })
 
   test('an image may only be inline data, in src and in style alike', () => {
@@ -149,6 +180,10 @@ describe('sanitize', () => {
 })
 
 describe('bindings', () => {
+  test('fill keeps the legacy authored-link rule when no link policy is supplied', () => {
+    expect(fill('<a href="mailto:editor@example.com">Email</a>', { prefix, data: {} }).html).toBe('<a>Email</a>')
+  })
+
   test('keeps an author data font through fill only when opted in', () => {
     const html = '<style>@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}</style><p data-demo-value="name"></p>'
     expect(fill(html, { prefix, data: { name: 'held' } }).html).not.toContain('@font-face')
@@ -183,6 +218,33 @@ describe('bindings', () => {
     const filled = fill(html, { prefix, data: { link: 'https://evil.example/', pic: 'https://x.example/a.png' }, linkOrigins: ['https://ok.example'] })
     expect(filled.html).toBe('<a>x</a><img>')
     expect(filled.unavailable.sort()).toEqual(['link', 'pic'])
+  })
+
+  test('one host link policy judges authored and bound hrefs alike', () => {
+    const links = { protocols: ['mailto:'], fragments: true }
+    const html = '<a href="mailto:author@example.com">author</a><a data-demo-href="bound">bound</a><a data-demo-href="fragment">fragment</a>'
+    const filled = fill(html, { prefix, links, data: { bound: 'mailto:bound@example.com', fragment: '#details' } })
+    expect(filled.html).toBe('<a href="mailto:author@example.com">author</a><a href="mailto:bound@example.com">bound</a><a href="#details">fragment</a>')
+    expect(filled.unavailable).toEqual([])
+  })
+
+  test('bound fragments and mailto links stay refused by default', () => {
+    const filled = fill('<a data-demo-href="link">details</a><a data-demo-href="mail">mail</a>', {
+      prefix,
+      data: { link: '#details', mail: 'mailto:a@example.com' },
+    })
+    expect(filled.html).toBe('<a>details</a><a>mail</a>')
+    expect(filled.unavailable.sort()).toEqual(['link', 'mail'])
+  })
+
+  test('a malformed bound link is dropped and reported unavailable', () => {
+    const filled = fill('<a data-demo-href="link">details</a>', {
+      prefix,
+      data: { link: 'https://in side.example/x' },
+      linkOrigins: ['https://inside.example'],
+    })
+    expect(filled.html).toBe('<a>details</a>')
+    expect(filled.unavailable).toEqual(['link'])
   })
 
   test('width clamps to a percentage', () => {

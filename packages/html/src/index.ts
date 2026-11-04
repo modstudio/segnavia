@@ -47,6 +47,7 @@ export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
+export type { LinkPolicy } from './link-policy.ts'
 export {
   type AlertKind,
   type AlertLabels,

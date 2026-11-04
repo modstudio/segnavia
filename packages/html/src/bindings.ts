@@ -4,7 +4,7 @@
 // as plain HTML anywhere else.
 //
 //   value    replaces the element's text with a string or finite number
-//   href     sets href to an https link on an allowed origin
+//   href     sets href by the host's links policy, or to https on an allowed origin by default
 //   src      sets src to a data:image URL
 //   each     repeats the element once per item of a list
 //   when     keeps the element only where the item's `state` equals it
@@ -15,6 +15,7 @@
 // each leading `../` steps out one repeat.
 
 import { type ChildNode, cloneNode, type Document, type Element, isTag, Text } from 'domhandler'
+import { defaultLinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
 import { elements, parse, type SanitizeOptions, sanitize, serialize } from './sanitize.ts'
 
 export const BINDINGS = ['value', 'href', 'src', 'each', 'when', 'present', 'width'] as const
@@ -27,7 +28,7 @@ export function bindingNames(prefix: string) {
   return Object.fromEntries(BINDINGS.map((binding) => [binding, `data-${prefix}-${binding}`])) as Record<(typeof BINDINGS)[number], string>
 }
 
-export interface FillOptions extends Pick<SanitizeOptions, 'linkOrigins' | 'dataFonts'> {
+export interface FillOptions extends Pick<SanitizeOptions, 'links' | 'linkOrigins' | 'dataFonts'> {
   prefix: string
   data: Record<string, unknown>
   // Paths the host knows it cannot supply, reported with those that resolved to nothing.
@@ -90,20 +91,11 @@ function isPresent(value: unknown): boolean {
   return true
 }
 
-function safeHref(value: string, origins: ReadonlySet<string>): boolean {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' && origins.has(url.origin)
-  } catch {
-    return false
-  }
-}
-
-function registerHrefOrigin(origins: Set<string>, attribute: 'href' | 'src', value: unknown, register: boolean | undefined): void {
+function registerHrefOrigin(policy: ResolvedLinkPolicy, attribute: 'href' | 'src', value: unknown, register: boolean | undefined): void {
   if (attribute !== 'href' || !register || typeof value !== 'string') return
   try {
     const url = new URL(value)
-    if (url.protocol === 'https:') origins.add(url.origin)
+    if (url.origin !== 'null' && policy.protocols.has(url.protocol)) policy.origins?.add(url.origin.toLowerCase())
   } catch {}
 }
 
@@ -116,11 +108,13 @@ export function hasBindings(html: string, prefix: string): boolean {
 
 export function fill(html: string, options: FillOptions): Filled {
   const names = bindingNames(options.prefix)
-  const origins = new Set([...(options.linkOrigins ?? [])].map((origin) => new URL(origin).origin))
+  const links = options.links
+    ? resolveLinkPolicy(options.links)
+    : defaultLinkPolicy(new Set([...(options.linkOrigins ?? [])].map((origin) => new URL(origin).origin)), false)
   const unavailable = new Set(options.unavailable ?? [])
   const values: string[] = []
   const deferred = new Set(options.deferPaths ?? [])
-  const document: Document = parse(sanitize(html, { linkOrigins: options.linkOrigins, dataFonts: options.dataFonts }))
+  const document: Document = parse(sanitize(html, { links: options.links, linkOrigins: options.linkOrigins, dataFonts: options.dataFonts }))
 
   const resolve = (path: string, stack: unknown[]) => {
     const { context, rest } = contextAt(stack, path)
@@ -177,8 +171,8 @@ export function fill(html: string, options: FillOptions): Filled {
       if (path === undefined) continue
       const value = resolve(path, stack)
       if (preserves(value)) continue
-      registerHrefOrigin(origins, attribute, value, options.registerHrefOrigins)
-      const allowed = typeof value === 'string' && (attribute === 'href' ? safeHref(value, origins) : /^data:image\//i.test(value))
+      registerHrefOrigin(links, attribute, value, options.registerHrefOrigins)
+      const allowed = typeof value === 'string' && (attribute === 'href' ? linkAllowed(value, links) : /^data:image\//i.test(value))
       if (allowed) element.attribs[attribute] = value
       else {
         delete element.attribs[attribute]
