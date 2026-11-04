@@ -1,10 +1,10 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
-import { type Clock, speechClock, timedClock } from './clock.ts'
 import { emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
 import { prefetchControllerNeighbors, slideIndexById, syncControllerHash } from './controller-navigation.ts'
 import { captionsPolicy, playerOptionState } from './controller-options.ts'
 import { handleControllerPageKey } from './controller-page-key.ts'
+import { ControllerPlayback } from './controller-playback.ts'
 import { replacePlacementLifetime, setPlacementOptions } from './controller-placement-options.ts'
 import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
 import { resolveFreshContent } from './controller-resolution.ts'
@@ -14,16 +14,15 @@ import { hashSlideIndex } from './deck-window.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
 import { parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
-import { defaultSchedule, hasWindow } from './schedule.ts'
-import { annotationsAt, deckTimeline, positionAt, slideDurationMs, slideStateAt } from './timeline.ts'
+import { hasWindow } from './schedule.ts'
+import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
 export class DeckController extends EventTarget {
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
-  private clock: Clock | null = null
-  private cancel: (() => void) | null = null
+  private playback: ControllerPlayback
   private shows = 0
   private refreshing: Promise<ContentRefreshResult> | null = null
   private shots = new Map<string, Promise<PublishedShot>>()
@@ -37,6 +36,17 @@ export class DeckController extends EventTarget {
   constructor(options: ControllerOptions = {}) {
     super()
     this.options = { hash: null, keys: 'stage', ...options }
+    this.playback = new ControllerPlayback({
+      state: () => this.current,
+      setState: (state) => {
+        this.current = state
+      },
+      options: () => this.options,
+      url: (path) => this.url(path),
+      emit: () => this.emit(),
+      next: () => this.next(),
+      pause: () => this.pause(),
+    })
     this.settings = readViewerSettings(this.options.persist !== false)
     this.current = { ...this.current, ...this.settings }
     this.connectWindow()
@@ -72,7 +82,7 @@ export class DeckController extends EventTarget {
   destroy() {
     this.placementLifetime.abort()
     this.stopPresenting()
-    this.stopClock()
+    this.playback.stopClock()
     this.disconnectWindow()
   }
   connectWindow() {
@@ -190,20 +200,18 @@ export class DeckController extends EventTarget {
   async play(): Promise<void> {
     const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
-    if (slide && index + 1 === deck?.slides.length && (this.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
+    if (slide && index + 1 === deck?.slides.length && (this.playback.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
     if (!slide || slideDurationMs(slide) === null) return this.next()
-    if (this.clock) {
-      this.clock.resume()
-      this.scheduleTick()
-    } else this.startClock(this.current.slideElapsedMs)
+    if (this.playback.clock) {
+      this.playback.clock.resume()
+      this.playback.scheduleTick()
+    } else this.playback.startClock(this.current.slideElapsedMs)
     this.emit()
   }
 
   pause() {
-    this.cancel?.()
-    this.cancel = null
-    this.clock?.pause()
-    this.readClock()
+    this.playback.clock?.pause()
+    this.playback.readClock()
     this.current = { ...this.current, playing: false }
     this.emit()
   }
@@ -226,17 +234,17 @@ export class DeckController extends EventTarget {
     const slide = deck.slides[index]
     if (!slide) return
     const local = slide.narration?.live && localMs > 0 ? 0 : localMs
-    if (!this.clock) this.startClock(local)
-    else this.clock.seek(local)
+    if (!this.playback.clock) this.playback.startClock(local)
+    else this.playback.clock.seek(local)
     if (!wasPlaying) this.pause()
     else {
-      this.readClock()
+      this.playback.readClock()
       this.emit()
     }
   }
   setMuted(muted: boolean) {
     this.settings.muted = muted
-    if (this.clock) this.clock.muted = muted
+    if (this.playback.clock) this.playback.clock.muted = muted
     this.current = { ...this.current, muted }
     this.persistSettings()
     this.emit()
@@ -273,7 +281,7 @@ export class DeckController extends EventTarget {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide
     const shown = ++this.shows
-    this.stopClock()
+    this.playback.stopClock()
     let content: ResolvedContent
     try {
       content = await this.resolve(slide, index)
@@ -294,7 +302,7 @@ export class DeckController extends EventTarget {
     const startMs = timeline.slides[index]?.startMs ?? 0
     this.current = { ...this.current, slide, content, playing, word: null, shown: null, progress: 0, elapsedMs: startMs, slideElapsedMs: 0 }
     this.lastCue = ''
-    if (playing) this.startClock()
+    if (playing) this.playback.startClock()
     this.emit()
     this.dispatchEvent(new CustomEvent('slide', { detail: { index } }))
     this.prefetch()
@@ -323,59 +331,6 @@ export class DeckController extends EventTarget {
   }
   url(path: string): string {
     return new URL(path, this.options.base ?? (hasWindow ? location.href : undefined)).href
-  }
-
-  private startClock(position = 0) {
-    const slide = this.current.slide
-    if (!slide || slideDurationMs(slide) === null) return
-    const narration = slide.narration
-    const audio = narration?.audio ? this.url(narration.audio) : null
-    this.clock = this.options.clock ? this.options.clock(slide, audio) : narration?.live ? speechClock(slide, narration.voice) : timedClock(slide, audio)
-    this.clock.muted = this.current.muted
-    if (!this.current.playing) this.clock.pause()
-    this.clock.seek(position)
-    this.scheduleTick()
-  }
-
-  private scheduleTick() {
-    if (!this.current.playing) return
-    const tick = () => {
-      const clock = this.clock
-      if (!clock) return
-      this.readClock()
-      this.emit()
-      if (clock.ended()) void this.next().catch(() => this.pause())
-      else this.cancel = (this.options.schedule ?? defaultSchedule)(tick)
-    }
-    this.cancel = (this.options.schedule ?? defaultSchedule)(tick)
-  }
-
-  private readClock() {
-    const clock = this.clock
-    const slide = this.current.slide
-    const deck = this.current.deck
-    if (!clock || !slide || !deck) return
-    const slideElapsedMs = clock.elapsed()
-    let moment = slideStateAt(slide, slideElapsedMs)
-    const live = slide.narration?.live ? slide.narration : null
-    const word = live ? clock.word() : moment.word
-    if (live) moment = { ...moment, word, shown: annotationsAt(live.cues, word) }
-    const startMs = deckTimeline(deck).slides[this.current.index]?.startMs ?? 0
-    this.current = {
-      ...this.current,
-      word: moment.word,
-      shown: moment.shown,
-      progress: clock.progress(),
-      slideElapsedMs,
-      elapsedMs: startMs + slideElapsedMs,
-    }
-  }
-
-  private stopClock() {
-    this.cancel?.()
-    this.cancel = null
-    this.clock?.stop()
-    this.clock = null
   }
 
   private persistSettings() {
