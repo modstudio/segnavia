@@ -134,7 +134,6 @@ function clearAround(board: Board, shapes: BoardShapes, anchor: Entity, context:
   for (const neighbor of neighbors(board)) {
     if (neighbor.kind === anchor.kind && neighbor.id === anchor.id) continue
     if (neighbor.kind === 'section' && context.changedSections.has(neighbor.id)) continue
-    if (neighbor.kind === 'section' && board.sections.find((section) => section.id === neighbor.id)?.items.includes(anchor.id)) continue
     if (neighbor.kind === 'item' && (context.protectedItems.has(neighbor.id) || anchorMembers.has(neighbor.id))) continue
     const rectangle = entityRectangle(next, shapes, neighbor)
     if (!rectangle || !overlaps(anchorRectangle, rectangle)) continue
@@ -149,13 +148,7 @@ export function makeRoom(board: Board, shapes: BoardShapes, changed: readonly st
   const protectedItems = new Set(board.sections.filter((section) => changedSections.has(section.id)).flatMap((section) => section.items))
   const context = { changedSections, protectedItems }
   let next = board
-  const anchors: Entity[] = changed.flatMap((id): Entity[] => {
-    if (board.sections.some((section) => section.id === id)) return [{ kind: 'section', id }]
-    if (board.items.some((item) => item.id === id)) return [{ kind: 'item', id }]
-    if (board.labels.some((label) => label.id === id)) return [{ kind: 'label', id }]
-    return []
-  })
-  let frontier = anchors
+  let frontier: Entity[] = [...changedSections].map((id) => ({ kind: 'section', id }))
   for (let pass = 0; pass < MAKE_ROOM_LIMIT && frontier.length > 0; pass += 1) {
     const following: Entity[] = []
     for (const anchor of frontier) {
@@ -163,7 +156,7 @@ export function makeRoom(board: Board, shapes: BoardShapes, changed: readonly st
       next = cleared.board
       following.push(...cleared.moved)
     }
-    frontier = following.length > 0 ? [...anchors, ...following] : []
+    frontier = following.length > 0 ? [...[...changedSections].map((id): Entity => ({ kind: 'section', id })), ...following] : []
   }
   return next
 }
@@ -192,5 +185,5 @@ export function fitTouchedSections(previous: Board, board: Board, shapes: BoardS
 
 export function settleBoard(previous: Board, board: Board, shapes: BoardShapes, touched: readonly string[]): Board {
   const sectionIds = touchedSections(previous, board, touched)
-  return makeRoom(fitSections(board, shapes, sectionIds), shapes, [...sectionIds, ...touched])
+  return makeRoom(fitSections(board, shapes, sectionIds), shapes, sectionIds)
 }

@@ -84,7 +84,40 @@ describe('editBoard item commands', () => {
       const result = success(editBoard(board(direction), [{ type: 'item-resize', item: { id: 'a' }, width: 120 }], shapes))
       expect(result.board.items[0]?.x).toBe(direction === 'ltr' ? 0 : -20)
     })
+
+    test(`maps an explicit logical resize anchor in ${direction}`, () => {
+      const result = success(editBoard(board(direction), [{ type: 'item-resize', item: { id: 'a' }, width: 120, anchor: 'top-end' }], shapes))
+      expect(result.board.items[0]?.x).toBe(direction === 'ltr' ? -20 : 0)
+    })
   }
+
+  test('nudges beside placement past a collision without moving the obstacle', () => {
+    const before = board()
+    const third = before.items.find((entry) => entry.id === 'c')
+    if (!third) throw new Error('test board has no third item')
+    before.items = before.items.map((entry) => (entry.id === 'c' ? { ...entry, x: 332 } : entry))
+    const result = success(editBoard(before, [{ type: 'item-move', items: [{ id: 'a' }], target: { beside: { id: 'b' }, side: 'end' } }], shapes))
+    const moved = result.board.items.find((entry) => entry.id === 'a')
+    const obstacle = result.board.items.find((entry) => entry.id === 'c')
+    expect((moved?.x ?? 0) >= (obstacle?.x ?? 0) + (obstacle?.width ?? 0)).toBe(true)
+    expect(obstacle).toEqual({ ...third, x: 332 })
+    expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'nudge', id: 'c' }))
+  })
+
+  test('reports only an estimated label whose box the command used', () => {
+    const before = board()
+    before.labels = [
+      { id: 'used', text: 'Used', x: 700, y: 0 },
+      { id: 'unused', text: 'Unused', x: 900, y: 0 },
+    ]
+    const withLabels: ComputedBoardShapes = {
+      ...shapes,
+      shapes: { ...shapes.shapes, labels: { used: { width: 40, height: 20 }, unused: { width: 40, height: 20 } } },
+      estimated: ['used', 'unused'],
+    }
+    const result = success(editBoard(before, [{ type: 'item-move', items: [{ id: 'a' }], target: { beside: { id: 'used' }, side: 'above' } }], withLabels))
+    expect(result.adjustments.filter((entry) => entry.kind === 'estimated-shape').map((entry) => entry.id)).toEqual(['used'])
+  })
 
   test('refusals name the index, remedy, and atomic outcome', () => {
     const cases: Array<[unknown, RegExp]> = [

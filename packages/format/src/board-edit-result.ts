@@ -1,5 +1,5 @@
 import type { Board } from './board.ts'
-import type { BoardShapes } from './board-geometry.ts'
+import { type BoardShapes, itemRectangle } from './board-geometry.ts'
 import type { BoardOp } from './board-ops.ts'
 import type { Box } from './deck.ts'
 
@@ -38,7 +38,7 @@ function boxes(board: Board, shapes: BoardShapes): Map<string, { kind: BoardChan
   const result = new Map<string, { kind: BoardChangedKind; box: Box }>()
   for (const item of board.items) {
     const shape = shapes.items[item.id]
-    if (shape) result.set(item.id, { kind: 'item', box: { x: item.x, y: item.y, width: item.width, height: (item.width * shape.height) / shape.width } })
+    if (shape) result.set(item.id, { kind: 'item', box: itemRectangle(item, shapes) })
   }
   for (const section of board.sections) result.set(section.id, { kind: 'section', box: section.rectangle })
   for (const label of board.labels) {
@@ -61,5 +61,6 @@ export function changedEntities(before: Board, after: Board, shapes: BoardShapes
 }
 
 export function entityBox(board: Board, shapes: BoardShapes, kind: BoardChangedKind, id: string): Box | undefined {
-  return boxes(board, shapes).get(id)?.kind === kind ? boxes(board, shapes).get(id)?.box : undefined
+  const entity = boxes(board, shapes).get(id)
+  return entity?.kind === kind ? entity.box : undefined
 }

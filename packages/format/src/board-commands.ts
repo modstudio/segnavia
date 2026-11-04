@@ -42,7 +42,7 @@ const ItemResizeCommand = z.object({
   type: z.literal('item-resize'),
   item: BoardItemRef,
   width: z.number(),
-  anchor: z.enum(['top-left', 'top-right', 'bottom-left', 'bottom-right']).optional(),
+  anchor: z.enum(['top-start', 'top-end', 'bottom-start', 'bottom-end']).optional(),
 })
 const ArrangeCommand = z.object({ type: z.literal('arrange'), section: BoardSectionRef.optional(), columns: z.number().int().positive().optional() })
 

@@ -52,7 +52,7 @@ export function editBoard(board: Board, commands: BoardCommand[], shapes: Comput
     } catch (error) {
       if (error instanceof BoardCommandRefusal) return refusal(index, parsed.data.type, error.message, error.clearing)
       const message = error instanceof Error ? error.message : String(error)
-      return refusal(index, parsed.data.type, message, 'pass all resolved shapes required by the command')
+      return refusal(index, parsed.data.type, message, 'correct the command or the board so the step can be established')
     }
   }
   const detail = options.detail ?? 'concise'

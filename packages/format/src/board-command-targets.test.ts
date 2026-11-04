@@ -27,4 +27,17 @@ describe('applyBoardTarget', () => {
       expect(direction === 'ltr' ? (beside?.x ?? 0) < 200 : (beside?.x ?? 0) > 200).toBe(true)
     })
   }
+
+  test('aligns an above target to the logical start edge in rtl', () => {
+    const board = value('rtl')
+    const moved = applyBoardTarget(board, shapes, ['a'], { beside: { id: 'l' }, side: 'above' }).items[0]
+    expect(moved).toMatchObject({ x: 330 })
+  })
+
+  test('uses membership assignment for a point drop and preserves its top-left', () => {
+    const board = value('ltr')
+    const moved = applyBoardTarget(board, shapes, ['a'], { at: { x: 20, y: 230 } })
+    expect(moved.items[0]).toMatchObject({ x: 20, y: 230 })
+    expect(moved.sections[0]?.items).toEqual(['a'])
+  })
 })

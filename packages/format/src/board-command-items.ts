@@ -1,10 +1,10 @@
 import type { Board, BoardItem } from './board.ts'
 import { BoardCommandRefusal, resolveItem, resolveItems, resolveSection } from './board-command-resolvers.ts'
-import { applyBoardTarget } from './board-command-targets.ts'
+import { type BoardTargetPlacement, placeBoardTarget } from './board-command-targets.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
-import { addItem, MIN_BOARD_ITEM_WIDTH, removeItems, resizeItem } from './board-edit.ts'
+import { addItem, type BoardItemAnchor, MIN_BOARD_ITEM_WIDTH, removeItems, resizeItem } from './board-edit.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
-import { arrange, type BoardShapes } from './board-geometry.ts'
+import { arrange, type BoardShapes, defaultGridColumns } from './board-geometry.ts'
 import { removeFromGrid } from './board-section-grid.ts'
 import { SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM, settleBoard } from './board-sections.ts'
 import type { BoardItemFact } from './board-shapes.ts'
@@ -41,21 +41,50 @@ function shapeAdjustments(context: CommandContext, ids: readonly string[]): Boar
   })
 }
 
-function settled(context: CommandContext, intended: Board, shapes: BoardShapes, touched: readonly string[], adjustments: BoardEditAdjustment[]): CommandResult {
+function requireShapes(board: Board, shapes: BoardShapes): void {
+  for (const item of board.items)
+    if (!shapes.items[item.id]) throw new BoardCommandRefusal(`item "${item.id}" has no resolved shape`, `pass the resolved shape for item "${item.id}"`)
+  for (const label of board.labels)
+    if (!shapes.labels[label.id]) throw new BoardCommandRefusal(`label "${label.id}" has no resolved shape`, `pass the resolved shape for label "${label.id}"`)
+}
+
+function placementAdjustments(context: CommandContext, placement: BoardTargetPlacement): BoardEditAdjustment[] {
+  return placement.nudges.map(({ kind, id }) => ({
+    command: context.command,
+    kind: 'nudge',
+    id,
+    detail: `Nudged the placed items farther away to clear ${kind} "${id}".`,
+  }))
+}
+
+function settled(
+  context: CommandContext,
+  intended: Board,
+  shapes: BoardShapes,
+  touched: readonly string[],
+  adjustments: BoardEditAdjustment[],
+  usedEstimatedLabels: readonly string[] = [],
+): CommandResult {
+  requireShapes(intended, shapes)
   const board = settleBoard(context.board, intended, shapes, touched)
   const intendedPositions = new Map([
     ...intended.items.map((item) => [item.id, `${item.x}:${item.y}:${item.width}`] as const),
     ...intended.labels.map((label) => [label.id, `${label.x}:${label.y}`] as const),
     ...intended.sections.map((section) => [section.id, JSON.stringify(section.rectangle)] as const),
   ])
+  const settledIds = new Set<string>()
   for (const entity of [...board.items, ...board.labels, ...board.sections]) {
     const value =
       'rectangle' in entity ? JSON.stringify(entity.rectangle) : 'width' in entity ? `${entity.x}:${entity.y}:${entity.width}` : `${entity.x}:${entity.y}`
-    if (intendedPositions.get(entity.id) !== value)
+    if (intendedPositions.get(entity.id) !== value) {
       adjustments.push({ command: context.command, kind: 'settle', id: entity.id, detail: `Settling adjusted "${entity.id}" to preserve board layout.` })
+      settledIds.add(entity.id)
+    }
   }
-  for (const id of context.estimated)
-    adjustments.push({ command: context.command, kind: 'estimated-shape', id, detail: `Used the estimated shape supplied for label "${id}".` })
+  const estimatedUsed = new Set([...usedEstimatedLabels, ...[...settledIds].filter((id) => context.board.labels.some((label) => label.id === id))])
+  for (const id of estimatedUsed)
+    if (context.estimated.has(id))
+      adjustments.push({ command: context.command, kind: 'estimated-shape', id, detail: `Used the estimated shape supplied for label "${id}".` })
   return { board, shapes, adjustments }
 }
 
@@ -99,7 +128,8 @@ function itemAdd(context: CommandContext, command: BoardCommandOf<'item-add'>): 
   const supplied = addShape(context, command, id)
   const item: BoardItem = { id, kind: command.kind, address: command.address, x: 0, y: 0, width }
   const added = addItem(context.board, item)
-  const intended = applyBoardTarget(added, supplied.shapes, [id], command.target)
+  requireShapes(added, supplied.shapes)
+  const placement = placeBoardTarget(added, supplied.shapes, [id], command.target)
   const adjustments: BoardEditAdjustment[] = []
   if (generated) adjustments.push({ command: context.command, kind: 'generated-id', id, detail: `Generated id "${id}" with options.newId.` })
   if (command.width === undefined)
@@ -111,7 +141,11 @@ function itemAdd(context: CommandContext, command: BoardCommandOf<'item-add'>): 
       id,
       detail: `Used the provisional shape supplied for address "${command.address}".`,
     })
-  return settled(context, intended, supplied.shapes, [id], adjustments)
+  adjustments.push(...placementAdjustments(context, placement))
+  return settled(context, placement.board, supplied.shapes, [id], adjustments, [
+    ...placement.usedEstimatedLabels,
+    ...placement.nudges.filter((entry) => entry.kind === 'label').map((entry) => entry.id),
+  ])
 }
 
 function itemRemove(context: CommandContext, command: BoardCommandOf<'item-remove'>): CommandResult {
@@ -126,8 +160,26 @@ function itemMove(context: CommandContext, command: BoardCommandOf<'item-move'>)
   const ids = items.map((item) => item.id)
   for (const id of ids)
     if (!context.shapes.items[id]) throw new BoardCommandRefusal(`item "${id}" has no resolved shape`, `pass the resolved shape for item "${id}"`)
-  const intended = applyBoardTarget(context.board, context.shapes, ids, command.target)
-  return settled(context, intended, context.shapes, ids, shapeAdjustments(context, ids))
+  requireShapes(context.board, context.shapes)
+  const placement = placeBoardTarget(context.board, context.shapes, ids, command.target)
+  return settled(
+    context,
+    placement.board,
+    context.shapes,
+    ids,
+    [...shapeAdjustments(context, ids), ...placementAdjustments(context, placement)],
+    [...placement.usedEstimatedLabels, ...placement.nudges.filter((entry) => entry.kind === 'label').map((entry) => entry.id)],
+  )
+}
+
+type LogicalAnchor = NonNullable<BoardCommandOf<'item-resize'>['anchor']>
+const PHYSICAL_ANCHOR: Record<Board['direction'], Record<LogicalAnchor, BoardItemAnchor>> = {
+  ltr: { 'top-start': 'top-left', 'top-end': 'top-right', 'bottom-start': 'bottom-left', 'bottom-end': 'bottom-right' },
+  rtl: { 'top-start': 'top-right', 'top-end': 'top-left', 'bottom-start': 'bottom-right', 'bottom-end': 'bottom-left' },
+}
+
+export function physicalItemAnchor(direction: Board['direction'], anchor: LogicalAnchor): BoardItemAnchor {
+  return PHYSICAL_ANCHOR[direction][anchor]
 }
 
 function itemResize(context: CommandContext, command: BoardCommandOf<'item-resize'>): CommandResult {
@@ -135,7 +187,7 @@ function itemResize(context: CommandContext, command: BoardCommandOf<'item-resiz
   const item = resolveItem(context.board, command.item)
   const shape = context.shapes.items[item.id]
   if (!shape) throw new BoardCommandRefusal(`item "${item.id}" has no resolved shape`, `pass the resolved shape for item "${item.id}"`)
-  const anchor = command.anchor ?? (context.board.direction === 'rtl' ? 'top-right' : 'top-left')
+  const anchor = physicalItemAnchor(context.board.direction, command.anchor ?? 'top-start')
   const width = Math.max(MIN_BOARD_ITEM_WIDTH, command.width)
   const adjustments = shapeAdjustments(context, [item.id])
   if (!command.anchor)
@@ -153,7 +205,7 @@ function itemResize(context: CommandContext, command: BoardCommandOf<'item-resiz
 
 function arrangeSection(context: CommandContext, command: BoardCommandOf<'arrange'>): CommandResult {
   const section = resolveSection(context.board, command.section as NonNullable<typeof command.section>)
-  const columns = command.columns ?? Math.max(1, Math.ceil(Math.sqrt(section.items.length)))
+  const columns = command.columns ?? defaultGridColumns(section.items.length)
   const cells = section.items.map((id, index) => ({ id, row: Math.floor(index / columns), column: index % columns }))
   const intended = {
     ...context.board,
@@ -169,6 +221,7 @@ function arrangeSection(context: CommandContext, command: BoardCommandOf<'arrang
 }
 
 function arrangeBoard(context: CommandContext, command: BoardCommandOf<'arrange'>): CommandResult {
+  requireShapes(context.board, context.shapes)
   const intended = arrange(context.board, context.shapes, {
     layout: 'grid',
     gap: SECTION_GAP,
