@@ -21,6 +21,27 @@ describe('sanitize', () => {
     expect(sanitize(html, { linkOrigins: ['https://ok.example'] })).toBe('<a href="https://ok.example/p">a</a><a>b</a><a href="#top">c</a>')
   })
 
+  test('a host link policy selects protocols, origins, and fragments', () => {
+    const html =
+      '<a href="mailto:editor@example.com">mail</a><a href="https://ok.example/p">ok</a><a href="https://other.example/p">other</a><a href="#top">top</a>'
+    const links = { protocols: ['https:', 'mailto:'], origins: ['https://ok.example'], fragments: false }
+    expect(sanitize(html, { links })).toBe('<a href="mailto:editor@example.com">mail</a><a href="https://ok.example/p">ok</a><a>other</a><a>top</a>')
+  })
+
+  test('links overrides the legacy linkOrigins option', () => {
+    const html = '<a href="https://new.example/p">new</a><a href="https://old.example/p">old</a>'
+    const links = { protocols: ['https:'], origins: ['https://new.example'] }
+    expect(sanitize(html, { links, linkOrigins: ['https://old.example'] })).toBe('<a href="https://new.example/p">new</a><a>old</a>')
+    expect(
+      fill('<a data-demo-href="link">new</a>', { prefix, links, linkOrigins: ['https://old.example'], data: { link: 'https://new.example/p' } }).html,
+    ).toBe('<a href="https://new.example/p">new</a>')
+  })
+
+  test('javascript cannot be admitted by a host link policy', () => {
+    const unsafe = { protocols: ['javascript:'] }
+    expect(() => sanitize('<p>no link</p>', { links: unsafe })).toThrow('remove it to clear this refusal')
+  })
+
   test('an image may only be inline data, in src and in style alike', () => {
     expect(sanitize('<img src="https://x.example/a.png"><div style="background:url(https://x.example/b.png)"></div>')).toBe('<img><div></div>')
     expect(sanitize('<img src="data:image/png;base64,AA==">')).toBe('<img src="data:image/png;base64,AA==">')
@@ -149,6 +170,10 @@ describe('sanitize', () => {
 })
 
 describe('bindings', () => {
+  test('fill keeps the legacy authored-link rule when no link policy is supplied', () => {
+    expect(fill('<a href="mailto:editor@example.com">Email</a>', { prefix, data: {} }).html).toBe('<a>Email</a>')
+  })
+
   test('keeps an author data font through fill only when opted in', () => {
     const html = '<style>@font-face{font-family:x;src:url(data:font/woff2;base64,AA==)}</style><p data-demo-value="name"></p>'
     expect(fill(html, { prefix, data: { name: 'held' } }).html).not.toContain('@font-face')
@@ -183,6 +208,20 @@ describe('bindings', () => {
     const filled = fill(html, { prefix, data: { link: 'https://evil.example/', pic: 'https://x.example/a.png' }, linkOrigins: ['https://ok.example'] })
     expect(filled.html).toBe('<a>x</a><img>')
     expect(filled.unavailable.sort()).toEqual(['link', 'pic'])
+  })
+
+  test('one host link policy judges authored and bound hrefs alike', () => {
+    const links = { protocols: ['mailto:'], fragments: true }
+    const html = '<a href="mailto:author@example.com">author</a><a data-demo-href="bound">bound</a><a data-demo-href="fragment">fragment</a>'
+    const filled = fill(html, { prefix, links, data: { bound: 'mailto:bound@example.com', fragment: '#details' } })
+    expect(filled.html).toBe('<a href="mailto:author@example.com">author</a><a href="mailto:bound@example.com">bound</a><a href="#details">fragment</a>')
+    expect(filled.unavailable).toEqual([])
+  })
+
+  test('bound fragments stay refused by default', () => {
+    const filled = fill('<a data-demo-href="link">details</a>', { prefix, data: { link: '#details' } })
+    expect(filled.html).toBe('<a>details</a>')
+    expect(filled.unavailable).toEqual(['link'])
   })
 
   test('width clamps to a percentage', () => {

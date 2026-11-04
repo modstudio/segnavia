@@ -6,6 +6,7 @@ import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/fo
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
+import { type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
 import { sanitizeCss } from './sanitize-css.ts'
 
@@ -37,6 +38,8 @@ const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
 const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
 
 export interface SanitizeOptions {
+  // Protocols, origins and fragments a link may use. Overrides linkOrigins.
+  links?: LinkPolicy
   // https origins a link may point at; any other link is removed.
   linkOrigins?: Iterable<string>
   // Keep the author's scripts, for a document that will run sandboxed.
@@ -104,17 +107,11 @@ export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
 }
 
-function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>, policy?: UrlPolicy): boolean {
+function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy, policy?: UrlPolicy): boolean {
   const url = normalizeUrl(value)
   if (attribute === 'href' || attribute === 'xlink:href') {
-    if (url.startsWith('#')) return policy?.linkFragments ?? true
-    try {
-      const parsed = new URL(url)
-      if (policy) return policy.linkProtocols.includes(parsed.protocol)
-      return parsed.protocol === 'https:' && allowed.has(parsed.origin)
-    } catch {
-      return false
-    }
+    if (!policy) return linkAllowed(value, links)
+    return linkAllowed(value, { protocols: new Set(policy.linkProtocols), fragments: policy.linkFragments })
   }
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
   if (attribute === 'src' || attribute === 'poster') {
@@ -131,15 +128,12 @@ function safeUrl(attribute: string, value: string, allowed: ReadonlySet<string>,
 
 /** The URL decision used when schema-based authoring admits a link or image. */
 export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
-  if (!safeUrl(attribute, value, new Set(), MARKDOWN_CONVERTER_POLICY.urls)) return false
-  if (attribute === 'src' || linkOrigins === undefined || value.startsWith('#')) return true
-  let parsed: URL
-  try {
-    parsed = new URL(value)
-  } catch {
-    return true
-  }
-  return (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || originSet(linkOrigins).has(parsed.origin.toLowerCase())
+  if (attribute === 'src') return safeUrl(attribute, value, { protocols: new Set(), fragments: false }, MARKDOWN_CONVERTER_POLICY.urls)
+  return linkAllowed(value, {
+    protocols: new Set(MARKDOWN_CONVERTER_POLICY.urls.linkProtocols),
+    origins: linkOrigins === undefined ? undefined : originSet(linkOrigins),
+    fragments: MARKDOWN_CONVERTER_POLICY.urls.linkFragments,
+  })
 }
 
 function refusedElement(element: Element, refused: ReadonlySet<string>, options: SanitizeOptions, keepScripts: boolean): boolean {
@@ -177,7 +171,7 @@ function refusedAttribute(
   element: Element,
   name: string,
   value: string,
-  allowed: ReadonlySet<string>,
+  links: ResolvedLinkPolicy,
   options: SanitizeOptions,
   dependencies: ReadonlySet<string>,
 ): string | undefined {
@@ -185,7 +179,7 @@ function refusedAttribute(
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
   if (dependency !== undefined) return dependency || undefined
-  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, allowed, options.converterPolicy?.urls))
+  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls))
     ? ''
     : undefined
 }
@@ -244,7 +238,7 @@ function styleFindings(element: Element, options: SanitizeOptions, dependencies:
 // What the rule would remove, named, so a host can refuse a write with the
 // reason rather than store a page that silently prints differently.
 export function findActiveContent(html: string, options: SanitizeOptions = {}): string[] {
-  const allowed = originSet(options.linkOrigins)
+  const links = sanitizeLinkPolicy(options)
   const dependencies = dependencyOriginSet(options.dependencyOrigins)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false
@@ -253,7 +247,7 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
     if (refusedElement(element, refused, options, keepScripts)) found.push(`<${element.name}>`)
     found.push(...styleFindings(element, options, dependencies))
     for (const [name, value] of Object.entries(element.attribs)) {
-      const reason = refusedAttribute(element, name, value, allowed, options, dependencies)
+      const reason = refusedAttribute(element, name, value, links, options, dependencies)
       if (reason !== undefined) found.push(`${element.name}[${name}]${reason ? ` ${reason}` : ''}`)
     }
   }
@@ -269,9 +263,9 @@ function cleanStyleElement(element: Element, options: SanitizeOptions, dependenc
   for (const extra of children.slice(1)) if ('data' in extra) extra.data = ''
 }
 
-function cleanAttributes(element: Element, allowed: ReadonlySet<string>, options: SanitizeOptions, dependencies: ReadonlySet<string>): void {
+function cleanAttributes(element: Element, links: ResolvedLinkPolicy, options: SanitizeOptions, dependencies: ReadonlySet<string>): void {
   for (const [name, value] of Object.entries(element.attribs)) {
-    if (refusedAttribute(element, name, value, allowed, options, dependencies) !== undefined) delete element.attribs[name]
+    if (refusedAttribute(element, name, value, links, options, dependencies) !== undefined) delete element.attribs[name]
     else if (name.toLowerCase() === 'style') {
       const css = dependencyCss(value, true, options, dependencies).css.trim()
       if (css) element.attribs[name] = css
@@ -280,8 +274,13 @@ function cleanAttributes(element: Element, allowed: ReadonlySet<string>, options
   }
 }
 
+function sanitizeLinkPolicy(options: SanitizeOptions): ResolvedLinkPolicy {
+  if (options.links) return resolveLinkPolicy(options.links)
+  return { protocols: new Set(['https:']), origins: originSet(options.linkOrigins), fragments: true }
+}
+
 export function sanitize(html: string, options: SanitizeOptions = {}): string {
-  const allowed = originSet(options.linkOrigins)
+  const links = sanitizeLinkPolicy(options)
   const dependencies = dependencyOriginSet(options.dependencyOrigins)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false
@@ -291,7 +290,7 @@ export function sanitize(html: string, options: SanitizeOptions = {}): string {
       if (!isTag(node)) return true
       if (refusedElement(node, refused, options, keepScripts)) return false
       cleanStyleElement(node, options, dependencies)
-      cleanAttributes(node, allowed, options, dependencies)
+      cleanAttributes(node, links, options, dependencies)
       node.children = prune(node.children)
       return true
     })
