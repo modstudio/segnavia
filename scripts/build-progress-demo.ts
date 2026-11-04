@@ -28,6 +28,10 @@ export function buildProgressDemo(site: string, shell: (body: string) => string)
   writeFileSync(path.join(site, 'audio/progress.wav'), sineWav(0.4))
   writeFileSync(path.join(site, 'deck-progress.json'), JSON.stringify(deck))
   writeFileSync(
+    path.join(site, 'deck-progress-strict.json'),
+    JSON.stringify({ ...deck, slides: deck.slides.map((item) => ({ ...item, narration: { ...item.narration, audio: 'audio/progress.wav?strict' } })) }),
+  )
+  writeFileSync(
     path.join(site, 'progress.html'),
     shell(`<segnavia-player id="progress-player" rail></segnavia-player>
       <script type="module">
@@ -39,6 +43,6 @@ export function buildProgressDemo(site: string, shell: (body: string) => string)
   )
   writeFileSync(
     path.join(site, 'strict-csp.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; media-src 'self'"><style>html,body{margin:0;height:100%}segnavia-player{height:100%}</style></head><body><segnavia-player id="strict-player" src="deck-progress.json"></segnavia-player><script type="module" src="segnavia-player.js"></script></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; media-src 'self'"><style>html,body{margin:0;height:100%}segnavia-player{height:100%}</style></head><body><segnavia-player id="strict-player" src="deck-progress-strict.json"></segnavia-player><script type="module" src="segnavia-player.js"></script></body></html>`,
   )
 }

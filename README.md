@@ -155,11 +155,14 @@ import { onMounted, onUnmounted, ref } from 'vue'
 const player = ref<SegnaviaPlayer | null>(null)
 const watched = ref<DeckState['watched']>()
 let removeGuard = () => {}
-const changed = (event: Event) => (watched.value = (event as CustomEvent<DeckState>).detail.watched)
+let controller: SegnaviaPlayer['controller'] | null = null
+const changed = () => (watched.value = controller!.state.watched)
 const completed = (event: Event) => reportComplete((event as CustomEvent<{ watchedMs: number; share: number }>).detail)
+const reportComplete = (detail: { watchedMs: number; share: number }) => navigator.sendBeacon('/api/progress', JSON.stringify(detail))
+const hostAllowsNavigation = async () => (await fetch('/api/navigation')).ok
 
 onMounted(() => {
-  const controller = player.value!.controller
+  controller = player.value!.controller
   controller.setPlayerOptions({ seek: 'furthest' })
   controller.addEventListener('change', changed)
   controller.addEventListener('complete', completed)
@@ -168,10 +171,10 @@ onMounted(() => {
   })
 })
 onUnmounted(() => {
-  const controller = player.value?.controller
   controller?.removeEventListener('change', changed)
   controller?.removeEventListener('complete', completed)
   removeGuard()
+  controller = null
 })
 </script>
 
@@ -187,22 +190,28 @@ import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
 const player = document.querySelector<SegnaviaPlayer>('segnavia-player')!
 const controller = player.controller
 controller.setPlayerOptions({ seek: 'furthest' })
-controller.addEventListener('change', (event) => {
-  const watched = (event as CustomEvent<DeckState>).detail.watched
-  renderProgress(watched)
-})
-controller.addEventListener('complete', (event) => {
+const changed = () => {
+  document.querySelector('progress')!.setAttribute('value', String(controller.state.watched.share))
+}
+const completed = (event: Event) => {
   reportComplete((event as CustomEvent<{ watchedMs: number; share: number }>).detail)
-})
+}
+const reportComplete = (detail: { watchedMs: number; share: number }) => navigator.sendBeacon('/api/progress', JSON.stringify(detail))
+const hostAllowsNavigation = async () => (await fetch('/api/navigation')).ok
+controller.addEventListener('change', changed)
+controller.addEventListener('complete', completed)
 const removeGuard = controller.addNavigationGuard(async () => {
   if (!(await hostAllowsNavigation())) throw new Error('Navigation is not available yet.')
 })
-// Call removeGuard() when the host view unmounts.
+export function unmount() {
+  controller.removeEventListener('change', changed)
+  controller.removeEventListener('complete', completed)
+  removeGuard()
+}
 ```
 
-`watched`, `complete`, and anything a host shares from them are client reports,
-not proof. A host that gates access or records credit from those reports verifies
-them on its server.
+`watched`, `complete`, and `share` are client reports, not proof. A host that
+gates access or records credit from those reports verifies them on its server.
 
 Fill a reusable design through its existing inert bindings before it enters a
 sandboxed frame:

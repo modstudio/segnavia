@@ -44,8 +44,8 @@ Hosts read watched progress from `DeckController.state.watched` and the
 controller's `change` and `complete` events; this works directly from custom
 elements and does not require React. `seek: 'furthest'` is an optional client
 navigation policy, and ordered host navigation guards can refuse an allowed
-target. These progress values and events are client reports, not proof: a host
-that gates anything on them verifies the report on its server.
+target. `watched`, `complete`, and `share` are client reports, not proof: a
+host that gates anything on them verifies the report on its server.
 
 Slide HTML remains in a sandbox without same-origin authority. A host content
 security policy must allow the inline nonce-bearing bridge script inherited by

@@ -17,21 +17,19 @@ async function installFacts(h: Harness) {
 }
 
 async function loadProgressDeck(h: Harness, seek: 'free' | 'furthest') {
-  await h.page
-    .locator(PLAYER)
-    .evaluate(
-      async (
-        player: HTMLElement & {
-          controller: { load(deck: unknown): Promise<void>; setPlayerOptions(options: { seek: 'free' | 'furthest' }): void }
-        },
-        policy,
-      ) => {
-        history.replaceState(null, '', '#slide-1')
-        player.controller.setPlayerOptions({ seek: policy })
-        await player.controller.load(await fetch('deck-progress.json').then((response) => response.json()))
+  await h.page.locator(PLAYER).evaluate(
+    async (
+      player: HTMLElement & {
+        controller: { go(index: number): Promise<void>; load(deck: unknown): Promise<void>; setPlayerOptions(options: { seek: 'free' | 'furthest' }): void }
       },
-      seek,
-    )
+      policy,
+    ) => {
+      await player.controller.go(0)
+      player.controller.setPlayerOptions({ seek: policy })
+      await player.controller.load(await fetch('deck-progress.json').then((response) => response.json()))
+    },
+    seek,
+  )
 }
 
 export async function verifyProgress(h: Harness) {
@@ -54,12 +52,8 @@ export async function verifyProgress(h: Harness) {
     const facts = (window as unknown as { progressFacts: ProgressFacts }).progressFacts
     return facts.end === 2
   })
-  const watchedThrough = await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { state: unknown } }) => ({
-    facts: (window as unknown as { progressFacts: ProgressFacts }).progressFacts,
-    state: player.controller.state,
-  }))
-  facts = watchedThrough.facts
-  check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(watchedThrough))
+  facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
+  check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(facts))
 
   await loadProgressDeck(h, 'furthest')
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
@@ -106,7 +100,9 @@ async function verifyStrictCsp(h: Harness) {
   const slideRendered = (await page.frameLocator('#strict-player iframe').locator('#progress-one').textContent()) === 'progress-one'
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')
   const sandbox = await page.locator('#strict-player iframe').getAttribute('sandbox')
-  const audioResponse = page.waitForResponse((response) => response.url().endsWith('/audio/progress.wav'), { timeout: BOUNDED_WAIT_MS }).catch(() => null)
+  const audioResponse = page
+    .waitForResponse((response) => response.url().endsWith('/audio/progress.wav?strict'), { timeout: BOUNDED_WAIT_MS })
+    .catch(() => null)
   await page.locator('#strict-player').evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
   const audioLoaded = (await audioResponse)?.ok() === true
   const violationText = (await violation)?.text() ?? ''
