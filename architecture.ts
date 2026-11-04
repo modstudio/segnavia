@@ -7,6 +7,8 @@ export type Runtime = 'universal' | 'browser' | 'server'
 export const SOURCE_CONDITION = '@segnavia/source'
 
 export const REACT_PACKAGE_ALLOWLIST = new Set(['@segnavia/react'])
+// The verify-render Bun leg proves Bun support for these packages.
+export const BUN_SUPPORTED_PACKAGES = ['render', 'format', 'html', 'capture'] as const
 export const VUE_TYPE_ENTRIES = {
   frame: { exportName: './vue', source: 'src/vue.ts' },
   'markdown-editor': { exportName: './vue', source: 'src/vue.ts' },

@@ -149,6 +149,9 @@ Render it on a server:
 
 The host installs `playwright-core` (any version in `^1.55.1`) and supplies
 the Chromium binary through `executablePath`.
+`@segnavia/render`, `@segnavia/format`, `@segnavia/html` and
+`@segnavia/capture` run under Node 22 or later and Bun 1.4.2 or later, and CI
+renders under both.
 
 ```ts
 import { openRenderer } from '@segnavia/render'

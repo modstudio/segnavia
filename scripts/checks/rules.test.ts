@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
+import { BUN_SUPPORTED_PACKAGES, PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import {
+  checkBunEngine,
   checkChromiumEnvironmentRead,
   checkComments,
   checkHostNames,
@@ -11,6 +12,7 @@ import {
   checkSourceResolution,
   checkTypeScriptSuppressions,
   checkVueDependencies,
+  type PackageManifestDependencies,
   type ResolutionInputs,
   type Workspace,
 } from './rules.ts'
@@ -28,8 +30,61 @@ const all = new Map([
   ['@segnavia/format', workspace('format')],
   ['@segnavia/frame', workspace('frame', ['.', './svg', './bridge'])],
 ])
+const bunWorkflow = (version: string) =>
+  `jobs:\n  check:\n    steps: []\n  verify-render:\n    steps:\n      - uses: oven-sh/setup-bun@sha\n        with:\n          bun-version: ${version}\n  ci:\n    steps: []\n`
+const bunManifests = (): PackageManifestDependencies[] => [
+  ...BUN_SUPPORTED_PACKAGES.map((name) => ({
+    name: `@segnavia/${name}`,
+    path: `packages/${name}/package.json`,
+    engines: { node: '>=22', bun: '>=1.4.2' },
+  })),
+  { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22' } },
+]
 
 describe('architecture rules', () => {
+  test('a declared Bun floor must match the version verify-render proves', () => {
+    const manifests = bunManifests()
+    manifests[0] = { name: '@segnavia/render', path: 'packages/render/package.json', engines: { node: '>=22', bun: '>=1.5.0' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/render/package.json',
+        message:
+          '@segnavia/render has >=1.5.0, expected >=1.4.2, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/render/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
+      },
+    ])
+  })
+
+  test('a package in the Bun support list must declare engines.bun', () => {
+    const manifests = bunManifests()
+    manifests[1] = { name: '@segnavia/format', path: 'packages/format/package.json', engines: { node: '>=22' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/format/package.json',
+        message:
+          '@segnavia/format has no engines.bun declaration, expected >=1.4.2, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/format/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
+      },
+    ])
+  })
+
+  test('a package outside the Bun support list must not declare engines.bun', () => {
+    const manifests = bunManifests()
+    manifests[4] = { name: '@segnavia/frame', path: 'packages/frame/package.json', engines: { node: '>=22', bun: '>=1.4.2' } }
+    expect(checkBunEngine(bunWorkflow('1.4.2'), manifests)).toEqual([
+      {
+        rule: 'bun-engine',
+        path: 'packages/frame/package.json',
+        message:
+          '@segnavia/frame has >=1.4.2, expected no engines.bun declaration, because verify-render in .github/workflows/ci.yml runs Bun 1.4.2; change packages/frame/package.json, that bun-version or BUN_SUPPORTED_PACKAGES in architecture.ts.',
+      },
+    ])
+  })
+
+  test('a trailing YAML comment does not hide the verify-render Bun version', () => {
+    expect(checkBunEngine(bunWorkflow('1.4.2 # pinned for the Bun leg'), bunManifests())).toEqual([])
+  })
+
   test('a universal package may not import Node', () => {
     const findings = checkImports({ path: 'packages/format/src/index.ts', text: '', imports: ['node:fs'] }, workspace('format'), all)
     expect(findings.map((f) => f.message)).toEqual(['a universal package imports node:fs.'])
