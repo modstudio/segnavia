@@ -11,6 +11,7 @@ import type {
   SegnaviaPaper,
   SegnaviaStage,
   SegnaviaThumbnail,
+  StageFrameDetail,
   StageReserve,
 } from '@segnavia/frame'
 import type {
@@ -84,6 +85,8 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   transitionDuration?: number
   onSegnaviaController?: CustomEventProp
   onSegnaviaFit?: CustomEventProp<FittedSize>
+  onSegnaviaFrameMount?: CustomEventProp<StageFrameDetail>
+  onSegnaviaFrameRelease?: CustomEventProp<StageFrameDetail>
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {

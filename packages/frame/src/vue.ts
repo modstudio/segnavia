@@ -1,8 +1,15 @@
 import type { DefineComponent } from 'vue'
-import type { BoardChangeDetail, BoardErrorDetail, BoardItemActionDetail, BoardOpenDetail, BoardViewDetail } from './board-events.ts'
+import type {
+  BoardChangeDetail,
+  BoardErrorDetail,
+  BoardItemActionDetail,
+  BoardListToggleDetail,
+  BoardOpenDetail,
+  BoardShareDetail,
+  BoardViewDetail,
+} from './board-events.ts'
 import type { BoardSearchErrorDetail, BoardSelectDetail } from './board-list.ts'
 import type { BoardSelectionDetail } from './board-selection.ts'
-import type { BoardListToggleDetail, BoardShareDetail } from './board-toolbar.ts'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -31,7 +38,6 @@ import type {
   SegnaviaThumbnail,
 } from './index.ts'
 import type { SegnaviaItemSettings } from './item-settings.ts'
-import type { ItemSettingsOpenDetail } from './item-settings-open.ts'
 import type { SegnaviaPlayer } from './player-entry.ts'
 import type { StageFrameDetail } from './stage-frame-events.ts'
 import type { Assert, EventProps } from './vue-types.ts'
@@ -80,7 +86,6 @@ export interface FrameVueEventDetails {
   'segnavia-board-select': BoardSelectDetail
   'segnavia-board-list-toggle': BoardListToggleDetail
   'segnavia-board-share': BoardShareDetail
-  'segnavia-item-settings-open': ItemSettingsOpenDetail
   'segnavia-labels': unknown
   change: SegnaviaPaperPicker['value']
   'segnavia-fill-select': string
@@ -94,6 +99,7 @@ type _EveryPropertyExists = Assert<
   }[keyof typeof ELEMENT_PROPERTIES]
 >
 type _EveryEventHasDetail = Assert<EventName extends keyof FrameVueEventDetails ? true : false>
+type _EveryDetailIsAnEvent = Assert<keyof FrameVueEventDetails extends EventName ? true : false>
 type ComponentFor<K extends keyof typeof ELEMENT_PROPERTIES> = Partial<
   Pick<ElementClasses[K], Extract<(typeof ELEMENT_PROPERTIES)[K]['properties'][number], keyof ElementClasses[K]>>
 > &

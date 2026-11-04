@@ -11,6 +11,10 @@ export const VUE_TYPE_ENTRIES = {
   frame: { exportName: './vue', source: 'src/vue.ts' },
   'markdown-editor': { exportName: './vue', source: 'src/vue.ts' },
 } as const
+export const RUNTIME_EMPTY_TYPE_ENTRIES = [
+  { packageName: 'frame', exportName: './vue-types' },
+  ...Object.entries(VUE_TYPE_ENTRIES).map(([packageName, entry]) => ({ packageName, exportName: entry.exportName })),
+]
 export const VUE_MODULE_NAMES = ['vue', 'vue-tsc', '@vue'] as const
 
 export type SourceExport = string | { bun: string; node: string; default: string }

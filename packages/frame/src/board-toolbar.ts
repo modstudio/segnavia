@@ -1,16 +1,8 @@
-import { type Board, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
+import { MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { SegnaviaBoard } from './board.ts'
+import { boardEvent } from './board-events.ts'
 import type { SegnaviaBoardList } from './board-list.ts'
-
-export interface BoardListToggleDetail {
-  open: boolean
-}
-
-export interface BoardShareDetail {
-  board: Board | null
-}
-
 import { BoardTargetBinding, TargetBinding } from './board-target.ts'
 import { type ToolbarNavigationKey, toolbarNextIndex } from './board-toolbar-policy.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -196,7 +188,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     else if (button.dataset.action === 'zoom-in') target?.zoomIn()
     else if (button.dataset.action === 'fit') target?.fitAll()
     else if (button.dataset.action === 'share') {
-      this.dispatchEvent(new CustomEvent<BoardShareDetail>('segnavia-board-share', { bubbles: true, composed: true, detail: { board: target?.board ?? null } }))
+      this.dispatchEvent(boardEvent('segnavia-board-share', { board: target?.board ?? null }))
     }
   }
 
@@ -204,7 +196,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const list = this.listBinding.current
     if (!list) return
     const open = list.hidden
-    const event = new CustomEvent<BoardListToggleDetail>('segnavia-board-list-toggle', { detail: { open }, bubbles: true, composed: true, cancelable: true })
+    const event = boardEvent('segnavia-board-list-toggle', { open })
     if (this.dispatchEvent(event)) list.hidden = !open
   }
 

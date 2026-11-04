@@ -16,7 +16,7 @@ import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
-import type * as E from './board-events.ts'
+import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
@@ -48,7 +48,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
-  private viewEvent = 0
+  private readonly viewEvents = new BoardViewEventDispatcher(this)
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
@@ -76,10 +76,9 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private readonly names = new BoardNames(
     () => {
       this.render()
-      this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
+      this.dispatchEvent(boardEvent('segnavia-board-names'))
     },
-    (items, error) =>
-      this.dispatchEvent(new CustomEvent<E.BoardErrorDetail>('segnavia-board-error', { detail: { items, error }, bubbles: true, composed: true })),
+    (items, error) => this.dispatchEvent(boardEvent('segnavia-board-error', { items, error })),
   )
   private readonly gestures = new BoardGestures(
     this,
@@ -96,7 +95,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     selectAll: () => {
       this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
     },
-    open: (item) => this.dispatchEvent(new CustomEvent<E.BoardOpenDetail>('segnavia-board-open', { detail: { item }, bubbles: true, composed: true })),
+    open: (item) => this.dispatchEvent(boardEvent('segnavia-board-open', { item })),
     boardKey: (event) =>
       boardPolicy.applyBoardKey(
         event,
@@ -104,8 +103,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
         () => this.fitAll(),
         (view) => this.setView(view),
       ),
-    action: (action, item) =>
-      this.dispatchEvent(new CustomEvent<E.BoardItemActionDetail>('segnavia-board-item-action', { detail: { action, item }, bubbles: true, composed: true })),
+    action: (action, item) => this.dispatchEvent(boardEvent('segnavia-board-item-action', { action, item })),
     focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
@@ -157,8 +155,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.mounts.reconcile(previous, this.value)
     this.render()
     this.fitInitial()
-    if (dispatch)
-      this.dispatchEvent(new CustomEvent<E.BoardChangeDetail>('segnavia-board-change', { detail: { board: this.value }, bubbles: true, composed: true }))
+    if (dispatch) this.dispatchEvent(boardEvent('segnavia-board-change', { board: this.value }))
   }
   get view(): BoardView {
     return this.currentView
@@ -166,10 +163,11 @@ export class SegnaviaBoard extends BoardSelectionElement {
   get kindIcon(): ((kind: BoardItemKind) => Node | null | undefined) | undefined {
     return this.chrome.kindIcon
   }
+
   set kindIcon(value: ((kind: BoardItemKind) => Node | null | undefined) | undefined) {
     this.chrome.kindIcon = value
     this.chrome.refresh()
-    this.dispatchEvent(new CustomEvent('segnavia-board-icons', { bubbles: true, composed: true }))
+    this.dispatchEvent(boardEvent('segnavia-board-icons'))
   }
   get selection(): readonly string[] {
     return this.selectionState.selection
@@ -178,6 +176,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   set selection(value: readonly string[]) {
     this.selectionState.selection = value
   }
+
   get itemActions(): readonly BoardItemAction[] {
     return this.chrome.itemActions
   }
@@ -186,6 +185,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.itemActions = value
     this.chrome.refresh()
   }
+
   get labels(): Partial<BoardLabels> {
     return this.chrome.labels
   }
@@ -194,6 +194,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.labels = value
     this.chrome.refresh()
   }
+
   set view(value: BoardView) {
     this.viewWasSet = true
     this.setView(value)
@@ -322,11 +323,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.pendingReveal = undefined
     this.currentView = { ...value, pan: { ...value.pan }, viewport: { ...value.viewport } }
     this.render()
-    if (this.viewEvent) return
-    this.viewEvent = requestAnimationFrame(() => {
-      this.viewEvent = 0
-      this.dispatchEvent(new CustomEvent<E.BoardViewDetail>('segnavia-board-view', { detail: { view: this.currentView }, bubbles: true, composed: true }))
-    })
+    this.viewEvents.schedule(() => ({ view: this.currentView }))
   }
 
   private render() {
@@ -384,7 +381,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
         for (const current of this.value?.items ?? []) if (current.address === resolvedItem.address) this.shapes.items[current.id] = shape
         if (refit && resolvedId) this.revealItem(resolvedId, false)
         else this.render()
-        if (resolved.title) this.dispatchEvent(new CustomEvent('segnavia-board-names', { bubbles: true, composed: true }))
+        if (resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
       },
       (failedItem, error) => this.fail(failedItem, error),
     )
@@ -393,7 +390,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.painter.dispose(current.id)
-    this.dispatchEvent(new CustomEvent<E.BoardErrorDetail>('segnavia-board-error', { detail: { item, error }, bubbles: true, composed: true }))
+    this.dispatchEvent(boardEvent('segnavia-board-error', { item, error }))
     this.render()
   }
 }

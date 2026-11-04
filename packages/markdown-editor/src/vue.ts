@@ -15,6 +15,7 @@ export interface MarkdownEditorVueEventDetails {
 type EventName = (typeof MARKDOWN_EDITOR_PROPERTIES.events)[number]
 type _EveryPropertyExists = Assert<(typeof MARKDOWN_EDITOR_PROPERTIES.properties)[number] extends keyof SegnaviaMarkdownEditor ? true : false>
 type _EveryEventHasDetail = Assert<EventName extends keyof MarkdownEditorVueEventDetails ? true : false>
+type _EveryDetailIsAnEvent = Assert<keyof MarkdownEditorVueEventDetails extends EventName ? true : false>
 type MarkdownEditorComponent = Partial<Pick<SegnaviaMarkdownEditor, (typeof MARKDOWN_EDITOR_PROPERTIES.properties)[number]>> &
   EventProps<typeof MARKDOWN_EDITOR_PROPERTIES.events, MarkdownEditorVueEventDetails>
 type MarkdownEditorGlobalComponents = {
