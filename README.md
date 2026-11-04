@@ -111,6 +111,10 @@ Lezer peers only when the host edits Markdown:
 import '@segnavia/markdown-editor'
 ```
 
+React hosts keep importing the wrapper from
+`@segnavia/react/markdown-editor` and install `@segnavia/markdown-editor`
+beside it.
+
 Vue hosts define the elements before mounting, then use the custom elements directly:
 
 ```ts
@@ -129,10 +133,6 @@ When an element may be defined after Vue renders it, use a property binding such
 `:deck.prop="deck"`; a plain late binding writes the attribute as `[object Object]`.
 Vue 3.5 or later hosts opt into template prop and event types by importing
 `@segnavia/frame/vue` and, when needed, `@segnavia/markdown-editor/vue`.
-
-React hosts keep importing the wrapper from
-`@segnavia/react/markdown-editor` and install `@segnavia/markdown-editor`
-beside it.
 
 Fill a reusable design through its existing inert bindings before it enters a
 sandboxed frame:

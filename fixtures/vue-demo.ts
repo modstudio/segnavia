@@ -12,8 +12,7 @@ await controller.load(deck)
 
 const facts = {
   events: [] as Array<{ name: string; detail: unknown }>,
-  lateReplay: {} as Record<string, boolean>,
-  weakReplayTags: [] as string[],
+  lateReplay: {} as Record<string, { instance: boolean; ownProperty: boolean; value: boolean; effect?: boolean }>,
   titles: {} as Record<string, unknown>,
 }
 
@@ -72,6 +71,8 @@ const replayValues = {
 } as const satisfies Record<Exclude<keyof typeof ELEMENT_PROPERTIES, 'stage' | 'thumbnail'>, readonly [string, unknown]>
 
 const replayElements = new Map<string, { element: HTMLElement; property: string; value: unknown }>()
+const replayRoot = document.createElement('div')
+document.body.append(replayRoot)
 for (const descriptor of ELEMENT_PROPERTY_DESCRIPTORS) {
   if (descriptor.tag === ELEMENT_PROPERTIES.stage.tag || descriptor.tag === ELEMENT_PROPERTIES.thumbnail.tag) continue
   const key = Object.entries(ELEMENT_PROPERTIES).find(([, candidate]) => candidate === descriptor)?.[0] as keyof typeof replayValues | undefined
@@ -79,12 +80,14 @@ for (const descriptor of ELEMENT_PROPERTY_DESCRIPTORS) {
   if (!replay || !descriptor.properties.includes(replay[0] as never)) throw new Error(`No late property replay value for ${descriptor.tag}.`)
   const element = document.createElement(descriptor.tag)
   Reflect.set(element, replay[0], replay[1])
+  replayRoot.append(element)
   replayElements.set(descriptor.tag, { element, property: replay[0], value: replay[1] })
 }
 
 const upgradingEditor = document.createElement(MARKDOWN_EDITOR_PROPERTIES.tag)
 upgradingEditor.setAttribute('title', 'Title present at upgrade')
-upgradingEditor.setAttribute('mode', 'source')
+Reflect.set(upgradingEditor, 'mode', 'source')
+Reflect.set(upgradingEditor, 'markdown', '# Replayed markdown')
 upgradingEditor.addEventListener('segnavia-editor-state', event('editor-state'))
 document.body.append(upgradingEditor)
 
@@ -97,14 +100,32 @@ await Promise.resolve()
 
 createApp({ render: () => h('div', vueElements(false)) }).mount('#early-root')
 
-for (const [tag, replay] of replayElements) {
-  facts.lateReplay[tag] = Object.is(Reflect.get(replay.element, replay.property), replay.value)
-  facts.weakReplayTags.push(tag)
+const replayValueMatches = (actual: unknown, expected: unknown): boolean => {
+  if (Object.is(actual, expected)) return true
+  if (typeof actual !== 'object' || actual === null || typeof expected !== 'object' || expected === null) return false
+  return Object.entries(expected).every(([key, value]) => replayValueMatches(Reflect.get(actual, key), value))
 }
-facts.lateReplay[ELEMENT_PROPERTIES.stage.tag] = (document.querySelector('#late-stage') as { controller?: unknown } | null)?.controller === controller
-facts.lateReplay[ELEMENT_PROPERTIES.thumbnail.tag] =
-  (document.querySelector('#late-thumbnail') as { deck?: { title?: unknown } } | null)?.deck?.title === deck.title
-facts.lateReplay[MARKDOWN_EDITOR_PROPERTIES.tag] = Reflect.get(upgradingEditor, 'title') === 'Title present at upgrade'
+const replayFact = (element: HTMLElement, property: string, value: unknown, effect?: boolean) => ({
+  instance: element instanceof (customElements.get(element.localName) as CustomElementConstructor),
+  ownProperty: Object.hasOwn(element, property),
+  value: replayValueMatches(Reflect.get(element, property), value),
+  ...(effect === undefined ? {} : { effect }),
+})
+for (const [tag, replay] of replayElements) {
+  const effect =
+    tag === ELEMENT_PROPERTIES.paperPicker.tag ? replay.element.shadowRoot?.textContent?.includes((replay.value as { paper: string }).paper) : undefined
+  facts.lateReplay[tag] = replayFact(replay.element, replay.property, replay.value, effect)
+}
+const lateStage = document.querySelector('#late-stage') as HTMLElement
+const lateThumbnail = document.querySelector('#late-thumbnail') as HTMLElement
+facts.lateReplay[ELEMENT_PROPERTIES.stage.tag] = replayFact(lateStage, 'controller', controller)
+facts.lateReplay[ELEMENT_PROPERTIES.thumbnail.tag] = replayFact(lateThumbnail, 'deck', deck)
+facts.lateReplay[MARKDOWN_EDITOR_PROPERTIES.tag] = replayFact(
+  upgradingEditor,
+  'markdown',
+  '# Replayed markdown',
+  upgradingEditor.shadowRoot?.textContent?.includes('Replayed markdown'),
+)
 
 facts.titles.upgrade = { title: Reflect.get(upgradingEditor, 'title'), attribute: upgradingEditor.getAttribute('title') }
 upgradingEditor.setAttribute('title', 'Title set after upgrade')

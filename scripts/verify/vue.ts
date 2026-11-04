@@ -4,8 +4,7 @@ import type { Harness } from './harness.ts'
 
 type VueFacts = {
   events: Array<{ name: string; detail: unknown }>
-  lateReplay: Record<string, boolean>
-  weakReplayTags: string[]
+  lateReplay: Record<string, { instance: boolean; ownProperty: boolean; value: boolean; effect?: boolean }>
   titles: Record<string, unknown>
 }
 
@@ -13,6 +12,18 @@ export async function verifyVue(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('vue.html'))
   await page.waitForFunction(() => 'vueFacts' in window)
+
+  const facts = await page.evaluate(() => (window as unknown as { vueFacts: VueFacts }).vueFacts)
+  const expectedTags = [...ELEMENT_PROPERTY_DESCRIPTORS.map(({ tag }) => tag), MARKDOWN_EDITOR_PROPERTIES.tag]
+  const replayed = expectedTags.filter((tag) => {
+    const replay = facts.lateReplay[tag]
+    return replay?.instance && !replay.ownProperty && replay.value && replay.effect !== false
+  })
+  check(
+    'Every descriptor-derived element replays a property set before definition',
+    replayed.length === expectedTags.length && Object.keys(facts.lateReplay).length === expectedTags.length,
+    JSON.stringify({ replayed, expectedTags, lateReplay: facts.lateReplay }),
+  )
 
   for (const order of ['late', 'early']) {
     await page.waitForFunction((id) => document.querySelector(`#${id}-stage iframe`), order)
@@ -25,15 +36,6 @@ export async function verifyVue(h: Harness) {
       JSON.stringify({ stageText, thumbnailText }),
     )
   }
-
-  const facts = await page.evaluate(() => (window as unknown as { vueFacts: VueFacts }).vueFacts)
-  const expectedTags = [...ELEMENT_PROPERTY_DESCRIPTORS.map(({ tag }) => tag), MARKDOWN_EDITOR_PROPERTIES.tag]
-  const replayed = expectedTags.filter((tag) => facts.lateReplay[tag])
-  check(
-    'Every descriptor-derived element replays a property set before definition',
-    replayed.length === expectedTags.length && Object.keys(facts.lateReplay).length === expectedTags.length,
-    JSON.stringify({ replayed, expectedTags, weakerGetterChecks: facts.weakReplayTags }),
-  )
 
   const eventNames = facts.events.map(({ name }) => name)
   const editorState = facts.events.find(({ name }) => name === 'late-editor-state')?.detail as { canUndo?: unknown } | undefined

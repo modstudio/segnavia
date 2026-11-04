@@ -103,6 +103,19 @@ describe('architecture rules', () => {
     expect(checkImports({ path: 'packages/frame/src/index.ts', text: '', imports: ['./vue.ts'] }, workspace('frame'), all)[0]?.message).toContain(
       'runtime module may not import',
     )
+    for (const text of ["import type { Ref } from 'vue'", "import type {\n  Ref,\n  App,\n} from 'vue'", "import { type Ref } from 'vue'"]) {
+      expect(checkImports({ path: 'packages/frame/src/index.ts', text, imports: [] }, workspace('frame'), all)).toHaveLength(1)
+    }
+    expect(
+      checkImports(
+        { path: 'packages/frame/src/index.ts', text: "import type {\n  FrameVueEventDetails,\n} from './vue.ts'", imports: [] },
+        workspace('frame'),
+        all,
+      ),
+    ).toHaveLength(1)
+    expect(
+      checkImports({ path: 'packages/frame/src/index.ts', text: "export type { FrameVueEventDetails } from './vue.ts'", imports: [] }, workspace('frame'), all),
+    ).toHaveLength(1)
   })
 
   test('a server-safe entry must name an existing source file', () => {

@@ -1,4 +1,4 @@
-import type { Board } from '@segnavia/format'
+import type { Board, BoardItem } from '@segnavia/format'
 import type { DefineComponent } from 'vue'
 import type { BoardItemAction } from './board-actions.ts'
 import type { BoardItemSearch } from './board-list.ts'
@@ -69,7 +69,7 @@ export interface FrameVueEventDetails {
   'segnavia-board-item-action': { action: BoardItemAction; item: ResolvedBoardItem }
   'segnavia-board-names': unknown
   'segnavia-board-open': { item: ResolvedBoardItem }
-  'segnavia-board-selection': unknown
+  'segnavia-board-selection': { items: BoardItem[]; item: BoardItem | null }
   'segnavia-board-view': { view: SegnaviaBoard['view'] }
   'segnavia-board-search-error': { query: string; error: unknown }
   'segnavia-board-select': { item?: BoardItemSearch; section?: string }

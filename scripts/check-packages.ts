@@ -133,6 +133,7 @@ for (const { name, manifest } of installed) {
 }
 
 const imports: string[] = []
+const importsWithoutVue: string[] = []
 const serverImports: string[] = []
 let alias = 0
 for (const { name, directory, manifest } of installed) {
@@ -142,11 +143,14 @@ for (const { name, directory, manifest } of installed) {
     const names = new Bun.Transpiler({ loader: 'js' }).scan(javascript).exports
     const defaults = names.filter((exported) => exported === 'default')
     const named = names.filter((exported) => exported !== 'default')
-    if (defaults.length > 0) imports.push(`import export${alias++} from ${JSON.stringify(target)}`)
+    const entryImports: string[] = []
+    if (defaults.length > 0) entryImports.push(`import export${alias++} from ${JSON.stringify(target)}`)
     if (named.length > 0) {
-      imports.push(`import { ${named.map((exported) => `${exported} as export${alias++}`).join(', ')} } from ${JSON.stringify(target)}`)
+      entryImports.push(`import { ${named.map((exported) => `${exported} as export${alias++}`).join(', ')} } from ${JSON.stringify(target)}`)
     }
-    if (names.length === 0) imports.push(`import ${JSON.stringify(target)}`)
+    if (names.length === 0) entryImports.push(`import ${JSON.stringify(target)}`)
+    imports.push(...entryImports)
+    if (exportName !== './vue') importsWithoutVue.push(...entryImports)
 
     const rule = PACKAGES[name]
     const source = bunSource(conditions[SOURCE_CONDITION]).replace(/^\.\//, '')
@@ -178,7 +182,7 @@ const consumers = mkdtempSync(path.join(tmpdir(), 'segnavia-package-consumers-')
 try {
   const withoutVue = path.join(consumers, 'without-vue')
   linkConsumerModules(withoutVue, false)
-  writeFileSync(path.join(withoutVue, 'index.ts'), "import '@segnavia/frame'\nimport '@segnavia/markdown-editor'\n")
+  writeFileSync(path.join(withoutVue, 'index.ts'), `${importsWithoutVue.join('\n')}\n`)
   writeFileSync(
     path.join(withoutVue, 'tsconfig.json'),
     JSON.stringify({
