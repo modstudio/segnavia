@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
 import { DeckController } from './controller.ts'
-import { setNavigationGuard } from './navigation-guard.ts'
 import { NotesSaveQueue } from './notes-save.ts'
 import { printableDeck } from './print-document.ts'
 
@@ -269,7 +268,7 @@ async function authoringWithHeldNotesSave() {
     notesRoot: { querySelector: () => field, remove() {} },
   })
   const guarded = authoring as unknown as { beforeNavigate(reason: 'load' | 'navigate'): Promise<void> }
-  setNavigationGuard(deckController, (reason) => guarded.beforeNavigate(reason))
+  deckController.addNavigationGuard((reason) => guarded.beforeNavigate(reason))
   return { authoring, deckController, field, reachedMove: () => reachedMove }
 }
 

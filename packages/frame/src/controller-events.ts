@@ -6,3 +6,9 @@ export function emitControllerState(target: EventTarget, state: DeckState, lastC
   if (cue !== lastCue) target.dispatchEvent(new CustomEvent('cue', { detail: { annotations: state.shown } }))
   return cue
 }
+
+export function emitControllerComplete(target: EventTarget, state: DeckState, emitted: boolean): boolean {
+  if (emitted || !state.watched.complete) return emitted
+  target.dispatchEvent(new CustomEvent('complete', { detail: { watchedMs: state.watched.ms, share: state.watched.share } }))
+  return true
+}

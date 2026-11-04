@@ -1,17 +1,18 @@
 import type { Deck, Shot, SlideContent } from '@segnavia/format'
 import type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
 
-type PlayerOptions = Pick<ControllerOptions, 'playback' | 'captions'>
+type PlayerOptions = Pick<ControllerOptions, 'playback' | 'captions' | 'seek'>
 
 export function captionsPolicy(deck: Deck | null, options: PlayerOptions): 'on' | 'off' | 'viewer' {
   return options.captions ?? deck?.captions ?? 'viewer'
 }
 
-export function playerOptionState(deck: Deck, captionsVisible: boolean, options: PlayerOptions): Pick<DeckState, 'playback' | 'captionsVisible'> {
+export function playerOptionState(deck: Deck, captionsVisible: boolean, options: PlayerOptions): Pick<DeckState, 'playback' | 'captionsVisible' | 'seek'> {
   const captions = captionsPolicy(deck, options)
   return {
     playback: options.playback ?? deck.playback ?? 'segmented',
     captionsVisible: captions === 'on' ? true : captions === 'off' ? false : captionsVisible,
+    seek: options.seek ?? 'free',
   }
 }
 

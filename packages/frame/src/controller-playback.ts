@@ -2,6 +2,7 @@ import { type Clock, speechClock, timedClock } from './clock.ts'
 import type { ControllerOptions, DeckState } from './controller-types.ts'
 import { defaultSchedule } from './schedule.ts'
 import { annotationsAt, deckTimeline, slideDurationMs, slideStateAt } from './timeline.ts'
+import { addWatchedSpan, createWatchedModel, type Position, showWatchedSlide, type WatchedModel, watchedState } from './watched.ts'
 
 interface PlaybackHost {
   state(): DeckState
@@ -16,8 +17,37 @@ interface PlaybackHost {
 export class ControllerPlayback {
   clock: Clock | null = null
   private cancel: (() => void) | null = null
+  private mark: Position = { index: 0, ms: 0 }
+  private watched: WatchedModel = createWatchedModel([])
 
   constructor(private host: PlaybackHost) {}
+
+  resetWatched(durations: readonly (number | null)[], position: Position) {
+    this.watched = createWatchedModel(durations)
+    this.jump(position)
+    this.updateWatched()
+  }
+
+  show(index: number) {
+    this.watched = showWatchedSlide(this.watched, index)
+    this.jump({ index, ms: 0 })
+    this.updateWatched()
+  }
+
+  jump(position: Position) {
+    this.mark = position
+  }
+
+  private observe(position: Position) {
+    if (position.index === this.mark.index && position.ms >= this.mark.ms)
+      this.watched = addWatchedSpan(this.watched, position.index, this.mark.ms, position.ms)
+    this.mark = position
+  }
+
+  private updateWatched() {
+    const current = this.host.state()
+    this.host.setState({ ...current, watched: watchedState(this.watched, this.host.options().completeAt) })
+  }
 
   startClock(position = 0) {
     const current = this.host.state()
@@ -30,6 +60,7 @@ export class ControllerPlayback {
     this.clock.muted = current.muted
     if (!current.playing) this.clock.pause()
     this.clock.seek(position)
+    this.jump({ index: current.index, ms: position })
     this.scheduleTick()
   }
 
@@ -52,18 +83,20 @@ export class ControllerPlayback {
     const { slide, deck } = current
     if (!clock || !slide || !deck) return
     const slideElapsedMs = clock.elapsed()
+    this.observe({ index: current.index, ms: slideElapsedMs })
     let moment = slideStateAt(slide, slideElapsedMs)
     const live = slide.narration?.live ? slide.narration : null
     const word = live ? clock.word() : moment.word
     if (live) moment = { ...moment, word, shown: annotationsAt(live.cues, word) }
     const startMs = deckTimeline(deck).slides[current.index]?.startMs ?? 0
     this.host.setState({
-      ...current,
+      ...this.host.state(),
       word: moment.word,
       shown: moment.shown,
       progress: clock.progress(),
       slideElapsedMs,
       elapsedMs: startMs + slideElapsedMs,
+      watched: watchedState(this.watched, this.host.options().completeAt),
     })
   }
 

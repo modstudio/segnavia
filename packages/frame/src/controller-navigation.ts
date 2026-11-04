@@ -19,6 +19,8 @@ export function prefetchControllerNeighbors(
   }
 }
 
-export function syncControllerHash(controller: DeckController, index: number | null) {
-  if (index !== null && index !== controller.state.index) void controller.go(index).catch(() => {})
+export function syncControllerHash(controller: DeckController, index: number | null, allowed = true, restore: () => void = () => {}) {
+  if (index === null || index === controller.state.index) return
+  if (!allowed) return restore()
+  void controller.go(index).catch(() => {})
 }

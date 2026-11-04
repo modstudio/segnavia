@@ -1,6 +1,7 @@
 import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { Clock } from './clock.ts'
+import type { SeekPolicy, WatchedState } from './watched.ts'
 
 type FormatResolvedContent = Exclude<SlideContent, { kind: 'shot-ref' } | { media: unknown }>
 export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }> & {
@@ -28,6 +29,8 @@ export interface DeckState {
   muted: boolean
   captionsVisible: boolean
   presenting: boolean
+  seek: SeekPolicy
+  watched: WatchedState
 }
 
 export interface ControllerOptions {
@@ -42,6 +45,8 @@ export interface ControllerOptions {
   captions?: 'on' | 'off' | 'viewer'
   persist?: boolean
   schedule?: (tick: () => void) => () => void
+  seek?: SeekPolicy
+  completeAt?: number
 }
 
 export function initialDeckState(): DeckState {
@@ -62,5 +67,7 @@ export function initialDeckState(): DeckState {
     muted: false,
     captionsVisible: true,
     presenting: false,
+    seek: 'free',
+    watched: { ms: 0, share: 0, reach: { index: 0, ms: 0 }, complete: false },
   }
 }
