@@ -103,8 +103,8 @@ test('derives a note fragment extent from its own settled line boxes', () => {
     { top: 29, bottom: 51 },
     { top: 56, bottom: 78 },
   ]
-  expect(noteFragmentExtent(lines, 0, 1)).toEqual({ start: 2, end: 26.5 })
-  expect(noteFragmentExtent(lines, 1, 3)).toEqual({ start: 26.5, end: 78 })
+  expect(noteFragmentExtent(lines, 0, 1)).toEqual({ start: 2, end: 24 })
+  expect(noteFragmentExtent(lines, 1, 3)).toEqual({ start: 29, end: 78 })
   expect(noteFragmentExtent(lines, 3, 4)).toBeUndefined()
 })
 
