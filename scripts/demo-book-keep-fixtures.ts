@@ -17,8 +17,8 @@ const blockKeepProbe = (hebrew: boolean) => {
   const after = hebrew ? 'הפסקה הבאה' : 'NEXT BLOCK'
   const before = hebrew ? 'הפסקה הקודמת' : 'PREVIOUS BLOCK'
   const previous = hebrew ? 'סיום שמור' : 'KEPT BLOCK PREVIOUS'
-  return `<div style="block-size:160mm"></div><div data-keep-block-next style="margin:0;line-height:10mm">${next}</div><p data-keep-block-next-neighbor style="margin:0;line-height:10mm">${after}</p>
-    <div style="block-size:160mm"></div><p data-keep-block-previous-neighbor style="margin:0;line-height:10mm">${before}</p><div data-keep-block-previous style="margin:0;line-height:10mm">${previous}</div>`
+  return `<div style="block-size:160mm;break-inside:avoid"></div><div data-keep-block-next style="margin:0;line-height:12mm;--segnavia-keep-with:next">${next}</div><p data-keep-block-next-neighbor style="margin:0;line-height:12mm">${after}</p>
+    <div style="block-size:160mm;break-inside:avoid"></div><p data-keep-block-previous-neighbor style="margin:0;line-height:12mm">${before}</p><div data-keep-block-previous style="margin:0;line-height:12mm;--segnavia-keep-with:previous">${previous}</div>`
 }
 
 export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous'): BookInput => ({
