@@ -47,6 +47,51 @@ test('pause cancels the pending playback tick', async () => {
   expect(pending).toBeNull()
 })
 
+test('pause from a change listener ends the playback tick', async () => {
+  let pending: (() => void) | null = null
+  const controller = new DeckController({
+    hash: null,
+    clock: (): Clock => ({
+      word: () => null,
+      ended: () => false,
+      elapsed: () => 0,
+      progress: () => 0,
+      pause: () => {},
+      resume: () => {},
+      seek: () => {},
+      muted: false,
+      stop: () => {},
+    }),
+    schedule: (tick) => {
+      pending = tick
+      return () => {
+        pending = null
+      }
+    },
+  })
+  await controller.load({
+    title: 'T',
+    slides: [
+      {
+        id: 'a',
+        content: { kind: 'html', html: '' },
+        narration: { text: 'hello', words: [], durationMs: 1000, audio: null, live: false, cues: [] },
+      },
+    ],
+  })
+  const pause = () => {
+    controller.removeEventListener('change', pause)
+    controller.pause()
+  }
+  controller.addEventListener('change', pause)
+  await controller.play()
+  const tick = pending as (() => void) | null
+  pending = null
+  tick?.()
+  expect(pending).toBeNull()
+  expect(controller.state.playing).toBe(false)
+})
+
 test('play restarts an ended deck in either playback mode', async () => {
   for (const playback of ['segmented', 'continuous'] as const) {
     const clocks: Array<{ elapsed: number; ended: boolean }> = []

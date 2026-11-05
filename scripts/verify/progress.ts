@@ -2,6 +2,7 @@ import type { SeekPolicy } from '@segnavia/frame'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const PLAYER = '#progress-player'
+const PAUSED_OBSERVATION_MS = 500
 
 interface ProgressFacts {
   complete: number
@@ -88,6 +89,24 @@ export async function verifyProgress(h: Harness) {
     'furthest mode pauses on the first slide before testing the limit',
     (await currentSlide()) === '1' && pausedReachIndex === 0,
     JSON.stringify({ slide: await currentSlide(), reachIndex: pausedReachIndex }),
+  )
+  const pausedUpdates = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: EventTarget }, waitMs) => {
+    const rail = player.querySelector('segnavia-rail')?.shadowRoot
+    let changes = 0
+    let loads = 0
+    const onChange = () => changes++
+    const onLoad = () => loads++
+    player.controller.addEventListener('change', onChange, { capture: true })
+    rail?.addEventListener('load', onLoad, { capture: true })
+    await new Promise((resolve) => setTimeout(resolve, waitMs))
+    player.controller.removeEventListener('change', onChange, { capture: true })
+    rail?.removeEventListener('load', onLoad, { capture: true })
+    return { changes, loads }
+  }, PAUSED_OBSERVATION_MS)
+  check(
+    'pausing from a change listener stops playback updates and leaves rail thumbnails loaded',
+    pausedUpdates.changes === 0 && pausedUpdates.loads === 0,
+    JSON.stringify(pausedUpdates),
   )
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowRight')
   check('furthest mode refuses the keyboard next key past the watched limit', (await currentSlide()) === '1')

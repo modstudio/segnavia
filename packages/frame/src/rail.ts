@@ -3,6 +3,7 @@ import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
+import { railOrderMoves } from './rail-order.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
@@ -197,6 +198,7 @@ export class SegnaviaRail extends SegnaviaControl {
     const existing = new Map([...list.querySelectorAll<HTMLLIElement>('li[data-slide-id]')].map((item) => [item.dataset.slideId, item]))
     const wanted = new Set(state.deck?.slides.map((slide) => slide.id))
     for (const [id, item] of existing) if (!id || !wanted.has(id)) item.remove()
+    const ordered = new Map<string, HTMLLIElement>()
     state.deck?.slides.forEach((slide, index) => {
       let item = existing.get(slide.id)
       if (!item) {
@@ -208,9 +210,15 @@ export class SegnaviaRail extends SegnaviaControl {
       button.dataset.index = String(index)
       button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
       ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
-      list.append(item)
+      ordered.set(slide.id, item)
       this.decorateSlideSettings(item, slide.id)
     })
+    const current = [...list.querySelectorAll<HTMLLIElement>('li[data-slide-id]')].map((item) => item.dataset.slideId ?? '')
+    const order = state.deck?.slides.map((slide) => slide.id) ?? []
+    for (const move of railOrderMoves(current, order)) {
+      const item = ordered.get(move.id)
+      if (item) list.insertBefore(item, move.before ? (ordered.get(move.before) ?? null) : null)
+    }
     this.decorateItemSettings()
     this.reorder.sync()
   }
@@ -228,7 +236,17 @@ export class SegnaviaRail extends SegnaviaControl {
     const button = item.querySelector('button') as HTMLButtonElement
     button.textContent = this.itemSettings.label
     button.setAttribute('aria-label', this.itemSettings.label)
-    list.prepend(item)
+    const settingsId = '__item-settings__'
+    const slides = [...list.querySelectorAll<HTMLLIElement>('li[data-slide-id]')]
+    const current = [...list.children].map((child) =>
+      (child as HTMLElement).hasAttribute('data-item-settings') ? settingsId : ((child as HTMLElement).dataset.slideId ?? ''),
+    )
+    const nodes = new Map<string, HTMLLIElement>(slides.map((slide) => [slide.dataset.slideId ?? '', slide]))
+    nodes.set(settingsId, item)
+    for (const move of railOrderMoves(current, [settingsId, ...slides.map((slide) => slide.dataset.slideId ?? '')])) {
+      const moved = nodes.get(move.id)
+      if (moved) list.insertBefore(moved, move.before ? (nodes.get(move.before) ?? null) : null)
+    }
   }
 
   private decorateSlideSettings(item: HTMLLIElement, slideId: string) {

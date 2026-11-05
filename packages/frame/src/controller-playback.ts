@@ -17,6 +17,7 @@ interface PlaybackHost {
 export class ControllerPlayback {
   clock: Clock | null = null
   private cancel: (() => void) | null = null
+  private tickRun = 0
   private mark: Position = { index: 0, ms: 0 }
   private watched: WatchedModel = createWatchedModel([])
 
@@ -70,13 +71,15 @@ export class ControllerPlayback {
 
   scheduleTick() {
     if (!this.host.state().playing) return
+    const run = ++this.tickRun
     const tick = () => {
+      if (run !== this.tickRun) return
       const clock = this.clock
       if (!clock) return
       this.readClock()
       this.host.emit()
       if (clock.ended()) void this.host.next().catch(() => this.host.pause())
-      else this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
+      else if (run === this.tickRun) this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
     }
     this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
   }
@@ -105,6 +108,7 @@ export class ControllerPlayback {
   }
 
   cancelTick() {
+    this.tickRun++
     this.cancel?.()
     this.cancel = null
   }
