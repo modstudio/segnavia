@@ -109,8 +109,11 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   parsed by the book model and at most 256 characters. From a paginated book
   frame, a bounded `segnavia:compose-failure` report: the composer's refusal
   text, at most 1024 characters. The host checks
-  selection replies against a size bound. A refused-script page answers exactly two inbound message
-  types from its parent: a selection request, and `segnavia:book-layout` in a
+  selection replies against a size bound. A refused-script page answers exactly three inbound message
+  types from its parent: a selection request; a heading request, whose heading
+  id is at most 256 characters and is matched only against heading elements,
+  answered with the request id and a finite top or null; and
+  `segnavia:book-layout` in a
   paginated book frame. The book-layout message is accepted only when `layout`
   is exactly `pages` or `flow` and `place` is absent or obeys that same bound.
   Slot fit is safe because filled items refuse author scripts, leaving only

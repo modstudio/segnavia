@@ -182,7 +182,7 @@ describe('frame document', () => {
     expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
   })
 
-  test('the bridge handles in-page links without expanding its message surface or policy', () => {
+  test('the bridge handles in-page links within its declared message surface and policy', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
     expect(html).toContain("window.addEventListener('click'")
     expect(html).toContain("href.charAt(0)!=='#'")
@@ -191,6 +191,8 @@ describe('frame document', () => {
     expect(html).toContain('try{return decodeURIComponent(run);}catch(error){return run;}')
     expect([...html.matchAll(/post\(\{type:'([^']+)'/g)].map((match) => match[1])).toEqual([
       MESSAGE.selection,
+      MESSAGE.heading,
+      MESSAGE.heading,
       MESSAGE.animation,
       MESSAGE.slotFit,
       MESSAGE.key,

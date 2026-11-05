@@ -37,7 +37,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     isConnected: true,
     loadGeneration: 0,
     slotPreparation: undefined as AbortController | undefined,
-    postedSelectionRequests: new Set(),
+    pageRequests: { pending: new Set(), posted: new Set(), ready: new Set() },
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions,
     cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
