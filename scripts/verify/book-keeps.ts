@@ -71,6 +71,26 @@ export async function verifyInlineBookKeeps(frame: FrameLocator, label: string, 
   )
 }
 
+export function verifyBookKeepPdf(pdfPath: string, language: 'en' | 'he', check: Check): void {
+  const label = path.basename(pdfPath, '.pdf')
+  const pages = execFileSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' }).split('\f')
+  const pairs =
+    language === 'he'
+      ? ([
+          ['כותרת שמורה', 'הפסקה הבאה'],
+          ['הפסקה הקודמת', 'סיום שמור'],
+        ] as const)
+      : ([
+          ['KEPT BLOCK NEXT', 'NEXT BLOCK'],
+          ['PREVIOUS BLOCK', 'KEPT BLOCK PREVIOUS'],
+        ] as const)
+  const pdfKeeps = pairs.map(([held, neighbor]) => {
+    const heldPage = pages.findIndex((page) => page.includes(held))
+    return heldPage >= 0 && heldPage === pages.findIndex((page) => page.includes(neighbor))
+  })
+  check(`${label} PDF keeps each block pair on one page`, pdfKeeps.every(Boolean), JSON.stringify(pdfKeeps))
+}
+
 export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Frame, label: string, check: Check): Promise<void> {
   await verifyInlineBookKeeps(locator, `${label} paginated`, check)
   const keeps = await frame.evaluate(() => {
@@ -81,19 +101,5 @@ export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Fra
     }
   })
   check(`${label} block keeps share a page with their adjacent block`, keeps.next && keeps.previous, JSON.stringify(keeps))
-  const pages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${label}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
-  const pairs = label.endsWith('-he')
-    ? ([
-        ['כותרת שמורה', 'הפסקה הבאה'],
-        ['הפסקה הקודמת', 'סיום שמור'],
-      ] as const)
-    : ([
-        ['KEPT BLOCK NEXT', 'NEXT BLOCK'],
-        ['PREVIOUS BLOCK', 'KEPT BLOCK PREVIOUS'],
-      ] as const)
-  const pdfKeeps = pairs.map(([held, neighbor]) => {
-    const heldPage = pages.findIndex((page) => page.includes(held))
-    return heldPage >= 0 && heldPage === pages.findIndex((page) => page.includes(neighbor))
-  })
-  check(`${label} PDF keeps each block pair on one page`, pdfKeeps.every(Boolean), JSON.stringify(pdfKeeps))
+  verifyBookKeepPdf(path.join(SITE, `${label}.pdf`), label.endsWith('-he') ? 'he' : 'en', check)
 }

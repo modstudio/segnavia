@@ -274,7 +274,11 @@ export async function buildBookPdfs(
       await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
-    writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew)))
+    writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'paginated')))
+    writeFileSync(
+      path.join(site, `book-keeps-continuous-${hebrew ? 'he' : 'en'}.pdf`),
+      await bookPdf(keepBookFixture(hebrew, 'continuous')),
+    )
     writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
@@ -307,7 +311,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(
       path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'),
-      paginatedBookDocument(Book.parse(keepBookFixture(hebrew)), { nonce: newNonce() }),
+      paginatedBookDocument(Book.parse(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
     )
     writePartsBook(site, hebrew, hebrewFace)
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))

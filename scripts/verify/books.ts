@@ -3,7 +3,7 @@ import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
-import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
+import { BOOK_BRIDGE_MESSAGES, verifyBookKeepPdf, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
@@ -280,6 +280,8 @@ async function verifyKeepBooks(h: Harness) {
   for (const id of ['book-keeps-en', 'book-keeps-he']) {
     const frame = await paginatedFrame(h, id)
     await verifyPaginatedBookKeeps(h.page.frameLocator(`#${id}`), frame, id, h.check)
+    const language = id.endsWith('-he') ? 'he' : 'en'
+    verifyBookKeepPdf(path.join(SITE, `book-keeps-continuous-${language}.pdf`), language, h.check)
   }
 }
 
