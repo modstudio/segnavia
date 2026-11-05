@@ -71,9 +71,6 @@ export async function openHarness(): Promise<Harness> {
   const page = await context.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  page.on('console', (message) => {
-    if (message.text().startsWith('SEGNA-281 ')) console.log(message.text())
-  })
   // Every message a page receives, so a check that waited in vain can say
   // what did arrive.
   await page.addInitScript(() => {

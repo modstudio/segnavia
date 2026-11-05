@@ -207,7 +207,10 @@ function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string):
 }
 
 function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
-  const css = hebrew ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'
+  const placedNoteRelayout = '[data-segnavia-pages] [data-segnavia-page-note="segnavia-fn-1-1"]>[data-segnavia-note]{font-size:18px}'
+  const css = hebrew
+    ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}${placedNoteRelayout}`
+    : `:where(html){font:16px/1.5 Georgia,serif}${placedNoteRelayout}`
   writeFileSync(
     path.join(site, hebrew ? 'book-two-page-series-he.html' : 'book-two-page-series-en.html'),
     paginatedBookDocument(Book.parse(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),

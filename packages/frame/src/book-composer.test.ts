@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { appendMeasuredBlock, composerScript, decideBookMeasurement, pageReferenceFolio, unmeasuredFlows } from './book-composer.ts'
+import { appendMeasuredBlock, composerScript, decideBookMeasurement, noteFragmentExtent, pageReferenceFolio, unmeasuredFlows } from './book-composer.ts'
 
 const facts = {
   frameWidth: 800,
@@ -95,6 +95,17 @@ test('lists exactly the unmeasured source flows in order', () => {
       { id: 'chapter-3', sourceBlocks: 1, contentBlocks: 1, measuredLines: 0 },
     ]),
   ).toEqual(['chapter-1', 'chapter-3'])
+})
+
+test('derives a note fragment extent from its own settled line boxes', () => {
+  const lines = [
+    { top: 2, bottom: 24 },
+    { top: 29, bottom: 51 },
+    { top: 56, bottom: 78 },
+  ]
+  expect(noteFragmentExtent(lines, 0, 1)).toEqual({ start: 2, end: 26.5 })
+  expect(noteFragmentExtent(lines, 1, 3)).toEqual({ start: 26.5, end: 78 })
+  expect(noteFragmentExtent(lines, 3, 4)).toBeUndefined()
 })
 
 test('refuses a page reference beyond the folio table', () => {
