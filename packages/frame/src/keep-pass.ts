@@ -66,23 +66,32 @@ function textGap(node: Node, direction: Direction): TextGap {
   return { piece: { node: node as Text, start, end: start + match[0].length }, stop: match[0].length !== text.length }
 }
 
+function gapWalkStop(node: Node, direction: Direction, styleOf: StyleReader): { stopped: boolean; inlineBoundary?: Element } {
+  if (node.nodeType !== 1) return { stopped: false }
+  const element = node as Element
+  if (!inlineLevel(element, styleOf)) return { stopped: true }
+  if (atomicInline(element, styleOf) || !(direction === 'next' ? element.firstChild : element.lastChild)) {
+    return { stopped: true, inlineBoundary: element }
+  }
+  return { stopped: false }
+}
+
+function orderedPieces(pieces: GapPiece[], direction: Direction): GapPiece[] {
+  return direction === 'next' ? pieces : pieces.reverse()
+}
+
 function gapPieces(element: Element, direction: Direction, block: Element, styleOf: StyleReader): GapRun {
   const pieces: GapPiece[] = []
   let node = adjacentNode(element, direction, block)
   while (node && block.contains(node.nodeType === 1 ? node : node.parentNode)) {
-    if (node.nodeType === 1 && !inlineLevel(node as Element, styleOf)) break
-    if (node.nodeType === 1 && atomicInline(node as Element, styleOf)) {
-      return { pieces: direction === 'next' ? pieces : pieces.reverse(), inlineBoundary: node as Element }
-    }
-    if (node.nodeType === 1 && !(direction === 'next' ? node.firstChild : node.lastChild)) {
-      return { pieces: direction === 'next' ? pieces : pieces.reverse(), inlineBoundary: node as Element }
-    }
+    const stopped = gapWalkStop(node, direction, styleOf)
+    if (stopped.stopped) return { pieces: orderedPieces(pieces, direction), inlineBoundary: stopped.inlineBoundary }
     const gap = textGap(node, direction)
     if (gap.piece) pieces.push(gap.piece)
     if (gap.stop) break
     node = followingNode(node, direction, block, styleOf)
   }
-  return { pieces: direction === 'next' ? pieces : pieces.reverse() }
+  return { pieces: orderedPieces(pieces, direction) }
 }
 
 function replaceGap(pieces: GapPiece[], replacement: string, replacementIndex: number): void {
@@ -163,6 +172,8 @@ export function keepPassScript(): string {
     ['atomicInline', atomicInline],
     ['followingNode', followingNode],
     ['textGap', textGap],
+    ['gapWalkStop', gapWalkStop],
+    ['orderedPieces', orderedPieces],
     ['gapPieces', gapPieces],
     ['replaceGap', replaceGap],
     ['insertJoiner', insertJoiner],
