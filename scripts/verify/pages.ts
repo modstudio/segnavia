@@ -1,10 +1,13 @@
 // Pages: fluid and growing heights through the bridge, refused scripts,
 // direction and language, block direction, and a page the host serves.
 
+import { PAGE_DEMO_PAGES } from '../build-page-demo.ts'
 import type { Harness } from './harness.ts'
 
 // A fixed sheet keeps its own height, so #fixed never reports a measurement.
-const MEASURED_PAGES = ['#fluid', '#rtl', '#markdown', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#postcard']
+const MEASURED_PAGES = PAGE_DEMO_PAGES.filter(({ fixture }) => typeof fixture.size !== 'object' || typeof fixture.size.height !== 'number').map(
+  ({ id }) => `#${id}`,
+)
 
 async function waitForPageMeasurements(page: Harness['page']): Promise<string[]> {
   try {

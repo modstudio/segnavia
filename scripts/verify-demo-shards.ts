@@ -5,8 +5,8 @@ export type VerifyShard = Readonly<{ index: number; count: number }>
 // media 4.5, components 1.9, books 1.2, pages 1.1, selection 0.5, bounded
 // page and responsive 0.4, documents 0.2, and paper picker, thumbnail, image
 // fit, and capture under 0.1.
-// Round-robin assignment from this fixed list gives the common three shards
-// about 34 seconds each. The verifier preserves the original execution order.
+// These listed timings total about 92.5 seconds, so round-robin assignment from
+// this fixed list gives the common three shards about 31 seconds each. The verifier preserves the original execution order.
 export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyPlayer',
   'verifyPlayerLayout',
