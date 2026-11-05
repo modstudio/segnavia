@@ -275,10 +275,7 @@ export async function buildBookPdfs(
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
     writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'paginated')))
-    writeFileSync(
-      path.join(site, `book-keeps-continuous-${hebrew ? 'he' : 'en'}.pdf`),
-      await bookPdf(keepBookFixture(hebrew, 'continuous')),
-    )
+    writeFileSync(path.join(site, `book-keeps-continuous-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'continuous')))
     writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))

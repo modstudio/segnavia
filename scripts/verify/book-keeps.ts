@@ -94,26 +94,30 @@ export function verifyBookKeepPdf(pdfPath: string, language: 'en' | 'he', check:
 export function verifyContinuousBookKeepPdf(pdfPath: string, language: 'en' | 'he', check: Check): void {
   verifyBookKeepPdf(pdfPath, language, check)
   const label = path.basename(pdfPath, '.pdf')
-  const word = language === 'he' ? 'בראשית' : 'WORD'
   const lines = execFileSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' })
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
+    .filter((line) => line.trim())
   const rows: string[][] = []
   for (const line of lines) {
-    if (line.includes('xxxxx')) rows.push([line])
+    if (line.includes('xxx')) rows.push([line])
     else rows.at(-1)?.push(line)
   }
   const [control = [], next = [], previous = [], image = []] = rows
-  const sharesLine = (row: string[], mark: string) => row.some((line) => line.includes(mark) && line.includes(word))
+  const hasWord = (line: string) => (language === 'he' ? /[\u0590-\u05ff].*[\u0590-\u05ff]/.test(line) : line.includes('WORD'))
+  const sharesLine = (row: string[], mark: string) => row.some((line) => line.includes(mark) && hasWord(line))
+  const wordLine = (row: string[]) => row.find(hasWord) ?? ''
+  const wordIndent = (row: string[]) => {
+    const line = wordLine(row)
+    return line.length - line.trimStart().length
+  }
   const report = {
     control: control.some((line) => line.includes('§')) && !sharesLine(control, '§'),
     next: sharesLine(next, '§'),
     previous: sharesLine(previous, '¶'),
-    image: sharesLine(image, '§'),
-    rows: rows.slice(0, 4),
+    image: wordIndent(image) !== wordIndent(control) || wordLine(image).includes('\u2060'),
+    rows: rows.slice(0, 4).map((row) => row.map((line) => ({ indent: line.length - line.trimStart().length, text: line.trim() }))),
   }
   check(
     `${label} PDF inline keeps share a line with their adjacent word while the control breaks`,
@@ -132,5 +136,7 @@ export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Fra
     }
   })
   check(`${label} block keeps share a page with their adjacent block`, keeps.next && keeps.previous, JSON.stringify(keeps))
-  verifyBookKeepPdf(path.join(SITE, `${label}.pdf`), label.endsWith('-he') ? 'he' : 'en', check)
+  const language = label.endsWith('-he') ? 'he' : 'en'
+  verifyBookKeepPdf(path.join(SITE, `${label}.pdf`), language, check)
+  verifyContinuousBookKeepPdf(path.join(SITE, `book-keeps-continuous-${language}.pdf`), language, check)
 }
