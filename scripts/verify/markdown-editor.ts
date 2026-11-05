@@ -13,7 +13,32 @@ type EditorEvents = {
 }
 
 type EditorHandle = Pick<SegnaviaMarkdownEditor, 'markdown' | 'mode' | 'run'>
-
+type Locator = ReturnType<Harness['page']['locator']>
+async function selectStableLockedAtom(page: Harness['page'], atom: Locator, selected: Locator): Promise<{ selected: boolean; detail: string }> {
+  const waitForStableBox = async () => {
+    let previous = ''
+    for (const deadline = Date.now() + 5000; Date.now() < deadline; await page.waitForTimeout(50)) {
+      const box = await atom.boundingBox()
+      const current = box ? JSON.stringify(box) : ''
+      if (current && current === previous) return true
+      previous = current
+    }
+    return false
+  }
+  for (let attempts = 1; attempts <= 3; attempts++) {
+    if (!(await waitForStableBox())) return { selected: false, detail: `locked block bounding box did not stabilize before attempt ${attempts}` }
+    await atom.click({ position: { x: 2, y: 2 } })
+    await selected.waitFor({ timeout: 1000 }).catch(() => {})
+    if ((await selected.count()) > 0) return { selected: true, detail: '' }
+  }
+  const selection = await page.evaluate(() => {
+    const current = (
+      document.getElementById('editor') as unknown as { richView: { state: { selection: { from: number; to: number; constructor: { name: string } } } } }
+    ).richView.state.selection
+    return `${current.constructor.name} ${current.from}-${current.to}`
+  })
+  return { selected: false, detail: `locked block never became selected after 3 attempts; current selection: ${selection}` }
+}
 async function selectRichText(page: Harness['page'], text = 'Keyboard target.') {
   await page.evaluate((wanted) => {
     const element = document.getElementById('editor') as unknown as {
@@ -134,7 +159,6 @@ export async function verifyMarkdownEditor(h: Harness) {
   const editor = page.locator('segnavia-markdown-editor')
   const rich = editor.locator('.ProseMirror')
   await rich.waitFor()
-
   const initial = await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as { markdown: string; mode: string; run(command: string, args?: unknown): boolean }
     const events = (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents
@@ -147,7 +171,6 @@ export async function verifyMarkdownEditor(h: Harness) {
     initial.markdown === initial.original && initial.mode === 'source' && initial.changes === 0,
     JSON.stringify(initial),
   )
-
   const source = editor.locator('.cm-content')
   await source.waitFor()
   const sourceDirections = await editor.locator('.cm-line').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
@@ -161,7 +184,6 @@ export async function verifyMarkdownEditor(h: Harness) {
     sourceDirections.includes('ltr') && sourceEndDirections.includes('rtl'),
     [...sourceDirections, ...sourceEndDirections].join(','),
   )
-
   await page.evaluate(() => (document.getElementById('editor') as unknown as { run(command: string): boolean }).run('toggle-mode'))
   await rich.waitFor()
   const richDirections = await rich.locator('p').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
@@ -170,7 +192,6 @@ export async function verifyMarkdownEditor(h: Harness) {
     richDirections.includes('ltr') && richDirections.includes('rtl'),
     richDirections.join(','),
   )
-
   const locked = editor.locator('[part~="locked-block"]')
   const nestedPage = locked.locator('segnavia-page').first()
   const nested = nestedPage.locator('iframe')
@@ -193,7 +214,6 @@ export async function verifyMarkdownEditor(h: Harness) {
   )
   const nestedCss = await nestedPage.evaluate((page) => (page as unknown as { css: string }).css)
   check('a CSS change reaches an existing locked nested page', nestedCss === lockedCss, nestedCss)
-
   const beforeEdit = await page.evaluate(() => (document.getElementById('editor') as unknown as { markdown: string }).markdown)
   await selectRichText(page, 'English line.')
   await page.keyboard.press('ArrowRight')
@@ -220,7 +240,6 @@ export async function verifyMarkdownEditor(h: Harness) {
       (await rich.textContent())?.includes('Source edit.') === true,
     JSON.stringify({ sourceAfterRich, sourceEdited }),
   )
-
   await selectRichText(page, 'English line. Added')
   await page.keyboard.press('ControlOrMeta+k')
   const linkRequests = await page.evaluate(() => (globalThis as unknown as { editorEvents: EditorEvents }).editorEvents.links)
@@ -240,13 +259,16 @@ export async function verifyMarkdownEditor(h: Harness) {
     linkResult.refused.includes('javascript:alert(1)') && linkResult.allowed,
     JSON.stringify(linkResult),
   )
-
   const lockedAtom = editor.locator('[data-locked-label]')
   const expectedLockedOffset = await page.evaluate(() => {
     const markdown = (document.getElementById('editor') as unknown as EditorHandle).markdown
     return markdown.indexOf('```articles') - '# Original title\n'.length
   })
-  await lockedAtom.click({ position: { x: 2, y: 2 } })
+  const lockedSelection = await selectStableLockedAtom(page, lockedAtom, editor.locator('[data-locked-label].ProseMirror-selectednode'))
+  if (!lockedSelection.selected) {
+    check('Enter on a selected locked block switches to its first source character', false, lockedSelection.detail)
+    return
+  }
   await page.keyboard.press('Enter')
   const lockedSource = await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as EditorHandle & {
@@ -259,7 +281,6 @@ export async function verifyMarkdownEditor(h: Harness) {
     lockedSource.mode === 'source' && lockedSource.offset === expectedLockedOffset,
     JSON.stringify({ ...lockedSource, expectedLockedOffset }),
   )
-
   const title = editor.locator('input[part~="title"]')
   const modeBeforeTitleKey = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).mode)
   await title.click()
@@ -281,7 +302,6 @@ export async function verifyMarkdownEditor(h: Harness) {
     titleMarkdown.match(/^# Changed title$/gm)?.length === 1 && !titleMarkdown.includes('# Original title'),
     titleMarkdown,
   )
-
   const equalOptionAssignment = await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as {
       alertLabels: Record<string, string>
