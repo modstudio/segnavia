@@ -1,4 +1,5 @@
-import { type BoardCommandHandler, ITEM_COMMAND_HANDLERS } from './board-command-items.ts'
+import type { BoardCommandHandler } from './board-command-core.ts'
+import { ITEM_COMMAND_HANDLERS } from './board-command-items.ts'
 import { LABEL_COMMAND_HANDLERS } from './board-command-labels.ts'
 import { PROPERTY_COMMAND_HANDLERS } from './board-command-properties.ts'
 import { SECTION_COMMAND_HANDLERS } from './board-command-sections.ts'

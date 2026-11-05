@@ -46,6 +46,15 @@ describe('board label commands', () => {
       )
       expect(removed.board.labels.map((entry) => entry.id)).toEqual(['old'])
     })
+
+    test(`places a label after existing content by default in ${direction}`, () => {
+      const before = fixture(direction)
+      before.items[0] = { id: 'a', kind: 'page', address: 'a', x: 500, y: 400, width: 100 }
+      before.labels = []
+      const result = success(editBoard(before, [{ type: 'label-add', id: 'new', text: 'New' }], shapes(before)))
+      expect(result.board.labels[0]).toMatchObject({ x: direction === 'ltr' ? 616 : 460, y: 400 })
+      expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'default-target', id: 'new' }))
+    })
   }
 
   test('clears stored size and measures changed text for the working batch', () => {
@@ -74,12 +83,27 @@ describe('board label commands', () => {
     expect(result.changed).toContainEqual(expect.objectContaining({ kind: 'label', id: 'old' }))
   })
 
+  test('reports an estimated label used to place another label', () => {
+    const before = fixture()
+    delete before.labels[0]?.size
+    const computed = shapes(before)
+    const result = success(editBoard(before, [{ type: 'label-add', id: 'new', text: 'New', target: { beside: { id: 'old' }, side: 'below' } }], computed))
+    expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'estimated-shape', id: 'old' }))
+  })
+
   test('refuses invalid label commands with the shared refusal format', () => {
     const before = fixture()
     const cases: Array<[unknown, RegExp, Parameters<typeof editBoard>[2], Parameters<typeof editBoard>[3]?]> = [
       [{ type: 'label-set', label: { id: 'missing' }, text: 'x' }, /label id "missing" does not exist.*pass the id of an existing label/, shapes(before)],
       [{ type: 'label-add', id: 'a', text: 'x' }, /id "a" already exists.*supply a unique id/, shapes(before)],
       [{ type: 'label-add', text: 'x' }, /new label has no id.*supply an id or a newId option/, shapes(before)],
+      [{ type: 'label-remove', labels: [{ id: 'old' }, { id: 'old' }] }, /label "old" is named more than once.*name every label at most once/, shapes(before)],
+      [
+        { type: 'label-add', id: 'new', text: 'x' },
+        /label "new" measured 0x0.*return a positive width and height from measureLabel/,
+        shapes(before),
+        { measureLabel: () => ({ width: 0, height: 0 }) },
+      ],
       [{ type: 'label-set', label: { id: 'old' } }, /requires at least one of text or target.*pass a command matching BoardCommand/, shapes(before)],
       [
         { type: 'label-set', label: { id: 'old' }, target: { free: true } },

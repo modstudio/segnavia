@@ -1,31 +1,36 @@
 import type { Board, BoardLabel } from './board.ts'
-import { type BoardCommandHandler, type CommandContext, type CommandResult, placementAdjustments, settled } from './board-command-items.ts'
+import {
+  type BoardCommandHandler,
+  type CommandContext,
+  type CommandResult,
+  newEntityId,
+  placementAdjustments,
+  placementEstimatedLabels,
+  settled,
+} from './board-command-core.ts'
 import { BoardCommandRefusal, resolveLabel } from './board-command-resolvers.ts'
 import { placeBoardEntityTarget } from './board-command-targets.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import { labelShape } from './board-shapes.ts'
 
-function labelIdentity(context: CommandContext, supplied: string | undefined): { id: string; generated: boolean } {
-  const generated = supplied === undefined
-  const id = supplied ?? context.options.newId?.()
-  if (!id) throw new BoardCommandRefusal('the new label has no id', 'supply an id or a newId option')
-  if ([...context.board.items, ...context.board.labels, ...context.board.sections].some((entry) => entry.id === id))
-    throw new BoardCommandRefusal(`id "${id}" already exists`, 'supply a unique id')
-  return { id, generated }
-}
-
 function sizedLabel(
   context: CommandContext,
   label: BoardLabel,
 ): { label: BoardLabel; shape: { width: number; height: number }; adjustment: BoardEditAdjustment } {
   const result = labelShape(label, context.options.measureLabel)
-  if (result.source === 'measured')
+  if (result.source === 'measured') {
+    if (!(result.shape.width > 0 && result.shape.height > 0))
+      throw new BoardCommandRefusal(
+        `label "${label.id}" measured ${result.shape.width}x${result.shape.height}`,
+        'return a positive width and height from measureLabel',
+      )
     return {
       label: { ...label, size: result.shape },
       shape: result.shape,
       adjustment: { command: context.command, kind: 'measured-label', id: label.id, detail: `Measured label "${label.id}" from its text.` },
     }
+  }
   return {
     label,
     shape: result.shape,
@@ -34,7 +39,7 @@ function sizedLabel(
 }
 
 function labelAdd(context: CommandContext, command: BoardCommandOf<'label-add'>): CommandResult {
-  const identity = labelIdentity(context, command.id)
+  const identity = newEntityId(context, command.id, 'label')
   const sized = sizedLabel(context, { id: identity.id, text: command.text, x: 0, y: 0 })
   const shapes = { ...context.shapes, labels: { ...context.shapes.labels, [identity.id]: sized.shape } }
   let intended: Board = { ...context.board, labels: [...context.board.labels, sized.label] }
@@ -42,11 +47,10 @@ function labelAdd(context: CommandContext, command: BoardCommandOf<'label-add'>)
   const placement = placeBoardEntityTarget(intended, shapes, { kind: 'label', id: identity.id }, target)
   intended = placement.board
   const adjustments: BoardEditAdjustment[] = [sized.adjustment, ...placementAdjustments(context, placement)]
-  if (identity.generated)
-    adjustments.push({ command: context.command, kind: 'generated-id', id: identity.id, detail: `Generated id "${identity.id}" with options.newId.` })
+  if (identity.adjustment) adjustments.push(identity.adjustment)
   if (!command.target)
     adjustments.push({ command: context.command, kind: 'default-target', id: identity.id, detail: 'Placed the label at the first free spot.' })
-  return settled(context, intended, shapes, [identity.id], adjustments)
+  return settled(context, intended, shapes, [identity.id], adjustments, placementEstimatedLabels(placement))
 }
 
 function labelRemove(context: CommandContext, command: BoardCommandOf<'label-remove'>): CommandResult {
@@ -77,6 +81,7 @@ function labelSet(context: CommandContext, command: BoardCommandOf<'label-set'>)
     const placement = placeBoardEntityTarget(intended, shapes, { kind: 'label', id: label.id }, command.target)
     intended = placement.board
     adjustments.push(...placementAdjustments(context, placement))
+    return settled(context, intended, shapes, [label.id], adjustments, placementEstimatedLabels(placement))
   }
   return settled(context, intended, shapes, [label.id], adjustments)
 }

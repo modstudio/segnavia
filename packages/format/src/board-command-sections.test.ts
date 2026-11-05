@@ -70,6 +70,27 @@ describe('board section commands', () => {
       const removed = success(editBoard(result.board, [{ type: 'section-remove', section: { title: 'New' }, members: 'remove' }], shapes))
       expect(removed.board.items.map((entry) => entry.id)).toEqual(['c'])
     })
+
+    test(`anchors an automatic section at its members' start edge in ${direction}`, () => {
+      const before = fixture(direction)
+      before.items = [
+        { id: 'a', kind: 'page', address: 'a', x: 600, y: 40, width: 100 },
+        { id: 'b', kind: 'page', address: 'b', x: 720, y: 40, width: 100 },
+      ]
+      before.sections = []
+      const result = success(editBoard(before, [{ type: 'section-add', id: 'new', title: 'New', items: [{ id: 'a' }, { id: 'b' }] }], shapes))
+      const section = result.board.sections[0]
+      expect(direction === 'ltr' ? section?.rectangle.x : (section?.rectangle.x ?? 0) + (section?.rectangle.width ?? 0)).toBe(direction === 'ltr' ? 600 : 844)
+    })
+
+    test(`places an empty section after existing content by default in ${direction}`, () => {
+      const before = fixture(direction)
+      before.items = [{ id: 'a', kind: 'page', address: 'a', x: 500, y: 400, width: 100 }]
+      before.sections = []
+      const result = success(editBoard(before, [{ type: 'section-add', id: 'new', title: 'New' }], shapes))
+      expect(result.board.sections[0]?.rectangle).toMatchObject({ x: direction === 'ltr' ? 616 : 244, y: 400 })
+      expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'default-target', id: 'new' }))
+    })
   }
 
   test('switches manual to auto with layout and auto to manual without moving members', () => {
@@ -80,6 +101,48 @@ describe('board section commands', () => {
     const manual = success(editBoard(automatic.board, [{ type: 'section-set', section: { id: 'old' }, layout: 'manual' }], shapes))
     expect(manual.board.sections[0]?.cells).toBeUndefined()
     expect(manual.board.items.map(({ id, x, y }) => ({ id, x, y }))).toEqual(positions)
+  })
+
+  test('preserves an absent layout on title-only edits and emits no layout op', () => {
+    const before = fixture()
+    const section = before.sections[0]
+    if (!section) throw new Error('test board has no section')
+    delete section.layout
+    const result = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, title: 'Renamed' }], shapes))
+    expect(result.board.sections[0]?.layout).toBeUndefined()
+    const op = result.ops.find((entry) => entry.type === 'section-set')
+    expect(op).toMatchObject({ from: { title: 'Old' }, to: { title: 'Renamed' } })
+    expect(op && 'from' in op ? op.from : {}).not.toHaveProperty('layout')
+  })
+
+  test('derives missing auto cells before reordering and when auto is restated', () => {
+    const before = fixture()
+    const section = before.sections[0]
+    if (!section) throw new Error('test board has no section')
+    section.layout = 'auto'
+    delete section.cells
+    const reordered = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, items: [{ id: 'b' }, { id: 'a' }] }], shapes))
+    expect(reordered.board.sections[0]?.cells).toEqual([
+      { id: 'b', row: 0, column: 0 },
+      { id: 'a', row: 0, column: 1 },
+    ])
+    expect(reordered.board.items.find((entry) => entry.id === 'a')?.y).toBe(reordered.board.items.find((entry) => entry.id === 'b')?.y)
+
+    const restated = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, layout: 'auto' }], shapes))
+    expect(restated.board.sections[0]?.cells).toEqual([
+      { id: 'a', row: 0, column: 0 },
+      { id: 'b', row: 0, column: 1 },
+    ])
+  })
+
+  test('reports an estimated label used to place a section', () => {
+    const before = fixture()
+    before.labels = [{ id: 'estimate', text: 'Estimate', x: 600, y: 100 }]
+    const computed = { ...shapes, shapes: { ...shapes.shapes, labels: { estimate: { width: 64, height: 19 } } }, estimated: ['estimate'] }
+    const result = success(
+      editBoard(before, [{ type: 'section-add', id: 'new', title: 'New', target: { beside: { id: 'estimate' }, side: 'below' } }], computed),
+    )
+    expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'estimated-shape', id: 'estimate' }))
   })
 
   test('refuses every section ambiguity and leaves the batch atomic', () => {
@@ -105,6 +168,11 @@ describe('board section commands', () => {
         fixture(),
         { type: 'section-set', section: { id: 'old' }, items: [{ id: 'a' }, { id: 'c' }] },
         /missing \[b\] and has extra \[c\].*pass every current member/,
+      ],
+      [
+        fixture(),
+        { type: 'section-set', section: { id: 'old' }, items: [{ id: 'a' }, { id: 'a' }] },
+        /item "a" is named more than once.*name every item at most once/,
       ],
       [fixture(), { type: 'section-set', section: { id: 'old' } }, /requires at least one of title, layout or items.*pass a command matching BoardCommand/],
     ]

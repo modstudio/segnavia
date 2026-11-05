@@ -3,10 +3,8 @@
 // for hosts that do not run TypeScript.
 
 export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
-export {
-  type BoardCommandOptions,
-  DEFAULT_BOARD_ITEM_WIDTH,
-} from './board-command-items.ts'
+export type { BoardCommandOptions } from './board-command-core.ts'
+export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
 export {
   BoardCommand,
   type BoardCommandOf,

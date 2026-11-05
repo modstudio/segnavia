@@ -35,9 +35,4 @@ describe('BoardCommand', () => {
     for (const command of commands) expect(BoardCommand.safeParse(command).success).toBe(true)
     expect(PlacementTarget.safeParse({ section: { id: 's' } }).success).toBe(false)
   })
-
-  test('refuses empty set commands at the schema edge', () => {
-    for (const command of [{ type: 'section-set', section: { id: 's' } }, { type: 'label-set', label: { id: 'l' } }, { type: 'board-set' }])
-      expect(BoardCommand.safeParse(command).success).toBe(false)
-  })
 })

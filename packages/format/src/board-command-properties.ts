@@ -1,4 +1,4 @@
-import type { BoardCommandHandler, CommandContext, CommandResult } from './board-command-items.ts'
+import type { BoardCommandHandler, CommandContext, CommandResult } from './board-command-core.ts'
 import { requireItemShape } from './board-command-resolvers.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'

@@ -1,6 +1,6 @@
 import type { Board } from './board.ts'
+import type { BoardCommandOptions } from './board-command-core.ts'
 import { BOARD_COMMAND_HANDLERS } from './board-command-handlers.ts'
-import type { BoardCommandOptions } from './board-command-items.ts'
 import { BoardCommandRefusal } from './board-command-resolvers.ts'
 import { BoardCommand } from './board-commands.ts'
 import { type BoardEditAdjustment, type BoardEditResult, changedEntities, entityAt } from './board-edit-result.ts'

@@ -1,5 +1,13 @@
 import type { Board } from './board.ts'
-import { BoardCommandRefusal, requireItemShape, requireLabelShape, resolveEntity, resolveItem, resolveSection } from './board-command-resolvers.ts'
+import {
+  BoardCommandRefusal,
+  requireItemShape,
+  requireLabelShape,
+  resolveEntity,
+  resolveItem,
+  resolveLabel,
+  resolveSection,
+} from './board-command-resolvers.ts'
 import type { BoardTarget, PlacementTarget } from './board-commands.ts'
 import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, boardBounds, itemRectangle, labelRectangle } from './board-geometry.ts'
@@ -21,12 +29,6 @@ function resolvedEntityBox(board: Board, shapes: BoardShapes, target: ReturnType
   return labelRectangle(target.value, shapes)
 }
 
-function translate(board: Board, ids: readonly string[], point: Point): Board {
-  const first = board.items.find((item) => item.id === ids[0])
-  if (!first) return board
-  return moveItems(board, ids, { x: point.x - first.x, y: point.y - first.y })
-}
-
 export type BoardPlacementSubject = { kind: 'items'; ids: readonly string[] } | { kind: 'section' | 'label'; id: string }
 
 function subjectBox(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Box {
@@ -35,8 +37,7 @@ function subjectBox(board: Board, shapes: BoardShapes, subject: BoardPlacementSu
     const section = resolveSection(board, { id: subject.id })
     return section.rectangle
   }
-  const label = board.labels.find((entry) => entry.id === subject.id)
-  if (!label) throw new BoardCommandRefusal(`label id "${subject.id}" does not exist`, 'pass the id of an existing label')
+  const label = resolveLabel(board, { id: subject.id })
   requireLabelShape(shapes, subject.id)
   return labelRectangle(label, shapes)
 }
@@ -68,9 +69,7 @@ function appendPoint(board: Board, shapes: BoardShapes, id: string, sectionId?: 
       }
     }
   }
-  if (board.items.length + board.labels.length + board.sections.length <= 1) return { x: 0, y: 0 }
-  const bounds = boardBounds(board, shapes)
-  return { x: board.direction === 'rtl' ? bounds.x - SECTION_GAP - item.width : bounds.x + bounds.width + SECTION_GAP, y: bounds.y }
+  return pastContentPoint(board, shapes, { kind: 'items', ids: [id] }, item)
 }
 
 function sectionTarget(board: Board, shapes: BoardShapes, ids: readonly string[], target: Extract<BoardTarget, { section: unknown }>): Board {
@@ -93,11 +92,11 @@ function sectionTarget(board: Board, shapes: BoardShapes, ids: readonly string[]
   const index = anchor ? Math.max(0, members.indexOf(anchor.id) + (target.after ? 1 : 0)) : members.length
   const nextMembers = [...members.slice(0, index), ...ids, ...members.slice(index)]
   const assigned = { ...removed, sections: removed.sections.map((entry) => (entry.id === section.id ? { ...entry, items: nextMembers } : entry)) }
-  return translate(assigned, ids, appendPoint(assigned, shapes, ids[0] as string, section.id))
+  return moveSubjectTo(assigned, shapes, { kind: 'items', ids }, appendPoint(assigned, shapes, ids[0] as string, section.id))
 }
 
 function pointTarget(board: Board, shapes: BoardShapes, ids: readonly string[], point: Point): Board {
-  const moved = translate(unsection(board, shapes, ids), ids, point)
+  const moved = moveSubjectTo(unsection(board, shapes, ids), shapes, { kind: 'items', ids }, point)
   const assigned = assignMembership(moved, shapes, ids, point, board.sections)
   const section = [...assigned.sections].reverse().find((entry) => entry.items.some((id) => ids.includes(id)))
   if (!section || section.layout === 'manual') return assigned
@@ -177,11 +176,25 @@ function clearBeside(
   return { board: next, nudges }
 }
 
-function freePoint(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Point {
-  const box = subjectBox(board, shapes, subject)
-  if (board.items.length + board.labels.length + board.sections.length <= 1) return { x: 0, y: 0 }
-  const bounds = boardBounds(board, shapes)
+function boardWithoutSubject(board: Board, subject: BoardPlacementSubject): Board {
+  const ids = subjectEntityIds(board, subject)
+  return {
+    ...board,
+    items: board.items.filter((item) => !ids.has(item.id)),
+    labels: board.labels.filter((label) => !ids.has(label.id)),
+    sections: board.sections.filter((section) => !ids.has(section.id)),
+  }
+}
+
+function pastContentPoint(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject, box: Box): Point {
+  const content = boardWithoutSubject(board, subject)
+  if (content.items.length + content.labels.length + content.sections.length === 0) return { x: 0, y: 0 }
+  const bounds = boardBounds(content, shapes)
   return { x: board.direction === 'rtl' ? bounds.x - SECTION_GAP - box.width : bounds.x + bounds.width + SECTION_GAP, y: bounds.y }
+}
+
+function freePoint(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Point {
+  return pastContentPoint(board, shapes, subject, subjectBox(board, shapes, subject))
 }
 
 export function placeBoardEntityTarget(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject, target: PlacementTarget): BoardTargetPlacement {
@@ -212,8 +225,10 @@ export function placeBoardEntityTarget(board: Board, shapes: BoardShapes, subjec
 export function placeBoardTarget(board: Board, shapes: BoardShapes, ids: readonly string[], target: BoardTarget): BoardTargetPlacement {
   if ('section' in target) return { board: sectionTarget(board, shapes, ids, target), nudges: [], usedEstimatedLabels: [] }
   if ('at' in target) return { board: pointTarget(board, shapes, ids, target.at), nudges: [], usedEstimatedLabels: [] }
-  if ('free' in target)
-    return { board: translate(unsection(board, shapes, ids), ids, appendPoint(board, shapes, ids[0] as string)), nudges: [], usedEstimatedLabels: [] }
+  if ('free' in target) {
+    const removed = unsection(board, shapes, ids)
+    return placeBoardEntityTarget(removed, shapes, { kind: 'items', ids }, target)
+  }
   return placeBoardEntityTarget(unsection(board, shapes, ids), shapes, { kind: 'items', ids }, target)
 }
 
