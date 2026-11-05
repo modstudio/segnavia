@@ -2,10 +2,39 @@ import type { SeekPolicy } from '@segnavia/frame'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const PLAYER = '#progress-player'
+const PAUSED_OBSERVATION_MS = 500
 
 interface ProgressFacts {
   complete: number
   end: number
+}
+
+interface RailLoadFacts {
+  missing: string | null
+  replaced: number
+  reloads: number
+}
+
+interface RailRoot {
+  missing: string | null
+  rail: ShadowRoot | null
+}
+
+interface ProgressWindow {
+  progressRailShadowRoot(player: HTMLElement): RailRoot
+}
+
+async function installRailShadowRoot(h: Harness) {
+  await h.page.evaluate(() => {
+    ;(window as unknown as ProgressWindow).progressRailShadowRoot = (player) => {
+      const playerRoot = player.shadowRoot
+      const rail = playerRoot?.querySelector('segnavia-rail')?.shadowRoot ?? null
+      return {
+        missing: !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null,
+        rail,
+      }
+    }
+  })
 }
 
 async function installFacts(h: Harness) {
@@ -33,10 +62,45 @@ async function loadProgressDeck(h: Harness, seek: SeekPolicy) {
   )
 }
 
+async function installRailLoadFacts(h: Harness) {
+  await h.page.locator(PLAYER).evaluate((player: HTMLElement) => {
+    const { missing, rail } = (window as unknown as ProgressWindow).progressRailShadowRoot(player)
+    const facts: RailLoadFacts = {
+      missing,
+      replaced: 0,
+      reloads: 0,
+    }
+    const frames = rail ? [...rail.querySelectorAll('iframe')] : []
+    const loaded = new WeakSet<HTMLIFrameElement>()
+    const onLoad = (event: Event) => {
+      if (!(event.target instanceof HTMLIFrameElement)) return
+      if (loaded.has(event.target)) facts.reloads++
+      else loaded.add(event.target)
+    }
+    rail?.addEventListener('load', onLoad, { capture: true })
+    ;(window as unknown as { railLoadFacts: { facts: RailLoadFacts; stop(): void } }).railLoadFacts = {
+      facts,
+      stop: () => {
+        rail?.removeEventListener('load', onLoad, { capture: true })
+        facts.replaced = frames.filter((frame) => !frame.isConnected || !rail?.contains(frame)).length
+      },
+    }
+  })
+}
+
+async function readRailLoadFacts(h: Harness): Promise<RailLoadFacts> {
+  return h.page.evaluate(() => {
+    const observation = (window as unknown as { railLoadFacts: { facts: RailLoadFacts; stop(): void } }).railLoadFacts
+    observation.stop()
+    return observation.facts
+  })
+}
+
 export async function verifyProgress(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('progress.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await installRailShadowRoot(h)
   await installFacts(h)
 
   await loadProgressDeck(h, 'free')
@@ -47,6 +111,7 @@ export async function verifyProgress(h: Harness) {
   let facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
   check('a free skip to the end emits end without complete', facts.end === 1 && facts.complete === 0, JSON.stringify(facts))
 
+  await installRailLoadFacts(h)
   await loadProgressDeck(h, 'free')
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
   await page.waitForFunction(() => {
@@ -55,6 +120,12 @@ export async function verifyProgress(h: Harness) {
   })
   facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
   check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(facts))
+  const railLoads = await readRailLoadFacts(h)
+  check(
+    'rail thumbnails do not reload while the deck plays',
+    railLoads.missing === null && railLoads.reloads === 0 && railLoads.replaced === 0,
+    JSON.stringify(railLoads),
+  )
 
   await loadProgressDeck(h, 'furthest')
   await page.locator(PLAYER).evaluate(
@@ -88,6 +159,27 @@ export async function verifyProgress(h: Harness) {
     'furthest mode pauses on the first slide before testing the limit',
     (await currentSlide()) === '1' && pausedReachIndex === 0,
     JSON.stringify({ slide: await currentSlide(), reachIndex: pausedReachIndex }),
+  )
+  const pausedUpdates = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: EventTarget }, waitMs) => {
+    const { missing, rail } = (window as unknown as ProgressWindow).progressRailShadowRoot(player)
+    if (!rail) return { changes: null, loads: null, missing }
+    let changes = 0
+    let loads = 0
+    const onChange = () => changes++
+    const onLoad = (event: Event) => {
+      if (event.target instanceof HTMLIFrameElement) loads++
+    }
+    player.controller.addEventListener('change', onChange, { capture: true })
+    rail.addEventListener('load', onLoad, { capture: true })
+    await new Promise((resolve) => setTimeout(resolve, waitMs))
+    player.controller.removeEventListener('change', onChange, { capture: true })
+    rail.removeEventListener('load', onLoad, { capture: true })
+    return { changes, loads, missing: null }
+  }, PAUSED_OBSERVATION_MS)
+  check(
+    'pausing from a change listener stops playback updates and leaves rail thumbnails loaded',
+    pausedUpdates.missing === null && pausedUpdates.changes === 0 && pausedUpdates.loads === 0,
+    JSON.stringify(pausedUpdates),
   )
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowRight')
   check('furthest mode refuses the keyboard next key past the watched limit', (await currentSlide()) === '1')
