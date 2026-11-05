@@ -3,6 +3,7 @@ import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
+import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
@@ -25,15 +26,6 @@ import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
-const BRIDGE_MESSAGES = new Set([
-  'segnavia:key',
-  'segnavia:height',
-  'segnavia:ready',
-  'segnavia:animation',
-  'segnavia:slot-fit',
-  'segnavia:book-place',
-  'segnavia:compose-failure',
-])
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
@@ -66,6 +58,7 @@ export async function verifyBooks(h: Harness) {
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
     await verifyContinuousBookMotif(h, id)
+    await verifyInlineBookKeeps(page.frameLocator(`${frame} iframe`), id, check)
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -101,14 +94,15 @@ export async function verifyBooks(h: Harness) {
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
   check(
     'continuous books use only declared bridge message kinds',
-    messages.every((kind) => BRIDGE_MESSAGES.has(kind)),
+    messages.every((kind) => BOOK_BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
 
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
+  await verifyKeepBooks(h)
   await verifyPartsBooks(h)
-  await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
+  await verifyPaginatedBookElements(h, BOOK_BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
   await verifyNoteSeries(h)
   await verifyImportedIdmlTable(h)
@@ -163,7 +157,6 @@ async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof p
   h.check(`${id} every text box stays within its parent margins`, report.text.checked > 0 && report.text.outside === 0, report.text.detail)
   h.check(`${id} every furniture strip has its parent's text width`, report.furniture.checked > 0 && report.furniture.matches, JSON.stringify(report.furniture))
 }
-
 async function verifyPaginatedBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated.html'))
@@ -282,6 +275,14 @@ async function verifyPaginatedBooks(h: Harness) {
   await checkOversizeBooks(h)
 }
 
+async function verifyKeepBooks(h: Harness) {
+  await h.page.goto(h.url('book-keeps.html'))
+  for (const id of ['book-keeps-en', 'book-keeps-he']) {
+    const frame = await paginatedFrame(h, id)
+    await verifyPaginatedBookKeeps(h.page.frameLocator(`#${id}`), frame, id, h.check)
+  }
+}
+
 async function checkPaginatedBlocks(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
   const blocks = await frame.evaluate(inspectPaginatedBlocks)
   h.check(`${id} each chapter's endnotes follow its text and come before the next chapter's opener or blank`, blocks.endnotes.ok, blocks.endnotes.detail)
@@ -386,7 +387,6 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
-
     const pixels = await compareTemplatedPages(h, id)
     check(
       `${id} each templated page equals its PDF page (mean <= ${TEMPLATED_PAGE_MEAN}, p99 <= ${TEMPLATED_PAGE_P99})`,

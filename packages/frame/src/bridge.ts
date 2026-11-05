@@ -10,6 +10,7 @@
 import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { keepPassScript } from './keep-pass.ts'
 
 export const MESSAGE = {
   key: 'segnavia:key',
@@ -160,6 +161,7 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
       : ''
   return `(function(){
 ${storage}
+${keepPassScript()}
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${selection}

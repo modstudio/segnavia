@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decideBookMeasurement, pageReferenceFolio, unmeasuredFlows } from './book-composer.ts'
+import { appendMeasuredBlock, composerScript, decideBookMeasurement, pageReferenceFolio, unmeasuredFlows } from './book-composer.ts'
 
 const facts = {
   frameWidth: 800,
@@ -66,6 +66,22 @@ describe('decideBookMeasurement', () => {
       { id: 'back-cover', sourceBlocks: 0, contentBlocks: 0, measuredLines: 0 },
     ]
     expect(decideBookMeasurement({ ...facts, flows }, 1_000)).toBe('compose')
+  })
+})
+
+describe('block keeps', () => {
+  test('a previous keep becomes a next keep on the preceding block of its flow', () => {
+    const first = {}
+    const held = { keepWithPrevious: true }
+    const blocks: Array<{ keepWithNext?: boolean; keepWithPrevious?: boolean }> = [first]
+    appendMeasuredBlock(blocks, held)
+    expect(blocks).toEqual([{ keepWithNext: true }, {}])
+  })
+
+  test('composer reads standard and custom keeps in both directions', () => {
+    const script = composerScript('{}')
+    expect(script).toContain("style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next'")
+    expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
   })
 })
 

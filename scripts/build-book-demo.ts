@@ -7,6 +7,7 @@ import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
+import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series-fixtures.ts'
@@ -34,7 +35,7 @@ const fixture = (hebrew: boolean): BookInput => ({
       title: hebrew ? 'התחלה' : 'Beginning',
       html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
         hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
-      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p><p>${
+      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>${keepProbe(hebrew)}<p>${
         hebrew ? 'ראו עמ׳ ' : 'See page '
       }<a href="#far-shore" data-ref="page"></a>.</p>`,
     },
@@ -56,7 +57,7 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
 const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
-function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
+function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
   const kavana = hebrew ? 'כוונה א' : 'Intention A'
@@ -64,7 +65,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p><p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
@@ -148,7 +149,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
   chapters: [
     designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew, undefined, true), parents: { ...markParents, opener: 'deep-opener' } },
     designedLeaf(hebrew),
     {
       title: hebrew ? 'פרק שני' : 'Chapter Two',
@@ -273,6 +274,8 @@ export async function buildBookPdfs(
       await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
+    writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'paginated')))
+    writeFileSync(path.join(site, `book-keeps-continuous-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'continuous')))
     writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
@@ -303,6 +306,10 @@ export async function buildBookDemo(site: string): Promise<void> {
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
+    writeFileSync(
+      path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'),
+      paginatedBookDocument(Book.parse(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
+    )
     writePartsBook(site, hebrew, hebrewFace)
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
     writeFileSync(
@@ -339,6 +346,12 @@ export async function buildBookDemo(site: string): Promise<void> {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section></main></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-keeps.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book keeps</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-keeps-en" sandbox="allow-scripts" src="book-keeps-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-keeps-he" sandbox="allow-scripts" src="book-keeps-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-screen.html'),
