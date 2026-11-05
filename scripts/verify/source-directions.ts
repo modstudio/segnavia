@@ -14,7 +14,10 @@ export async function sourceDirectionsAtDocumentEnds(page: Page, editor: Locator
   })
   const sourceEndRendered = await page
     .waitForFunction(
-      (lastLine) => Array.from(document.getElementById('editor')?.shadowRoot?.querySelectorAll('.cm-line') ?? []).some((line) => line.textContent === lastLine),
+      (lastLine) =>
+        Array.from(document.getElementById('editor')?.shadowRoot?.querySelectorAll('.cm-line') ?? [])
+          .reverse()
+          .find((line) => line.textContent?.trim().length)?.textContent === lastLine,
       lastSourceLine,
       { timeout: BOUNDED_WAIT_MS },
     )
