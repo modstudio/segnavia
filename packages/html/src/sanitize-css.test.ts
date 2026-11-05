@@ -99,5 +99,13 @@ describe('CSS sanitizer', () => {
       css: ' color:red',
       removed: ['--segnavia-keep-with: prev; the accepted values are next and previous'],
     })
+    expect(rules('p{--segnavia-keep-with:NEXT}')).toEqual({
+      css: 'p{}',
+      removed: ['--segnavia-keep-with: NEXT; the accepted values are next and previous'],
+    })
+    expect(rules('p{--segnavia-keep-with:next !important}q{--segnavia-keep-with:previous}')).toEqual({
+      css: 'p{--segnavia-keep-with:next !important}q{--segnavia-keep-with:previous}',
+      removed: [],
+    })
   })
 })

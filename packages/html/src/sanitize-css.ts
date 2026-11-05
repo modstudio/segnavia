@@ -1,4 +1,5 @@
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
+import { KEEP_WITH_VALUES } from './keep-with.ts'
 
 export interface CssSanitizeResult {
   css: string
@@ -47,6 +48,21 @@ function decodedCss(source: string): string {
     .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '')
     .replace(/\s+/g, ' ')
     .toLowerCase()
+}
+
+function decodedCssValue(source: string): string {
+  let decoded = ''
+  for (let at = 0; at < source.length; ) {
+    if (source[at] === '\\') {
+      const escaped = cssEscape(source, at)
+      decoded += escaped[0]
+      at = escaped[1]
+    } else decoded += source[at++] ?? ''
+  }
+  return decoded
+    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function functionArgument(value: string): string {
@@ -273,8 +289,12 @@ function cleanDeclarationSegment(
   const name = list[start]?.value
   if (name === '--segnavia-keep-with') {
     const colon = list[start + 1]
-    const value = decodedCss(source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish)).trim()
-    if (value !== 'next' && value !== 'previous') unsafe.push(`--segnavia-keep-with: ${value}; the accepted values are next and previous`)
+    const authored = source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish).trim()
+    const authoredValue = authored.replace(/\s*!important\s*$/i, '').trim()
+    const value = decodedCssValue(authoredValue)
+    if (!(KEEP_WITH_VALUES as readonly string[]).includes(value)) {
+      unsafe.push(`--segnavia-keep-with: ${authoredValue}; the accepted values are next and previous`)
+    }
   }
   if (unsafe.length === 0) return [source.slice(character, finish), finish]
   removed.push(...unsafe)

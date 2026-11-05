@@ -27,12 +27,20 @@ async function inlineKeepReport(frame: FrameLocator) {
         range.selectNodeContents(element)
         return range.getClientRects()[0]?.top
       }
+      const elementLine = (selector: string) => root.querySelector(selector)?.getBoundingClientRect().top
       const lines = {
         control: [line('[data-keep-control]'), line('[data-keep-control-word]')],
         next: [line('[data-keep-next]'), line('[data-keep-next-word]')],
         previous: [line('[data-keep-previous]'), line('[data-keep-previous-word]')],
+        image: [elementLine('[data-keep-image]'), line('[data-keep-image-word]')],
       }
-      return { control: lines.control[0] === lines.control[1], next: lines.next[0] === lines.next[1], previous: lines.previous[0] === lines.previous[1], lines }
+      return {
+        control: lines.control[0] === lines.control[1],
+        next: lines.next[0] === lines.next[1],
+        previous: lines.previous[0] === lines.previous[1],
+        image: lines.image[0] === lines.image[1],
+        lines,
+      }
     })
 }
 
@@ -40,7 +48,7 @@ export async function verifyInlineBookKeeps(frame: FrameLocator, label: string, 
   const keeps = await inlineKeepReport(frame)
   check(
     `${label} inline keeps share a line with their adjacent word while the control breaks`,
-    keeps.next && keeps.previous && !keeps.control,
+    keeps.next && keeps.previous && keeps.image && !keeps.control,
     JSON.stringify(keeps),
   )
 }

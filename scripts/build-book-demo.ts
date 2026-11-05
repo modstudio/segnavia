@@ -348,7 +348,9 @@ export async function buildBookDemo(site: string): Promise<void> {
   )
   writeFileSync(
     path.join(site, 'book-keeps.html'),
-    `<!doctype html><html><body><iframe id="book-keeps-en" src="book-keeps-en.html"></iframe><iframe id="book-keeps-he" src="book-keeps-he.html"></iframe></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Book keeps</title><style>
+      html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-keeps-en" sandbox="allow-scripts" src="book-keeps-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-keeps-he" sandbox="allow-scripts" src="book-keeps-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-screen.html'),

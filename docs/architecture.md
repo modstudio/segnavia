@@ -1020,6 +1020,7 @@ readiness, so a strict host content security policy cannot disable either.
 The frame bridge sends a relayed key, height, readiness, animation timing,
 slot fit and, from a paginated book frame, the reader's bounded place to its host. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound.
+On `DOMContentLoaded`, its keep pass gives each element whose computed `--segnavia-keep-with` is `next` or `previous` its inline gap or block break, without adding a message.
 From a paginated book frame, a bounded `segnavia:compose-failure` report: the composer's refusal
 text, at most 1024 characters.
 On a refused-script page the bridge answers a `segnavia:selection-request` from

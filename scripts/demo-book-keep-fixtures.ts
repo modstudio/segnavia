@@ -2,10 +2,12 @@ import type { BookInput } from '@segnavia/format'
 
 export const keepProbe = (hebrew: boolean) => {
   const word = hebrew ? 'בְּרֵאשִׁית' : 'WORD'
+  const image = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22%3E%3Cpath d=%22M0 0h8v8H0z%22/%3E%3C/svg%3E'
   return `<div data-keep-probes style="font:16px/1 monospace;inline-size:10ch">
     <div>xxxxx <span data-keep-control>§</span> <span data-keep-control-word>${word}</span></div>
     <div>xxxxx <span data-keep-next style="--segnavia-keep-with:next">§</span> <span data-keep-next-word>${word}</span></div>
     <div>xxxxx <span data-keep-previous-word>${word}</span> <span data-keep-previous style="--segnavia-keep-with:previous">¶</span></div>
+    <div>xxxxx <img data-keep-image style="--segnavia-keep-with:next" src="${image}" alt="§"> <span data-keep-image-word>${word}</span></div>
   </div>`
 }
 

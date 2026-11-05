@@ -1,4 +1,4 @@
-import { embedFunction } from '@segnavia/html'
+import { embedFunction, KEEP_WITH_VALUES } from '@segnavia/html'
 import { keepGap } from './keep-gap.ts'
 
 type StyleReader = (element: Element) => CSSStyleDeclaration
@@ -9,7 +9,7 @@ type TextGap = { piece?: GapPiece; stop: boolean }
 export function outermostKeeps(elements: Element[], styleOf: StyleReader): Element[] {
   return elements.filter((element) => {
     const value = styleOf(element).getPropertyValue('--segnavia-keep-with').trim()
-    if (value !== 'next' && value !== 'previous') return false
+    if (!(KEEP_WITH_VALUES as readonly string[]).includes(value)) return false
     return !element.parentElement || styleOf(element.parentElement).getPropertyValue('--segnavia-keep-with').trim() !== value
   })
 }
@@ -34,10 +34,14 @@ function adjacentNode(element: Element, direction: Direction, block: Element): N
   return null
 }
 
-function followingNode(node: Node, direction: Direction, block: Element): Node | null {
+const ATOMIC_INLINE_TAGS = new Set(['AUDIO', 'BR', 'CANVAS', 'EMBED', 'IFRAME', 'IMG', 'INPUT', 'MATH', 'OBJECT', 'SELECT', 'SVG', 'TEXTAREA', 'VIDEO', 'WBR'])
+
+function followingNode(node: Node, direction: Direction, block: Element, styleOf: StyleReader): Node | null {
   if (node.nodeType === 1) {
+    const element = node as Element
+    if (styleOf(element).display.split(' ')[0] !== 'inline' || ATOMIC_INLINE_TAGS.has(element.tagName)) return null
     const child = direction === 'next' ? node.firstChild : node.lastChild
-    if (child) return child
+    return child
   }
   let current: Node | null = node
   while (current && current !== block) {
@@ -65,15 +69,15 @@ function gapPieces(element: Element, direction: Direction, block: Element, style
     const gap = textGap(node, direction)
     if (gap.piece) pieces.push(gap.piece)
     if (gap.stop) break
-    node = followingNode(node, direction, block)
+    node = followingNode(node, direction, block, styleOf)
   }
   return direction === 'next' ? pieces : pieces.reverse()
 }
 
-function replaceGap(pieces: GapPiece[], replacement: string): void {
+function replaceGap(pieces: GapPiece[], replacement: string, replacementIndex: number): void {
   pieces.forEach((piece, index) => {
     const value = piece.node.nodeValue ?? ''
-    piece.node.nodeValue = value.slice(0, piece.start) + (index === 0 ? replacement : '') + value.slice(piece.end)
+    piece.node.nodeValue = value.slice(0, piece.start) + (index === replacementIndex ? replacement : '') + value.slice(piece.end)
   })
 }
 
@@ -84,18 +88,15 @@ function rewriteGap(document: Document, element: Element, direction: Direction, 
   const whiteSpace = styleOf(block).whiteSpace
   if (pieces.length > 0) {
     const text = pieces.map((piece) => piece.node.nodeValue?.slice(piece.start, piece.end) ?? '').join('')
-    replaceGap(pieces, '')
-    const heldGap = document.createTextNode(gapReplacement(text, whiteSpace))
-    if (direction === 'next') element.appendChild(heldGap)
-    else element.insertBefore(heldGap, element.firstChild)
+    replaceGap(pieces, gapReplacement(text, whiteSpace), direction === 'next' ? 0 : pieces.length - 1)
     return
   }
   const joiner = document.createTextNode(gapReplacement('', whiteSpace))
-  if (direction === 'next') element.appendChild(joiner)
-  else element.insertBefore(joiner, element.firstChild)
+  if (direction === 'next') element.parentNode?.insertBefore(joiner, element.nextSibling)
+  else element.parentNode?.insertBefore(joiner, element)
 }
 
-export function applyKeepWith(document: Document, styleOf: StyleReader, gapReplacement: typeof keepGap): boolean {
+export function applyKeepWith(document: Document, styleOf: StyleReader, gapReplacement: typeof keepGap): void {
   const inlineStyles = Array.from(document.querySelectorAll<HTMLElement>('[style]'))
   const selectors: string[] = []
   let found = inlineStyles.some((element) => element.getAttribute('style')?.includes('--segnavia-keep-with'))
@@ -114,7 +115,7 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
       // An unreadable sheet cannot contribute candidates, but must not stop other keeps.
     }
   }
-  if (!found) return false
+  if (!found) return
 
   const candidates = new Set<Element>(inlineStyles.filter((element) => element.getAttribute('style')?.includes('--segnavia-keep-with')))
   for (const selector of selectors) {
@@ -132,7 +133,6 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
     else if (direction === 'next') (element as HTMLElement).style.breakAfter = 'avoid'
     else (element as HTMLElement).style.breakBefore = 'avoid'
   }
-  return keeps.length > 0
 }
 
 export function keepPassScript(): string {
@@ -150,5 +150,5 @@ export function keepPassScript(): string {
     ['applyKeepWith', applyKeepWith],
   ]
   const source = functions.map(([name, fn]) => embedFunction(name, fn)).join('\n')
-  return `${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
+  return `var KEEP_WITH_VALUES=${JSON.stringify(KEEP_WITH_VALUES)};var ATOMIC_INLINE_TAGS=new Set(${JSON.stringify(Array.from(ATOMIC_INLINE_TAGS))});\n${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
 }
