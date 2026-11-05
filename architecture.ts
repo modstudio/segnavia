@@ -90,6 +90,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       '@tiptap/pm',
       '@tiptap/starter-kit',
       'codemirror-lang-mermaid',
+      'marked',
     ],
   },
   frame: {

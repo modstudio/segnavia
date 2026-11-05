@@ -1,7 +1,9 @@
 import type { JSONContent } from '@tiptap/core'
+import type { MarkdownManager } from '@tiptap/markdown'
 import { Node } from '@tiptap/pm/model'
-import { richMarkdownManager, richSchema } from './markdown-rich-extensions.ts'
+import { richMarkdownManager, richSchema, scopedRichMarkdownManager } from './markdown-rich-extensions.ts'
 import { isLockedToken, isSilentToken, lockedFenceLabel, lockedNode, type MarkedToken } from './markdown-rich-locked.ts'
+import { normalizeReferenceLabel, RAW_INLINE_NAME } from './markdown-rich-raw-inline.ts'
 
 type Json = JSONContent
 export type RichDocumentNode = Json | Node
@@ -61,16 +63,23 @@ const dropTrailingEmptyParagraph = <T extends RichDocumentNode>(nodes: readonly 
 }
 const restoreAmpersands = (markdown: string) => markdown.replace(/&amp;(?![a-zA-Z][a-zA-Z0-9]*;)/g, '&')
 
-function parseBlock(token: MarkedToken, raw: string, lockedFences: Record<string, string>): Json[] {
+function parseBlock(manager: MarkdownManager, token: MarkedToken, raw: string, lockedFences: Record<string, string>): Json[] {
   if (isSilentToken(token)) return []
   if (isLockedToken(token, lockedFences)) return [lockedNode(raw, lockedFenceLabel(lockedFences, token.lang))]
-  const parsed = richMarkdownManager().parse(raw)
+  const parsed = manager.parse(raw)
   return (Node.fromJSON(richSchema(), parsed).toJSON().content ?? []) as Json[]
 }
 
 function blocks(markdown: string, lockedFences: Record<string, string> = {}): Block[] {
   const out: Block[] = []
-  const tokens = richMarkdownManager().instance.lexer(markdown) as MarkedToken[]
+  const initialTokens = richMarkdownManager().instance.lexer(markdown) as MarkedToken[]
+  const labels = new Set<string>()
+  for (const token of initialTokens) {
+    const definition = token.type === 'def' ? /^ {0,3}\[([^\]]+)\]:/.exec(token.raw)?.[1] : undefined
+    if (definition !== undefined) labels.add(normalizeReferenceLabel(definition))
+  }
+  const manager = scopedRichMarkdownManager(labels)
+  const tokens = manager.instance.lexer(markdown) as MarkedToken[]
   let at = 0
   let prevEnd = 0
   for (const token of tokens) {
@@ -78,7 +87,7 @@ function blocks(markdown: string, lockedFences: Record<string, string> = {}): Bl
     at += token.raw.length
     if (token.type === 'space') continue
     const raw = token.raw.replace(/\n+$/, '')
-    const nodes = parseBlock(token, raw, lockedFences)
+    const nodes = parseBlock(manager, token, raw, lockedFences)
     out.push({ raw, sep: markdown.slice(prevEnd, start), nodes, keys: nodes.map(nodeKey) })
     prevEnd = start + raw.length
   }
@@ -121,11 +130,23 @@ function firstAtOrAfter(indices: readonly number[], minimum: number): number {
 }
 
 function serializeNodes(nodes: readonly RichDocumentNode[]): string {
+  const json = nodes.map(asJson)
+  let marker = '\uE000raw-inline-amp\uE001'
+  const source = JSON.stringify(json)
+  while (source.includes(marker)) marker += '-'
+  const protect = (node: Json): Json => ({
+    ...node,
+    attrs:
+      node.type === RAW_INLINE_NAME && typeof node.attrs?.source === 'string'
+        ? { ...node.attrs, source: node.attrs.source.replaceAll('&', marker) }
+        : node.attrs,
+    content: node.content?.map(protect),
+  })
   return restoreAmpersands(
     richMarkdownManager()
-      .serialize({ type: 'doc', content: nodes.map(asJson) })
+      .serialize({ type: 'doc', content: json.map(protect) })
       .trim(),
-  )
+  ).replaceAll(marker, '&')
 }
 
 function matchingBlockIndex(entry: CachedOriginal, keys: readonly string[], keyIndex: number, blockIndex: number): number {

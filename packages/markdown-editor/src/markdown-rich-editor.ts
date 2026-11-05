@@ -7,6 +7,7 @@ import type { Node } from '@tiptap/pm/model'
 import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
+import { RAW_INLINE_NAME, RawInline } from './markdown-rich-raw-inline.ts'
 
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 
@@ -47,8 +48,31 @@ function lockedView(options: () => LockedViewOptions) {
   })
 }
 
+const rawInlineView = RawInline.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const dom = document.createElement('span')
+      dom.part.add('raw-inline')
+      dom.dataset.rawInline = ''
+      dom.dataset.rawSource = String(node.attrs.source ?? '')
+      dom.dataset.rawDisplay = String(node.attrs.display ?? '')
+      dom.dir = 'auto'
+      dom.contentEditable = 'false'
+      dom.title = String(node.attrs.source ?? '')
+      dom.textContent = String(node.attrs.display ?? '')
+      return { dom }
+    }
+  },
+})
+
 function extensions(options: () => LockedViewOptions, keyboard: Parameters<typeof richKeyboard>[0]) {
-  return [...richExtensions().map((extension) => (extension.name === LOCKED_BLOCK_NAME ? lockedView(options) : extension)), richKeyboard(keyboard)]
+  return [
+    ...richExtensions().map((extension) => {
+      if (extension.name === LOCKED_BLOCK_NAME) return lockedView(options)
+      return extension.name === RAW_INLINE_NAME ? rawInlineView : extension
+    }),
+    richKeyboard(keyboard),
+  ]
 }
 
 function pastedHtml(html: string, linkOrigins: Iterable<string> | undefined): string {
