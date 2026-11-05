@@ -218,6 +218,8 @@ The element reflects `mode`, `title-source` and `unstyled`. The `markdown`
 attribute is the initial or host-declared value, like an input's `value`;
 user edits change the live property without reflecting to the attribute. A
 later attribute or property write replaces the document with fresh history.
+The editor reads `\r\n` and a lone `\r` as `\n`, so the value it holds and
+reports has `\n` line endings only.
 `dir` and `lang` are native attributes and are inherited; the title field and
 each source line resolve their own direction with `dir="auto"`. `title` is a
 property. A `title` attribute, including one a framework wrote before the
