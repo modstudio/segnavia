@@ -1,5 +1,27 @@
 # @segnavia/render
 
+## 0.44.0
+
+### Minor Changes
+
+- 41511aa: A continuous book PDF now runs the frame's scripts when the book's markup or stylesheets declare `--segnavia-keep-with`, so the bridge applies the keeps before printing. Under `scripts: 'refuse'` the nonce CSP still admits only the library's own scripts.
+- 5a64fcc: Add `--segnavia-keep-with: next | previous` for keeping inline elements with an adjacent word and block elements with an adjacent page or column block.
+
+### Patch Changes
+
+- Updated dependencies [39b04fb]
+- Updated dependencies [2bfaeb2]
+- Updated dependencies [ab876ef]
+- Updated dependencies [4111b91]
+- Updated dependencies [e222d0b]
+- Updated dependencies [5a64fcc]
+- Updated dependencies [1e4aada]
+- Updated dependencies [70ceccb]
+  - @segnavia/format@0.44.0
+  - @segnavia/html@0.44.0
+  - @segnavia/frame@0.44.0
+  - @segnavia/diagrams@0.44.0
+
 ## 0.43.0
 
 ### Patch Changes
