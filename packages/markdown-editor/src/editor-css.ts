@@ -8,8 +8,9 @@ export const EDITOR_CSS = `
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] .ProseMirror){min-block-size:100%;outline:0}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] table){border-collapse:collapse;inline-size:max-content;min-inline-size:100%}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] th),:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] td){min-inline-size:1em}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] [data-type="taskList"]){list-style:none;padding-inline-start:0}
-:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] [data-type="taskItem"]){display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--segnavia-markdown-task-gap,.5em)}
+:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] ul:has(> li[data-checked])){list-style:none;padding-inline-start:0}
+:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] li[data-checked]){display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--segnavia-markdown-task-gap,.5em);align-items:baseline}
+:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] li[data-checked] > div > p){margin:0}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"]){display:block;position:relative;min-block-size:1em}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"] segnavia-page){display:block}
 `
