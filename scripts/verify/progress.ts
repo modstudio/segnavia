@@ -9,6 +9,11 @@ interface ProgressFacts {
   end: number
 }
 
+interface RailLoadFacts {
+  missing: string | null
+  reloads: number
+}
+
 async function installFacts(h: Harness) {
   await h.page.locator(PLAYER).evaluate((player: HTMLElement & { controller: EventTarget }) => {
     const facts: ProgressFacts = { complete: 0, end: 0 }
@@ -34,6 +39,36 @@ async function loadProgressDeck(h: Harness, seek: SeekPolicy) {
   )
 }
 
+async function installRailLoadFacts(h: Harness) {
+  await h.page.locator(PLAYER).evaluate((player: HTMLElement) => {
+    const playerRoot = player.shadowRoot
+    const rail = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
+    const facts: RailLoadFacts = {
+      missing: !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null,
+      reloads: 0,
+    }
+    const loaded = new WeakSet<HTMLIFrameElement>()
+    const onLoad = (event: Event) => {
+      if (!(event.target instanceof HTMLIFrameElement)) return
+      if (loaded.has(event.target)) facts.reloads++
+      else loaded.add(event.target)
+    }
+    rail?.addEventListener('load', onLoad, { capture: true })
+    ;(window as unknown as { railLoadFacts: { facts: RailLoadFacts; stop(): void } }).railLoadFacts = {
+      facts,
+      stop: () => rail?.removeEventListener('load', onLoad, { capture: true }),
+    }
+  })
+}
+
+async function readRailLoadFacts(h: Harness): Promise<RailLoadFacts> {
+  return h.page.evaluate(() => {
+    const observation = (window as unknown as { railLoadFacts: { facts: RailLoadFacts; stop(): void } }).railLoadFacts
+    observation.stop()
+    return observation.facts
+  })
+}
+
 export async function verifyProgress(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('progress.html'))
@@ -48,6 +83,7 @@ export async function verifyProgress(h: Harness) {
   let facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
   check('a free skip to the end emits end without complete', facts.end === 1 && facts.complete === 0, JSON.stringify(facts))
 
+  await installRailLoadFacts(h)
   await loadProgressDeck(h, 'free')
   await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { play(): Promise<void> } }) => player.controller.play())
   await page.waitForFunction(() => {
@@ -56,6 +92,8 @@ export async function verifyProgress(h: Harness) {
   })
   facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
   check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(facts))
+  const railLoads = await readRailLoadFacts(h)
+  check('rail thumbnails do not reload while the deck plays', railLoads.missing === null && railLoads.reloads === 0, JSON.stringify(railLoads))
 
   await loadProgressDeck(h, 'furthest')
   await page.locator(PLAYER).evaluate(
@@ -91,21 +129,26 @@ export async function verifyProgress(h: Harness) {
     JSON.stringify({ slide: await currentSlide(), reachIndex: pausedReachIndex }),
   )
   const pausedUpdates = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: EventTarget }, waitMs) => {
-    const rail = player.querySelector('segnavia-rail')?.shadowRoot
+    const playerRoot = player.shadowRoot
+    const rail = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
+    const missing = !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null
+    if (missing) return { changes: null, loads: null, missing }
     let changes = 0
     let loads = 0
     const onChange = () => changes++
-    const onLoad = () => loads++
+    const onLoad = (event: Event) => {
+      if (event.target instanceof HTMLIFrameElement) loads++
+    }
     player.controller.addEventListener('change', onChange, { capture: true })
-    rail?.addEventListener('load', onLoad, { capture: true })
+    rail.addEventListener('load', onLoad, { capture: true })
     await new Promise((resolve) => setTimeout(resolve, waitMs))
     player.controller.removeEventListener('change', onChange, { capture: true })
-    rail?.removeEventListener('load', onLoad, { capture: true })
-    return { changes, loads }
+    rail.removeEventListener('load', onLoad, { capture: true })
+    return { changes, loads, missing }
   }, PAUSED_OBSERVATION_MS)
   check(
     'pausing from a change listener stops playback updates and leaves rail thumbnails loaded',
-    pausedUpdates.changes === 0 && pausedUpdates.loads === 0,
+    pausedUpdates.missing === null && pausedUpdates.changes === 0 && pausedUpdates.loads === 0,
     JSON.stringify(pausedUpdates),
   )
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowRight')
