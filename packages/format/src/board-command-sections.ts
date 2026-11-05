@@ -16,7 +16,7 @@ import { removeItems } from './board-edit.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import { defaultGridColumns, itemRectangle } from './board-geometry.ts'
 import { cellsInOrder, deriveSectionCells, layoutSection, removeFromGrid } from './board-section-grid.ts'
-import { fitSection, SECTION_MIN_SIZE, SECTION_PADDING } from './board-sections.ts'
+import { fitSection, SECTION_MIN_SIZE } from './board-sections.ts'
 
 function requireUniqueTitle(board: Board, title: string, except?: string): void {
   const duplicate = board.sections.find((section) => section.id !== except && section.title === title)
@@ -30,7 +30,7 @@ function memberStart(board: Board, context: CommandContext, ids: readonly string
     return itemRectangle(item, context.shapes)
   })
   return {
-    x: board.direction === 'rtl' ? Math.max(...boxes.map((box) => box.x + box.width)) + SECTION_PADDING : Math.min(...boxes.map((box) => box.x)),
+    x: board.direction === 'rtl' ? Math.max(...boxes.map((box) => box.x + box.width)) : Math.min(...boxes.map((box) => box.x)),
     y: Math.min(...boxes.map((box) => box.y)),
   }
 }

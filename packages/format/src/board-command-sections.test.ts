@@ -80,7 +80,7 @@ describe('board section commands', () => {
       before.sections = []
       const result = success(editBoard(before, [{ type: 'section-add', id: 'new', title: 'New', items: [{ id: 'a' }, { id: 'b' }] }], shapes))
       const section = result.board.sections[0]
-      expect(direction === 'ltr' ? section?.rectangle.x : (section?.rectangle.x ?? 0) + (section?.rectangle.width ?? 0)).toBe(direction === 'ltr' ? 600 : 844)
+      expect(direction === 'ltr' ? section?.rectangle.x : (section?.rectangle.x ?? 0) + (section?.rectangle.width ?? 0)).toBe(direction === 'ltr' ? 600 : 820)
     })
 
     test(`places an empty section after existing content by default in ${direction}`, () => {
