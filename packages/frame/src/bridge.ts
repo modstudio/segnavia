@@ -23,12 +23,15 @@ export const MESSAGE = {
   inspect: 'segnavia:inspect',
   selectionRequest: 'segnavia:selection-request',
   selection: 'segnavia:selection',
+  headingRequest: 'segnavia:heading-request',
+  heading: 'segnavia:heading',
   bookLayout: 'segnavia:book-layout',
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
+export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
@@ -115,6 +118,10 @@ function bridgeScript(options: FrameOptions): string {
     options.scripts === 'refuse'
       ? `window.addEventListener('message',function(e){var data=e.data;if(e.source===parent&&data&&data.type==='${MESSAGE.selectionRequest}'&&typeof data.id==='number'&&isFinite(data.id)){post({type:'${MESSAGE.selection}',id:data.id,text:String(getSelection?getSelection():''),pageText:(document.body||document.documentElement).innerText});}});`
       : ''
+  const heading =
+    options.scripts === 'refuse'
+      ? `window.addEventListener('message',function(e){var data=e.data;if(e.source!==parent||!data||data.type!=='${MESSAGE.headingRequest}'||typeof data.id!=='number'||!isFinite(data.id)||typeof data.heading!=='string'||data.heading.length>${HEADING_ID_LIMIT})return;var headings=document.querySelectorAll('h1,h2,h3,h4,h5,h6'),heading=null;for(var h=0;h<headings.length;h++){if(headings[h].id===data.heading){heading=headings[h];break;}}if(!heading){post({type:'${MESSAGE.heading}',id:data.id,top:null});return;}var scrolling=document.scrollingElement;if(scrolling)scrolling.scrollTop+=heading.getBoundingClientRect().top;post({type:'${MESSAGE.heading}',id:data.id,top:heading.getBoundingClientRect().top});});`
+      : ''
   const print =
     options.printAtMs === undefined
       ? ''
@@ -165,6 +172,7 @@ ${keepPassScript()}
 var post=function(m){parent.postMessage(m,'*')};
 var keys=${keys};
 ${selection}
+${heading}
 ${print}
 ${printBackground}
 var liveAt=null;
@@ -348,6 +356,14 @@ export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement |
   if (data?.type !== MESSAGE.selection || data.id !== id || typeof data.text !== 'string' || typeof data.pageText !== 'string') return null
   if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return { oversize: true }
   return { selection: { text: data.text, pageText: data.pageText } }
+}
+
+export function headingMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): number | null | undefined {
+  if (event.source !== frame?.contentWindow) return undefined
+  const data = event.data as { type?: unknown; id?: unknown; top?: unknown }
+  if (data?.type !== MESSAGE.heading || data.id !== id || (data.top !== null && (typeof data.top !== 'number' || !Number.isFinite(data.top))))
+    return undefined
+  return data.top
 }
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'

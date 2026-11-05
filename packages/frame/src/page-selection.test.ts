@@ -24,9 +24,19 @@ class TestElement extends EventTarget {
   title = ''
   private attributes = new Map<string, string>()
   private children: TestElement[] = []
+  private parent: TestElement | undefined
 
   append(child: TestElement) {
+    child.parent = this
     this.children.push(child)
+  }
+
+  remove() {
+    if (this.parent) this.parent.children = this.parent.children.filter((child) => child !== this)
+  }
+
+  scrollIntoView(options?: ScrollIntoViewOptions) {
+    headingScrolls.push({ marker: this, options })
   }
 
   getAttribute(name: string) {
@@ -53,6 +63,7 @@ class TestElement extends EventTarget {
 
   replaceChildren(...children: TestElement[]) {
     this.children = children
+    for (const child of children) child.parent = this
   }
 
   setAttribute(name: string, value: string) {
@@ -79,6 +90,7 @@ class TestFrame extends TestElement {
 }
 
 const messageListeners = new Set<(event: MessageEvent) => void>()
+const headingScrolls: Array<{ marker: TestElement; options?: ScrollIntoViewOptions }> = []
 const testDocument = {
   createElement(name: string) {
     return name === 'iframe' ? new TestFrame() : new TestElement()
@@ -112,8 +124,10 @@ function deferred<T>() {
 
 function selectionHarness() {
   const previousDocument = globalThis.document
+  const previousLocation = globalThis.location
   const previousWindow = globalThis.window
-  Object.assign(globalThis, { document: testDocument, window: testWindow })
+  Object.assign(globalThis, { document: testDocument, location: { href: 'https://host.example/' }, window: testWindow })
+  headingScrolls.length = 0
   const page = new SegnaviaPage()
   const attributes = new Map<string, string>()
   let children: TestElement[] = []
@@ -148,7 +162,7 @@ function selectionHarness() {
     page,
     dispatch,
     frame: () => page.querySelector('iframe') as unknown as TestFrame,
-    restore: () => Object.assign(globalThis, { document: previousDocument, window: previousWindow }),
+    restore: () => Object.assign(globalThis, { document: previousDocument, location: previousLocation, window: previousWindow }),
   }
 }
 
@@ -266,5 +280,61 @@ test('an oversize selection reply is refused', async () => {
     pageText: 'Page',
   })
   expect(await pending).toContain(`${SELECTION_TEXT_LIMIT}-unit limit`)
+  harness.restore()
+})
+
+test('an unknown heading resolves false', async () => {
+  const harness = selectionHarness()
+  harness.page.load({ markdown: '# Known', scripts: 'refuse' })
+  const frame = harness.frame()
+  frame.load()
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
+  const pending = harness.page.scrollToHeading('unknown')
+  const { id } = frame.posts[0] as { id: number }
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.heading, id, top: null })
+  expect(await pending).toBe(false)
+  expect(headingScrolls).toEqual([])
+  harness.restore()
+})
+
+test('a heading reply scrolls a clamped marker in sheet coordinates', async () => {
+  const harness = selectionHarness()
+  harness.page.load({ markdown: '# Known', scripts: 'refuse' })
+  const frame = harness.frame()
+  frame.load()
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.height, height: 100 })
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
+  const pending = harness.page.scrollToHeading('known', { behavior: 'smooth' })
+  const { id } = frame.posts[0] as { id: number }
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.heading, id, top: 500 })
+  expect(await pending).toBe(true)
+  expect(headingScrolls).toHaveLength(1)
+  expect(headingScrolls[0]?.marker.style.insetBlockStart).toBe('100px')
+  expect(headingScrolls[0]?.marker.getAttribute('aria-hidden')).toBe('true')
+  expect(headingScrolls[0]?.options).toEqual({ block: 'start', behavior: 'smooth' })
+  expect(harness.page.querySelector('.segnavia-page__heading-marker')).toBeNull()
+  harness.restore()
+})
+
+test('heading scrolling refuses unsafe pages and an over-long id', async () => {
+  const harness = selectionHarness()
+  await expect(harness.page.scrollToHeading('x'.repeat(257))).rejects.toThrow('not a string from 1 to 256 characters')
+  harness.page.load({ markdown: '# Scripted', scripts: 'sandboxed' })
+  await expect(harness.page.scrollToHeading('scripted')).rejects.toThrow('while author scripts run')
+  harness.page.showUrl('https://example.com/page')
+  await expect(harness.page.scrollToHeading('hosted')).rejects.toThrow('host-served document')
+  harness.restore()
+})
+
+test('a pending heading request is cancelled when the page changes', async () => {
+  const harness = selectionHarness()
+  harness.page.load({ markdown: '# First', scripts: 'refuse' })
+  const frame = harness.frame()
+  frame.load()
+  harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
+  const pending = harness.page.scrollToHeading('first')
+  expect(frame.posts).toHaveLength(1)
+  harness.page.load({ markdown: '# Second', scripts: 'refuse' })
+  await expect(pending).rejects.toThrow('page changed before it replied')
   harness.restore()
 })
