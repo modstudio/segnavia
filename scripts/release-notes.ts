@@ -78,7 +78,7 @@ export function releaseNotes(version: string, changelogs: PackageChangelog[]): s
       if (entries.length > 0)
         groups.push([group.heading, '', ...entries.flatMap((entry, index) => (index === 0 ? entry.lines : ['', ...entry.lines]))].join('\n'))
     }
-    if (groups.length > 0) packageSections.push([`## ${changelog.packageName}`, '', ...groups].join('\n'))
+    if (groups.length > 0) packageSections.push([`## ${changelog.packageName}`, ...groups].join('\n\n'))
   }
 
   if (!foundVersion) {

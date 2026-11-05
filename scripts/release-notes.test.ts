@@ -21,6 +21,18 @@ describe('releaseNotes', () => {
     )
   })
 
+  test('separates change types within a package by a blank line', () => {
+    const notes = releaseNotes('1.2.3', [
+      {
+        packageName: '@segnavia/frame',
+        changelogPath: 'packages/frame/CHANGELOG.md',
+        changelogText: '## 1.2.3\n\n### Minor Changes\n\n- aaa1111: Add.\n\n### Patch Changes\n\n- bbb2222: Fix.\n',
+      },
+    ])
+
+    expect(notes).toBe('## @segnavia/frame\n\n### Minor Changes\n\n- aaa1111: Add.\n\n### Patch Changes\n\n- bbb2222: Fix.\n')
+  })
+
   test('drops updated dependencies entries and their nested package lines', () => {
     const notes = releaseNotes('1.2.3', [
       {
