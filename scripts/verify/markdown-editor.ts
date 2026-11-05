@@ -1,6 +1,7 @@
 import type { SegnaviaMarkdownEditor } from '@segnavia/markdown-editor'
 import type { Harness } from './harness.ts'
 import { selectStableLockedAtom } from './locked-atom.ts'
+import { sourceDirectionsAtDocumentEnds } from './source-directions.ts'
 
 type EditorEvents = {
   markdown: string[]
@@ -158,16 +159,11 @@ export async function verifyMarkdownEditor(h: Harness) {
 
   const source = editor.locator('.cm-content')
   await source.waitFor()
-  const sourceDirections = await editor.locator('.cm-line').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
-  await editor.locator('.cm-scroller').evaluate((scroller) => {
-    scroller.scrollTop = scroller.scrollHeight
-  })
-  await page.waitForTimeout(50)
-  const sourceEndDirections = await editor.locator('.cm-line').evaluateAll((lines) => lines.map((line) => getComputedStyle(line).direction))
+  const { sourceDirections, sourceEndDirections, sourceEndRendered } = await sourceDirectionsAtDocumentEnds(page, editor, initial.markdown)
   check(
     'English and Hebrew source lines each take their own direction',
-    sourceDirections.includes('ltr') && sourceEndDirections.includes('rtl'),
-    [...sourceDirections, ...sourceEndDirections].join(','),
+    sourceEndRendered && sourceDirections.includes('ltr') && sourceEndDirections.includes('rtl'),
+    sourceEndRendered ? [...sourceDirections, ...sourceEndDirections].join(',') : 'the end of the document never rendered',
   )
 
   await page.evaluate(() => (document.getElementById('editor') as unknown as { run(command: string): boolean }).run('toggle-mode'))
