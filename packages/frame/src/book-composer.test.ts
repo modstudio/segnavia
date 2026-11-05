@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { appendMeasuredBlock, composerScript, decideBookMeasurement, noteFragmentExtent, pageReferenceFolio, unmeasuredFlows } from './book-composer.ts'
+import {
+  appendMeasuredBlock,
+  composerScript,
+  decideBookMeasurement,
+  noteFragmentExtent,
+  noteSettlementOverlapsBody,
+  pageReferenceFolio,
+  unmeasuredFlows,
+} from './book-composer.ts'
 
 const facts = {
   frameWidth: 800,
@@ -103,9 +111,17 @@ test('derives a note fragment extent from its own settled line boxes', () => {
     { top: 29, bottom: 51 },
     { top: 56, bottom: 78 },
   ]
-  expect(noteFragmentExtent(lines, 0, 1)).toEqual({ start: 2, end: 24 })
-  expect(noteFragmentExtent(lines, 1, 3)).toEqual({ start: 29, end: 78 })
+  expect(noteFragmentExtent(lines, 0, 1)).toEqual({ start: 2, end: 26.5 })
+  expect(noteFragmentExtent(lines, 1, 2)).toEqual({ start: 26.5, end: 53.5 })
+  expect(noteFragmentExtent(lines, 1, 3)).toEqual({ start: 26.5, end: 78 })
   expect(noteFragmentExtent(lines, 3, 4)).toBeUndefined()
+})
+
+test('refuses only settlement-induced note overlap with the body', () => {
+  expect(noteSettlementOverlapsBody(500, 480, 490)).toBeTrue()
+  expect(noteSettlementOverlapsBody(480, 480, 490)).toBeFalse()
+  expect(noteSettlementOverlapsBody(500, 499.6, 510)).toBeFalse()
+  expect(noteSettlementOverlapsBody(500, 480, 470)).toBeFalse()
 })
 
 test('refuses a page reference beyond the folio table', () => {
