@@ -1,11 +1,18 @@
 export interface PackageChangelog {
   packageName: string
+  changelogPath: string
   changelogText: string
+}
+
+interface ChangeEntry {
+  text: string
+  lines: string[]
+  kind: 'change' | 'dependency'
 }
 
 interface ChangeGroup {
   heading: string
-  entries: string[][]
+  entries: ChangeEntry[]
 }
 
 function versionSection(version: string, changelogText: string): string[] | undefined {
@@ -16,36 +23,38 @@ function versionSection(version: string, changelogText: string): string[] | unde
   return lines.slice(start + 1, end === -1 ? undefined : end)
 }
 
-function changeGroups(lines: string[]): ChangeGroup[] {
+function changeGroups(sectionLines: string[]): ChangeGroup[] {
   const groups: ChangeGroup[] = []
   let group: ChangeGroup | undefined
-  let entry: string[] | undefined
+  let lines: string[] | undefined
 
   const finishEntry = () => {
-    if (!group || !entry) return
-    while (entry.at(-1) === '') entry.pop()
-    if (!entry[0]?.startsWith('- Updated dependencies')) group.entries.push(entry)
-    entry = undefined
+    if (!group || !lines) return
+    while (lines.at(-1) === '') lines.pop()
+    const firstLine = lines[0]
+    if (!firstLine) return
+    group.entries.push({
+      text: firstLine.slice(2),
+      lines,
+      kind: firstLine.startsWith('- Updated dependencies') || /^- @segnavia\/[^@\s]+@\S+$/.test(firstLine) ? 'dependency' : 'change',
+    })
+    lines = undefined
   }
 
-  for (const line of lines) {
+  for (const line of sectionLines) {
     if (line.startsWith('### ')) {
       finishEntry()
       group = { heading: line, entries: [] }
       groups.push(group)
     } else if (group && line.startsWith('- ')) {
       finishEntry()
-      entry = [line]
-    } else if (entry) {
-      entry.push(line)
+      lines = [line]
+    } else if (lines) {
+      lines.push(line)
     }
   }
   finishEntry()
   return groups
-}
-
-function changelogPath(packageName: string): string {
-  return `packages/${packageName.replace(/^@segnavia\//, '')}/CHANGELOG.md`
 }
 
 export function releaseNotes(version: string, changelogs: PackageChangelog[]): string {
@@ -60,22 +69,23 @@ export function releaseNotes(version: string, changelogs: PackageChangelog[]): s
 
     const groups: string[] = []
     for (const group of changeGroups(section)) {
-      const entries = group.entries.filter((lines) => {
-        const match = lines[0]?.match(/^- ([^:]+): (.+)$/)
-        if (!match) return true
-        const key = `${match[1]}: ${match[2]}`
-        if (seenEntries.has(key)) return false
-        seenEntries.add(key)
+      const entries = group.entries.filter((entry) => {
+        if (entry.kind === 'dependency') return false
+        if (seenEntries.has(entry.text)) return false
+        seenEntries.add(entry.text)
         return true
       })
-      if (entries.length > 0) groups.push([group.heading, '', ...entries.flatMap((lines, index) => (index === 0 ? lines : ['', ...lines]))].join('\n'))
+      if (entries.length > 0)
+        groups.push([group.heading, '', ...entries.flatMap((entry, index) => (index === 0 ? entry.lines : ['', ...entry.lines]))].join('\n'))
     }
     if (groups.length > 0) packageSections.push([`## ${changelog.packageName}`, '', ...groups].join('\n'))
   }
 
   if (!foundVersion) {
-    const files = changelogs.map(({ packageName }) => changelogPath(packageName)).join(', ')
-    throw new Error(`Could not find version ${version} in the CHANGELOG files read: ${files}.`)
+    const files = changelogs.map(({ changelogPath }) => changelogPath).join(', ')
+    throw new Error(
+      `Could not find version ${version} in the CHANGELOG files read: ${files}. Run bun run version so each package changelog gains a section for ${version}, then release again.`,
+    )
   }
   return `${packageSections.join('\n\n')}\n`
 }

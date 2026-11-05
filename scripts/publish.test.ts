@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { dependencyOrder, packedPackageRefusal, publishedPackageRefusal, registryState, releaseDecision } from './publish-policy.ts'
+import { dependencyOrder, githubReleaseActions, packedPackageRefusal, publishedPackageRefusal, registryState, releaseDecision } from './publish-policy.ts'
 
 const workspaceNames = new Set(['@segnavia/format', '@segnavia/frame'])
 
@@ -100,5 +100,26 @@ describe('registry and release decisions', () => {
       '@segnavia/frame@0.1.0 has local integrity sha512-local but npm has sha512-registry. Release a new version.',
     )
     expect(publishedPackageRefusal('@segnavia/frame', '0.1.0', 'sha512-same', 'sha512-same')).toBeUndefined()
+  })
+})
+
+describe('githubReleaseActions', () => {
+  const facts = { version: '1.2.3', releasedCommit: 'released123', releaseExists: false }
+
+  test('creates a missing tag and release', () => {
+    expect(githubReleaseActions({ ...facts, tagCommit: null })).toEqual({ tag: 'create', release: 'create' })
+  })
+
+  test('keeps a tag at the released commit and edits an existing release', () => {
+    expect(githubReleaseActions({ ...facts, tagCommit: 'released123', releaseExists: true })).toEqual({ tag: 'keep', release: 'edit' })
+  })
+
+  test('refuses to move a tag at another commit', () => {
+    expect(githubReleaseActions({ ...facts, tagCommit: 'published456' })).toEqual({
+      tag: 'refuse',
+      release: 'create',
+      refusal:
+        'Tag v1.2.3 points to published456, not the released commit released123. Check out published456 to release the commit already tagged, or delete v1.2.3 if it is incorrect, then release again.',
+    })
   })
 })

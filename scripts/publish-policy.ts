@@ -16,6 +16,27 @@ export interface PackedManifest {
 export type RegistryState = 'missing' | 'published'
 export type ReleaseDecision = 'publish' | 'skip' | 'hold'
 
+export interface GitHubReleaseFacts {
+  version: string
+  releasedCommit: string
+  tagCommit: string | null
+  releaseExists: boolean
+}
+
+export type GitHubReleaseActions = { tag: 'create' | 'keep'; release: 'create' | 'edit' } | { tag: 'refuse'; release: 'create' | 'edit'; refusal: string }
+
+export function githubReleaseActions(facts: GitHubReleaseFacts): GitHubReleaseActions {
+  const tag = `v${facts.version}`
+  const release = facts.releaseExists ? 'edit' : 'create'
+  if (facts.tagCommit === null) return { tag: 'create', release }
+  if (facts.tagCommit === facts.releasedCommit) return { tag: 'keep', release }
+  return {
+    tag: 'refuse',
+    release,
+    refusal: `Tag ${tag} points to ${facts.tagCommit}, not the released commit ${facts.releasedCommit}. Check out ${facts.tagCommit} to release the commit already tagged, or delete ${tag} if it is incorrect, then release again.`,
+  }
+}
+
 export function dependencyOrder(packages: PackageDependencies[]): string[] {
   const remaining = new Map(packages.map((item) => [item.name, new Set(item.dependencies)]))
   const ordered: string[] = []
