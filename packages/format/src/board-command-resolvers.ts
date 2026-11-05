@@ -64,6 +64,14 @@ export function resolveSection(board: Board, ref: BoardSectionRef): BoardSection
   )
 }
 
+export function resolveLabel(board: Board, ref: { id: string }): BoardLabel {
+  return one(
+    board.labels.filter((label) => label.id === ref.id),
+    `label id "${ref.id}"`,
+    'pass the id of an existing label',
+  )
+}
+
 export type ResolvedBoardEntity = { kind: 'item'; value: BoardItem } | { kind: 'section'; value: BoardSection } | { kind: 'label'; value: BoardLabel }
 
 export function resolveEntity(board: Board, ref: BoardEntityRef): ResolvedBoardEntity {

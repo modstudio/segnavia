@@ -1,5 +1,6 @@
 import type { Board } from './board.ts'
-import { BOARD_COMMAND_HANDLERS, type BoardCommandOptions } from './board-command-items.ts'
+import type { BoardCommandOptions } from './board-command-core.ts'
+import { BOARD_COMMAND_HANDLERS } from './board-command-handlers.ts'
 import { BoardCommandRefusal } from './board-command-resolvers.ts'
 import { BoardCommand } from './board-commands.ts'
 import { type BoardEditAdjustment, type BoardEditResult, changedEntities, entityAt } from './board-edit-result.ts'
@@ -62,7 +63,7 @@ export function editBoard(board: Board, commands: BoardCommand[], shapes: Comput
     ok: true,
     board: current,
     ops: diffBoards(board, current),
-    changed: changedEntities(board, current, currentShapes, detail),
+    changed: changedEntities(board, current, currentShapes, detail, shapes.shapes),
     adjustments: detail === 'full' ? fullAdjustments(current, currentShapes, uniqueAdjustments) : uniqueAdjustments,
     detail,
   }

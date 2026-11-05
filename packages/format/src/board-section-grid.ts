@@ -5,6 +5,10 @@ import type { Box, Point } from './deck.ts'
 
 export type GridDropTarget = { anchor: string; side: 'before' | 'after'; axis: 'row' | 'column' } | { row: number; column: number; axis: 'cell' }
 
+export function cellsInOrder(ids: readonly string[], columns: number): GridCell[] {
+  return ids.map((id, index) => ({ id, row: Math.floor(index / columns), column: index % columns }))
+}
+
 function sectionOf(board: Board, id: string): BoardSection | undefined {
   return board.sections.find((section) => section.id === id)
 }
