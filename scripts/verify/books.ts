@@ -100,6 +100,7 @@ export async function verifyBooks(h: Harness) {
 
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
+  await verifyKeepBooks(h)
   await verifyPartsBooks(h)
   await verifyPaginatedBookElements(h, BOOK_BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
@@ -172,7 +173,6 @@ async function verifyPaginatedBooks(h: Harness) {
     check(`${id} book CSS styles paginated text color and size`, bookStyle.color === 'rgb(91, 42, 123)' && bookStyle.size === '23px', JSON.stringify(bookStyle))
     const report = await inspectPaginated(h, id)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
-    await verifyPaginatedBookKeeps(page.frameLocator(`#${id}`), frame, id, check)
     check(
       `${id} every galley line is on exactly one window`,
       report.lost === 0 && report.repeated === 0,
@@ -274,6 +274,14 @@ async function verifyPaginatedBooks(h: Harness) {
   check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
   await verifyNoteCaseBooks(h)
   await checkOversizeBooks(h)
+}
+
+async function verifyKeepBooks(h: Harness) {
+  await h.page.goto(h.url('book-keeps.html'))
+  for (const id of ['book-keeps-en', 'book-keeps-he']) {
+    const frame = await paginatedFrame(h, id)
+    await verifyPaginatedBookKeeps(h.page.frameLocator(`#${id}`), frame, id, h.check)
+  }
 }
 
 async function checkPaginatedBlocks(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
@@ -380,7 +388,6 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
-
     const pixels = await compareTemplatedPages(h, id)
     check(
       `${id} each templated page equals its PDF page (mean <= ${TEMPLATED_PAGE_MEAN}, p99 <= ${TEMPLATED_PAGE_P99})`,

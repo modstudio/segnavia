@@ -32,17 +32,7 @@ async function inlineKeepReport(frame: FrameLocator) {
         next: [line('[data-keep-next]'), line('[data-keep-next-word]')],
         previous: [line('[data-keep-previous]'), line('[data-keep-previous-word]')],
       }
-      const next = root.querySelector('[data-keep-next]')
-      const previous = root.querySelector('[data-keep-previous]')
-      const detail = [next, previous].map((element) => ({
-        display: element ? getComputedStyle(element).display : '',
-        keep: element ? getComputedStyle(element).getPropertyValue('--segnavia-keep-with') : '',
-        style: element?.getAttribute('style'),
-        text: element?.textContent,
-        before: element?.previousSibling?.nodeValue,
-        after: element?.nextSibling?.nodeValue,
-      }))
-      return { control: lines.control[0] === lines.control[1], next: lines.next[0] === lines.next[1], previous: lines.previous[0] === lines.previous[1], lines, detail }
+      return { control: lines.control[0] === lines.control[1], next: lines.next[0] === lines.next[1], previous: lines.previous[0] === lines.previous[1], lines }
     })
 }
 

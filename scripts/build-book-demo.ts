@@ -34,6 +34,15 @@ const blockKeepProbe = (hebrew: boolean) => {
     <div style="block-size:160mm"></div><p data-keep-block-previous-neighbor style="margin:0">${before}</p><div data-keep-block-previous style="margin:0;--segnavia-keep-with:previous">${previous}</div>`
 }
 
+const keepBookFixture = (hebrew: boolean): BookInput => ({
+  title: hebrew ? 'ספר שמירות' : 'Keep Book',
+  mode: 'paginated',
+  lang: hebrew ? 'he' : 'en',
+  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+  css: ':where(html){font:16px/1.5 monospace}',
+  chapters: [{ title: hebrew ? 'שמירות' : 'Keeps', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
+})
+
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
@@ -173,7 +182,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
       html: chapterTwoHtml(hebrew),
       parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
     },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: `${chapterThreeHtml(hebrew)}${blockKeepProbe(hebrew)}` },
+    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
     { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
     columnFitChapter(hebrew),
   ],
@@ -291,6 +300,7 @@ export async function buildBookPdfs(
       await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
+    writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew)))
     writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
   }
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
@@ -321,6 +331,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
+    writeFileSync(path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'), paginatedBookDocument(Book.parse(keepBookFixture(hebrew)), { nonce: newNonce() }))
     writePartsBook(site, hebrew, hebrewFace)
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
     writeFileSync(
@@ -357,6 +368,10 @@ export async function buildBookDemo(site: string): Promise<void> {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section></main></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'book-keeps.html'),
+    `<!doctype html><html><body><iframe id="book-keeps-en" src="book-keeps-en.html"></iframe><iframe id="book-keeps-he" src="book-keeps-he.html"></iframe></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-screen.html'),

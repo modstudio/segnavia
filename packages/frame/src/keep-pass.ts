@@ -1,3 +1,4 @@
+import { embedFunction } from '@segnavia/html'
 import { keepGap } from './keep-gap.ts'
 
 type StyleReader = (element: Element) => CSSStyleDeclaration
@@ -135,7 +136,7 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
 }
 
 export function keepPassScript(): string {
-  const functions: Array<[string, { toString(): string }]> = [
+  const functions: Array<[string, { name: string; toString(): string }]> = [
     ['keepGap', keepGap],
     ['outermostKeeps', outermostKeeps],
     ['inlineLevel', inlineLevel],
@@ -148,6 +149,6 @@ export function keepPassScript(): string {
     ['rewriteGap', rewriteGap],
     ['applyKeepWith', applyKeepWith],
   ]
-  const source = functions.map(([name, fn]) => fn.toString().replace(/^function\s+[^([]+/, `function ${name}`)).join('\n')
-  return `${source}\nvar keepWithApplied=false;var applyKeeps=function(){if(!keepWithApplied)keepWithApplied=applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);};document.addEventListener('DOMContentLoaded',applyKeeps);`
+  const source = functions.map(([name, fn]) => embedFunction(name, fn)).join('\n')
+  return `${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
 }
