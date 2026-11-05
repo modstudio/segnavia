@@ -35,7 +35,9 @@ export async function verifyTwoPageNoteSeries(h: Harness) {
         const views = Array.from(text.querySelectorAll(':scope > [data-segnavia-page-note]')).map((view) => view.getBoundingClientRect())
         return views.every((view, index) => index === 0 || (views[index - 1]?.bottom ?? 0) <= view.top + 0.5)
       })
-      const finalDeltas = Array.from(document.querySelectorAll('[data-segnavia-page-note]')).map((view) => Number(view.getAttribute('data-segnavia-note-settled-delta')))
+      const finalDeltas = Array.from(document.querySelectorAll('[data-segnavia-page-note]')).map((view) =>
+        Number(view.getAttribute('data-segnavia-note-settled-delta')),
+      )
       const plannedDeltas = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-page-note]')).map((view) => {
         const planned = view.getAttribute('data-segnavia-note-planned-height')
         return planned === null ? null : view.getBoundingClientRect().height - Number(planned)
