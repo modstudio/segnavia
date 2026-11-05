@@ -1,3 +1,11 @@
+// An href on these elements is a link the reader follows. On any other
+// element, an href is a resource the page fetches.
+export const LINK_ELEMENTS = new Set(['a', 'area'])
+
+/**
+ * Governs hrefs on link elements (`a` and `area`) only. An href on any other
+ * element is judged as a fetch: a same-document fragment or a safe data image.
+ */
 export interface LinkPolicy {
   // Absolute URL protocols a link may use.
   protocols: Iterable<string>

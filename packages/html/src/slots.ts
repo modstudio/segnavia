@@ -10,6 +10,7 @@ import {
 } from '@segnavia/format'
 import { type ChildNode, type Element, isTag, Text } from 'domhandler'
 import { bindingNames, hasBindings } from './bindings.ts'
+import { LINK_ELEMENTS } from './link-policy.ts'
 import { qrPayload, qrSvg } from './qr.ts'
 import { elements, parse, serialize } from './sanitize.ts'
 
@@ -132,7 +133,7 @@ function invalidBinding(element: Element, names: ReturnType<typeof bindingNames>
     return `Slot "${src}" uses a src binding on <${tag}>; src bindings are allowed only on <img>.`
   }
   const href = element.attribs[names.href]
-  if (href !== undefined && report.slots[href] !== undefined && tag !== 'a' && tag !== 'area') {
+  if (href !== undefined && report.slots[href] !== undefined && !LINK_ELEMENTS.has(tag)) {
     report.slots[href] = 'invalid'
     return `Slot "${href}" uses an href binding on <${tag}>; href bindings are allowed only on <a> and <area>.`
   }
