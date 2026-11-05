@@ -85,4 +85,22 @@ describe('CSS sanitizer', () => {
     expect(rules('p{content:"url(data:image/png;base64,AA==)"}')).toEqual({ css: 'p{content:"url(data:image/png;base64,AA==)"}', removed: [] })
     expect(rules('p{content:"src(data:font/woff2;base64,AA==)"}', true)).toEqual({ css: 'p{content:"src(data:font/woff2;base64,AA==)"}', removed: [] })
   })
+
+  test('keeps only accepted keep-with directions', () => {
+    expect(rules('p{--segnavia-keep-with:next}q{--segnavia-keep-with: previous}')).toEqual({
+      css: 'p{--segnavia-keep-with:next}q{--segnavia-keep-with: previous}',
+      removed: [],
+    })
+    expect(rules('p{color:red;--segnavia-keep-with:prev}q{--segnavia-keep-with:}')).toEqual({
+      css: 'p{color:red;}q{}',
+      removed: [
+        '--segnavia-keep-with: prev; the accepted values are next and previous',
+        '--segnavia-keep-with: ; the accepted values are next and previous',
+      ],
+    })
+    expect(declarations('--segnavia-keep-with: prev; color:red')).toEqual({
+      css: ' color:red',
+      removed: ['--segnavia-keep-with: prev; the accepted values are next and previous'],
+    })
+  })
 })

@@ -270,6 +270,12 @@ function cleanDeclarationSegment(
   const segmentEnd = hasSemicolon ? end + 1 : end
   const finish = hasSemicolon ? delimiter.end : end < list.length ? (delimiter?.start ?? source.length) : source.length
   const unsafe = findings(source, list, start, segmentEnd, dataFonts, fontFace)
+  const name = list[start]?.value
+  if (name === '--segnavia-keep-with') {
+    const colon = list[start + 1]
+    const value = decodedCss(source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish)).trim()
+    if (value !== 'next' && value !== 'previous') unsafe.push(`--segnavia-keep-with: ${value}; the accepted values are next and previous`)
+  }
   if (unsafe.length === 0) return [source.slice(character, finish), finish]
   removed.push(...unsafe)
   return [source.slice(character, list[start]?.start ?? finish), finish]
