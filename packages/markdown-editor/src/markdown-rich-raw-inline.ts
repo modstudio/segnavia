@@ -6,7 +6,7 @@ const ASCII_PUNCTUATION = String.raw`[!-/:-@\[-` + '{-~]'
 const escapePattern = new RegExp(`^\\\\${ASCII_PUNCTUATION}`)
 const entityPattern = /^&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#[xX][0-9A-Fa-f]+);/
 const footnotePattern = /^\[\^[^\]\n]+\]/
-const inlineHtmlPattern = /^(?:<!--[\s\S]*?-->|<\/?[A-Za-z](?:[^<>"'\n]|"[^"]*"|'[^']*')*?>)/
+const inlineHtmlPattern = /^(?:<!--[\s\S]*?-->|<\/?[A-Za-z](?:[^<>"']|"[^"]*"|'[^']*')*?>)/
 const bracketContent = String.raw`(?:\\.|[^\[\]\\]|\[(?:\\.|[^\[\]\\])*\])*`
 const referencePattern = new RegExp(`^(!?)\\[(${bracketContent})\\](?:\\[(${bracketContent})\\])?`)
 
@@ -35,7 +35,7 @@ function rawSource(src: string, labels: ReadonlySet<string>): { source: string; 
   const reference = referenceSource(src, labels)
   if (reference) return { source: reference, display: reference }
   const html = inlineHtmlPattern.exec(src)?.[0]
-  return html ? { source: html, display: html } : undefined
+  return html && (!html.startsWith('<!') ? !/\n[ \t]*\n/.test(html) : true) ? { source: html, display: html } : undefined
 }
 
 export function rawInline(labels: ReadonlySet<string> = new Set()) {

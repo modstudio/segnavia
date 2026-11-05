@@ -208,8 +208,10 @@ uses frame's `createPageElement`, `HEADLESS_ELEMENTS`, `SegnaviaPage`, fonts
 entry and `ensureStyle` helpers, and its `@segnavia/frame/element-properties`
 entry for late-set property replay. `ensureStyle` installs a named stylesheet once
 per document or shadow root; `ensureBaseStyle` uses it for frame's base style.
-The editor's Tiptap, CodeMirror, Lezer and Mermaid-language engines are required
-peers, so a host supplies one shared copy. The element has an open shadow root and
+The editor's Tiptap, CodeMirror, Lezer, Marked (`^17.0.1`) and Mermaid-language
+engines are required peers, so a host supplies one shared copy. Each markdown
+manager receives its own `new Marked()`, so the editor never changes the global
+Marked instance supplied by the host. The element has an open shadow root and
 supplies behavior and zero-specificity geometry only. `unstyled` removes
 that geometry. Its stylesheet is installed once per document or shadow root
 and is not part of frame's `BASE_CSS`.
@@ -245,7 +247,10 @@ original block separators so every untouched block keeps its exact source.
 Inside an edited block, backslash escapes, character references, footnote
 references, defined reference links and images, and inline HTML tags and
 comments keep their exact source as opaque inline atoms. Footnote definitions
-are locked blocks, and list looseness is part of the list node. These constructs
+are locked blocks, and list looseness is part of the list node. One rule applies
+to bullet, ordered and task lists: a blank line makes the list loose only when
+it separates base-indent items or direct block children of an item, not when it
+is inside a fence or nested list or trails the final item. These constructs
 therefore keep their source exactly when their containing block is edited.
 Frontmatter, directive containers, Mermaid and host-named fences, GitHub
 alerts and raw HTML are locked atoms. Comments and link definitions are
@@ -254,6 +259,18 @@ side of it. A locked atom shows its isolated host label, or an ordinary
 nested `<segnavia-page>` rendering that block as Markdown with author scripts
 refused. It exposes `part="locked-block"` and labeled atoms also expose
 `data-locked-label`; there is no editor chrome.
+
+An opaque inline atom exposes `part="raw-inline"` and keeps its exact source in
+the native `title` tooltip. It has no appearance by default beyond inline
+padding and bidirectional isolation. Hosts may style it with these properties:
+
+| Property | Default |
+|---|---|
+| `--segnavia-markdown-raw-inline-color` | `inherit` |
+| `--segnavia-markdown-raw-inline-background` | `transparent` |
+| `--segnavia-markdown-raw-inline-border` | `none` |
+| `--segnavia-markdown-raw-inline-radius` | `0` |
+| `--segnavia-markdown-raw-inline-padding` | `.15em` |
 
 Rich mode preserves meaning rather than source form for the other syntax in an
 edited block. The current serializer rewrites the forms observed by the editor
@@ -301,11 +318,6 @@ highlight set with these properties, all of which default to `inherit`:
 | `--segnavia-markdown-code` | Inline and fenced code |
 | `--segnavia-markdown-mark` | Markdown punctuation and separators |
 | `--segnavia-markdown-invalid` | Invalid syntax |
-| `--segnavia-markdown-raw-inline-color` | Opaque inline Markdown text |
-| `--segnavia-markdown-raw-inline-background` | Opaque inline Markdown background |
-| `--segnavia-markdown-raw-inline-border` | Opaque inline Markdown border |
-| `--segnavia-markdown-raw-inline-radius` | Opaque inline Markdown corner radius |
-| `--segnavia-markdown-raw-inline-padding` | Opaque inline Markdown inline padding |
 
 Every editor event bubbles and crosses the shadow boundary.
 `segnavia-markdown-change` carries `{ markdown }` and is suppressed when that

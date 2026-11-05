@@ -2,11 +2,15 @@ import { isDiagramFence, isGithubAlertBlock } from '@segnavia/html'
 import { Node } from '@tiptap/core'
 
 export const LOCKED_BLOCK_NAME = 'lockedBlock'
+const FOOTNOTE_OPENING = /^ {0,3}\[\^/m
 
 export type MarkedToken = { type: string; raw: string; lang?: string; depth?: number }
 
 function matchFootnoteDefinition(src: string): string | undefined {
-  const first = /^(?: {0,3})\[\^[^\]\n]+\]:[^\n]*(?:\n|$)/.exec(src)?.[0]
+  const opening = FOOTNOTE_OPENING.exec(src)
+  if (opening?.index !== 0) return undefined
+  const rest = /^[^\]\n]+\]:[^\n]*(?:\n|$)/.exec(src.slice(opening[0].length))?.[0]
+  const first = rest === undefined ? undefined : opening[0] + rest
   if (!first) return undefined
   let end = first.length
   while (end < src.length) {
@@ -89,9 +93,8 @@ export const LockedBlock = Node.create({
     name: 'lockedFence',
     level: 'block',
     start(src: string) {
-      if (src.startsWith('---') || src.startsWith(':::') || /^(?: {0,3})\[\^/.test(src)) return 0
-      const indices = [src.indexOf('\n[^'), src.indexOf('\n [^'), src.indexOf('\n  [^'), src.indexOf('\n   [^')].filter((index) => index >= 0)
-      return indices.length ? Math.min(...indices) + 1 : -1
+      if (src.startsWith('---') || src.startsWith(':::')) return 0
+      return FOOTNOTE_OPENING.exec(src)?.index ?? -1
     },
     tokenize(src: string, tokens: unknown[]) {
       if (tokens.length === 0) {

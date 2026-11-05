@@ -40,6 +40,7 @@ const inlineCases = [
   ['shortcut image', 'Keep ![img].\n\n[img]: /image.png', '![img]'],
   ['open and close HTML', 'Keep <kbd>key</kbd> here.', '<kbd>key</kbd>'],
   ['self-closing HTML', 'Keep <i data-x="1"/> here.', '<i data-x="1"/>'],
+  ['multi-line HTML', 'See <a\nhref="x">link</a> here.', '<a\nhref="x">'],
   ['inline comment', 'Keep <!-- marker --> here.', '<!-- marker -->'],
 ] as const
 
@@ -58,11 +59,12 @@ test('opaque inline families keep exact source beside Hebrew text', () => {
     'עברית [טקסט][קישור].\n\n[קישור]: /target',
     'עברית ![תמונה][קישור].\n\n[קישור]: /image.png',
     'עברית <kbd>מקש</kbd> כאן.',
+    'עברית <a\nhref="x">קישור</a> כאן.',
   ]
   for (const source of cases) {
     const expected = source.includes('\n\n')
       ? source.slice(0, source.indexOf('\n\n')).match(/(?:\\.|&[^ ]+;|\[\^[^\]]+\]|!?\[[^\]]+\]\[[^\]]+\]|<kbd>.*<\/kbd>)/)?.[0]
-      : source.match(/(?:\\.|&[^ ]+;|<kbd>.*<\/kbd>)/)?.[0]
+      : source.match(/(?:\\.|&[^ ]+;|<kbd>.*<\/kbd>|<a\nhref="x">.*<\/a>)/)?.[0]
     if (!expected) throw new Error(`missing expected construct in ${source}`)
     expect(editedRoundTrip(`${source}\n`).saved, source).toContain(expected)
   }

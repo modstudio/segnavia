@@ -5,7 +5,7 @@ import { Node } from '@tiptap/pm/model'
 import { Marked } from 'marked'
 import { joinLeadingHeading, splitLeadingHeading } from './markdown-title.ts'
 
-const { richSchema, taskListIsLoose } = await import('./markdown-rich-extensions.ts')
+const { listIsLoose, richSchema } = await import('./markdown-rich-extensions.ts')
 const { parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
 
 const bodyTransform = { split: splitLeadingHeading, join: joinLeadingHeading }
@@ -131,7 +131,14 @@ test('editing one list item preserves its untouched siblings', () => {
 })
 
 test('loose bullet, ordered, and task lists stay loose when edited', () => {
-  for (const markdown of ['- Alpha\n\n- Beta\n', '1. One\n\n2. Two\n', '- [x] Done\n\n- [ ] Pending\n']) {
+  for (const markdown of [
+    '- Alpha\n\n- Beta\n',
+    '1. One\n\n2. Two\n',
+    '- [x] Done\n\n- [ ] Pending\n',
+    '- אלף\n\n- בית\n',
+    '1. אחד\n\n2. שניים\n',
+    '- [x] בוצע\n\n- [ ] ממתין\n',
+  ]) {
     const nodes = clone(parseRichDocument(markdown))
     const list = nodes[0]
     expect(list?.attrs?.loose, markdown).toBe(true)
@@ -144,27 +151,44 @@ test('loose bullet, ordered, and task lists stay loose when edited', () => {
   }
 })
 
-test('loose Hebrew lists stay loose when edited', () => {
-  for (const markdown of ['- אלף\n\n- בית\n', '1. אחד\n\n2. שניים\n', '- [x] בוצע\n\n- [ ] ממתין\n']) {
-    const nodes = clone(parseRichDocument(markdown))
-    const text = nodes[0]?.content?.[0]?.content?.[0]?.content?.find((node) => node.type === 'text')
-    if (!text || typeof text.text !== 'string') throw new Error('expected Hebrew list text')
-    text.text += ' נערך'
-    expect(saveRichDocument(markdown, nodes), markdown).toContain('\n\n')
-  }
-})
-
-test('task-list looseness matches marked lists without checkboxes', () => {
+test('one list-looseness rule matches marked for ordinary and task lists', () => {
   const fixtures = [
+    '- Alpha\n- Beta\n',
+    '1. One\n2. Two\n',
     '- [x] Done\n- [ ] Pending\n',
+    '- אלף\n- בית\n',
     '- [x] Done\n\n- [ ] Pending\n',
     '- [x] First paragraph\n\n  Second paragraph\n- [ ] Pending\n',
     '- [x] Done\n- [ ] Pending\n\n',
+    '1. a\n   ```\n   x\n\n   y\n   ```\n2. b\n',
+    '- a\n  ```\n  x\n\n  y\n  ```\n- b\n',
+    '- Parent\n  - Child\n\n    continuation\n  - Other child\n- Sibling\n',
   ]
   const lexer = new Marked()
   for (const source of fixtures) {
     const ordinary = source.replace(/(\s*[-+*]\s+)\[[ xX]\]\s+/g, '$1')
     const token = lexer.lexer(ordinary)[0]
-    expect(taskListIsLoose(source), source).toBe(token?.type === 'list' && token.loose)
+    expect(listIsLoose(source), source).toBe(token?.type === 'list' && token.loose)
+  }
+})
+
+test('blank lines inside fenced code and nested lists keep their parent list tight', () => {
+  const fixtures = [
+    '1. a\n   ```\n   x\n\n   y\n   ```\n2. b\n',
+    '- a\n  ```\n  x\n\n  y\n  ```\n- b\n',
+    '- Parent\n  - Child\n\n    continuation\n  - Other child\n- Sibling\n',
+    '- אב\n  - ילד\n\n    המשך\n  - ילד אחר\n- אח\n',
+  ]
+  for (const markdown of fixtures) {
+    const nodes = clone(parseRichDocument(markdown))
+    expect(nodes[0]?.attrs?.loose, markdown).toBe(false)
+    const list = nodes[0]
+    const lastItem = list?.content?.at(-1)
+    const lastText = lastItem?.content?.[0]?.content?.find((node) => node.type === 'text')
+    if (!lastText || typeof lastText.text !== 'string') throw new Error('expected the last list item text')
+    lastText.text += ' changed'
+    const saved = saveRichDocument(markdown, nodes)
+    expect(saved, markdown).not.toMatch(/(?:```\n|- Other child\n)\n(?:2\. b|- Sibling)/)
+    expect(parseRichDocument(saved)[0]?.attrs?.loose, saved).toBe(false)
   }
 })

@@ -57,7 +57,6 @@ const rawInlineView = RawInline.extend({
       dom.dataset.rawSource = String(node.attrs.source ?? '')
       dom.dataset.rawDisplay = String(node.attrs.display ?? '')
       dom.dir = 'auto'
-      dom.style.unicodeBidi = 'isolate'
       dom.contentEditable = 'false'
       dom.title = String(node.attrs.source ?? '')
       dom.textContent = String(node.attrs.display ?? '')
