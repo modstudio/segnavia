@@ -200,6 +200,13 @@ describe('frame document', () => {
     expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")
   })
 
+  test('runs the keep pass without expanding the relay surface', () => {
+    const script = bridgeForHost({ reportHeight: false })
+    expect(script).toContain('querySelectorAll("[style]")')
+    expect(script).toContain('style.breakAfter = "avoid"')
+    expect(RELAYED_KEYS).toEqual(['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'Escape', ' ', 'm', 'c', 'f'])
+  })
+
   test('direction and language land on the root the author declared, or one we supply', () => {
     expect(frameDocument('<html lang="en"><body>x</body></html>', { scripts: 'refuse', nonce: 'n', dir: 'rtl' })).toContain('<html lang="en" dir="rtl">')
     expect(frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', dir: 'rtl', lang: 'he' })).toContain('<html dir="rtl" lang="he"><body><p>x</p>')
