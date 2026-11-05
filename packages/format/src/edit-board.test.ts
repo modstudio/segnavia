@@ -90,6 +90,44 @@ describe('editBoard item commands', () => {
   })
 
   for (const direction of ['ltr', 'rtl'] as const) {
+    test(`adds an item on the logical start side in ${direction}`, () => {
+      const before = board(direction)
+      before.items = [item('a')]
+      const result = success(
+        editBoard(before, [{ type: 'item-add', id: 'new', kind: 'page', address: 'new', width: 40, target: { beside: { id: 'a' }, side: 'start' } }], shapes, {
+          facts: { new: { kind: 'page', size: { width: 1, height: 1 } } },
+        }),
+      )
+      const added = result.board.items.find((entry) => entry.id === 'new')
+      const reference = result.board.items.find((entry) => entry.id === 'a')
+      if (!added || !reference) throw new Error('added item and reference must exist')
+      expect(direction === 'ltr' ? added.x + added.width < reference.x : added.x > reference.x + reference.width).toBe(true)
+    })
+
+    test(`moves an item to the logical end side in ${direction}`, () => {
+      const before = board(direction)
+      before.items = [item('a'), item('c', 'c', 400)]
+      const result = success(editBoard(before, [{ type: 'item-move', items: [{ id: 'a' }], target: { beside: { id: 'c' }, side: 'end' } }], shapes))
+      const moved = result.board.items.find((entry) => entry.id === 'a')
+      const reference = result.board.items.find((entry) => entry.id === 'c')
+      if (!moved || !reference) throw new Error('moved item and reference must exist')
+      expect(direction === 'ltr' ? moved.x > reference.x + reference.width : moved.x + moved.width < reference.x).toBe(true)
+    })
+
+    test(`arranges the second item on the logical end side in ${direction}`, () => {
+      const result = success(editBoard(board(direction), [{ type: 'arrange', columns: 2 }], shapes))
+      const first = result.board.items.find((entry) => entry.id === 'a')
+      const second = result.board.items.find((entry) => entry.id === 'b')
+      expect((second?.x ?? 0) > (first?.x ?? 0)).toBe(direction === 'ltr')
+    })
+
+    test(`removes an item and round-trips its ops in ${direction}`, () => {
+      const before = board(direction)
+      const result = success(editBoard(before, [{ type: 'item-remove', items: [{ id: 'b' }] }], shapes))
+      expect(result.board.items.map((entry) => entry.id)).toEqual(['a', 'c'])
+      expect(applyBoardOps(before, result.ops)).toEqual(result.board)
+    })
+
     test(`defaults resize anchor to logical start in ${direction}`, () => {
       const result = success(editBoard(board(direction), [{ type: 'item-resize', item: { id: 'a' }, width: 120 }], shapes))
       expect(result.board.items[0]?.x).toBe(direction === 'ltr' ? 0 : -20)
