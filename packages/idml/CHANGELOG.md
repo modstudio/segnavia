@@ -1,5 +1,23 @@
 # @segnavia/idml
 
+## 0.44.0
+
+### Minor Changes
+
+- 9a9988e: Add `inspectIdml` and answer-driven IDML part mapping. Imports whose source offers ambiguous structure now refuse with the open question and its candidate labels; inspect the file, choose from its previews, and pass the choice through `answers` to clear the refusal.
+
+### Patch Changes
+
+- Updated dependencies [39b04fb]
+- Updated dependencies [2bfaeb2]
+- Updated dependencies [ab876ef]
+- Updated dependencies [4111b91]
+- Updated dependencies [5a64fcc]
+- Updated dependencies [1e4aada]
+- Updated dependencies [70ceccb]
+  - @segnavia/format@0.44.0
+  - @segnavia/html@0.44.0
+
 ## 0.43.0
 
 ### Patch Changes

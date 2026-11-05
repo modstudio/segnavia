@@ -1,5 +1,19 @@
 # @segnavia/format
 
+## 0.44.0
+
+### Minor Changes
+
+- 39b04fb: Add a pure structural board description for agents, including filtering, paging, geometry, and shape-confidence details.
+- 2bfaeb2: Add pure `BoardCommand` item editing, `BoardTarget`, and atomic `editBoard` batches with diffs, resolved geometry changes, adjustments, and refusals.
+- ab876ef: Add granular, invertible board operations. `BoardOp` is a Zod schema published as `jsonSchemas().boardOp`; `applyBoardOps` refuses malformed or stale operations, `diffBoards` computes the operations between two boards, and `invertOps` reverses them. `Board.parse` now keeps the first occurrence of a section member listed more than once, instead of accepting the repeat.
+- 1e4aada: Edit board sections, labels, titles, and text direction through board commands.
+- 70ceccb: Add optional measured sizes to `BoardLabel` and export `boardShapes`, `BoardItemFact`, `labelShape`, `provisionalShape`, and `resolvedShape` from format.
+
+  Boards whose items reuse one address for different asset kinds are now refused; hosts with such stored boards must give each kind its own address.
+
+  The public `resolvedShape` export from frame now takes a `BoardItemFact` instead of a `ResolvedBoardItem`; callers must pass the format shape fact.
+
 ## 0.43.0
 
 ### Patch Changes

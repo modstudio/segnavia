@@ -1,5 +1,29 @@
 # @segnavia/frame
 
+## 0.44.0
+
+### Minor Changes
+
+- 5a64fcc: Add `--segnavia-keep-with: next | previous` for keeping inline elements with an adjacent word and block elements with an adjacent page or column block.
+- 70ceccb: Add optional measured sizes to `BoardLabel` and export `boardShapes`, `BoardItemFact`, `labelShape`, `provisionalShape`, and `resolvedShape` from format.
+
+  Boards whose items reuse one address for different asset kinds are now refused; hosts with such stored boards must give each kind its own address.
+
+  The public `resolvedShape` export from frame now takes a `BoardItemFact` instead of a `ResolvedBoardItem`; callers must pass the format shape fact.
+
+### Patch Changes
+
+- e222d0b: Pausing from a `change` listener now stops playback updates, and a rail render no longer reloads its mounted thumbnail frames.
+- Updated dependencies [39b04fb]
+- Updated dependencies [2bfaeb2]
+- Updated dependencies [ab876ef]
+- Updated dependencies [4111b91]
+- Updated dependencies [5a64fcc]
+- Updated dependencies [1e4aada]
+- Updated dependencies [70ceccb]
+  - @segnavia/format@0.44.0
+  - @segnavia/html@0.44.0
+
 ## 0.43.0
 
 ### Minor Changes
