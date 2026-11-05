@@ -242,6 +242,11 @@ Rich mode is TipTap in the shadow root. Markdown stays the source of truth.
 Entering rich parses it; leaving rich saves it. An unchanged switch is
 byte-for-byte silent, while an edit stitches newly serialized nodes among the
 original block separators so every untouched block keeps its exact source.
+Inside an edited block, backslash escapes, character references, footnote
+references, defined reference links and images, and inline HTML tags and
+comments keep their exact source as opaque inline atoms. Footnote definitions
+are locked blocks, and list looseness is part of the list node. These constructs
+therefore keep their source exactly when their containing block is edited.
 Frontmatter, directive containers, Mermaid and host-named fences, GitHub
 alerts and raw HTML are locked atoms. Comments and link definitions are
 carried silently and keep their place: an edit beside one stays on the same
@@ -249,6 +254,16 @@ side of it. A locked atom shows its isolated host label, or an ordinary
 nested `<segnavia-page>` rendering that block as Markdown with author scripts
 refused. It exposes `part="locked-block"` and labeled atoms also expose
 `data-locked-label`; there is no editor chrome.
+
+Rich mode preserves meaning rather than source form for the other syntax in an
+edited block. The current serializer rewrites the forms observed by the editor
+round trip as follows: underscore emphasis uses asterisks; plus and asterisk
+bullets use hyphens; setext headings become ATX headings; backslash hard breaks
+become two trailing spaces; table padding and delimiter rows are normalized;
+ordered-list delimiters become periods and item numbers after the first become
+sequential; single-quoted and parenthesized link titles use double quotes; and
+tilde or longer backtick code fences use triple backticks. A host can use this
+boundary to warn before switching modes when source form matters.
 
 Rich mode holds schema nodes, including inline images. Links and images from
 commands or paste use the Markdown reader URL rule. Optional `linkOrigins`
@@ -286,6 +301,11 @@ highlight set with these properties, all of which default to `inherit`:
 | `--segnavia-markdown-code` | Inline and fenced code |
 | `--segnavia-markdown-mark` | Markdown punctuation and separators |
 | `--segnavia-markdown-invalid` | Invalid syntax |
+| `--segnavia-markdown-raw-inline-color` | Opaque inline Markdown text |
+| `--segnavia-markdown-raw-inline-background` | Opaque inline Markdown background |
+| `--segnavia-markdown-raw-inline-border` | Opaque inline Markdown border |
+| `--segnavia-markdown-raw-inline-radius` | Opaque inline Markdown corner radius |
+| `--segnavia-markdown-raw-inline-padding` | Opaque inline Markdown inline padding |
 
 Every editor event bubbles and crosses the shadow boundary.
 `segnavia-markdown-change` carries `{ markdown }` and is suppressed when that

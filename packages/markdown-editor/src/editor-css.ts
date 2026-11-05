@@ -13,4 +13,5 @@ export const EDITOR_CSS = `
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] li[data-checked] > div > p){margin:0}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"]){display:block;position:relative;min-block-size:1em}
 :where(:host(segnavia-markdown-editor:not([unstyled])) [part~="locked-block"] segnavia-page){display:block}
+:where(:host(segnavia-markdown-editor:not([unstyled])) [part~="rich"] [part~="raw-inline"]){unicode-bidi:isolate;color:var(--segnavia-markdown-raw-inline-color,inherit);background:var(--segnavia-markdown-raw-inline-background,transparent);border:var(--segnavia-markdown-raw-inline-border,1px solid currentColor);border-radius:var(--segnavia-markdown-raw-inline-radius,.2em);padding-inline:var(--segnavia-markdown-raw-inline-padding,.15em)}
 `

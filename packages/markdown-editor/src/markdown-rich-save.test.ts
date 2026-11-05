@@ -2,9 +2,10 @@ import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
 import type { JSONContent } from '@tiptap/core'
 import { Node } from '@tiptap/pm/model'
+import { Marked } from 'marked'
 import { joinLeadingHeading, splitLeadingHeading } from './markdown-title.ts'
 
-const { richSchema } = await import('./markdown-rich-extensions.ts')
+const { richSchema, taskListIsLoose } = await import('./markdown-rich-extensions.ts')
 const { parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
 
 const bodyTransform = { split: splitLeadingHeading, join: joinLeadingHeading }
@@ -127,4 +128,43 @@ test('editing one list item preserves its untouched siblings', () => {
   if (!second) throw new Error('expected the second list item paragraph')
   second.content = [{ type: 'text', text: 'Beta changed' }]
   expect(saveRichDocument(markdown, nodes)).toBe('- Alpha\n- Beta changed\n- Gamma\n')
+})
+
+test('loose bullet, ordered, and task lists stay loose when edited', () => {
+  for (const markdown of ['- Alpha\n\n- Beta\n', '1. One\n\n2. Two\n', '- [x] Done\n\n- [ ] Pending\n']) {
+    const nodes = clone(parseRichDocument(markdown))
+    const list = nodes[0]
+    expect(list?.attrs?.loose, markdown).toBe(true)
+    const firstText = list?.content?.[0]?.content?.[0]?.content?.find((node) => node.type === 'text')
+    if (!firstText || typeof firstText.text !== 'string') throw new Error('expected the first list item text')
+    firstText.text += ' changed'
+    const saved = saveRichDocument(markdown, nodes)
+    expect(saved, markdown).toContain('\n\n')
+    expect(parseRichDocument(saved)[0]?.attrs?.loose, saved).toBe(true)
+  }
+})
+
+test('loose Hebrew lists stay loose when edited', () => {
+  for (const markdown of ['- אלף\n\n- בית\n', '1. אחד\n\n2. שניים\n', '- [x] בוצע\n\n- [ ] ממתין\n']) {
+    const nodes = clone(parseRichDocument(markdown))
+    const text = nodes[0]?.content?.[0]?.content?.[0]?.content?.find((node) => node.type === 'text')
+    if (!text || typeof text.text !== 'string') throw new Error('expected Hebrew list text')
+    text.text += ' נערך'
+    expect(saveRichDocument(markdown, nodes), markdown).toContain('\n\n')
+  }
+})
+
+test('task-list looseness matches marked lists without checkboxes', () => {
+  const fixtures = [
+    '- [x] Done\n- [ ] Pending\n',
+    '- [x] Done\n\n- [ ] Pending\n',
+    '- [x] First paragraph\n\n  Second paragraph\n- [ ] Pending\n',
+    '- [x] Done\n- [ ] Pending\n\n',
+  ]
+  const lexer = new Marked()
+  for (const source of fixtures) {
+    const ordinary = source.replace(/(\s*[-+*]\s+)\[[ xX]\]\s+/g, '$1')
+    const token = lexer.lexer(ordinary)[0]
+    expect(taskListIsLoose(source), source).toBe(token?.type === 'list' && token.loose)
+  }
 })
