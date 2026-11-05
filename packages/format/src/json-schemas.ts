@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Board } from './board.ts'
+import { BoardCommand } from './board-commands.ts'
 import { BoardOp } from './board-ops.ts'
 import { BookShape, BookView } from './book.ts'
 import { Cover } from './cover.ts'
@@ -25,6 +26,7 @@ export function jsonSchemas() {
     manifest: z.toJSONSchema(Manifest, { io: 'input' }),
     publishedShot: z.toJSONSchema(PublishedShot, { io: 'input' }),
     board: z.toJSONSchema(Board, { io: 'input' }),
+    boardCommand: z.toJSONSchema(BoardCommand, { io: 'input' }),
     boardOp: z.toJSONSchema(BoardOp, { io: 'input' }),
     printSetting: z.toJSONSchema(PrintSetting, { io: 'input' }),
     printSettingInput: z.toJSONSchema(PrintSettingInput, { io: 'input' }),

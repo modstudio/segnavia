@@ -54,6 +54,10 @@ export function labelRectangle(label: BoardLabel, shapes: BoardShapes): Box {
   return { x: label.x, y: label.y, width: shape.width, height: shape.height }
 }
 
+export function defaultGridColumns(count: number): number {
+  return Math.max(1, Math.ceil(Math.sqrt(count)))
+}
+
 function union(rectangles: Box[]): Box {
   if (rectangles.length === 0) return { x: 0, y: 0, width: 0, height: 0 }
   const left = Math.min(...rectangles.map((rectangle) => rectangle.x))
@@ -163,7 +167,7 @@ function arrangedItems(board: Board, shapes: BoardShapes, options: ArrangeOption
   ) {
     throw new Error(`grid columns is ${options.columns}; provide a positive integer`)
   }
-  const columns = options.layout === 'row' ? Math.max(1, board.items.length) : Math.max(1, options.columns ?? Math.ceil(Math.sqrt(board.items.length)))
+  const columns = options.layout === 'row' ? Math.max(1, board.items.length) : (options.columns ?? defaultGridColumns(board.items.length))
   const columnWidths = Array.from({ length: columns }, () => 0)
   const rowHeights = Array.from({ length: Math.ceil(board.items.length / columns) }, () => 0)
   board.items.forEach((item, index) => {
