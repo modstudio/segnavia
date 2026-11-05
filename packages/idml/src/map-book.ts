@@ -1,7 +1,9 @@
-import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, type BookItem, type BookSectionParents, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
+import { orderedStories, plainChapter } from './chapter-stories.ts'
+import type { IdmlConversion } from './conversion.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
 import { chapterParents, mapMasters, openingPage, storyPageUses } from './masters.ts'
@@ -16,19 +18,6 @@ import { resolveSwatchColor } from './swatch-color.ts'
 import { TableStyleMapper } from './table-styles.ts'
 import type { IdmlAnchoredFrame, IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
-
-function orderedStories(model: IdmlModel, anchoredOnly = new Set<string>()): IdmlStory[] {
-  const order = new Map<string, number>()
-  for (const spread of model.spreads) {
-    for (const page of spread.pages) {
-      for (const story of page.stories) if (!order.has(story)) order.set(story, order.size)
-    }
-  }
-  const masterStories = new Set(model.masterStoryIds)
-  return model.stories
-    .filter((story) => !masterStories.has(story.id) && !anchoredOnly.has(story.id))
-    .sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
-}
 
 function bodyColumnGap(model: IdmlModel, stories: IdmlStory[], report: ReportCollector): number | undefined {
   const storyFrames = stories.flatMap((story) => (story.frame?.columns && story.frame.columns >= 2 ? [story.frame] : []))
@@ -60,7 +49,42 @@ export function refuseActiveBookHtml(chapters: { html: string }[], parents: Pare
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
-export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report), options: IdmlImportOptions = {}): SegnaviaBook {
+interface ImportedChapter {
+  story: string
+  title: string
+  html: string
+  parents?: BookSectionParents
+}
+
+function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): BookItem[] {
+  const marker = conversion.answers.parts
+  if ('none' in marker) return chapters.map(plainChapter)
+  const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
+  const body: BookItem[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map(plainChapter)
+  for (const [index, part] of conversion.parts.parts.entries()) {
+    const runChapters = part.stories.flatMap((story) => byStory.get(story) ?? [])
+    const openerStories = new Set(part.openerStories)
+    const chapterStories = new Set(part.chapterStories)
+    const opener = runChapters.filter((chapter) => openerStories.has(chapter.story))
+    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map(plainChapter)
+    body.push({
+      name: `part-${index + 1}`,
+      contents: true,
+      ...(part.title ? { title: part.title } : {}),
+      ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
+      ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
+      children,
+    })
+  }
+  return body
+}
+
+export function modelToBook(
+  model: IdmlModel,
+  report = new ReportCollector(model.report),
+  options: IdmlImportOptions = {},
+  conversion?: IdmlConversion,
+): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
@@ -107,7 +131,7 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     })
   const masters = mapMasters(model, matchedVariables, styles, report, (story) => renderStory(story, 0, new Set([story.id]), true))
   const mapped = stories.map((story) => ({ story, mapped: renderStory(story) }))
-  const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset)
+  const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset, conversion?.openerPlan)
   reportPlacements(model, openers.consumedPages, report)
   const emitted = mapped.filter(({ story }) => !openers.claimed.has(story.id))
   const openings = emitted.flatMap(({ story }) => {
@@ -118,13 +142,14 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   for (const opening of openingPolicy.verso) report.versoOpening(opening.story, opening.page)
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parents = chapterParents(story.id, model, storyPages, masters, report)
-    return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+    return { story: story.id, title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
+  const body = conversion ? partBody(chapters, conversion) : chapters.map(plainChapter)
   return Book.parse({
     title: model.id,
     mode: 'paginated',
@@ -139,6 +164,6 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}),
     rectoOpenings: openingPolicy.rectoOpenings,
     parentPages: masters.parents,
-    chapters,
+    body,
   })
 }

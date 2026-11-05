@@ -1,4 +1,19 @@
 import type { FontReferenceInput } from '@segnavia/format'
+import type { IdmlAnswers } from './conversion-types.ts'
+
+export type {
+  IdmlAnswer,
+  IdmlAnswers,
+  IdmlCandidate,
+  IdmlFindingPage,
+  IdmlFindings,
+  IdmlInspection,
+  IdmlPageUse,
+  IdmlPartMarker,
+  IdmlPreview,
+  IdmlQuestion,
+  IdmlTitleAnswer,
+} from './conversion-types.ts'
 
 export interface IdmlTextNode {
   name: string
@@ -28,6 +43,7 @@ export type IdmlAssetMap = (uri: string) => string | undefined
 export interface IdmlImportOptions {
   font?: IdmlFontMap
   asset?: IdmlAssetMap
+  answers?: IdmlAnswers
 }
 
 export type IdmlPoint = [number, number]
@@ -129,6 +145,7 @@ export interface IdmlDocumentPreferences {
 }
 export interface IdmlPage {
   id: string
+  name: string
   appliedMaster?: string
   showMasterItems?: boolean
   stories: string[]
@@ -137,6 +154,11 @@ export interface IdmlPage {
   art?: IdmlArtPlacement[]
   links?: IdmlLinkPlacement[]
   unmapped?: IdmlUnmappedPlacement[]
+}
+export interface IdmlSection {
+  id: string
+  name: string
+  pageStart: string
 }
 export interface IdmlSpread {
   id: string
