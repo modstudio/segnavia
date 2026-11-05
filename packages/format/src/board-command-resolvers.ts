@@ -3,11 +3,11 @@ import type { BoardEntityRef, BoardItemRef, BoardSectionRef } from './board-comm
 import type { BoardShapes } from './board-geometry.ts'
 
 export class BoardCommandRefusal extends Error {
-  constructor(
-    message: string,
-    readonly clearing: string,
-  ) {
+  readonly clearing: string
+
+  constructor(message: string, clearing: string) {
     super(message)
+    this.clearing = clearing
   }
 }
 
