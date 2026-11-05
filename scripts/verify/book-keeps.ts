@@ -91,6 +91,37 @@ export function verifyBookKeepPdf(pdfPath: string, language: 'en' | 'he', check:
   check(`${label} PDF keeps each block pair on one page`, pdfKeeps.every(Boolean), JSON.stringify(pdfKeeps))
 }
 
+export function verifyContinuousBookKeepPdf(pdfPath: string, language: 'en' | 'he', check: Check): void {
+  verifyBookKeepPdf(pdfPath, language, check)
+  const label = path.basename(pdfPath, '.pdf')
+  const word = language === 'he' ? 'בראשית' : 'WORD'
+  const lines = execFileSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' })
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const rows: string[][] = []
+  for (const line of lines) {
+    if (line.includes('xxxxx')) rows.push([line])
+    else rows.at(-1)?.push(line)
+  }
+  const [control = [], next = [], previous = [], image = []] = rows
+  const sharesLine = (row: string[], mark: string) => row.some((line) => line.includes(mark) && line.includes(word))
+  const report = {
+    control: control.some((line) => line.includes('§')) && !sharesLine(control, '§'),
+    next: sharesLine(next, '§'),
+    previous: sharesLine(previous, '¶'),
+    image: sharesLine(image, '§'),
+    rows: rows.slice(0, 4),
+  }
+  check(
+    `${label} PDF inline keeps share a line with their adjacent word while the control breaks`,
+    report.control && report.next && report.previous && report.image,
+    JSON.stringify(report),
+  )
+}
+
 export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Frame, label: string, check: Check): Promise<void> {
   await verifyInlineBookKeeps(locator, `${label} paginated`, check)
   const keeps = await frame.evaluate(() => {

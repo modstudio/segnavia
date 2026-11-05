@@ -45,6 +45,10 @@ export interface BrowserBookDependencies {
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
+export function usesKeepWith(html: string): boolean {
+  return html.includes('--segnavia-keep-with')
+}
+
 function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean, dependencyOrigins?: Iterable<string>): string {
   const nonce = newNonce()
   if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript })
@@ -86,7 +90,7 @@ function printBook(
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html),
+      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html),
       html: srcdoc,
       slots: preparedSlotsFor(book),
       readiness: paginated
