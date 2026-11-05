@@ -1,7 +1,7 @@
 import type { FontReferenceInput } from '@segnavia/format'
 
 export interface IdmlTextNode {
-  name: string
+  name?: string
   attributes: Record<string, string>
   text?: string
   children: IdmlTextNode[]
@@ -129,6 +129,7 @@ export interface IdmlDocumentPreferences {
 }
 export interface IdmlPage {
   id: string
+  name: string
   appliedMaster?: string
   showMasterItems?: boolean
   stories: string[]
@@ -137,6 +138,11 @@ export interface IdmlPage {
   art?: IdmlArtPlacement[]
   links?: IdmlLinkPlacement[]
   unmapped?: IdmlUnmappedPlacement[]
+}
+export interface IdmlSection {
+  id: string
+  name: string
+  pageStart: string
 }
 export interface IdmlSpread {
   id: string

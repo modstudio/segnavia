@@ -18,6 +18,7 @@ import type {
   IdmlMasterFrame,
   IdmlMasterSpread,
   IdmlPage,
+  IdmlSection,
   IdmlSpread,
   IdmlStory,
   IdmlStyle,
@@ -34,6 +35,7 @@ export interface IdmlModel {
   id: string
   preferences: IdmlDocumentPreferences
   spreads: IdmlSpread[]
+  sections: IdmlSection[]
   masterSpreads: IdmlMasterSpread[]
   stories: IdmlStory[]
   anchoredFrames?: IdmlAnchoredFrame[]
@@ -59,7 +61,17 @@ function page(element: Element): IdmlPage {
   const id = attribute(element, 'Self')
   if (!id) throw refusal('an IDML Page has no Self identifier', 'give every Page a Self identifier')
   const showMasterItems = boolAttribute(element, 'ShowMasterItems', true)
-  return { id, appliedMaster: attribute(element, 'AppliedMaster'), ...(showMasterItems ? {} : { showMasterItems }), stories: [], side: 'single' }
+  return { id, name: attribute(element, 'Name') ?? id, appliedMaster: attribute(element, 'AppliedMaster'), ...(showMasterItems ? {} : { showMasterItems }), stories: [], side: 'single' }
+}
+
+function sections(document: ParsedPart): IdmlSection[] {
+  return document.all.flatMap((element) => {
+    if (localName(element.name) !== 'Section') return []
+    const id = attribute(element, 'Self')
+    const pageStart = attribute(element, 'PageStart')
+    if (!id || !pageStart) return []
+    return [{ id, name: attribute(element, 'Name') ?? id, pageStart }]
+  })
 }
 
 function assignSides(pageElements: Element[], pages: IdmlPage[]): void {
@@ -245,6 +257,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
       margin: readMargin(margin),
     },
     spreads: spreadResult.values as IdmlSpread[],
+    sections: sections(designmap),
     masterSpreads: masterResult.values as IdmlMasterSpread[],
     stories,
     anchoredFrames: parseAnchoredFrames(stories, styles),
