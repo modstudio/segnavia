@@ -2,8 +2,29 @@ import { isDiagramFence, isGithubAlertBlock } from '@segnavia/html'
 import { Node } from '@tiptap/core'
 
 export const LOCKED_BLOCK_NAME = 'lockedBlock'
+const FOOTNOTE_OPENING = /^ {0,3}\[\^/m
 
 export type MarkedToken = { type: string; raw: string; lang?: string; depth?: number }
+
+function matchFootnoteDefinition(src: string): string | undefined {
+  const opening = FOOTNOTE_OPENING.exec(src)
+  if (opening?.index !== 0) return undefined
+  const rest = /^[^\]\n]+\]:[^\n]*(?:\n|$)/.exec(src.slice(opening[0].length))?.[0]
+  const first = rest === undefined ? undefined : opening[0] + rest
+  if (!first) return undefined
+  let end = first.length
+  while (end < src.length) {
+    const continuation = /^(?: {4,}|\t)[^\n]*(?:\n|$)/.exec(src.slice(end))?.[0]
+    if (continuation) {
+      end += continuation.length
+      continue
+    }
+    const blanks = /^(?:[ \t]*\n)+/.exec(src.slice(end))?.[0]
+    if (!blanks || !/^(?: {4,}|\t)\S/.test(src.slice(end + blanks.length))) break
+    end += blanks.length
+  }
+  return src.slice(0, end)
+}
 
 export function lockedFenceLabel(lockedFences: Record<string, string>, language: string | undefined): string | undefined {
   return lockedFences[language?.toLowerCase() ?? '']
@@ -36,7 +57,7 @@ function isHtmlComment(raw: string): boolean {
 }
 
 export function isLockedToken(token: MarkedToken, lockedFences: Record<string, string> = {}): boolean {
-  if (token.type === 'frontmatter' || token.type === 'directive') return true
+  if (token.type === 'frontmatter' || token.type === 'directive' || token.type === 'footnoteDefinition') return true
   if (token.type === 'code' && (isDiagramFence(token.lang) || Boolean(lockedFenceLabel(lockedFences, token.lang)))) return true
   if (token.type === 'blockquote' && isGithubAlertBlock(token.raw)) return true
   return token.type === 'html' && !isHtmlComment(token.raw)
@@ -72,13 +93,16 @@ export const LockedBlock = Node.create({
     name: 'lockedFence',
     level: 'block',
     start(src: string) {
-      return src.startsWith('---') || src.startsWith(':::') ? 0 : -1
+      if (src.startsWith('---') || src.startsWith(':::')) return 0
+      return FOOTNOTE_OPENING.exec(src)?.index ?? -1
     },
     tokenize(src: string, tokens: unknown[]) {
       if (tokens.length === 0) {
         const frontmatter = matchFrontmatter(src)
         if (frontmatter) return { type: 'frontmatter', raw: frontmatter }
       }
+      const footnote = matchFootnoteDefinition(src)
+      if (footnote) return { type: 'footnoteDefinition', raw: footnote }
       const directive = matchDirectiveContainer(src)
       return directive ? { type: 'directive', raw: directive } : undefined
     },

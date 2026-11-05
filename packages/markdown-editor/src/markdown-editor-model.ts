@@ -14,11 +14,16 @@ export function markdownEditorModel(): MarkdownEditorModel {
   return { markdown: '', title: null, titleSource: 'separate', editable: '', retained: '' }
 }
 
+export function normalizeMarkdownLineEndings(markdown: string): string {
+  return markdown.replace(/\r\n?/g, '\n')
+}
+
 export function setModelMarkdown(model: MarkdownEditorModel, markdown: string): MarkdownEditorModel {
-  if (markdown === model.markdown) return model
-  if (model.titleSource === 'separate') return { ...model, markdown, editable: markdown }
-  const split = splitLeadingHeading(markdown)
-  return { ...model, markdown, title: split.title ?? '', editable: split.editable, retained: split.retained }
+  const normalized = normalizeMarkdownLineEndings(markdown)
+  if (normalized === model.markdown) return model
+  if (model.titleSource === 'separate') return { ...model, markdown: normalized, editable: normalized }
+  const split = splitLeadingHeading(normalized)
+  return { ...model, markdown: normalized, title: split.title ?? '', editable: split.editable, retained: split.retained }
 }
 
 export function setModelTitleSource(model: MarkdownEditorModel, titleSource: MarkdownTitleSource): MarkdownEditorModel {
@@ -43,7 +48,8 @@ export function setModelTitle(model: MarkdownEditorModel, value: string | null |
   return { ...model, markdown, title, retained }
 }
 
-export function setModelEditable(model: MarkdownEditorModel, editable: string): MarkdownEditorModel {
+export function setModelEditable(model: MarkdownEditorModel, edited: string): MarkdownEditorModel {
+  const editable = normalizeMarkdownLineEndings(edited)
   const markdown = model.titleSource === 'leading-heading' ? joinLeadingHeading(editable, model.retained) : editable
   if (markdown === model.markdown && editable === model.editable) return model
   return { ...model, markdown, editable }

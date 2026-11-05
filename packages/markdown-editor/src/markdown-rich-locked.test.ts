@@ -10,6 +10,7 @@ test('locked and silent markdown constructs share the reader rules', () => {
   expect(isLockedToken({ type: 'code', raw: '```ARTICLES\n```', lang: 'ARTICLES' }, { articles: 'Generated' })).toBe(true)
   expect(isLockedToken({ type: 'blockquote', raw: '> [!WARNING]\n> Stop' })).toBe(true)
   expect(isLockedToken({ type: 'html', raw: '<aside>raw</aside>' })).toBe(true)
+  expect(isLockedToken({ type: 'footnoteDefinition', raw: '[^x]: note' })).toBe(true)
   expect(isSilentToken({ type: 'html', raw: '<!-- carried -->' })).toBe(true)
   expect(isSilentToken({ type: 'def', raw: '[x]: /target' })).toBe(true)
 })

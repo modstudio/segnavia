@@ -208,8 +208,10 @@ uses frame's `createPageElement`, `HEADLESS_ELEMENTS`, `SegnaviaPage`, fonts
 entry and `ensureStyle` helpers, and its `@segnavia/frame/element-properties`
 entry for late-set property replay. `ensureStyle` installs a named stylesheet once
 per document or shadow root; `ensureBaseStyle` uses it for frame's base style.
-The editor's Tiptap, CodeMirror, Lezer and Mermaid-language engines are required
-peers, so a host supplies one shared copy. The element has an open shadow root and
+The editor's Tiptap, CodeMirror, Lezer, Marked (`^17.0.1`) and Mermaid-language
+engines are required peers, so a host supplies one shared copy. Each markdown
+manager receives its own `new Marked()`, so the editor never changes the global
+Marked instance supplied by the host. The element has an open shadow root and
 supplies behavior and zero-specificity geometry only. `unstyled` removes
 that geometry. Its stylesheet is installed once per document or shadow root
 and is not part of frame's `BASE_CSS`.
@@ -218,6 +220,8 @@ The element reflects `mode`, `title-source` and `unstyled`. The `markdown`
 attribute is the initial or host-declared value, like an input's `value`;
 user edits change the live property without reflecting to the attribute. A
 later attribute or property write replaces the document with fresh history.
+The editor reads `\r\n` and a lone `\r` as `\n`, so the value it holds and
+reports has `\n` line endings only.
 `dir` and `lang` are native attributes and are inherited; the title field and
 each source line resolve their own direction with `dir="auto"`. `title` is a
 property. A `title` attribute, including one a framework wrote before the
@@ -242,6 +246,14 @@ Rich mode is TipTap in the shadow root. Markdown stays the source of truth.
 Entering rich parses it; leaving rich saves it. An unchanged switch is
 byte-for-byte silent, while an edit stitches newly serialized nodes among the
 original block separators so every untouched block keeps its exact source.
+Inside an edited block, backslash escapes, character references, footnote
+references, defined reference links and images, and inline HTML tags and
+comments keep their exact source as opaque inline atoms. Footnote definitions
+are locked blocks, and list looseness is part of the list node. One rule applies
+to bullet, ordered and task lists: a blank line makes the list loose only when
+it separates base-indent items or direct block children of an item, not when it
+is inside a fence or nested list or trails the final item. These constructs
+therefore keep their source exactly when their containing block is edited.
 Frontmatter, directive containers, Mermaid and host-named fences, GitHub
 alerts and raw HTML are locked atoms. Comments and link definitions are
 carried silently and keep their place: an edit beside one stays on the same
@@ -249,6 +261,29 @@ side of it. A locked atom shows its isolated host label, or an ordinary
 nested `<segnavia-page>` rendering that block as Markdown with author scripts
 refused. It exposes `part="locked-block"` and labeled atoms also expose
 `data-locked-label`; there is no editor chrome.
+
+An opaque inline atom exposes `part="raw-inline"` and keeps its exact source in
+the native `title` tooltip. It has no appearance by default beyond inline
+padding and bidirectional isolation. Hosts may style it with these properties:
+
+| Property | Default |
+|---|---|
+| `--segnavia-markdown-raw-inline-color` | `inherit` |
+| `--segnavia-markdown-raw-inline-background` | `transparent` |
+| `--segnavia-markdown-raw-inline-border` | `none` |
+| `--segnavia-markdown-raw-inline-radius` | `0` |
+| `--segnavia-markdown-raw-inline-padding` | `.15em` |
+
+Rich mode preserves meaning rather than source form for the other syntax in an
+edited block. The current serializer rewrites the forms observed by the editor
+round trip as follows: underscore emphasis uses asterisks; plus and asterisk
+bullets use hyphens; setext headings become ATX headings; backslash hard breaks
+become two trailing spaces; table padding and delimiter rows are normalized;
+ordered-list delimiters become periods and item numbers after the first become
+sequential; single-quoted and parenthesized link titles use double quotes;
+square brackets that form no link or footnote are escaped; and tilde or longer
+backtick code fences use triple backticks. A host can use this
+boundary to warn before switching modes when source form matters.
 
 Rich mode holds schema nodes, including inline images. Links and images from
 commands or paste use the Markdown reader URL rule. Optional `linkOrigins`
