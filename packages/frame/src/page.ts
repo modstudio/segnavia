@@ -14,10 +14,11 @@ import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prep
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { scrollPageToHeading } from './page-heading.ts'
 import { pageSheetLayout } from './page-layout.ts'
-import { PAGE_CHANGED_SELECTION, type PostedSelectionRequest, type SelectionCancellation } from './page-selection.ts'
+import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
+import { readPageSelection } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import { requestSelection } from './selection-request.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 const PLACEHOLDER_HEIGHT = 150
@@ -43,9 +44,7 @@ export class SegnaviaPage extends PageElementAttributes {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
-  private selectionRequests = new Set<SelectionCancellation>()
-  private postedSelectionRequests = new Set<PostedSelectionRequest>()
-  private selectionReadyRequests = new Set<() => void>()
+  private pageRequests = createPageRequestState()
 
   constructor() {
     super()
@@ -245,45 +244,21 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   readSelection(): Promise<PageSelection> {
-    const page = this.page
-    const frame = this.querySelector('iframe')
-    const frameWindow = frame?.contentWindow
-    if (!page || !frame || !frameWindow)
-      return Promise.reject(new Error('Cannot read the selection because no page is shown or no frame is mounted. Show a page before reading its selection.'))
-    if (this.hostServed)
-      return Promise.reject(
-        new Error('Cannot read the selection from a host-served document. Load a page whose author scripts are refused instead of using showUrl.'),
-      )
-    if (page.scripts !== 'refuse')
-      return Promise.reject(
-        new Error(
-          'Cannot read the selection while author scripts run. A selection is read only from a page whose author scripts are refused, because an author script could forge the reply.',
-        ),
-      )
-    const postedRequest: PostedSelectionRequest = {}
-    const request = requestSelection(
-      frame,
-      (post) => {
-        const postCurrent = () => {
-          this.postedSelectionRequests.add(postedRequest)
-          post()
-        }
-        if (this.frameReady) {
-          postCurrent()
-          return () => {}
-        }
-        this.selectionReadyRequests.add(postCurrent)
-        return () => this.selectionReadyRequests.delete(postCurrent)
-      },
-      'page',
+    return readPageSelection(this.page, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
+  }
+
+  /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
+  scrollToHeading(id: string, options?: { behavior?: ScrollBehavior }): Promise<boolean> {
+    return scrollPageToHeading(
+      id,
+      options,
+      this.page,
+      this.querySelector('iframe'),
+      this.querySelector('.segnavia-page__sheet'),
+      this.hostServed,
+      this.frameReady,
+      this.pageRequests,
     )
-    postedRequest.cancel = request.cancel
-    this.selectionRequests.add(request.cancel)
-    void request.promise.then(
-      () => this.finishSelectionRequest(request.cancel),
-      () => this.finishSelectionRequest(request.cancel),
-    )
-    return request.promise
   }
 
   private mount(page: Page): HTMLIFrameElement {
@@ -314,23 +289,11 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   private cancelSelectionRequests() {
-    this.cancelSelections(this.selectionRequests)
+    cancelPageRequests(this.pageRequests)
   }
 
   private cancelPostedSelectionRequests() {
-    this.cancelSelections([...this.postedSelectionRequests].flatMap(({ cancel }) => (cancel ? [cancel] : [])))
-  }
-
-  private cancelSelections(requests: Iterable<SelectionCancellation>) {
-    const reason = new Error(PAGE_CHANGED_SELECTION)
-    for (const cancel of [...requests]) cancel(reason)
-  }
-
-  private finishSelectionRequest(cancel: SelectionCancellation) {
-    this.selectionRequests.delete(cancel)
-    for (const request of this.postedSelectionRequests) {
-      if (request.cancel === cancel) this.postedSelectionRequests.delete(request)
-    }
+    cancelPageRequests(this.pageRequests, true)
   }
 
   private resetDocumentReadiness() {
@@ -378,8 +341,7 @@ export class SegnaviaPage extends PageElementAttributes {
     const message = messageFrom(event, frame)
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
-      for (const post of [...this.selectionReadyRequests]) post()
-      this.selectionReadyRequests.clear()
+      releaseReadyPageRequests(this.pageRequests)
     }
     const page = this.page
     if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)

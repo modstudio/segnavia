@@ -48,6 +48,14 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('[data-transition="slide"]')
   })
 
+  test('the page clips without becoming a scroll container and leaves the sheet unshifted', () => {
+    expect(BASE_CSS).toContain('segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden;overflow:clip}')
+    const sheetRule = BASE_CSS.match(/\.segnavia-page__sheet\)\{([^}]*)\}/)?.[1]
+    expect(sheetRule).toContain('position:relative')
+    expect(sheetRule).not.toMatch(/(?:^|;)inset|z-index/)
+    expect(BASE_CSS).not.toContain('.segnavia-page__heading-marker')
+  })
+
   test('the board exposes geometry for every documented part without a surface scale', () => {
     for (const part of ['surface', 'item', 'cover', 'placeholder', 'label', 'section', 'section-title']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
     expect(BASE_CSS).toContain(':host(segnavia-board:not([unstyled]))')
