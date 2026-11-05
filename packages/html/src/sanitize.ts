@@ -6,7 +6,7 @@ import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/fo
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
-import { defaultLinkPolicy, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
+import { defaultLinkPolicy, LINK_ELEMENTS, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy, urlParserText } from './link-policy.ts'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
 import { sanitizeCss } from './sanitize-css.ts'
 
@@ -94,26 +94,28 @@ function insideSvg(element: Element): boolean {
   return false
 }
 
-// Control characters and whitespace are stripped first, because a browser
-// ignores them inside a scheme: `java\tscript:` is still javascript.
+// A tab is removed before the decision, so `java\tscript:` is still javascript.
 function normalizeUrl(value: string): string {
-  return [...value]
-    .filter((c) => c.charCodeAt(0) > 0x20 && c.charCodeAt(0) !== 0x7f)
-    .join('')
-    .toLowerCase()
+  return urlParserText(value).toLowerCase()
 }
 
 export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
 }
 
+export function hrefAllowed(tag: string, value: string, links: ResolvedLinkPolicy | undefined): boolean {
+  if (LINK_ELEMENTS.has(tag)) return links !== undefined && linkAllowed(value, links)
+  const normalized = normalizeUrl(value)
+  return (normalized.startsWith('#') && normalized.length > 1) || safeImageSource(value)
+}
+
 function linkPolicyFromConverter(urls: UrlPolicy, origins?: Set<string>): ResolvedLinkPolicy {
   return { protocols: new Set(urls.linkProtocols), origins, fragments: urls.linkFragments }
 }
 
-function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy | undefined, policy?: UrlPolicy): boolean {
+function safeUrl(tag: string, attribute: string, value: string, links: ResolvedLinkPolicy | undefined, policy?: UrlPolicy): boolean {
   if (attribute === 'href' || attribute === 'xlink:href') {
-    return links !== undefined && linkAllowed(value, links)
+    return hrefAllowed(tag, value, links)
   }
   const url = normalizeUrl(value)
   if (attribute === 'srcset') return DATA_IMAGE_SRCSET.test(url)
@@ -131,7 +133,7 @@ function safeUrl(attribute: string, value: string, links: ResolvedLinkPolicy | u
 
 /** The URL decision used when schema-based authoring admits a link or image. */
 export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
-  if (attribute === 'src') return safeUrl(attribute, value, undefined, MARKDOWN_CONVERTER_POLICY.urls)
+  if (attribute === 'src') return safeUrl('', attribute, value, undefined, MARKDOWN_CONVERTER_POLICY.urls)
   return linkAllowed(value, linkPolicyFromConverter(MARKDOWN_CONVERTER_POLICY.urls, linkOrigins === undefined ? undefined : originSet(linkOrigins)))
 }
 
@@ -178,7 +180,8 @@ function refusedAttribute(
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const dependency = dependencyAttribute(element, attribute, value, options, dependencies)
   if (dependency !== undefined) return dependency || undefined
-  return REFUSED_ATTRIBUTES.has(attribute) || (URL_ATTRIBUTES.has(attribute) && !safeUrl(attribute, value, links, options.converterPolicy?.urls))
+  return REFUSED_ATTRIBUTES.has(attribute) ||
+    (URL_ATTRIBUTES.has(attribute) && !safeUrl(element.name.toLowerCase(), attribute, value, links, options.converterPolicy?.urls))
     ? ''
     : undefined
 }

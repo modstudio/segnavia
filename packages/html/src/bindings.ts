@@ -4,7 +4,9 @@
 // as plain HTML anywhere else.
 //
 //   value    replaces the element's text with a string or finite number
-//   href     sets href by the host's links policy, or to https on an allowed origin by default
+//   href     on a or area follows the host's links policy (https on an allowed
+//            origin by default); on any other element it is a fetch kept only
+//            as a same-document fragment or safe data image
 //   src      sets src to a data:image URL
 //   each     repeats the element once per item of a list
 //   when     keeps the element only where the item's `state` equals it
@@ -15,8 +17,8 @@
 // each leading `../` steps out one repeat.
 
 import { type ChildNode, cloneNode, type Document, type Element, isTag, Text } from 'domhandler'
-import { defaultLinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
-import { elements, parse, type SanitizeOptions, sanitize, serialize } from './sanitize.ts'
+import { defaultLinkPolicy, LINK_ELEMENTS, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
+import { elements, hrefAllowed, parse, type SanitizeOptions, sanitize, serialize } from './sanitize.ts'
 
 export const BINDINGS = ['value', 'href', 'src', 'each', 'when', 'present', 'width'] as const
 
@@ -91,8 +93,8 @@ function isPresent(value: unknown): boolean {
   return true
 }
 
-function registerHrefOrigin(policy: ResolvedLinkPolicy, attribute: 'href' | 'src', value: unknown, register: boolean | undefined): void {
-  if (attribute !== 'href' || !register || typeof value !== 'string') return
+function registerHrefOrigin(policy: ResolvedLinkPolicy, tag: string, attribute: 'href' | 'src', value: unknown, register: boolean | undefined): void {
+  if (attribute !== 'href' || !LINK_ELEMENTS.has(tag) || !register || typeof value !== 'string') return
   try {
     const url = new URL(value)
     if (url.origin !== 'null' && policy.protocols.has(url.protocol)) policy.origins?.add(url.origin.toLowerCase())
@@ -166,13 +168,14 @@ export function fill(html: string, options: FillOptions): Filled {
 
   const applyUrls = (element: Element, stack: unknown[]) => {
     const preserves = (value: unknown) => value === undefined && options.preserveUnavailable
+    const tag = element.name.toLowerCase()
     for (const attribute of ['href', 'src'] as const) {
       const path = take(element, names[attribute])
       if (path === undefined) continue
       const value = resolve(path, stack)
       if (preserves(value)) continue
-      registerHrefOrigin(links, attribute, value, options.registerHrefOrigins)
-      const allowed = typeof value === 'string' && (attribute === 'href' ? linkAllowed(value, links) : /^data:image\//i.test(value))
+      registerHrefOrigin(links, tag, attribute, value, options.registerHrefOrigins)
+      const allowed = typeof value === 'string' && (attribute === 'href' ? hrefAllowed(tag, value, links) : /^data:image\//i.test(value))
       if (allowed) element.attribs[attribute] = value
       else {
         delete element.attribs[attribute]
