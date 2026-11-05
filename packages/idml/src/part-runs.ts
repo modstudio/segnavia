@@ -1,11 +1,6 @@
 import type { IdmlFindings } from './findings.ts'
 
-export type IdmlPartMarker =
-  | { master: string }
-  | { paragraphStyle: string }
-  | { section: true }
-  | { pages: string[] }
-  | { none: true }
+export type IdmlPartMarker = { master: string } | { paragraphStyle: string } | { section: true } | { pages: string[] } | { none: true }
 
 export interface StoryFirstPage {
   story: string
@@ -21,7 +16,8 @@ type MarkerKind = 'master' | 'paragraphStyle' | 'section' | 'pages' | 'none'
 
 const markedPages: Record<MarkerKind, (findings: IdmlFindings, marker: IdmlPartMarker) => string[]> = {
   master: (findings, marker) => findings.pages.filter((page) => page.appliedMaster === ('master' in marker ? marker.master : '')).map((page) => page.name),
-  paragraphStyle: (findings, marker) => findings.paragraphStyles.find((style) => style.name === ('paragraphStyle' in marker ? marker.paragraphStyle : ''))?.pages.map((use) => use.page) ?? [],
+  paragraphStyle: (findings, marker) =>
+    findings.paragraphStyles.find((style) => style.name === ('paragraphStyle' in marker ? marker.paragraphStyle : ''))?.pages.map((use) => use.page) ?? [],
   section: (findings) => findings.sections.map((section) => section.startPage),
   pages: (_findings, marker) => ('pages' in marker ? marker.pages : []),
   none: () => [],

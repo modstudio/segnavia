@@ -29,7 +29,8 @@ function paragraphText(node: IdmlTextNode): string {
 
 function paragraphs(node: IdmlTextNode | undefined): { style: string; text: string }[] {
   if (!node) return []
-  const own = node.name === 'ParagraphStyleRange' ? [{ style: node.attributes.AppliedParagraphStyle ?? '$ID/[No paragraph style]', text: paragraphText(node) }] : []
+  const own =
+    node.name === 'ParagraphStyleRange' ? [{ style: node.attributes.AppliedParagraphStyle ?? '$ID/[No paragraph style]', text: paragraphText(node) }] : []
   return [...own, ...node.children.flatMap(paragraphs)]
 }
 
@@ -50,7 +51,7 @@ export function idmlFindings(model: IdmlModel): IdmlFindings {
     pages: pages.filter((page) => page.appliedMaster === master.name).map((page) => page.name),
   }))
   const pageIndex = new Map(pages.map((page, index) => [page.id, index]))
-  const orderedSections = model.sections
+  const orderedSections = (model.sections ?? [])
     .map((section) => ({ ...section, index: pageIndex.get(section.pageStart) }))
     .filter((section): section is typeof section & { index: number } => section.index !== undefined)
     .sort((left, right) => left.index - right.index)
@@ -61,7 +62,10 @@ export function idmlFindings(model: IdmlModel): IdmlFindings {
   }))
   const styleNames = new Map((model.styles ?? []).filter((style) => style.kind === 'paragraph').map((style) => [style.id, style.name]))
   const storyParagraphs = new Map(model.stories.map((story) => [story.id, paragraphs(story.root)]))
-  for (const page of pages) page.paragraphs = page.stories.flatMap((story) => storyParagraphs.get(story) ?? []).map((paragraph) => ({ ...paragraph, style: styleNames.get(paragraph.style) ?? paragraph.style }))
+  for (const page of pages)
+    page.paragraphs = page.stories
+      .flatMap((story) => storyParagraphs.get(story) ?? [])
+      .map((paragraph) => ({ ...paragraph, style: styleNames.get(paragraph.style) ?? paragraph.style }))
   const styleUses = new Map<string, Map<string, { count: number; texts: string[] }>>()
   for (const page of pages) {
     for (const paragraph of page.stories.flatMap((story) => storyParagraphs.get(story) ?? [])) {

@@ -3,11 +3,24 @@ import type { IdmlFindings } from './findings.ts'
 import type { StoryFirstPage } from './part-runs.ts'
 import { idmlQuestions } from './questions.ts'
 
-const pages = ['1', '2', '3'].map((name, index) => ({ id: name, name, spread: `s${index}`, appliedMaster: index < 2 ? 'Open' : 'Body', stories: [`story-${name}`], paragraphs: [{ style: 'Heading', text: `Title ${name}` }] }))
+const pages = ['1', '2', '3'].map((name, index) => ({
+  id: name,
+  name,
+  spread: `s${index}`,
+  appliedMaster: index < 2 ? 'Open' : 'Body',
+  stories: [`story-${name}`],
+  paragraphs: [{ style: 'Heading', text: `Title ${name}` }],
+}))
 const findings: IdmlFindings = {
   pages,
-  masters: [{ name: 'Open', pages: ['1', '2'] }, { name: 'Body', pages: ['3'] }],
-  sections: [{ name: 'One', startPage: '1', pages: ['1'] }, { name: 'Two', startPage: '2', pages: ['2', '3'] }],
+  masters: [
+    { name: 'Open', pages: ['1', '2'] },
+    { name: 'Body', pages: ['3'] },
+  ],
+  sections: [
+    { name: 'One', startPage: '1', pages: ['1'] },
+    { name: 'Two', startPage: '2', pages: ['2', '3'] },
+  ],
   paragraphStyles: [{ name: 'Heading', pages: pages.map((page) => ({ page: page.name, count: 1, texts: [page.paragraphs[0]?.text ?? ''] })) }],
 }
 const stories: StoryFirstPage[] = pages.map((page) => ({ story: page.stories[0] ?? '', page: page.name }))

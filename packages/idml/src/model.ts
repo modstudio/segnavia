@@ -35,7 +35,7 @@ export interface IdmlModel {
   id: string
   preferences: IdmlDocumentPreferences
   spreads: IdmlSpread[]
-  sections: IdmlSection[]
+  sections?: IdmlSection[]
   masterSpreads: IdmlMasterSpread[]
   stories: IdmlStory[]
   anchoredFrames?: IdmlAnchoredFrame[]
@@ -61,7 +61,14 @@ function page(element: Element): IdmlPage {
   const id = attribute(element, 'Self')
   if (!id) throw refusal('an IDML Page has no Self identifier', 'give every Page a Self identifier')
   const showMasterItems = boolAttribute(element, 'ShowMasterItems', true)
-  return { id, name: attribute(element, 'Name') ?? id, appliedMaster: attribute(element, 'AppliedMaster'), ...(showMasterItems ? {} : { showMasterItems }), stories: [], side: 'single' }
+  return {
+    id,
+    name: attribute(element, 'Name') ?? id,
+    appliedMaster: attribute(element, 'AppliedMaster'),
+    ...(showMasterItems ? {} : { showMasterItems }),
+    stories: [],
+    side: 'single',
+  }
 }
 
 function sections(document: ParsedPart): IdmlSection[] {

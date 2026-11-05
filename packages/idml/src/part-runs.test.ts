@@ -10,10 +10,26 @@ const findings: IdmlFindings = {
     { id: 'p3', name: '3', spread: 's2', appliedMaster: 'Open', stories: ['three'], paragraphs: [] },
   ],
   masters: [{ name: 'Open', pages: ['1', '2', '3'] }],
-  sections: [{ name: 'Front', startPage: '0', pages: ['0'] }, { name: 'Body', startPage: '1', pages: ['1', '2', '3'] }],
-  paragraphStyles: [{ name: 'Heading', pages: [{ page: '1', count: 1, texts: ['One'] }, { page: '3', count: 1, texts: ['Three'] }] }],
+  sections: [
+    { name: 'Front', startPage: '0', pages: ['0'] },
+    { name: 'Body', startPage: '1', pages: ['1', '2', '3'] },
+  ],
+  paragraphStyles: [
+    {
+      name: 'Heading',
+      pages: [
+        { page: '1', count: 1, texts: ['One'] },
+        { page: '3', count: 1, texts: ['Three'] },
+      ],
+    },
+  ],
 }
-const stories = [{ story: 'front', page: '0' }, { story: 'one', page: '1' }, { story: 'span', page: '1' }, { story: 'three', page: '3' }]
+const stories = [
+  { story: 'front', page: '0' },
+  { story: 'one', page: '1' },
+  { story: 'span', page: '1' },
+  { story: 'three', page: '3' },
+]
 
 describe('partRuns', () => {
   for (const [label, marker, openers] of [

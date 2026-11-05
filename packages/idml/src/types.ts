@@ -1,7 +1,11 @@
 import type { FontReferenceInput } from '@segnavia/format'
+import type { IdmlAnswers } from './questions.ts'
+
+export type { IdmlPartMarker } from './part-runs.ts'
+export type { IdmlAnswer, IdmlAnswers, IdmlCandidate, IdmlInspection, IdmlPreview, IdmlQuestion, IdmlTitleAnswer } from './questions.ts'
 
 export interface IdmlTextNode {
-  name?: string
+  name: string
   attributes: Record<string, string>
   text?: string
   children: IdmlTextNode[]
@@ -28,6 +32,7 @@ export type IdmlAssetMap = (uri: string) => string | undefined
 export interface IdmlImportOptions {
   font?: IdmlFontMap
   asset?: IdmlAssetMap
+  answers?: IdmlAnswers
 }
 
 export type IdmlPoint = [number, number]
@@ -129,7 +134,7 @@ export interface IdmlDocumentPreferences {
 }
 export interface IdmlPage {
   id: string
-  name: string
+  name?: string
   appliedMaster?: string
   showMasterItems?: boolean
   stories: string[]

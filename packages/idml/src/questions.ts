@@ -22,6 +22,10 @@ export interface IdmlQuestion {
   candidates: IdmlCandidate[]
   accepts?: 'pages' | 'titles'
 }
+export interface IdmlInspection {
+  findings: IdmlFindings
+  questions: IdmlQuestion[]
+}
 
 function titleFor(findings: IdmlFindings, pageName: string, answer: IdmlTitleAnswer | undefined, index: number): string | undefined {
   const page = findings.pages.find((candidate) => candidate.name === pageName)
@@ -36,7 +40,9 @@ export function idmlPreview(findings: IdmlFindings, storyFirstPages: StoryFirstP
   const parts = partRuns(findings, storyFirstPages, marker).flatMap((run, index) => {
     if (!run.openerPage) return []
     const title = titleFor(findings, run.openerPage, titles, index)
-    return [{ openerPage: run.openerPage, ...(title ? { title } : {}), chapters: run.stories.filter((story) => firstPage.get(story) !== run.openerPage).length }]
+    return [
+      { openerPage: run.openerPage, ...(title ? { title } : {}), chapters: run.stories.filter((story) => firstPage.get(story) !== run.openerPage).length },
+    ]
   })
   return { parts, untitled: parts.filter((part) => !part.title).length }
 }
@@ -48,10 +54,13 @@ function partCount(candidate: IdmlCandidate): number {
 function structuralPartCandidates(findings: IdmlFindings, storyFirstPages: StoryFirstPage[]): IdmlCandidate[] {
   const markers: { answer: IdmlPartMarker; label: string }[] = []
   for (const master of findings.masters) {
-    if (master.pages.length >= 2 && master.pages.length < findings.pages.length) markers.push({ answer: { master: master.name }, label: `Master ${master.name}` })
+    if (master.pages.length >= 2 && master.pages.length < findings.pages.length)
+      markers.push({ answer: { master: master.name }, label: `Master ${master.name}` })
   }
   for (const style of findings.paragraphStyles) {
-    if (style.pages.length >= 2 && style.pages.every((use) => use.count <= 1)) markers.push({ answer: { paragraphStyle: style.name }, label: `Paragraph style ${style.name}` })
+    if (!style.name.startsWith('$ID/') && style.pages.length >= 2 && style.pages.every((use) => use.count <= 1)) {
+      markers.push({ answer: { paragraphStyle: style.name }, label: `Paragraph style ${style.name}` })
+    }
   }
   if (findings.sections.length > 1) markers.push({ answer: { section: true }, label: 'IDML sections' })
   const collapsed = new Map<string, IdmlCandidate>()
@@ -72,9 +81,17 @@ function titleCandidates(findings: IdmlFindings, storyFirstPages: StoryFirstPage
     ...styles.map((style) => {
       const answer = { paragraphStyle: style.name }
       const titled = style.pages.filter((use) => openers.has(use.page)).length
-      return { answer, label: `Paragraph style ${style.name} (${titled} of ${openers.size} parts)`, preview: idmlPreview(findings, storyFirstPages, marker, answer) }
+      return {
+        answer,
+        label: `Paragraph style ${style.name} (${titled} of ${openers.size} parts)`,
+        preview: idmlPreview(findings, storyFirstPages, marker, answer),
+      }
     }),
-    { answer: { firstParagraph: true }, label: 'First paragraph on each opener', preview: idmlPreview(findings, storyFirstPages, marker, { firstParagraph: true }) },
+    {
+      answer: { firstParagraph: true },
+      label: 'First paragraph on each opener',
+      preview: idmlPreview(findings, storyFirstPages, marker, { firstParagraph: true }),
+    },
     { answer: { list: [] }, label: 'Host-supplied titles', preview: idmlPreview(findings, storyFirstPages, marker) },
   ]
 }
@@ -83,17 +100,26 @@ export function idmlQuestions(findings: IdmlFindings, storyFirstPages: StoryFirs
   if (!answers.parts) {
     const structural = structuralPartCandidates(findings, storyFirstPages)
     if (structural.length === 0) return []
-    return [{
-      id: 'parts',
-      prompt: 'What in this IDML marks the beginning of each book part?',
-      candidates: [
-        ...structural,
-        { answer: { pages: [] }, label: 'Choose opener pages', preview: { parts: [], untitled: 0 } },
-        { answer: { none: true }, label: 'Keep the book flat', preview: { parts: [], untitled: 0 } },
-      ],
-      accepts: 'pages',
-    }]
+    return [
+      {
+        id: 'parts',
+        prompt: 'What in this IDML marks the beginning of each book part?',
+        candidates: [
+          ...structural,
+          { answer: { pages: [] }, label: 'Choose opener pages', preview: { parts: [], untitled: 0 } },
+          { answer: { none: true }, label: 'Keep the book flat', preview: { parts: [], untitled: 0 } },
+        ],
+        accepts: 'pages',
+      },
+    ]
   }
   if ('none' in answers.parts || answers.titles) return []
-  return [{ id: 'titles', prompt: 'How should the imported parts be titled?', candidates: titleCandidates(findings, storyFirstPages, answers.parts), accepts: 'titles' }]
+  return [
+    {
+      id: 'titles',
+      prompt: 'How should the imported parts be titled?',
+      candidates: titleCandidates(findings, storyFirstPages, answers.parts),
+      accepts: 'titles',
+    },
+  ]
 }

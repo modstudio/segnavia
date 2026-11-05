@@ -1,13 +1,16 @@
-import { Book, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, type BookItem, type BookSectionParents, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
+import type { IdmlConversion } from './conversion.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
 import { chapterParents, mapMasters, openingPage, storyPageUses } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { mapOpeners } from './openers.ts'
+import { partRuns } from './part-runs.ts'
 import { reportPlacements } from './placement-report.ts'
+import { idmlPreview } from './questions.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { type StoryHtmlResult, storyHtml } from './stories.ts'
@@ -60,7 +63,50 @@ export function refuseActiveBookHtml(chapters: { html: string }[], parents: Pare
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
-export function modelToBook(model: IdmlModel, report = new ReportCollector(model.report), options: IdmlImportOptions = {}): SegnaviaBook {
+interface ImportedChapter {
+  story: string
+  title: string
+  html: string
+  parents?: BookSectionParents
+}
+
+function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): BookItem[] {
+  const marker = conversion.answers.parts
+  const plainChapter = ({ story: _story, ...chapter }: ImportedChapter) => chapter
+  if (!marker || 'none' in marker) return chapters.map(plainChapter)
+  const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
+  const firstPage = new Map(conversion.storyFirstPages.map(({ story, page }) => [story, page]))
+  const runs = partRuns(conversion.findings, conversion.storyFirstPages, marker)
+  const preview = idmlPreview(conversion.findings, conversion.storyFirstPages, marker, conversion.answers.titles)
+  const body: BookItem[] = []
+  let partIndex = 0
+  for (const run of runs) {
+    const runChapters = run.stories.flatMap((story) => byStory.get(story) ?? [])
+    if (!run.openerPage) {
+      body.push(...runChapters.map(plainChapter))
+      continue
+    }
+    const opener = runChapters.filter((chapter) => firstPage.get(chapter.story) === run.openerPage)
+    const children = runChapters.filter((chapter) => firstPage.get(chapter.story) !== run.openerPage).map(plainChapter)
+    const partPreview = preview.parts[partIndex]
+    partIndex += 1
+    body.push({
+      name: `part-${partIndex}`,
+      ...(partPreview?.title ? { title: partPreview.title } : {}),
+      ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
+      ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
+      children,
+    })
+  }
+  return body
+}
+
+export function modelToBook(
+  model: IdmlModel,
+  report = new ReportCollector(model.report),
+  options: IdmlImportOptions = {},
+  conversion?: IdmlConversion,
+): SegnaviaBook {
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
@@ -118,13 +164,14 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
   for (const opening of openingPolicy.verso) report.versoOpening(opening.story, opening.page)
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parents = chapterParents(story.id, model, storyPages, masters, report)
-    return { title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+    return { story: story.id, title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
+  const body = conversion ? partBody(chapters, conversion) : chapters.map(({ story: _story, ...chapter }) => chapter)
   return Book.parse({
     title: model.id,
     mode: 'paginated',
@@ -139,6 +186,6 @@ export function modelToBook(model: IdmlModel, report = new ReportCollector(model
     ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}),
     rectoOpenings: openingPolicy.rectoOpenings,
     parentPages: masters.parents,
-    chapters,
+    body,
   })
 }
