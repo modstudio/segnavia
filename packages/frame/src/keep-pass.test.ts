@@ -32,7 +32,7 @@ describe('keep pass', () => {
       },
       styleSheets: [],
     }
-    Function('document', 'getComputedStyle', keepPassScript())(document, () => style(''))
+    Function('document', 'window', 'getComputedStyle', keepPassScript())(document, { addEventListener: () => {} }, () => style(''))
     loaded?.()
     expect(queries).toEqual(['[style]'])
   })

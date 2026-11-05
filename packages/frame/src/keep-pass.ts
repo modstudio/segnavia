@@ -83,7 +83,10 @@ function rewriteGap(document: Document, element: Element, direction: Direction, 
   const whiteSpace = styleOf(block).whiteSpace
   if (pieces.length > 0) {
     const text = pieces.map((piece) => piece.node.nodeValue?.slice(piece.start, piece.end) ?? '').join('')
-    replaceGap(pieces, gapReplacement(text, whiteSpace))
+    replaceGap(pieces, '')
+    const heldGap = document.createTextNode(gapReplacement(text, whiteSpace))
+    if (direction === 'next') element.appendChild(heldGap)
+    else element.insertBefore(heldGap, element.firstChild)
     return
   }
   const joiner = document.createTextNode(gapReplacement('', whiteSpace))
@@ -91,7 +94,7 @@ function rewriteGap(document: Document, element: Element, direction: Direction, 
   else element.insertBefore(joiner, element.firstChild)
 }
 
-export function applyKeepWith(document: Document, styleOf: StyleReader, gapReplacement: typeof keepGap): void {
+export function applyKeepWith(document: Document, styleOf: StyleReader, gapReplacement: typeof keepGap): boolean {
   const inlineStyles = Array.from(document.querySelectorAll<HTMLElement>('[style]'))
   const selectors: string[] = []
   let found = inlineStyles.some((element) => element.getAttribute('style')?.includes('--segnavia-keep-with'))
@@ -110,7 +113,7 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
       // An unreadable sheet cannot contribute candidates, but must not stop other keeps.
     }
   }
-  if (!found) return
+  if (!found) return false
 
   const candidates = new Set<Element>(inlineStyles.filter((element) => element.getAttribute('style')?.includes('--segnavia-keep-with')))
   for (const selector of selectors) {
@@ -121,12 +124,14 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
     }
   }
 
-  for (const element of outermostKeeps(Array.from(candidates), styleOf)) {
+  const keeps = outermostKeeps(Array.from(candidates), styleOf)
+  for (const element of keeps) {
     const direction = styleOf(element).getPropertyValue('--segnavia-keep-with').trim() as Direction
     if (inlineLevel(element, styleOf)) rewriteGap(document, element, direction, styleOf, gapReplacement)
     else if (direction === 'next') (element as HTMLElement).style.breakAfter = 'avoid'
     else (element as HTMLElement).style.breakBefore = 'avoid'
   }
+  return keeps.length > 0
 }
 
 export function keepPassScript(): string {
@@ -144,5 +149,5 @@ export function keepPassScript(): string {
     ['applyKeepWith', applyKeepWith],
   ]
   const source = functions.map(([name, fn]) => fn.toString().replace(/^function\s+[^([]+/, `function ${name}`)).join('\n')
-  return `${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
+  return `${source}\nvar keepWithApplied=false;var applyKeeps=function(){if(!keepWithApplied)keepWithApplied=applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);};document.addEventListener('DOMContentLoaded',applyKeeps);`
 }

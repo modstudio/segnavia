@@ -16,21 +16,34 @@ export const BOOK_BRIDGE_MESSAGES = new Set([
 ])
 
 async function inlineKeepReport(frame: FrameLocator) {
-  return frame.locator('[data-keep-probes]').last().evaluate((root) => {
-    const line = (selector: string) => {
-      const element = root.querySelector(selector)
-      if (!element) return undefined
-      const range = document.createRange()
-      range.selectNodeContents(element)
-      return range.getClientRects()[0]?.top
-    }
-    const lines = {
-      control: [line('[data-keep-control]'), line('[data-keep-control-word]')],
-      next: [line('[data-keep-next]'), line('[data-keep-next-word]')],
-      previous: [line('[data-keep-previous]'), line('[data-keep-previous-word]')],
-    }
-    return { control: lines.control[0] === lines.control[1], next: lines.next[0] === lines.next[1], previous: lines.previous[0] === lines.previous[1], lines }
-  })
+  return frame
+    .locator('[data-keep-probes]')
+    .last()
+    .evaluate((root) => {
+      const line = (selector: string) => {
+        const element = root.querySelector(selector)
+        if (!element) return undefined
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return range.getClientRects()[0]?.top
+      }
+      const lines = {
+        control: [line('[data-keep-control]'), line('[data-keep-control-word]')],
+        next: [line('[data-keep-next]'), line('[data-keep-next-word]')],
+        previous: [line('[data-keep-previous]'), line('[data-keep-previous-word]')],
+      }
+      const next = root.querySelector('[data-keep-next]')
+      const previous = root.querySelector('[data-keep-previous]')
+      const detail = [next, previous].map((element) => ({
+        display: element ? getComputedStyle(element).display : '',
+        keep: element ? getComputedStyle(element).getPropertyValue('--segnavia-keep-with') : '',
+        style: element?.getAttribute('style'),
+        text: element?.textContent,
+        before: element?.previousSibling?.nodeValue,
+        after: element?.nextSibling?.nodeValue,
+      }))
+      return { control: lines.control[0] === lines.control[1], next: lines.next[0] === lines.next[1], previous: lines.previous[0] === lines.previous[1], lines, detail }
+    })
 }
 
 export async function verifyInlineBookKeeps(frame: FrameLocator, label: string, check: Check): Promise<void> {
@@ -57,11 +70,14 @@ export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Fra
     ? [
         ['כותרת שמורה', 'הפסקה הבאה'],
         ['הפסקה הקודמת', 'סיום שמור'],
-      ]
+      ] as const
     : [
         ['KEPT BLOCK NEXT', 'NEXT BLOCK'],
         ['PREVIOUS BLOCK', 'KEPT BLOCK PREVIOUS'],
-      ]
-  const pdfKeeps = pairs.map(([held, neighbor]) => pages.findIndex((page) => page.includes(held)) === pages.findIndex((page) => page.includes(neighbor)))
+      ] as const
+  const pdfKeeps = pairs.map(([held, neighbor]) => {
+    const heldPage = pages.findIndex((page) => page.includes(held))
+    return heldPage >= 0 && heldPage === pages.findIndex((page) => page.includes(neighbor))
+  })
   check(`${label} PDF keeps each block pair on one page`, pdfKeeps.every(Boolean), JSON.stringify(pdfKeeps))
 }
