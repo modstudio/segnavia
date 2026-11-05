@@ -92,6 +92,7 @@ function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): Book
     partIndex += 1
     body.push({
       name: `part-${partIndex}`,
+      contents: true,
       ...(partPreview?.title ? { title: partPreview.title } : {}),
       ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
       ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
