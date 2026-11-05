@@ -53,7 +53,8 @@ export interface MeasuredKeepBlock {
 }
 
 export function appendMeasuredBlock<T extends MeasuredKeepBlock>(blocks: T[], block: T): void {
-  if (block.keepWithPrevious && blocks.length > 0) blocks[blocks.length - 1]!.keepWithNext = true
+  const previous = blocks.at(-1)
+  if (block.keepWithPrevious && previous) previous.keepWithNext = true
   delete block.keepWithPrevious
   blocks.push(block)
 }

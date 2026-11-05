@@ -3,6 +3,7 @@ import path from 'node:path'
 import { PX_PER_PT } from '@segnavia/format'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
+import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
@@ -25,15 +26,6 @@ import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
 
-const BRIDGE_MESSAGES = new Set([
-  'segnavia:key',
-  'segnavia:height',
-  'segnavia:ready',
-  'segnavia:animation',
-  'segnavia:slot-fit',
-  'segnavia:book-place',
-  'segnavia:compose-failure',
-])
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
@@ -66,6 +58,7 @@ export async function verifyBooks(h: Harness) {
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
     await verifyContinuousBookMotif(h, id)
+    await verifyInlineBookKeeps(page.frameLocator(`${frame} iframe`), id, check)
     await page
       .frameLocator(`${frame} iframe`)
       .locator('body')
@@ -101,14 +94,14 @@ export async function verifyBooks(h: Harness) {
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
   check(
     'continuous books use only declared bridge message kinds',
-    messages.every((kind) => BRIDGE_MESSAGES.has(kind)),
+    messages.every((kind) => BOOK_BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
 
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
   await verifyPartsBooks(h)
-  await verifyPaginatedBookElements(h, BRIDGE_MESSAGES)
+  await verifyPaginatedBookElements(h, BOOK_BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
   await verifyNoteSeries(h)
   await verifyImportedIdmlTable(h)
@@ -179,6 +172,7 @@ async function verifyPaginatedBooks(h: Harness) {
     check(`${id} book CSS styles paginated text color and size`, bookStyle.color === 'rgb(91, 42, 123)' && bookStyle.size === '23px', JSON.stringify(bookStyle))
     const report = await inspectPaginated(h, id)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
+    await verifyPaginatedBookKeeps(page.frameLocator(`#${id}`), frame, id, check)
     check(
       `${id} every galley line is on exactly one window`,
       report.lost === 0 && report.repeated === 0,

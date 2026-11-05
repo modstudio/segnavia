@@ -16,6 +16,24 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
+const keepProbe = (hebrew: boolean) => {
+  const word = hebrew ? 'בְּרֵאשִׁית' : 'WORD'
+  return `<div data-keep-probes style="font:16px/1 monospace;inline-size:10ch">
+    <div>xxxxx <span data-keep-control>§</span> <span data-keep-control-word>${word}</span></div>
+    <div>xxxxx <span data-keep-next style="--segnavia-keep-with:next">§</span> <span data-keep-next-word>${word}</span></div>
+    <div>xxxxx <span data-keep-previous-word>${word}</span> <span data-keep-previous style="--segnavia-keep-with:previous">¶</span></div>
+  </div>`
+}
+
+const blockKeepProbe = (hebrew: boolean) => {
+  const next = hebrew ? 'כותרת שמורה' : 'KEPT BLOCK NEXT'
+  const after = hebrew ? 'הפסקה הבאה' : 'NEXT BLOCK'
+  const before = hebrew ? 'הפסקה הקודמת' : 'PREVIOUS BLOCK'
+  const previous = hebrew ? 'סיום שמור' : 'KEPT BLOCK PREVIOUS'
+  return `<div style="block-size:160mm"></div><div data-keep-block-next style="margin:0;--segnavia-keep-with:next">${next}</div><p data-keep-block-next-neighbor style="margin:0">${after}</p>
+    <div style="block-size:160mm"></div><p data-keep-block-previous-neighbor style="margin:0">${before}</p><div data-keep-block-previous style="margin:0;--segnavia-keep-with:previous">${previous}</div>`
+}
+
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
@@ -34,7 +52,7 @@ const fixture = (hebrew: boolean): BookInput => ({
       title: hebrew ? 'התחלה' : 'Beginning',
       html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
         hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
-      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p><p>${
+      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>${keepProbe(hebrew)}<p>${
         hebrew ? 'ראו עמ׳ ' : 'See page '
       }<a href="#far-shore" data-ref="page"></a>.</p>`,
     },
@@ -56,7 +74,7 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
 const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
-function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
+function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
   const kavana = hebrew ? 'כוונה א' : 'Intention A'
@@ -64,7 +82,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew)): string {
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p><p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
@@ -148,14 +166,14 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
   chapters: [
     designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew), parents: { ...markParents, opener: 'deep-opener' } },
+    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew, undefined, true), parents: { ...markParents, opener: 'deep-opener' } },
     designedLeaf(hebrew),
     {
       title: hebrew ? 'פרק שני' : 'Chapter Two',
       html: chapterTwoHtml(hebrew),
       parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
     },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
+    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: `${chapterThreeHtml(hebrew)}${blockKeepProbe(hebrew)}` },
     { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
     columnFitChapter(hebrew),
   ],

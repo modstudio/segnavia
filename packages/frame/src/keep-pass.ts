@@ -130,18 +130,19 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
 }
 
 export function keepPassScript(): string {
-  const functions = [
-    keepGap,
-    outermostKeeps,
-    inlineLevel,
-    containingBlock,
-    adjacentNode,
-    followingNode,
-    textGap,
-    gapPieces,
-    replaceGap,
-    rewriteGap,
-    applyKeepWith,
+  const functions: Array<[string, { toString(): string }]> = [
+    ['keepGap', keepGap],
+    ['outermostKeeps', outermostKeeps],
+    ['inlineLevel', inlineLevel],
+    ['containingBlock', containingBlock],
+    ['adjacentNode', adjacentNode],
+    ['followingNode', followingNode],
+    ['textGap', textGap],
+    ['gapPieces', gapPieces],
+    ['replaceGap', replaceGap],
+    ['rewriteGap', rewriteGap],
+    ['applyKeepWith', applyKeepWith],
   ]
-  return `${functions.map((fn) => fn.toString()).join('\n')}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
+  const source = functions.map(([name, fn]) => fn.toString().replace(/^function\s+[^([]+/, `function ${name}`)).join('\n')
+  return `${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap);});`
 }
