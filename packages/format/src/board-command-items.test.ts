@@ -5,11 +5,6 @@ import { BOARD_COMMAND_HANDLERS, DEFAULT_BOARD_ITEM_WIDTH } from './board-comman
 const board: Board = { title: 'B', direction: 'ltr', items: [], labels: [], sections: [] }
 
 describe('board item command handlers', () => {
-  test('the dispatch table covers the five item-slice verbs', () => {
-    expect(Object.keys(BOARD_COMMAND_HANDLERS).sort()).toEqual(['arrange', 'item-add', 'item-move', 'item-remove', 'item-resize'])
-    expect(DEFAULT_BOARD_ITEM_WIDTH).toBe(320)
-  })
-
   test('item-add owns its default width', () => {
     const result = BOARD_COMMAND_HANDLERS['item-add'](
       {

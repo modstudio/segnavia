@@ -2,7 +2,7 @@ import type { Board } from './board.ts'
 import { BOARD_COMMAND_HANDLERS, type BoardCommandOptions } from './board-command-items.ts'
 import { BoardCommandRefusal } from './board-command-resolvers.ts'
 import { BoardCommand } from './board-commands.ts'
-import { type BoardEditAdjustment, type BoardEditResult, changedEntities, entityBox } from './board-edit-result.ts'
+import { type BoardEditAdjustment, type BoardEditResult, changedEntities, entityAt } from './board-edit-result.ts'
 import { diffBoards } from './board-ops-diff.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
 
@@ -16,12 +16,10 @@ function refusal(index: number, type: string, problem: string, clearing: string)
 }
 
 function fullAdjustments(board: Board, shapes: ComputedBoardShapes['shapes'], adjustments: BoardEditAdjustment[]): BoardEditAdjustment[] {
+  const findEntity = entityAt(board, shapes)
   return adjustments.map((adjustment) => {
-    const item = board.items.some((entry) => entry.id === adjustment.id)
-    const section = board.sections.some((entry) => entry.id === adjustment.id)
-    const label = board.labels.some((entry) => entry.id === adjustment.id)
-    const box = entityBox(board, shapes, item ? 'item' : section ? 'section' : label ? 'label' : 'item', adjustment.id)
-    return box ? { ...adjustment, box } : adjustment
+    const entity = findEntity(adjustment.id)
+    return entity ? { ...adjustment, box: entity.box } : adjustment
   })
 }
 

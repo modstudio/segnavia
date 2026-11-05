@@ -1,5 +1,5 @@
 import type { Board, BoardItem } from './board.ts'
-import { BoardCommandRefusal, resolveItem, resolveItems, resolveSection } from './board-command-resolvers.ts'
+import { BoardCommandRefusal, requireItemShape, requireLabelShape, resolveItem, resolveItems, resolveSection } from './board-command-resolvers.ts'
 import { type BoardTargetPlacement, placeBoardTarget } from './board-command-targets.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
 import { addItem, type BoardItemAnchor, MIN_BOARD_ITEM_WIDTH, removeItems, resizeItem } from './board-edit.ts'
@@ -42,10 +42,8 @@ function shapeAdjustments(context: CommandContext, ids: readonly string[]): Boar
 }
 
 function requireShapes(board: Board, shapes: BoardShapes): void {
-  for (const item of board.items)
-    if (!shapes.items[item.id]) throw new BoardCommandRefusal(`item "${item.id}" has no resolved shape`, `pass the resolved shape for item "${item.id}"`)
-  for (const label of board.labels)
-    if (!shapes.labels[label.id]) throw new BoardCommandRefusal(`label "${label.id}" has no resolved shape`, `pass the resolved shape for label "${label.id}"`)
+  for (const item of board.items) requireItemShape(shapes, item.id)
+  for (const label of board.labels) requireLabelShape(shapes, label.id)
 }
 
 function placementAdjustments(context: CommandContext, placement: BoardTargetPlacement): BoardEditAdjustment[] {
@@ -93,6 +91,12 @@ function requirePositiveWidth(width: number): void {
 }
 
 function addShape(context: CommandContext, command: BoardCommandOf<'item-add'>, id: string): { shapes: BoardShapes; provisionalId?: string } {
+  const sameAddress = context.board.items.find((item) => item.address === command.address)
+  if (sameAddress && sameAddress.kind !== command.kind)
+    throw new BoardCommandRefusal(
+      `address "${command.address}" belongs to a ${sameAddress.kind} item instead of ${command.kind}`,
+      `pass a ${command.kind} fact for a distinct address`,
+    )
   const fact = context.options.facts?.[command.address]
   if (fact) {
     if (fact.kind !== command.kind)
@@ -102,12 +106,6 @@ function addShape(context: CommandContext, command: BoardCommandOf<'item-add'>, 
       )
     return { shapes: { ...context.shapes, items: { ...context.shapes.items, [id]: resolvedShape(fact) } } }
   }
-  const sameAddress = context.board.items.find((item) => item.address === command.address)
-  if (sameAddress && sameAddress.kind !== command.kind)
-    throw new BoardCommandRefusal(
-      `address "${command.address}" belongs to a ${sameAddress.kind} item instead of ${command.kind}`,
-      `pass a ${command.kind} fact for a distinct address`,
-    )
   const shape = sameAddress ? context.shapes.items[sameAddress.id] : undefined
   if (!shape)
     throw new BoardCommandRefusal(`address "${command.address}" has no resolved shape`, `pass its resolved fact in options.facts["${command.address}"]`)
@@ -152,14 +150,13 @@ function itemRemove(context: CommandContext, command: BoardCommandOf<'item-remov
   const items = resolveItems(context.board, command.items)
   const ids = items.map((item) => item.id)
   const intended = removeItems(removeFromGrid(context.board, context.shapes, ids), ids)
-  return settled(context, intended, context.shapes, ids, shapeAdjustments(context, ids))
+  const shapeUsers = ids.filter((id) => context.board.sections.some((section) => section.layout !== 'manual' && section.items.includes(id)))
+  return settled(context, intended, context.shapes, ids, shapeAdjustments(context, shapeUsers))
 }
 
 function itemMove(context: CommandContext, command: BoardCommandOf<'item-move'>): CommandResult {
   const items = resolveItems(context.board, command.items)
   const ids = items.map((item) => item.id)
-  for (const id of ids)
-    if (!context.shapes.items[id]) throw new BoardCommandRefusal(`item "${id}" has no resolved shape`, `pass the resolved shape for item "${id}"`)
   requireShapes(context.board, context.shapes)
   const placement = placeBoardTarget(context.board, context.shapes, ids, command.target)
   return settled(
@@ -185,8 +182,7 @@ export function physicalItemAnchor(direction: Board['direction'], anchor: Logica
 function itemResize(context: CommandContext, command: BoardCommandOf<'item-resize'>): CommandResult {
   requirePositiveWidth(command.width)
   const item = resolveItem(context.board, command.item)
-  const shape = context.shapes.items[item.id]
-  if (!shape) throw new BoardCommandRefusal(`item "${item.id}" has no resolved shape`, `pass the resolved shape for item "${item.id}"`)
+  const shape = requireItemShape(context.shapes, item.id)
   const anchor = physicalItemAnchor(context.board.direction, command.anchor ?? 'top-start')
   const width = Math.max(MIN_BOARD_ITEM_WIDTH, command.width)
   const adjustments = shapeAdjustments(context, [item.id])

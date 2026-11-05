@@ -41,6 +41,7 @@ export type {
   BoardChangedEntity,
   BoardChangedKind,
   BoardEditAdjustment,
+  BoardEditAdjustmentKind,
   BoardEditFailure,
   BoardEditResult,
   BoardEditSuccess,

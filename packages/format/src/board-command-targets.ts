@@ -1,6 +1,7 @@
 import type { Board } from './board.ts'
-import { BoardCommandRefusal, resolveEntity, resolveItem, resolveSection } from './board-command-resolvers.ts'
+import { BoardCommandRefusal, requireItemShape, requireLabelShape, resolveEntity, resolveItem, resolveSection } from './board-command-resolvers.ts'
 import type { BoardTarget } from './board-commands.ts'
+import { moveItems } from './board-edit.ts'
 import { type BoardShapes, boardBounds, itemRectangle, labelRectangle } from './board-geometry.ts'
 import { gridDropTarget, insertIntoGrid, removeFromGrid } from './board-section-grid.ts'
 import { assignMembership, overlaps, SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
@@ -8,28 +9,22 @@ import type { Box, Point } from './deck.ts'
 
 function itemBox(board: Board, shapes: BoardShapes, id: string): Box {
   const item = board.items.find((entry) => entry.id === id)
-  const shape = shapes.items[id]
-  if (!item || !shape) throw new BoardCommandRefusal(`item "${id}" has no resolved shape`, `pass the resolved shape for item "${id}"`)
+  requireItemShape(shapes, id)
+  if (!item) throw new BoardCommandRefusal(`item id "${id}" does not exist`, 'pass the id or unique address of an existing item')
   return itemRectangle(item, shapes)
 }
 
-function entityBox(board: Board, shapes: BoardShapes, target: ReturnType<typeof resolveEntity>): Box {
+function resolvedEntityBox(board: Board, shapes: BoardShapes, target: ReturnType<typeof resolveEntity>): Box {
   if (target.kind === 'section') return target.value.rectangle
   if (target.kind === 'item') return itemBox(board, shapes, target.value.id)
-  const shape = shapes.labels[target.value.id]
-  if (!shape) throw new BoardCommandRefusal(`label "${target.value.id}" has no resolved shape`, `pass the resolved shape for label "${target.value.id}"`)
+  requireLabelShape(shapes, target.value.id)
   return labelRectangle(target.value, shapes)
 }
 
 function translate(board: Board, ids: readonly string[], point: Point): Board {
   const first = board.items.find((item) => item.id === ids[0])
   if (!first) return board
-  const delta = { x: point.x - first.x, y: point.y - first.y }
-  const moved = new Set(ids)
-  return {
-    ...board,
-    items: board.items.map((item) => (moved.has(item.id) ? { ...item, x: item.x + delta.x, y: item.y + delta.y } : item)),
-  }
+  return moveItems(board, ids, { x: point.x - first.x, y: point.y - first.y })
 }
 
 function unsection(board: Board, shapes: BoardShapes, ids: readonly string[]): Board {
@@ -111,7 +106,7 @@ function collisionEntities(board: Board, shapes: BoardShapes, ids: ReadonlySet<s
     ...board.labels.flatMap((label) =>
       reference.kind === 'label' && reference.value.id === label.id
         ? []
-        : [{ kind: 'label' as const, id: label.id, box: entityBox(board, shapes, { kind: 'label', value: label }) }],
+        : [{ kind: 'label' as const, id: label.id, box: resolvedEntityBox(board, shapes, { kind: 'label', value: label }) }],
     ),
     ...board.sections.flatMap((section) =>
       reference.kind === 'section' && reference.value.id === section.id ? [] : [{ kind: 'section' as const, id: section.id, box: section.rectangle }],
@@ -155,7 +150,7 @@ export function placeBoardTarget(board: Board, shapes: BoardShapes, ids: readonl
   if ('free' in target)
     return { board: translate(unsection(board, shapes, ids), ids, appendPoint(board, shapes, ids[0] as string)), nudges: [], usedEstimatedLabels: [] }
   const reference = resolveEntity(board, target.beside)
-  const beside = entityBox(board, shapes, reference)
+  const beside = resolvedEntityBox(board, shapes, reference)
   const first = itemBox(board, shapes, ids[0] as string)
   const side = PHYSICAL_SIDE[board.direction][target.side]
   const startX = board.direction === 'rtl' ? beside.x + beside.width - first.width : beside.x

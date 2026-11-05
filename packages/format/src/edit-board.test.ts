@@ -43,6 +43,16 @@ function expectChangedCoverage(before: Board, after: Board, changed: ReadonlySet
 }
 
 describe('editBoard item commands', () => {
+  test('applies and reports the default width through editBoard', () => {
+    const result = success(
+      editBoard(board(), [{ type: 'item-add', id: 'new', kind: 'page', address: 'new', target: { free: true } }], shapes, {
+        facts: { new: { kind: 'page', size: { width: 2, height: 1 } } },
+      }),
+    )
+    expect(result.board.items.find((entry) => entry.id === 'new')?.width).toBe(320)
+    expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'default-width', id: 'new' }))
+  })
+
   test('adds, moves a group, resizes, removes and arranges in one atomic batch', () => {
     const result = success(
       editBoard(
@@ -117,6 +127,51 @@ describe('editBoard item commands', () => {
     }
     const result = success(editBoard(before, [{ type: 'item-move', items: [{ id: 'a' }], target: { beside: { id: 'used' }, side: 'above' } }], withLabels))
     expect(result.adjustments.filter((entry) => entry.kind === 'estimated-shape').map((entry) => entry.id)).toEqual(['used'])
+  })
+
+  test('reports provisional shapes only when a command reads them', () => {
+    const provisional = { ...shapes, provisional: ['b'] }
+    const moved = success(editBoard(board(), [{ type: 'item-move', items: [{ id: 'b' }], target: { at: { x: 20, y: 30 } } }], provisional))
+    expect(moved.adjustments).toContainEqual(expect.objectContaining({ kind: 'provisional-shape', id: 'b' }))
+
+    const looseRemoval = success(editBoard(board(), [{ type: 'item-remove', items: [{ id: 'b' }] }], provisional))
+    expect(looseRemoval.adjustments).not.toContainEqual(expect.objectContaining({ kind: 'provisional-shape', id: 'b' }))
+
+    const inGrid = board()
+    const section = inGrid.sections[0]
+    if (!section) throw new Error('test board has no section')
+    inGrid.sections[0] = { ...section, layout: 'auto', items: ['b'], cells: [{ id: 'b', row: 0, column: 0 }] }
+    const gridRemoval = success(editBoard(inGrid, [{ type: 'item-remove', items: [{ id: 'b' }] }], provisional))
+    expect(gridRemoval.adjustments).toContainEqual(expect.objectContaining({ kind: 'provisional-shape', id: 'b' }))
+  })
+
+  test('reuses an existing item shape and reports when it is provisional', () => {
+    const before: Board = { title: 'B', direction: 'ltr', items: [item('a', 'shared')], labels: [], sections: [] }
+    const existingShapes: ComputedBoardShapes = {
+      shapes: { items: { a: { width: 4, height: 3 } }, labels: {} },
+      provisional: ['a'],
+      estimated: [],
+    }
+    const result = success(
+      editBoard(before, [{ type: 'item-add', id: 'new', kind: 'page', address: 'shared', width: 80, target: { free: true } }], existingShapes, {
+        detail: 'full',
+      }),
+    )
+    expect(result.board.items.find((entry) => entry.id === 'new')).toMatchObject({ width: 80 })
+    expect(result.changed.find((entry) => entry.id === 'new')?.box).toMatchObject({ width: 80, height: 60 })
+    expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'provisional-shape', id: 'new' }))
+  })
+
+  test('names fact kind mismatches and existing-address conflicts', () => {
+    const mismatch = editBoard(board(), [{ type: 'item-add', id: 'new', kind: 'page', address: 'new', target: { free: true } }], shapes, {
+      facts: { new: { kind: 'media', width: 4, height: 3 } },
+    })
+    expect(mismatch.ok ? '' : mismatch.refusal).toMatch(/has a media shape fact instead of page.*pass a page fact/)
+
+    const conflict = editBoard(board(), [{ type: 'item-add', id: 'new', kind: 'media', address: 'c', target: { free: true } }], shapes, {
+      facts: { c: { kind: 'media', width: 4, height: 3 } },
+    })
+    expect(conflict.ok ? '' : conflict.refusal).toMatch(/belongs to a page item instead of media.*pass a media fact for a distinct address/)
   })
 
   test('refusals name the index, remedy, and atomic outcome', () => {

@@ -1,5 +1,5 @@
 import type { Board } from './board.ts'
-import { type BoardShapes, itemRectangle } from './board-geometry.ts'
+import { type BoardShapes, itemRectangle, labelRectangle } from './board-geometry.ts'
 import type { BoardOp } from './board-ops.ts'
 import type { Box } from './deck.ts'
 
@@ -12,11 +12,24 @@ export interface BoardChangedEntity {
 
 export interface BoardEditAdjustment {
   command: number
-  kind: string
+  kind: BoardEditAdjustmentKind
   id: string
   detail: string
   box?: Box
 }
+
+export type BoardEditAdjustmentKind =
+  | 'auto-layout'
+  | 'default-anchor'
+  | 'default-columns'
+  | 'default-gap'
+  | 'default-width'
+  | 'estimated-shape'
+  | 'generated-id'
+  | 'nudge'
+  | 'provisional-shape'
+  | 'settle'
+  | 'width-clamped'
 
 export interface BoardEditSuccess {
   ok: true
@@ -43,7 +56,7 @@ function boxes(board: Board, shapes: BoardShapes): Map<string, { kind: BoardChan
   for (const section of board.sections) result.set(section.id, { kind: 'section', box: section.rectangle })
   for (const label of board.labels) {
     const shape = shapes.labels[label.id]
-    if (shape) result.set(label.id, { kind: 'label', box: { x: label.x, y: label.y, ...shape } })
+    if (shape) result.set(label.id, { kind: 'label', box: labelRectangle(label, shapes) })
   }
   return result
 }
@@ -60,7 +73,11 @@ export function changedEntities(before: Board, after: Board, shapes: BoardShapes
   })
 }
 
-export function entityBox(board: Board, shapes: BoardShapes, kind: BoardChangedKind, id: string): Box | undefined {
-  const entity = boxes(board, shapes).get(id)
-  return entity?.kind === kind ? entity.box : undefined
+type BoardEntityAt = { kind: BoardChangedKind; box: Box }
+
+export function entityAt(board: Board, shapes: BoardShapes, id: string): BoardEntityAt | undefined
+export function entityAt(board: Board, shapes: BoardShapes): (id: string) => BoardEntityAt | undefined
+export function entityAt(board: Board, shapes: BoardShapes, id?: string): BoardEntityAt | undefined | ((id: string) => BoardEntityAt | undefined) {
+  const entities = boxes(board, shapes)
+  return id === undefined ? (candidate) => entities.get(candidate) : entities.get(id)
 }

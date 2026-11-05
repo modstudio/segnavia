@@ -40,4 +40,36 @@ describe('applyBoardTarget', () => {
     expect(moved.items[0]).toMatchObject({ x: 20, y: 230 })
     expect(moved.sections[0]?.items).toEqual(['a'])
   })
+
+  test('keeps group offsets when placing items beside a reference', () => {
+    const board = value('ltr')
+    const beforeA = board.items.find((item) => item.id === 'a')
+    const beforeB = board.items.find((item) => item.id === 'b')
+    const moved = applyBoardTarget(board, shapes, ['a', 'b'], { beside: { id: 'l' }, side: 'below' })
+    const afterA = moved.items.find((item) => item.id === 'a')
+    const afterB = moved.items.find((item) => item.id === 'b')
+    expect({ x: (afterB?.x ?? 0) - (afterA?.x ?? 0), y: (afterB?.y ?? 0) - (afterA?.y ?? 0) }).toEqual({
+      x: (beforeB?.x ?? 0) - (beforeA?.x ?? 0),
+      y: (beforeB?.y ?? 0) - (beforeA?.y ?? 0),
+    })
+  })
+
+  test('places ordered and point targets into an auto-layout grid', () => {
+    const board = value('ltr')
+    const section = board.sections[0]
+    const first = board.items[0]
+    if (!section || !first) throw new Error('test board has no section or first item')
+    board.sections[0] = { ...section, layout: 'auto', items: ['a'], cells: [{ id: 'a', row: 0, column: 0 }] }
+    board.items[0] = { ...first, x: 24, y: 264 }
+
+    const ordered = applyBoardTarget(board, shapes, ['b'], { section: { id: 's' }, after: { id: 'a' } })
+    expect(ordered.sections[0]?.cells).toEqual([
+      { id: 'a', row: 0, column: 0 },
+      { id: 'b', row: 0, column: 1 },
+    ])
+
+    const dropped = applyBoardTarget(board, shapes, ['b'], { at: { x: 120, y: 280 } })
+    expect(dropped.sections[0]?.items).toEqual(['a', 'b'])
+    expect(dropped.sections[0]?.cells?.map((cell) => cell.id)).toEqual(['a', 'b'])
+  })
 })

@@ -1,5 +1,6 @@
 import type { Board, BoardItem, BoardLabel, BoardSection } from './board.ts'
 import type { BoardEntityRef, BoardItemRef, BoardSectionRef } from './board-commands.ts'
+import type { BoardShapes } from './board-geometry.ts'
 
 export class BoardCommandRefusal extends Error {
   constructor(
@@ -8,6 +9,18 @@ export class BoardCommandRefusal extends Error {
   ) {
     super(message)
   }
+}
+
+export function requireItemShape(shapes: BoardShapes, id: string): BoardShapes['items'][string] {
+  const shape = shapes.items[id]
+  if (!shape) throw new BoardCommandRefusal(`item "${id}" has no resolved shape`, `pass the resolved shape for item "${id}"`)
+  return shape
+}
+
+export function requireLabelShape(shapes: BoardShapes, id: string): BoardShapes['labels'][string] {
+  const shape = shapes.labels[id]
+  if (!shape) throw new BoardCommandRefusal(`label "${id}" has no resolved shape`, `pass the resolved shape for label "${id}"`)
+  return shape
 }
 
 function one<T extends { id: string }>(matches: T[], description: string, clearing: string): T {
