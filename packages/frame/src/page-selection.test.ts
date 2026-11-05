@@ -17,6 +17,7 @@ const style = () => {
 class TestElement extends EventTarget {
   className = ''
   clientWidth = 1000
+  offsetHeight = 100
   dataset: Record<string, string> = {}
   dir = ''
   isConnected = true
@@ -31,12 +32,17 @@ class TestElement extends EventTarget {
     this.children.push(child)
   }
 
+  prepend(child: TestElement) {
+    child.parent = this
+    this.children.unshift(child)
+  }
+
   remove() {
     if (this.parent) this.parent.children = this.parent.children.filter((child) => child !== this)
   }
 
   scrollIntoView(options?: ScrollIntoViewOptions) {
-    headingScrolls.push({ marker: this, options })
+    headingScrolls.push({ marker: this, options, firstChild: this.parent?.children[0] === this })
   }
 
   getAttribute(name: string) {
@@ -90,7 +96,7 @@ class TestFrame extends TestElement {
 }
 
 const messageListeners = new Set<(event: MessageEvent) => void>()
-const headingScrolls: Array<{ marker: TestElement; options?: ScrollIntoViewOptions }> = []
+const headingScrolls: Array<{ marker: TestElement; options?: ScrollIntoViewOptions; firstChild: boolean }> = []
 const testDocument = {
   createElement(name: string) {
     return name === 'iframe' ? new TestFrame() : new TestElement()
@@ -302,7 +308,6 @@ test('a heading reply scrolls a clamped marker in sheet coordinates', async () =
   harness.page.load({ markdown: '# Known', scripts: 'refuse' })
   const frame = harness.frame()
   frame.load()
-  harness.dispatch(frame.contentWindow, { type: MESSAGE.height, height: 100 })
   harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
   const pending = harness.page.scrollToHeading('known', { behavior: 'smooth' })
   const { id } = frame.posts[0] as { id: number }
@@ -310,6 +315,13 @@ test('a heading reply scrolls a clamped marker in sheet coordinates', async () =
   expect(await pending).toBe(true)
   expect(headingScrolls).toHaveLength(1)
   expect(headingScrolls[0]?.marker.style.insetBlockStart).toBe('100px')
+  expect(headingScrolls[0]?.marker.style.display).toBe('block')
+  expect(headingScrolls[0]?.marker.style.position).toBe('relative')
+  expect(headingScrolls[0]?.marker.style.inlineSize).toBe('0')
+  expect(headingScrolls[0]?.marker.style.blockSize).toBe('0')
+  expect(headingScrolls[0]?.marker.style.pointerEvents).toBe('none')
+  expect(headingScrolls[0]?.marker.style.scrollMarginBlockStart).toBe('var(--segnavia-heading-scroll-margin,0px)')
+  expect(headingScrolls[0]?.firstChild).toBe(true)
   expect(headingScrolls[0]?.marker.getAttribute('aria-hidden')).toBe('true')
   expect(headingScrolls[0]?.options).toEqual({ block: 'start', behavior: 'smooth' })
   expect(harness.page.querySelector('.segnavia-page__heading-marker')).toBeNull()

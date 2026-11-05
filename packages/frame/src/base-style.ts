@@ -87,10 +87,9 @@ export const BASE_CSS = `
 :where(:host(segnavia-board-toolbar:not([unstyled])) button){display:inline-flex;align-items:center;justify-content:center;color:var(--segnavia-board-toolbar-button-color,currentColor);background:var(--segnavia-board-toolbar-button-background,transparent)}
 :where(:host(segnavia-board-toolbar:not([unstyled])) button[hidden]){display:none}
 :where(:host(segnavia-board-toolbar:not([unstyled])) [part~="icon"]){display:inline-block}
-:where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden}
+:where(segnavia-page:not([unstyled])){display:block;position:relative;overflow:hidden;overflow:clip}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){position:relative;transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
-:where(segnavia-page:not([unstyled]) .segnavia-page__heading-marker){position:absolute;inset-inline-start:0;inline-size:0;block-size:0;pointer-events:none;scroll-margin-block-start:var(--segnavia-heading-scroll-margin,0px)}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}

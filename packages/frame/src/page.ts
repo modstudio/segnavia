@@ -16,7 +16,8 @@ import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { pageSheetLayout } from './page-layout.ts'
-import { cancelPageRequests, createPageRequestState, readPageSelection, releaseReadyPageRequests } from './page-selection.ts'
+import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
+import { readPageSelection } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
@@ -254,7 +255,6 @@ export class SegnaviaPage extends PageElementAttributes {
       this.page,
       this.querySelector('iframe'),
       this.querySelector('.segnavia-page__sheet'),
-      this.contentHeight,
       this.hostServed,
       this.frameReady,
       this.pageRequests,
