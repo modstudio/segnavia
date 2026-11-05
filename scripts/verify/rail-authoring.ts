@@ -7,7 +7,14 @@ import { verifyDeskRailUnmount } from './rail-unmount.ts'
 import { verifyReactAuthoring } from './react-authoring.ts'
 
 const PLAYER = 'segnavia-player'
-
+async function railOrder(h: Harness): Promise<{ deck: string[]; rail: string[] }> {
+  return h.page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }) => ({
+    deck: player.controller.state.deck.slides.map((slide) => slide.id),
+    rail: [...(player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot?.querySelectorAll<HTMLElement>('li[data-slide-id]') ?? [])].map(
+      (item) => item.dataset.slideId ?? '',
+    ),
+  }))
+}
 async function verifyReloadedNotes(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('authoring.html'))
@@ -123,10 +130,11 @@ async function verifyReloadedNotes(h: Harness) {
     const holder = window as unknown as { concurrentHostLoad: Promise<void>; authoringMove: Promise<void> }
     return Promise.all([holder.concurrentHostLoad, holder.authoringMove])
   })
+  const movedOrder = await railOrder(h)
   check(
     'a host reload during an optimistic reorder preserves in-flight notes',
-    (await notes.inputValue()) === 'Pending during reorder',
-    await notes.inputValue(),
+    (await notes.inputValue()) === 'Pending during reorder' && movedOrder.rail.join(',') === movedOrder.deck.join(','),
+    JSON.stringify({ notes: await notes.inputValue(), order: movedOrder }),
   )
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = false))
   await notes.fill('Detached draft')
@@ -242,7 +250,12 @@ export async function verifyRailAuthoring(h: Harness) {
     .evaluate((player: HTMLElement & { controller: { state: { deck: { slides: Array<{ id: string }> } } } }) =>
       player.controller.state.deck.slides.map((slide) => slide.id),
     )
-  check('a rejected keyboard reorder rolls back', ids.join(',') === 'second,probe', ids.join(','))
+  const rolledBackOrder = await railOrder(h)
+  check(
+    'a rejected keyboard reorder rolls back',
+    ids.join(',') === 'second,probe' && rolledBackOrder.rail.join(',') === rolledBackOrder.deck.join(','),
+    JSON.stringify({ ids, order: rolledBackOrder }),
+  )
 
   await page.setViewportSize({ width: 408, height: 816 })
   await page.goto(h.url('authoring-rtl.html'))

@@ -11,7 +11,30 @@ interface ProgressFacts {
 
 interface RailLoadFacts {
   missing: string | null
+  replaced: number
   reloads: number
+}
+
+interface RailRoot {
+  missing: string | null
+  rail: ShadowRoot | null
+}
+
+interface ProgressWindow {
+  progressRailShadowRoot(player: HTMLElement): RailRoot
+}
+
+async function installRailShadowRoot(h: Harness) {
+  await h.page.evaluate(() => {
+    ;(window as unknown as ProgressWindow).progressRailShadowRoot = (player) => {
+      const playerRoot = player.shadowRoot
+      const rail = playerRoot?.querySelector('segnavia-rail')?.shadowRoot ?? null
+      return {
+        missing: !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null,
+        rail,
+      }
+    }
+  })
 }
 
 async function installFacts(h: Harness) {
@@ -41,12 +64,13 @@ async function loadProgressDeck(h: Harness, seek: SeekPolicy) {
 
 async function installRailLoadFacts(h: Harness) {
   await h.page.locator(PLAYER).evaluate((player: HTMLElement) => {
-    const playerRoot = player.shadowRoot
-    const rail = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
+    const { missing, rail } = (window as unknown as ProgressWindow).progressRailShadowRoot(player)
     const facts: RailLoadFacts = {
-      missing: !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null,
+      missing,
+      replaced: 0,
       reloads: 0,
     }
+    const frames = rail ? [...rail.querySelectorAll('iframe')] : []
     const loaded = new WeakSet<HTMLIFrameElement>()
     const onLoad = (event: Event) => {
       if (!(event.target instanceof HTMLIFrameElement)) return
@@ -56,7 +80,10 @@ async function installRailLoadFacts(h: Harness) {
     rail?.addEventListener('load', onLoad, { capture: true })
     ;(window as unknown as { railLoadFacts: { facts: RailLoadFacts; stop(): void } }).railLoadFacts = {
       facts,
-      stop: () => rail?.removeEventListener('load', onLoad, { capture: true }),
+      stop: () => {
+        rail?.removeEventListener('load', onLoad, { capture: true })
+        facts.replaced = frames.filter((frame) => !frame.isConnected || !rail?.contains(frame)).length
+      },
     }
   })
 }
@@ -73,6 +100,7 @@ export async function verifyProgress(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('progress.html'))
   await h.waitFor(PLAYER, (data) => data.slide === '1')
+  await installRailShadowRoot(h)
   await installFacts(h)
 
   await loadProgressDeck(h, 'free')
@@ -93,7 +121,11 @@ export async function verifyProgress(h: Harness) {
   facts = await page.evaluate(() => (window as unknown as { progressFacts: ProgressFacts }).progressFacts)
   check('watching a timed deck through emits complete exactly once', facts.complete === 1, JSON.stringify(facts))
   const railLoads = await readRailLoadFacts(h)
-  check('rail thumbnails do not reload while the deck plays', railLoads.missing === null && railLoads.reloads === 0, JSON.stringify(railLoads))
+  check(
+    'rail thumbnails do not reload while the deck plays',
+    railLoads.missing === null && railLoads.reloads === 0 && railLoads.replaced === 0,
+    JSON.stringify(railLoads),
+  )
 
   await loadProgressDeck(h, 'furthest')
   await page.locator(PLAYER).evaluate(
@@ -129,10 +161,8 @@ export async function verifyProgress(h: Harness) {
     JSON.stringify({ slide: await currentSlide(), reachIndex: pausedReachIndex }),
   )
   const pausedUpdates = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: EventTarget }, waitMs) => {
-    const playerRoot = player.shadowRoot
-    if (!playerRoot) return { changes: null, loads: null, missing: 'player shadow root' }
-    const rail = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
-    if (!rail) return { changes: null, loads: null, missing: 'rail shadow root' }
+    const { missing, rail } = (window as unknown as ProgressWindow).progressRailShadowRoot(player)
+    if (!rail) return { changes: null, loads: null, missing }
     let changes = 0
     let loads = 0
     const onChange = () => changes++

@@ -78,8 +78,9 @@ export class ControllerPlayback {
       if (!clock) return
       this.readClock()
       this.host.emit()
+      if (run !== this.tickRun) return
       if (clock.ended()) void this.host.next().catch(() => this.host.pause())
-      else if (run === this.tickRun) this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
+      else this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
     }
     this.cancel = (this.host.options().schedule ?? defaultSchedule)(tick)
   }

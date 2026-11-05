@@ -18,8 +18,3 @@ test('a removed rail item needs no remaining item to move', () => {
 test('swapping two rail items moves only one item', () => {
   expect(railOrderMoves(['a', 'b'], ['b', 'a'])).toEqual([{ id: 'a', before: null }])
 })
-
-test('the item settings entry stays first without moving', () => {
-  expect(railOrderMoves(['settings', 'a', 'b'], ['settings', 'a', 'b'])).toEqual([])
-  expect(railOrderMoves(['settings', 'a', 'b'], ['settings', 'b', 'a'])).toEqual([{ id: 'a', before: null }])
-})

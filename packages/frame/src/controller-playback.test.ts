@@ -79,17 +79,103 @@ test('pause from a change listener ends the playback tick', async () => {
       },
     ],
   })
+  await controller.play()
   const pause = () => {
     controller.removeEventListener('change', pause)
     controller.pause()
   }
   controller.addEventListener('change', pause)
-  await controller.play()
   const tick = pending as (() => void) | null
   pending = null
   tick?.()
   expect(pending).toBeNull()
   expect(controller.state.playing).toBe(false)
+})
+
+test('an invalidated ended tick does not advance the deck', async () => {
+  let pending: (() => void) | null = null
+  const controller = new DeckController({
+    hash: null,
+    clock: (): Clock => ({
+      word: () => null,
+      ended: () => true,
+      elapsed: () => 1000,
+      progress: () => 1,
+      pause: () => {},
+      resume: () => {},
+      seek: () => {},
+      muted: false,
+      stop: () => {},
+    }),
+    schedule: (tick) => {
+      pending = tick
+      return () => {
+        pending = null
+      }
+    },
+  })
+  await controller.load({
+    title: 'T',
+    slides: ['a', 'b'].map((id) => ({
+      id,
+      content: { kind: 'html' as const, html: '' },
+      narration: { text: 'hello', words: [], durationMs: 1000, audio: null, live: false, cues: [] },
+    })),
+  })
+  await controller.play()
+  const pause = () => {
+    controller.removeEventListener('change', pause)
+    controller.pause()
+  }
+  controller.addEventListener('change', pause)
+  const tick = pending as (() => void) | null
+  pending = null
+  tick?.()
+  await Bun.sleep(0)
+  expect(controller.state.index).toBe(0)
+  expect(controller.state.playing).toBe(false)
+})
+
+test('a tick invoked after pause emits no change and does not reschedule', async () => {
+  let pending: (() => void) | null = null
+  const controller = new DeckController({
+    hash: null,
+    clock: (): Clock => ({
+      word: () => null,
+      ended: () => false,
+      elapsed: () => 0,
+      progress: () => 0,
+      pause: () => {},
+      resume: () => {},
+      seek: () => {},
+      muted: false,
+      stop: () => {},
+    }),
+    schedule: (tick) => {
+      pending = tick
+      return () => {
+        pending = null
+      }
+    },
+  })
+  await controller.load({
+    title: 'T',
+    slides: [
+      {
+        id: 'a',
+        content: { kind: 'html', html: '' },
+        narration: { text: 'hello', words: [], durationMs: 1000, audio: null, live: false, cues: [] },
+      },
+    ],
+  })
+  await controller.play()
+  const tick = pending as (() => void) | null
+  controller.pause()
+  let changes = 0
+  controller.addEventListener('change', () => changes++)
+  tick?.()
+  expect(changes).toBe(0)
+  expect(pending).toBeNull()
 })
 
 test('play restarts an ended deck in either playback mode', async () => {

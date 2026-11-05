@@ -236,17 +236,7 @@ export class SegnaviaRail extends SegnaviaControl {
     const button = item.querySelector('button') as HTMLButtonElement
     button.textContent = this.itemSettings.label
     button.setAttribute('aria-label', this.itemSettings.label)
-    const settingsId = '__item-settings__'
-    const slides = [...list.querySelectorAll<HTMLLIElement>('li[data-slide-id]')]
-    const current = [...list.children].map((child) =>
-      (child as HTMLElement).hasAttribute('data-item-settings') ? settingsId : ((child as HTMLElement).dataset.slideId ?? ''),
-    )
-    const nodes = new Map<string, HTMLLIElement>(slides.map((slide) => [slide.dataset.slideId ?? '', slide]))
-    nodes.set(settingsId, item)
-    for (const move of railOrderMoves(current, [settingsId, ...slides.map((slide) => slide.dataset.slideId ?? '')])) {
-      const moved = nodes.get(move.id)
-      if (moved) list.insertBefore(moved, move.before ? (nodes.get(move.before) ?? null) : null)
-    }
+    if (list.firstElementChild !== item) list.insertBefore(item, list.firstElementChild)
   }
 
   private decorateSlideSettings(item: HTMLLIElement, slideId: string) {
