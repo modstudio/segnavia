@@ -4,10 +4,10 @@ import { type IdmlPartMarker, partRuns } from './part-runs.ts'
 
 const findings: IdmlFindings = {
   pages: [
-    { id: 'p0', name: '0', spread: 's0', appliedMaster: 'Body', stories: ['front'] },
-    { id: 'p1', name: '1', spread: 's1', appliedMaster: 'Open', stories: ['one', 'span'] },
-    { id: 'p2', name: '2', spread: 's1', appliedMaster: 'Open', stories: ['span'] },
-    { id: 'p3', name: '3', spread: 's2', appliedMaster: 'Open', stories: ['three'] },
+    { id: 'p0', name: '0', spread: 's0', appliedMaster: 'Body', stories: ['front'], paragraphs: [] },
+    { id: 'p1', name: '1', spread: 's1', appliedMaster: 'Open', stories: ['one', 'span'], paragraphs: [] },
+    { id: 'p2', name: '2', spread: 's1', appliedMaster: 'Open', stories: ['span'], paragraphs: [] },
+    { id: 'p3', name: '3', spread: 's2', appliedMaster: 'Open', stories: ['three'], paragraphs: [] },
   ],
   masters: [{ name: 'Open', pages: ['1', '2', '3'] }],
   sections: [{ name: 'Front', startPage: '0', pages: ['0'] }, { name: 'Body', startPage: '1', pages: ['1', '2', '3'] }],

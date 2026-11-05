@@ -7,6 +7,7 @@ export interface IdmlFindingPage {
   spread: string
   appliedMaster?: string
   stories: string[]
+  paragraphs: { style: string; text: string }[]
 }
 
 export interface IdmlPageUse {
@@ -34,13 +35,14 @@ function paragraphs(node: IdmlTextNode | undefined): { style: string; text: stri
 
 export function idmlFindings(model: IdmlModel): IdmlFindings {
   const masterNames = new Map(model.masterSpreads.map((master) => [master.id, master.name]))
-  const pages = model.spreads.flatMap((spread) =>
+  const pages: IdmlFindingPage[] = model.spreads.flatMap((spread) =>
     spread.pages.map((page) => ({
       id: page.id,
       name: page.name ?? page.id,
       spread: spread.id,
       ...(page.appliedMaster ? { appliedMaster: masterNames.get(page.appliedMaster) ?? page.appliedMaster } : {}),
       stories: [...page.stories],
+      paragraphs: [],
     })),
   )
   const masters = model.masterSpreads.map((master) => ({
@@ -57,7 +59,9 @@ export function idmlFindings(model: IdmlModel): IdmlFindings {
     startPage: pages[section.index]?.name ?? section.pageStart,
     pages: pages.slice(section.index, orderedSections[index + 1]?.index).map((page) => page.name),
   }))
+  const styleNames = new Map((model.styles ?? []).filter((style) => style.kind === 'paragraph').map((style) => [style.id, style.name]))
   const storyParagraphs = new Map(model.stories.map((story) => [story.id, paragraphs(story.root)]))
+  for (const page of pages) page.paragraphs = page.stories.flatMap((story) => storyParagraphs.get(story) ?? []).map((paragraph) => ({ ...paragraph, style: styleNames.get(paragraph.style) ?? paragraph.style }))
   const styleUses = new Map<string, Map<string, { count: number; texts: string[] }>>()
   for (const page of pages) {
     for (const paragraph of page.stories.flatMap((story) => storyParagraphs.get(story) ?? [])) {
@@ -69,7 +73,6 @@ export function idmlFindings(model: IdmlModel): IdmlFindings {
       styleUses.set(paragraph.style, pageUses)
     }
   }
-  const styleNames = new Map((model.styles ?? []).filter((style) => style.kind === 'paragraph').map((style) => [style.id, style.name]))
   const paragraphStyles = [...styleUses].map(([id, pageUses]) => ({
     name: styleNames.get(id) ?? id,
     pages: [...pageUses].map(([page, use]) => ({ page, ...use })),
