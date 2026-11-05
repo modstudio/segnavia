@@ -1,7 +1,7 @@
 // Packs and publishes every package, safely resumable after a partial release.
 
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES } from '../architecture.ts'
 import {
@@ -13,6 +13,7 @@ import {
   registryState,
   releaseDecision,
 } from './publish-policy.ts'
+import { releaseNotes } from './release-notes.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const OUTPUT = path.join(ROOT, 'out', 'release')
@@ -149,4 +150,22 @@ for (const plan of plans) {
     plan.decision === 'hold' ? 'held (private, not published)' : plan.decision === 'skip' ? 'skip (already published)' : dryRun ? 'would publish' : 'publish'
   console.log(`${item.manifest.name}@${item.manifest.version} ${item.size} bytes — ${result}`)
   if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'], ROOT, true)
+}
+
+if (!dryRun) {
+  const tag = `v${sharedVersion}`
+  const notesFile = path.join(OUTPUT, 'release-notes.md')
+  const notes = releaseNotes(
+    sharedVersion,
+    workspacePackages.map(({ directory, manifest }) => ({
+      packageName: manifest.name,
+      changelogText: readFileSync(path.join(directory, 'CHANGELOG.md'), 'utf8'),
+    })),
+  )
+  writeFileSync(notesFile, notes)
+  await run(['git', 'tag', '--force', tag, 'HEAD'])
+  await run(['git', 'push', 'origin', `refs/tags/${tag}`, '--force'])
+  const existingRelease = await output(['gh', 'release', 'view', tag])
+  if (existingRelease.exitCode === 0) await run(['gh', 'release', 'edit', tag, '--title', tag, '--notes-file', notesFile])
+  else await run(['gh', 'release', 'create', tag, '--title', tag, '--notes-file', notesFile])
 }
