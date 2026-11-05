@@ -24,7 +24,7 @@ function sizedLabel(
     return {
       label: { ...label, size: result.shape },
       shape: result.shape,
-      adjustment: { command: context.command, kind: 'measured-label', id: label.id, detail: `Measured label "${label.id}" after its text changed.` },
+      adjustment: { command: context.command, kind: 'measured-label', id: label.id, detail: `Measured label "${label.id}" from its text.` },
     }
   return {
     label,
