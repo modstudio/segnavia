@@ -21,14 +21,14 @@ export async function selectStableLockedAtom(page: Harness['page'], atom: Locato
     try {
       if (!(await waitForStableBox())) return { selected: false, attempts, detail: `locked block bounding box did not stabilize before attempt ${attempts}` }
       await atom.evaluate((element) => {
-        const target = element as HTMLElement & { verifierMousedownReached?: boolean }
-        target.verifierMousedownReached = false
-        target.addEventListener('mousedown', () => (target.verifierMousedownReached = true), { capture: true, once: true })
+        const target = element as HTMLElement & { verifierPointerReached?: boolean }
+        target.verifierPointerReached = false
+        target.addEventListener('pointerdown', () => (target.verifierPointerReached = true), { capture: true, once: true })
       })
       await atom.click({ position: { x: 2, y: 2 }, timeout: BOUNDED_WAIT_MS })
       await selected.waitFor({ timeout: BOUNDED_WAIT_MS }).catch(() => {})
       if ((await selected.count()) > 0) return { selected: true, attempts, detail: '' }
-      const reached = await atom.evaluate((element) => (element as HTMLElement & { verifierMousedownReached?: boolean }).verifierMousedownReached === true)
+      const reached = await atom.evaluate((element) => (element as HTMLElement & { verifierPointerReached?: boolean }).verifierPointerReached === true)
       if (reached) return { selected: false, attempts, detail: 'the click reached the locked block but did not select it' }
       lastFailure = 'the click did not reach the locked block'
     } catch (error) {
