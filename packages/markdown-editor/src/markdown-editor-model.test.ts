@@ -1,5 +1,36 @@
 import { describe, expect, test } from 'bun:test'
-import { markdownEditorModel, setModelEditable, setModelMarkdown, setModelTitle, setModelTitleSource } from './markdown-editor-model.ts'
+import {
+  markdownEditorModel,
+  normalizeMarkdownLineEndings,
+  setModelEditable,
+  setModelMarkdown,
+  setModelTitle,
+  setModelTitleSource,
+} from './markdown-editor-model.ts'
+
+describe('markdown line endings', () => {
+  test.each([
+    ['CRLF', 'First\r\nSecond', 'First\nSecond'],
+    ['lone CR', 'First\rSecond', 'First\nSecond'],
+    ['mixed endings', 'First\r\nSecond\rThird\nFourth', 'First\nSecond\nThird\nFourth'],
+    ['adjacent CR and CRLF', 'First\r\r\nSecond', 'First\n\nSecond'],
+    ['no CR', 'First\nSecond', 'First\nSecond'],
+  ])('normalizes %s', (_name, markdown, expected) => {
+    expect(normalizeMarkdownLineEndings(markdown)).toBe(expected)
+  })
+
+  test('normalizes a host body before deriving its leading-heading title', () => {
+    const leading = setModelTitleSource(markdownEditorModel(), 'leading-heading')
+    const model = setModelMarkdown(leading, '# Host title\r\n\r\nBody line\r\n')
+    expect(model).toMatchObject({ title: 'Host title', markdown: '# Host title\n\nBody line\n', editable: '\nBody line\n' })
+  })
+
+  test.each(['separate', 'leading-heading'] as const)('normalizes an edit in the %s title source', (titleSource) => {
+    const model = setModelEditable(setModelTitleSource(markdownEditorModel(), titleSource), 'x\r\ny')
+    expect(model.editable).toBe('x\ny')
+    expect(model.markdown).not.toContain('\r')
+  })
+})
 
 describe('separate title source', () => {
   test('keeps the host title independent of markdown', () => {
