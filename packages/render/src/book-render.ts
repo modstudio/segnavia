@@ -45,8 +45,9 @@ export interface BrowserBookDependencies {
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
-export function usesKeepWith(html: string): boolean {
-  return html.includes('--segnavia-keep-with')
+/** Whether author markup or any author stylesheet declares a keep, which only the bridge's keep pass applies. */
+export function usesKeepWith(...sources: Array<string | undefined>): boolean {
+  return sources.some((source) => source?.includes('--segnavia-keep-with') === true)
 }
 
 function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean, dependencyOrigins?: Iterable<string>): string {
@@ -90,7 +91,7 @@ function printBook(
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html),
+      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.css, css),
       html: srcdoc,
       slots: preparedSlotsFor(book),
       readiness: paginated
