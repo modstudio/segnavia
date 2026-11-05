@@ -278,8 +278,9 @@ round trip as follows: underscore emphasis uses asterisks; plus and asterisk
 bullets use hyphens; setext headings become ATX headings; backslash hard breaks
 become two trailing spaces; table padding and delimiter rows are normalized;
 ordered-list delimiters become periods and item numbers after the first become
-sequential; single-quoted and parenthesized link titles use double quotes; and
-tilde or longer backtick code fences use triple backticks. A host can use this
+sequential; single-quoted and parenthesized link titles use double quotes;
+square brackets that form no link or footnote are escaped; and tilde or longer
+backtick code fences use triple backticks. A host can use this
 boundary to warn before switching modes when source form matters.
 
 Rich mode holds schema nodes, including inline images. Links and images from
