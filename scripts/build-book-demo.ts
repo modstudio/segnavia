@@ -7,6 +7,7 @@ import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
+import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series-fixtures.ts'
@@ -15,33 +16,6 @@ import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
-
-const keepProbe = (hebrew: boolean) => {
-  const word = hebrew ? 'בְּרֵאשִׁית' : 'WORD'
-  return `<div data-keep-probes style="font:16px/1 monospace;inline-size:10ch">
-    <div>xxxxx <span data-keep-control>§</span> <span data-keep-control-word>${word}</span></div>
-    <div>xxxxx <span data-keep-next style="--segnavia-keep-with:next">§</span> <span data-keep-next-word>${word}</span></div>
-    <div>xxxxx <span data-keep-previous-word>${word}</span> <span data-keep-previous style="--segnavia-keep-with:previous">¶</span></div>
-  </div>`
-}
-
-const blockKeepProbe = (hebrew: boolean) => {
-  const next = hebrew ? 'כותרת שמורה' : 'KEPT BLOCK NEXT'
-  const after = hebrew ? 'הפסקה הבאה' : 'NEXT BLOCK'
-  const before = hebrew ? 'הפסקה הקודמת' : 'PREVIOUS BLOCK'
-  const previous = hebrew ? 'סיום שמור' : 'KEPT BLOCK PREVIOUS'
-  return `<div style="block-size:160mm"></div><div data-keep-block-next style="margin:0;--segnavia-keep-with:next">${next}</div><p data-keep-block-next-neighbor style="margin:0">${after}</p>
-    <div style="block-size:160mm"></div><p data-keep-block-previous-neighbor style="margin:0">${before}</p><div data-keep-block-previous style="margin:0;--segnavia-keep-with:previous">${previous}</div>`
-}
-
-const keepBookFixture = (hebrew: boolean): BookInput => ({
-  title: hebrew ? 'ספר שמירות' : 'Keep Book',
-  mode: 'paginated',
-  lang: hebrew ? 'he' : 'en',
-  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
-  css: ':where(html){font:16px/1.5 monospace}',
-  chapters: [{ title: hebrew ? 'שמירות' : 'Keeps', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
-})
 
 const fixture = (hebrew: boolean): BookInput => ({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
@@ -331,7 +305,10 @@ export async function buildBookDemo(site: string): Promise<void> {
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
-    writeFileSync(path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'), paginatedBookDocument(Book.parse(keepBookFixture(hebrew)), { nonce: newNonce() }))
+    writeFileSync(
+      path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'),
+      paginatedBookDocument(Book.parse(keepBookFixture(hebrew)), { nonce: newNonce() }),
+    )
     writePartsBook(site, hebrew, hebrewFace)
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
     writeFileSync(

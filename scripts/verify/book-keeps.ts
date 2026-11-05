@@ -57,14 +57,14 @@ export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Fra
   check(`${label} block keeps share a page with their adjacent block`, keeps.next && keeps.previous, JSON.stringify(keeps))
   const pages = execFileSync('pdftotext', ['-layout', path.join(SITE, `${label}.pdf`), '-'], { encoding: 'utf8' }).split('\f')
   const pairs = label.endsWith('-he')
-    ? [
+    ? ([
         ['כותרת שמורה', 'הפסקה הבאה'],
         ['הפסקה הקודמת', 'סיום שמור'],
-      ] as const
-    : [
+      ] as const)
+    : ([
         ['KEPT BLOCK NEXT', 'NEXT BLOCK'],
         ['PREVIOUS BLOCK', 'KEPT BLOCK PREVIOUS'],
-      ] as const
+      ] as const)
   const pdfKeeps = pairs.map(([held, neighbor]) => {
     const heldPage = pages.findIndex((page) => page.includes(held))
     return heldPage >= 0 && heldPage === pages.findIndex((page) => page.includes(neighbor))

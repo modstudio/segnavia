@@ -157,7 +157,6 @@ async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof p
   h.check(`${id} every text box stays within its parent margins`, report.text.checked > 0 && report.text.outside === 0, report.text.detail)
   h.check(`${id} every furniture strip has its parent's text width`, report.furniture.checked > 0 && report.furniture.matches, JSON.stringify(report.furniture))
 }
-
 async function verifyPaginatedBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-paginated.html'))
