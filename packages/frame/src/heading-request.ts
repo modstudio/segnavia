@@ -68,12 +68,7 @@ export function requestHeading(
   return { promise, cancel }
 }
 
-export function headingRefusal(
-  heading: unknown,
-  shown: boolean,
-  hostServed: boolean,
-  scripts: string | undefined,
-): Error | null {
+export function headingRefusal(heading: unknown, shown: boolean, hostServed: boolean, scripts: string | undefined): Error | null {
   if (typeof heading !== 'string' || heading.length < 1 || heading.length > HEADING_ID_LIMIT)
     return new Error(
       `Cannot scroll to the heading because its id is not a string from 1 to ${HEADING_ID_LIMIT} characters. Pass an id returned by markdownOutline(page.body).`,

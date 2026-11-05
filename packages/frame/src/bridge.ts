@@ -361,8 +361,7 @@ export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement |
 export function headingMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): number | null | undefined {
   if (event.source !== frame?.contentWindow) return undefined
   const data = event.data as { type?: unknown; id?: unknown; top?: unknown }
-  if (data?.type !== MESSAGE.heading || data.id !== id || (data.top !== null && (typeof data.top !== 'number' || !Number.isFinite(data.top))))
-    return undefined
+  if (data?.type !== MESSAGE.heading || data.id !== id || (data.top !== null && (typeof data.top !== 'number' || !Number.isFinite(data.top)))) return undefined
   return data.top
 }
 

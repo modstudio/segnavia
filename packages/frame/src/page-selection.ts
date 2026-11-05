@@ -68,7 +68,7 @@ export function readPageSelection(
   frameReady: boolean,
   state: PageRequestState,
 ): Promise<PageSelection> {
-  if (!page || !frame || !frame.contentWindow)
+  if (!page || !frame?.contentWindow)
     return Promise.reject(new Error('Cannot read the selection because no page is shown or no frame is mounted. Show a page before reading its selection.'))
   if (hostServed)
     return Promise.reject(
