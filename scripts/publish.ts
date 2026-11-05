@@ -214,11 +214,17 @@ const notes = releaseNotes(
   sharedVersion,
   workspacePackages.map(({ directory, manifest }) => readChangelog(directory, manifest.name)),
 )
-await requireGitHubAccess()
-const { releasedCommit, tagCommit } = await gitReleaseFacts(tag)
-const releaseExists = await githubReleaseExists(tag)
-const releaseActions = githubReleaseActions({ version: sharedVersion, releasedCommit, tagCommit, releaseExists })
-if (releaseActions.tag === 'refuse') throw new Error(releaseActions.refusal)
+async function plannedGitHubRelease(version: string) {
+  await requireGitHubAccess()
+  const { releasedCommit, tagCommit } = await gitReleaseFacts(tag)
+  const releaseExists = await githubReleaseExists(tag)
+  const actions = githubReleaseActions({ version, releasedCommit, tagCommit, releaseExists })
+  if (actions.tag === 'refuse') throw new Error(actions.refusal)
+  return { releasedCommit, actions }
+}
+
+// An offline dry run reaches no network, so it leaves out the GitHub and remote tag checks; every other run makes them before publishing.
+const githubRelease = offline ? undefined : await plannedGitHubRelease(sharedVersion)
 if (dryRun) console.log(notes)
 
 for (const plan of plans) {
@@ -229,11 +235,11 @@ for (const plan of plans) {
   if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'], ROOT, true)
 }
 
-if (!dryRun) {
+if (!dryRun && githubRelease) {
   writeFileSync(notesFile, notes)
-  if (releaseActions.tag === 'create') {
-    await run(['git', 'tag', tag, releasedCommit])
+  if (githubRelease.actions.tag === 'create') {
+    await run(['git', 'tag', tag, githubRelease.releasedCommit])
     await run(['git', 'push', 'origin', `refs/tags/${tag}`])
   }
-  await run(['gh', 'release', releaseActions.release, tag, '--title', tag, '--notes-file', notesFile])
+  await run(['gh', 'release', githubRelease.actions.release, tag, '--title', tag, '--notes-file', notesFile])
 }
