@@ -71,6 +71,21 @@ during import because format parent-page inheritance replaces a head or foot
 rather than merging its boxes; `basedOn` remains available for parent margins.
 Single-column paragraphs in a multi-column frame carry `data-columns` within
 the bound `html` exports.
+
+IDML conversion is inspect-then-convert. `inspectIdml(bytes, answers?)` returns
+plain JSON findings for pages, applied masters, sections and paragraph-style
+page use, plus the still-open conversion questions. A question has an `id`, a
+plain-language prompt and candidate answers computed from the file; every
+candidate previews the parts, titles and chapter counts it produces. The host
+may answer the `parts` question with a master, paragraph style, sections, an
+explicit opener-page list or `none`, then answer the dependent `titles`
+question with a paragraph style, each opener's first paragraph or a title list.
+The previews and conversion use the same part runs. A flat file remains flat
+without answers. An ambiguous file now refuses import until the host passes the
+answer through `IdmlImportOptions.answers`; the refusal names the open question
+and its candidate labels. Invalid answers name the facts the file actually
+holds.
+
 Tables become native `table`, `colgroup`, row-region and `td` elements. Their
 named cell anchors determine the grid, so source order cannot change placement;
 header and footer regions repeat through the paginator. A table nested in a cell
