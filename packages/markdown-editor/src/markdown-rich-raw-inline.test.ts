@@ -39,7 +39,7 @@ const inlineCases = [
   ['collapsed image', 'Keep ![img][].\n\n[img]: /image.png', '![img][]'],
   ['shortcut image', 'Keep ![img].\n\n[img]: /image.png', '![img]'],
   ['open and close HTML', 'Keep <kbd>key</kbd> here.', '<kbd>key</kbd>'],
-  ['self-closing HTML', 'Keep <i data-x=\"1\"/> here.', '<i data-x="1"/>'],
+  ['self-closing HTML', 'Keep <i data-x="1"/> here.', '<i data-x="1"/>'],
   ['inline comment', 'Keep <!-- marker --> here.', '<!-- marker -->'],
 ] as const
 
@@ -60,7 +60,9 @@ test('opaque inline families keep exact source beside Hebrew text', () => {
     'עברית <kbd>מקש</kbd> כאן.',
   ]
   for (const source of cases) {
-    const expected = source.includes('\n\n') ? source.slice(0, source.indexOf('\n\n')).match(/(?:\\.|&[^ ]+;|\[\^[^\]]+\]|!?\[[^\]]+\]\[[^\]]+\]|<kbd>.*<\/kbd>)/)?.[0] : source.match(/(?:\\.|&[^ ]+;|<kbd>.*<\/kbd>)/)?.[0]
+    const expected = source.includes('\n\n')
+      ? source.slice(0, source.indexOf('\n\n')).match(/(?:\\.|&[^ ]+;|\[\^[^\]]+\]|!?\[[^\]]+\]\[[^\]]+\]|<kbd>.*<\/kbd>)/)?.[0]
+      : source.match(/(?:\\.|&[^ ]+;|<kbd>.*<\/kbd>)/)?.[0]
     if (!expected) throw new Error(`missing expected construct in ${source}`)
     expect(editedRoundTrip(`${source}\n`).saved, source).toContain(expected)
   }
@@ -85,6 +87,14 @@ test('reference labels are normalized and scoped to one parse', () => {
   parseRichDocument('A [leak].\n\n[leak]: /target\n')
   const later = parseRichDocument('A [leak].\n')
   expect(later[0]?.content?.some((node) => node.type === 'rawInline')).toBe(false)
+})
+
+test('inline links and images stay native when their text is also a definition label', () => {
+  const nodes = parseRichDocument('A [label](/inline) and ![label](/image.png).\n\n[label]: /reference\n')
+  const content = nodes[0]?.content ?? []
+  expect(content.some((node) => node.type === 'rawInline')).toBe(false)
+  expect(content.some((node) => node.type === 'image')).toBe(true)
+  expect(content.some((node) => node.marks?.some((mark) => mark.type === 'link'))).toBe(true)
 })
 
 test('building and using rich managers does not mutate global marked', () => {

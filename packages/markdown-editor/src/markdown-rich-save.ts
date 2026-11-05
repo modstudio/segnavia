@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
+import type { MarkdownManager } from '@tiptap/markdown'
 import { Node } from '@tiptap/pm/model'
-import { type MarkdownManager } from '@tiptap/markdown'
 import { richMarkdownManager, richSchema, scopedRichMarkdownManager } from './markdown-rich-extensions.ts'
 import { isLockedToken, isSilentToken, lockedFenceLabel, lockedNode, type MarkedToken } from './markdown-rich-locked.ts'
 import { normalizeReferenceLabel } from './markdown-rich-raw-inline.ts'
@@ -137,9 +137,7 @@ function serializeNodes(nodes: readonly RichDocumentNode[]): string {
   const protect = (node: Json): Json => ({
     ...node,
     attrs:
-      node.type === 'rawInline' && typeof node.attrs?.source === 'string'
-        ? { ...node.attrs, source: node.attrs.source.replaceAll('&', marker) }
-        : node.attrs,
+      node.type === 'rawInline' && typeof node.attrs?.source === 'string' ? { ...node.attrs, source: node.attrs.source.replaceAll('&', marker) } : node.attrs,
     content: node.content?.map(protect),
   })
   return restoreAmpersands(

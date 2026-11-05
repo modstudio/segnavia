@@ -2,7 +2,7 @@ import { Node } from '@tiptap/core'
 
 export const RAW_INLINE_NAME = 'rawInline'
 
-const ASCII_PUNCTUATION = String.raw`[!-/:-@\[-` + String.raw`{-~]`
+const ASCII_PUNCTUATION = String.raw`[!-/:-@\[-` + '{-~]'
 const escapePattern = new RegExp(`^\\\\${ASCII_PUNCTUATION}`)
 const entityPattern = /^&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#[xX][0-9A-Fa-f]+);/
 const footnotePattern = /^\[\^[^\]\n]+\]/
@@ -20,13 +20,14 @@ function referenceSource(src: string, labels: ReadonlySet<string>): string | und
   const raw = match[0]
   const firstLabel = match[2] ?? ''
   const secondLabel = match[3]
+  if (secondLabel === undefined && src[raw.length] === '(') return undefined
   const label = secondLabel === undefined || secondLabel === '' ? firstLabel : secondLabel
   return labels.has(normalizeReferenceLabel(label)) ? raw : undefined
 }
 
 function rawSource(src: string, labels: ReadonlySet<string>): { source: string; display: string } | undefined {
-  const escape = escapePattern.exec(src)?.[0]
-  if (escape) return { source: escape, display: escape.slice(1) }
+  const escaped = escapePattern.exec(src)?.[0]
+  if (escaped) return { source: escaped, display: escaped.slice(1) }
   const entity = entityPattern.exec(src)?.[0]
   if (entity) return { source: entity, display: entity }
   const footnote = footnotePattern.exec(src)?.[0]
