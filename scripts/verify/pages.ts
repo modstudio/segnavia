@@ -3,6 +3,20 @@
 
 import type { Harness } from './harness.ts'
 
+// A fixed sheet keeps its own height, so #fixed never reports a measurement.
+const MEASURED_PAGES = ['#fluid', '#rtl', '#markdown', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#postcard']
+
+async function waitForPageMeasurements(page: Harness['page']): Promise<string[]> {
+  try {
+    await page.waitForFunction((ids) => ids.every((id) => document.querySelector<HTMLElement>(id)?.dataset.measured !== undefined), MEASURED_PAGES, {
+      timeout: 20000,
+    })
+    return []
+  } catch {
+    return page.evaluate((ids) => ids.filter((id) => document.querySelector<HTMLElement>(id)?.dataset.measured === undefined), MEASURED_PAGES)
+  }
+}
+
 export async function verifyPages(h: Harness) {
   const { page, check } = h
   const measureCharacterPositions = (frame: string, selector: string, indexes: [number, number]): Promise<[number, number][]> =>
@@ -23,18 +37,8 @@ export async function verifyPages(h: Harness) {
         })
       }, indexes) as Promise<[number, number][]>
   await page.goto(h.url('page.html'))
-  await page
-    .waitForFunction(
-      () =>
-        ['#fluid', '#rtl', '#markdown', '#rtl-own-dir', '#rtl-empty-dir', '#rtl-div', '#fixed', '#postcard'].every(
-          (id) => (document.querySelector(id) as HTMLElement).dataset.measured !== undefined,
-        ),
-      null,
-      {
-        timeout: 10000,
-      },
-    )
-    .catch(() => {})
+  const unmeasured = await waitForPageMeasurements(page)
+  check('content-height pages report their measurements before height checks', unmeasured.length === 0, `unmeasured=${unmeasured.join(',')}`)
   const heights = await page.evaluate(() => ['#fluid', '#rtl'].map((id) => Number((document.querySelector(id) as HTMLElement).dataset.height ?? 0)))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages.join(','))
   check('a fluid page reports its content height through the bridge', (heights[0] ?? 0) > 300, `height=${heights[0]} messages=${messages}`)
