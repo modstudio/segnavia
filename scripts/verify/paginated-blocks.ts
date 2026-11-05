@@ -57,7 +57,7 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
   function image() {
     const area = document.querySelector('[data-segnavia-text]')
     const textHeight = area?.getBoundingClientRect().height ?? 0
-    const images = Array.from(document.querySelectorAll('[data-segnavia-window] img'))
+    const images = Array.from(document.querySelectorAll('[data-segnavia-window] img:not([data-keep-probes] img)'))
     if (images.length === 0 || textHeight <= 0) return { ok: false, detail: `images ${images.length} text ${textHeight}` }
     const papers = new Set(images.map((img) => img.closest('[data-segnavia-book-page]')?.getAttribute('data-segnavia-book-page') ?? ''))
     papers.delete('')

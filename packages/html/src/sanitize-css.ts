@@ -36,18 +36,7 @@ function normalizedUrl(value: string, decodeEscapes = true): string {
 }
 
 function decodedCss(source: string): string {
-  let decoded = ''
-  for (let at = 0; at < source.length; ) {
-    if (source[at] === '\\') {
-      const escaped = cssEscape(source, at)
-      decoded += escaped[0]
-      at = escaped[1]
-    } else decoded += source[at++] ?? ''
-  }
-  return decoded
-    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
+  return decodedCssValue(source).toLowerCase()
 }
 
 function decodedCssValue(source: string): string {
@@ -59,10 +48,7 @@ function decodedCssValue(source: string): string {
       at = escaped[1]
     } else decoded += source[at++] ?? ''
   }
-  return decoded
-    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return decoded.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, '').replace(/\s+/g, ' ')
 }
 
 function functionArgument(value: string): string {
@@ -291,7 +277,7 @@ function cleanDeclarationSegment(
     const colon = list[start + 1]
     const authored = source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish).trim()
     const authoredValue = authored.replace(/\s*!important\s*$/i, '').trim()
-    const value = decodedCssValue(authoredValue)
+    const value = decodedCssValue(authoredValue).trim()
     if (!(KEEP_WITH_VALUES as readonly string[]).includes(value)) {
       unsafe.push(`--segnavia-keep-with: ${authoredValue}; the accepted values are next and previous`)
     }
