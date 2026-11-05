@@ -28,17 +28,35 @@ async function inlineKeepReport(frame: FrameLocator) {
         return range.getClientRects()[0]?.top
       }
       const elementLine = (selector: string) => root.querySelector(selector)?.getBoundingClientRect().top
-      const lines = {
-        control: [line('[data-keep-control]'), line('[data-keep-control-word]')],
-        next: [line('[data-keep-next]'), line('[data-keep-next-word]')],
-        previous: [line('[data-keep-previous]'), line('[data-keep-previous-word]')],
-        image: [elementLine('[data-keep-image]'), line('[data-keep-image-word]')],
+      const wordLine = (selector: string) => {
+        const row = root.querySelector(selector)
+        const word = row?.getAttribute('data-word')
+        if (!row || !word) return undefined
+        const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const start = node.nodeValue?.indexOf(word) ?? -1
+          if (start < 0) continue
+          const range = document.createRange()
+          range.setStart(node, start)
+          range.setEnd(node, start + word.length)
+          return range.getClientRects()[0]?.top
+        }
+        return undefined
       }
+      const lines = {
+        control: [line('[data-keep-control]'), wordLine('[data-keep-control-row]')],
+        next: [line('[data-keep-next]'), wordLine('[data-keep-next-row]')],
+        previous: [line('[data-keep-previous]'), wordLine('[data-keep-previous-row]')],
+        image: [elementLine('[data-keep-image]'), wordLine('[data-keep-image-row]')],
+        neighborImage: [line('[data-keep-before-image]'), elementLine('[data-keep-neighbor-image]')],
+      }
+      const sharesLine = (pair: Array<number | undefined>) => pair[0] !== undefined && pair[1] !== undefined && Math.abs(pair[0] - pair[1]) < 16
       return {
         control: lines.control[0] === lines.control[1],
         next: lines.next[0] === lines.next[1],
         previous: lines.previous[0] === lines.previous[1],
-        image: lines.image[0] === lines.image[1],
+        image: sharesLine(lines.image),
+        neighborImage: sharesLine(lines.neighborImage),
         lines,
       }
     })
@@ -48,7 +66,7 @@ export async function verifyInlineBookKeeps(frame: FrameLocator, label: string, 
   const keeps = await inlineKeepReport(frame)
   check(
     `${label} inline keeps share a line with their adjacent word while the control breaks`,
-    keeps.next && keeps.previous && keeps.image && !keeps.control,
+    keeps.next && keeps.previous && keeps.image && keeps.neighborImage && !keeps.control,
     JSON.stringify(keeps),
   )
 }

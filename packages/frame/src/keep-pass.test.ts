@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { KEEP_WITH_VALUES } from '@segnavia/html'
 import { keepGap } from './keep-gap.ts'
 import { applyKeepWith, keepPassScript, outermostKeeps } from './keep-pass.ts'
 
@@ -96,7 +97,7 @@ function apply(root: FakeElement, candidates: FakeElement[]): void {
     querySelectorAll: (selector: string) => (selector === '[style]' ? candidates : []),
     styleSheets: [],
   }
-  applyKeepWith(document as unknown as Document, styleOf, keepGap)
+  applyKeepWith(document as unknown as Document, styleOf, keepGap, KEEP_WITH_VALUES)
   expect(root.contains(candidates[0] ?? null)).toBe(true)
 }
 
@@ -113,7 +114,7 @@ describe('keep pass', () => {
       [other, 'previous'],
     ])
     const elements = [outer, inner, other] as unknown as Element[]
-    expect(outermostKeeps(elements, (element) => style(values.get(element) ?? ''))).toEqual([outer, other] as unknown as Element[])
+    expect(outermostKeeps(elements, (element) => style(values.get(element) ?? ''), KEEP_WITH_VALUES)).toEqual([outer, other] as unknown as Element[])
   })
 
   test('does no candidate query when the literal property is absent', () => {
@@ -148,6 +149,9 @@ describe('keep pass', () => {
       expect(gap.nodeValue).toBe('\u00a0')
       expect(kept.children).toHaveLength(1)
       expect(gap.parentNode).toBe(root)
+      expect(root.children.map((node) => node.nodeValue)).toEqual(
+        direction === 'next' ? [null, '\u2060', '\u00a0', 'word'] : ['word', '\u00a0', '\u2060', null],
+      )
     }
   })
 
@@ -180,9 +184,10 @@ describe('keep pass', () => {
 
     expect(first.nodeValue).toBe('\u00a0')
     expect(second.nodeValue).toBe('')
+    expect(root.children.map((node) => node.nodeValue)).toEqual([null, '\u2060', '\u00a0', null, 'word'])
   })
 
-  test('stops a gap walk at an img', () => {
+  test('stops a gap walk at a neighboring img and joins its boundary', () => {
     const kept = element('SPAN', true)
     kept.keepWith = 'next'
     const nearGap = text(' ')
@@ -196,6 +201,15 @@ describe('keep pass', () => {
     expect(nearGap.nodeValue).toBe('\u00a0')
     expect(farGap.nodeValue).toBe(' ')
     expect(image.children).toHaveLength(0)
+    expect(root.children).toEqual([
+      kept,
+      expect.objectContaining({ nodeValue: '\u2060' }),
+      nearGap,
+      expect.objectContaining({ nodeValue: '\u2060' }),
+      image,
+      farGap,
+      expect.anything(),
+    ])
   })
 
   test('replaces the gap after a kept img in place', () => {
@@ -210,6 +224,7 @@ describe('keep pass', () => {
     expect(gap.nodeValue).toBe('\u00a0')
     expect(gap.parentNode).toBe(root)
     expect(image.children).toHaveLength(0)
+    expect(root.children).toEqual([image, expect.objectContaining({ nodeValue: '\u2060' }), gap, expect.anything()])
   })
 
   test('sets block break styles for both keep directions', () => {
