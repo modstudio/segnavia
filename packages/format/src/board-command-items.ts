@@ -7,7 +7,7 @@ import type { BoardEditAdjustment } from './board-edit-result.ts'
 import { arrange, type BoardShapes, defaultGridColumns } from './board-geometry.ts'
 import { removeFromGrid } from './board-section-grid.ts'
 import { SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM, settleBoard } from './board-sections.ts'
-import type { BoardItemFact } from './board-shapes.ts'
+import type { BoardItemFact, BoardShapesOptions } from './board-shapes.ts'
 import { resolvedShape } from './board-shapes.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
@@ -16,6 +16,7 @@ export interface BoardCommandOptions {
   newId?: () => string
   detail?: 'concise' | 'full'
   facts?: Readonly<Record<string, BoardItemFact>>
+  measureLabel?: BoardShapesOptions['measureLabel']
 }
 
 export interface CommandContext {
@@ -33,7 +34,7 @@ export interface CommandResult {
   adjustments: BoardEditAdjustment[]
 }
 
-function shapeAdjustments(context: CommandContext, ids: readonly string[]): BoardEditAdjustment[] {
+export function shapeAdjustments(context: CommandContext, ids: readonly string[]): BoardEditAdjustment[] {
   return ids.flatMap((id) => {
     if (context.provisional.has(id))
       return [{ command: context.command, kind: 'provisional-shape', id, detail: `Used the provisional shape supplied for item "${id}".` }]
@@ -41,12 +42,12 @@ function shapeAdjustments(context: CommandContext, ids: readonly string[]): Boar
   })
 }
 
-function requireShapes(board: Board, shapes: BoardShapes): void {
+export function requireShapes(board: Board, shapes: BoardShapes): void {
   for (const item of board.items) requireItemShape(shapes, item.id)
   for (const label of board.labels) requireLabelShape(shapes, label.id)
 }
 
-function placementAdjustments(context: CommandContext, placement: BoardTargetPlacement): BoardEditAdjustment[] {
+export function placementAdjustments(context: CommandContext, placement: BoardTargetPlacement): BoardEditAdjustment[] {
   return placement.nudges.map(({ kind, id }) => ({
     command: context.command,
     kind: 'nudge',
@@ -55,7 +56,7 @@ function placementAdjustments(context: CommandContext, placement: BoardTargetPla
   }))
 }
 
-function settled(
+export function settled(
   context: CommandContext,
   intended: Board,
   shapes: BoardShapes,
@@ -241,8 +242,11 @@ function arrangeCommand(context: CommandContext, command: BoardCommandOf<'arrang
   return command.section ? arrangeSection(context, command) : arrangeBoard(context, command)
 }
 
-type Handler = (context: CommandContext, command: BoardCommand) => CommandResult
-export const BOARD_COMMAND_HANDLERS: Record<BoardCommand['type'], Handler> = {
+export type BoardCommandHandler = (context: CommandContext, command: BoardCommand) => CommandResult
+export const ITEM_COMMAND_HANDLERS: Record<
+  Extract<BoardCommand['type'], 'item-add' | 'item-remove' | 'item-move' | 'item-resize' | 'arrange'>,
+  BoardCommandHandler
+> = {
   'item-add': (context, command) => itemAdd(context, command as BoardCommandOf<'item-add'>),
   'item-remove': (context, command) => itemRemove(context, command as BoardCommandOf<'item-remove'>),
   'item-move': (context, command) => itemMove(context, command as BoardCommandOf<'item-move'>),

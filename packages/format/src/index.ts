@@ -14,6 +14,7 @@ export {
   BoardItemRef,
   BoardSectionRef,
   BoardTarget,
+  PlacementTarget,
 } from './board-commands.ts'
 export {
   type BoardDescription,

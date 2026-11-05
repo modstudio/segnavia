@@ -268,10 +268,38 @@ describe('editBoard item commands', () => {
       seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0
       return seed / 0x1_0000_0000
     }
-    for (let index = 0; index < 24; index += 1) {
+    for (let index = 0; index < 35; index += 1) {
       const before = board(index % 2 ? 'rtl' : 'ltr')
       const id = ['a', 'b', 'c'][Math.floor(random() * 3)] as string
-      const result = success(editBoard(before, [{ type: 'item-move', items: [{ id }], target: { at: { x: random() * 300, y: random() * 150 } } }], shapes))
+      let command: BoardCommand
+      let suppliedShapes = shapes
+      switch (index % 7) {
+        case 0:
+          command = { type: 'item-move', items: [{ id }], target: { at: { x: random() * 300, y: random() * 150 } } }
+          break
+        case 1:
+          command = { type: 'section-add', id: 'new', title: 'New', items: [{ id: 'a' }, { id: 'b' }], layout: index % 2 ? 'manual' : 'auto' }
+          break
+        case 2:
+          command = { type: 'label-add', id: 'label', text: `Label ${index}`, target: { at: { x: random() * 300, y: random() * 150 } } }
+          break
+        case 3:
+          command = { type: 'board-set', direction: before.direction === 'ltr' ? 'rtl' : 'ltr' }
+          break
+        case 4:
+          before.labels = [{ id: 'label', text: 'Old', x: 10, y: 10, size: { width: 24, height: 19 } }]
+          suppliedShapes = { ...shapes, shapes: { ...shapes.shapes, labels: { label: { width: 24, height: 19 } } } }
+          command = { type: 'label-set', label: { id: 'label' }, text: `Changed ${index}` }
+          break
+        case 5:
+          if (!before.sections[0]) throw new Error('test board has no section')
+          before.sections[0] = { ...before.sections[0], items: ['a', 'b'], layout: 'manual' }
+          command = { type: 'section-set', section: { id: 's' }, layout: 'auto' }
+          break
+        default:
+          command = { type: 'section-remove', section: { id: 's' }, members: 'release' }
+      }
+      const result = success(editBoard(before, [command], suppliedShapes))
       expect(applyBoardOps(before, result.ops)).toEqual(result.board)
       const changed = new Set(result.changed.map((entry) => entry.id))
       expectChangedCoverage(before, result.board, changed)

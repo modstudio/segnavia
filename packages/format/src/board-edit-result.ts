@@ -23,9 +23,13 @@ export type BoardEditAdjustmentKind =
   | 'default-anchor'
   | 'default-columns'
   | 'default-gap'
+  | 'default-layout'
+  | 'default-target'
   | 'default-width'
   | 'estimated-shape'
   | 'generated-id'
+  | 'measured-label'
+  | 'membership-moved'
   | 'nudge'
   | 'provisional-shape'
   | 'settle'
@@ -65,8 +69,14 @@ function sameBox(left: Box | undefined, right: Box | undefined): boolean {
   return !!left && !!right && left.x === right.x && left.y === right.y && left.width === right.width && left.height === right.height
 }
 
-export function changedEntities(before: Board, after: Board, shapes: BoardShapes, detail: 'concise' | 'full'): BoardChangedEntity[] {
-  const previous = boxes(before, shapes)
+export function changedEntities(
+  before: Board,
+  after: Board,
+  shapes: BoardShapes,
+  detail: 'concise' | 'full',
+  previousShapes: BoardShapes = shapes,
+): BoardChangedEntity[] {
+  const previous = boxes(before, previousShapes)
   return [...boxes(after, shapes)].flatMap(([id, current]) => {
     if (sameBox(previous.get(id)?.box, current.box)) return []
     return [{ kind: current.kind, id, ...(detail === 'full' ? { box: current.box } : {}) }]

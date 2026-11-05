@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BoardCommand, BoardTarget } from './board-commands.ts'
+import { BoardCommand, BoardTarget, PlacementTarget } from './board-commands.ts'
 import { jsonSchemas } from './json-schemas.ts'
 
 describe('BoardCommand', () => {
@@ -21,4 +21,23 @@ describe('BoardCommand', () => {
   })
 
   test('publishes the command input schema', () => expect(jsonSchemas().boardCommand).toHaveProperty('oneOf'))
+
+  test('parses section, label and board verbs with their settled shapes', () => {
+    const commands = [
+      { type: 'section-add', title: 'New', items: [{ id: 'a' }], target: { free: true } },
+      { type: 'section-remove', section: { id: 's' }, members: 'release' },
+      { type: 'section-set', section: { title: 'Pages' }, layout: 'manual' },
+      { type: 'label-add', text: 'Note', target: { beside: { id: 'a' }, side: 'above' } },
+      { type: 'label-remove', labels: [{ id: 'note' }] },
+      { type: 'label-set', label: { id: 'note' }, text: 'Changed' },
+      { type: 'board-set', direction: 'rtl' },
+    ]
+    for (const command of commands) expect(BoardCommand.safeParse(command).success).toBe(true)
+    expect(PlacementTarget.safeParse({ section: { id: 's' } }).success).toBe(false)
+  })
+
+  test('refuses empty set commands at the schema edge', () => {
+    for (const command of [{ type: 'section-set', section: { id: 's' } }, { type: 'label-set', label: { id: 'l' } }, { type: 'board-set' }])
+      expect(BoardCommand.safeParse(command).success).toBe(false)
+  })
 })

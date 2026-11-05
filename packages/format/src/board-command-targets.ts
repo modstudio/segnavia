@@ -1,7 +1,7 @@
 import type { Board } from './board.ts'
 import { BoardCommandRefusal, requireItemShape, requireLabelShape, resolveEntity, resolveItem, resolveSection } from './board-command-resolvers.ts'
-import type { BoardTarget } from './board-commands.ts'
-import { moveItems } from './board-edit.ts'
+import type { BoardTarget, PlacementTarget } from './board-commands.ts'
+import { moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, boardBounds, itemRectangle, labelRectangle } from './board-geometry.ts'
 import { gridDropTarget, insertIntoGrid, removeFromGrid } from './board-section-grid.ts'
 import { assignMembership, overlaps, SECTION_GAP, SECTION_PADDING, SECTION_TITLE_ROOM } from './board-sections.ts'
@@ -25,6 +25,31 @@ function translate(board: Board, ids: readonly string[], point: Point): Board {
   const first = board.items.find((item) => item.id === ids[0])
   if (!first) return board
   return moveItems(board, ids, { x: point.x - first.x, y: point.y - first.y })
+}
+
+export type BoardPlacementSubject = { kind: 'items'; ids: readonly string[] } | { kind: 'section' | 'label'; id: string }
+
+function subjectBox(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Box {
+  if (subject.kind === 'items') return itemBox(board, shapes, subject.ids[0] as string)
+  if (subject.kind === 'section') {
+    const section = resolveSection(board, { id: subject.id })
+    return section.rectangle
+  }
+  const label = board.labels.find((entry) => entry.id === subject.id)
+  if (!label) throw new BoardCommandRefusal(`label id "${subject.id}" does not exist`, 'pass the id of an existing label')
+  requireLabelShape(shapes, subject.id)
+  return labelRectangle(label, shapes)
+}
+
+function moveSubjectTo(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject, point: Point): Board {
+  const box = subjectBox(board, shapes, subject)
+  const delta = { x: point.x - box.x, y: point.y - box.y }
+  if (subject.kind === 'items') return moveItems(board, subject.ids, delta)
+  if (subject.kind === 'section') return moveSection(board, subject.id, delta)
+  return {
+    ...board,
+    labels: board.labels.map((label) => (label.id === subject.id ? { ...label, x: label.x + delta.x, y: label.y + delta.y } : label)),
+  }
 }
 
 function unsection(board: Board, shapes: BoardShapes, ids: readonly string[]): Board {
@@ -92,11 +117,19 @@ export interface BoardTargetPlacement {
   usedEstimatedLabels: string[]
 }
 
-function movedBoxes(board: Board, shapes: BoardShapes, ids: readonly string[]): Box[] {
-  return ids.map((id) => itemBox(board, shapes, id))
+function subjectEntityIds(board: Board, subject: BoardPlacementSubject): ReadonlySet<string> {
+  if (subject.kind === 'items') return new Set(subject.ids)
+  if (subject.kind === 'label') return new Set([subject.id])
+  const section = board.sections.find((entry) => entry.id === subject.id)
+  return new Set([subject.id, ...(section?.items ?? [])])
 }
 
-function collisionEntities(board: Board, shapes: BoardShapes, ids: ReadonlySet<string>, reference: ReturnType<typeof resolveEntity>) {
+function subjectBoxes(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Box[] {
+  return subject.kind === 'items' ? subject.ids.map((id) => itemBox(board, shapes, id)) : [subjectBox(board, shapes, subject)]
+}
+
+function collisionEntities(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject, reference: ReturnType<typeof resolveEntity>) {
+  const ids = subjectEntityIds(board, subject)
   return [
     ...board.items.flatMap((item) =>
       ids.has(item.id) || (reference.kind === 'item' && reference.value.id === item.id)
@@ -104,12 +137,14 @@ function collisionEntities(board: Board, shapes: BoardShapes, ids: ReadonlySet<s
         : [{ kind: 'item' as const, id: item.id, box: itemBox(board, shapes, item.id) }],
     ),
     ...board.labels.flatMap((label) =>
-      reference.kind === 'label' && reference.value.id === label.id
+      ids.has(label.id) || (reference.kind === 'label' && reference.value.id === label.id)
         ? []
         : [{ kind: 'label' as const, id: label.id, box: resolvedEntityBox(board, shapes, { kind: 'label', value: label }) }],
     ),
     ...board.sections.flatMap((section) =>
-      reference.kind === 'section' && reference.value.id === section.id ? [] : [{ kind: 'section' as const, id: section.id, box: section.rectangle }],
+      ids.has(section.id) || (reference.kind === 'section' && reference.value.id === section.id)
+        ? []
+        : [{ kind: 'section' as const, id: section.id, box: section.rectangle }],
     ),
   ]
 }
@@ -117,15 +152,15 @@ function collisionEntities(board: Board, shapes: BoardShapes, ids: ReadonlySet<s
 function clearBeside(
   board: Board,
   shapes: BoardShapes,
-  ids: readonly string[],
+  subject: BoardPlacementSubject,
   reference: ReturnType<typeof resolveEntity>,
   side: PhysicalSide,
 ): { board: Board; nudges: BoardTargetPlacement['nudges'] } {
-  const entities = collisionEntities(board, shapes, new Set(ids), reference)
+  const entities = collisionEntities(board, shapes, subject, reference)
   const nudges: BoardTargetPlacement['nudges'] = []
   let next = board
   for (let step = 0; step < entities.length; step += 1) {
-    const collision = entities.find((entity) => movedBoxes(next, shapes, ids).some((box) => overlaps(box, entity.box)))
+    const collision = entities.find((entity) => subjectBoxes(next, shapes, subject).some((box) => overlaps(box, entity.box)))
     if (!collision) break
     const delta =
       side === 'left'
@@ -135,13 +170,43 @@ function clearBeside(
           : side === 'above'
             ? { x: 0, y: -collision.box.height - SECTION_GAP }
             : { x: 0, y: collision.box.height + SECTION_GAP }
-    next = translate(next, ids, {
-      x: (next.items.find((item) => item.id === ids[0])?.x ?? 0) + delta.x,
-      y: (next.items.find((item) => item.id === ids[0])?.y ?? 0) + delta.y,
-    })
+    const box = subjectBox(next, shapes, subject)
+    next = moveSubjectTo(next, shapes, subject, { x: box.x + delta.x, y: box.y + delta.y })
     nudges.push({ kind: collision.kind, id: collision.id })
   }
   return { board: next, nudges }
+}
+
+function freePoint(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject): Point {
+  const box = subjectBox(board, shapes, subject)
+  if (board.items.length + board.labels.length + board.sections.length <= 1) return { x: 0, y: 0 }
+  const bounds = boardBounds(board, shapes)
+  return { x: board.direction === 'rtl' ? bounds.x - SECTION_GAP - box.width : bounds.x + bounds.width + SECTION_GAP, y: bounds.y }
+}
+
+export function placeBoardEntityTarget(board: Board, shapes: BoardShapes, subject: BoardPlacementSubject, target: PlacementTarget): BoardTargetPlacement {
+  if ('at' in target) return { board: moveSubjectTo(board, shapes, subject, target.at), nudges: [], usedEstimatedLabels: [] }
+  if ('free' in target) return { board: moveSubjectTo(board, shapes, subject, freePoint(board, shapes, subject)), nudges: [], usedEstimatedLabels: [] }
+  const reference = resolveEntity(board, target.beside)
+  const beside = resolvedEntityBox(board, shapes, reference)
+  const moving = subjectBox(board, shapes, subject)
+  const side = PHYSICAL_SIDE[board.direction][target.side]
+  const startX = board.direction === 'rtl' ? beside.x + beside.width - moving.width : beside.x
+  const point =
+    side === 'left'
+      ? { x: beside.x - SECTION_GAP - moving.width, y: beside.y }
+      : side === 'right'
+        ? { x: beside.x + beside.width + SECTION_GAP, y: beside.y }
+        : side === 'above'
+          ? { x: startX, y: beside.y - SECTION_GAP - moving.height }
+          : { x: startX, y: beside.y + beside.height + SECTION_GAP }
+  const placed = moveSubjectTo(board, shapes, subject, point)
+  const cleared = clearBeside(placed, shapes, subject, reference, side)
+  return {
+    board: cleared.board,
+    nudges: cleared.nudges,
+    usedEstimatedLabels: reference.kind === 'label' ? [reference.value.id] : [],
+  }
 }
 
 export function placeBoardTarget(board: Board, shapes: BoardShapes, ids: readonly string[], target: BoardTarget): BoardTargetPlacement {
@@ -149,26 +214,7 @@ export function placeBoardTarget(board: Board, shapes: BoardShapes, ids: readonl
   if ('at' in target) return { board: pointTarget(board, shapes, ids, target.at), nudges: [], usedEstimatedLabels: [] }
   if ('free' in target)
     return { board: translate(unsection(board, shapes, ids), ids, appendPoint(board, shapes, ids[0] as string)), nudges: [], usedEstimatedLabels: [] }
-  const reference = resolveEntity(board, target.beside)
-  const beside = resolvedEntityBox(board, shapes, reference)
-  const first = itemBox(board, shapes, ids[0] as string)
-  const side = PHYSICAL_SIDE[board.direction][target.side]
-  const startX = board.direction === 'rtl' ? beside.x + beside.width - first.width : beside.x
-  const point =
-    side === 'left'
-      ? { x: beside.x - SECTION_GAP - first.width, y: beside.y }
-      : side === 'right'
-        ? { x: beside.x + beside.width + SECTION_GAP, y: beside.y }
-        : side === 'above'
-          ? { x: startX, y: beside.y - SECTION_GAP - first.height }
-          : { x: startX, y: beside.y + beside.height + SECTION_GAP }
-  const placed = translate(unsection(board, shapes, ids), ids, point)
-  const cleared = clearBeside(placed, shapes, ids, reference, side)
-  return {
-    board: cleared.board,
-    nudges: cleared.nudges,
-    usedEstimatedLabels: reference.kind === 'label' ? [reference.value.id] : [],
-  }
+  return placeBoardEntityTarget(unsection(board, shapes, ids), shapes, { kind: 'items', ids }, target)
 }
 
 export function applyBoardTarget(board: Board, shapes: BoardShapes, ids: readonly string[], target: BoardTarget): Board {
