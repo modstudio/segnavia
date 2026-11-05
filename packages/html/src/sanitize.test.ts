@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { sanitize } from './sanitize.ts'
+import { safeImageSource, sanitize } from './sanitize.ts'
 
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
@@ -21,6 +21,18 @@ describe('href fetches', () => {
       '<svg><use href="#x"/><image href="data:image/png;base64,AAA"/><image/></svg>',
     )
     expect(sanitize('<svg><use href="#x"/></svg>', { linkOrigins: ['https://inside.example'] })).toBe('<svg><use href="#x"/></svg>')
+  })
+
+  test('judges fetches as the URL parser reads them', () => {
+    const html = '<svg><image href="&#127;#x"/><image href="&#127;data:image/png;base64,AAA"/></svg><img src="&#127;data:image/png;base64,AAA">'
+    expect(sanitize(html, { links: { protocols: ['https:'] } })).toBe('<svg><image/><image/></svg><img>')
+    expect(safeImageSource('\x7fdata:image/png;base64,AAA')).toBe(false)
+    expect(safeImageSource('\tdata:image/png;base64,AAA')).toBe(true)
+    expect(safeImageSource(' data:image/png;base64,AAA')).toBe(true)
+  })
+
+  test('still refuses a link whose parser-readable scheme is javascript', () => {
+    expect(sanitize('<a href="java&#9;script:alert(1)">x</a>', { links: { protocols: ['https:'] } })).toBe('<a>x</a>')
   })
 
   test('an SVG link remains governed by LinkPolicy', () => {

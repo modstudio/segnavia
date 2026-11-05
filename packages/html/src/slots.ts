@@ -135,7 +135,8 @@ function invalidBinding(element: Element, names: ReturnType<typeof bindingNames>
   const href = element.attribs[names.href]
   if (href !== undefined && report.slots[href] !== undefined && !LINK_ELEMENTS.has(tag)) {
     report.slots[href] = 'invalid'
-    return `Slot "${href}" uses an href binding on <${tag}>; href bindings are allowed only on <a> and <area>.`
+    const linkElements = [...LINK_ELEMENTS].map((element) => `<${element}>`).join(' and ')
+    return `Slot "${href}" uses an href binding on <${tag}>; href bindings are allowed only on ${linkElements}.`
   }
   return undefined
 }

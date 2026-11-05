@@ -54,15 +54,19 @@ export function defaultLinkPolicy(origins: Set<string>, fragments: boolean): Res
   return { protocols: new Set(['https:']), origins, fragments }
 }
 
-// The URL parser removes tabs and newlines throughout and trims surrounding
-// C0 controls and spaces, so the decision uses the raw value it navigates.
-export function linkAllowed(value: string, policy: ResolvedLinkPolicy): boolean {
+// The URL parser removes ASCII tabs, LF and CR throughout, then trims
+// surrounding C0 controls and spaces.
+export function urlParserText(value: string): string {
+  const withoutParserWhitespace = value.replace(/[\t\n\r]/g, '')
   let start = 0
-  while (start < value.length && value.charCodeAt(start) <= 0x20) start += 1
-  let end = value.length
-  while (end > start && value.charCodeAt(end - 1) <= 0x20) end -= 1
-  const trimmed = value.slice(start, end)
-  if (trimmed.startsWith('#')) return policy.fragments
+  while (start < withoutParserWhitespace.length && withoutParserWhitespace.charCodeAt(start) <= 0x20) start += 1
+  let end = withoutParserWhitespace.length
+  while (end > start && withoutParserWhitespace.charCodeAt(end - 1) <= 0x20) end -= 1
+  return withoutParserWhitespace.slice(start, end)
+}
+
+export function linkAllowed(value: string, policy: ResolvedLinkPolicy): boolean {
+  if (urlParserText(value).startsWith('#')) return policy.fragments
   try {
     const parsed = new URL(value)
     if (FORBIDDEN_LINK_PROTOCOLS.has(parsed.protocol) || !policy.protocols.has(parsed.protocol)) return false

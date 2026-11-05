@@ -4,7 +4,9 @@
 // as plain HTML anywhere else.
 //
 //   value    replaces the element's text with a string or finite number
-//   href     sets href by the host's links policy, or to https on an allowed origin by default
+//   href     on a or area follows the host's links policy (https on an allowed
+//            origin by default); on any other element it is a fetch kept only
+//            as a same-document fragment or safe data image
 //   src      sets src to a data:image URL
 //   each     repeats the element once per item of a list
 //   when     keeps the element only where the item's `state` equals it

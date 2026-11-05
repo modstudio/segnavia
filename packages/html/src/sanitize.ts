@@ -6,7 +6,7 @@ import { dependencyDecision, dependencyOriginSet, originSet } from '@segnavia/fo
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
-import { defaultLinkPolicy, LINK_ELEMENTS, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy } from './link-policy.ts'
+import { defaultLinkPolicy, LINK_ELEMENTS, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy, urlParserText } from './link-policy.ts'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
 import { sanitizeCss } from './sanitize-css.ts'
 
@@ -94,13 +94,9 @@ function insideSvg(element: Element): boolean {
   return false
 }
 
-// Control characters and whitespace are stripped first, because a browser
-// ignores them inside a scheme: `java\tscript:` is still javascript.
+// A tab is removed before the decision, so `java\tscript:` is still javascript.
 function normalizeUrl(value: string): string {
-  return [...value]
-    .filter((c) => c.charCodeAt(0) > 0x20 && c.charCodeAt(0) !== 0x7f)
-    .join('')
-    .toLowerCase()
+  return urlParserText(value).toLowerCase()
 }
 
 export function safeImageSource(value: string): boolean {
