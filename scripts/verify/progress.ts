@@ -130,9 +130,9 @@ export async function verifyProgress(h: Harness) {
   )
   const pausedUpdates = await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: EventTarget }, waitMs) => {
     const playerRoot = player.shadowRoot
+    if (!playerRoot) return { changes: null, loads: null, missing: 'player shadow root' }
     const rail = player.shadowRoot?.querySelector('segnavia-rail')?.shadowRoot
-    const missing = !playerRoot ? 'player shadow root' : !rail ? 'rail shadow root' : null
-    if (missing) return { changes: null, loads: null, missing }
+    if (!rail) return { changes: null, loads: null, missing: 'rail shadow root' }
     let changes = 0
     let loads = 0
     const onChange = () => changes++
@@ -144,7 +144,7 @@ export async function verifyProgress(h: Harness) {
     await new Promise((resolve) => setTimeout(resolve, waitMs))
     player.controller.removeEventListener('change', onChange, { capture: true })
     rail.removeEventListener('load', onLoad, { capture: true })
-    return { changes, loads, missing }
+    return { changes, loads, missing: null }
   }, PAUSED_OBSERVATION_MS)
   check(
     'pausing from a change listener stops playback updates and leaves rail thumbnails loaded',
