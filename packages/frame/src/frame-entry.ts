@@ -13,7 +13,7 @@ export class FrameEntry {
   loaded = false
   ready: FrameReadiness = 'waiting'
   private readyTimeout: ReturnType<typeof setTimeout> | undefined
-  private loadWaiters = new Set<() => void>()
+  private displayWaiters = new Set<() => void>()
   private selectionWaiters = new Set<() => void>()
 
   constructor(
@@ -25,8 +25,7 @@ export class FrameEntry {
   markLoaded(options: FrameReadinessOptions) {
     if (this.loaded) return
     this.loaded = true
-    for (const waiter of this.loadWaiters) waiter()
-    this.loadWaiters.clear()
+    this.releaseDisplayWaiters()
     this.releaseSelectionWaiters()
     if (this.value.content.kind === 'url' && this.value.content.bridge && this.ready === 'waiting') {
       this.readyTimeout = setTimeout(() => {
@@ -43,6 +42,7 @@ export class FrameEntry {
   markReady() {
     this.ready = 'ready'
     this.cancelReadyTimeout()
+    this.releaseDisplayWaiters()
     this.releaseSelectionWaiters()
   }
 
@@ -52,17 +52,22 @@ export class FrameEntry {
 
   dispose() {
     this.cancelReadyTimeout()
-    this.loadWaiters.clear()
+    this.displayWaiters.clear()
     this.selectionWaiters.clear()
   }
 
-  waitForLoad(waiter: () => void): () => void {
-    if (this.loaded) {
+  get displayReady(): boolean {
+    const waitsForBridge = this.value.content.kind === 'html' || (this.value.content.kind === 'url' && this.value.content.bridge === true)
+    return this.loaded && (!waitsForBridge || this.ready === 'ready')
+  }
+
+  waitForDisplay(waiter: () => void): () => void {
+    if (this.displayReady) {
       waiter()
       return () => {}
     }
-    this.loadWaiters.add(waiter)
-    return () => this.loadWaiters.delete(waiter)
+    this.displayWaiters.add(waiter)
+    return () => this.displayWaiters.delete(waiter)
   }
 
   waitForSelection(waiter: () => void): () => void {
@@ -78,6 +83,12 @@ export class FrameEntry {
     if (!this.selectionReady()) return
     for (const waiter of this.selectionWaiters) waiter()
     this.selectionWaiters.clear()
+  }
+
+  private releaseDisplayWaiters() {
+    if (!this.displayReady) return
+    for (const waiter of this.displayWaiters) waiter()
+    this.displayWaiters.clear()
   }
 
   private selectionReady(): boolean {
