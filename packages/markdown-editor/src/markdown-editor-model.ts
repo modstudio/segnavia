@@ -48,7 +48,8 @@ export function setModelTitle(model: MarkdownEditorModel, value: string | null |
   return { ...model, markdown, title, retained }
 }
 
-export function setModelEditable(model: MarkdownEditorModel, editable: string): MarkdownEditorModel {
+export function setModelEditable(model: MarkdownEditorModel, edited: string): MarkdownEditorModel {
+  const editable = normalizeMarkdownLineEndings(edited)
   const markdown = model.titleSource === 'leading-heading' ? joinLeadingHeading(editable, model.retained) : editable
   if (markdown === model.markdown && editable === model.editable) return model
   return { ...model, markdown, editable }

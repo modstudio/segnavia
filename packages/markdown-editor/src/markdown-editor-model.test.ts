@@ -24,6 +24,12 @@ describe('markdown line endings', () => {
     const model = setModelMarkdown(leading, '# Host title\r\n\r\nBody line\r\n')
     expect(model).toMatchObject({ title: 'Host title', markdown: '# Host title\n\nBody line\n', editable: '\nBody line\n' })
   })
+
+  test.each(['separate', 'leading-heading'] as const)('normalizes an edit in the %s title source', (titleSource) => {
+    const model = setModelEditable(setModelTitleSource(markdownEditorModel(), titleSource), 'x\r\ny')
+    expect(model.editable).toBe('x\ny')
+    expect(model.markdown).not.toContain('\r')
+  })
 })
 
 describe('separate title source', () => {
