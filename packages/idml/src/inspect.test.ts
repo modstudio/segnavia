@@ -74,3 +74,12 @@ test('refuses invalid master, style, page, and title-count answers with file fac
   await expect(inspectIdml(bytes, { parts: { master: 'Open' }, titles: { paragraphStyle: 'Missing' } })).rejects.toThrow('answer titles with a paragraph style')
   await expect(inspectIdml(bytes, { parts: { master: 'Open' }, titles: { list: ['one'] } })).rejects.toThrow('produces 2 parts')
 })
+
+test('refuses malformed answer shapes at the inspection edge', async () => {
+  const bytes = await ambiguousIdml()
+  await expect(inspectIdml(bytes, { parts: {} } as never)).rejects.toThrow('the parts answer is {}')
+  await expect(inspectIdml(bytes, { parts: { masterSpread: 'Open' } } as never)).rejects.toThrow('exactly one of { master: string }')
+  await expect(inspectIdml(bytes, { parts: { pages: [] } } as never)).rejects.toThrow('non-empty string[]')
+  await expect(inspectIdml(bytes, { parts: { master: 'Open' }, titles: {} } as never)).rejects.toThrow('the titles answer is {}')
+  await expect(inspectIdml(bytes, { titles: { firstParagraph: true } } as never)).rejects.toThrow('answer parts before answering titles')
+})

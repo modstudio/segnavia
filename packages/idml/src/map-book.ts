@@ -2,15 +2,14 @@ import { Book, type BookItem, type BookSectionParents, MM_PER_PT, type ParentPag
 import { findActiveContent } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
+import { orderedStories, plainChapter } from './chapter-stories.ts'
 import type { IdmlConversion } from './conversion.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
 import { chapterParents, mapMasters, openingPage, storyPageUses } from './masters.ts'
 import type { IdmlModel, IdmlStory } from './model.ts'
 import { mapOpeners } from './openers.ts'
-import { partRuns } from './part-runs.ts'
 import { reportPlacements } from './placement-report.ts'
-import { idmlPreview } from './questions.ts'
 import { refusal } from './refusal.ts'
 import { ReportCollector } from './report.ts'
 import { type StoryHtmlResult, storyHtml } from './stories.ts'
@@ -19,19 +18,6 @@ import { resolveSwatchColor } from './swatch-color.ts'
 import { TableStyleMapper } from './table-styles.ts'
 import type { IdmlAnchoredFrame, IdmlImportOptions } from './types.ts'
 import { matchVariables } from './variables.ts'
-
-function orderedStories(model: IdmlModel, anchoredOnly = new Set<string>()): IdmlStory[] {
-  const order = new Map<string, number>()
-  for (const spread of model.spreads) {
-    for (const page of spread.pages) {
-      for (const story of page.stories) if (!order.has(story)) order.set(story, order.size)
-    }
-  }
-  const masterStories = new Set(model.masterStoryIds)
-  return model.stories
-    .filter((story) => !masterStories.has(story.id) && !anchoredOnly.has(story.id))
-    .sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
-}
 
 function bodyColumnGap(model: IdmlModel, stories: IdmlStory[], report: ReportCollector): number | undefined {
   const storyFrames = stories.flatMap((story) => (story.frame?.columns && story.frame.columns >= 2 ? [story.frame] : []))
@@ -72,28 +58,19 @@ interface ImportedChapter {
 
 function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): BookItem[] {
   const marker = conversion.answers.parts
-  const plainChapter = ({ story: _story, ...chapter }: ImportedChapter) => chapter
-  if (!marker || 'none' in marker) return chapters.map(plainChapter)
+  if ('none' in marker) return chapters.map(plainChapter)
   const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
-  const firstPage = new Map(conversion.storyFirstPages.map(({ story, page }) => [story, page]))
-  const runs = partRuns(conversion.findings, conversion.storyFirstPages, marker)
-  const preview = idmlPreview(conversion.findings, conversion.storyFirstPages, marker, conversion.answers.titles)
-  const body: BookItem[] = []
-  let partIndex = 0
-  for (const run of runs) {
-    const runChapters = run.stories.flatMap((story) => byStory.get(story) ?? [])
-    if (!run.openerPage) {
-      body.push(...runChapters.map(plainChapter))
-      continue
-    }
-    const opener = runChapters.filter((chapter) => firstPage.get(chapter.story) === run.openerPage)
-    const children = runChapters.filter((chapter) => firstPage.get(chapter.story) !== run.openerPage).map(plainChapter)
-    const partPreview = preview.parts[partIndex]
-    partIndex += 1
+  const body: BookItem[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map(plainChapter)
+  for (const [index, part] of conversion.parts.parts.entries()) {
+    const runChapters = part.stories.flatMap((story) => byStory.get(story) ?? [])
+    const openerStories = new Set(part.openerStories)
+    const chapterStories = new Set(part.chapterStories)
+    const opener = runChapters.filter((chapter) => openerStories.has(chapter.story))
+    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map(plainChapter)
     body.push({
-      name: `part-${partIndex}`,
+      name: `part-${index + 1}`,
       contents: true,
-      ...(partPreview?.title ? { title: partPreview.title } : {}),
+      ...(part.title ? { title: part.title } : {}),
       ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
       ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
       children,
@@ -154,7 +131,7 @@ export function modelToBook(
     })
   const masters = mapMasters(model, matchedVariables, styles, report, (story) => renderStory(story, 0, new Set([story.id]), true))
   const mapped = stories.map((story) => ({ story, mapped: renderStory(story) }))
-  const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset)
+  const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset, conversion?.openerPlan)
   reportPlacements(model, openers.consumedPages, report)
   const emitted = mapped.filter(({ story }) => !openers.claimed.has(story.id))
   const openings = emitted.flatMap(({ story }) => {
@@ -172,7 +149,7 @@ export function modelToBook(
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
-  const body = conversion ? partBody(chapters, conversion) : chapters.map(({ story: _story, ...chapter }) => chapter)
+  const body = conversion ? partBody(chapters, conversion) : chapters.map(plainChapter)
   return Book.parse({
     title: model.id,
     mode: 'paginated',

@@ -48,20 +48,20 @@ function frameRank(page: IdmlPage, story: string): { area: number; top: number }
     )
 }
 
-function selectedFlows(stories: MappedStory[], first: Map<string, PageUse>, framePages: Map<string, Set<string>>): Map<IdmlPage, MappedStory> {
-  const candidates = new Map<IdmlPage, MappedStory[]>()
-  for (const entry of stories) {
-    const page = first.get(entry.story.id)?.page
-    if (page) candidates.set(page, [...(candidates.get(page) ?? []), entry])
+function selectedFlows(stories: IdmlStory[], first: Map<string, PageUse>, framePages: Map<string, Set<string>>): Map<IdmlPage, IdmlStory> {
+  const candidates = new Map<IdmlPage, IdmlStory[]>()
+  for (const story of stories) {
+    const page = first.get(story.id)?.page
+    if (page) candidates.set(page, [...(candidates.get(page) ?? []), story])
   }
-  const selected = new Map<IdmlPage, MappedStory>()
+  const selected = new Map<IdmlPage, IdmlStory>()
   for (const [page, entries] of candidates) {
     entries.sort((left, right) => {
-      const preferred = (entry: MappedStory) => (framePages.get(entry.story.id)?.size ?? 0) > 1 || (entry.story.frame?.columns ?? 0) >= 2
+      const preferred = (entry: IdmlStory) => (framePages.get(entry.id)?.size ?? 0) > 1 || (entry.frame?.columns ?? 0) >= 2
       const preference = Number(preferred(right)) - Number(preferred(left))
       if (preference !== 0) return preference
-      const leftFrame = frameRank(page, left.story.id)
-      const rightFrame = frameRank(page, right.story.id)
+      const leftFrame = frameRank(page, left.id)
+      const rightFrame = frameRank(page, right.id)
       return rightFrame.area - leftFrame.area || rightFrame.top - leftFrame.top
     })
     const winner = entries[0]
@@ -121,6 +121,30 @@ export interface OpenerMapping {
   consumedPages: Set<IdmlPage>
 }
 
+export interface OpenerPlan {
+  flows: Map<IdmlPage, string>
+  claimed: Set<string>
+}
+
+export function planOpeners(model: IdmlModel, stories: IdmlStory[], pages: Map<string, PageUse[]>): OpenerPlan {
+  const first = new Map([...pages].flatMap(([story, uses]) => (uses[0] ? [[story, uses[0]] as const] : [])))
+  const framePages = storyFramePages(model)
+  const byId = new Map(stories.map((story) => [story.id, story]))
+  const flows = new Map<IdmlPage, string>()
+  const claimed = new Set<string>()
+  for (const [page, flow] of selectedFlows(stories, first, framePages)) {
+    flows.set(page, flow.id)
+    const flowLength = textLength(flow.root)
+    for (const frame of page.bodyFrames ?? []) {
+      if (frame.story === flow.id || claimed.has(frame.story) || framePages.get(frame.story)?.size !== 1) continue
+      const header = byId.get(frame.story)
+      if (!header || textLength(header.root) > flowLength) continue
+      claimed.add(header.id)
+    }
+  }
+  return { flows, claimed }
+}
+
 function claimHeaders(
   page: IdmlPage,
   flow: MappedStory,
@@ -147,18 +171,27 @@ export function mapOpeners(
   masters: MasterMapping,
   report: ReportCollector,
   asset?: IdmlAssetMap,
+  planned?: OpenerPlan,
 ): OpenerMapping {
   const first = new Map([...pages].flatMap(([story, uses]) => (uses[0] ? [[story, uses[0]] as const] : [])))
   const framePages = storyFramePages(model)
   const byId = new Map(stories.map((entry) => [entry.story.id, entry]))
-  const claimed = new Set<string>()
+  const plan =
+    planned ??
+    planOpeners(
+      model,
+      stories.map((entry) => entry.story),
+      pages,
+    )
+  const claimed = new Set(plan.claimed)
   const html = new Map<string, string>()
   const consumedPages = new Set<IdmlPage>()
   const cache = new Map<string, string | undefined>()
-  for (const [page, flow] of selectedFlows(stories, first, framePages)) {
-    const use = first.get(flow.story.id)
-    if (!use) continue
-    const headers = claimHeaders(page, flow, claimed, framePages, byId)
+  for (const [page, flowId] of plan.flows) {
+    const flow = byId.get(flowId)
+    const use = first.get(flowId)
+    if (!use || !flow) continue
+    const headers = claimHeaders(page, flow, new Set(), framePages, byId).filter((header) => claimed.has(header.frame.story))
     const block = titleBlock(model, use, headers, masters, report, asset, cache)
     if (block) consumedPages.add(page)
     html.set(flow.story.id, `${block}${flow.mapped.html}`)

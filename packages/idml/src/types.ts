@@ -1,8 +1,19 @@
 import type { FontReferenceInput } from '@segnavia/format'
-import type { IdmlAnswers } from './questions.ts'
+import type { IdmlAnswers } from './conversion-types.ts'
 
-export type { IdmlPartMarker } from './part-runs.ts'
-export type { IdmlAnswer, IdmlAnswers, IdmlCandidate, IdmlInspection, IdmlPreview, IdmlQuestion, IdmlTitleAnswer } from './questions.ts'
+export type {
+  IdmlAnswer,
+  IdmlAnswers,
+  IdmlCandidate,
+  IdmlFindingPage,
+  IdmlFindings,
+  IdmlInspection,
+  IdmlPageUse,
+  IdmlPartMarker,
+  IdmlPreview,
+  IdmlQuestion,
+  IdmlTitleAnswer,
+} from './conversion-types.ts'
 
 export interface IdmlTextNode {
   name: string
@@ -134,7 +145,7 @@ export interface IdmlDocumentPreferences {
 }
 export interface IdmlPage {
   id: string
-  name?: string
+  name: string
   appliedMaster?: string
   showMasterItems?: boolean
   stories: string[]

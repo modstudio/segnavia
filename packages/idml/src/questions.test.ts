@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { IdmlFindings } from './findings.ts'
 import type { StoryFirstPage } from './part-runs.ts'
-import { idmlQuestions } from './questions.ts'
+import { idmlPreview, idmlQuestions } from './questions.ts'
 
 const pages = ['1', '2', '3'].map((name, index) => ({
   id: name,
@@ -47,4 +47,29 @@ test('asks titles only after a non-flat parts answer', () => {
     'Host-supplied titles',
   ])
   expect(question?.candidates[0]?.preview.untitled).toBe(0)
+})
+
+test('reports untitled opener locations and distinguishes first-paragraph titles', () => {
+  const partial = {
+    ...findings,
+    pages: pages.map((page, index) => ({
+      ...page,
+      paragraphs:
+        index === 0
+          ? [
+              { style: 'Body', text: 'Opening words' },
+              { style: 'Heading', text: 'Styled title' },
+            ]
+          : [{ style: 'Body', text: `Body ${index}` }],
+    })),
+  }
+  const styled = idmlPreview(partial, stories, { pages: ['1', '2'] }, { paragraphStyle: 'Heading' })
+  expect(styled.untitled).toBe(1)
+  expect(styled.parts.filter((part) => !part.title).map((part) => part.openerPage)).toEqual(['2'])
+  expect(idmlPreview(partial, stories, { pages: ['1', '2'] }, { firstParagraph: true }).parts.map((part) => part.title)).toEqual(['Opening words', 'Body 1'])
+})
+
+test('does not count opener-claimed stories as preview chapters', () => {
+  const preview = idmlPreview(findings, stories, { pages: ['1'] }, undefined, { claimed: new Set(['story-2']) })
+  expect(preview.parts[0]?.chapters).toBe(1)
 })

@@ -80,11 +80,14 @@ candidate previews the parts, titles and chapter counts it produces. The host
 may answer the `parts` question with a master, paragraph style, sections, an
 explicit opener-page list or `none`, then answer the dependent `titles`
 question with a paragraph style, each opener's first paragraph or a title list.
-The previews and conversion use the same part runs. A flat file remains flat
-without answers. An ambiguous file now refuses import until the host passes the
-answer through `IdmlImportOptions.answers`; the refusal names the open question
-and its candidate labels. Invalid answers name the facts the file actually
-holds.
+The parts question always offers explicit opener pages and keeping the book flat
+beside every structural candidate. Therefore any structural signal opens the
+question rather than being guessed; only a file with no structural signal stays
+flat without answers. The previews and conversion consume the same resolved
+part model, including titles and the emitted chapter set. An unanswered question
+refuses import until the host passes the answer through
+`IdmlImportOptions.answers`; the refusal names the open question and its
+candidate labels. Invalid answers name the facts the file actually holds.
 
 Tables become native `table`, `colgroup`, row-region and `td` elements. Their
 named cell anchors determine the grid, so source order cannot change placement;

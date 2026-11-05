@@ -24,7 +24,7 @@ test('maps document setup and orders placeholder chapters by first page', () => 
       binding: 'right-to-left',
       margin: { top: 36, bottom: 36, left: 30, right: 40 },
     },
-    spreads: [{ id: 'spread', pages: [{ id: 'page', stories: ['later', 'earlier'] }] }],
+    spreads: [{ id: 'spread', pages: [{ id: 'page', name: 'page', stories: ['later', 'earlier'] }] }],
     masterSpreads: [],
     stories: [
       { id: 'earlier', part: 'Stories/earlier.xml', frame: { columns: 2, gutter: 12, location: 'earlier-frame' } },
@@ -113,10 +113,10 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
       {
         id: 's',
         pages: [
-          { id: 'p1', appliedMaster: 'h', stories: ['body'], side: 'left' },
-          { id: 'p2', appliedMaster: 'h', stories: ['body'], side: 'right' },
-          { id: 'p3', appliedMaster: 'h', stories: ['body'], side: 'left' },
-          { id: 'p4', appliedMaster: 'n', stories: ['none'], side: 'right' },
+          { id: 'p1', name: 'p1', appliedMaster: 'h', stories: ['body'], side: 'left' },
+          { id: 'p2', name: 'p2', appliedMaster: 'h', stories: ['body'], side: 'right' },
+          { id: 'p3', name: 'p3', appliedMaster: 'h', stories: ['body'], side: 'left' },
+          { id: 'p4', name: 'p4', appliedMaster: 'n', stories: ['none'], side: 'right' },
         ],
       },
     ],
@@ -127,6 +127,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
         pages: [
           {
             id: 'hl',
+            name: 'hl',
             stories: ['head-left', 'head-left-edge'],
             side: 'left',
             margin: { top: 10, bottom: 11, left: 12, right: 13 },
@@ -137,6 +138,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
           },
           {
             id: 'hr',
+            name: 'hr',
             stories: ['head-right'],
             side: 'right',
             margin: { top: 20, bottom: 21, left: 12, right: 13 },
@@ -214,8 +216,8 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
       {
         id: 's',
         pages: [
-          { id: 'p1', appliedMaster: 'a', stories: ['body'] },
-          { id: 'p2', appliedMaster: 'a', stories: ['body'] },
+          { id: 'p1', name: 'p1', appliedMaster: 'a', stories: ['body'] },
+          { id: 'p2', name: 'p2', appliedMaster: 'a', stories: ['body'] },
         ],
       },
     ],
@@ -226,6 +228,7 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
         pages: [
           {
             id: 'a1',
+            name: 'a1',
             stories: ['folio'],
             side: 'single',
             margin: { top: 5, bottom: 10, left: 15, right: 20 },
@@ -257,19 +260,19 @@ test('emits an unapplied base master and preserves its inheritance', () => {
   const model: IdmlModel = {
     id: 'base',
     preferences: { pageWidth: 100, pageHeight: 100, facingPages: true, binding: 'left-to-right', margin: { top: 10, bottom: 10, left: 10, right: 10 } },
-    spreads: [{ id: 's', pages: [{ id: 'p', appliedMaster: 'child', stories: ['body'], side: 'right' }] }],
+    spreads: [{ id: 's', pages: [{ id: 'p', name: 'p', appliedMaster: 'child', stories: ['body'], side: 'right' }] }],
     masterSpreads: [
       {
         id: 'base',
         name: 'A-Base',
-        pages: [{ id: 'base-page', stories: [], side: 'single', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] }],
+        pages: [{ id: 'base-page', name: 'base-page', stories: [], side: 'single', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] }],
         unmappedItems: [],
       },
       {
         id: 'child',
         name: 'B-Child',
         basedOn: 'base',
-        pages: [{ id: 'child-page', stories: [], side: 'single', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] }],
+        pages: [{ id: 'child-page', name: 'child-page', stories: [], side: 'single', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] }],
         unmappedItems: [],
       },
     ],
@@ -287,21 +290,22 @@ test('reports extra master pages and unknown applied masters by location', () =>
   const model: IdmlModel = {
     id: 'extra',
     preferences: { pageWidth: 100, pageHeight: 100, facingPages: true, binding: 'left-to-right', margin: { top: 10, bottom: 10, left: 10, right: 10 } },
-    spreads: [{ id: 's', pages: [{ id: 'body-page', appliedMaster: 'missing', stories: ['body'], side: 'right' }] }],
+    spreads: [{ id: 's', pages: [{ id: 'body-page', name: 'body-page', appliedMaster: 'missing', stories: ['body'], side: 'right' }] }],
     masterSpreads: [
       {
         id: 'three',
         name: 'Three',
         pages: [
-          { id: 'left', stories: [], side: 'left', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] },
+          { id: 'left', name: 'left', stories: [], side: 'left', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] },
           {
             id: 'middle',
+            name: 'middle',
             stories: ['middle-story'],
             side: 'single',
             margin: { top: 10, bottom: 10, left: 10, right: 10 },
             frames: [{ id: 'middle-frame', story: 'middle-story', bounds: { left: 20, top: 20, width: 20, height: 20 } }],
           },
-          { id: 'right', stories: [], side: 'right', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] },
+          { id: 'right', name: 'right', stories: [], side: 'right', margin: { top: 10, bottom: 10, left: 10, right: 10 }, frames: [] },
         ],
         unmappedItems: [],
       },
@@ -339,9 +343,9 @@ test('reports a mixed-master chapter as structured data and breaks ties by page 
       {
         id: 's',
         pages: [
-          { id: 'opening', appliedMaster: 'a', stories: ['body'], side: 'right' },
-          { id: 'first-verso', appliedMaster: 'a', stories: ['body'], side: 'left' },
-          { id: 'second-verso', appliedMaster: 'b', stories: ['body'], side: 'left' },
+          { id: 'opening', name: 'opening', appliedMaster: 'a', stories: ['body'], side: 'right' },
+          { id: 'first-verso', name: 'first-verso', appliedMaster: 'a', stories: ['body'], side: 'left' },
+          { id: 'second-verso', name: 'second-verso', appliedMaster: 'b', stories: ['body'], side: 'left' },
         ],
       },
     ],

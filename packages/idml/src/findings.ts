@@ -1,27 +1,8 @@
+import type { IdmlFindingPage, IdmlFindings } from './conversion-types.ts'
 import type { IdmlModel } from './model.ts'
 import type { IdmlTextNode } from './types.ts'
 
-export interface IdmlFindingPage {
-  id: string
-  name: string
-  spread: string
-  appliedMaster?: string
-  stories: string[]
-  paragraphs: { style: string; text: string }[]
-}
-
-export interface IdmlPageUse {
-  page: string
-  count: number
-  texts: string[]
-}
-
-export interface IdmlFindings {
-  pages: IdmlFindingPage[]
-  masters: { name: string; pages: string[] }[]
-  sections: { name: string; startPage: string; pages: string[] }[]
-  paragraphStyles: { name: string; pages: IdmlPageUse[] }[]
-}
+export type { IdmlFindingPage, IdmlFindings, IdmlPageUse } from './conversion-types.ts'
 
 function paragraphText(node: IdmlTextNode): string {
   return [node.text ?? '', ...node.children.map(paragraphText)].join('').trim()
@@ -39,7 +20,7 @@ export function idmlFindings(model: IdmlModel): IdmlFindings {
   const pages: IdmlFindingPage[] = model.spreads.flatMap((spread) =>
     spread.pages.map((page) => ({
       id: page.id,
-      name: page.name ?? page.id,
+      name: page.name,
       spread: spread.id,
       ...(page.appliedMaster ? { appliedMaster: masterNames.get(page.appliedMaster) ?? page.appliedMaster } : {}),
       stories: [...page.stories],

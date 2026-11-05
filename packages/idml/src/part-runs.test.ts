@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { IdmlFindings } from './findings.ts'
-import { type IdmlPartMarker, partRuns } from './part-runs.ts'
+import { type IdmlPartMarker, partModel, partRuns } from './part-runs.ts'
 
 const findings: IdmlFindings = {
   pages: [
@@ -50,5 +50,37 @@ describe('partRuns', () => {
       { openerPage: '1', stories: ['one', 'span'] },
       { openerPage: '3', stories: ['three'] },
     ])
+  })
+
+  test('indexes supplied titles by part after leading flat stories', () => {
+    expect(partModel(findings, stories, { pages: ['1', '3'] }, { list: ['First', 'Second'] })).toEqual({
+      leadingStories: ['front'],
+      parts: [
+        { openerPage: '1', stories: ['one', 'span'], openerStories: ['one', 'span'], chapterStories: [], title: 'First' },
+        { openerPage: '3', stories: ['three'], openerStories: ['three'], chapterStories: [], title: 'Second' },
+      ],
+    })
+  })
+
+  test('drops a storyless marked-page run and keeps unplaced stories in the last part', () => {
+    const separate = {
+      ...findings,
+      pages: [
+        { id: 'p0', name: '0', spread: 's0', stories: ['front'], paragraphs: [] },
+        { id: 'p1', name: '1', spread: 's1', stories: [], paragraphs: [] },
+        { id: 'p3', name: '3', spread: 's3', stories: ['three'], paragraphs: [] },
+      ],
+    }
+    expect(
+      partRuns(
+        separate,
+        [
+          { story: 'front', page: '0' },
+          { story: 'three', page: '3' },
+        ],
+        { pages: ['1', '3'] },
+        { universe: ['front', 'three', 'loose'] },
+      ),
+    ).toEqual([{ stories: ['front'] }, { openerPage: '3', stories: ['three', 'loose'] }])
   })
 })

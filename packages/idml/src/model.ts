@@ -29,7 +29,7 @@ import { collectUnsupportedElements, GRAPHIC_ELEMENTS, SHAPE_ELEMENTS } from './
 import { attribute, elements, localName, numberAttribute } from './xml.ts'
 import type { ZipEntry } from './zip.ts'
 
-export type { IdmlDocumentPreferences, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlSpread, IdmlStory } from './types.ts'
+export type { IdmlDocumentPreferences, IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlSection, IdmlSpread, IdmlStory } from './types.ts'
 
 export interface IdmlModel {
   id: string
