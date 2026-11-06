@@ -38,8 +38,21 @@ const printedPagesFixture = {
 
 const hebrewBookFixture = {
   title: 'ספר ההפלגה',
-  mode: 'continuous' as const,
+  mode: 'paginated' as const,
+  page: { paper: 'a5' as const, margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
+  dir: 'rtl' as const,
   lang: 'he',
+  css: ':where(html){font:16px/1.7 serif}',
+  numbering: { frontMatter: 'arabic' as const, body: 'hebrew' as const },
+  parentPages: [
+    {
+      name: 'sefer',
+      margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 },
+      head: '<header>ספר ההפלגה</header>',
+    },
+  ],
+  notes: [{ name: 'commentary', placement: 'book' as const, numbering: 'book' as const, marker: 'arabic' as const, title: 'פירוש' }],
+  contents: { pageNumbers: true, depth: 2 },
   frontMatter: [
     { title: 'שער', contents: false, html: '<h1>ספר ההפלגה</h1>' },
     { kind: 'contents' as const, title: 'תוכן' },
@@ -116,14 +129,25 @@ describe('Document lowering', () => {
       metadata: { title: expected.title },
       mode: expected.mode,
       page: expected.page,
+      numbering: expected.numbering,
       settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
+      style: { css: expected.css, fonts: expected.fonts },
+      parentPages: expected.parentPages.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
+      noteSeries: expected.notes.map(({ name, placement, numbering, marker, title }) => ({
+        type: 'noteSeries' as const,
+        name,
+        placement,
+        numbering,
+        marker,
+        title,
+      })),
       children: [
         {
           type: 'division',
           name: 'front',
           children: [
             { type: 'section', title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
-            { type: 'contents', title: front[1]?.title },
+            { type: 'contents', title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
           ],
         },
         {
