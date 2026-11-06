@@ -1,4 +1,15 @@
-import { BOOK_PARENT_NAMES, type BookView, type BookViewPagination, PRINTED_PAGE_LIMIT, PX_PER_MM, resolveParentPages, textArea } from '@segnavia/format'
+import {
+  BOOK_PARENT_NAMES,
+  type BookView,
+  type BookViewPagination,
+  LIMIT_ACTUAL_PLACEHOLDER,
+  type Limits,
+  limitRefusalTemplate,
+  PX_PER_MM,
+  resolveLimits,
+  resolveParentPages,
+  textArea,
+} from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
@@ -12,6 +23,7 @@ export interface PaginatedDocumentOptions {
   printBackground?: boolean
   screen?: { spread: boolean }
   diagramScript?: string
+  limits?: Limits
 }
 
 function px(value: number): number {
@@ -19,6 +31,7 @@ function px(value: number): number {
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
+  const limits = resolveLimits(view.limits, options.limits)
   const paper = { width: px(pagination.paper.width), height: px(pagination.paper.height) }
   const parents = resolveParentPages(pagination.parents).map((parent) => {
     const margin = {
@@ -47,7 +60,11 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     parents,
     parentNames: BOOK_PARENT_NAMES,
     numbering: pagination.numbering,
-    limit: PRINTED_PAGE_LIMIT,
+    limit: limits.pages,
+    limitRefusal: {
+      template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),
+      placeholder: LIMIT_ACTUAL_PLACEHOLDER,
+    },
     ...(options.screen ? { screen: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')

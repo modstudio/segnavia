@@ -263,7 +263,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
     })
     check(
       'a printed-pages preview reports content above the page limit as a composition refusal',
-      refusal?.includes('above the limit 500') === true,
+      refusal?.includes('above the pages limit of 500') === true,
       `refusal=${JSON.stringify(refusal)}`,
     )
     for (const fixture of [

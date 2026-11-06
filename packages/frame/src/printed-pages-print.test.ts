@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { TextDirection } from '@segnavia/format'
-import { Imposition, Page, PRINTED_PAGE_LIMIT, PX_PER_MM } from '@segnavia/format'
+import { DEFAULT_PAGE_LIMIT, Imposition, limitRefusal, Page, PX_PER_MM } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -62,9 +62,9 @@ describe('printedPagesPrintDocument', () => {
   })
 
   test('refuses a measured count above the printed-page limit', async () => {
-    fakeMeasurement((PRINTED_PAGE_LIMIT + 1) * 279.4 * PX_PER_MM)
+    fakeMeasurement((DEFAULT_PAGE_LIMIT + 1) * 279.4 * PX_PER_MM)
     await expect(printedPagesPrintDocument([printed()], identity, { deadlineAt: Date.now() + 100 })).rejects.toThrow(
-      `above the limit ${PRINTED_PAGE_LIMIT}; shorten the content`,
+      limitRefusal('pages', DEFAULT_PAGE_LIMIT + 1, DEFAULT_PAGE_LIMIT, { pagesSource: 'default' }),
     )
   })
 
@@ -79,6 +79,7 @@ describe('printedPagesPrintDocument', () => {
     ])
     expect(result.html.match(new RegExp(`width:${width}px;height:${height}px;border:0;display:block`, 'g'))).toHaveLength(2)
     expect(result.html.match(/&quot;expectedCount&quot;:1/g)).toHaveLength(2)
+    expect(result.sheets).toBe(2)
     expect(result.html).not.toContain('width:431.8mm')
     expect(result.html).not.toContain('margin-left:')
   })

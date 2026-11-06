@@ -235,7 +235,7 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
   )
 
   const limits = readFileSync(path.join(output, 'deck-handout-limits.txt'), 'utf8')
-  check('an imposed deck maxSheets limit counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  check('an imposed deck sheets limit counts PDF pages and names both counts', limits.includes('2 sheets') && limits.includes('sheets limit of 1'), limits)
   const notes = readFileSync(path.join(output, 'deck-handout-notes.txt'), 'utf8')
   check(
     'an imposed deck refuses notes while naming both conflicting options and both ways to clear it',

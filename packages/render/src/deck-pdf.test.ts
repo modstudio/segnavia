@@ -37,7 +37,7 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   const limitsSeen: unknown[] = []
   const output = await renderDeckPdf(
     deck,
-    { limits: { maxSheets: 2 } },
+    { limits: { sheets: 2 } },
     {
       renderPdf: async (setup) => {
         documents.push(setup.html)
@@ -57,7 +57,7 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect(htmlSlide).toContain('var printAt=0')
   expect(htmlSlide).toContain('animation-play-state:paused!important')
   expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
-  expect(limitsSeen).toEqual([{ maxSheets: 2 }])
+  expect(limitsSeen).toEqual([{ sheets: 2 }])
 })
 
 test('the print bridge and PDF waiter share one ready signal', async () => {
@@ -200,7 +200,7 @@ test('an imposed deck renders every slide alone and enforces the composed papers
   const limitsSeen: unknown[] = []
   const output = await renderDeckPdf(
     deck,
-    { imposition, limits: { maxSheets: 1 }, beforeOutput: async () => {} },
+    { imposition, limits: { sheets: 1 }, beforeOutput: async () => {} },
     {
       renderPdf: async (setup) => {
         documents.push({ html: setup.html, beforeOutput: setup.beforeOutput })
@@ -220,7 +220,7 @@ test('an imposed deck renders every slide alone and enforces the composed papers
   expect(documents[0]?.html).not.toContain('<iframe')
   expect(documents[1]?.html).toContain('<img src="image.png"')
   expect(documents.map(({ beforeOutput }) => typeof beforeOutput)).toEqual(['function', 'function'])
-  expect(limitsSeen).toEqual([{ maxSheets: 1 }])
+  expect(limitsSeen).toEqual([{ sheets: 1 }])
 })
 
 test('an imposed repeat deck embeds one rendered slide across each paper', async () => {

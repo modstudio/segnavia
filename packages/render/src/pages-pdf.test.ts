@@ -5,6 +5,7 @@ import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { enforce } from './pdf-finish.ts'
 import { pt } from './pdf-geometry.ts'
 
 const Page = { parse: (input: unknown) => resolvePageHtml(PageSchema.parse(input)) }
@@ -53,6 +54,26 @@ test('pagesPdf renders the page objects it is given, so their slot preparation i
   )
   await expect(render).rejects.toThrow('stop after the first page')
   expect(seen[0]).toBe(page)
+})
+
+test('pagesPdf applies sheets to the joined output instead of each inner page', async () => {
+  const inputs = [Page.parse({ html: '<p>One</p>', size: { width: 336, height: 192 } }), Page.parse({ html: '<p>Two</p>', size: { width: 336, height: 192 } })]
+  const innerLimits: unknown[] = []
+  const render = renderPagesPdf(
+    inputs,
+    { limits: { sheets: 1 } },
+    {
+      pagePdf: async (_page, options) => {
+        innerLimits.push(options.limits)
+        return { bytes: await enforce(await cssPiece(100), options.limits) }
+      },
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: (pdf, options) => enforce(pdf, options.limits),
+    },
+  )
+  await expect(render).rejects.toThrow('sheets limit of 1')
+  expect(innerLimits).toEqual([{}, {}])
 })
 
 test('pagesPdf carries a named width override into the imposed piece', async () => {

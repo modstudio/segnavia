@@ -15,6 +15,7 @@ export function renderedPageDocument(page: HtmlPage, options: RenderOptions, pri
     css: `${fontFaces(options.fonts)}${options.css ?? ''}`,
     diagramScript,
     readyCallback: RENDER_READY_BINDING,
+    limits: options.limits,
   })
 }
 

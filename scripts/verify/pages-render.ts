@@ -351,7 +351,7 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   )
 
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
-  check('the imposed maxSheets ceiling counts PDF pages and names both counts', limits === 'The PDF has 2 sheets; the limit is 1.', limits)
+  check('the imposed sheets ceiling counts PDF pages and names both counts', limits.includes('2 sheets') && limits.includes('sheets limit of 1'), limits)
 
   const letterFolded = impose(Imposition.parse(letterFoldImposition), letterFoldPages.length)
   const letterXml = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-letter-fold.pdf'), '-'], { encoding: 'utf8' })

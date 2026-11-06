@@ -171,7 +171,10 @@ describe('limits', () => {
         { id: 'b', content: { kind: 'html', html: 'x' } },
       ],
     })
-    expect(exceedsLimits(deck, { maxSlides: 1, maxSlideBytes: 3 })).toEqual(['the deck has 2 slides; the limit is 1', 'slide 1 is 4 bytes; the limit is 3'])
+    expect(exceedsLimits(deck, { slides: 1, slideBytes: 3 })).toEqual([
+      "The deck is 2 slides, above the slides limit of 1; raise the host's limits.slides, or reduce the content to clear this refusal.",
+      "The slide for slide 1 is 4 UTF-8 bytes, above the slideBytes limit of 3; raise the host's limits.slideBytes, or reduce the content to clear this refusal.",
+    ])
   })
 
   test('a deck whose notes exceed the host ceiling is refused', () => {
@@ -182,7 +185,9 @@ describe('limits', () => {
         { id: 'b', content: { kind: 'html', html: 'x' }, notes: 'שלום' },
       ],
     })
-    expect(exceedsLimits(deck, { maxNotesBytes: 5 })).toEqual(['slide 2 has 8 bytes of notes; the limit is 5'])
+    expect(exceedsLimits(deck, { notesBytes: 5 })).toEqual([
+      "The slide notes for slide 2 is 8 UTF-8 bytes, above the notesBytes limit of 5; raise the host's limits.notesBytes, or reduce the content to clear this refusal.",
+    ])
   })
 
   test('shots used lists embedded and referenced shots alike', () => {

@@ -78,7 +78,7 @@ something else.
 | Avoided | Why |
 |---|---|
 | document, doc | Most apps already use it, and in one host it is the kernel record. |
-| sheet | One host's design system uses it for the side-panel component. The legacy render limit name `maxSheets` counts PDF pages; a two-sided paper counts as two. |
+| sheet, outside `limits.sheets` | One host's design system uses it for the side-panel component. The `limits.sheets` field counts PDF pages; a two-sided paper counts as two. |
 | surface | One host uses it for which app you are in. |
 | tutorial, video | A deck that plays is still a deck. A tutorial is not a separate thing. |
 | paper, as a property of a page | A `Page` has no paper; paper belongs only to its print setting. A paginated `Book` names its trim on its book page. |

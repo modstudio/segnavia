@@ -5,6 +5,7 @@ import {
   Imposition,
   impose,
   impositionMarks,
+  limitRefusal,
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
@@ -104,9 +105,9 @@ async function placeRenderedImages(tab: Tab): Promise<void> {
   }, styles)
 }
 
-async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
-  if (maxSheets === undefined) return tab.evaluate(paginateNotes, null)
-  return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(maxSheets)})`)
+async function paginateRenderedNotes(tab: Tab, sheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
+  if (sheets === undefined) return tab.evaluate(paginateNotes, null)
+  return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(sheets)})`)
 }
 
 async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
@@ -133,9 +134,10 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
-            const pagination = await paginateRenderedNotes(tab, opts.limits?.maxSheets)
-            if (pagination.exceeded) {
-              throw new RenderRefusedError(`The PDF needs more than ${opts.limits?.maxSheets} sheets; the limit is ${opts.limits?.maxSheets}.`)
+            const sheetsLimit = opts.limits?.sheets
+            const pagination = await paginateRenderedNotes(tab, sheetsLimit)
+            if (sheetsLimit !== undefined && pagination.exceeded) {
+              throw new RenderRefusedError(limitRefusal('sheets', pagination.sheets, sheetsLimit))
             }
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }

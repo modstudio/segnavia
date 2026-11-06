@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { PixelSize } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FontReference } from './fonts.ts'
+import { DocumentLimitsValue } from './limits.ts'
 import { Print } from './print.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
@@ -52,6 +53,7 @@ const PageShape = z
     lang: z.string().optional(),
     print: Print.optional(),
     printedPages: PrintedPages.optional(),
+    limits: DocumentLimitsValue.optional(),
     slots: Slots.optional(),
     fonts: z.array(FontReference).optional(),
   })

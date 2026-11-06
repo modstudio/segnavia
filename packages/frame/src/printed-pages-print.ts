@@ -1,4 +1,4 @@
-import { type Imposition, impose, isPrintedPageIdentityImposition, PRINTED_PAGE_LIMIT, PX_PER_MM, paperViewport, sheetMm } from '@segnavia/format'
+import { type Imposition, impose, isPrintedPageIdentityImposition, limitRefusal, PX_PER_MM, paperViewport, resolveLimits, sheetMm } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
@@ -17,6 +17,7 @@ function composedFrame(page: HtmlPage, index: number, expectedCount: number, opt
     expectedCount,
     printBackground: true,
     diagramScript: options.diagramScript,
+    limits: options.limits,
   })
   return `<iframe sandbox="${frameSandbox('refuse')}" srcdoc="${escapeHtml(srcdoc)}" style="width:${viewport.width}px;height:${viewport.height}px;border:0;display:block"></iframe>`
 }
@@ -32,6 +33,7 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
     css: options.css,
     measure: true,
     diagramScript: options.diagramScript,
+    limits: options.limits,
   })
   return new Promise((resolve, reject) => {
     let timer = 0
@@ -45,8 +47,9 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
       const message = messageFrom(event, frame)
       if (message?.type !== MESSAGE.height || message.height === undefined || message.height < (paper.height * PX_PER_MM) / 2) return
       const count = Math.round(message.height / (paper.height * PX_PER_MM))
-      if (count > PRINTED_PAGE_LIMIT) {
-        finish(new RangeError(`The composed page count is ${count}, above the limit ${PRINTED_PAGE_LIMIT}; shorten the content to clear this refusal.`))
+      const limits = resolveLimits(page.limits, options.limits)
+      if (count > limits.pages) {
+        finish(new RangeError(limitRefusal('pages', count, limits.pages, { pagesSource: limits.pagesSource })))
         return
       }
       finish(count)
@@ -62,7 +65,7 @@ export async function printedPagesPrintDocument(
   pages: HtmlPage[],
   imposition: Imposition,
   options: PrintablePagesOptions & { deadlineAt: number },
-): Promise<{ html: string; paper: { width: number; height: number } }> {
+): Promise<{ html: string; paper: { width: number; height: number }; sheets: number }> {
   const printed = pages.filter((page) => page.printedPages)
   for (const page of printed) {
     if (!page.print || !isPrintedPageIdentityImposition(page.print, imposition)) {
@@ -82,5 +85,5 @@ export async function printedPagesPrintDocument(
     const imposed = impose(imposition, 1)
     return [{ body: printablePaper([page], imposition, imposed, 0, options), side: 'front' as const }]
   })
-  return { html: imposedPaperDocument(paper, ' dir="ltr"', bodies), paper }
+  return { html: imposedPaperDocument(paper, ' dir="ltr"', bodies), paper, sheets: bodies.length }
 }

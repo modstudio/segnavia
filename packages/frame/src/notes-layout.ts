@@ -43,7 +43,7 @@ export interface NotesPaginationResult {
 
 // This function touches the DOM only when called with a document, so importing
 // this module remains safe in the server renderer.
-export function paginateNotes(target: Document | null, maxSheets?: number): NotesPaginationResult {
+export function paginateNotes(target: Document | null, sheetLimit?: number): NotesPaginationResult {
   const printDocument = target ?? document
   const fits = (node: HTMLElement, text: string) => {
     node.textContent = text
@@ -109,7 +109,7 @@ export function paginateNotes(target: Document | null, maxSheets?: number): Note
     sheet.remove()
   })
   let sheets = printDocument.querySelectorAll('[data-notes-source]').length
-  if (maxSheets !== undefined && sheets > maxSheets) return { sheets, exceeded: true }
+  if (sheetLimit !== undefined && sheets > sheetLimit) return { sheets, exceeded: true }
   let exceeded = false
   printDocument.querySelectorAll<HTMLElement>('[data-notes-source]').forEach((sheet) => {
     if (exceeded) return
@@ -122,7 +122,7 @@ export function paginateNotes(target: Document | null, maxSheets?: number): Note
     rest = rest.slice(used)
     let after = sheet
     while (rest) {
-      if (maxSheets !== undefined && sheets >= maxSheets) {
+      if (sheetLimit !== undefined && sheets >= sheetLimit) {
         exceeded = true
         return
       }

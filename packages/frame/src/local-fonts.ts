@@ -2,11 +2,13 @@ import {
   type FontFace,
   FontFaceRefusedError,
   type FontReference,
+  type Limits,
   type LocalFacesInput,
-  type LocalFontLimits,
   localFontLimitRefusal,
   localFontReferences,
+  parseLimits,
   resolveFontFace,
+  resolveLimits,
 } from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 import { FontRefusedError } from './page-fonts.ts'
@@ -161,7 +163,7 @@ export async function readLocalFonts(references: readonly FontReference[], optio
   return { faces, unavailable: unavailableFaces }
 }
 
-export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[], limits?: LocalFontLimits): LocalFacesInput {
+export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[], limits?: Limits): LocalFacesInput {
   const families = new Map<string, string>()
   for (const reference of references) {
     if ('local' in reference && !families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
@@ -173,7 +175,7 @@ export function packLocalFaces(faces: readonly FontFace[], references: readonly 
   })
   const refusal = localFontLimitRefusal(
     selected.map(({ face, family }) => ({ family, bytes: face.data.byteLength })),
-    limits,
+    resolveLimits(undefined, parseLimits(limits, 'host')).localFonts,
   )
   if (refusal) throw new FontRefusedError(refusal)
   return selected.map(({ face, family }) => ({

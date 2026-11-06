@@ -243,7 +243,7 @@ renders under both.
 import { openRenderer } from '@segnavia/render'
 
 const renderer = await openRenderer({ executablePath: '/usr/bin/chromium', concurrency: 2 })
-const pdf = await renderer.deckPdf(deck, { layout: 'notes', limits: { maxSheets: 600 } })
+const pdf = await renderer.deckPdf(deck, { layout: 'notes', limits: { sheets: 600 } })
 ```
 
 An HTML slide may set `printAtMs` to choose the millisecond at which its CSS

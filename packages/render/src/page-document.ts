@@ -8,6 +8,7 @@ import {
   Page,
   type PageInput,
   resolveDirection,
+  resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
@@ -60,7 +61,7 @@ export async function prepareRenderedPage(
   const page = resolvePageHtml(Page.parse(input))
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
-  const local = localFontsForRender(options.localFonts, references)
+  const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
@@ -73,7 +74,7 @@ export async function prepareRenderedPages(
   signal: AbortSignal,
 ): Promise<RenderOptions> {
   const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
-  const local = localFontsForRender(options.localFonts, references)
+  const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, 'page'))
   options.localFonts?.report?.(local.report)
   return withFontCss(options, css)
@@ -88,7 +89,7 @@ export async function renderOptionsWithBookFonts(
   const book = Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
   const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
-  const local = localFontsForRender(options.localFonts, references)
+  const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { options, fontCss: css }

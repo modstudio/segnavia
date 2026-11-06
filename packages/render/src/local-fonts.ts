@@ -2,20 +2,16 @@ import {
   type FontFace,
   FontFaceRefusedError,
   type FontReference,
-  LOCAL_FONT_LIMITS,
   type LocalFacesInput,
   LocalFaceTransport,
-  type LocalFontLimits,
   localFontLimitRefusal,
   localFontReferences,
   type ResolvedFontFace,
+  type ResolvedLimits,
   resolveFontFace,
 } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
-
-export const DEFAULT_LOCAL_FONT_COUNT = LOCAL_FONT_LIMITS.count
-export const DEFAULT_LOCAL_FONT_BYTES = LOCAL_FONT_LIMITS.bytes
 
 export interface LocalFontsReport {
   fellBack: Array<{ family: string; fallback: string }>
@@ -23,7 +19,6 @@ export interface LocalFontsReport {
 
 export interface LocalFontsOptions {
   faces?: LocalFacesInput
-  limits?: LocalFontLimits
   report?: (report: LocalFontsReport) => void
 }
 
@@ -68,7 +63,7 @@ function decodeFace(input: unknown): FontFace {
   return { ...face, ...resolved }
 }
 
-function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
+function decodedFaces(options: LocalFontsOptions | undefined, limits: ResolvedLimits['localFonts']): FontFace[] {
   const supplied: unknown = options?.faces ?? []
   if (!Array.isArray(supplied)) {
     throw new RenderRefusedError('The local faces transport is not an array; send an array of local faces to clear this refusal.')
@@ -81,13 +76,13 @@ function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
       const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0
       return { family: familyFrom(input), bytes: (data.length / 4) * 3 - padding }
     }),
-    options?.limits,
+    limits,
   )
   if (refusal) throw new RenderRefusedError(refusal)
   const faces = inputs.map(decodeFace)
   const extractedRefusal = localFontLimitRefusal(
     faces.map((face) => ({ family: face.family, bytes: face.data.length })),
-    options?.limits,
+    limits,
   )
   if (extractedRefusal) throw new RenderRefusedError(extractedRefusal)
   return faces
@@ -96,8 +91,9 @@ function decodedFaces(options: LocalFontsOptions | undefined): FontFace[] {
 export function localFontsForRender(
   options: LocalFontsOptions | undefined,
   references: readonly FontReference[],
+  limits: ResolvedLimits['localFonts'],
 ): { faces: FontFace[]; report: LocalFontsReport } {
-  const decoded = decodedFaces(options)
+  const decoded = decodedFaces(options, limits)
   const locals = localFontReferences(references)
   const declared = new Map(locals.map((reference) => [reference.local.toLowerCase(), reference.local]))
   const faces = decoded.flatMap((face) => {

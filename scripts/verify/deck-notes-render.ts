@@ -118,7 +118,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       },
       {
         layout: 'notes',
-        limits: { maxSheets: 2 },
+        limits: { sheets: 2 },
         beforeOutput: async () => {
           reachedOutput = true
         },
@@ -128,7 +128,11 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       () => 'rendered',
       (error: unknown) => `${error instanceof Error ? error.name : 'unknown'}: ${error instanceof Error ? error.message : String(error)}`,
     )
-  check('deckPdf refuses notes at maxSheets before output', limited.startsWith('RenderRefusedError:') && !reachedOutput, `${limited}, output=${reachedOutput}`)
+  check(
+    'deckPdf refuses notes at limits.sheets before output',
+    limited.startsWith('RenderRefusedError:') && !reachedOutput,
+    `${limited}, output=${reachedOutput}`,
+  )
 
   const alefPath = path.resolve(import.meta.dirname, '../../fixtures/hebrew-notice/Alef-Regular.ttf')
   const serif: AppFont = {

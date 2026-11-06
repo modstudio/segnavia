@@ -61,6 +61,17 @@ describe('printedPageDocument', () => {
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
 
+  test('builds the composer config from document and host page ceilings', () => {
+    const limit = (pages: number | undefined, host?: number) =>
+      printedPageDocument({ ...page, limits: pages === undefined ? undefined : { pages } }, { nonce: 'held', limits: { pages: host } })
+    expect(limit(600)).toContain('"limit":600')
+    expect(limit(500)).toContain('"limit":500')
+    expect(limit(undefined)).toContain('"limit":500')
+    expect(limit(600, 300)).toContain('"limit":300')
+    expect(limit(600, 300)).toContain("raise the host's limits.pages")
+    expect(limit(600)).toContain('declare a higher limits.pages on the document')
+  })
+
   test('does not read the window width while composing', () => {
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('clientWidth')
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('innerWidth')

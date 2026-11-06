@@ -17,7 +17,7 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { dependencySetup, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
+import { dependencySetup, enforceDeckLimits, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
@@ -54,7 +54,6 @@ export type {
   OverflowPart,
   OverflowReport,
   ProofImageOptions,
-  RenderLimits,
   RenderOptions,
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
@@ -186,7 +185,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const diagramScript = await resolveDiagramScript(page.html)
           const printed = await renderPagePdf(
             page,
-            { ...prepared.options, limits: undefined, press: undefined, overflow: undefined },
+            { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined, overflow: undefined },
             { withTab },
             undefined,
             deadline,
@@ -254,7 +253,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
           return renderPagesPdf(
             pages,
-            { ...withFonts, limits: undefined, press: undefined },
+            { ...withFonts, limits: innerLimits(withFonts.limits), press: undefined },
             {
               pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript),
               piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
@@ -268,6 +267,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(deck, opts = {}) {
+      opts = parseRenderOptions(opts)
+      enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const prepared = await filledDeck(deck, copySlots, deadline.signal)
@@ -276,7 +277,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
           return renderDeckPdf(
             prepared,
-            { ...opts, press: undefined },
+            { ...opts, limits: innerLimits(opts.limits), press: undefined },
             {
               renderPdf: (setup, pdf) =>
                 withTab({ ...setup, slots: preparedSlotsFor(prepared), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
@@ -294,6 +295,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async slideImage(deck, index, opts = {}) {
+      opts = parseRenderOptions(opts)
+      enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const filled = await filledDeck(deck, opts.slots, deadline.signal)
         const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal)

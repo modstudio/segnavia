@@ -21,7 +21,7 @@ export async function buildDeckPdfs(renderer: Renderer, output: string, image: s
     path.join(output, 'deck-handout-cover.pdf'),
     await renderer.deckPdf(handout, { imposition: { ...handoutImposition, fit: 'cover', bleed: 3 }, inline }),
   )
-  const limited = await renderer.deckPdf(handout, { imposition: handoutImposition, inline, limits: { maxSheets: 1 } }).then(
+  const limited = await renderer.deckPdf(handout, { imposition: handoutImposition, inline, limits: { sheets: 1 } }).then(
     () => 'rendered',
     (error: unknown) => (error instanceof Error ? error.message : String(error)),
   )
