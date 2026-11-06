@@ -80,6 +80,37 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       }
       return linePages
     }
+    const fragmentationMarkerPages = async (printedPage: unknown): Promise<Record<string, number[]>> => {
+      await page.goto(url)
+      const html = await page.evaluate(printPagesInBrowser, {
+        imposition: LETTER_IMPOSITION,
+        output: 'html' as const,
+        printedPage,
+      })
+      await page.setContent(html as string, { waitUntil: 'load' })
+      const frames = page.frames().slice(1)
+      await Promise.all(frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))))
+      const markerPages: Record<string, number[]> = {}
+      for (const [pageIndex, frame] of frames.entries()) {
+        const visibleMarkers = await frame.evaluate(() => {
+          const view = document.querySelector<HTMLElement>('[data-segnavia-page-view]')
+          if (!view) return []
+          const clip = view.getBoundingClientRect()
+          return [...view.querySelectorAll<HTMLElement>('[data-fragmentation-marker]')].flatMap((marker) => {
+            const rect = marker.getBoundingClientRect()
+            const visibleBlock = Math.min(rect.bottom, clip.bottom) - Math.max(rect.top, clip.top)
+            const visibleInline = Math.min(rect.right, clip.right) - Math.max(rect.left, clip.left)
+            return visibleBlock > 0.5 && visibleInline > 0.5 ? [marker.dataset.fragmentationMarker as string] : []
+          })
+        })
+        for (const marker of visibleMarkers) {
+          const pages = markerPages[marker] ?? []
+          pages.push(pageIndex + 1)
+          markerPages[marker] = pages
+        }
+      }
+      return markerPages
+    }
     const parentPages = {
       parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
       rules: { every: 'body' },
@@ -132,6 +163,39 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       'fragmentation none lets a three-line row split across pages',
       splitPages.every((held) => held.length === 1) && new Set(splitPages.flat()).size > 1,
       `line pages=${JSON.stringify(splitPages)}`,
+    )
+    const headingTableHtml =
+      '<div style="block-size:239mm"></div><h2 data-fragmentation-marker="heading" style="block-size:8mm;margin:0;font:12px serif">Heading</h2>' +
+      '<table style="border-collapse:collapse"><tr><td><span data-fragmentation-marker="row" style="line-height:10mm">First row</span></td></tr></table>'
+    for (const fixture of [
+      { name: 'English LTR', lang: 'en' },
+      { name: 'Hebrew RTL', lang: 'he', dir: 'rtl' },
+    ]) {
+      const pages = await fragmentationMarkerPages({
+        html: headingTableHtml,
+        lang: fixture.lang,
+        dir: fixture.dir,
+        print: { paper: 'letter' },
+        printedPages: parentPages,
+      })
+      check(
+        `safe fragmentation keeps a heading with its table in ${fixture.name}`,
+        pages.heading?.length === 1 && pages.row?.length === 1 && pages.heading[0] === pages.row[0],
+        `marker pages=${JSON.stringify(pages)}`,
+      )
+    }
+    const strandedHeadingPages = await fragmentationMarkerPages({
+      html: headingTableHtml,
+      lang: 'en',
+      print: { paper: 'letter' },
+      printedPages: { ...parentPages, fragmentation: 'none' },
+    })
+    check(
+      'fragmentation none leaves a heading at the bottom of the earlier paper',
+      strandedHeadingPages.heading?.length === 1 &&
+        strandedHeadingPages.row?.length === 1 &&
+        (strandedHeadingPages.heading[0] as number) < (strandedHeadingPages.row[0] as number),
+      `marker pages=${JSON.stringify(strandedHeadingPages)}`,
     )
     const refusal = await page.evaluate(async () => {
       const bundle = '/segnavia.js'
