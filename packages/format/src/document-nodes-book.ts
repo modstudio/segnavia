@@ -3,8 +3,8 @@ import { BookRunningHeadSource } from './book.ts'
 import { BookOpens, BookSectionParents, BookTemplate } from './book-section.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { Numbering } from './folio.ts'
+import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
-import { ParentPage } from './printed-pages.ts'
 
 export const SectionFields = {
   title: z.string().optional(),
@@ -25,7 +25,15 @@ export const ContentsNode = NodeId.extend({
   parents: BookSectionParents.optional(),
 })
 
-export const ParentPageNode = ParentPage.extend({ type: z.literal('parentPage'), id: z.string().optional() })
+export const ParentPageNode = NodeId.extend({
+  type: z.literal('parentPage'),
+  name: z.string().min(1),
+  basedOn: z.string().min(1).optional(),
+  geometry: z.object({ margin: RequiredLogicalMargin.optional() }).default({}),
+  head: z.string().optional(),
+  foot: z.string().optional(),
+  regions: z.record(z.string(), z.string()).default({}),
+})
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })
 

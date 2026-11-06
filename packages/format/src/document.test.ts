@@ -16,9 +16,14 @@ describe('Document', () => {
     expect(() => Document.parse({ type: 'document', kind: 'book', children: [{ type: 'record', name: 'row' }] })).toThrow(
       'record row is not yet supported; remove it to clear this refusal',
     )
-    expect(() => Document.parse({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '' } }], conditions: [{ type: 'condition', name: 'edition' }] })).toThrow(
-      'condition edition is not yet supported; remove it to clear this refusal',
-    )
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'page',
+        children: [{ type: 'page', body: { html: '' } }],
+        conditions: [{ type: 'condition', name: 'edition' }],
+      }),
+    ).toThrow('condition edition is not yet supported; remove it to clear this refusal')
   })
 
   test('generates the document JSON Schema from the exported manifest', () => {

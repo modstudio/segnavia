@@ -23,7 +23,7 @@ export const PageNode = NodeId.extend({
 
 export const SlideNode = Slide.omit({ id: true }).extend({ type: z.literal('slide'), id: z.string().optional() })
 
-export const PlacedNode = NodeId.extend({ type: z.literal('placed'), placement: PlacementShape })
+export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional() })
 
 export const RecordNode = NodeId.extend({ type: z.literal('record'), name: z.string() })
 

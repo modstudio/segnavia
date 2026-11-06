@@ -40,6 +40,11 @@ function pageHtml(node: Extract<DocumentNode, { type: 'page' }>): string {
   throw new Error('a book page needs an HTML body; provide body.html to clear this refusal')
 }
 
+function placement(node: Extract<DocumentNode, { type: 'placed' }>) {
+  const { type: _type, id: _id, ...value } = node
+  return value
+}
+
 function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): BookItem {
   const fields = sectionFields(section)
   const pages = section.children.filter((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
@@ -55,7 +60,7 @@ function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): 
   }
   if (pages.length > 0) return { kind: 'designed', ...fields, pages: pages.map((page) => ({ html: pageHtml(page) })) }
   const placed = section.children.find((node): node is Extract<DocumentNode, { type: 'placed' }> => node.type === 'placed')
-  if (placed) return { kind: 'placed', ...fields, placement: placed.placement }
+  if (placed) return { kind: 'placed', ...fields, placement: placement(placed) }
   const flow = section.children.find((node): node is Extract<DocumentNode, { type: 'flow' }> => node.type === 'flow')
   if (flow) {
     const flowFields = division === 'body' ? { ...fields, contents: undefined } : fields
@@ -82,7 +87,7 @@ function bookItem(node: DocumentNode, division: 'front' | 'body' | 'end'): BookI
   if (node.type === 'section') return sectionItem(node, division)
   if (node.type === 'contents') return defined({ kind: 'contents', title: node.title, opens: node.opens, parents: node.parents }) as BookItem
   if (node.type === 'flow') return defined({ title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
-  if (node.type === 'placed') return { kind: 'placed', contents: true, placement: node.placement }
+  if (node.type === 'placed') return { kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
@@ -97,8 +102,8 @@ function bookDivisions(document: Document) {
 }
 
 function parentPage(node: Document['parentPages'][number]) {
-  const { type: _type, id: _id, ...value } = node
-  return value
+  const { type: _type, id: _id, geometry, regions: _regions, ...value } = node
+  return defined({ ...value, margin: geometry.margin })
 }
 
 function template(node: Document['templates'][number]) {
@@ -109,6 +114,18 @@ function template(node: Document['templates'][number]) {
 function noteSeries(node: Document['noteSeries'][number]) {
   const { type: _type, id: _id, ...value } = node
   return value
+}
+
+function contentsOptions(document: Document) {
+  let contents: Extract<DocumentNode, { type: 'contents' }> | undefined
+  const find = (nodes: DocumentNode[]): void => {
+    for (const node of nodes) {
+      if (node.type === 'contents' && !contents) contents = node
+      if ('children' in node) find(node.children)
+    }
+  }
+  find(document.children)
+  return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.depth }) : undefined
 }
 
 export function bookFromDocument(document: Document): BookValue {
@@ -135,7 +152,7 @@ export function bookFromDocument(document: Document): BookValue {
       widows: document.widows,
       fragmentation: document.fragmentation,
       runningHead: document.runningHead,
-      contents: document.contents,
+      contents: contentsOptions(document),
     }),
   )
 }
@@ -152,7 +169,16 @@ function pageValue(document: Document, printed: boolean): PageValue {
       }
     : undefined
   return Page.parse(
-    defined({ body: child.body, size: document.size, print: document.print, ...settings(document), ...style(document), ...data(document), printedPages }),
+    defined({
+      id: child.id,
+      body: child.body,
+      size: document.size,
+      print: document.print,
+      ...settings(document),
+      ...style(document),
+      ...data(document),
+      printedPages,
+    }),
   )
 }
 

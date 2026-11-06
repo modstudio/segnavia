@@ -2,12 +2,12 @@ import { z } from 'zod'
 import { BoardProperties } from './board.ts'
 import { BookMode, BookPage, BookRunningHead, BookShape } from './book.ts'
 import { DeckShape } from './deck.ts'
-import { DocumentLimits } from './document-limits.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { FontReference } from './fonts.ts'
+import { Motif } from './motif.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
@@ -15,7 +15,7 @@ import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
 const DocumentSettings = z.object({ scripts: Scripts.default('refuse'), dir: DeckShape.shape.dir, lang: z.string().optional() })
-const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional() })
+const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional(), motifs: z.array(Motif).optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
 
 const DocumentShape = z.object({
@@ -25,7 +25,6 @@ const DocumentShape = z.object({
   metadata: DocumentMetadata.optional(),
   title: z.string().optional(),
   brand: z.string().optional(),
-  limits: DocumentLimits.optional(),
   settings: DocumentSettings.optional(),
   style: DocumentStyle.optional(),
   data: DocumentData.optional(),
@@ -48,7 +47,6 @@ const DocumentShape = z.object({
   widows: BookShape.shape.widows.optional(),
   fragmentation: BookShape.shape.fragmentation.optional(),
   runningHead: BookRunningHead.optional(),
-  contents: BookShape.shape.contents.optional(),
   rules: PrintedPageRules.optional(),
   children: z.array(DocumentNode),
   parentPages: z.array(ParentPageNode).default([]),
