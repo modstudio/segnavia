@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Book, BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
 import { bookDocument, resolvePageHtml } from '@segnavia/html'
-import { expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
+import { expandFrameBookValue as expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
 const src = 'data:image/png;base64,AA=='

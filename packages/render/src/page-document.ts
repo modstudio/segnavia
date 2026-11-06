@@ -1,5 +1,6 @@
 import {
-  type Book,
+  Book,
+  type BookInput,
   type FontFace,
   type FontReference,
   type FontSource,
@@ -80,11 +81,12 @@ export async function prepareRenderedPages(
 }
 
 export async function renderOptionsWithBookFonts(
-  book: Book,
+  input: Book | BookInput,
   options: RenderOptions,
   signal: AbortSignal,
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string }> {
+  const book = 'body' in input ? input : Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
   const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)

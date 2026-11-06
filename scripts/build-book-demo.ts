@@ -1,11 +1,12 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Book, type BookInput } from '@segnavia/format'
-import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
+import { Book, type DocumentInput } from '@segnavia/format'
+import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
+import { bookDocumentFixture, bookFixtureValue } from './book-document-fixture.ts'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
@@ -17,7 +18,7 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
-const fixture = (hebrew: boolean): BookInput => ({
+const fixture = (hebrew: boolean): DocumentInput => bookDocumentFixture({
   title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
   mode: 'continuous',
   lang: hebrew ? 'he' : 'en',
@@ -130,7 +131,7 @@ function designedLeaf(hebrew: boolean) {
   }
 }
 
-const paginatedFixture = (hebrew: boolean): BookInput => ({
+const paginatedFixture = (hebrew: boolean): DocumentInput => bookDocumentFixture({
   title: hebrew ? 'הגדת הדף' : 'The Paged Book',
   mode: 'paginated',
   lang: hebrew ? 'he' : 'en',
@@ -162,7 +163,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   ],
 })
 
-const composeFailureFixture = (): BookInput => ({
+const composeFailureFixture = (): DocumentInput => bookDocumentFixture({
   title: 'The Book Beyond the Page Limit',
   mode: 'paginated',
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
@@ -174,7 +175,7 @@ function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): v
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
     path.join(site, hebrew ? 'book-paginated-notes-he.html' : 'book-paginated-notes-en.html'),
-    paginatedBookDocument(Book.parse(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
+    paginatedBookDocument(bookFixtureValue(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
 
@@ -195,14 +196,14 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
 function writePartsBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-parts-he.html' : 'book-parts-en.html'),
-    paginatedBookDocument(Book.parse(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
+    paginatedBookDocument(bookFixtureValue(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
 
 function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-note-series-he.html' : 'book-note-series-en.html'),
-    paginatedBookDocument(Book.parse(noteSeriesFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
+    paginatedBookDocument(bookFixtureValue(noteSeriesFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
 
@@ -213,11 +214,11 @@ function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: strin
     : `:where(html){font:16px/1.5 Georgia,serif}${placedNoteRelayout}`
   writeFileSync(
     path.join(site, hebrew ? 'book-two-page-series-he.html' : 'book-two-page-series-en.html'),
-    paginatedBookDocument(Book.parse(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),
+    paginatedBookDocument(bookFixtureValue(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
 
-export function largePaginatedFixture(hebrew: boolean): BookInput {
+export function largePaginatedFixture(hebrew: boolean): DocumentInput {
   // Regular paginated fixtures exercise continued notes. The short footnote lets this stress fixture
   // check page-note geometry and whole-text output without introducing a continuation.
   const footnote = hebrew ? 'הערה קצרה לספר הגדול.' : 'A short footnote for the large book.'
@@ -229,7 +230,7 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
       { title: `${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, html: chapterThreeHtml(hebrew) },
     ]
   }).flat()
-  return {
+  return bookDocumentFixture({
     title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
@@ -247,16 +248,16 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
       { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
     ],
     chapters,
-  }
+  })
 }
 
-export async function buildLargeBookPdfs(site: string, render: (book: BookInput) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
+export async function buildLargeBookPdfs(site: string, render: (book: DocumentInput) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
   for (const hebrew of [false, true]) {
     writeFileSync(path.join(site, `book-paginated-large-${hebrew ? 'he' : 'en'}.pdf`), await render(largePaginatedFixture(hebrew)))
   }
 }
 
-export async function buildNoteCasePdfs(site: string, render: (book: BookInput, css: string) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
+export async function buildNoteCasePdfs(site: string, render: (book: DocumentInput, css: string) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
   const hebrewFace = `${alefCss()}${notoCss()}`
   for (const hebrew of [false, true]) {
     const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
@@ -266,7 +267,7 @@ export async function buildNoteCasePdfs(site: string, render: (book: BookInput, 
 
 export async function buildBookPdfs(
   site: string,
-  bookPdf: (book: BookInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
+  bookPdf: (book: DocumentInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
 ): Promise<void> {
   for (const hebrew of [false, true]) {
     const css = hebrew
@@ -291,9 +292,9 @@ export async function buildBookPdfs(
 export async function buildBookDemo(site: string): Promise<void> {
   await buildIdmlTableDemo(site)
   await writePlacedMediaBook(site)
-  writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
-  writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
-  writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(Book.parse(composeFailureFixture()))))
+  writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(bookFixtureValue(fixture(false)))))
+  writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(bookFixtureValue(fixture(true)))))
+  writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(bookFixtureValue(composeFailureFixture()))))
   writeFileSync(
     path.join(site, 'book-compose-failure.html'),
     `<!doctype html><html><head><meta charset="utf-8"><style>segnavia-book{display:block;block-size:70vh}</style></head><body><segnavia-book id="book-compose-failure" layout="flow" src="book-compose-failure.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
@@ -307,24 +308,24 @@ export async function buildBookDemo(site: string): Promise<void> {
 
   const hebrewFace = `${alefCss()}${notoCss()}`
   for (const hebrew of [false, true]) {
-    const book = Book.parse(paginatedFixture(hebrew))
+    const book = bookFixtureValue(paginatedFixture(hebrew))
     const css = hebrew
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(
       path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'),
-      paginatedBookDocument(Book.parse(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
+      paginatedBookDocument(bookFixtureValue(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
     )
     writePartsBook(site, hebrew, hebrewFace)
-    writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
+    writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(bookFixtureValue(paginatedFixture(hebrew)))))
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.json' : 'book-paginated-large-en.json'),
-      JSON.stringify(bookView(Book.parse(largePaginatedFixture(hebrew)))),
+      JSON.stringify(bookView(bookFixtureValue(largePaginatedFixture(hebrew)))),
     )
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.html' : 'book-paginated-large-en.html'),
-      paginatedBookDocument(Book.parse(largePaginatedFixture(hebrew)), { nonce: newNonce() }),
+      paginatedBookDocument(bookFixtureValue(largePaginatedFixture(hebrew)), { nonce: newNonce() }),
     )
     writeOversizeBook(site, hebrew, css)
     writeNoteCaseBook(site, hebrew, hebrewFace)
@@ -332,7 +333,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     writeTwoPageSeriesBook(site, hebrew, hebrewFace)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
-    const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
+    const workbook = await filledBook(bookFixtureValue(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
     const workbookCssFull = hebrew
       ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`

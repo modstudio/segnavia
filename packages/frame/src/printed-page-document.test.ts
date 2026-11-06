@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { computeFolios, Page } from '@segnavia/format'
+import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
 import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
-import { PRINTED_PAGE_COMPOSER_SCRIPT, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
+import { PRINTED_PAGE_COMPOSER_SCRIPT, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError, printedPageDocument as documentHtml } from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',
@@ -34,6 +34,25 @@ const changedPage = (parent: object, rules: object) =>
       rules: { ...page.printedPages?.rules, every: 'body', ...rules },
     },
   })
+
+function printedDocument(page: PageValue): DocumentInput {
+  const printed = page.printedPages
+  if (!printed) throw new Error('the test page needs printedPages')
+  return {
+    type: 'document',
+    kind: 'printed',
+    settings: { scripts: page.scripts, dir: page.dir, lang: page.lang },
+    print: page.print,
+    limits: page.limits,
+    rules: printed.rules,
+    numbering: printed.numbering,
+    fragmentation: printed.fragmentation,
+    parentPages: printed.parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+    children: [{ type: 'page', id: page.id, body: page.body }],
+  }
+}
+
+const printedPageDocument = (page: PageValue, options: Parameters<typeof documentHtml>[1]) => documentHtml(printedDocument(page), options)
 
 describe('printedPageDocument', () => {
   test('adds safe fragmentation before host CSS and omits it when disabled', () => {

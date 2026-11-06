@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
+import { bookDocumentFixture } from '../book-document-fixture.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -32,12 +33,12 @@ export async function verifyDiagramRender(renderer: Renderer, work: string, chec
   )
 
   const book = await renderer.bookPdf(
-    {
+    bookDocumentFixture({
       title: 'Diagram book',
       mode: 'continuous',
       page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
       chapters: [{ title: 'Chapter', html: diagramHtml(GOOD_SOURCE) }],
-    },
+    }),
     { effects: false },
   )
   const bookText = pdfText(work, 'diagram-book.pdf', book)

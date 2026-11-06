@@ -11,6 +11,7 @@ import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.
 import { expectedBookLinkPages } from './book-render-links.ts'
 import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
+import { bookDocumentFixture } from '../book-document-fixture.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 interface Fixture {
@@ -175,7 +176,7 @@ function bodyTextMargins(fixture: Fixture, bboxes: BboxPage[], frontPages: numbe
 }
 
 async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture, check: Check): Promise<void> {
-  const bytes = await renderer.bookPdf(fixture.book, { css: fixture.css, effects: false })
+  const bytes = await renderer.bookPdf(bookDocumentFixture(fixture.book), { css: fixture.css, effects: false })
   const file = path.join(work, `book-${fixture.key}.pdf`)
   writeFileSync(file, bytes)
   const document = await PDFDocument.load(bytes)
@@ -301,7 +302,7 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
       { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
     ],
   }
-  const bytes = await renderer.bookPdf(book, { effects: false, css: 'body{font:16px serif}' })
+  const bytes = await renderer.bookPdf(bookDocumentFixture(book), { effects: false, css: 'body{font:16px serif}' })
   const file = path.join(work, `book-paginated-${key}.pdf`)
   writeFileSync(file, bytes)
   const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
@@ -345,10 +346,10 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
     page,
     chapters: [{ title: 'Wide chapter', html: chapterHtml }],
   }
-  const baseline = await renderer.bookPdf(book, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
+  const baseline = await renderer.bookPdf(bookDocumentFixture(book), { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
   let report: OverflowReport | undefined
   const overflow = await renderer.bookPdf(
-    { ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] },
+    bookDocumentFixture({ ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] }),
     { effects: false, css: 'body{margin:0;font:16px/24px serif}', overflow: { report: (value) => (report = value) } },
   )
   const baselineFile = path.join(work, 'book-overflow-baseline.pdf')

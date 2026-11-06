@@ -1,5 +1,5 @@
 import './source-guard.ts'
-import type { ImpositionInput, Motif, MotifSource, PageInput } from '@segnavia/format'
+import type { DocumentInput, ImpositionInput, Motif, MotifSource, PageInput, PrintedPageRules } from '@segnavia/format'
 
 export const printedPageMotifs: Motif[] = [
   {
@@ -261,34 +261,47 @@ const parentPages = {
   rules: { every: 'body', first: 'first' },
 }
 
+function printedDocument(input: {
+  html: string
+  lang: string
+  dir?: 'ltr' | 'rtl'
+  parents?: Array<{ name: string; basedOn?: string; margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }; head?: string; foot?: string }>
+  rules?: PrintedPageRules
+}): DocumentInput {
+  const parents = input.parents ?? parentPages.parents
+  return {
+    type: 'document',
+    kind: 'printed',
+    settings: { lang: input.lang, dir: input.dir },
+    print: { paper: 'letter' },
+    parentPages: parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+    rules: input.rules ?? parentPages.rules,
+    children: [{ type: 'page', body: { html: input.html } }],
+  }
+}
+
 const flowingLines = (prefix: string, count: number, breaks: number[]) =>
   Array.from({ length: count }, (_, index) => `<p${breaks.includes(index) ? ' class="forced"' : ''}>${prefix}-${index + 1} flowing body</p>`).join('')
 
 const flowingCss =
   '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}.widow{widows:2;orphans:2;line-height:20px}.widow-space{block-size:360px}</style>'
 
-export const parentPageEnglish: PageInput = {
+export const parentPageEnglish: DocumentInput = printedDocument({
   html: `${flowingCss}${flowingLines('English', 20, [])}<div class="widow-space"></div><p class="widow">WIDOW-1<br>WIDOW-2<br>WIDOW-3<br>WIDOW-4</p>${Array.from({ length: 35 }, (_, index) => `<p${index === 20 ? ' class="forced"' : ''}>English-${index + 21} flowing body</p>`).join('')}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageHebrew: PageInput = {
+export const parentPageHebrew: DocumentInput = printedDocument({
   html: `${flowingCss}${flowingLines('עברית', 34, [18])}`,
   lang: 'he',
   dir: 'rtl',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageMixed: PageInput = {
+export const parentPageMixed: DocumentInput = printedDocument({
   html: `${flowingCss}<p>English opening בתוך מסמך mixed.</p>${flowingLines('Mixed', 32, [17])}`,
   lang: 'he',
   dir: 'rtl',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
 export const printedParentPageCases = [
   { name: 'english', page: parentPageEnglish },
@@ -299,32 +312,25 @@ export const printedParentPageCases = [
 const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
 const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
 
-export const parentPageUnsizedImage: PageInput = {
+export const parentPageUnsizedImage: DocumentInput = printedDocument({
   html: `${flowingCss}<p>${imageWords.slice(0, 110).join('')}</p><img src="data:image/svg+xml,${unsizedImage}"><p>${imageWords.slice(110).join('')}</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageNarrowBreak: PageInput = {
+export const parentPageNarrowBreak: DocumentInput = printedDocument({
   html: `${flowingCss}<p>Wide opening</p><div style="break-before:page;break-after:page;inline-size:40%">${Array.from({ length: 30 }, (_, index) => `<div>Narrow-${index + 1}</div>`).join('')}</div><p>Wide ending</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageFurnitureOverflow: PageInput = {
+export const parentPageFurnitureOverflow: DocumentInput = printedDocument({
   html: `${flowingCss}<p>Furniture overflow body</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: {
-    parents: [
+  parents: [
       {
         name: 'body',
         margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
         head: '<div style="block-size:200px">Too-tall furniture</div>',
       },
-    ],
-    rules: { every: 'body' },
-  },
-}
+  ],
+  rules: { every: 'body' },
+})

@@ -1,15 +1,16 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
+import { bookDocumentFixture } from './book-document-fixture.ts'
 
 export function twoPageSeriesRelayoutCss(): string {
   // This activates only once pages exist, so the note relays out after placement as the check exercises.
   return ':where(html:has([data-segnavia-pages])) [data-segnavia-note="segnavia-fn-1-1"]{line-height:25px}'
 }
 
-export function noteSeriesFixture(hebrew: boolean): BookInput {
+export function noteSeriesFixture(hebrew: boolean): DocumentInput {
   const first = hebrew ? 'מקור ראשון' : 'First source'
   const second = hebrew ? 'מקור שני' : 'Second source'
   const comment = hebrew ? 'הערה שנאספה בסוף הספר' : 'A comment collected at the end of the book'
-  return {
+  return bookDocumentFixture({
     title: hebrew ? 'שתי סדרות הערות' : 'Two note series',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
@@ -44,14 +45,14 @@ export function noteSeriesFixture(hebrew: boolean): BookInput {
         }<a data-note-ref="first-source">${hebrew ? 'שם' : 'there'}</a>.</p>`,
       },
     ],
-  }
+  })
 }
 
-export function twoPageSeriesFixture(hebrew: boolean): BookInput {
+export function twoPageSeriesFixture(hebrew: boolean): DocumentInput {
   const commentary = hebrew
     ? 'בְּרֵאשִׁית בָּרָא אֱלֹהִים הערה ארוכה השייכת לסדרת הפירוש ונמשכת בעמוד הבא. '.repeat(34)
     : 'A long commentary note belongs to its own series and continues on the next page without joining the source notes. '.repeat(28)
-  return {
+  return bookDocumentFixture({
     title: hebrew ? 'שתי סדרות בתחתית העמוד' : 'Two series at the page foot',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
@@ -69,5 +70,5 @@ export function twoPageSeriesFixture(hebrew: boolean): BookInput {
         }</p>`,
       },
     ],
-  }
+  })
 }

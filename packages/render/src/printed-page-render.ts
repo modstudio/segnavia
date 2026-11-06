@@ -1,5 +1,5 @@
 import { newNonce } from '@segnavia/frame/bridge'
-import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageDocument } from '@segnavia/frame/printed-page-document'
+import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageValueDocument } from '@segnavia/frame/printed-page-document'
 import type { HtmlPage } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -10,7 +10,7 @@ import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false, diagramScript?: string): string {
   if (!page.printedPages) return renderPageDocument(page, options, printing, undefined, '', diagramScript)
-  return printedPageDocument(page, {
+  return printedPageValueDocument(page, {
     nonce: newNonce(),
     css: `${fontFaces(options.fonts)}${options.css ?? ''}`,
     diagramScript,

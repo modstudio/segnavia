@@ -1,4 +1,5 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
+import { bookDocumentFixture } from './book-document-fixture.ts'
 
 export const partBookLabels = (hebrew: boolean) => ({
   openingPart: hebrew ? 'שער ראשון' : 'Opening Part',
@@ -11,10 +12,10 @@ export const partBookLabels = (hebrew: boolean) => ({
   topic: hebrew ? 'נושא' : 'Topic',
 })
 
-export function partsFixture(hebrew: boolean): BookInput {
+export function partsFixture(hebrew: boolean): DocumentInput {
   const labels = partBookLabels(hebrew)
   const body = hebrew ? 'טקסט לספר שנמשך על פני כמה עמודים. ' : 'Book text that continues across several pages. '
-  return {
+  return bookDocumentFixture({
     title: hebrew ? 'ספר השערים' : 'The Book of Parts',
     authors: [hebrew ? 'מחברת' : 'Author'],
     subject: hebrew ? 'בדיקת שערים' : 'Parts verification',
@@ -50,5 +51,5 @@ export function partsFixture(hebrew: boolean): BookInput {
         children: [{ title: labels.appendix, html: `<h2>${labels.topic} 4</h2><p data-parts-end>${body.repeat(120)}</p>` }],
       },
     ],
-  }
+  })
 }

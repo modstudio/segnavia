@@ -2,19 +2,20 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
+import { bookDocumentFixture } from '../book-document-fixture.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 export async function verifyBookCssRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   let printedStyle: { color: string; size: string } | undefined
   const bytes = await renderer.bookPdf(
-    {
+    bookDocumentFixture({
       title: 'Styled book',
       mode: 'paginated',
       css: '.book-css-check{color:rgb(91, 42, 123);font-size:23px}',
       page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
       chapters: [{ title: 'One', html: '<p class="book-css-check">BOOK_CSS_PDF</p>' }],
-    },
+    }),
     {
       effects: false,
       css: 'body{font:16px serif}',

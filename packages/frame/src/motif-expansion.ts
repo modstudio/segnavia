@@ -1,7 +1,10 @@
 import {
   type Book,
+  bookFromDocument,
   type BookItem,
   type BookView,
+  Document,
+  type DocumentInput,
   type FontReference,
   isDesignedSection,
   isPart,
@@ -254,6 +257,17 @@ async function resolveBookShape<T extends Book | BookView>(
 }
 
 export async function expandFrameBook(
+  input: DocumentInput,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
+): Promise<ExpandedBook<Book>> {
+  return expandFrameBookValue(bookFromDocument(Document.parse(input)), motifs, signal, placements, purpose, pageWidths)
+}
+
+export async function expandFrameBookValue(
   book: Book,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,

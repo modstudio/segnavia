@@ -118,10 +118,13 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       rules: { every: 'body' },
     }
     const viewportFixture = {
-      html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>',
-      lang: 'en',
+      type: 'document' as const,
+      kind: 'printed' as const,
+      settings: { lang: 'en' },
       print: { paper: 'letter' as const },
-      printedPages: parentPages,
+      parentPages: parentPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
+      rules: parentPages.rules,
+      children: [{ type: 'page' as const, body: { html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>' } }],
     }
     const viewportSource = printedPageDocument(viewportFixture, { nonce: 'viewport-independent-composition' })
     const composeAt = async (viewport: { width: number; height: number }) => {

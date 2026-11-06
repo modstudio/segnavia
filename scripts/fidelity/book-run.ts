@@ -1,7 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import type { BookInput } from '@segnavia/format'
-import { Book } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
 import { BOOK_FACE_CSS, bookFixtures, ENGLISH_BOOK_ID, FAULT_CONTROL_PAGE, SHIFTED_BOOK_ID } from './book-fixtures.ts'
 import { bookPageId } from './book-page-id.ts'
@@ -11,6 +10,7 @@ import { BOOK_MEASUREMENT_CSS, EXPECTED_MARKER_POSITION } from './config.ts'
 import { type FidelitySession, finishDocument, prepareEffectless } from './measure-document.ts'
 import { splitPdfPages, trimPdf } from './pdf.ts'
 import type { BookFixture, DocumentResult, SizeMeasurement } from './types.ts'
+import { bookFixtureValue } from '../book-document-fixture.ts'
 
 const bookCss = `${BOOK_FACE_CSS}${BOOK_MEASUREMENT_CSS}`
 
@@ -23,7 +23,7 @@ function pageDirectory(root: string, bookId: string, page: number): string {
 
 async function renderBookPdf(
   session: FidelitySession,
-  book: BookInput,
+  book: DocumentInput,
   beforeOutput?: (tab: Tab) => Promise<void>,
 ): Promise<{ bytes: Uint8Array; rasterEffects: number }> {
   let rasterEffects = 0
@@ -48,7 +48,7 @@ async function splitTrimmed(source: string, directory: string, name: string): Pr
 
 async function writePressSplits(
   session: FidelitySession,
-  book: BookInput,
+  book: DocumentInput,
   directory: string,
   name: string,
   beforeOutput?: (tab: Tab) => Promise<void>,
@@ -109,7 +109,7 @@ async function measureBookPages(
   fixture: BookFixture,
   options: { faultControl?: boolean; beforeOutput?: (tab: Tab) => Promise<void>; pages?: number[] } = {},
 ): Promise<DocumentResult[]> {
-  const book = Book.parse(fixture.book)
+  const book = bookFixtureValue(fixture.book)
   const browser = await openBookBrowser(session.executablePath)
   let captures: Awaited<ReturnType<typeof captureBookPapers>>
   try {
@@ -119,11 +119,11 @@ async function measureBookPages(
   }
   const bookDirectory = path.join(root, fixture.id)
   mkdirSync(bookDirectory, { recursive: true })
-  const printed = await renderBookPdf(session, book, options.beforeOutput)
+  const printed = await renderBookPdf(session, fixture.book, options.beforeOutput)
   const pdf = path.join(bookDirectory, `${fixture.id}.pdf`)
   await Bun.write(pdf, printed.bytes)
   const effectlessPdf = path.join(bookDirectory, `${fixture.id}-effectless.pdf`)
-  const effectlessBytes = await session.renderer.bookPdf(book, { css: bookCss, beforeOutput: prepareEffectless })
+  const effectlessBytes = await session.renderer.bookPdf(fixture.book, { css: bookCss, beforeOutput: prepareEffectless })
   await Bun.write(effectlessPdf, effectlessBytes)
   const pagePdfs = await splitPdfPages(pdf, bookDirectory, fixture.id)
   const mismatch = pageCountRefusal(captures.length, pagePdfs.length)
@@ -138,7 +138,7 @@ async function measureBookPages(
     multiple: printed.bytes.byteLength / effectlessBytes.byteLength,
     rasterEffects: printed.rasterEffects,
   }
-  const press = await writePressSplits(session, book, bookDirectory, fixture.id, options.beforeOutput)
+  const press = await writePressSplits(session, fixture.book, bookDirectory, fixture.id, options.beforeOutput)
   const selected = options.pages ?? captures.map((capture) => capture.index)
   const documents: DocumentResult[] = []
   for (const capture of captures) {
