@@ -1,17 +1,22 @@
 export const DIAGRAM_SELECTOR = 'pre[data-segnavia-diagram="mermaid"]'
 export const DIAGRAM_FAILED_ATTRIBUTE = 'data-segnavia-diagram-failed'
 export const DIAGRAM_ERROR_ATTRIBUTE = 'data-segnavia-diagram-error'
+export const DIAGRAMS_DRAWN_ATTRIBUTE = 'data-segnavia-diagrams-drawn'
 export const DIAGRAM_ID_PREFIX = 'segnavia-diagram-'
 export const DIAGRAM_READY_NAME = '__segnaviaDiagramReady'
 export const DIAGRAM_READY_EXPR = `window.${DIAGRAM_READY_NAME}||null`
 const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
 
-type DiagramProvider = () => Promise<string>
+export type DiagramProvider = () => Promise<string>
 
 type DiagramRegistry = typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: DiagramProvider }
 
 export function registerDiagramProvider(provider: DiagramProvider): void {
   ;(globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY] = provider
+}
+
+export function diagramProvider(): DiagramProvider | undefined {
+  return (globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY]
 }
 
 const selector = /^([a-z]+)\[([a-z-]+)="([^"]+)"\]$/.exec(DIAGRAM_SELECTOR)
@@ -31,7 +36,7 @@ export function withDiagramScript(html: string, nonce: string, script: string | 
 
 export async function loadDiagramScript(html: string): Promise<string | undefined> {
   if (!hasDiagram(html)) return undefined
-  const provider = (globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY]
+  const provider = diagramProvider()
   if (!provider) {
     throw new Error(
       "This page draws a diagram, but no diagram provider is registered. Call registerDiagramProvider(diagrams) from '@segnavia/diagrams', or import '@segnavia/diagrams/auto', to draw it.",

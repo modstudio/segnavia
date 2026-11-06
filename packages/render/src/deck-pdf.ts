@@ -9,6 +9,7 @@ import {
   pagePlacementLayout,
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { DIAGRAMS_DRAWN_ATTRIBUTE, hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
@@ -29,6 +30,7 @@ import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
+import { readinessRefusal } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
 
@@ -50,11 +52,18 @@ interface DeckPdfServices {
   signal?: AbortSignal
 }
 
-async function waitForPrintReady(tab: Tab): Promise<void> {
+async function waitForPrintReady(tab: Tab, diagrams: boolean): Promise<void> {
   await tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
     .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
     .catch(() => {})
+  if (!diagrams) return
+  await tab
+    .locator(`html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`)
+    .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
+    .catch(() => {
+      throw new RenderRefusedError(readinessRefusal({ author: false, diagrams: true }, { author: true, diagrams: false }, SLIDES_READY_DEADLINE_MS / 1000))
+    })
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -153,7 +162,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins, diagramScript }),
               boundMs: opts.boundMs,
               ...dependencySetup(opts),
-              beforeOutput: waitForPrintReady,
+              beforeOutput: (tab) => waitForPrintReady(tab, hasDiagram(html)),
             },
             {
               width: `${deck.size.width}px`,
@@ -199,6 +208,7 @@ async function imposedDeckPdf(
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
       const single: Deck = { ...deck, slides: [slide] }
+      const diagrams = 'kind' in slide.content && slide.content.kind === 'html' && hasDiagram(slide.content.html)
       try {
         const html =
           'kind' in slide.content && slide.content.kind === 'html'
@@ -219,7 +229,7 @@ async function imposedDeckPdf(
             ...dependencySetup(opts),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
-                ? waitForPrintReady
+                ? (tab) => waitForPrintReady(tab, diagrams)
                 : 'kind' in slide.content && slide.content.kind === 'image'
                   ? placeRenderedImages
                   : undefined,

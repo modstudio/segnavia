@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { DIAGRAMS_DRAWN_ATTRIBUTE } from '@segnavia/frame/diagrams'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
@@ -94,6 +95,36 @@ test('the print bridge and PDF waiter share one ready signal', async () => {
   await beforeOutput?.(tab)
   expect(selector).toBe(`html[${PRINT_READY_ATTRIBUTE}]`)
   expect(timeout).toBe(SLIDES_READY_DEADLINE_MS)
+})
+
+test('deck PDF refuses a diagram slide that does not finish drawing', async () => {
+  const diagramDeck = Deck.parse({
+    ...deck,
+    slides: [{ id: 'diagram-slide', content: { kind: 'html', html: '<pre data-segnavia-diagram="mermaid"></pre>' } }],
+  })
+  const rendering = renderDeckPdf(
+    diagramDeck,
+    {},
+    {
+      renderPdf: async (setup) => {
+        if (!setup.html.includes('<section class="sheet">')) {
+          const tab = {
+            locator: (selector: string) => ({
+              waitFor: () => (selector === `html[${DIAGRAMS_DRAWN_ATTRIBUTE}]` ? Promise.reject(new Error('timeout')) : Promise.resolve()),
+            }),
+          } as unknown as Tab
+          await setup.beforeOutput?.(tab)
+        }
+        return onePage(400, 200)
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+    'DRAW',
+  )
+
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  await expect(rendering).rejects.toThrow('Slide "diagram-slide" could not be rendered: The page\'s diagrams did not finish drawing within 4s.')
 })
 
 test('a failed HTML slide render names the slide id', async () => {

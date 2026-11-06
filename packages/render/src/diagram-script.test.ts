@@ -30,6 +30,16 @@ test('refuses a diagram when neither source is available', async () => {
   expect(resolving).rejects.toThrow('install @segnavia/diagrams, or call registerDiagramProvider')
 })
 
+test('preserves an error from the optional diagram provider', async () => {
+  const resolving = resolveDiagramScript(diagram, async () => ({
+    diagrams: async () => {
+      throw new Error('diagram bundle is broken')
+    },
+  }))
+  expect(resolving).rejects.toThrow('diagram bundle is broken')
+  expect(resolving).rejects.not.toBeInstanceOf(RenderRefusedError)
+})
+
 test('prefers the registered diagram provider', async () => {
   registerDiagramProvider(async () => 'REGISTERED')
   expect(

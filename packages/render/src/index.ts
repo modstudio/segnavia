@@ -1,5 +1,5 @@
 import { Book, Cover, type Deck, DocumentMetadata, Page } from '@segnavia/format'
-import { hasDiagram } from '@segnavia/frame/diagrams'
+import { DIAGRAMS_DRAWN_ATTRIBUTE, hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type PreparedSlots, resolvePageHtml } from '@segnavia/html'
@@ -317,7 +317,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             ...dependencySetup(opts),
           },
           async (tab) => {
-            if (hasDiagram(slideHtml)) await tab.locator('iframe').contentFrame().locator('html[data-segnavia-diagrams-drawn]').waitFor()
+            if (hasDiagram(slideHtml)) await tab.locator('iframe').contentFrame().locator(`html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`).waitFor()
             return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
           },
         )
