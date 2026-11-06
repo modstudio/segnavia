@@ -299,7 +299,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const slide = preparedDeck.slides[index]
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
         const single: Deck = { ...preparedDeck, slides: [slide] }
-        const diagramScript = await resolveDiagramScript('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')
+        const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
+        const diagramScript = await resolveDiagramScript(slideHtml)
         const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
         const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
         return withTab(
@@ -315,7 +316,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             beforeOutput: opts.beforeOutput,
             ...dependencySetup(opts),
           },
-          async (tab) => proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts),
+          async (tab) => {
+            if (hasDiagram(slideHtml)) await tab.locator('iframe').contentFrame().locator('html[data-segnavia-diagrams-drawn]').waitFor()
+            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
+          },
         )
       })
     },

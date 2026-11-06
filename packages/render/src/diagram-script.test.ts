@@ -1,9 +1,15 @@
-import { expect, test } from 'bun:test'
+import { afterEach, expect, test } from 'bun:test'
 import { registerDiagramProvider } from '@segnavia/frame/diagrams'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 
 const diagram = '<pre data-segnavia-diagram="mermaid"><code>flowchart TD</code></pre>'
+const registry = globalThis as typeof globalThis & { [key: symbol]: unknown }
+const providerKey = Symbol.for('segnavia.diagrams')
+
+afterEach(() => {
+  delete registry[providerKey]
+})
 
 test('does not import the diagram package when the content has no diagram', async () => {
   const script = await resolveDiagramScript('<p>Plain</p>', async () => {
