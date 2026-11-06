@@ -76,8 +76,8 @@ export const CUSTOM_PAPER_MAX_MM = 2000
 export const PAPER_UNITS = ['mm', 'in', 'pt'] as const
 export const PaperUnit = z.enum(PAPER_UNITS)
 export type PaperUnit = z.infer<typeof PaperUnit>
-export const PaperSize = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
 /** Physical paper geometry in the unit stated by the value. */
+export const PaperSize = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
 export type PaperSize = z.infer<typeof PaperSize>
 export const ORIENTATIONS = ['portrait', 'landscape'] as const
 export const Orientation = z.enum(ORIENTATIONS)
