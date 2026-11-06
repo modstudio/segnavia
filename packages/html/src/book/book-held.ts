@@ -14,7 +14,7 @@ import {
 import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
-import { element, linkChildren, textContent } from './dom.ts'
+import { element, headingText, linkChildren } from './dom.ts'
 import { namedRegionFitIssues, templateRegionFitIssues } from './region-fit.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
@@ -95,7 +95,7 @@ export function collectHeadings(
     generated.n += 1
     const id = heading.attribs.id ?? idFor(generated.n)
     heading.attribs.id = id
-    return [{ id, level, text: textContent(heading, true).replace(/\s+/g, ' ').trim(), sectionId }]
+    return [{ id, level, text: headingText(heading).replace(/\s+/g, ' ').trim(), sectionId }]
   })
 }
 

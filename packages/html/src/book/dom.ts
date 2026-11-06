@@ -1,4 +1,57 @@
-import { type ChildNode, Element, isTag, type ParentNode, Text } from 'domhandler'
+import { type ChildNode, Element, isTag, isText, type ParentNode, Text } from 'domhandler'
+
+const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'canvas',
+  'caption',
+  'center',
+  'dd',
+  'details',
+  'dialog',
+  'dir',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hgroup',
+  'hr',
+  'li',
+  'main',
+  'menu',
+  'nav',
+  'noscript',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'search',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+  'video',
+])
+
+const HEADING_TEXT_HIDDEN_ELEMENTS = new Set(['script', 'style', 'template'])
 
 export function element(name: string, attribs: Record<string, string> = {}, children: ChildNode[] = []): Element {
   const node = new Element(name, attribs, children)
@@ -42,9 +95,13 @@ export function append(parent: ParentNode, addition: ChildNode): void {
   linkChildren(parent)
 }
 
-export function textContent(node: ChildNode, omitNotes = false): string {
-  if ('data' in node) return node.data
+export function headingText(node: ChildNode): string {
+  if (isText(node)) return node.data
   if (!('children' in node)) return ''
-  if (omitNotes && isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
-  return node.children.map((child) => textContent(child, omitNotes)).join('')
+  if (isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
+  if (isTag(node) && HEADING_TEXT_HIDDEN_ELEMENTS.has(node.name)) return ''
+  if (isTag(node) && node.name === 'br') return ' '
+  const content = node.children.map(headingText).join('')
+  if (isTag(node) && HEADING_TEXT_BLOCK_ELEMENTS.has(node.name)) return ` ${content} `
+  return content
 }
