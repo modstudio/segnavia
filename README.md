@@ -12,6 +12,10 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 > **Status: proof of concept.** Treat the API as unstable until a first
 > release.
 
+## Releasing
+
+`bun run version` applies the Changesets release plan and updates every package changelog. The `release.yml` workflow publishes the packages to npm, then tags the released commit and creates or updates the matching GitHub Release with combined notes from those changelogs.
+
 ## What it does
 
 | Need | Package |

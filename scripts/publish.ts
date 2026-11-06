@@ -1,11 +1,12 @@
 // Packs and publishes every package, safely resumable after a partial release.
 
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { PACKAGES } from '../architecture.ts'
 import {
   dependencyOrder,
+  githubReleaseActions,
   type PackedManifest,
   packedPackageRefusal,
   publishedPackageRefusal,
@@ -13,6 +14,7 @@ import {
   registryState,
   releaseDecision,
 } from './publish-policy.ts'
+import { releaseNotes } from './release-notes.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const OUTPUT = path.join(ROOT, 'out', 'release')
@@ -50,6 +52,69 @@ async function output(command: string[], cwd = ROOT): Promise<{ exitCode: number
   const process = Bun.spawn(command, { cwd, stdout: 'pipe', stderr: 'pipe' })
   const [stdout, stderr, exitCode] = await Promise.all([new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited])
   return { exitCode, stdout, stderr }
+}
+
+function failureDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function requireGitHubAccess(): Promise<void> {
+  let result: Awaited<ReturnType<typeof output>>
+  try {
+    result = await output(['gh', 'auth', 'status'])
+  } catch (error) {
+    throw new Error(
+      `Could not confirm that GitHub CLI is installed and authenticated. ${failureDetail(error)} Install gh and run gh auth login with contents: write access, then release again.`,
+    )
+  }
+  if (result.exitCode !== 0) {
+    const detail = (result.stderr || result.stdout).trim()
+    throw new Error(
+      `Could not confirm that GitHub CLI is authenticated.${detail ? ` ${detail}` : ''} Run gh auth login with contents: write access, then release again.`,
+    )
+  }
+}
+
+async function gitReleaseFacts(tag: string): Promise<{ releasedCommit: string; tagCommit: string | null }> {
+  const fetched = await output(['git', 'fetch', 'origin', '--tags'])
+  if (fetched.exitCode !== 0) {
+    const detail = (fetched.stderr || fetched.stdout).trim()
+    throw new Error(`Could not fetch tags from origin.${detail ? ` ${detail}` : ''} Restore access to origin, then release again.`)
+  }
+
+  const head = await output(['git', 'rev-parse', 'HEAD'])
+  if (head.exitCode !== 0 || head.stdout.trim().length === 0) {
+    const detail = (head.stderr || head.stdout).trim()
+    throw new Error(`Could not establish the released commit from HEAD.${detail ? ` ${detail}` : ''} Check out the commit to release, then release again.`)
+  }
+
+  const existingTag = await output(['git', 'rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`])
+  if (existingTag.exitCode !== 0 && existingTag.exitCode !== 1) {
+    const detail = (existingTag.stderr || existingTag.stdout).trim()
+    throw new Error(`Could not establish which commit ${tag} names.${detail ? ` ${detail}` : ''} Repair the local tag, then release again.`)
+  }
+  return { releasedCommit: head.stdout.trim(), tagCommit: existingTag.exitCode === 0 ? existingTag.stdout.trim() : null }
+}
+
+async function githubReleaseExists(tag: string): Promise<boolean> {
+  const result = await output(['gh', 'release', 'view', tag, '--json', 'tagName'])
+  if (result.exitCode === 0) return true
+  const detail = (result.stderr || result.stdout).trim()
+  if (/release not found|no release found/i.test(detail)) return false
+  throw new Error(
+    `Could not establish whether GitHub Release ${tag} exists.${detail ? ` ${detail}` : ''} Restore GitHub access and contents: write permission, then release again.`,
+  )
+}
+
+function readChangelog(directory: string, packageName: string): { packageName: string; changelogPath: string; changelogText: string } {
+  const changelogPath = path.join(directory, 'CHANGELOG.md')
+  try {
+    return { packageName, changelogPath, changelogText: readFileSync(changelogPath, 'utf8') }
+  } catch (error) {
+    throw new Error(
+      `Could not read ${changelogPath} for ${packageName}. ${failureDetail(error)} Add the changelog and run bun run version so it contains the release version, then release again.`,
+    )
+  }
 }
 
 function workspaces(): WorkspacePackage[] {
@@ -143,10 +208,38 @@ for (const { item, lookup } of registryFacts) {
   plans.push({ package: item, decision })
 }
 
+const tag = `v${sharedVersion}`
+const notesFile = path.join(OUTPUT, 'release-notes.md')
+const notes = releaseNotes(
+  sharedVersion,
+  workspacePackages.map(({ directory, manifest }) => readChangelog(directory, manifest.name)),
+)
+async function plannedGitHubRelease(version: string) {
+  await requireGitHubAccess()
+  const { releasedCommit, tagCommit } = await gitReleaseFacts(tag)
+  const releaseExists = await githubReleaseExists(tag)
+  const actions = githubReleaseActions({ version, releasedCommit, tagCommit, releaseExists })
+  if (actions.tag === 'refuse') throw new Error(actions.refusal)
+  return { releasedCommit, actions }
+}
+
+// An offline dry run reaches no network, so it leaves out the GitHub and remote tag checks; every other run makes them before publishing.
+const githubRelease = offline ? undefined : await plannedGitHubRelease(sharedVersion)
+if (dryRun) console.log(notes)
+
 for (const plan of plans) {
   const item = plan.package
   const result =
     plan.decision === 'hold' ? 'held (private, not published)' : plan.decision === 'skip' ? 'skip (already published)' : dryRun ? 'would publish' : 'publish'
   console.log(`${item.manifest.name}@${item.manifest.version} ${item.size} bytes — ${result}`)
   if (plan.decision === 'publish' && !dryRun) await run(['npm', 'publish', item.tarball, '--access', 'public'], ROOT, true)
+}
+
+if (!dryRun && githubRelease) {
+  writeFileSync(notesFile, notes)
+  if (githubRelease.actions.tag === 'create') {
+    await run(['git', 'tag', tag, githubRelease.releasedCommit])
+    await run(['git', 'push', 'origin', `refs/tags/${tag}`])
+  }
+  await run(['gh', 'release', githubRelease.actions.release, tag, '--title', tag, '--notes-file', notesFile])
 }
