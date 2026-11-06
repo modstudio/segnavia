@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
 import {
   BOOK_FAILURE_ATTRIBUTE,
@@ -88,6 +88,7 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
+    expect(BOOK_COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')
     expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)

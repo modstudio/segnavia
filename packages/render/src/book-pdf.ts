@@ -1,4 +1,4 @@
-import { Book, type BookInput, bookParentPages, formatNumber, physicalMargins, resolveDirection, sheetMm } from '@segnavia/format'
+import { Book, type BookInput, bookParentPages, type Folio, physicalMargins, resolveDirection, sequenceFolios, sheetMm } from '@segnavia/format'
 import {
   type BookDocument,
   type BookHeading,
@@ -31,6 +31,11 @@ interface PrintedPart {
   overflow?: OverflowEntry
   pages: number
   destinations: Map<string, BookDestination>
+}
+function folioTextAt(folios: readonly Folio[], page: number): string {
+  const folio = folios[page - 1]
+  if (!folio) throw new RangeError(`Printed page ${page} has no computed folio.`)
+  return folio.text
 }
 
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
@@ -100,6 +105,7 @@ function marginFactsFor(
   blanks: Set<number>,
   system: Book['numbering']['body'],
 ): BookPageFacts[] {
+  const folios = sequenceFolios(pages, system)
   const starts = sections
     .flatMap((section) => {
       const page = destinations.get(section.id)?.page
@@ -113,7 +119,7 @@ function marginFactsFor(
     return {
       blank: false,
       sectionOpening: owner?.page === page,
-      folio: formatNumber(page, system),
+      folio: folioTextAt(folios, page),
       ...(owner?.section.runningHead === undefined ? {} : { runningHead: owner.section.runningHead }),
     }
   })
@@ -153,11 +159,15 @@ interface NumberSource {
 }
 
 function finalNumbers(ids: string[], sources: NumberSource[], headings = new Set<string>()): Record<string, string> {
+  const numberedSources = sources.map((source) => {
+    const pages = Math.max(0, ...[...source.destinations.values()].map((destination) => destination.page))
+    return { ...source, folios: sequenceFolios(pages, source.system) }
+  })
   return Object.fromEntries(
     ids.map((id) => {
-      for (const source of sources) {
+      for (const source of numberedSources) {
         const page = source.destinations.get(id)?.page
-        if (page !== undefined) return [id, formatNumber(page, source.system)]
+        if (page !== undefined) return [id, folioTextAt(source.folios, page)]
       }
       const role = headings.has(id) ? 'heading' : 'page reference target'
       throw new RenderRefusedError(`The ${role} ${id} has no printed destination; keep its destination in the printed book to clear this refusal.`)

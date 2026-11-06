@@ -1,6 +1,7 @@
 import type { ContentValue } from './content-value.ts'
 import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
+import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { FrameEntry, type FrameReadiness } from './frame-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -27,17 +28,19 @@ export function addFrame({ entries, events, host, index, content, state, control
   const deck = state.deck
   const slide = deck?.slides[index]
   if (!deck || !slide) return null
+  const folio = deckFolioAt(deckFolios(deck), index)
   const existing = entries.get(slide.id)
   const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, pool.css, pool.csp, pool.dependencyOrigins)
   if (existing && canReuseFrame({ readiness: existing.ready, sameResolution: existing.content === content }, existing.value, comparable)) return existing.canvas
   const entry = new FrameEntry(slide.id, comparable, content)
-  const canvas = stageCanvas(controller, deck, slide, index, content, {
+  const canvas = stageCanvas(controller, deck, slide, content, {
     css: pool.css,
     csp: pool.csp,
     dependencyOrigins: pool.dependencyOrigins,
     frameTitle: pool.frameTitle,
     loaded: () => entry.markLoaded(pool),
     slots: pool.slots,
+    folio,
   })
   entry.canvas = canvas
   entries.set(slide.id, entry)
@@ -70,6 +73,7 @@ export function removeFrame(entries: Map<string, FrameEntry>, controller: DeckCo
 export function syncFrames(entries: Map<string, FrameEntry>, pending: { id: string; visibleId: string } | null, state: DeckState, frameTitle: FrameTitle) {
   const deck = state.deck
   if (!deck || !state.slide) return
+  const folios = deckFolios(deck)
   for (const [index, slide] of deck.slides.entries()) {
     const canvas = entries.get(slide.id)?.canvas
     if (!canvas) continue
@@ -80,6 +84,7 @@ export function syncFrames(entries: Map<string, FrameEntry>, pending: { id: stri
     canvas.setAttribute('aria-hidden', String(!visible))
     canvas.inert = !visible
     const frame = canvas.querySelector('iframe')
-    if (frame) frame.title = frameTitle(deck.title, index + 1)
+    const folio = deckFolioAt(folios, index)
+    if (frame) frame.title = frameTitle(deck.title, folio.number)
   }
 }

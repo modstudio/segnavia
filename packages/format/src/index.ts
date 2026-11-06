@@ -141,7 +141,7 @@ export { Direction, firstStrongDirection, htmlTextSample, languageDirection, res
 export * from './document-metadata.ts'
 export { editBoard } from './edit-board.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
-export { FolioTable } from './folio-table.ts'
+export { computeFolios, type Folio, folioScript, type NumberedPage, Numbering, sequenceFolios } from './folio.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
 export { FontFaceRefusedError } from './font-refusal.ts'

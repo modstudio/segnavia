@@ -1,4 +1,4 @@
-import { type Deck, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
+import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -20,7 +20,6 @@ export function stageCanvas(
   controller: DeckController,
   deck: Deck,
   slide: Slide,
-  index: number,
   content: ResolvedContent,
   options: {
     css: string
@@ -30,6 +29,7 @@ export function stageCanvas(
     loaded: () => void
     slots?: PreparedSlots
     bridge?: boolean
+    folio: Folio
   },
 ): HTMLElement {
   const canvas = document.createElement('div')
@@ -41,7 +41,7 @@ export function stageCanvas(
     iframe.className = 'segnavia-stage__frame'
     // A URL slide's host-served document is outside the frame policy that blocks form submission.
     iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
-    iframe.title = options.frameTitle(deck.title, index + 1)
+    iframe.title = options.frameTitle(deck.title, options.folio.number)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
       iframe.srcdoc = frameDocument(slotHtml(content.html, options.slots), {

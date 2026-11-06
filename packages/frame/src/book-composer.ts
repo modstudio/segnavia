@@ -1,7 +1,8 @@
 import {
   type FlowingParentNames,
-  type FolioTable,
+  type Folio,
   flowingParentNames,
+  folioScript,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
   resolveDirection,
@@ -21,6 +22,7 @@ import {
   parseCssLength,
   windowPageIndex,
 } from '@segnavia/html'
+import { bookPlanFolios } from './book-plan-folios.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageScale, spreadSlots } from './book-presentation.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
@@ -119,11 +121,11 @@ export function pixelPhaseOffset(source: number, placed: number): number {
 
 export type PageReferenceFolio = { folio: string } | { refusal: string }
 
-export function pageReferenceFolio(id: string, page: number, folios: FolioTable): PageReferenceFolio {
+export function pageReferenceFolio(id: string, page: number, folios: readonly (Folio | null | string)[]): PageReferenceFolio {
   const folio = folios[page - 1]
-  if (folio !== undefined) return { folio }
+  if (folio !== undefined) return { folio: typeof folio === 'string' ? folio : (folio?.text ?? '') }
   return {
-    refusal: `page reference target ${id} lands on folio ${page}, beyond the supported folio table; shorten the book to ${folios.length} folios or fewer to clear this refusal`,
+    refusal: `page reference target ${id} lands on page ${page}, beyond the ${folios.length} computed folios; shorten the book to ${folios.length} pages or fewer to clear this refusal`,
   }
 }
 
@@ -158,6 +160,7 @@ var fail=function(reason){var text=String(reason);document.documentElement.setAt
 var config=${configJson};
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
 ${paginateScript()}
+${folioScript()}
 ${furnitureScript()}
 ${embeddedComposerFunctions()}
 ${embedFunction('heldPageNumber', heldPageNumber)}
@@ -169,6 +172,7 @@ ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('fitRegionSize', fitRegionSize)}
 ${embedFunction('resolveDirection', resolveDirection)}
 ${embedFunction('pageReferenceFolio', pageReferenceFolio)}
+${embedFunction('bookPlanFolios', bookPlanFolios)}
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
@@ -195,9 +199,10 @@ var measureNotes=function(){var notes=[];var nodes=document.querySelectorAll('[d
 var noteGap=function(root){var style=getComputedStyle(root);return (parseFloat(style.borderBlockStartWidth)||0)+(parseFloat(style.paddingBlockStart)||0)+(parseFloat(style.marginBlockStart)||0);};
 var noteSeries=function(){var series=[];var nodes=document.querySelectorAll('[data-segnavia-notes-galley]');for(var i=0;i<nodes.length;i++){var name=nodes[i].getAttribute('data-segnavia-note-series');if(name)series.push({name:name,gap:noteGap(nodes[i])});}return series;};
 var measureInput=function(){var flows=[];var nodes=document.querySelectorAll('[data-segnavia-flow]');for(var i=0;i<nodes.length;i++)flows.push(measureFlow(nodes[i]));var parents={};for(var p=0;p<config.parents.length;p++)parents[config.parents[p].name]=config.parents[p].textArea;return {flows:flows,notes:measureNotes(),geometry:{notesGap:config.geometry.notesGap,noteSeries:noteSeries()},parents:parents,parentNames:config.parentNames,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}};};
-var folioOf=function(page){var list=config.folios[page.sequence];return list&&list[page.number-1]?list[page.number-1]:String(page.number);};
+var planFolios={folios:[],total:'0'};
+var folioOf=function(index){return planFolios.folios[index];};
 var runningHeadOf=function(page,index){if(page.blank||(page.sectionOpening&&page.role!=='body'))return undefined;var recto=index%2===1;var choice=recto?config.runningHead.recto:config.runningHead.verso;if(!choice||choice==='title')return page.runningHead;if(choice.part)return page.parts?page.parts[choice.part]:undefined;var held=page.marks&&page.marks[choice.mark];if(!held)return page.runningHead;return choice.which==='last'?held.last:held.first;};
-var pageForTarget=function(id,pages){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var page=pages[index];var result=pageReferenceFolio(id,page.number,config.folios[page.sequence]);if(result.refusal){fail(result.refusal);return '';}return result.folio;};
+var pageForTarget=function(id,pages){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var result=pageReferenceFolio(id,index+1,planFolios.folios);if(result.refusal){fail(result.refusal);return '';}return result.folio;};
 var fillPrintedPage=function(root,number,total){var values={'${PRINTED_PAGE_NUMBER_PATH}':number,'${PRINTED_PAGE_TOTAL_PATH}':total};var bindings=root.querySelectorAll('[data-slot-value]');for(var i=0;i<bindings.length;i++){var path=bindings[i].getAttribute('data-slot-value');if(Object.prototype.hasOwnProperty.call(values,path)&&values[path]!==undefined){bindings[i].removeAttribute('data-slot-value');bindings[i].textContent=values[path];if(!bindings[i].hasAttribute('dir'))bindings[i].setAttribute('dir','auto');}}};
 var pageReferences=function(){return document.querySelectorAll('${PAGE_REFERENCE_SELECTOR}');};
 var pageReferenceId=function(node){var href=node.getAttribute('href')||'';return href.charAt(0)==='#'?href.slice(1):href.slice('segnavia:target/'.length);};
@@ -226,7 +231,7 @@ ${
 `
     : 'var presentScreen=function(){};'
 }
-var compose=function(plan,seriesGeometry){var total=config.folios.body[plan.pages.length-1]||String(plan.pages.length);var pages=document.createElement('div');pages.setAttribute('data-segnavia-pages','');for(var index=0;index<plan.pages.length;index++){var page=plan.pages[index];var selected={parent:page.parent,side:page.side,folio:folioOf(page),runningHead:runningHeadOf(page,index+1)};var parent=parentByName[selected.parent];var margin=parent.margin;var textArea=parent.textArea;var paper=document.createElement('section');paper.setAttribute('data-segnavia-book-page',String(index+1));paper.setAttribute('data-segnavia-role',page.role);paper.setAttribute('data-segnavia-side',page.face);paper.setAttribute('data-segnavia-sequence',page.sequence);paper.setAttribute('data-segnavia-number',String(page.number));paper.setAttribute('data-segnavia-flow',page.flow);paper.setAttribute('data-segnavia-parent',parent.name);paper.setAttribute('data-segnavia-folio',folioOf(page));paper.style.cssText='position:relative;box-sizing:border-box;inline-size:'+config.geometry.paperWidth+'px;block-size:'+config.geometry.paperHeight+'px;overflow:hidden;break-after:page;direction:'+config.direction+';';var inlineStart=(selected.side==='right')===(config.direction==='ltr')?margin.inlineStart:margin.inlineEnd;var text=document.createElement('div');text.setAttribute('data-segnavia-text','');text.style.cssText='position:absolute;overflow:visible;inset-block-start:'+margin.blockStart+'px;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;block-size:'+textArea.height+'px';var seenFlows={};for(var w=0;w<page.windows.length;w++){var keepFlowId=!seenFlows[page.windows[w].flow];seenFlows[page.windows[w].flow]=true;placeWindow(text,page.windows[w],keepFlowId&&page.sectionOpening,textArea);}placeHeader(text,page,textArea);placeNotes(text,page.notes,textArea,seriesGeometry);paper.append(text);placeDesigned(paper,page,index,plan.pages);placeTemplated(text,page,index,plan.pages);var furniture=function(region,html){if(!html)return;var held=document.createElement('div');held.setAttribute('data-segnavia-'+region,'');held.setAttribute('data-segnavia-parent',parent.name);var regionSize=region==='head'?margin.blockStart:margin.blockEnd;held.style.cssText='position:absolute;overflow:hidden;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;'+(region==='head'?'inset-block-start:0;block-size:'+regionSize+'px':'inset-block-end:0;block-size:'+regionSize+'px');var values={};if(selected.folio!==undefined)values.folio=selected.folio;if(selected.runningHead!==undefined)values.runningHead=selected.runningHead;if(page.marks!==undefined)values.marks=page.marks;held.innerHTML=fillBookFurniture(html,values,config.dir,config.lang);fillPrintedPage(held,selected.folio,total);paper.append(held);};furniture('head',parent.head);furniture('foot',parent.foot);pages.append(paper);}var galleys=document.querySelector('[data-segnavia-galleys]');if(galleys){galleys.setAttribute('data-segnavia-galley-source','');galleys.style.cssText='position:absolute;inset-inline-start:-10000px;visibility:visible;';var held=galleys.querySelectorAll('[id]');for(var i=0;i<held.length;i++)held[i].removeAttribute('id');}document.body.append(pages);alignWindowPhases();if(!alignHeldNotes()||!settleHeldNoteViews())return pages;var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){var regions=filled[t].querySelectorAll('[data-region]');for(var r=0;r<regions.length;r++)fitRegion(regions[r],filled[t].getAttribute('data-template')||'');var paper=filled[t].closest('[data-segnavia-book-page]');markRegionOverflow(filled[t],paper?paper.getAttribute('data-segnavia-folio')||'':'');}var height=(plan.pages.length*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;return pages;};
+var compose=function(plan,seriesGeometry){var total=planFolios.total;var pages=document.createElement('div');pages.setAttribute('data-segnavia-pages','');for(var index=0;index<plan.pages.length;index++){var page=plan.pages[index];var folio=folioOf(index);var selected={parent:page.parent,side:page.side,folio:folio,runningHead:runningHeadOf(page,index+1)};var parent=parentByName[selected.parent];var margin=parent.margin;var textArea=parent.textArea;var paper=document.createElement('section');paper.setAttribute('data-segnavia-book-page',String(index+1));paper.setAttribute('data-segnavia-role',page.role);paper.setAttribute('data-segnavia-side',page.face);paper.setAttribute('data-segnavia-sequence',page.sequence);paper.setAttribute('data-segnavia-number',String(page.number));paper.setAttribute('data-segnavia-flow',page.flow);paper.setAttribute('data-segnavia-parent',parent.name);paper.setAttribute('data-segnavia-folio',folio||'');paper.style.cssText='position:relative;box-sizing:border-box;inline-size:'+config.geometry.paperWidth+'px;block-size:'+config.geometry.paperHeight+'px;overflow:hidden;break-after:page;direction:'+config.direction+';';var inlineStart=(selected.side==='right')===(config.direction==='ltr')?margin.inlineStart:margin.inlineEnd;var text=document.createElement('div');text.setAttribute('data-segnavia-text','');text.style.cssText='position:absolute;overflow:visible;inset-block-start:'+margin.blockStart+'px;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;block-size:'+textArea.height+'px';var seenFlows={};for(var w=0;w<page.windows.length;w++){var keepFlowId=!seenFlows[page.windows[w].flow];seenFlows[page.windows[w].flow]=true;placeWindow(text,page.windows[w],keepFlowId&&page.sectionOpening,textArea);}placeHeader(text,page,textArea);placeNotes(text,page.notes,textArea,seriesGeometry);paper.append(text);placeDesigned(paper,page,index,plan.pages);placeTemplated(text,page,index,plan.pages);var furniture=function(region,html){if(!html)return;var held=document.createElement('div');held.setAttribute('data-segnavia-'+region,'');held.setAttribute('data-segnavia-parent',parent.name);var regionSize=region==='head'?margin.blockStart:margin.blockEnd;held.style.cssText='position:absolute;overflow:hidden;inset-inline-start:'+inlineStart+'px;inline-size:'+textArea.width+'px;'+(region==='head'?'inset-block-start:0;block-size:'+regionSize+'px':'inset-block-end:0;block-size:'+regionSize+'px');var values={};if(selected.folio!==undefined)values.folio=selected.folio;if(selected.runningHead!==undefined)values.runningHead=selected.runningHead;if(page.marks!==undefined)values.marks=page.marks;held.innerHTML=fillBookFurniture(html,values,config.dir,config.lang);fillPrintedPage(held,selected.folio,total);paper.append(held);};furniture('head',parent.head);furniture('foot',parent.foot);pages.append(paper);}var galleys=document.querySelector('[data-segnavia-galleys]');if(galleys){galleys.setAttribute('data-segnavia-galley-source','');galleys.style.cssText='position:absolute;inset-inline-start:-10000px;visibility:visible;';var held=galleys.querySelectorAll('[id]');for(var i=0;i<held.length;i++)held[i].removeAttribute('id');}document.body.append(pages);alignWindowPhases();if(!alignHeldNotes()||!settleHeldNoteViews())return pages;var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){var regions=filled[t].querySelectorAll('[data-region]');for(var r=0;r<regions.length;r++)fitRegion(regions[r],filled[t].getAttribute('data-template')||'');var paper=filled[t].closest('[data-segnavia-book-page]');markRegionOverflow(filled[t],paper?paper.getAttribute('data-segnavia-folio')||'':'');}var height=(plan.pages.length*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;return pages;};
 var measurementFlows=function(input){var facts=[];for(var i=0;i<input.flows.length;i++){var flow=input.flows[i];var lines=0;var blocks=flow.blocks||[];for(var b=0;b<blocks.length;b++)lines+=blocks[b].lines.length;facts.push({id:flow.id,sourceBlocks:flow.sourceBlocks,contentBlocks:flow.contentBlocks,measuredLines:lines});}return facts;};
 var nextAnimationFrame=function(){return new Promise(function(resolve){if(window.requestAnimationFrame)window.requestAnimationFrame(resolve);else setTimeout(resolve,0);});};
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
@@ -245,12 +250,14 @@ var paginateOrFail=function(input){var held=paginateBook(input);if(held.refusals
 var input=measureInput();
 var plan=paginateOrFail(input);
 if(!plan)return;
+planFolios=bookPlanFolios(plan.pages,config.numbering);
 fillPageReferences(plan.pages);
 var settled=false;
 for(var extra=0;extra<3;extra++){
 input=measureInput();
 plan=paginateOrFail(input);
 if(!plan)return;
+planFolios=bookPlanFolios(plan.pages,config.numbering);
 var moved=unsettledPageReferences(plan.pages);
 if(!moved.length){settled=true;break;}
 if(extra===2){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return;}

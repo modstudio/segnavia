@@ -27,6 +27,7 @@ import {
 } from './control-values.ts'
 import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
+import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
@@ -143,7 +144,10 @@ export class SegnaviaCounter extends SegnaviaControl {
     return '<span part="count" dir="ltr" aria-live="polite"></span>'
   }
   protected render(state: DeckState) {
-    ;(this.root.querySelector('span') as HTMLElement).textContent = `${state.index + 1} / ${state.deck?.slides.length ?? 0}`
+    const folios = deckFolios(state.deck)
+    const current = deckFolioAt(folios, state.index)
+    const total = deckFolioAt(folios, folios.length - 1).text
+    ;(this.root.querySelector('span') as HTMLElement).textContent = `${current.text} / ${total}`
   }
 }
 
@@ -297,14 +301,16 @@ export class SegnaviaTrack extends SegnaviaControl {
   }
 
   private renderSegments(list: HTMLOListElement, state: DeckState, continuous: boolean) {
-    const slides = state.deck?.slides ?? []
+    const folios = deckFolios(state.deck)
+    const total = folios.length
     for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
       const index = Number(item.dataset.go)
       const segment = (continuous ? item.querySelector('.segment') : item) as HTMLElement
       segment.dataset.state = trackSegmentState(state, index, state.index)
       segment.style.setProperty('--progress', continuous ? String(state.progress) : state.playing ? String(state.progress) : '1')
       if (!continuous) {
-        segment.setAttribute('aria-label', this.labels.slide(index + 1, slides.length))
+        const folio = deckFolioAt(folios, index)
+        segment.setAttribute('aria-label', this.labels.slide(folio.number, total))
         if (index === state.index) segment.setAttribute('aria-current', 'step')
         else segment.removeAttribute('aria-current')
       }

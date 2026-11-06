@@ -1,5 +1,5 @@
 import type { PageSide, TextDirection } from '@segnavia/format'
-import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, type NumberSystem, type PrintedPageRole, type PrintedPageRules, sequenceFolios } from '@segnavia/format'
 
 export type { BookSectionParents }
 
@@ -64,10 +64,13 @@ export function printedPageAt(
 
 export function planPrintedPages(rules: PrintedPageRules, count: number, direction: TextDirection, numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
   if (!Number.isSafeInteger(count) || count < 1) throw new RangeError('A printed-page plan needs a positive safe page count.')
-  const total = formatNumber(count, numbering)
-  return Array.from({ length: count }, (_, offset) => {
+  const folios = sequenceFolios(count, numbering)
+  const last = folios.at(-1)
+  if (!last) throw new RangeError('A printed-page plan needs at least one computed folio.')
+  const total = last.text
+  return folios.map((folio, offset) => {
     const index = offset + 1
-    return { index, ...printedPageAt(rules, index, count, direction), number: formatNumber(index, numbering), total }
+    return { index, ...printedPageAt(rules, index, count, direction), number: folio.text, total }
   })
 }
 

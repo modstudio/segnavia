@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Page } from '@segnavia/format'
+import { computeFolios, Page } from '@segnavia/format'
 import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -54,6 +54,7 @@ describe('printedPageDocument', () => {
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(`performance.now()-startedAt,${LAYOUT_SETTLE_MS}`)
     expect(html).toContain(`var failureName="${PRINTED_PAGE_FAILURE_ATTRIBUTE}"`)
