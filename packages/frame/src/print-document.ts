@@ -4,7 +4,7 @@
 
 import {
   type Deck,
-  Document,
+  Document as DocumentSchema,
   type DocumentInput,
   deckFromDocument,
   fitPage,
@@ -13,6 +13,7 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
+  type Page,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -199,7 +200,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  return printableDeckValue(deckFromDocument(Document.parse(input)), options)
+  return printableDeckValue(deckFromDocument(DocumentSchema.parse(input)), options)
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
@@ -279,7 +280,7 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  return printableDeckValueDocument(deckFromDocument(Document.parse(input)), options)
+  return printableDeckValueDocument(deckFromDocument(DocumentSchema.parse(input)), options)
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
@@ -358,6 +359,14 @@ export function printablePaper(
 // server renderer still uses top-level page renders for PDF composition.
 export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   const pages = inputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
+  return printableHtmlPagesDocument(pages, imposition, options)
+}
+
+export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  return printableHtmlPagesDocument(pages.map((page) => resolvePageHtml(page)), imposition, options)
+}
+
+export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)
@@ -370,4 +379,8 @@ export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition:
 
 export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
   return printablePagesDocument(inputs, imposition, options).html
+}
+
+export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  return printablePageValuesDocument(pages, imposition, options).html
 }

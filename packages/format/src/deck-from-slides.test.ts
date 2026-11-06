@@ -44,7 +44,8 @@ describe('deckFromSlides', () => {
       },
     )
 
-    expect(deck.slides[0]).toEqual({
+    expect(deck.children[0]).toEqual({
+      type: 'slide',
       id: 'intro',
       content: { kind: 'html', html: '<h1>Hello</h1>' },
       notes: 'Private',
@@ -53,22 +54,20 @@ describe('deckFromSlides', () => {
       afterMs: 200,
       printAtMs: 250,
     })
-    expect(deck.slides[1]?.content).toEqual({ kind: 'shot', src: 'cover.png', shot })
+    expect(deck.children[1]).toMatchObject({ type: 'slide', content: { kind: 'shot', src: 'cover.png', shot } })
     expect(deck).toMatchObject({
       title: 'Talk',
       size: { width: 1920, height: 1080 },
       layout: 'responsive',
-      scripts: 'sandboxed',
+      settings: { scripts: 'sandboxed', dir: 'rtl', lang: 'he' },
       playback: 'continuous',
       captions: 'viewer',
-      dir: 'rtl',
-      lang: 'he',
     })
   })
 
   test('can omit notes for a public projection', () => {
     const deck = deckFromSlides([{ id: 'intro', kind: 'html', html: '', notes: 'Private' }], { title: 'Public', omitNotes: true })
-    expect(deck.slides[0]).not.toHaveProperty('notes')
+    expect(deck.children[0]).not.toHaveProperty('notes')
   })
 
   test('passes narration, shot and timing validation through Deck', () => {

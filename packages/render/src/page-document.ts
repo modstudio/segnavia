@@ -6,6 +6,7 @@ import {
   type FontSource,
   htmlTextSample,
   type PageInput,
+  type Page,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -58,7 +59,17 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const page = resolvePageHtml(pageOrPrintedFromInput(input))
+  return prepareRenderedPageValue(pageOrPrintedFromInput(input), options, motifs, signal, purpose)
+}
+
+export async function prepareRenderedPageValue(
+  input: Page,
+  options: RenderOptions,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  purpose: 'screen' | 'print' = 'print',
+) {
+  const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
@@ -125,7 +136,18 @@ export function renderPageDocument(
   fontCss = '',
   diagramScript?: string,
 ): string {
-  const page = resolvePageHtml(pageOrPrintedFromInput(input))
+  return renderPageValueDocument(pageOrPrintedFromInput(input), options, printing, nonce, fontCss, diagramScript)
+}
+
+export function renderPageValueDocument(
+  input: Page,
+  options: RenderOptions,
+  printing = false,
+  nonce?: string,
+  fontCss = '',
+  diagramScript?: string,
+): string {
+  const page = resolvePageHtml(input)
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure

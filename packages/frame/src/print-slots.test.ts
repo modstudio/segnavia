@@ -1,18 +1,28 @@
 import { expect, test } from 'bun:test'
-import { Deck } from '@segnavia/format'
+import type { DocumentInput, Slot } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { copiesPrint, printDeck, printPages } from './print.ts'
 import { EMPTY_SLOTS } from './slot-render.ts'
 
+function deckDocument(title: string, html: string, slots?: Slot[], scripts?: 'sandboxed'): DocumentInput {
+  return {
+    type: 'document',
+    kind: 'deck',
+    title,
+    settings: { scripts },
+    data: { slots },
+    children: [{ type: 'slide', id: 'one', content: { kind: 'html', html } }],
+  }
+}
+
+function pageDocument(html: string, slots?: Slot[], size?: { width: number; height: number }): DocumentInput {
+  return { type: 'document', kind: 'page', size, data: { slots }, children: [{ type: 'page', body: { html } }] }
+}
+
 test('browser print refuses a fill for a scripted deck before reporting', async () => {
   let reports = 0
-  const deck = Deck.parse({
-    title: 'Private fill',
-    scripts: 'sandboxed',
-    slots: [{ key: 'name', label: 'Name', type: 'text' }],
-    slides: [{ id: 'one', content: { kind: 'html', html: '<p data-slot-value="name">Authored</p>' } }],
-  })
+  const deck = deckDocument('Private fill', '<p data-slot-value="name">Authored</p>', [{ key: 'name', label: 'Name', type: 'text' }], 'sandboxed')
   await expect(
     printDeck(deck, {
       slots: {
@@ -31,12 +41,12 @@ test('browser deck and page printing refuse every required slot state before cre
     { key: 'site', label: 'Site', type: 'link' as const, required: true },
   ]
   const slots = { fill: { id: 'x', values: { email: 'invalid', site: 'javascript:bad()' } } }
-  const deck = Deck.parse({ title: 'Required', slots: declarations, slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
+  const deck = deckDocument('Required', '<p>Design</p>', declarations)
   const printings = [
     () => printDeck(deck, { slots }),
     () =>
       printPages(
-        [{ html: '<p>Design</p>', slots: declarations }],
+        [pageDocument('<p>Design</p>', declarations)],
         { paper: { unit: 'mm', width: 210, height: 297 }, columns: 1, rows: 1, cell: { width: 210, height: 297 } },
         { slots },
       ),
@@ -76,7 +86,7 @@ test('printPages resolves placements before building the browser print document'
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => host, body: { append() {} } } })
   try {
     const src = 'data:image/png;base64,AA=='
-    await printPages([{ html: '<img data-segnavia-media="cover">' }], imposition, {
+    await printPages([pageDocument('<img data-segnavia-media="cover">')], imposition, {
       placements: { resolve: async () => ({ kind: 'media', media: { format: 'png', size: { width: 20, height: 10 } }, src }) },
       print: () => {},
     })
@@ -89,10 +99,10 @@ test('printPages resolves placements before building the browser print document'
 })
 
 test('browser print refuses fills together with fill', async () => {
-  const deck = Deck.parse({ title: 'Fills', slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
+  const deck = deckDocument('Fills', '<p>Design</p>')
   const slots = { fills: [{ fill: { id: 'ada', values: { name: 'Ada' } } }], fill: { id: 'ada', values: { name: 'Ada' } } }
   await expect(printDeck(deck, { slots })).rejects.toBeInstanceOf(SlotFillsConflictError)
-  await expect(printPages([{ html: '<p>Design</p>' }], imposition, { slots })).rejects.toBeInstanceOf(SlotFillsConflictError)
+  await expect(printPages([pageDocument('<p>Design</p>')], imposition, { slots })).rejects.toBeInstanceOf(SlotFillsConflictError)
 })
 
 test('browser print lists every refused fill before creating output', async () => {
@@ -100,8 +110,8 @@ test('browser print lists every refused fill before creating output', async () =
   const slots = {
     fills: [{ fill: { id: 'missing', values: {} } }, { source: { id: 'staff', values: {} } }],
   }
-  const deck = Deck.parse({ title: 'Required', slots: declarations, slides: [{ id: 'one', content: { kind: 'html', html: '<p>Design</p>' } }] })
-  const printings = [() => printDeck(deck, { slots }), () => printPages([{ html: '<p>Design</p>', slots: declarations }], imposition, { slots })]
+  const deck = deckDocument('Required', '<p>Design</p>', declarations)
+  const printings = [() => printDeck(deck, { slots }), () => printPages([pageDocument('<p>Design</p>', declarations)], imposition, { slots })]
   for (const print of printings) {
     const printing = print()
     await expect(printing).rejects.toBeInstanceOf(SlotFillsRefusedError)
@@ -164,11 +174,11 @@ test('printPages refuses an overflowed slot when its fit report arrives after th
   try {
     const printing = printPages(
       [
-        {
-          size: { width: 336, height: 192 },
-          slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
-          html: '<strong data-slot-value="name" style="display:block;inline-size:100px;white-space:nowrap">Design Name</strong>',
-        },
+        pageDocument(
+          '<strong data-slot-value="name" style="display:block;inline-size:100px;white-space:nowrap">Design Name</strong>',
+          [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+          { width: 336, height: 192 },
+        ),
       ],
       imposition,
       {

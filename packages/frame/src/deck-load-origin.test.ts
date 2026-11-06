@@ -40,7 +40,7 @@ test('host deck inputs are never mutated for load provenance', async () => {
   const forged = Object.defineProperty(input(), oldInternalKey, { value: true })
 
   const controller = new DeckController({ hash: null })
-  await expect(controller.load(frozen)).resolves.toBeUndefined()
-  await expect(controller.load(deletionRefusing)).resolves.toBeUndefined()
+  await expect(controller.loadDeckValue(frozen)).resolves.toBeUndefined()
+  await expect(controller.loadDeckValue(deletionRefusing)).resolves.toBeUndefined()
   expect(isInternalDeck(parseDeckLoad(forged))).toBe(false)
 })

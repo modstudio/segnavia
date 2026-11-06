@@ -70,7 +70,13 @@ test('pagePdf and pageImage print the same motif-expanded page', async () => {
       }),
     },
   }
-  const page = { html: '<main data-motif="letterhead">Authored</main>', lang: 'en', size: { width: 200, height: 100 } } as const
+  const page = {
+    type: 'document',
+    kind: 'page',
+    settings: { lang: 'en' },
+    size: { width: 200, height: 100 },
+    children: [{ type: 'page', body: { html: '<main data-motif="letterhead">Authored</main>' } }],
+  } as const
   const pdf = await renderer.pagePdf(page, { motifs, effects: false })
   await renderer.pageImage(page, { motifs, effects: false })
   await renderer.close()
@@ -101,12 +107,16 @@ test('pagePdf embeds only named transported local faces and retains no decoded b
   try {
     await renderer.pagePdf(
       {
-        html: '<p style="font-family:Local Family">Local</p>',
-        fonts: [
+        type: 'document',
+        kind: 'page',
+        style: {
+          fonts: [
           { local: 'Local Family', fallback: 'serif' },
           { local: 'Missing Family', fallback: 'heading' },
-        ],
+          ],
+        },
         size: { width: 200, height: 100 },
+        children: [{ type: 'page', body: { html: '<p style="font-family:Local Family">Local</p>' } }],
       },
       {
         effects: false,

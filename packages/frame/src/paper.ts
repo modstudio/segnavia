@@ -1,11 +1,12 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { internalPaperPagesLoad } from './document-value-load.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
@@ -147,6 +148,10 @@ export class SegnaviaPaper extends HTMLElement {
     // paper untouched.
     const pages = pageInputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
     const imposition = Imposition.parse(impositionInput)
+    this.loadValues(pages, imposition)
+  }
+
+  private loadValues(pages: HtmlPage[], imposition: Imposition): void {
     const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     const previousPapers = this.papers
@@ -160,6 +165,10 @@ export class SegnaviaPaper extends HTMLElement {
     this.reflectState()
     this.paint()
     if (previousPapers !== this.papers || previousPaper !== this.paperIndex || previousSide !== this.shownSide) this.dispatchEvent(new Event('change'))
+  }
+
+  [internalPaperPagesLoad](pageValues: Page[], imposition: Imposition): void {
+    this.loadValues(pageValues.map(resolvePageHtml), imposition)
   }
 
   private showPaper(value: number) {

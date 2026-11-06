@@ -5,11 +5,11 @@ import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import type { RenderOptions } from './options.ts'
-import { renderPageDocument } from './page-document.ts'
+import { renderPageValueDocument } from './page-document.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false, diagramScript?: string): string {
-  if (!page.printedPages) return renderPageDocument(page, options, printing, undefined, '', diagramScript)
+  if (!page.printedPages) return renderPageValueDocument(page, options, printing, undefined, '', diagramScript)
   return printedPageValueDocument(page, {
     nonce: newNonce(),
     css: `${fontFaces(options.fonts)}${options.css ?? ''}`,

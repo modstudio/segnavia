@@ -18,9 +18,9 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { copyLimits, dependencySetup, enforceDeckLimits, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
+import { copyLimits, dependencySetup, enforceDeckLimits, type ImageOptions, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
-import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
@@ -158,6 +158,34 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       (tab) => finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
+  async function renderPreparedPageImage(
+    prepared: Awaited<ReturnType<typeof prepareRenderedPage>>,
+    opts: ImageOptions,
+    deadline: RenderDeadline,
+  ): Promise<Uint8Array> {
+    const page = await filledPage(prepared.page, opts.slots, deadline.signal)
+    const diagramScript = await resolveDiagramScript(page.html)
+    const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
+    return withTab(
+      {
+        viewport,
+        scripts: true,
+        slots: preparedSlotsFor(page),
+        scale: opts.scale,
+        html: renderedPageDocument(page, prepared.options, false, diagramScript),
+        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
+        boundMs: opts.boundMs,
+        deadline,
+        beforeOutput: opts.beforeOutput,
+        ...dependencySetup(opts),
+      },
+      async (tab) => {
+        await awaitPrintedPageComposition(tab, page)
+        if (grows) await contentHeight(tab)
+        return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
+      },
+    )
+  }
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
@@ -206,35 +234,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'screen')
-        const page = await filledPage(prepared.page, opts.slots, deadline.signal)
-        const diagramScript = await resolveDiagramScript(page.html)
-        const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
-        return withTab(
-          {
-            viewport,
-            scripts: true,
-            slots: preparedSlotsFor(page),
-            scale: opts.scale,
-            html: renderedPageDocument(page, prepared.options, false, diagramScript),
-            readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
-            boundMs: opts.boundMs,
-            deadline,
-            beforeOutput: opts.beforeOutput,
-            ...dependencySetup(opts),
-          },
-          async (tab) => {
-            await awaitPrintedPageComposition(tab, page)
-            if (grows) await contentHeight(tab)
-            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
-          },
-        )
+        return renderPreparedPageImage(prepared, opts, deadline)
       })
     },
 
     coverImage(input, opts) {
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
-      return renderer.pageImage(cover.page, plan.options)
+      const options = parseRenderOptions(plan.options)
+      return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, 'screen')
+        return renderPreparedPageImage(prepared, options, deadline)
+      })
     },
 
     async pagesPdf(inputs, opts = {}) {

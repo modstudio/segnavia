@@ -62,7 +62,7 @@ test('Reset drafts and sends null', async () => {
 
 test('a failed print moment save reports its operation and remains in draftDeck', async () => {
   const deckController = new DeckController({ hash: null })
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'Deck',
     slides: [{ id: 'animated', content: { kind: 'html', html: '<p>Animated</p>' } }],
   })

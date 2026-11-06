@@ -7,6 +7,7 @@ import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { internalDocumentPagesLoad } from './document-value-load.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
@@ -163,6 +164,15 @@ export class SegnaviaDocument extends HTMLElement {
     this.sourceValues = sources
     this.pageValues = pages
     this.printValue = print
+    this.paint()
+    this.changed()
+  }
+
+  [internalDocumentPagesLoad](sources: Page[], print?: Print): void {
+    if (sources.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
+    this.sourceValues = sources
+    this.pageValues = sources.map(resolvePageHtml)
+    if (print) this.printValue = print
     this.paint()
     this.changed()
   }

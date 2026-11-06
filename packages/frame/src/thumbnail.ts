@@ -16,6 +16,7 @@ import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -79,12 +80,27 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  [internalThumbnailDeckLoad](deck: Deck | null) {
+    this.value = deck
+    if (this.value) this.pageValue = null
+    if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
+    else this.style.removeProperty('--segnavia-aspect')
+    this.changed()
+  }
+
   get page(): Page | null {
     return this.pageValue
   }
 
   set page(input: DocumentInput | null | undefined) {
     this.pageValue = input == null ? null : pageFromDocument(Document.parse(input))
+    if (this.pageValue) this.value = null
+    this.updatePageAspect()
+    this.changed()
+  }
+
+  [internalThumbnailPageLoad](page: Page | null) {
+    this.pageValue = page
     if (this.pageValue) this.value = null
     this.updatePageAspect()
     this.changed()

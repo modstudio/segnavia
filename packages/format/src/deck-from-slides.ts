@@ -27,9 +27,6 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     scripts,
     dir,
     lang,
-    css,
-    fonts,
-    motifs,
     slots,
   } = options
   const slides = rows.map(({ kind, ...row }) => {
@@ -68,7 +65,6 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     playback,
     captions,
     settings: { scripts, dir, lang },
-    style: { css, fonts, motifs },
     data: { slots },
     children: slides.map((slide) => ({ type: 'slide' as const, ...slide })),
   })

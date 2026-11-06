@@ -68,7 +68,7 @@ test('setting slots rebuilds a mounted shown frame with freshly resolved content
     hash: null,
     resolveSlide: () => ({ kind: 'url', src: `minted-${++resolutions}.html` }),
   })
-  await controller.load({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
+  await controller.loadDeckValue({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
   const { rendered, stage } = stageHarness(controller)
   stage.update(controller.state)
 
@@ -88,7 +88,7 @@ test('a failed refresh rebuilds the shown frame from its last resolved content',
       throw new Error('spent resolver failed')
     },
   })
-  await controller.load({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
+  await controller.loadDeckValue({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
   const { rendered, stage } = stageHarness(controller)
   stage.update(controller.state)
 
@@ -104,7 +104,7 @@ test('rebuilding while the shown slide is an incoming mounted frame refreshes it
     hash: null,
     resolveSlide: () => ({ kind: 'url', src: `pending-${++resolutions}.html` }),
   })
-  await controller.load({ title: 'Deck', slides: [{ id: 'incoming', content: { kind: 'url', src: 'authored.html' } }] })
+  await controller.loadDeckValue({ title: 'Deck', slides: [{ id: 'incoming', content: { kind: 'url', src: 'authored.html' } }] })
   const { rendered, stage } = stageHarness(controller, true)
 
   stage.rebuildFrames()
@@ -127,7 +127,7 @@ test('two stages rebuilding one controller both use the latest refresh', async (
       return { kind: 'url', src: 'shown.html' }
     },
   })
-  await controller.load({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
+  await controller.loadDeckValue({ title: 'Deck', slides: [{ id: 'shown', content: { kind: 'url', src: 'authored.html' } }] })
   const first = stageHarness(controller)
   const second = stageHarness(controller)
   first.stage.update(controller.state)

@@ -6,6 +6,7 @@ import { fitDesignedCover } from './fit.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
 import { createPageElement } from './page.ts'
+import { internalPageLoad } from './document-value-load.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
@@ -38,7 +39,7 @@ export function mountDesignedCover(
   page.slots = slots
   page.style.inlineSize = `${projection.box.width}px`
   page.style.blockSize = `${projection.box.height}px`
-  page.page = projection.page
+  page[internalPageLoad](projection.page)
   sheet.append(page)
   frame.append(sheet)
   const fit = () => {

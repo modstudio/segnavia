@@ -4,10 +4,10 @@ import { resolvePageHtml } from '@segnavia/html'
 import {
   htmlSlideDocument,
   notesLayoutGeometry,
-  printableDeck,
-  printableDeckDocument,
-  printablePages,
-  printablePagesDocument,
+  printableDeckValue,
+  printableDeckValueDocument,
+  printablePageValues,
+  printablePageValuesDocument,
   printablePaper,
 } from './print-document.ts'
 import { escapeHtml } from './svg.ts'
@@ -29,7 +29,7 @@ const deck = Deck.parse({
   slides: [{ id: 'html', content: { kind: 'html', html: '<h1>Slide</h1>' }, notes: 'Notes' }],
 })
 
-describe('printableDeck', () => {
+describe('printableDeckValue', () => {
   const handout = Imposition.parse({
     paper: { width: 230, height: 320, unit: 'mm' },
     columns: 2,
@@ -49,7 +49,7 @@ describe('printableDeck', () => {
     expect(geometry.slide.width).toBeCloseTo(720)
     expect(geometry.slide.height).toBeCloseTo(405)
     expect(geometry.slide.scale).toBeCloseTo(0.5625)
-    const printable = printableDeck(deck, { layout: 'notes' })
+    const printable = printableDeckValue(deck, { layout: 'notes' })
     expect(printable).toContain('box-sizing:border-box;padding:48px;')
     expect(printable).toContain('.slide{border:1px solid #ccc;')
     expect(printable).toContain('display:flex;flex-direction:column')
@@ -64,21 +64,21 @@ describe('printableDeck', () => {
     expect(innerHeight - geometry.slide.height).toBeGreaterThanOrEqual(96)
   })
   test('writes an escaped title into both the slides and notes documents', () => {
-    const named = printableDeck(deck)
-    const notes = printableDeck(deck, { layout: 'notes' })
-    const imposed = printableDeckDocument(deck, { imposition: handout, nonce: 'known' }).html
+    const named = printableDeckValue(deck)
+    const notes = printableDeckValue(deck, { layout: 'notes' })
+    const imposed = printableDeckValueDocument(deck, { imposition: handout, nonce: 'known' }).html
     expect(named).toContain('<title>Print</title>')
     expect(notes).toContain('<title>Print</title>')
     expect(imposed).toContain('<title>Print</title>')
-    const override = printableDeck(deck, { title: 'Handout' })
+    const override = printableDeckValue(deck, { title: 'Handout' })
     expect(override).toContain('<title>Handout</title>')
     expect(override).not.toContain('<title>Print</title>')
-    const unsafe = printableDeck(deck, { title: '</title><script>evil()</script>' })
+    const unsafe = printableDeckValue(deck, { title: '</title><script>evil()</script>' })
     expect(unsafe).toContain('<title>&lt;/title&gt;&lt;script&gt;evil()&lt;/script&gt;</title>')
     expect(unsafe).not.toContain('<script>evil()')
-    const untitled = printableDeck({ ...deck, title: '' })
+    const untitled = printableDeckValue({ ...deck, title: '' })
     expect(untitled).not.toContain('<title>')
-    expect(printableDeck(deck, { title: '' })).not.toContain('<title>')
+    expect(printableDeckValue(deck, { title: '' })).not.toContain('<title>')
   })
 
   test('prints speaker notes before narration and falls back only when notes are absent', () => {
@@ -91,9 +91,9 @@ describe('printableDeck', () => {
       ...deck,
       slides: [{ ...deck.slides[0], notes: undefined, narration: narration('Narration fallback') }],
     })
-    expect(printableDeck(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
-    expect(printableDeck(withBoth, { layout: 'notes' })).not.toContain('Narration loses')
-    expect(printableDeck(withNarration, { layout: 'notes' })).toContain('Narration fallback')
+    expect(printableDeckValue(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
+    expect(printableDeckValue(withBoth, { layout: 'notes' })).not.toContain('Narration loses')
+    expect(printableDeckValue(withNarration, { layout: 'notes' })).toContain('Narration fallback')
   })
 
   test('prints a placeholder only when some slides have notes and others do not', () => {
@@ -104,18 +104,18 @@ describe('printableDeck', () => {
       ...deck,
       slides: [{ ...html('a'), notes: 'Has notes' }, html('b')],
     })
-    expect(notesOf(printableDeck(mixed, { layout: 'notes' }))).toEqual(['Has notes', 'No speaker notes'])
+    expect(notesOf(printableDeckValue(mixed, { layout: 'notes' }))).toEqual(['Has notes', 'No speaker notes'])
     const empty = Deck.parse({
       ...deck,
       slides: [html('a'), html('b')],
     })
-    expect(notesOf(printableDeck(empty, { layout: 'notes' }))).toEqual(['', ''])
+    expect(notesOf(printableDeckValue(empty, { layout: 'notes' }))).toEqual(['', ''])
     const spoken = Deck.parse({
       ...deck,
       slides: [{ ...html('a'), narration: narration('Spoken') }, html('b')],
     })
-    expect(notesOf(printableDeck(spoken, { layout: 'notes' }))).toEqual(['Spoken', 'No speaker notes'])
-    expect(notesOf(printableDeck(mixed, { layout: 'notes', labels: { noSpeakerNotes: 'אין הערות' } }))).toEqual(['Has notes', 'אין הערות'])
+    expect(notesOf(printableDeckValue(spoken, { layout: 'notes' }))).toEqual(['Spoken', 'No speaker notes'])
+    expect(notesOf(printableDeckValue(mixed, { layout: 'notes', labels: { noSpeakerNotes: 'אין הערות' } }))).toEqual(['Has notes', 'אין הערות'])
   })
 
   test('escapes notes without adding executable code to the print document', () => {
@@ -123,7 +123,7 @@ describe('printableDeck', () => {
       ...deck,
       slides: [{ ...deck.slides[0], notes: '<img src=x onerror=evil()> & final line' }],
     })
-    const html = printableDeck(unsafe, { layout: 'notes' })
+    const html = printableDeckValue(unsafe, { layout: 'notes' })
     expect(html).toContain('&lt;img src=x onerror=evil()&gt; &amp; final line')
     expect(html).not.toContain('<img src=x onerror=evil()>')
     expect(html).not.toContain('<script>')
@@ -153,7 +153,7 @@ describe('printableDeck', () => {
         { id: 'url', content: { kind: 'url', src: 'https://example.invalid/slide' } },
       ],
     })
-    const html = printableDeck(timed, { nonce: 'known' })
+    const html = printableDeckValue(timed, { nonce: 'known' })
     expect(html).toContain('var printAt=0')
     expect(html).toContain('var printAt=500')
     expect(html).toContain('src="https://example.invalid/slide"')
@@ -162,25 +162,25 @@ describe('printableDeck', () => {
 
   test('builds the same top-level HTML slide document used by its frame', () => {
     const document = htmlSlideDocument(deck, '<h1>Slide</h1>', { nonce: 'known', css: 'h1{color:red}' })
-    const printable = printableDeck(deck, { nonce: 'known', css: 'h1{color:red}' })
+    const printable = printableDeckValue(deck, { nonce: 'known', css: 'h1{color:red}' })
     expect(printable).toContain(`srcdoc="${escapeHtml(document)}"`)
     expect(document).not.toContain('segnavia:height')
     expect(document).toContain('var keys=[]')
   })
 
   test('leaves an HTML slide box empty without changing any surrounding layout', () => {
-    const shown = printableDeck(deck, { nonce: 'known' })
-    const empty = printableDeck(deck, { nonce: 'known', omitHtmlSlideFrames: true })
+    const shown = printableDeckValue(deck, { nonce: 'known' })
+    const empty = printableDeckValue(deck, { nonce: 'known', omitHtmlSlideFrames: true })
     expect(shown.replace(/<iframe[\s\S]*?<\/iframe>/, '')).toBe(empty)
     expect(empty).toContain('<section class="sheet"></section>')
   })
 
   test('keeps every output byte unchanged when frame omission is off', () => {
-    expect(printableDeck(deck, { nonce: 'known', omitHtmlSlideFrames: false })).toBe(printableDeck(deck, { nonce: 'known' }))
+    expect(printableDeckValue(deck, { nonce: 'known', omitHtmlSlideFrames: false })).toBe(printableDeckValue(deck, { nonce: 'known' }))
   })
 
   test('keeps every output byte unchanged when imposition is off', () => {
-    expect(printableDeck(deck, { nonce: 'known', imposition: undefined })).toBe(printableDeck(deck, { nonce: 'known' }))
+    expect(printableDeckValue(deck, { nonce: 'known', imposition: undefined })).toBe(printableDeckValue(deck, { nonce: 'known' }))
   })
 
   test('uses shared fitted-layer geometry for shots and natural image geometry after load', () => {
@@ -202,7 +202,7 @@ describe('printableDeck', () => {
         { id: 'framed-shot', content: { kind: 'shot', src: 'wide.png', shot: { ...tallShot, size: { width: 1280, height: 400 }, annotations: [] } } },
       ],
     })
-    const html = printableDeck(fitted)
+    const html = printableDeckValue(fitted)
     expect(html).toContain('transform:translate(0px,-1680px) scale(1)')
     expect(html).toContain('viewBox="0 0 1280 2400"')
     expect(html).toContain('data-fit="width"')
@@ -219,8 +219,8 @@ describe('printableDeck', () => {
       slides: Array.from({ length: 7 }, (_, index) => ({ id: `s${index}`, content: { kind: 'html' as const, html: `${index}` } })),
     })
     const imposed = impose(handout, seven.slides.length)
-    const printable = printableDeckDocument(seven, { imposition: handout, nonce: 'known' })
-    const html = printableDeck(seven, { imposition: handout, nonce: 'known' })
+    const printable = printableDeckValueDocument(seven, { imposition: handout, nonce: 'known' })
+    const html = printableDeckValue(seven, { imposition: handout, nonce: 'known' })
     expect(printable.html).toBe(html)
     expect(printable.imposed).toEqual(imposed)
     expect(html.match(/<section class="paper"/g)).toHaveLength(2)
@@ -237,7 +237,7 @@ describe('printableDeck', () => {
     const placement = impose(imposition, 1).placements[0]
     if (!placement) throw new Error('Expected one placement.')
     const fit = fitPage({ size: deck.size }, placement, mode)
-    const html = printableDeck(deck, { imposition, nonce: 'known' })
+    const html = printableDeckValue(deck, { imposition, nonce: 'known' })
     expect(html).toContain(
       `width:${deck.size.width}px;height:${deck.size.height}px;left:${fit.x - placement.bleedBox.x}mm;top:${fit.y - placement.bleedBox.y}mm;transform:scale(${fit.scale})`,
     )
@@ -258,42 +258,42 @@ describe('printableDeck', () => {
         },
       ],
     })
-    const html = printableDeck(mixed, { imposition: handout })
+    const html = printableDeckValue(mixed, { imposition: handout })
     expect(html).toContain('alt="Image slide"')
     expect(html).toContain('alt="Shot slide"')
     expect(html.match(/<div class="placement"/g)).toHaveLength(2)
   })
 
   test('leaves an imposed HTML slide box in place when its frame is omitted', () => {
-    const html = printableDeck(deck, { imposition: handout, omitHtmlSlideFrames: true })
+    const html = printableDeckValue(deck, { imposition: handout, omitHtmlSlideFrames: true })
     expect(html).toContain('<div class="placement"')
     expect(html).not.toContain('<iframe')
   })
 
   test('refuses notes together with an imposition', () => {
-    expect(() => printableDeck(deck, { layout: 'notes', imposition: handout })).toThrow(
+    expect(() => printableDeckValue(deck, { layout: 'notes', imposition: handout })).toThrow(
       new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal."),
     )
   })
 })
 
-describe('printablePages', () => {
+describe('printablePageValues', () => {
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
     const imposed = impose(grid, pages.length)
     const content = Array.from({ length: imposed.papers }, (_, paper) =>
       printablePaper(pages.map(resolvePageHtml), grid, imposed, paper, { nonce: 'test' }),
     ).join('')
-    const printable = printablePagesDocument(pages, grid, { nonce: 'test' })
+    const printable = printablePageValuesDocument(pages, grid, { nonce: 'test' })
     const wrapped = printable.html.match(/<body>([\s\S]*)<\/body>/)?.[1]?.replace(/<\/?section(?: class="paper" data-side="front")?>/g, '')
     expect(wrapped).toBe(content)
     expect(printable.imposed).toEqual(imposed)
-    expect(printablePages(pages, grid, { nonce: 'test' })).toBe(printable.html)
+    expect(printablePageValues(pages, grid, { nonce: 'test' })).toBe(printable.html)
     expect(printable.html).toContain('data-segnavia-print-background')
   })
 
   test('builds papers with every placement clipped to its bleed box', () => {
-    const html = printablePages([fluid, fluid, fluid, fluid, fluid], grid, { nonce: 'test' })
+    const html = printablePageValues([fluid, fluid, fluid, fluid, fluid], grid, { nonce: 'test' })
     expect(html).toContain('@page{size:26mm 26mm;margin:0}')
     expect(html.match(/<section class="paper"/g)).toHaveLength(2)
     for (const box of [
@@ -316,7 +316,7 @@ describe('printablePages', () => {
       bleed: 3,
       safe: 1,
     })
-    const html = printablePages([fluid], imposition, { css: ':root{color:red}', nonce: 'test' })
+    const html = printablePageValues([fluid], imposition, { css: ':root{color:red}', nonce: 'test' })
     expect(html).toContain(':where(html){padding:2mm 0mm 1mm 2mm}')
     expect(html.indexOf('--segnavia-safe:1mm')).toBeLessThan(html.indexOf(':where(html){padding:'))
     expect(html.indexOf(':where(html){padding:')).toBeLessThan(html.indexOf(':root{color:red}'))
@@ -337,7 +337,7 @@ describe('printablePages', () => {
     const front = imposed.placements.find((placement) => placement.side === 'front')
     const back = imposed.placements.find((placement) => placement.side === 'back')
     if (!front || !back) throw new Error('Expected front and back placements.')
-    const printable = printablePagesDocument(pages, twoSided, { nonce: 'test' }).html
+    const printable = printablePageValuesDocument(pages, twoSided, { nonce: 'test' }).html
     const blocks = [...printable.matchAll(/<section class="paper" data-side="(front|back)">([\s\S]*?)<\/section>/g)]
     expect(blocks.map((match) => match[1])).toEqual(['front', 'back'])
     expect(blocks[0]?.[2]).toContain(`left:${front.bleedBox.x}mm;top:${front.bleedBox.y}mm`)
@@ -350,7 +350,7 @@ describe('printablePages', () => {
         { id: 'back', content: { kind: 'html', html: '<p>back</p>' } },
       ],
     })
-    expect(printableDeckDocument(twoSlides, { imposition: twoSided, nonce: 'test' }).html.match(/<section class="paper"/g)).toHaveLength(2)
+    expect(printableDeckValueDocument(twoSlides, { imposition: twoSided, nonce: 'test' }).html.match(/<section class="paper"/g)).toHaveLength(2)
   })
 
   test.each(['contain', 'cover'] as const)('places and scales a fixed page with %s', (mode) => {
@@ -368,7 +368,7 @@ describe('printablePages', () => {
     const placement = impose(imposition, 1).placements[0]
     if (!placement) throw new Error('Expected one placement.')
     const fit = fitPage(page, placement, mode)
-    const html = printablePages([page], imposition, { nonce: 'test' })
+    const html = printablePageValues([page], imposition, { nonce: 'test' })
     expect(html).toContain(
       `width:600px;height:400px;left:${fit.x - placement.bleedBox.x}mm;top:${fit.y - placement.bleedBox.y}mm;transform:scale(${fit.scale})`,
     )
@@ -379,15 +379,15 @@ describe('printablePages', () => {
     const placement = impose(grid, 1).placements[0]
     if (!placement) throw new Error('Expected one placement.')
     const fit = fitPage(page, placement, grid.fit)
-    const html = printablePages([page], grid, { nonce: 'test' })
+    const html = printablePageValues([page], grid, { nonce: 'test' })
     expect(html).toContain(`width:600px;height:${(placement.trim.height * (96 / 25.4)) / fit.scale}px`)
     expect(html).toContain(`left:${placement.trim.x - placement.bleedBox.x}mm;top:${placement.trim.y - placement.bleedBox.y}mm`)
   })
   test('adds extra content security policy directives when supplied', () => {
-    const html = printablePages([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
+    const html = printablePageValues([fluid], grid, { nonce: 'known', cspExtra: 'img-src data:' })
     expect(html).toContain('img-src data:')
   })
   test('refuses an empty collection', () => {
-    expect(() => printablePages([], grid)).toThrow(new RangeError('There is nothing to print. Pass at least one page to clear this refusal.'))
+    expect(() => printablePageValues([], grid)).toThrow(new RangeError('There is nothing to print. Pass at least one page to clear this refusal.'))
   })
 })

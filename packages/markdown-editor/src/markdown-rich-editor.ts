@@ -40,7 +40,13 @@ function lockedView(options: () => LockedViewOptions) {
           page.css = current.css()
           page.fonts = current.fonts
           page.alertLabels = current.alertLabels
-          page.page = { markdown: String(node.attrs.source ?? ''), scripts: 'refuse', fonts: current.fontReferences }
+          page.page = {
+            type: 'document',
+            kind: 'page',
+            settings: { scripts: 'refuse' },
+            style: { fonts: current.fontReferences },
+            children: [{ type: 'page', body: { markdown: String(node.attrs.source ?? '') } }],
+          }
           dom.append(page)
         }
         return { dom }

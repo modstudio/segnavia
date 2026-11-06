@@ -16,7 +16,7 @@ test('a referenced shot carries its fit onto resolved content', async () => {
   globalThis.fetch = (async () => Response.json({ src: 'shot.png', shot })) as unknown as typeof fetch
   try {
     const controller = new DeckController({ hash: null })
-    await controller.load(
+    await controller.loadDeckValue(
       { title: 'T', fit: 'cover', frame: true, slides: [{ id: 'a', content: { kind: 'shot-ref', href: 'shot.json', fit: 'focus', frame: false } }] },
       'https://example.com/deck.json',
     )

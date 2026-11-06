@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { AuthoringController, type AuthoringErrorDetail } from './authoring.ts'
 import { DeckController } from './controller.ts'
 import { NotesSaveQueue } from './notes-save.ts'
-import { printableDeck } from './print-document.ts'
+import { printableDeckValue } from './print-document.ts'
 
 class PlayerStub extends EventTarget {
   controller = new EventTarget()
@@ -67,7 +67,7 @@ describe('authoring detach', () => {
 describe('authoring flush', () => {
   async function controllerWithNotes(save: (input: { slideId: string; notes: string }) => Promise<void>) {
     const deckController = new DeckController({ hash: null })
-    await deckController.load({
+    await deckController.loadDeckValue({
       title: 'Deck',
       slides: [{ id: 'a', content: { kind: 'html', html: 'A' }, notes: 'old' }],
     })
@@ -93,8 +93,8 @@ describe('authoring flush', () => {
     const flushed = await authoring.flush()
     expect(flushed).not.toBeNull()
     if (!flushed) return
-    expect(printableDeck(flushed, { layout: 'notes' })).toContain('typed just now')
-    expect(printableDeck(flushed, { layout: 'notes' })).not.toContain('>old<')
+    expect(printableDeckValue(flushed, { layout: 'notes' })).toContain('typed just now')
+    expect(printableDeckValue(flushed, { layout: 'notes' })).not.toContain('>old<')
     expect(saves).toEqual(['typed just now'])
   })
 
@@ -107,7 +107,7 @@ describe('authoring flush', () => {
     const flushed = await authoring.flush()
     expect(flushed).not.toBeNull()
     if (!flushed) return
-    expect(printableDeck(flushed, { layout: 'notes' })).toContain('failed draft')
+    expect(printableDeckValue(flushed, { layout: 'notes' })).toContain('failed draft')
     expect(queue.state('a')).toMatchObject({ text: 'failed draft', status: 'error' })
   })
 
@@ -132,7 +132,7 @@ describe('authoring flush', () => {
     expect(flushed).not.toBeNull()
     if (!flushed) return
     expect(flushed.slides[0]?.notes).toBe('draft during flush')
-    expect(printableDeck(flushed, { layout: 'notes' })).toContain('draft during flush')
+    expect(printableDeckValue(flushed, { layout: 'notes' })).toContain('draft during flush')
   })
 
   test('flush after detach returns the authored notes from the last queue', async () => {
@@ -145,13 +145,13 @@ describe('authoring flush', () => {
     expect(flushed).not.toBeNull()
     if (!flushed) return
     expect(flushed.slides[0]?.notes).toBe('failed draft')
-    expect(printableDeck(flushed, { layout: 'notes' })).toContain('failed draft')
+    expect(printableDeckValue(flushed, { layout: 'notes' })).toContain('failed draft')
   })
 })
 
 test('a rejected reorder rolls back a frozen deck and reports the move error', async () => {
   const deckController = new DeckController({ hash: null })
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'Deck',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'A' } },
@@ -179,7 +179,7 @@ test('a rejected reorder rolls back a frozen deck and reports the move error', a
 
 test('a rejected reorder does not replace a newer host deck and reports the move error', async () => {
   const deckController = new DeckController({ hash: null })
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'Deck',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'A' } },
@@ -212,7 +212,7 @@ test('a rejected reorder does not replace a newer host deck and reports the move
 
   const moving = (authoring as unknown as { move(fromIndex: number, toIndex: number): Promise<void> }).move(0, 1)
   await moveStarted
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'New host deck',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'Host A' } },
@@ -228,7 +228,7 @@ test('a rejected reorder does not replace a newer host deck and reports the move
 
 async function authoringWithHeldNotesSave() {
   const deckController = new DeckController({ hash: null })
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'Deck',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'A' }, notes: 'old' },

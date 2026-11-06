@@ -6,7 +6,7 @@
 
 import {
   type Deck,
-  Document,
+  Document as DocumentSchema,
   type DocumentInput,
   deckFromDocument,
   exceedsLimits,
@@ -30,7 +30,7 @@ import {
   placePrintImages,
   printableDeckValue,
   printableDeckValueDocument,
-  printablePagesDocument,
+  printableHtmlPagesDocument,
   resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
@@ -155,7 +155,7 @@ export async function preparedDeckPrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
-  return preparedDeckValuePrint(deckFromDocument(Document.parse(input)), options, signal)
+  return preparedDeckValuePrint(deckFromDocument(DocumentSchema.parse(input)), options, signal)
 }
 
 export async function preparedDeckValuePrint(
@@ -217,7 +217,7 @@ async function preparedPagesPrint(
     })
     return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, sheets: printable.sheets, strictFrameReadiness: true }
   }
-  const printable = printablePagesDocument(filled, imposition, options)
+  const printable = printableHtmlPagesDocument(filled, imposition, options)
   return {
     ...paperBoxSize(printable.imposed.paper),
     html: printable.html,
@@ -251,7 +251,7 @@ function refusePagesSheets(options: PrintFrameOptions): void {
 }
 
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
-  const deck = deckFromDocument(Document.parse(input))
+  const deck = deckFromDocument(DocumentSchema.parse(input))
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))

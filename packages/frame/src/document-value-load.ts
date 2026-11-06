@@ -1,0 +1,5 @@
+export const internalPageLoad = Symbol('internalPageLoad')
+export const internalThumbnailDeckLoad = Symbol('internalThumbnailDeckLoad')
+export const internalThumbnailPageLoad = Symbol('internalThumbnailPageLoad')
+export const internalDocumentPagesLoad = Symbol('internalDocumentPagesLoad')
+export const internalPaperPagesLoad = Symbol('internalPaperPagesLoad')

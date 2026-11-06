@@ -77,7 +77,10 @@ test('a dropped browser whose relaunch outlives the bound times out and does not
   const { openRenderer, RenderTimeoutError } = await import('./index.ts')
   const renderer = await openRenderer({ executablePath: '/fake/chromium' })
   first.drop()
-  const rendered = renderer.pagePdf({ html: '<p>x</p>', size: { width: 200, height: 100 } }, { boundMs: 40, effects: false })
+  const rendered = renderer.pagePdf(
+    { type: 'document', kind: 'page', size: { width: 200, height: 100 }, children: [{ type: 'page', body: { html: '<p>x</p>' } }] },
+    { boundMs: 40, effects: false },
+  )
   await expect(rendered).rejects.toBeInstanceOf(RenderTimeoutError)
   resumeRelaunch(new FakeBrowser())
   await new Promise<void>((resolve) => setTimeout(resolve, 50))
@@ -96,7 +99,10 @@ test('a failed mid-render relaunch names the exit', async () => {
   const { openRenderer } = await import('./index.ts')
   const renderer = await openRenderer({ executablePath: '/fake/chromium' })
   first.drop()
-  const rendered = renderer.pagePdf({ html: '<p>x</p>', size: { width: 200, height: 100 } }, { boundMs: 1000, effects: false })
+  const rendered = renderer.pagePdf(
+    { type: 'document', kind: 'page', size: { width: 200, height: 100 }, children: [{ type: 'page', body: { html: '<p>x</p>' } }] },
+    { boundMs: 1000, effects: false },
+  )
   await expect(rendered).rejects.toBeInstanceOf(RendererUnavailableError)
   await expect(rendered).rejects.toThrow(relaunchUnavailable('/fake/chromium', new Error('spawn failed')).message)
   await renderer.close()

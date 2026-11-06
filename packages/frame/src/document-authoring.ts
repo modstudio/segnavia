@@ -1,6 +1,7 @@
 import type { SegnaviaDocument } from './document.ts'
 import { type MovePageHandler, movePageOptimistically, pageIdentityError } from './document-authoring-move.ts'
 import { SegnaviaDocumentRail } from './document-rail.ts'
+import { internalDocumentPagesLoad } from './document-value-load.ts'
 import { itemSettingsOpenEvent } from './item-settings-open.ts'
 import { ENGLISH_LABELS } from './labels.ts'
 
@@ -117,7 +118,7 @@ export class DocumentAuthoringController extends EventTarget {
         fromIndex,
         toIndex,
         (next) => {
-          this.document.pages = next
+          this.document[internalDocumentPagesLoad](next)
           if (this.stopped) return
           this.document.setAuthoringRail(this.rail)
           this.rail.configure(next, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))

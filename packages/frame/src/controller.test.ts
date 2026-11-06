@@ -78,7 +78,7 @@ const deck = {
 describe('deck controller', () => {
   test('play runs through playing slides and stops at the next static one', async () => {
     const { controller, clocks, tick } = harness()
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     await controller.play()
     expect(controller.state.index).toBe(1)
     expect(controller.state.playing).toBe(true)
@@ -94,7 +94,7 @@ describe('deck controller', () => {
 
   test('an annotation shows from its cue word and stays shown when paused', async () => {
     const { controller, clocks, tick } = harness()
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     await controller.go(1)
     await controller.play()
     ;(clocks[0] as { elapsed: number }).elapsed = 0
@@ -109,7 +109,7 @@ describe('deck controller', () => {
 
   test('pause preserves position and play resumes the same clock', async () => {
     const { controller, clocks, tick } = harness()
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     await controller.go(1)
     await controller.play()
     const clock = clocks[0]
@@ -128,7 +128,7 @@ describe('deck controller', () => {
 
   test('seek moves across slides and within one slide', async () => {
     const { controller, clocks } = harness()
-    await controller.load({
+    await controller.loadDeckValue({
       title: 'T',
       slides: [
         { id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 },
@@ -147,7 +147,7 @@ describe('deck controller', () => {
   test('hold slides advance and untimed slides stop in either playback mode', async () => {
     for (const playback of ['segmented', 'continuous'] as const) {
       const { controller, clocks, tick } = harness({ playback })
-      await controller.load({
+      await controller.loadDeckValue({
         title: 'T',
         slides: [
           { id: 'a', content: { kind: 'html', html: '' }, holdMs: 50 },
@@ -171,7 +171,7 @@ describe('deck controller', () => {
 
   test('mute changes sound without changing the clock position', async () => {
     const { controller, clocks } = harness()
-    await controller.load({ title: 'T', slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 }] })
+    await controller.loadDeckValue({ title: 'T', slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 }] })
     await controller.play()
     const clock = clocks[0]
     if (!clock) throw new Error('clock was not created')
@@ -191,9 +191,9 @@ describe('deck controller', () => {
     try {
       const { controller } = harness()
       const referenced = { title: 'T', slides: [{ id: 'a', content: { kind: 'shot-ref', href: 'shot.json' } }] }
-      await controller.load(referenced, 'https://example.com/deck.json')
+      await controller.loadDeckValue(referenced, 'https://example.com/deck.json')
       expect(controller.state.content).toMatchObject({ kind: 'shot', src: 'https://example.com/shot-1.png' })
-      await controller.load(referenced)
+      await controller.loadDeckValue(referenced)
       expect(controller.state.content).toMatchObject({ kind: 'shot', src: 'https://example.com/shot-2.png' })
       expect(requests).toBe(2)
     } finally {
@@ -216,7 +216,7 @@ describe('deck controller', () => {
           },
         ],
       }
-      await expect(controller.load(referenced, 'https://example.com/deck.json')).rejects.toThrow(
+      await expect(controller.loadDeckValue(referenced, 'https://example.com/deck.json')).rejects.toThrow(
         'Slide "referenced" has invalid cues: a cue names annotation 1, but the slide has 1.',
       )
     } finally {
@@ -237,7 +237,7 @@ describe('deck controller', () => {
         },
       ],
     }
-    await expect(controller.load(input, 'https://example.com/deck.json')).rejects.toThrow(
+    await expect(controller.loadDeckValue(input, 'https://example.com/deck.json')).rejects.toThrow(
       'Slide "minted" has invalid cues: a cue names annotation 1, but the slide has 1.',
     )
   })
@@ -260,7 +260,7 @@ describe('deck controller', () => {
       }
       const errors: Array<{ index: number; message: string }> = []
       controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
-      await controller.load(input, 'https://example.com/deck.json')
+      await controller.loadDeckValue(input, 'https://example.com/deck.json')
       const before = controller.state
       await expect(controller.go(1)).rejects.toThrow('Slide "refused" has invalid cues')
       expect(controller.state.index).toBe(before.index)
@@ -290,7 +290,7 @@ describe('deck controller', () => {
       }
       const errors: Array<{ index: number; message: string }> = []
       controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
-      await controller.load(input, 'https://example.com/deck.json')
+      await controller.loadDeckValue(input, 'https://example.com/deck.json')
       await controller.play()
       const before = controller.state
       await expect(controller.go(1)).rejects.toThrow('Slide "refused" has invalid cues')
@@ -323,7 +323,7 @@ describe('deck controller', () => {
           },
         ],
       }
-      await controller.load(input, 'https://example.com/deck.json')
+      await controller.loadDeckValue(input, 'https://example.com/deck.json')
       await Bun.sleep(0)
       expect(unhandled).toEqual([])
       await expect(controller.go(1)).rejects.toThrow('Slide "refused" has invalid cues')
@@ -351,7 +351,7 @@ describe('deck controller', () => {
       }
       const errors: Array<{ index: number; message: string }> = []
       controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
-      await controller.load(input, 'https://example.com/deck.json')
+      await controller.loadDeckValue(input, 'https://example.com/deck.json')
       expect(controller.key('ArrowRight')).toBe('next')
       await Bun.sleep(0)
       expect(controller.state.index).toBe(0)
@@ -367,7 +367,7 @@ describe('controller events', () => {
     const { controller, clocks, tick } = harness()
     const events: string[] = []
     for (const name of ['slide', 'cue', 'end']) controller.addEventListener(name, () => events.push(name))
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     await controller.go(2)
     await controller.play()
     ;(clocks[0] as { ended: boolean }).ended = true
@@ -382,7 +382,7 @@ describe('controller events', () => {
     const { controller, clocks, tick } = harness()
     const details: Array<{ annotations: number[] | null }> = []
     controller.addEventListener('cue', (event) => details.push((event as CustomEvent<{ annotations: number[] | null }>).detail))
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     await controller.go(1)
     await controller.play()
     ;(clocks[0] as { elapsed: number }).elapsed = 0
