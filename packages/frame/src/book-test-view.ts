@@ -54,6 +54,7 @@ export function switchableBookView(): BookViewInput {
       rectoOpenings: false,
       orphans: 2,
       widows: 2,
+      fragmentation: 'safe',
       parents: [],
       endnotePlacement: 'book',
       contents: { pageNumbers: true, depth: 2 },

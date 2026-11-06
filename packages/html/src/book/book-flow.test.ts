@@ -1,9 +1,23 @@
 import { describe, expect, test } from 'bun:test'
 import { Book, PX_PER_MM } from '@segnavia/format'
+import { fragmentationCss } from '../fragmentation.ts'
 import { bookDocument } from './book-document.ts'
 import { BOOK_FLOW_COLUMN_MIN_PX, bookBlockPosition, parseBookPositionKey } from './book-flow.ts'
 
 describe('book flow', () => {
+  test('adds safe fragmentation to every book build and omits it when disabled', () => {
+    const input = {
+      title: 'Book',
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { top: 10, bottom: 12, inner: 14, outer: 8 } },
+      chapters: [{ title: 'One', html: '<h1>Heading</h1><table><tr><td>Row</td></tr></table>' }],
+    }
+    for (const build of ['galley', 'flow', 'print'] as const) {
+      expect(bookDocument(Book.parse(input), { build }).html).toContain(fragmentationCss('safe'))
+      expect(bookDocument(Book.parse({ ...input, fragmentation: 'none' }), { build }).html).not.toContain(fragmentationCss('safe'))
+    }
+  })
+
   test('reads the position keys written for ordinary and suffixed blocks', () => {
     expect(parseBookPositionKey(bookBlockPosition('chapter:held', 3))).toEqual({ flow: 'chapter:held', index: 3 })
     expect(parseBookPositionKey(bookBlockPosition('chapter:held', 3, 'footnotes'))).toEqual({ flow: 'chapter:held', index: 3, suffix: 'footnotes' })

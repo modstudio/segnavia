@@ -29,6 +29,12 @@ describe('book', () => {
     expect(Book.parse(input({ css: '.lead{color:purple}' })).css).toBe('.lead{color:purple}')
   })
 
+  test('fragmentation defaults to safe, accepts none and refuses other values', () => {
+    expect(Book.parse(input()).fragmentation).toBe('safe')
+    expect(Book.parse(input({ fragmentation: 'none' })).fragmentation).toBe('none')
+    expect(Book.safeParse(input({ fragmentation: 'always' as never })).success).toBe(false)
+  })
+
   test('language resolves page numbering and note marker defaults', () => {
     for (const lang of ['he', 'he-IL', 'iw']) {
       expect(Book.parse(input({ lang }))).toMatchObject({
@@ -77,6 +83,7 @@ describe('book', () => {
       rectoOpenings: false,
       orphans: 2,
       widows: 2,
+      fragmentation: 'safe',
       runningHead: { recto: 'title', verso: 'title' },
       contents: { pageNumbers: true, depth: 2 },
     })
@@ -188,6 +195,7 @@ describe('book', () => {
       rectoOpenings: true,
       orphans: 2,
       widows: 2,
+      fragmentation: 'safe',
       endnotePlacement: 'book',
     })
   })

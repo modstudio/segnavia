@@ -47,6 +47,7 @@ describe('bookView', () => {
       rectoOpenings: true,
       orphans: 2,
       widows: 2,
+      fragmentation: 'safe',
       endnotePlacement: 'book',
       runningHead: { recto: { mark: 'siman', which: 'first' }, verso: 'title' },
     })

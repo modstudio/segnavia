@@ -38,6 +38,7 @@ describe('book view', () => {
       rectoOpenings: true,
       orphans: 2,
       widows: 2,
+      fragmentation: 'safe' as const,
       parents: [{ name: 'segnavia:recto', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
