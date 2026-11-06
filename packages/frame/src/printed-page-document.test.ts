@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { bodyHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
-import { PRINTED_PAGE_COMPOSER_SCRIPT, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
+import { PRINTED_PAGE_COMPOSER_SCRIPT, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError, printedPageDocument } from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',
@@ -44,6 +45,8 @@ describe('printedPageDocument', () => {
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(`performance.now()-startedAt,${LAYOUT_SETTLE_MS}`)
+    expect(html).toContain(`var failureName="${PRINTED_PAGE_FAILURE_ATTRIBUTE}"`)
+    expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
 
   test('keeps whole-document head resources beside a flow holding only body children', () => {
@@ -70,7 +73,7 @@ describe('printedPageDocument', () => {
     expect(measuring).toContain('ResizeObserver')
     expect(second).toContain('"only":2')
     expect(second).not.toContain('ResizeObserver')
-    expect(second).toContain('attributeFilter:[name]')
+    expect(second).toContain('attributeFilter:[name,failureName]')
   })
 
   test('settles furniture resources and fonts before marking composition complete', () => {
