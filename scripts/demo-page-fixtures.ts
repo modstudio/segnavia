@@ -265,7 +265,13 @@ function printedDocument(input: {
   html: string
   lang: string
   dir?: 'ltr' | 'rtl'
-  parents?: Array<{ name: string; basedOn?: string; margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }; head?: string; foot?: string }>
+  parents?: Array<{
+    name: string
+    basedOn?: string
+    margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }
+    head?: string
+    foot?: string
+  }>
   rules?: PrintedPageRules
 }): DocumentInput {
   const parents = input.parents ?? parentPages.parents
@@ -326,11 +332,11 @@ export const parentPageFurnitureOverflow: DocumentInput = printedDocument({
   html: `${flowingCss}<p>Furniture overflow body</p>`,
   lang: 'en',
   parents: [
-      {
-        name: 'body',
-        margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-        head: '<div style="block-size:200px">Too-tall furniture</div>',
-      },
+    {
+      name: 'body',
+      margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
+      head: '<div style="block-size:200px">Too-tall furniture</div>',
+    },
   ],
   rules: { every: 'body' },
 })

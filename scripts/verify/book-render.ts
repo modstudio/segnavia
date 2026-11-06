@@ -4,6 +4,7 @@ import path from 'node:path'
 import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
+import { bookDocumentFixture } from '../book-document-fixture.ts'
 import { verifyBookCssRender } from './book-css-render.ts'
 import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
@@ -11,7 +12,6 @@ import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.
 import { expectedBookLinkPages } from './book-render-links.ts'
 import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
-import { bookDocumentFixture } from '../book-document-fixture.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 interface Fixture {
@@ -349,7 +349,10 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   const baseline = await renderer.bookPdf(bookDocumentFixture(book), { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
   let report: OverflowReport | undefined
   const overflow = await renderer.bookPdf(
-    bookDocumentFixture({ ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] }),
+    bookDocumentFixture({
+      ...book,
+      chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }],
+    }),
     { effects: false, css: 'body{margin:0;font:16px/24px serif}', overflow: { report: (value) => (report = value) } },
   )
   const baselineFile = path.join(work, 'book-overflow-baseline.pdf')

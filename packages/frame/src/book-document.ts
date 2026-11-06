@@ -1,4 +1,4 @@
-import { bookFromDocument, Document, type DocumentInput, type Book, type BookView } from '@segnavia/format'
+import { type Book, type BookView, bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument } from '@segnavia/html'
 import { composerScript } from './book-composer.ts'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'

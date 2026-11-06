@@ -15,8 +15,8 @@ import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type PageOrPrintedInput, pageOrPrintedFromInput } from './document-input.ts'
 import { RenderRefusedError } from './errors.ts'
-import { pageOrPrintedFromInput, type PageOrPrintedInput } from './document-input.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
@@ -117,7 +117,14 @@ export function resolvedPageDocument(page: HtmlPage, css: string, options: Resol
   })
 }
 
-export function renderPageDocument(input: PageOrPrintedInput, options: RenderOptions, printing = false, nonce?: string, fontCss = '', diagramScript?: string): string {
+export function renderPageDocument(
+  input: PageOrPrintedInput,
+  options: RenderOptions,
+  printing = false,
+  nonce?: string,
+  fontCss = '',
+  diagramScript?: string,
+): string {
   const page = resolvePageHtml(pageOrPrintedFromInput(input))
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')

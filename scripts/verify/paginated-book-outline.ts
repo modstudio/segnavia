@@ -4,8 +4,8 @@ import path from 'node:path'
 import type { BookInput } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
-import { verifyPdfStructure } from './book-pdf-readback.ts'
 import { bookDocumentFixture } from '../book-document-fixture.ts'
+import { verifyPdfStructure } from './book-pdf-readback.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 

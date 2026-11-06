@@ -1,4 +1,4 @@
-import { Document, type DocumentInput, Page, type PageInput, printedFromDocument, type Page as PageValue } from '@segnavia/format'
+import { Document, type DocumentInput, Page, type PageInput, type Page as PageValue, printedFromDocument } from '@segnavia/format'
 
 export type PageOrPrintedInput = PageInput | DocumentInput
 
@@ -8,7 +8,9 @@ export function pageOrPrintedFromInput(input: PageOrPrintedInput): PageValue {
   }
   const page = Page.parse(input)
   if (page.printedPages !== undefined) {
-    throw new Error("a printed-pages input must be a Document with kind printed; replace printedPages with { type: 'document', kind: 'printed', ... } to clear this refusal")
+    throw new Error(
+      "a printed-pages input must be a Document with kind printed; replace printedPages with { type: 'document', kind: 'printed', ... } to clear this refusal",
+    )
   }
   return page
 }

@@ -4,8 +4,8 @@ import {
   type BookItem,
   bookFromDocument,
   Document,
-  type Document as DocumentValue,
   type DocumentInput,
+  type Document as DocumentValue,
   isBookContents,
   isDesignedSection,
   isPart,
@@ -18,7 +18,7 @@ function defined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T
 }
 
-function node(entry: BookItem): Node {
+function node(entry: BookItem, contents: Book['contents']): Node {
   if (isPart(entry)) {
     return defined({
       type: 'part' as const,
@@ -29,11 +29,18 @@ function node(entry: BookItem): Node {
       opens: entry.opens,
       parents: entry.parents,
       runningHead: entry.runningHead,
-      children: entry.children.map(node),
+      children: entry.children.map((child) => node(child, contents)),
     })
   }
   if (isBookContents(entry)) {
-    return defined({ type: 'contents' as const, title: entry.title, opens: entry.opens, parents: entry.parents })
+    return defined({
+      type: 'contents' as const,
+      title: entry.title,
+      opens: entry.opens,
+      parents: entry.parents,
+      depth: contents.depth,
+      pageNumbers: contents.pageNumbers,
+    })
   }
   if (isDesignedSection(entry)) {
     return defined({
@@ -57,7 +64,14 @@ function node(entry: BookItem): Node {
     })
   }
   if ('kind' in entry && entry.kind === 'placed') {
-    return defined({ type: 'section' as const, title: entry.title, contents: entry.contents, opens: entry.opens, parents: entry.parents, children: [{ type: 'placed', ...entry.placement }] })
+    return defined({
+      type: 'section' as const,
+      title: entry.title,
+      contents: entry.contents,
+      opens: entry.opens,
+      parents: entry.parents,
+      children: [{ type: 'placed', ...entry.placement }],
+    })
   }
   if ('html' in entry) {
     return defined({
@@ -74,7 +88,11 @@ function node(entry: BookItem): Node {
 
 export function bookDocumentFixture(input: BookInput): DocumentInput {
   const book = Book.parse(input)
-  const division = (name: 'front' | 'body' | 'end', entries: BookItem[]): Node => ({ type: 'division', name, children: entries.map(node) })
+  const division = (name: 'front' | 'body' | 'end', entries: BookItem[]): Node => ({
+    type: 'division',
+    name,
+    children: entries.map((entry) => node(entry, book.contents)),
+  })
   return defined({
     type: 'document' as const,
     kind: 'book' as const,

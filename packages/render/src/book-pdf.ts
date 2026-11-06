@@ -20,7 +20,6 @@ import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { filledBook } from './slot-fill.ts'
-
 export interface BookPdfAdapter {
   print(html: string, book: Book, options: RenderOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>

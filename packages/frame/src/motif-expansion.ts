@@ -1,8 +1,8 @@
 import {
   type Book,
-  bookFromDocument,
   type BookItem,
   type BookView,
+  bookFromDocument,
   Document,
   type DocumentInput,
   type FontReference,
@@ -39,20 +39,16 @@ export interface MotifsOptions {
   linkOrigins?: Iterable<string>
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
-
 export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type PlacementsOptions = AssetPlacementsOptions
-
 export interface ExpandedFramePage {
   page: HtmlPage
   fonts: FontReference[]
 }
-
 export interface ExpandedBook<T extends Book | BookView> {
   book: T
   fonts: FontReference[]
 }
-
 interface BookHtmlField {
   html: string
   furniture: boolean

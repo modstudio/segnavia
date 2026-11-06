@@ -127,7 +127,12 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(input: Book | BookInput, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(
+  input: Book | BookInput,
+  options: RenderOptions,
+  fontCss: string,
+  dependencies: BrowserBookDependencies,
+): Promise<Uint8Array> {
   const book: Book = Array.isArray(input.body) ? (input as Book) : Book.parse(input)
   let script: Promise<string | undefined> | undefined
   return renderBookPdf(book, options, {

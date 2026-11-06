@@ -8,7 +8,6 @@ import { type Deck, exceedsLimits, Imposition, type ImpositionInput, type Limits
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { loadDiagramScript } from './diagram-document.ts'
-import { pageOrPrintedFromInput, type PageOrPrintedInput } from './document-input.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { parsePageWidths } from './page-widths.ts'
@@ -28,6 +27,7 @@ import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { pagesSheetsRefusal } from './print-limits.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,

@@ -4,7 +4,12 @@ import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@seg
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
-import { PRINTED_PAGE_COMPOSER_SCRIPT, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError, printedPageDocument as documentHtml } from './printed-page-document.ts'
+import {
+  printedPageDocument as documentHtml,
+  PRINTED_PAGE_COMPOSER_SCRIPT,
+  PRINTED_PAGE_FAILURE_ATTRIBUTE,
+  PrintedPagesRefusedError,
+} from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',

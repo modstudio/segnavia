@@ -5,8 +5,8 @@ import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
-import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { bookDocumentFixture, bookFixtureValue } from './book-document-fixture.ts'
+import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
@@ -18,36 +18,37 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
-const fixture = (hebrew: boolean): DocumentInput => bookDocumentFixture({
-  title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
-  mode: 'continuous',
-  lang: hebrew ? 'he' : 'en',
-  css: BOOK_CSS,
-  frontMatter: [
-    {
-      title: hebrew ? 'שער' : 'Title page',
-      contents: false,
-      html: `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>`,
-    },
-    { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-  ],
-  chapters: [
-    {
-      title: hebrew ? 'התחלה' : 'Beginning',
-      html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
-        hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
-      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>${keepProbe(hebrew)}<p>${
-        hebrew ? 'ראו עמ׳ ' : 'See page '
-      }<a href="#far-shore" data-ref="page"></a>.</p>`,
-    },
-    {
-      title: hebrew ? 'החוף הרחוק' : 'The Far Shore',
-      html: `<h1 id="far-shore">${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
-        hebrew ? 'בקצה המסע נמצא חוף חדש' : 'At the end of the crossing was another shore'
-      }<span data-note="endnote">${hebrew ? 'מקור להערת הסיום.' : 'The source for the endnote.'}</span>.</p>`,
-    },
-  ],
-})
+const fixture = (hebrew: boolean): DocumentInput =>
+  bookDocumentFixture({
+    title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
+    mode: 'continuous',
+    lang: hebrew ? 'he' : 'en',
+    css: BOOK_CSS,
+    frontMatter: [
+      {
+        title: hebrew ? 'שער' : 'Title page',
+        contents: false,
+        html: `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>`,
+      },
+      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+    ],
+    chapters: [
+      {
+        title: hebrew ? 'התחלה' : 'Beginning',
+        html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
+          hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
+        }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>${keepProbe(hebrew)}<p>${
+          hebrew ? 'ראו עמ׳ ' : 'See page '
+        }<a href="#far-shore" data-ref="page"></a>.</p>`,
+      },
+      {
+        title: hebrew ? 'החוף הרחוק' : 'The Far Shore',
+        html: `<h1 id="far-shore">${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
+          hebrew ? 'בקצה המסע נמצא חוף חדש' : 'At the end of the crossing was another shore'
+        }<span data-note="endnote">${hebrew ? 'מקור להערת הסיום.' : 'The source for the endnote.'}</span>.</p>`,
+      },
+    ],
+  })
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
@@ -83,7 +84,6 @@ function columnFitChapter(hebrew: boolean) {
     html: `<h1>${title}</h1><p dir="ltr" data-columns="2" data-column-fit-check style="margin-inline-start:6pt;margin-inline-end:4pt;padding-inline-start:20pt;padding-inline-end:5pt">${padded}</p>`,
   }
 }
-
 function chapterThreeHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שלישי' : 'Chapter Three'
   const lead = hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
@@ -91,7 +91,6 @@ function chapterThreeHtml(hebrew: boolean): string {
   const body = hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
   return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
 }
-
 function chapterFourHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק רביעי' : 'Chapter Four'
   const svg = encodeURIComponent(
@@ -105,7 +104,6 @@ function chapterFourHtml(hebrew: boolean): string {
   const end = hebrew ? 'מקור לפרק הרביעי.' : 'The source for the fourth chapter.'
   return `<h1>${title}</h1>${image}${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
 }
-
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
   const verso = hebrew ? 'גב השער' : 'Verso of the spread'
@@ -120,7 +118,6 @@ function designedSpread(hebrew: boolean) {
     ],
   }
 }
-
 function designedLeaf(hebrew: boolean) {
   const title = hebrew ? 'לוח' : 'Plate'
   return {
@@ -130,47 +127,46 @@ function designedLeaf(hebrew: boolean) {
     pages: [{ html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` }],
   }
 }
-
-const paginatedFixture = (hebrew: boolean): DocumentInput => bookDocumentFixture({
-  title: hebrew ? 'הגדת הדף' : 'The Paged Book',
-  mode: 'paginated',
-  lang: hebrew ? 'he' : 'en',
-  css: BOOK_STYLE_CHECK_CSS,
-  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
-  rectoOpenings: true,
-  endnotes: { placement: 'chapter' },
-  runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
-  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY),
-  frontMatter: [
-    {
-      title: hebrew ? 'פתיחה' : 'Preface',
-      html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p><span data-motif="${BOOK_MOTIF_KEY}"></span> ${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
-    },
-    { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-  ],
-  chapters: [
-    designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew, undefined, true), parents: { ...markParents, opener: 'deep-opener' } },
-    designedLeaf(hebrew),
-    {
-      title: hebrew ? 'פרק שני' : 'Chapter Two',
-      html: chapterTwoHtml(hebrew),
-      parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
-    },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
-    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
-    columnFitChapter(hebrew),
-  ],
-})
-
-const composeFailureFixture = (): DocumentInput => bookDocumentFixture({
-  title: 'The Book Beyond the Page Limit',
-  mode: 'paginated',
-  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-  rectoOpenings: true,
-  chapters: Array.from({ length: 251 }, (_, index) => ({ title: `Chapter ${index + 1}`, html: `<p>Chapter ${index + 1}</p>` })),
-})
-
+const paginatedFixture = (hebrew: boolean): DocumentInput =>
+  bookDocumentFixture({
+    title: hebrew ? 'הגדת הדף' : 'The Paged Book',
+    mode: 'paginated',
+    lang: hebrew ? 'he' : 'en',
+    css: BOOK_STYLE_CHECK_CSS,
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
+    rectoOpenings: true,
+    endnotes: { placement: 'chapter' },
+    runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
+    parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY),
+    frontMatter: [
+      {
+        title: hebrew ? 'פתיחה' : 'Preface',
+        html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p><span data-motif="${BOOK_MOTIF_KEY}"></span> ${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+      },
+      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+    ],
+    chapters: [
+      designedSpread(hebrew),
+      { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew, undefined, true), parents: { ...markParents, opener: 'deep-opener' } },
+      designedLeaf(hebrew),
+      {
+        title: hebrew ? 'פרק שני' : 'Chapter Two',
+        html: chapterTwoHtml(hebrew),
+        parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+      },
+      { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
+      { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
+      columnFitChapter(hebrew),
+    ],
+  })
+const composeFailureFixture = (): DocumentInput =>
+  bookDocumentFixture({
+    title: 'The Book Beyond the Page Limit',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
+    rectoOpenings: true,
+    chapters: Array.from({ length: 251 }, (_, index) => ({ title: `Chapter ${index + 1}`, html: `<p>Chapter ${index + 1}</p>` })),
+  })
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -318,7 +314,10 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(bookFixtureValue(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
     )
     writePartsBook(site, hebrew, hebrewFace)
-    writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(bookFixtureValue(paginatedFixture(hebrew)))))
+    writeFileSync(
+      path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'),
+      JSON.stringify(bookView(bookFixtureValue(paginatedFixture(hebrew)))),
+    )
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.json' : 'book-paginated-large-en.json'),
       JSON.stringify(bookView(bookFixtureValue(largePaginatedFixture(hebrew)))),
