@@ -9,7 +9,7 @@ import {
   pagePlacementLayout,
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
-import { DIAGRAMS_DRAWN_ATTRIBUTE, hasDiagram } from '@segnavia/frame/diagrams'
+import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
@@ -30,7 +30,7 @@ import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
-import { readinessRefusal } from './render-readiness.ts'
+import { waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
 
@@ -58,12 +58,7 @@ async function waitForPrintReady(tab: Tab, diagrams: boolean): Promise<void> {
     .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
     .catch(() => {})
   if (!diagrams) return
-  await tab
-    .locator(`html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`)
-    .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
-    .catch(() => {
-      throw new RenderRefusedError(readinessRefusal({ author: false, diagrams: true }, { author: true, diagrams: false }, SLIDES_READY_DEADLINE_MS / 1000))
-    })
+  await waitForDiagramReadiness(tab)
 }
 
 function nameSlideError(error: unknown, id: string): never {

@@ -8,6 +8,7 @@ import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { PAGE_READY_BOUND_MS } from './renderer.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
@@ -102,6 +103,7 @@ test('deck PDF refuses a diagram slide that does not finish drawing', async () =
     ...deck,
     slides: [{ id: 'diagram-slide', content: { kind: 'html', html: '<pre data-segnavia-diagram="mermaid"></pre>' } }],
   })
+  let diagramTimeout = 0
   const rendering = renderDeckPdf(
     diagramDeck,
     {},
@@ -110,7 +112,11 @@ test('deck PDF refuses a diagram slide that does not finish drawing', async () =
         if (!setup.html.includes('<section class="sheet">')) {
           const tab = {
             locator: (selector: string) => ({
-              waitFor: () => (selector === `html[${DIAGRAMS_DRAWN_ATTRIBUTE}]` ? Promise.reject(new Error('timeout')) : Promise.resolve()),
+              waitFor: (options: { timeout: number }) => {
+                if (selector !== `html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`) return Promise.resolve()
+                diagramTimeout = options.timeout
+                return Promise.reject(new Error('timeout'))
+              },
             }),
           } as unknown as Tab
           await setup.beforeOutput?.(tab)
@@ -124,7 +130,10 @@ test('deck PDF refuses a diagram slide that does not finish drawing', async () =
   )
 
   await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
-  await expect(rendering).rejects.toThrow('Slide "diagram-slide" could not be rendered: The page\'s diagrams did not finish drawing within 4s.')
+  expect(diagramTimeout).toBe(PAGE_READY_BOUND_MS)
+  await expect(rendering).rejects.toThrow(
+    'Slide "diagram-slide" could not be rendered: The page\'s diagrams did not finish drawing within 10s. Correct or simplify the diagram source so it draws within the bound to clear this refusal.',
+  )
 })
 
 test('a failed HTML slide render names the slide id', async () => {

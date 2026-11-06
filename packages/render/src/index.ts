@@ -1,5 +1,5 @@
 import { Book, Cover, type Deck, DocumentMetadata, Page } from '@segnavia/format'
-import { DIAGRAMS_DRAWN_ATTRIBUTE, hasDiagram } from '@segnavia/frame/diagrams'
+import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type PreparedSlots, resolvePageHtml } from '@segnavia/html'
@@ -29,7 +29,7 @@ import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './pro
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
-import { renderReadiness } from './render-readiness.ts'
+import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
@@ -183,12 +183,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const page = await filledPage(prepared.page, copySlots, deadline.signal)
+          const diagramScript = await resolveDiagramScript(page.html)
           const printed = await renderPagePdf(
             page,
             { ...prepared.options, limits: undefined, press: undefined, overflow: undefined },
             { withTab },
             undefined,
             deadline,
+            diagramScript,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -250,12 +252,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
-          const resolvedDiagram = { script: diagramScript }
           return renderPagesPdf(
             pages,
             { ...withFonts, limits: undefined, press: undefined },
             {
-              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, resolvedDiagram),
+              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript),
               piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
@@ -317,7 +318,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             ...dependencySetup(opts),
           },
           async (tab) => {
-            if (hasDiagram(slideHtml)) await tab.locator('iframe').contentFrame().locator(`html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`).waitFor()
+            if (hasDiagram(slideHtml)) await waitForDiagramReadiness(tab.locator('iframe').contentFrame())
             return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
           },
         )

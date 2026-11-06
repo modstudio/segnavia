@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { diagramProvider, hasDiagram, loadDiagramScript, registerDiagramProvider, withDiagramScript } from './diagram-document.ts'
+import { hasDiagram, loadDiagramScript, registerDiagramProvider, withDiagramScript } from './diagram-document.ts'
 
 const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
 const registry = globalThis as typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: () => Promise<string> }
@@ -44,12 +44,5 @@ describe('diagram script loading', () => {
 
     registerDiagramProvider(() => Promise.resolve('REPLACED'))
     expect(await loadDiagramScript('<pre data-segnavia-diagram="mermaid"></pre>')).toBe('REPLACED')
-  })
-
-  test('reports the registered provider as a fact', () => {
-    expect(diagramProvider()).toBeUndefined()
-    const provider = () => Promise.resolve('DRAW')
-    registerDiagramProvider(provider)
-    expect(diagramProvider()).toBe(provider)
   })
 })

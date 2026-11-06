@@ -28,6 +28,7 @@ test('refuses a diagram when neither source is available', async () => {
   })
   expect(resolving).rejects.toBeInstanceOf(RenderRefusedError)
   expect(resolving).rejects.toThrow('install @segnavia/diagrams, or call registerDiagramProvider')
+  expect(resolving).rejects.toThrow('missing')
 })
 
 test('preserves an error from the optional diagram provider', async () => {

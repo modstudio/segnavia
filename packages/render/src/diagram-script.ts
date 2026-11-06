@@ -13,9 +13,10 @@ export async function resolveDiagramScript(html: string, load: DiagramModuleLoad
   let module: DiagramModule
   try {
     module = await load()
-  } catch {
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error)
     throw new RenderRefusedError(
-      'This content draws a diagram, but no diagram script is available: install @segnavia/diagrams, or call registerDiagramProvider from @segnavia/frame/diagrams, to clear this refusal.',
+      `This content draws a diagram, but no diagram script is available (${cause}): install @segnavia/diagrams, or call registerDiagramProvider from @segnavia/frame/diagrams, to clear this refusal.`,
     )
   }
   return module.diagrams()

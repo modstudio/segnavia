@@ -2,7 +2,6 @@ import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { BrowserTabSetup } from './browser-tab.ts'
-import { resolveDiagramScript } from './diagram-script.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { dependencySetup, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -26,10 +25,9 @@ export async function renderPagePdf(
   services: PageRenderServices,
   inputIndex?: number,
   deadline?: RenderDeadline,
-  resolvedDiagram?: { script?: string },
+  diagramScript?: string,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-  const diagramScript = resolvedDiagram ? resolvedDiagram.script : await resolveDiagramScript(page.html)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
   return services.withTab(
     {
