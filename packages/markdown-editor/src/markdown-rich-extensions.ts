@@ -1,6 +1,7 @@
 import {
   type AnyExtension,
   Extension,
+  getExtensionField,
   getSchema,
   type JSONContent,
   type MarkdownLexerConfiguration,
@@ -16,6 +17,14 @@ import StarterKit from '@tiptap/starter-kit'
 import { Marked, type marked } from 'marked'
 import { LockedBlock } from './markdown-rich-locked.ts'
 import { rawInline } from './markdown-rich-raw-inline.ts'
+import {
+  listSourceAttributes,
+  sourceFormStarterExtensions,
+  sourceListAttrs,
+  tableRowSourceAttributes,
+  tableSourceExtension,
+  taskItemSourceExtension,
+} from './markdown-rich-source-forms.ts'
 
 const listAttributes = {
   loose: {
@@ -92,26 +101,13 @@ export function listIsLoose(raw: string): boolean {
 
 const LooseBulletList = BulletList.extend({
   addAttributes() {
-    return { ...this.parent?.(), ...listAttributes }
+    return { ...this.parent?.(), ...listAttributes, ...listSourceAttributes }
   },
   parseMarkdown(token, helpers: MarkdownParseHelpers) {
     if (token.type !== 'list' || token.ordered) return []
-    return { type: 'bulletList', attrs: { loose: listIsLoose(token.raw ?? '') }, content: helpers.parseChildren(token.items ?? []) }
-  },
-  renderMarkdown(node, helpers: MarkdownRendererHelpers) {
-    return node.content ? helpers.renderChildren(node.content, listSeparator(node)) : ''
-  },
-})
-
-const LooseOrderedList = OrderedList.extend({
-  addAttributes() {
-    return { ...this.parent?.(), ...listAttributes }
-  },
-  parseMarkdown(token, helpers: MarkdownParseHelpers) {
-    if (token.type !== 'list' || !token.ordered) return []
     return {
-      type: 'orderedList',
-      attrs: { start: token.start || 1, type: token.typeMarker ?? null, loose: listIsLoose(token.raw ?? '') },
+      type: 'bulletList',
+      attrs: { loose: listIsLoose(token.raw ?? ''), ...sourceListAttrs(token.raw ?? '') },
       content: helpers.parseChildren(token.items ?? []),
     }
   },
@@ -120,12 +116,41 @@ const LooseOrderedList = OrderedList.extend({
   },
 })
 
-const LooseTaskList = TaskList.extend({
+const LooseOrderedList = OrderedList.extend({
   addAttributes() {
-    return { ...this.parent?.(), ...listAttributes }
+    return { ...this.parent?.(), ...listAttributes, ...listSourceAttributes }
   },
   parseMarkdown(token, helpers: MarkdownParseHelpers) {
-    return helpers.createNode('taskList', { loose: listIsLoose(token.raw ?? '') }, helpers.parseChildren(token.items ?? []))
+    if (token.type !== 'list' || !token.ordered) return []
+    return {
+      type: 'orderedList',
+      attrs: { start: token.start || 1, type: token.typeMarker ?? null, loose: listIsLoose(token.raw ?? ''), ...sourceListAttrs(token.raw ?? '', true) },
+      content: helpers.parseChildren(token.items ?? []),
+    }
+  },
+  renderMarkdown(node, helpers: MarkdownRendererHelpers) {
+    if (!node.content) return ''
+    const recorded = node.attrs?.sourceOrderedNumbers
+    const keepsWrittenNumbers =
+      Array.isArray(recorded) && recorded.length === node.content.length && node.content.every((item, index) => item.attrs?.sourceNumber === recorded[index])
+    const content = node.content.map((item) => ({
+      ...item,
+      attrs: { ...item.attrs, sourceKeepWrittenNumbers: keepsWrittenNumbers },
+    }))
+    return helpers.renderChildren(content, listSeparator(node))
+  },
+})
+
+const LooseTaskList = TaskList.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...listAttributes, ...listSourceAttributes }
+  },
+  parseMarkdown(token, helpers: MarkdownParseHelpers) {
+    return helpers.createNode(
+      'taskList',
+      { loose: listIsLoose(token.raw ?? ''), ...sourceListAttrs(token.raw ?? '') },
+      helpers.parseChildren(token.items ?? []),
+    )
   },
   renderMarkdown(node, helpers: MarkdownRendererHelpers) {
     return node.content ? helpers.renderChildren(node.content, listSeparator(node)) : ''
@@ -168,13 +193,26 @@ const directionalBlocks = Extension.create({
 })
 
 export function richExtensions(definitionLabels: ReadonlySet<string> = new Set()): AnyExtension[] {
+  const starter = StarterKit.configure({ trailingNode: false, link: { openOnClick: false }, bulletList: false, orderedList: false })
+  const starterChildren = getExtensionField(starter, 'addExtensions', { name: starter.name, options: starter.options, storage: starter.storage })?.() ?? []
+  const tables = TableKit.configure()
+  const tableChildren = getExtensionField(tables, 'addExtensions', { name: tables.name, options: tables.options, storage: tables.storage })?.() ?? []
   return [
-    StarterKit.configure({ trailingNode: false, link: { openOnClick: false }, bulletList: false, orderedList: false }),
+    ...sourceFormStarterExtensions(starterChildren),
     LooseBulletList,
     LooseOrderedList,
-    TableKit,
+    ...tableChildren.map((extension: AnyExtension) => {
+      if (extension.name === 'tableRow') {
+        return extension.extend({
+          addAttributes(this: { parent?: () => Record<string, unknown> }) {
+            return { ...this.parent?.(), ...tableRowSourceAttributes }
+          },
+        })
+      }
+      return tableSourceExtension(extension)
+    }),
     LooseTaskList,
-    TaskItem.configure({ nested: true }),
+    taskItemSourceExtension(TaskItem.configure({ nested: true })),
     Image.configure({ inline: true }),
     directionalBlocks,
     LockedBlock,

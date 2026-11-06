@@ -4,6 +4,7 @@ import { Node } from '@tiptap/pm/model'
 import { richMarkdownManager, richSchema, scopedRichMarkdownManager } from './markdown-rich-extensions.ts'
 import { isLockedToken, isSilentToken, lockedFenceLabel, lockedNode, type MarkedToken } from './markdown-rich-locked.ts'
 import { normalizeReferenceLabel, RAW_INLINE_NAME } from './markdown-rich-raw-inline.ts'
+import { meaningfulAttributes, withoutRecordedSourceAttrs } from './markdown-rich-source-attrs.ts'
 
 type Json = JSONContent
 export type RichDocumentNode = Json | Node
@@ -18,6 +19,7 @@ type CachedOriginal = {
   nodes: Json[]
   keys: string[]
   indicesByFirstKey: Map<string, number[]>
+  definitionLabels: Set<string>
 }
 export type DocumentBodyTransform = { split: (source: string) => { editable: string; retained: string }; join: (editable: string, retained: string) => string }
 export type RichDocumentOptions = { bodyTransform?: DocumentBodyTransform; lockedFences?: Record<string, string> }
@@ -70,14 +72,17 @@ function parseBlock(manager: MarkdownManager, token: MarkedToken, raw: string, l
   return (Node.fromJSON(richSchema(), parsed).toJSON().content ?? []) as Json[]
 }
 
-function blocks(markdown: string, lockedFences: Record<string, string> = {}): Block[] {
-  const out: Block[] = []
-  const initialTokens = richMarkdownManager().instance.lexer(markdown) as MarkedToken[]
+function definitionLabels(tokens: readonly MarkedToken[]): Set<string> {
   const labels = new Set<string>()
-  for (const token of initialTokens) {
+  for (const token of tokens) {
     const definition = token.type === 'def' ? /^ {0,3}\[([^\]]+)\]:/.exec(token.raw)?.[1] : undefined
     if (definition !== undefined) labels.add(normalizeReferenceLabel(definition))
   }
+  return labels
+}
+
+function blocks(markdown: string, labels: ReadonlySet<string>, lockedFences: Record<string, string> = {}): Block[] {
+  const out: Block[] = []
   const manager = scopedRichMarkdownManager(labels)
   const tokens = manager.instance.lexer(markdown) as MarkedToken[]
   let at = 0
@@ -103,7 +108,10 @@ function originalEntry(original: string, options: RichDocumentOptions): CachedOr
   if (cachedOriginal?.original === original && cachedOriginal.fencesKey === nextFencesKey && cachedOriginal.bodyTransform === options.bodyTransform)
     return cachedOriginal
   const split = options.bodyTransform?.split(original)
-  const editableBlocks = blocks(split?.editable ?? original, options.lockedFences)
+  const editable = split?.editable ?? original
+  const initialTokens = richMarkdownManager().instance.lexer(editable) as MarkedToken[]
+  const labels = definitionLabels(initialTokens)
+  const editableBlocks = blocks(editable, labels, options.lockedFences)
   const nodes = editableBlocks.flatMap((block) => block.nodes)
   const keys = editableBlocks.flatMap((block) => block.keys)
   const indicesByFirstKey = new Map<string, number[]>()
@@ -114,7 +122,17 @@ function originalEntry(original: string, options: RichDocumentOptions): CachedOr
     indices.push(index)
     indicesByFirstKey.set(first, indices)
   }
-  cachedOriginal = { original, fencesKey: nextFencesKey, bodyTransform: options.bodyTransform, split, blocks: editableBlocks, nodes, keys, indicesByFirstKey }
+  cachedOriginal = {
+    original,
+    fencesKey: nextFencesKey,
+    bodyTransform: options.bodyTransform,
+    split,
+    blocks: editableBlocks,
+    nodes,
+    keys,
+    indicesByFirstKey,
+    definitionLabels: labels,
+  }
   return cachedOriginal
 }
 
@@ -129,24 +147,138 @@ function firstAtOrAfter(indices: readonly number[], minimum: number): number {
   return indices[low] ?? -1
 }
 
-function serializeNodes(nodes: readonly RichDocumentNode[]): string {
+function semantic(value: unknown, attrNodeType?: unknown): unknown {
+  if (Array.isArray(value)) {
+    const values = value.map((item) => semantic(item))
+    const merged: unknown[] = []
+    for (const item of values) {
+      const previous = merged.at(-1)
+      if (
+        isRecord(item) &&
+        item.type === 'text' &&
+        typeof item.text === 'string' &&
+        isRecord(previous) &&
+        previous.type === 'text' &&
+        typeof previous.text === 'string' &&
+        JSON.stringify(previous.marks) === JSON.stringify(item.marks)
+      ) {
+        previous.text += item.text
+      } else merged.push(item)
+    }
+    return merged
+  }
+  if (!isRecord(value)) return value
+  if (value.type === RAW_INLINE_NAME && isRecord(value.attrs) && /^\\(?:\[|\])$/.test(String(value.attrs.source))) {
+    return { type: 'text', text: value.attrs.display }
+  }
+  return meaningfulAttributes(
+    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, semantic(item, key === 'attrs' ? value.type : undefined)])),
+    {},
+    attrNodeType,
+  )
+}
+
+function sameDocument(markdown: string, nodes: Json[], manager: MarkdownManager): boolean {
+  const parsed = Node.fromJSON(richSchema(), manager.parse(markdown)).toJSON().content ?? []
+  return JSON.stringify(semantic(parsed)) === JSON.stringify(semantic(nodes))
+}
+
+export function chooseBracketEscapes(
+  markdown: string,
+  readsSame: (candidate: string) => boolean,
+  dangerousOffsets: (candidate: string) => number[],
+): { markdown: string; same: boolean } {
+  if (!/\\(?:\[|\])/.test(markdown)) {
+    return { markdown, same: readsSame(markdown) }
+  }
+  const all = markdown.replace(/\\(\[|\])/g, '$1')
+  if (readsSame(all)) return { markdown: all, same: true }
+  let selective = all
+  for (const offset of dangerousOffsets(all).sort((left, right) => right - left)) selective = `${selective.slice(0, offset)}\\${selective.slice(offset)}`
+  if (selective !== all && readsSame(selective)) return { markdown: selective, same: true }
+  return { markdown, same: readsSame(markdown) }
+}
+
+function dangerousBracketOffsets(markdown: string, manager: MarkdownManager): number[] {
+  const sources: string[] = []
+  const seen = new Set<object>()
+  const pending: unknown[] = [manager.instance.lexer(markdown)]
+  while (pending.length) {
+    const value = pending.pop()
+    if (!value || typeof value !== 'object' || seen.has(value as object)) continue
+    seen.add(value as object)
+    if (Array.isArray(value)) {
+      pending.push(...[...value].reverse())
+      continue
+    }
+    const token = value as Record<string, unknown>
+    const raw = typeof token.raw === 'string' ? token.raw : ''
+    const type = token.type
+    const source = typeof token.source === 'string' ? token.source : raw
+    if ((type === 'link' || type === 'image' || type === RAW_INLINE_NAME) && source.includes('[')) {
+      sources.push(raw || source)
+      continue
+    }
+    const children = Object.entries(token)
+      .filter(([key]) => key !== 'raw' && key !== 'text' && key !== 'source')
+      .map(([, child]) => child)
+      .reverse()
+    pending.push(...children)
+  }
+  const offsets: number[] = []
+  let cursor = 0
+  for (const source of sources) {
+    const at = markdown.indexOf(source, cursor)
+    const bracket = source.indexOf('[')
+    if (at < 0 || bracket < 0) continue
+    offsets.push(at + bracket)
+    cursor = at + source.length
+  }
+  return offsets
+}
+
+function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: ReadonlySet<string>): string {
   const json = nodes.map(asJson)
   let marker = '\uE000raw-inline-amp\uE001'
   const source = JSON.stringify(json)
   while (source.includes(marker)) marker += '-'
+  const openMarker = `${marker}open`
+  const closeMarker = `${marker}close`
+  let textMarkerCode = 0xe100
+  while (source.includes(String.fromCodePoint(textMarkerCode)) || source.includes(String.fromCodePoint(textMarkerCode + 1))) textMarkerCode += 2
+  const textOpenMarker = String.fromCodePoint(textMarkerCode)
+  const textCloseMarker = String.fromCodePoint(textMarkerCode + 1)
+  const restoreProtected = (value: string) => value.replaceAll(openMarker, '\\[').replaceAll(closeMarker, '\\]').replaceAll(marker, '&')
   const protect = (node: Json): Json => ({
     ...node,
+    text:
+      node.type === 'text' && typeof node.text === 'string' && !node.marks?.some((mark) => mark.type === 'link')
+        ? node.text.replaceAll('[', textOpenMarker).replaceAll(']', textCloseMarker)
+        : node.text,
     attrs:
       node.type === RAW_INLINE_NAME && typeof node.attrs?.source === 'string'
-        ? { ...node.attrs, source: node.attrs.source.replaceAll('&', marker) }
+        ? {
+            ...node.attrs,
+            source: node.attrs.source.replaceAll('&', marker).replaceAll('\\[', openMarker).replaceAll('\\]', closeMarker),
+          }
         : node.attrs,
     content: node.content?.map(protect),
   })
-  return restoreAmpersands(
-    richMarkdownManager()
-      .serialize({ type: 'doc', content: json.map(protect) })
-      .trim(),
-  ).replaceAll(marker, '&')
+  const manager = scopedRichMarkdownManager(definitionLabels)
+  const render = (content: Json[]) =>
+    restoreAmpersands(manager.serialize({ type: 'doc', content: content.map(protect) }).replace(/^\n+|\n+$/g, ''))
+      .replaceAll(textOpenMarker, '\\[')
+      .replaceAll(textCloseMarker, '\\]')
+  const meaningful = (candidate: string) => {
+    return chooseBracketEscapes(
+      candidate,
+      (value) => sameDocument(restoreProtected(value), json, manager),
+      (value) => dangerousBracketOffsets(value, manager),
+    )
+  }
+  let result = meaningful(render(json))
+  if (!result.same) result = meaningful(render(json.map(withoutRecordedSourceAttrs)))
+  return restoreProtected(result.markdown)
 }
 
 function matchingBlockIndex(entry: CachedOriginal, keys: readonly string[], keyIndex: number, blockIndex: number): number {
@@ -171,7 +303,7 @@ function stitch(entry: CachedOriginal, edited: readonly RichDocumentNode[], keys
   const pending: RichDocumentNode[] = []
   const emitNew = () => {
     if (!pending.length) return
-    out += (out ? '\n\n' : (bs[blockIndex]?.sep ?? '')) + serializeNodes(pending.splice(0))
+    out += (out ? '\n\n' : (bs[blockIndex]?.sep ?? '')) + serializeNodes(pending.splice(0), entry.definitionLabels)
     last = -1
   }
   const emitOld = (hit: number) => {

@@ -79,7 +79,11 @@ export function rawInline(labels: ReadonlySet<string> = new Set()) {
       name: RAW_INLINE_NAME,
       level: 'inline',
       start(src: string) {
-        for (let index = 0; index < src.length; index++) if (rawSource(src.slice(index), labels)) return index
+        const candidates = labels.size ? /\\|&|!?\[|</g : /\\|&|\[\^|</g
+        for (const match of src.matchAll(candidates)) {
+          if (match.index === undefined) continue
+          if (rawSource(src.slice(match.index), labels)) return match.index
+        }
         return -1
       },
       tokenize(src: string) {
