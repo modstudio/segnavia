@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { resolveDirection } from '@segnavia/format'
 import { NodeSelection } from '@tiptap/pm/state'
 import type { MarkdownEditorLabels } from './markdown-editor-labels.ts'
@@ -34,8 +35,8 @@ export function readRawInlineAtom(atom: HTMLElement): { source: string; display:
   }
 }
 
-function directionContext(atom: HTMLElement): { dir: 'ltr' | 'rtl' | undefined; lang: string | undefined } {
-  let dir: 'ltr' | 'rtl' | undefined
+function directionContext(atom: HTMLElement): { dir: TextDirection | undefined; lang: string | undefined } {
+  let dir: TextDirection | undefined
   let lang: string | undefined
   for (let element: Element | null = atom; element && (!dir || !lang); ) {
     const declaredDir = element.getAttribute('dir')

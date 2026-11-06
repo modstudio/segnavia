@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { MM_PER_PT } from '@segnavia/format'
 import type { IdmlBounds, IdmlMargin } from './types.ts'
 
@@ -13,7 +14,7 @@ export interface PhysicalCornerRadii<T> {
   bottomRight?: T
 }
 
-export function logicalCornerRadii<T>(corners: PhysicalCornerRadii<T>, direction: 'ltr' | 'rtl'): Record<string, T | undefined> {
+export function logicalCornerRadii<T>(corners: PhysicalCornerRadii<T>, direction: TextDirection): Record<string, T | undefined> {
   const start = direction === 'rtl' ? corners.topRight : corners.topLeft
   const end = direction === 'rtl' ? corners.topLeft : corners.topRight
   const endStart = direction === 'rtl' ? corners.bottomRight : corners.bottomLeft

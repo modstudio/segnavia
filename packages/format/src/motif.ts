@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TextDirection } from './direction.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
 
@@ -56,7 +57,7 @@ export type MotifFieldInput = z.input<typeof MotifFieldInput>
 
 const MotifVersionShape = {
   lang: z.string().min(1),
-  dir: z.enum(['ltr', 'rtl']).optional(),
+  dir: TextDirection.optional(),
   when: z.record(SlotKey, z.string()).optional(),
   html: z.string(),
 } as const

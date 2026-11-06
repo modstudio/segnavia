@@ -1,12 +1,6 @@
 import { z } from 'zod'
+import { LogicalMargin } from './margins.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-
-export const Margin = z.object({
-  top: z.number().nonnegative().default(0),
-  right: z.number().nonnegative().default(0),
-  bottom: z.number().nonnegative().default(0),
-  left: z.number().nonnegative().default(0),
-})
 
 export const MarkColor = z.enum(['black', 'registration'])
 export type MarkColor = z.infer<typeof MarkColor>
@@ -17,7 +11,7 @@ export const Print = z
   .object({
     paper: Paper,
     orientation: Orientation.default('portrait'),
-    margin: Margin.optional(),
+    margin: LogicalMargin.optional(),
     bleed: z.number().nonnegative().default(0),
     safe: z.number().nonnegative().default(0),
     marks: z.boolean().default(false),

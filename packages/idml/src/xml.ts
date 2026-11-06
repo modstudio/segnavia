@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { type AnyNode, type Document, type Element, isTag } from 'domhandler'
 import { refusal } from './refusal.ts'
 
@@ -36,7 +37,7 @@ export function numberAttribute(element: Element | undefined, name: string, fall
   return value
 }
 
-export function idmlDirection(value: string | undefined): 'ltr' | 'rtl' | undefined {
+export function idmlDirection(value: string | undefined): TextDirection | undefined {
   const normalized = value?.toLowerCase()
   if (normalized?.includes('righttoleft')) return 'rtl'
   if (normalized?.includes('lefttoright')) return 'ltr'

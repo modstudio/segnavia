@@ -18,7 +18,7 @@ const book = Book.parse({
   title: 'Book',
   mode: 'paginated',
   lang: 'he',
-  page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+  page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
   chapters: [{ title: 'א', html: '<p>טקסט<span data-note="footnote">הערה</span></p>' }],
 })
 
@@ -156,7 +156,7 @@ describe('bookDocument', () => {
       scripts: 'refuse' as const,
       pagination: {
         paper: { width: 148, height: 210 },
-        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
         columnGap: 4,
         direction: 'rtl' as const,
         numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const },
@@ -205,7 +205,7 @@ describe('bookDocument', () => {
       scripts: 'refuse' as const,
       pagination: {
         paper: { width: 148, height: 210 },
-        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
         columnGap: 4,
         direction: 'ltr' as const,
         numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },

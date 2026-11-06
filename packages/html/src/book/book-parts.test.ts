@@ -43,7 +43,7 @@ test('every heading in a designed section inside a part carries the part depth',
   const book = Book.parse({
     title: 'Parts',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
     body: [{ name: 'part', title: 'Part', children: [{ kind: 'designed', title: 'Plate', pages: [{ html: '<h2>Detail</h2>' }] }] }],
   })
   expect(bookDocument(book).headings).toEqual([

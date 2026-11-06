@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Box } from './deck.ts'
+import { Box, PixelSize } from './deck.ts'
 import { TextDirection } from './direction.ts'
 import { AssetKind } from './placement.ts'
 
@@ -20,12 +20,7 @@ export const BoardLabel = z.object({
   text: z.string(),
   x: z.number(),
   y: z.number(),
-  size: z
-    .object({
-      width: z.number().positive(),
-      height: z.number().positive(),
-    })
-    .optional(),
+  size: PixelSize.optional(),
 })
 export type BoardLabel = z.infer<typeof BoardLabel>
 

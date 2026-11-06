@@ -6,7 +6,7 @@ const base = {
   html: '<p>body</p>',
   print: { paper: 'letter' as const, orientation: 'portrait' as const },
   printedPages: {
-    parents: [{ name: 'body', margin: { top: 20, bottom: 20, inner: 15, outer: 15 } }],
+    parents: [{ name: 'body', margin: { blockStart: 20, blockEnd: 20, inlineStart: 15, inlineEnd: 15 } }],
     rules: { every: 'body' },
   },
 }
@@ -21,7 +21,7 @@ describe('Page printedPages', () => {
   test.each([
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],
-    [{ ...base, print: { ...base.print, margin: { top: 1, right: 1, bottom: 1, left: 1 } } }, 'remove print.margin'],
+    [{ ...base, print: { ...base.print, margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } } }, 'remove print.margin'],
     [{ ...base, print: { ...base.print, bleed: 1 } }, 'remove bleed and marks'],
     [{ ...base, printedPages: { ...base.printedPages, rules: { every: 'missing' } } }, 'add that parent page'],
     [{ ...base, printedPages: { ...base.printedPages, parents: [...base.printedPages.parents, base.printedPages.parents[0]] } }, 'unique name'],
@@ -69,6 +69,6 @@ describe('bookParentPages', () => {
       { name: BOOK_PARENT_NAMES.opener, head: undefined, foot: '<div class="segnavia-folio" data-motif="segnavia:folio"></div>' },
       { name: BOOK_PARENT_NAMES.blank, head: undefined, foot: undefined },
     ])
-    expect(parents.every((parent) => parent.margin !== margin && parent.margin?.top === margin.top)).toBe(true)
+    expect(parents.every((parent) => parent.margin !== margin && parent.margin?.blockStart === margin.blockStart)).toBe(true)
   })
 })

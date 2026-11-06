@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { type Element, isTag } from 'domhandler'
 import type { FramePreferenceIndex } from './frame-preferences.ts'
 import type { ReportCollector } from './report.ts'
@@ -33,7 +34,7 @@ function textNode(node: Element, part: string, path: string): IdmlTextNode {
   }
 }
 
-function storyDirection(element: Element, part: string, id: string, report: ReportCollector): 'ltr' | 'rtl' | undefined {
+function storyDirection(element: Element, part: string, id: string, report: ReportCollector): TextDirection | undefined {
   const preference = element.children.find((child): child is Element => isTag(child) && localName(child.name) === 'StoryPreference')
   for (const [name, value] of Object.entries(preference?.attribs ?? {})) {
     if (name !== 'StoryDirection' && activeIdmlValue(value)) {

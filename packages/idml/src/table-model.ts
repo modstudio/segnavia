@@ -1,10 +1,11 @@
+import type { TextDirection } from '@segnavia/format'
 import { refusal } from './refusal.ts'
 import type { IdmlTextNode } from './types.ts'
 
 export type TableRegion = 'header' | 'body' | 'footer'
 
 export interface TableGrid {
-  direction: 'ltr' | 'rtl'
+  direction: TextDirection
   columns: number[]
   rows: { region: TableRegion; height?: number; fixed: boolean }[]
   cells: { row: number; column: number; rowSpan: number; columnSpan: number; node: IdmlTextNode }[]

@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { Direction } from './direction.ts'
-import { Box, Point, Size } from './geometry.ts'
+import { Direction, TextDirection } from './direction.ts'
+import { Box, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
@@ -8,7 +8,7 @@ import { Slots } from './slots.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
-export { Box, ImageFit, Point, Size }
+export { Box, ImageFit, PixelSize, Point }
 
 // One annotation as measured on its element at capture time, in the shot's
 // CSS pixels. It belongs to the image it was measured on: a recapture that
@@ -31,10 +31,10 @@ export const Shot = z.object({
   // The annotated rendition, when the capture asked for one: the same image
   // with every annotation drawn in, for a page that embeds a still picture.
   annotatedFile: z.string().nullable().default(null),
-  size: Size,
+  size: PixelSize,
   scale: z.number().positive(),
   // The captured app's own direction, which places badges on its inline-end side.
-  dir: z.enum(['ltr', 'rtl']).default('ltr'),
+  dir: TextDirection.default('ltr'),
   annotations: z.array(Annotation),
   capturedAt: z.string(),
   meta: z.record(z.string(), z.unknown()).default({}),
@@ -121,7 +121,7 @@ export function parsePlayback(value: unknown): PlaybackMode | undefined {
 
 export const DeckShape = z.object({
   title: z.string(),
-  size: Size.default(DECK_SIZE),
+  size: PixelSize.default(DECK_SIZE),
   layout: z.enum(['fixed', 'responsive']).default('fixed'),
   fit: ImageFit.default('contain'),
   frame: z.boolean().default(false),

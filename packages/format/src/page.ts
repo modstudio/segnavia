@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Size } from './deck.ts'
+import { PixelSize } from './deck.ts'
 import { Direction } from './direction.ts'
 import { FontReference } from './fonts.ts'
 import { Print } from './print.ts'
@@ -21,7 +21,7 @@ export type PageWidths = z.infer<typeof PageWidths>
 const FlowingPageSize = z.object({ width: FlowingWidth, height: z.literal('auto') })
 const LegacyFluidPageSize = z.literal('fluid').transform(() => FULL_PAGE_SIZE)
 
-export const PageSize = z.union([LegacyFluidPageSize, Size, FlowingPageSize])
+export const PageSize = z.union([LegacyFluidPageSize, PixelSize, FlowingPageSize])
 export type PageSize = z.infer<typeof PageSize>
 
 export interface ResolvedPageWidth {

@@ -8,9 +8,9 @@ import {
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
   type PageInput,
+  type PixelSize,
   type Point,
   resolvedShape,
-  type Size,
   zoomAt,
 } from '@segnavia/format'
 import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
@@ -25,9 +25,9 @@ interface ResolvedBase {
 
 export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'deck'; deck: Deck; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
-  | (ResolvedBase & { kind: 'page'; page: PageInput; size: Size })
-  | (ResolvedBase & { kind: 'paper'; pages: PageInput[]; imposition: ImpositionInput; size: Size })
-  | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: Size })
+  | (ResolvedBase & { kind: 'page'; page: PageInput; size: PixelSize })
+  | (ResolvedBase & { kind: 'paper'; pages: PageInput[]; imposition: ImpositionInput; size: PixelSize })
+  | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize })
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
@@ -43,7 +43,7 @@ export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
 export const BOARD_ZOOM_FACTOR = 1.25
 
-function checkSize(kind: ResolvedBoardItem['kind'], size: Size) {
+function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
   for (const field of ['width', 'height'] as const) {
     const value = size[field]
     if (!Number.isFinite(value) || value <= 0) throw new Error(`The resolved ${kind} size has a ${field} of ${value}; return a positive ${field}.`)

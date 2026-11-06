@@ -15,7 +15,7 @@ const destinations = (page: number): Map<string, BookDestination> =>
 const continuousBook = (body: string, front?: string) => ({
   title: 'Book',
   mode: 'continuous' as const,
-  page: { paper: 'a5' as const, margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+  page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
   ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
   chapters: [{ title: 'One', html: body }],
 })
@@ -68,7 +68,7 @@ test('places FontSource CSS before book CSS in the printed document', async () =
       title: 'Book',
       mode: 'paginated',
       css: '.book-rule{color:purple}',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p class="book-rule">Text</p>' }],
     },
     {},
@@ -179,7 +179,7 @@ test('prints a paginated book once then finishes', async () => {
     {
       title: 'Book',
       mode: 'paginated',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
     },
     {},
@@ -214,7 +214,7 @@ test('corrects every joined book page to the exact trim before finishing', async
     {
       title: 'Book',
       mode: 'continuous',
-      page: { paper: 'letter', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'letter', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
     },
     {},

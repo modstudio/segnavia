@@ -17,7 +17,7 @@ describe('printed page setup', () => {
     const print = Print.parse({
       paper: { width: 148, height: 105, unit: 'mm' },
       orientation: 'landscape',
-      margin: { top: 1, right: 2, bottom: 3, left: 4 },
+      margin: { blockStart: 1, blockEnd: 3, inlineStart: 4, inlineEnd: 2 },
       bleed: 3,
     })
     expect(printCss(print)).toBe(

@@ -31,14 +31,14 @@ describe('book view', () => {
   test('parses an optional pagination object', () => {
     const pagination = {
       paper: { width: 148, height: 210 },
-      margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+      margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
       columnGap: 4,
       direction: 'rtl' as const,
       numbering: { frontMatter: 'arabic' as const, body: 'hebrew' as const },
       rectoOpenings: true,
       orphans: 2,
       widows: 2,
-      parents: [{ name: 'segnavia:recto', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }],
+      parents: [{ name: 'segnavia:recto', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
       runningHead: { recto: { mark: 'siman', which: 'first' as const }, verso: 'title' as const },

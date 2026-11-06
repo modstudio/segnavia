@@ -10,7 +10,7 @@ test("chapter endnotes carry their owning chapter's part and division", () => {
     Book.parse({
       title: 'Book',
       mode: 'paginated',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       endnotes: { placement: 'chapter' },
       body: [
         {

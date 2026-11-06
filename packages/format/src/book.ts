@@ -13,8 +13,9 @@ import {
   MAX_PART_DEPTH,
   REGION_NAME,
 } from './book-section.ts'
-import { Direction, resolveDirection } from './direction.ts'
+import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
+import { LogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
@@ -59,12 +60,7 @@ export type BookMode = z.infer<typeof BookMode>
 export const BookPage = z.object({
   paper: Paper,
   orientation: Orientation.default('portrait'),
-  margin: z.object({
-    top: z.number().nonnegative(),
-    bottom: z.number().nonnegative(),
-    inner: z.number().nonnegative(),
-    outer: z.number().nonnegative(),
-  }),
+  margin: LogicalMargin,
   columnGap: z.number().nonnegative().default(4),
 })
 export type BookPage = z.infer<typeof BookPage>
@@ -132,7 +128,7 @@ export const BookViewPagination = z.object({
   paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
   columnGap: z.number().nonnegative(),
-  direction: z.enum(['ltr', 'rtl']),
+  direction: TextDirection,
   numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
   rectoOpenings: z.boolean(),
   orphans: z.number().int().min(1),
@@ -267,7 +263,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     const area = textArea(parent, trim)
     const path = defaults.has(parent.name) ? ['page', 'margin'] : ['parentPages']
     if (area.height <= 0) {
-      const total = parent.margin.top + parent.margin.bottom
+      const total = parent.margin.blockStart + parent.margin.blockEnd
       ctx.addIssue({
         code: 'custom',
         path,
@@ -275,7 +271,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       })
     }
     if (area.width <= 0) {
-      const total = parent.margin.inner + parent.margin.outer
+      const total = parent.margin.inlineStart + parent.margin.inlineEnd
       ctx.addIssue({
         code: 'custom',
         path,

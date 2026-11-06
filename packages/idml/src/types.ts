@@ -1,4 +1,4 @@
-import type { FontReferenceInput } from '@segnavia/format'
+import type { FontReferenceInput, TextDirection } from '@segnavia/format'
 import type { IdmlAnswers } from './conversion-types.ts'
 
 export type {
@@ -100,7 +100,7 @@ export interface IdmlFramePreference {
 export interface IdmlStory {
   id: string
   part: string
-  direction?: 'ltr' | 'rtl'
+  direction?: TextDirection
   root?: IdmlTextNode
   frame?: IdmlFramePreference
 }

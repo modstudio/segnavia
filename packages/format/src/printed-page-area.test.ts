@@ -4,7 +4,7 @@ import { BOOK_PARENT_NAMES, flowingParentNames, textArea } from './printed-pages
 
 describe('textArea', () => {
   test('subtracts the parent margins from the paper', () => {
-    const parent = { margin: { top: 20, bottom: 25, inner: 18, outer: 12 } }
+    const parent = { blockStart: 20, blockEnd: 25, inlineStart: 18, inlineEnd: 12 }
     expect(textArea(parent, { width: 148, height: 210 })).toEqual({ width: 118, height: 165 })
   })
 
@@ -22,10 +22,10 @@ test('a flowing section refuses parent pages with different text widths', () => 
   const result = Book.safeParse({
     title: 'Book',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 15, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 15, inlineEnd: 10 } },
     parentPages: [
-      { name: 'opening', margin: { top: 30, bottom: 10, inner: 20, outer: 10 } },
-      { name: 'body', margin: { top: 10, bottom: 10, inner: 25, outer: 10 } },
+      { name: 'opening', margin: { blockStart: 30, blockEnd: 10, inlineStart: 20, inlineEnd: 10 } },
+      { name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 25, inlineEnd: 10 } },
     ],
     chapters: [{ title: 'One', html: '<p>Text</p>', parents: { opener: 'opening', recto: 'body', verso: 'body' } }],
   })
@@ -38,8 +38,8 @@ test('every resolved parent page must leave a positive text area', () => {
   const result = Book.safeParse({
     title: 'Book',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 15, outer: 10 } },
-    parentPages: [{ name: 'closed', margin: { top: 105, bottom: 105, inner: 74, outer: 74 } }],
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 15, inlineEnd: 10 } },
+    parentPages: [{ name: 'closed', margin: { blockStart: 105, blockEnd: 105, inlineStart: 74, inlineEnd: 74 } }],
     chapters: [{ title: 'One', html: '<p>Text</p>' }],
   })
   expect(result.success).toBe(false)

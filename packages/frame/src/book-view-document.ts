@@ -3,6 +3,7 @@ import {
   type Book,
   type BookView,
   type BookViewPagination,
+  type FolioTable,
   formatNumber,
   PRINTED_PAGE_LIMIT,
   PX_PER_MM,
@@ -28,7 +29,7 @@ function px(value: number): number {
   return value * PX_PER_MM
 }
 
-function folios(system: Book['numbering']['body']): string[] {
+function folios(system: Book['numbering']['body']): FolioTable {
   return Array.from({ length: PRINTED_PAGE_LIMIT }, (_, index) => formatNumber(index + 1, system))
 }
 
@@ -36,10 +37,10 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   const paper = { width: px(pagination.paper.width), height: px(pagination.paper.height) }
   const parents = resolveParentPages(pagination.parents).map((parent) => {
     const margin = {
-      top: px(parent.margin.top),
-      bottom: px(parent.margin.bottom),
-      inner: px(parent.margin.inner),
-      outer: px(parent.margin.outer),
+      blockStart: px(parent.margin.blockStart),
+      blockEnd: px(parent.margin.blockEnd),
+      inlineStart: px(parent.margin.inlineStart),
+      inlineEnd: px(parent.margin.inlineEnd),
     }
     return { ...parent, margin, textArea: textArea({ margin }, paper) }
   })

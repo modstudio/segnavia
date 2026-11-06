@@ -8,7 +8,7 @@ const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({
   title: 'Book',
   mode: 'paginated',
-  page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+  page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
   chapters: [chapter('One')],
   ...overrides,
 })

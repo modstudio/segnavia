@@ -11,12 +11,12 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
       if (!edge) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
       const selector = `.segnavia-margin-page:nth-of-type(${index + 1})`
       const inline =
-        page.side === 'left'
-          ? `inset-inline-start:${edge.outer}mm;inset-inline-end:${edge.inner}mm;justify-content:flex-start`
-          : `inset-inline-start:${edge.inner}mm;inset-inline-end:${edge.outer}mm;justify-content:flex-end`
+        page.face === 'verso'
+          ? `inset-inline-start:${edge.inlineEnd}mm;inset-inline-end:${edge.inlineStart}mm;justify-content:flex-start`
+          : `inset-inline-start:${edge.inlineStart}mm;inset-inline-end:${edge.inlineEnd}mm;justify-content:flex-end`
       return (
-        `:where(${selector} .segnavia-running-head){inset-block-start:0;block-size:${edge.top}mm;${inline}}` +
-        `:where(${selector} .segnavia-folio){inset-block-end:0;block-size:${edge.bottom}mm;${inline}}`
+        `:where(${selector} .segnavia-running-head){inset-block-start:0;block-size:${edge.blockStart}mm;${inline}}` +
+        `:where(${selector} .segnavia-folio){inset-block-end:0;block-size:${edge.blockEnd}mm;${inline}}`
       )
     })
     .join('')

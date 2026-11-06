@@ -1,4 +1,4 @@
-import { BOOK_PARENT_NAMES, type BookSectionParents, type ParentPage, type ParentPageMargin } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, type LogicalMargin, type ParentPage } from '@segnavia/format'
 import { logicalMargin } from './margins.ts'
 import { IDML_NONE_MASTER, masterPage, type ParentBuildContext, pageSideForRole, regionHtml } from './master-regions.ts'
 import type { IdmlModel } from './model.ts'
@@ -12,7 +12,7 @@ export { IDML_NONE_MASTER } from './master-regions.ts'
 export interface MasterMapping {
   parents: ParentPage[]
   css: string
-  bookMargin?: ParentPageMargin
+  bookMargin?: LogicalMargin
   parentFor(master: string | undefined, role: 'recto' | 'verso', location: string): string
   mappedStories: Set<string>
   marginFor(page: IdmlPage, ordinal?: number): IdmlMargin
@@ -96,7 +96,7 @@ function emittedMasters(model: IdmlModel, applied: Set<string>): IdmlMasterSprea
   return model.masterSpreads.filter((master) => emitted.has(master.id))
 }
 
-function appliedBookMargin(model: IdmlModel, applied: Set<string>, report: ReportCollector): ParentPageMargin | undefined {
+function appliedBookMargin(model: IdmlModel, applied: Set<string>, report: ReportCollector): LogicalMargin | undefined {
   const masters = model.masterSpreads.filter((master) => applied.has(master.id))
   if (masters.length !== applied.size) return undefined
   const pages = masters.flatMap((master) => master.pages.map((page) => ({ master, page })))

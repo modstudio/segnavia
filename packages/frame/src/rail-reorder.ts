@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { railMoveTarget, railSelection } from './rail-navigation.ts'
 
 export const RAIL_REORDER_CSS = `
@@ -14,7 +15,7 @@ interface RailReorderOptions {
   root: ShadowRoot
   count: () => number
   horizontal: () => boolean
-  direction: () => 'ltr' | 'rtl'
+  direction: () => TextDirection
   buttons: () => HTMLButtonElement[]
   excludes: (target: Element) => boolean
 }

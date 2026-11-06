@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
 
 export type { BookSectionParents }
@@ -38,7 +39,7 @@ export function printedPageAt(
   rules: PrintedPageRules,
   index: number,
   count: number,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
 ): Pick<PrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
   const recto = index % 2 === 1
   const face: PrintedPageFace = recto ? 'recto' : 'verso'
@@ -63,7 +64,7 @@ export function printedPageAt(
   return { role, parent, face, side }
 }
 
-export function planPrintedPages(rules: PrintedPageRules, count: number, direction: 'ltr' | 'rtl', numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
+export function planPrintedPages(rules: PrintedPageRules, count: number, direction: TextDirection, numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
   if (!Number.isSafeInteger(count) || count < 1) throw new RangeError('A printed-page plan needs a positive safe page count.')
   const total = formatNumber(count, numbering)
   return Array.from({ length: count }, (_, offset) => {
@@ -76,7 +77,7 @@ export function selectBookParent(
   fact: BookPageFacts,
   index: number,
   count: number,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
   names: typeof BOOK_PARENT_NAMES,
 ): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
   const physical = printedPageAt({ every: names.recto, recto: names.recto, verso: names.verso }, index, count, direction)
@@ -88,7 +89,7 @@ export function selectBookParent(
   return { role: 'recto', parent: named?.recto ?? names.recto, face: physical.face, side: physical.side }
 }
 
-export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl', names = BOOK_PARENT_NAMES): BookPrintedPagePlan[] {
+export function planBookPages(facts: BookPageFacts[], direction: TextDirection, names = BOOK_PARENT_NAMES): BookPrintedPagePlan[] {
   return facts.map((fact, offset) => {
     const index = offset + 1
     const selected = selectBookParent(fact, index, facts.length, direction, names)

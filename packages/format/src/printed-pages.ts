@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { LogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 
@@ -9,17 +10,10 @@ export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
 export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
 
-export const ParentPageMargin = z.object({
-  top: z.number().nonnegative(),
-  bottom: z.number().nonnegative(),
-  inner: z.number().nonnegative(),
-  outer: z.number().nonnegative(),
-})
-
 export const ParentPage = z.object({
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
-  margin: ParentPageMargin.optional(),
+  margin: LogicalMargin.optional(),
   head: z.string().optional(),
   foot: z.string().optional(),
 })
@@ -59,7 +53,6 @@ export const PrintedPages = z.object({
   fragmentation: Fragmentation.default('safe'),
 })
 
-export type ParentPageMargin = z.infer<typeof ParentPageMargin>
 export type ParentPage = z.infer<typeof ParentPage>
 export type PrintedPageRules = z.infer<typeof PrintedPageRules>
 export type PrintedPages = z.infer<typeof PrintedPages>
@@ -92,7 +85,7 @@ function furniture(region: 'head' | 'foot'): string {
     .join('')
 }
 
-export function bookParentPages(margin: ParentPageMargin): ParentPage[] {
+export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   const held = () => ({ ...margin })
   const head = furniture('head')
   const foot = furniture('foot')
@@ -106,7 +99,7 @@ export function bookParentPages(margin: ParentPageMargin): ParentPage[] {
 
 export interface ResolvedParentPage {
   name: string
-  margin: ParentPageMargin
+  margin: LogicalMargin
   head: string
   foot: string
 }
@@ -118,12 +111,12 @@ export interface TextArea {
 
 export function textArea(parent: Pick<ResolvedParentPage, 'margin'>, paper: { width: number; height: number }): TextArea {
   return {
-    width: paper.width - parent.margin.inner - parent.margin.outer,
-    height: paper.height - parent.margin.top - parent.margin.bottom,
+    width: paper.width - parent.margin.inlineStart - parent.margin.inlineEnd,
+    height: paper.height - parent.margin.blockStart - parent.margin.blockEnd,
   }
 }
 
-const ZERO_PARENT_MARGIN: ParentPageMargin = { top: 0, bottom: 0, inner: 0, outer: 0 }
+const ZERO_PARENT_MARGIN: LogicalMargin = { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 }
 
 export function resolveParentPages(parents: ParentPage[]): ResolvedParentPage[] {
   const source = new Map(parents.map((parent) => [parent.name, parent]))

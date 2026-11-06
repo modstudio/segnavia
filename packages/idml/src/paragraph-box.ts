@@ -1,15 +1,14 @@
+import type { TextDirection } from '@segnavia/format'
 import { formatRoundedNumber, logicalCornerRadii } from './positioned-box.ts'
 import type { ReportCollector } from './report.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlSwatch } from './types.ts'
 
-type Direction = 'ltr' | 'rtl'
-
 interface ParagraphBoxOptions {
   values: Record<string, string>
   mapped: Set<string>
   resetShading: boolean
-  direction: Direction
+  direction: TextDirection
   swatches: IdmlSwatch[]
   report: ReportCollector
   unsupported: Map<string, number>

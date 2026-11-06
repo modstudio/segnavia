@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { type Book, firstStrongDirection, resolveDirection } from '@segnavia/format'
 import type { BookHeading } from '@segnavia/html'
 import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFRef } from 'pdf-lib'
@@ -12,7 +13,7 @@ export interface BookOutlineItem {
   children: BookOutlineItem[]
 }
 
-function markedTitle(title: string, direction: 'ltr' | 'rtl'): string {
+function markedTitle(title: string, direction: TextDirection): string {
   const natural = firstStrongDirection(title) ?? 'ltr'
   if (natural === direction) return title
   return `${direction === 'rtl' ? '\u200f' : '\u200e'}${title}`

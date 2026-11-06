@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const Direction = z.enum(['ltr', 'rtl', 'auto'])
+export type Direction = z.infer<typeof Direction>
 
 export const TextDirection = z.enum(['ltr', 'rtl'])
 export type TextDirection = z.infer<typeof TextDirection>
@@ -39,6 +40,6 @@ export function languageDirection(lang: string | undefined): TextDirection | nul
 
 // `auto` or no declared direction falls to the language, then to the text
 // itself, then to left to right.
-export function resolveDirection(dir: 'ltr' | 'rtl' | 'auto' | undefined, lang: string | undefined, sample: string): TextDirection {
+export function resolveDirection(dir: Direction | undefined, lang: string | undefined, sample: string): TextDirection {
   return textDirection(dir, lang, sample) ?? 'ltr'
 }

@@ -7,14 +7,14 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   const book = Book.parse({
     title: 'A Book',
     mode: 'continuous',
-    page: { paper: 'a5', margin: { top: 10, bottom: 11, inner: 12, outer: 13 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 11, inlineStart: 12, inlineEnd: 13 } },
     chapters: [{ title: 'One', html: '<p>Text</p>' }],
   })
-  const parents = bookParentPages(book.page?.margin ?? { top: 0, bottom: 0, inner: 0, outer: 0 })
+  const parents = bookParentPages(book.page?.margin ?? { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 })
   const recto = parents.find((parent) => parent.name === BOOK_PARENT_NAMES.recto)
   if (!recto) throw new Error('Expected the built-in recto parent page.')
   recto.head = '<div class="segnavia-running-head" DATA-MOTIF=segnavia:running-head></div>'
-  recto.margin = { top: 21, bottom: 22, inner: 23, outer: 24 }
+  recto.margin = { blockStart: 21, blockEnd: 22, inlineStart: 23, inlineEnd: 24 }
   const pages: BookPrintedPagePlan[] = [
     { index: 0, role: 'recto', parent: BOOK_PARENT_NAMES.recto, face: 'recto', side: 'right', folio: '7', runningHead: 'Heading' },
   ]

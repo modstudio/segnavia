@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import type { TextDirection } from '@segnavia/format'
 import { RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 
-function setup(horizontal = false, direction: 'ltr' | 'rtl' = 'ltr') {
+function setup(horizontal = false, direction: TextDirection = 'ltr') {
   const buttons = [0, 1, 2].map((index) => ({ dataset: { index: String(index) }, draggable: false, removeAttribute() {} }))
   const target = (index: number, excluded = false) => ({
     excluded,

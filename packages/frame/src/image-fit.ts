@@ -1,4 +1,4 @@
-import type { Annotation, Box, ImageFit, Size } from '@segnavia/format'
+import type { Annotation, Box, ImageFit, PixelSize } from '@segnavia/format'
 
 export interface ImagePlacement {
   scale: number
@@ -16,7 +16,7 @@ export const FRAME_SHADOW_COLOR = 'rgba(15,23,42,.18)'
 export const FRAME_HAIRLINE_COLOR = 'rgba(15,23,42,.08)'
 export const FRAME_REFERENCE_SIZE = 720
 
-export function frameUnit(slide: Size): number {
+export function frameUnit(slide: PixelSize): number {
   return Math.min(slide.width, slide.height) / FRAME_REFERENCE_SIZE
 }
 
@@ -25,7 +25,7 @@ export interface ImageFrameStyle {
   boxShadow: string
 }
 
-export function imageFrameStyle(placement: ImagePlacement, slide: Size): ImageFrameStyle | undefined {
+export function imageFrameStyle(placement: ImagePlacement, slide: PixelSize): ImageFrameStyle | undefined {
   if (!placement.framed) return undefined
   const divide = (value: number) => (value * frameUnit(slide)) / placement.scale
   return {
@@ -39,7 +39,7 @@ export interface ImageLayerStyles {
   image: { width: string; height: string; borderRadius?: string; boxShadow?: string }
 }
 
-export function imageLayerStyles(natural: Size, placement: ImagePlacement, slide?: Size): ImageLayerStyles {
+export function imageLayerStyles(natural: PixelSize, placement: ImagePlacement, slide?: PixelSize): ImageLayerStyles {
   const width = `${natural.width}px`
   const height = `${natural.height}px`
   const frame = slide ? imageFrameStyle(placement, slide) : undefined
@@ -53,7 +53,7 @@ export function imageLayerStyles(natural: Size, placement: ImagePlacement, slide
   }
 }
 
-export function fitImage(slide: Size, image: Size, fit: ImageFit, focus?: Box, frame = false): ImagePlacement {
+export function fitImage(slide: PixelSize, image: PixelSize, fit: ImageFit, focus?: Box, frame = false): ImagePlacement {
   const contain = Math.min(slide.width / image.width, slide.height / image.height)
   const cover = Math.max(slide.width / image.width, slide.height / image.height)
   let placement: ImagePlacement
@@ -115,7 +115,7 @@ function annotationBoxes(annotation: Annotation): Box[] {
   return boxes
 }
 
-export function annotationFocusBox(image: Size, annotations: Annotation[]): Box | undefined {
+export function annotationFocusBox(image: PixelSize, annotations: Annotation[]): Box | undefined {
   const boxes = annotations.flatMap(annotationBoxes)
   if (boxes.length === 0) return undefined
   const left = Math.max(0, Math.min(...boxes.map((box) => box.x)) - 24)

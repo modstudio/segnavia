@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
-export const Size = z.object({
+export const PixelSize = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
 })
-export type Size = z.infer<typeof Size>
+export type PixelSize = z.infer<typeof PixelSize>
 
 export const Box = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
 export type Box = z.infer<typeof Box>

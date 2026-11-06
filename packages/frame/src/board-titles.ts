@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { type BoardItem, type BoardView, resolveDirection } from '@segnavia/format'
 import { actionsForKind, type BoardItemAction, type BoardItemKind } from './board-actions.ts'
 import { createKindIcon } from './board-chrome.ts'
@@ -15,7 +16,7 @@ export class BoardItemTitles {
   private readonly titles = new Map<string, HTMLElement>()
   private readonly rendered = new Map<
     string,
-    { item: BoardItem; text: string; direction: 'ltr' | 'rtl'; kindIcon: unknown; actions: readonly BoardItemAction[]; labels: BoardLabels }
+    { item: BoardItem; text: string; direction: TextDirection; kindIcon: unknown; actions: readonly BoardItemAction[]; labels: BoardLabels }
   >()
 
   mount(id: string, item: HTMLElement) {
@@ -36,7 +37,7 @@ export class BoardItemTitles {
   content(
     item: BoardItem,
     text: string,
-    direction: 'ltr' | 'rtl',
+    direction: TextDirection,
     kindIcon: ((kind: BoardItemKind) => Node | null | undefined) | undefined,
     actions: readonly BoardItemAction[],
     labels: BoardLabels,

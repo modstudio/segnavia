@@ -121,6 +121,7 @@ export {
   ImageFit,
   Manifest,
   Narration,
+  PixelSize,
   PLAYBACK_MODES,
   Playback,
   type PlaybackMode,
@@ -129,7 +130,6 @@ export {
   parsePlayback,
   SHOT_KEY,
   Shot,
-  Size,
   Slide,
   SlideContent,
   Word,
@@ -140,6 +140,7 @@ export { Direction, firstStrongDirection, languageDirection, resolveDirection, T
 export * from './document-metadata.ts'
 export { editBoard } from './edit-board.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
+export { FolioTable } from './folio-table.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
 export { FontFaceRefusedError } from './font-refusal.ts'
@@ -185,6 +186,7 @@ export { Imposition, type ImpositionInput, MAX_IMPOSITION_CELLS } from './imposi
 export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { LOCAL_FONT_LIMITS, type LocalFontLimitFace, type LocalFontLimits, localFontLimitRefusal } from './local-font-limits.ts'
+export { LogicalMargin, PAGE_SIDES, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export {
   MEDIA_FORMATS,
   Media,
@@ -241,6 +243,7 @@ export {
   printPadding,
   printProperties,
   roundMillimeters,
+  Size,
   sheetMm,
   toMillimeters,
 } from './paper.ts'
@@ -256,7 +259,7 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
-export { Margin, MarkColor, Print, type PrintInput } from './print.ts'
+export { MarkColor, Print, type PrintInput } from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'

@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { applyTransform, itemTransform, placementBounds, pointValue } from './placements.ts'
 import { formatRoundedNumber, logicalCornerRadii } from './positioned-box.ts'
 import { flattenedStyle } from './styles.ts'
@@ -65,7 +66,7 @@ export function parseAnchoredFrames(stories: IdmlStory[], styles: IdmlStyle[]): 
   ) as IdmlAnchoredFrame[]
 }
 
-function cornerDeclarations(frame: IdmlAnchoredFrame, direction: 'ltr' | 'rtl'): string[] {
+function cornerDeclarations(frame: IdmlAnchoredFrame, direction: TextDirection): string[] {
   const corners = frame.corners
   if (!corners) return []
   return Object.entries(logicalCornerRadii(corners, direction)).flatMap(([property, value]) =>
@@ -73,7 +74,7 @@ function cornerDeclarations(frame: IdmlAnchoredFrame, direction: 'ltr' | 'rtl'):
   )
 }
 
-export function anchoredFrameStyle(frame: IdmlAnchoredFrame, resolveColor: (color: string) => string | undefined, direction: 'ltr' | 'rtl'): string {
+export function anchoredFrameStyle(frame: IdmlAnchoredFrame, resolveColor: (color: string) => string | undefined, direction: TextDirection): string {
   const output = [`display:inline-block`, `inline-size:${formatRoundedNumber(frame.width ?? 0)}pt`, `vertical-align:baseline`]
   const fill = frame.fill ? resolveColor(frame.fill) : undefined
   if (fill && fill !== 'none') output.push(`background:${fill}`)
