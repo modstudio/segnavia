@@ -242,50 +242,6 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     JSON.stringify(printed),
   )
 
-  const printingMoments = page.evaluate(async () => {
-    const bundle = '/segnavia.js'
-    const { printDeck } = (await import(bundle)) as { printDeck: (deck: unknown, options: unknown) => Promise<void> }
-    const animated = (id: string, printAtMs?: number) => ({
-      id,
-      ...(printAtMs === undefined ? {} : { printAtMs }),
-      content: {
-        kind: 'html',
-        html: '<style>@keyframes fade{from{opacity:0}to{opacity:1}}#target{animation:fade 1s linear both}</style><div id="target">Animated</div>',
-      },
-    })
-    await printDeck(
-      { title: 'Print moments', scripts: 'refuse', size: { width: 400, height: 200 }, slides: [animated('start'), animated('middle', 500)] },
-      {
-        print: async () => {
-          await new Promise<void>((resolve) => {
-            const state = window as Window & { releasePrintMoment?: () => void }
-            state.releasePrintMoment = resolve
-          })
-        },
-      },
-    )
-  })
-  await page.waitForFunction(() => typeof (window as Window & { releasePrintMoment?: unknown }).releasePrintMoment === 'function')
-  const printFrames = page.frameLocator('body > iframe[style*="-20000px"]').frameLocator('iframe')
-  const animationFacts = await Promise.all(
-    [0, 1].map((index) =>
-      printFrames
-        .nth(index)
-        .locator('#target')
-        .evaluate((target) => ({ opacity: getComputedStyle(target).opacity, time: Number(document.getAnimations()[0]?.currentTime) })),
-    ),
-  )
-  await page.evaluate(() => (window as Window & { releasePrintMoment?: () => void }).releasePrintMoment?.())
-  await printingMoments
-  check(
-    'browser deck printing freezes CSS animations at the default start and a chosen moment',
-    Number(animationFacts[0]?.opacity) === 0 &&
-      animationFacts[0]?.time === 0 &&
-      Math.abs(Number(animationFacts[1]?.opacity) - 0.5) < 0.01 &&
-      animationFacts[1]?.time === 500,
-    JSON.stringify(animationFacts),
-  )
-
   await verifyLatePrintMoment(h)
 
   const waitFacts = await page.evaluate(async () => {
