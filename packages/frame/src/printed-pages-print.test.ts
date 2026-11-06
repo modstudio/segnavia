@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { Imposition, Page, PRINTED_PAGE_LIMIT, PX_PER_MM } from '@segnavia/format'
+import { Imposition, Page, PRINTED_PAGE_LIMIT, PX_PER_MM, paperViewport } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -69,12 +69,14 @@ describe('printedPagesPrintDocument', () => {
 
   test('uses a paper-sized viewport for LTR and RTL measuring and printable frames', async () => {
     const styles = fakeMeasurement(279.4 * PX_PER_MM)
+    const page = printed()
+    const viewport = paperViewport(page.print as NonNullable<typeof page.print>)
     const result = await printedPagesPrintDocument([printed('ltr'), printed('rtl')], identity, { deadlineAt: Date.now() + 100 })
     expect(styles.map((style) => style.cssText)).toEqual([
-      expect.stringContaining(`width:${215.9 * PX_PER_MM}px;height:${279.4 * PX_PER_MM}px`),
-      expect.stringContaining(`width:${215.9 * PX_PER_MM}px;height:${279.4 * PX_PER_MM}px`),
+      expect.stringContaining(`width:${viewport.width}px;height:${viewport.height}px`),
+      expect.stringContaining(`width:${viewport.width}px;height:${viewport.height}px`),
     ])
-    expect(result.html.match(/width:215\.9mm;height:279\.4mm;border:0;display:block/g)).toHaveLength(2)
+    expect(result.html.match(new RegExp(`width:${viewport.width}px;height:${viewport.height}px;border:0;display:block`, 'g'))).toHaveLength(2)
     expect(result.html.match(/&quot;expectedCount&quot;:1/g)).toHaveLength(2)
     expect(result.html).not.toContain('width:431.8mm')
     expect(result.html).not.toContain('margin-left:')

@@ -16,7 +16,7 @@ import { SegnaviaStage } from './stage.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
 export type { PageInput, PrintInput } from '@segnavia/format'
-export { provisionalShape, resolvedShape } from '@segnavia/format'
+export { paperViewport, provisionalShape, resolvedShape } from '@segnavia/format'
 export { BASE_CSS, ensureBaseStyle, ensureStyle } from './base-style.ts'
 export { SegnaviaBoard } from './board.ts'
 export type { BoardItemAction, BoardItemKind } from './board-actions.ts'

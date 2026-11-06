@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { Print, paperViewport } from '@segnavia/format'
+import { printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { Page } from 'playwright-core'
 import { type Harness, ROOT } from './harness.ts'
 
@@ -115,6 +117,36 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
       rules: { every: 'body' },
     }
+    const viewportFixture = {
+      html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>',
+      lang: 'en',
+      print: { paper: 'letter' as const },
+      printedPages: parentPages,
+    }
+    const viewportSource = printedPageDocument(viewportFixture, { nonce: 'viewport-independent-composition' })
+    const composeAt = async (viewport: { width: number; height: number }) => {
+      await page.setContent('<iframe sandbox="allow-scripts" style="border:0"></iframe>')
+      const frameElement = page.locator('iframe')
+      await frameElement.evaluate(
+        (frame, input) => {
+          frame.style.width = `${input.viewport.width}px`
+          frame.style.height = `${input.viewport.height}px`
+          ;(frame as HTMLIFrameElement).srcdoc = input.source
+        },
+        { source: viewportSource, viewport },
+      )
+      const frame = await frameElement.contentFrame()
+      await frame.locator('html[data-segnavia-composed]').waitFor({ state: 'attached' })
+      return frame.locator('[data-segnavia-printed-page]').count()
+    }
+    const windowSizedCount = await composeAt({ width: 800, height: 600 })
+    const paperSizedCount = await composeAt(paperViewport(Print.parse(viewportFixture.print)))
+    check(
+      'a printed page composes to the same paper count at 800 by 600 and at its paper viewport',
+      windowSizedCount === paperSizedCount,
+      `800x600=${windowSizedCount} paper=${paperSizedCount}`,
+    )
+    await page.goto(url)
     for (const fixture of [
       { name: 'LTR', page: { html: '<div>Short block</div>', lang: 'en', print: { paper: 'letter' }, printedPages: parentPages } },
       {

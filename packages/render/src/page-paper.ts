@@ -31,11 +31,6 @@ export function printCss(print: Print): string {
   return `${properties}${root}${body}`
 }
 
-export function printViewport(print: Print): { width: number; height: number } {
-  const size = usesPressLayout(print) ? printBoxes(print).bleedBox : sheetMm(print)
-  return { width: paperPixels(size.width), height: paperPixels(size.height) }
-}
-
 export function assertPrintOptions(print: Print, preferCssPageSize: boolean | undefined): void {
   if (usesPressLayout(print) && preferCssPageSize) {
     throw new RenderRefusedError(
