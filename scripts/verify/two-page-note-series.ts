@@ -35,14 +35,11 @@ export async function verifyTwoPageNoteSeries(h: Harness) {
         const views = Array.from(text.querySelectorAll(':scope > [data-segnavia-page-note]')).map((view) => view.getBoundingClientRect())
         return views.every((view, index) => index === 0 || (views[index - 1]?.bottom ?? 0) <= view.top + 0.5)
       })
-      const finalDeltas = Array.from(document.querySelectorAll('[data-segnavia-page-note]')).map((view) =>
-        Number(view.getAttribute('data-segnavia-note-settled-delta')),
-      )
       const plannedDeltas = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-page-note]')).map((view) => {
         const planned = view.getAttribute('data-segnavia-note-planned-height')
         return planned === null ? null : view.getBoundingClientRect().height - Number(planned)
       })
-      return { declared, pages, ordered, commentaryPages, together, pointed, stacked, finalDeltas, plannedDeltas }
+      return { declared, pages, ordered, commentaryPages, together, pointed, stacked, plannedDeltas }
     })
     h.check(`${id} composes both page series without refusal`, !report.failure && report.notes.length === 2, report.failure ?? JSON.stringify(report.notes))
     h.check(
@@ -60,7 +57,7 @@ export async function verifyTwoPageNoteSeries(h: Harness) {
     h.check(
       `${id} derives placed note extents after clone relayout and keeps groups stacked`,
       ink.views > 2 && ink.outside === 0 && ink.empty === 0 && groups.stacked && groups.plannedDeltas.some((delta) => delta !== null && Math.abs(delta) > 0.5),
-      JSON.stringify({ ink: JSON.parse(ink.detail), stacked: groups.stacked, plannedDeltas: groups.plannedDeltas, finalDeltas: groups.finalDeltas }),
+      JSON.stringify({ ink: JSON.parse(ink.detail), stacked: groups.stacked, plannedDeltas: groups.plannedDeltas }),
     )
     if (language === 'he') h.check(`${id} keeps pointed Hebrew in the continuing series`, groups.pointed, JSON.stringify(groups))
   }

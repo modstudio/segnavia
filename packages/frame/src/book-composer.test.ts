@@ -5,6 +5,7 @@ import {
   decideBookMeasurement,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
+  noteStackTops,
   pageReferenceFolio,
   unmeasuredFlows,
 } from './book-composer.ts'
@@ -117,9 +118,19 @@ test('derives a note fragment extent from its own settled line boxes', () => {
   expect(noteFragmentExtent(lines, 3, 4)).toBeUndefined()
 })
 
-test('refuses only settlement-induced note overlap with the body', () => {
-  expect(noteSettlementOverlapsBody(500, 480, 490)).toBeTrue()
-  expect(noteSettlementOverlapsBody(480, 480, 490)).toBeFalse()
+test('stacks settled note pieces from the bottom and refuses only a new body overlap', () => {
+  const plannedTop = noteStackTops(600, [
+    { gap: 10, height: 40 },
+    { gap: 5, height: 45 },
+  ])[0]
+  const settledTop = noteStackTops(600, [
+    { gap: 10, height: 60 },
+    { gap: 5, height: 55 },
+  ])[0]
+  expect(plannedTop).toBe(510)
+  expect(settledTop).toBe(480)
+  expect(noteSettlementOverlapsBody(plannedTop ?? Number.NaN, settledTop ?? Number.NaN, 490)).toBeTrue()
+  expect(noteSettlementOverlapsBody(settledTop ?? Number.NaN, settledTop ?? Number.NaN, 490)).toBeFalse()
   expect(noteSettlementOverlapsBody(500, 499.6, 510)).toBeFalse()
   expect(noteSettlementOverlapsBody(500, 480, 470)).toBeFalse()
 })

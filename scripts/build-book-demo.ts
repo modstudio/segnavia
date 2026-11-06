@@ -10,7 +10,7 @@ import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from '.
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
-import { noteSeriesFixture, twoPageSeriesFixture } from './demo-book-note-series-fixtures.ts'
+import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } from './demo-book-note-series-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
@@ -207,7 +207,7 @@ function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string):
 }
 
 function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
-  const placedNoteRelayout = ':where(html:has([data-segnavia-pages])) [data-segnavia-note="segnavia-fn-1-1"]{line-height:25px}'
+  const placedNoteRelayout = twoPageSeriesRelayoutCss()
   const css = hebrew
     ? `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}${placedNoteRelayout}`
     : `:where(html){font:16px/1.5 Georgia,serif}${placedNoteRelayout}`
