@@ -1085,7 +1085,7 @@ The frame bridge sends a relayed key, height, readiness, animation timing,
 slot fit and, from a paginated book frame, the reader's bounded place to its host. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound. A page sends a bounded heading request only to the same refused-script documents; the reply contains its request id and a finite top or null.
 On `DOMContentLoaded`, its keep pass gives each element whose computed `--segnavia-keep-with` is `next` or `previous` its inline gap or block break, without adding a message.
-From a paginated book frame, a bounded `segnavia:compose-failure` report: the composer's refusal
+From a paginated book frame or a printed-page frame, a bounded `segnavia:compose-failure` report: the composer's refusal
 text, at most 1024 characters.
 On a refused-script page the bridge answers three inbound messages from its parent: a `segnavia:selection-request`, a bounded `segnavia:heading-request`, and, in a paginated book frame, `segnavia:book-layout`. The heading request carries an id of at most 256 characters. The bridge matches it only against heading elements, scrolls its own document as far as possible, and replies with the request id and the remaining finite top, or null when absent. A paginated book frame accepts `segnavia:book-layout` only
 from its parent, only when `layout` is exactly `pages` or `flow`, and only when
