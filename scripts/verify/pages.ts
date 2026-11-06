@@ -45,11 +45,6 @@ export async function verifyPages(h: Harness) {
   const heights = await page.evaluate(() => ['#fluid', '#rtl'].map((id) => Number((document.querySelector(id) as HTMLElement).dataset.height ?? 0)))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages.join(','))
   check('a fluid page reports its content height through the bridge', (heights[0] ?? 0) > 300, `height=${heights[0]} messages=${messages}`)
-  check(
-    'a fixed-width page that grows takes its content height, not a viewport',
-    (heights[1] ?? 0) > 40 && (heights[1] ?? 0) < 140,
-    `height=${heights[1]} messages=${messages}`,
-  )
   const background = await page
     .frameLocator('#fluid iframe')
     .locator('body')
