@@ -41,6 +41,13 @@ describe('Document', () => {
     )
   })
 
+  test.each(['scripts', 'lang'] as const)('refuses unused board settings.%s through its profile', (field) => {
+    const value = field === 'scripts' ? 'refuse' : 'he'
+    expect(() => Document.parse({ type: 'document', kind: 'board', settings: { dir: 'rtl', [field]: value }, children: [] })).toThrow(
+      `settings field ${field} is not allowed in a board document; use one of dir to clear this refusal`,
+    )
+  })
+
   test('keeps direction policy in profiles and refuses limits where the current pipeline cannot carry them', () => {
     expect(Document.parse({ type: 'document', kind: 'book', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] }).limits).toEqual({ pages: 12 })
     expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(

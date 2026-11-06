@@ -163,7 +163,7 @@ export class BoardEditingInput implements BoardInputDelegate {
   }
 
   private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>, event: PointerEvent) {
-    const next = this.board.board
+    const next = this.callbacks.bridge().value()
     if (!next) return
     const bridge = this.callbacks.bridge()
     if (gesture.kind === 'move' && this.enabled.move) {

@@ -2,29 +2,29 @@ import { Board, type Board as BoardValue } from './board.ts'
 import { Book, type Book as BookValue } from './book.ts'
 import type { BookItem } from './book-section.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
-import type { Document } from './document.ts'
+import { Document, type Document as DocumentValue } from './document.ts'
 import type { DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
 import { Page, type Page as PageValue } from './page.ts'
 
-function requireKind(document: Document, kind: Document['kind']): void {
+function requireKind(document: DocumentValue, kind: DocumentValue['kind']): void {
   if (document.kind !== kind) {
     throw new Error(`document kind ${document.kind} is not accepted here; use kind ${kind} to clear this refusal`)
   }
 }
 
-function settings(document: Document) {
+function settings(document: DocumentValue) {
   return document.settings ?? {}
 }
 
-function style(document: Document) {
+function style(document: DocumentValue) {
   return document.style ?? {}
 }
 
-function data(document: Document) {
+function data(document: DocumentValue) {
   return document.data ?? {}
 }
 
-function title(document: Document): string | undefined {
+function title(document: DocumentValue): string | undefined {
   return document.metadata?.title ?? document.title
 }
 
@@ -97,7 +97,7 @@ function bookItem(node: DocumentNode, division: 'front' | 'body' | 'end'): BookI
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
-function bookDivisions(document: Document) {
+function bookDivisions(document: DocumentValue) {
   const divisions = document.children.filter((node): node is Extract<DocumentNode, { type: 'division' }> => node.type === 'division')
   if (divisions.length === 0) return { frontMatter: [], chapters: document.children.map((node) => bookItem(node, 'body')), endMatter: [] }
   const entries = (name: 'front' | 'body' | 'end') =>
@@ -107,22 +107,22 @@ function bookDivisions(document: Document) {
   return { frontMatter: entries('front'), ...(simpleBody ? { chapters: body } : { body }), endMatter: entries('end') }
 }
 
-function parentPage(node: Document['parentPages'][number]) {
+function parentPage(node: DocumentValue['parentPages'][number]) {
   const { type: _type, id: _id, geometry, regions: _regions, ...value } = node
   return defined({ ...value, margin: geometry.margin })
 }
 
-function template(node: Document['templates'][number]) {
+function template(node: DocumentValue['templates'][number]) {
   const { type: _type, id: _id, ...value } = node
   return value
 }
 
-function noteSeries(node: Document['noteSeries'][number]) {
+function noteSeries(node: DocumentValue['noteSeries'][number]) {
   const { type: _type, id: _id, ...value } = node
   return value
 }
 
-function contentsOptions(document: Document) {
+function contentsOptions(document: DocumentValue) {
   let contents: Extract<DocumentNode, { type: 'contents' }> | undefined
   const find = (nodes: DocumentNode[]): void => {
     for (const node of nodes) {
@@ -134,7 +134,7 @@ function contentsOptions(document: Document) {
   return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.depth }) : undefined
 }
 
-export function bookFromDocument(document: Document): BookValue {
+export function bookFromDocument(document: DocumentValue): BookValue {
   requireKind(document, 'book')
   const metadata = document.metadata
   return Book.parse(
@@ -165,7 +165,7 @@ export function bookFromDocument(document: Document): BookValue {
   )
 }
 
-function pageValue(document: Document, printed: boolean): PageValue {
+function pageValue(document: DocumentValue, printed: boolean): PageValue {
   const child = document.children.find((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
   if (!child?.body) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
@@ -191,17 +191,17 @@ function pageValue(document: Document, printed: boolean): PageValue {
   )
 }
 
-export function printedFromDocument(document: Document): PageValue {
+export function printedFromDocument(document: DocumentValue): PageValue {
   requireKind(document, 'printed')
   return pageValue(document, true)
 }
 
-export function pageFromDocument(document: Document): PageValue {
+export function pageFromDocument(document: DocumentValue): PageValue {
   requireKind(document, 'page')
   return pageValue(document, false)
 }
 
-export function deckFromDocument(document: Document): DeckValue {
+export function deckFromDocument(document: DocumentValue): DeckValue {
   requireKind(document, 'deck')
   const slides = document.children
     .filter((node): node is Extract<DocumentNode, { type: 'slide' }> => node.type === 'slide')
@@ -224,7 +224,7 @@ export function deckFromDocument(document: Document): DeckValue {
   )
 }
 
-export function boardFromDocument(document: Document): BoardValue {
+export function boardFromDocument(document: DocumentValue): BoardValue {
   requireKind(document, 'board')
   const items = document.children
     .filter((node): node is Extract<DocumentNode, { type: 'item' }> => node.type === 'item')
@@ -236,4 +236,14 @@ export function boardFromDocument(document: Document): BoardValue {
     .filter((node): node is Extract<DocumentNode, { type: 'boardSection' }> => node.type === 'boardSection')
     .map(({ type: _type, ...section }) => section)
   return Board.parse({ title: title(document), direction: document.settings?.dir, items, labels, sections })
+}
+
+export function documentFromBoard(board: BoardValue, source: DocumentValue): DocumentValue {
+  requireKind(source, 'board')
+  const children: DocumentValue['children'] = [
+    ...board.items.map(({ id, ...item }) => ({ type: 'item' as const, id, ...item })),
+    ...board.labels.map(({ id, ...label }) => ({ type: 'label' as const, id, ...label })),
+    ...board.sections.map(({ id, ...section }) => ({ type: 'boardSection' as const, id, ...section })),
+  ]
+  return Document.parse({ ...source, children })
 }

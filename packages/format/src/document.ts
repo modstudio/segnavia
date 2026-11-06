@@ -15,7 +15,7 @@ import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
-const DocumentSettings = z.object({ scripts: Scripts.default('refuse'), dir: DeckShape.shape.dir, lang: z.string().optional() })
+const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional() })
 const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional(), motifs: z.array(Motif).optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
 
@@ -123,6 +123,15 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
       path: ['settings', 'dir'],
       message: profileRefusal(document.settings.dir, document.kind, profile.settingsDir, 'settings.dir value'),
     })
+  }
+  for (const [field, value] of Object.entries(document.settings ?? {})) {
+    if (value !== undefined && !(profile.settings as readonly string[]).includes(field)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['settings', field],
+        message: profileRefusal(field, document.kind, profile.settings, 'settings field'),
+      })
+    }
   }
   if (document.limits !== undefined && (document.kind === 'deck' || document.kind === 'board')) {
     ctx.addIssue({ code: 'custom', path: ['limits'], message: 'document field limits is not yet supported; remove it to clear this refusal' })

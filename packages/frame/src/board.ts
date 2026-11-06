@@ -1,9 +1,13 @@
 import {
-  Board,
+  type Board,
   type BoardItem,
   type BoardShapes,
   type BoardView,
+  Document,
+  type DocumentInput,
+  boardFromDocument,
   boardBounds,
+  documentFromBoard,
   itemAt,
   itemHeight,
   resolvedShape,
@@ -31,6 +35,7 @@ import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
+import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -38,6 +43,7 @@ import type { FontsOptions } from './page-fonts.ts'
 
 export class SegnaviaBoard extends BoardSelectionElement {
   private value: Board | null = null
+  private documentValue: Document | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false
   private initialFitDone = false
@@ -115,8 +121,8 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.surface.dir = 'ltr'
     this.root.append(this.surface)
   }
-  get board(): Board | null {
-    return this.value
+  get board(): Document | null {
+    return this.documentValue
   }
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
@@ -133,13 +139,16 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.painter.fonts = value
     this.render()
   }
-  set board(input: Board | null) {
-    this.setBoardValue(input, true)
-    this.editingHostValue?.(this.value)
+  set board(input: DocumentInput | null) {
+    const document = input === null ? null : Document.parse(input)
+    const board = document === null ? null : boardFromDocument(document)
+    this.documentValue = document
+    this.setBoardValue(board, true)
+    this.editingHostValue?.(board)
   }
   private setBoardValue(input: Board | null, dispatch: boolean) {
     const previous = this.value
-    this.value = input === null ? null : Board.parse(input)
+    this.value = input
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
     this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
@@ -150,7 +159,11 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.mounts.reconcile(previous, this.value)
     this.render()
     this.fitInitial()
-    if (dispatch) this.dispatchEvent(boardEvent('segnavia-board-change', { board: this.value }))
+    if (dispatch) this.dispatchEvent(boardEvent('segnavia-board-change', { board: this.documentValue }))
+  }
+
+  [internalBoardValue](): Board | null {
+    return this.value
   }
   get view(): BoardView {
     return this.currentView
@@ -239,6 +252,10 @@ export class SegnaviaBoard extends BoardSelectionElement {
       value: () => this.value,
       view: () => this.currentView,
       shapes: () => this.shapes,
+      document: (board) => {
+        if (!this.documentValue) throw new Error('a board Document is required before editing; set board to a board Document to clear this refusal')
+        return documentFromBoard(board, this.documentValue)
+      },
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),
       optimistic: (board) => this.setBoardValue(board, false),

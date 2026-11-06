@@ -3,7 +3,7 @@ import { Board } from './board.ts'
 import { Book } from './book.ts'
 import { Deck } from './deck.ts'
 import { Document } from './document.ts'
-import { boardFromDocument, bookFromDocument, deckFromDocument, pageFromDocument, printedFromDocument } from './document-lowering.ts'
+import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
 
 const hebrewPageFixture = {
@@ -184,5 +184,7 @@ describe('Document lowering', () => {
       ],
     })
     expect(boardFromDocument(document)).toEqual(expected)
+    expect(documentFromBoard(boardFromDocument(document), document)).toEqual(document)
+    expect(boardFromDocument(documentFromBoard(expected, document))).toEqual(expected)
   })
 })

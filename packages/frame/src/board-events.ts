@@ -1,7 +1,7 @@
-import type { Board, BoardItem, BoardView } from '@segnavia/format'
+import type { BoardItem, BoardView, Document } from '@segnavia/format'
 
 export interface BoardChangeDetail {
-  board: Board | null
+  board: Document | null
 }
 
 export interface BoardErrorDetail {
@@ -24,7 +24,7 @@ export interface BoardOpenDetail {
 }
 
 export interface BoardShareDetail {
-  board: Board | null
+  board: Document | null
 }
 
 export interface BoardViewDetail {
