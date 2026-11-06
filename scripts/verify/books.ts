@@ -146,7 +146,6 @@ function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
     report.runningHead.detail,
   )
 }
-
 async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
   const report = await frame.evaluate(inspectPaginatedMargins)
   h.check(
@@ -171,6 +170,7 @@ async function verifyPaginatedBooks(h: Harness) {
       })
     check(`${id} book CSS styles paginated text color and size`, bookStyle.color === 'rgb(91, 42, 123)' && bookStyle.size === '23px', JSON.stringify(bookStyle))
     const report = await inspectPaginated(h, id)
+    check(`${id} starts with direction-independent recto and verso faces`, report.faces.join(',') === 'recto,verso', JSON.stringify(report.faces))
     check(`${id} composed without a planner refusal`, !report.failure && report.pages > 1, report.failure ?? `${report.pages} pages`)
     check(
       `${id} every galley line is on exactly one window`,
