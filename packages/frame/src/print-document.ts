@@ -4,13 +4,15 @@
 
 import {
   type Deck,
+  Document,
+  type DocumentInput,
+  deckFromDocument,
   fitPage,
   type Imposed,
   Imposition,
   type ImpositionInput,
   impose,
   type Limits,
-  type Page,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -196,10 +198,14 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
 }
 
-export function printableDeck(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+  return printableDeckValue(deckFromDocument(Document.parse(input)), options)
+}
+
+export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
   const { width, height } = deck.size
   if (options.imposition) {
-    return printableDeckDocument(deck, { ...options, imposition: options.imposition }).html
+    return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
@@ -272,7 +278,11 @@ export interface PrintableDeckDocument {
   imposed: Imposed
 }
 
-export function printableDeckDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+  return printableDeckValueDocument(deckFromDocument(Document.parse(input)), options)
+}
+
+export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
   if (options.layout === 'notes') {
     throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
@@ -358,6 +368,6 @@ export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition:
   return { html, imposed }
 }
 
-export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  return printablePagesDocument(pages, imposition, options).html
+export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  return printablePagesDocument(inputs, imposition, options).html
 }

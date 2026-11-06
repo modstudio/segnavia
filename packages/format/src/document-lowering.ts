@@ -217,6 +217,7 @@ export function deckFromDocument(document: Document): DeckValue {
       playback: document.playback,
       captions: document.captions,
       ...settings(document),
+      ...style(document),
       ...data(document),
       slides,
     }),

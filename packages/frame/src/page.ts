@@ -4,7 +4,7 @@
 // own `bridgeForHost` reports height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { Document, type DocumentInput, FULL_PAGE_SIZE, Page, pageFromDocument, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
@@ -57,7 +57,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -65,7 +65,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get motifs(): MotifsOptions | undefined {
@@ -74,7 +74,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get placements(): PlacementsOptions | undefined {
@@ -83,7 +83,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get pageWidths(): PageWidths | undefined {
@@ -94,7 +94,7 @@ export class SegnaviaPage extends PageElementAttributes {
     const parsed = parsePageWidths(value)
     if (samePageWidths(this.widthOptions, parsed)) return
     this.widthOptions = parsed
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get fonts(): FontsOptions | undefined {
@@ -110,7 +110,7 @@ export class SegnaviaPage extends PageElementAttributes {
     return this.pageValue
   }
 
-  set page(value: PageInput | Page | null | undefined) {
+  set page(value: DocumentInput | null | undefined) {
     if (value == null) {
       this.cancelSelectionRequests()
       this.cancelSlotPreparation()
@@ -133,7 +133,7 @@ export class SegnaviaPage extends PageElementAttributes {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   disconnectedCallback() {
@@ -159,8 +159,12 @@ export class SegnaviaPage extends PageElementAttributes {
     this.load(await response.json())
   }
 
-  load(input: PageInput | unknown) {
-    const page = Page.parse(input)
+  load(input: DocumentInput | unknown) {
+    const page = pageFromDocument(Document.parse(input))
+    this.loadValue(page)
+  }
+
+  private loadValue(page: Page) {
     const resolvedPage = resolvePageHtml(page, { alertLabels: this.alertLabels })
     this.cancelSelectionRequests()
     this.hostServed = false

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Deck } from '@segnavia/format'
+import { Document } from '@segnavia/format'
 
 export async function buildAuthoringDemo(root: string, site: string, shell: (body: string, script?: string) => string) {
   const flowShell = (rail = false) =>
@@ -9,12 +9,15 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
   writeFileSync(path.join(site, 'flow-rail.html'), flowShell(true))
   writeFileSync(path.join(site, 'rail.html'), shell('<segnavia-player id="player" rail src="deck.json"></segnavia-player>'))
   writeFileSync(path.join(site, 'rail-rtl.html'), shell('<segnavia-player id="player" rail src="deck-he.json"></segnavia-player>'))
-  const probe = Deck.parse({
+  const probe = Document.parse({
+    type: 'document',
+    kind: 'deck',
     title: 'Focus probe',
-    scripts: 'sandboxed',
+    settings: { scripts: 'sandboxed' },
     playback: 'continuous',
-    slides: [
+    children: [
       {
+        type: 'slide',
         id: 'probe',
         content: {
           kind: 'html',
@@ -22,17 +25,20 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
         },
         holdMs: 1000,
       },
-      { id: 'second', content: { kind: 'html', html: '<h1>Second</h1>' }, holdMs: 1000 },
+      { type: 'slide', id: 'second', content: { kind: 'html', html: '<h1>Second</h1>' }, holdMs: 1000 },
     ],
   })
   writeFileSync(path.join(site, 'deck-probe.json'), JSON.stringify(probe))
-  writeFileSync(path.join(site, 'deck-probe-rtl.json'), JSON.stringify({ ...probe, dir: 'rtl' }))
-  const printFrames = Deck.parse({
+  writeFileSync(path.join(site, 'deck-probe-rtl.json'), JSON.stringify({ ...probe, settings: { ...probe.settings, dir: 'rtl' } }))
+  const printFrames = Document.parse({
+    type: 'document',
+    kind: 'deck',
     title: 'Print frame probe',
-    scripts: 'sandboxed',
-    slides: [
-      { id: 'static', content: { kind: 'html', html: '<h1>Static</h1>' } },
+    settings: { scripts: 'sandboxed' },
+    children: [
+      { type: 'slide', id: 'static', content: { kind: 'html', html: '<h1>Static</h1>' } },
       {
+        type: 'slide',
         id: 'animated',
         content: {
           kind: 'html',
@@ -40,6 +46,7 @@ export async function buildAuthoringDemo(root: string, site: string, shell: (bod
         },
       },
       {
+        type: 'slide',
         id: 'canvas',
         content: {
           kind: 'html',

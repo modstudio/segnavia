@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
-import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
+import { Document, MM_PER_PT, pageFromDocument, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { chromiumPath } from './chromium-path.ts'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
@@ -233,7 +233,7 @@ try {
 
   const postcardFile = path.join(output, 'page-postcard.pdf')
   const postcardInfo = execFileSync('pdfinfo', ['-box', postcardFile], { encoding: 'utf8' })
-  const postcard = Page.parse(postcardPage)
+  const postcard = pageFromDocument(Document.parse(postcardPage))
   if (!postcard.print) throw new Error('The postcard fixture has no print setting.')
   const boxes = printBoxes(postcard.print)
   const expectedBox = (box: { x: number; y: number; width: number; height: number }) =>

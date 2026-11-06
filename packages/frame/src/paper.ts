@@ -1,7 +1,7 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type PageInput, Page as PageSchema, type PageWidths, type SlotsOptions } from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, type PageWidths, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -12,6 +12,7 @@ import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
+import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
@@ -141,10 +142,10 @@ export class SegnaviaPaper extends HTMLElement {
     else this.showSide(value === 'back' ? 'back' : 'front')
   }
 
-  load(pageInputs: PageInput[], impositionInput: ImpositionInput): void {
+  load(pageInputs: PageOrPrintedInput[], impositionInput: ImpositionInput): void {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
-    const pages = pageInputs.map((page) => resolvePageHtml(PageSchema.parse(page)))
+    const pages = pageInputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
     const imposition = Imposition.parse(impositionInput)
     const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')

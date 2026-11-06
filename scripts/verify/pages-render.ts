@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fitPage, Imposition, impose, impositionMarks, MM_PER_PT, Page, printBoxes } from '@segnavia/format'
+import { Document, fitPage, Imposition, impose, impositionMarks, MM_PER_PT, pageFromDocument, printBoxes } from '@segnavia/format'
 import {
   bleedGridImposition,
   bleedGridPages,
@@ -173,7 +173,7 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     const parsed = Imposition.parse(input)
     const placement = impose(parsed, 1).placements[0]
     if (!placement) throw new Error('The fixed-page imposition has no placement.')
-    const fit = fitPage(Page.parse(fixedImposedPage), placement, parsed.fit)
+    const fit = fitPage(pageFromDocument(Document.parse(fixedImposedPage)), placement, parsed.fit)
     const raster = rasterPdf(output, work, file)
     if (cover) {
       return {
@@ -261,7 +261,7 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   check('a fixed-width growing page with no left bleed fills its trim without repainting its neighbor', growingFixedOk)
 
   const info = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '2', path.join(output, 'pages-postcard.pdf')], { encoding: 'utf8' })
-  const boxesMatch = [Page.parse(postcardPage), Page.parse(postcardBackPage)].every((page, index) => {
+  const boxesMatch = [postcardPage, postcardBackPage].map((input) => pageFromDocument(Document.parse(input))).every((page, index) => {
     if (!page.print) return false
     const boxes = printBoxes(page.print)
     const actual = (name: string) =>

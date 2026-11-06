@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { MM_PER_PT, Page, PX_PER_MM, printBoxes } from '@segnavia/format'
+import { Document, MM_PER_PT, pageFromDocument, PX_PER_MM, printBoxes } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { chromium } from 'playwright-core'
 import { pageContentScale } from './pdf-content.ts'
@@ -54,8 +54,10 @@ async function verifyClipMargin(renderer: Renderer, executablePath: string, chec
   let report: OverflowReport | undefined
   await renderer.pagePdf(
     {
-      html: clipMarginHtml(100),
+      type: 'document',
+      kind: 'page',
       print: { paper: { width: 300, height: 225, unit: 'pt' }, orientation: 'landscape' },
+      children: [{ type: 'page', body: { html: clipMarginHtml(100) } }],
     },
     { effects: false, overflow: { report: (value) => (report = value) } },
   )
@@ -88,13 +90,22 @@ async function verifyClipMargin(renderer: Renderer, executablePath: string, chec
 }
 
 async function verifyExactBottomAnchor(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
-  const page = Page.parse({
-    html: '<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}#bottom{position:absolute;right:24px;bottom:45px;width:20px;height:20px;background:rgb(0,120,120)}</style><div id="bottom"></div>',
+  const document = Document.parse({
+    type: 'document',
+    kind: 'page',
     size: 'fluid',
     print: { paper: { width: 126.98, height: 253.98, unit: 'mm' }, bleed: 0.01 },
+    children: [
+      {
+        type: 'page',
+        body: {
+          html: '<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}#bottom{position:absolute;right:24px;bottom:45px;width:20px;height:20px;background:rgb(0,120,120)}</style><div id="bottom"></div>',
+        },
+      },
+    ],
   })
   let screenInset: number | undefined
-  await renderer.pageImage(page, {
+  await renderer.pageImage(document, {
     beforeOutput: async (tab) => {
       screenInset = await tab
         .locator('#bottom')
@@ -102,7 +113,7 @@ async function verifyExactBottomAnchor(renderer: Renderer, work: string, check: 
     },
   })
   const file = path.join(work, 'exact-bottom.pdf')
-  writeFileSync(file, await renderer.pagePdf(page))
+  writeFileSync(file, await renderer.pagePdf(document))
   const raster = path.join(work, 'exact-bottom')
   execFileSync('pdftoppm', ['-f', '1', '-singlefile', '-r', '384', file, raster])
   const bottom = bottomMarkerComparison(
@@ -119,8 +130,12 @@ export async function verifyClippedBleed(
   executablePath: string,
   check: (what: string, ok: boolean, detail?: string) => void,
 ): Promise<void> {
-  const page = Page.parse({
-    html: `<!doctype html><style>
+  const document = Document.parse({
+    type: 'document',
+    kind: 'page',
+    size: 'fluid',
+    print: { paper: 'a5', orientation: 'portrait', bleed: 3 },
+    children: [{ type: 'page', body: { html: `<!doctype html><style>
       *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%}body{overflow:hidden;position:relative}
       #trim{position:absolute;inset:var(--segnavia-bleed);overflow:hidden}
       #text{position:absolute;left:24px;top:20px;width:160px;height:24px;overflow:visible;background:rgb(120,0,0)}
@@ -129,16 +144,15 @@ export async function verifyClippedBleed(
       #bottom{position:absolute;right:24px;bottom:45px;width:20px;height:20px;background:rgb(0,120,120)}
       #fixed{position:fixed;left:24px;bottom:45px;width:20px;height:20px;background:rgb(120,0,120)}
       @media print{html,body{width:auto;height:auto;min-height:0}body{position:fixed;inset:0}}
-    </style><body><div id="trim"><svg id="text"><text id="marker" x="0" y="16">BLEED_MARKER</text></svg><div id="bleed"></div><div id="bottom"></div></div><div id="fixed"></div></body>`,
-    size: 'fluid',
-    print: { paper: 'a5', orientation: 'portrait', bleed: 3 },
+    </style><body><div id="trim"><svg id="text"><text id="marker" x="0" y="16">BLEED_MARKER</text></svg><div id="bleed"></div><div id="bottom"></div></div><div id="fixed"></div></body>` } }],
   })
+  const page = pageFromDocument(document)
   if (!page.print) throw new Error('The clipped-bleed fixture has no print setting.')
   let report: OverflowReport | undefined
   let screen: { x: number; y: number; width: number; height: number } | undefined
   let screenBottomInset: number | undefined
   let screenFixedInset: number | undefined
-  await renderer.pageImage(page, {
+  await renderer.pageImage(document, {
     beforeOutput: async (tab) => {
       screen = await tab.locator('#text').evaluate((element) => {
         const box = element.getBoundingClientRect()
@@ -152,7 +166,7 @@ export async function verifyClippedBleed(
         .evaluate((element) => document.documentElement.getBoundingClientRect().bottom - element.getBoundingClientRect().bottom)
     },
   })
-  const bytes = await renderer.pagesPdf([page], {
+  const bytes = await renderer.pagesPdf([document], {
     effects: false,
     overflow: { report: (value) => (report = value) },
   })

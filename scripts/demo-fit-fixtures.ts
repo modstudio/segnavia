@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Deck, type Shot } from '@segnavia/format'
+import { Document, type Shot } from '@segnavia/format'
 
 export const fitShot: Shot = {
   key: 'fit.tall',
@@ -23,15 +23,18 @@ export const fitShot: Shot = {
   meta: {},
 }
 
-export const fitDeck = Deck.parse({
+export const fitDeck = Document.parse({
+  type: 'document',
+  kind: 'deck',
   title: 'Image fit modes',
   frame: true,
-  slides: [
+  children: [
     ...(['contain', 'cover', 'width', 'focus'] as const).map((fit) => ({
+      type: 'slide' as const,
       id: fit,
       content: { kind: 'shot' as const, src: `shots/${fitShot.file}`, shot: fitShot, fit, frame: false },
     })),
-    { id: 'framed', content: { kind: 'image' as const, src: 'shots/fit-wide.svg', alt: 'Wide framed image', fit: 'contain' as const } },
+    { type: 'slide', id: 'framed', content: { kind: 'image' as const, src: 'shots/fit-wide.svg', alt: 'Wide framed image', fit: 'contain' as const } },
   ],
 })
 

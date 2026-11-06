@@ -1,7 +1,7 @@
-import { bookFromDocument, Cover, type Deck, Document, DocumentMetadata } from '@segnavia/format'
+import { bookFromDocument, Cover, type Deck, Document, DocumentMetadata, deckFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
-import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
+import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type PreparedSlots, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
@@ -268,8 +268,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
 
-    async deckPdf(deck, opts = {}) {
+    async deckPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
+      const deck = deckFromDocument(Document.parse(input))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
@@ -296,8 +297,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
 
-    async slideImage(deck, index, opts = {}) {
+    async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
+      const deck = deckFromDocument(Document.parse(input))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const filled = await filledDeck(deck, opts.slots, deadline.signal)
@@ -309,7 +311,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const diagramScript = await resolveDiagramScript(slideHtml)
         const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
         const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-        const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
+        const html = printableDeckValue(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
         return withTab(
           {
             viewport: deck.size,
