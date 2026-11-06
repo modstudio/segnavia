@@ -1,8 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import type { DocumentInput } from '@segnavia/format'
+import { bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
-import { bookFixtureValue } from '../book-document-fixture.ts'
 import { BOOK_FACE_CSS, bookFixtures, ENGLISH_BOOK_ID, FAULT_CONTROL_PAGE, SHIFTED_BOOK_ID } from './book-fixtures.ts'
 import { bookPageId } from './book-page-id.ts'
 import { captureBookPapers, openBookBrowser, shiftTextWindowByOneLine } from './book-screen.ts'
@@ -109,7 +108,7 @@ async function measureBookPages(
   fixture: BookFixture,
   options: { faultControl?: boolean; beforeOutput?: (tab: Tab) => Promise<void>; pages?: number[] } = {},
 ): Promise<DocumentResult[]> {
-  const book = bookFixtureValue(fixture.book)
+  const book = bookFromDocument(Document.parse(fixture.book))
   const browser = await openBookBrowser(session.executablePath)
   let captures: Awaited<ReturnType<typeof captureBookPapers>>
   try {

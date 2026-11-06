@@ -1,5 +1,4 @@
 import type { DocumentInput } from '@segnavia/format'
-import { bookDocumentFixture } from './book-document-fixture.ts'
 
 export const keepProbe = (hebrew: boolean) => {
   const word = hebrew ? 'בְּרֵאשִׁית' : 'WORD'
@@ -23,12 +22,25 @@ const blockKeepProbe = (hebrew: boolean) => {
     <div style="block-size:150mm;break-inside:avoid"></div><p data-keep-block-previous-neighbor style="margin:0;line-height:12mm">${before}</p><div data-keep-block-previous style="margin:0;line-height:12mm;--segnavia-keep-with:previous">${previous}</div>`
 }
 
-export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous'): DocumentInput =>
-  bookDocumentFixture({
-    title: hebrew ? 'ספר שמירות' : 'Keep Book',
-    mode,
-    lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    css: ':where(html){font:16px/1.5 monospace}',
-    chapters: [{ title: hebrew ? 'שמירות' : 'Keeps', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
-  })
+export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous'): DocumentInput => ({
+  type: 'document',
+  kind: 'book',
+  metadata: { title: hebrew ? 'ספר שמירות' : 'Keep Book' },
+  mode,
+  settings: { lang: hebrew ? 'he' : 'en' },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
+  style: { css: ':where(html){font:16px/1.5 monospace}' },
+  children: [
+    {
+      type: 'division',
+      name: 'body',
+      children: [
+        {
+          type: 'section',
+          title: hebrew ? 'שמירות' : 'Keeps',
+          children: [{ type: 'flow', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
+        },
+      ],
+    },
+  ],
+})

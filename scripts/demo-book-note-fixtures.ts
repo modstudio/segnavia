@@ -1,5 +1,4 @@
 import type { DocumentInput } from '@segnavia/format'
-import { bookDocumentFixture } from './book-document-fixture.ts'
 
 export const FIRST_CHILD_NOTE_COLOR = 'rgb(176, 32, 48)'
 
@@ -36,16 +35,30 @@ export function noteCasesFixture(hebrew: boolean): DocumentInput {
   const one = hebrew ? 'פסקה ראשונה' : 'First paragraph'
   const two = hebrew ? 'פסקה שנייה' : 'Second paragraph'
   const three = hebrew ? 'פסקה שלישית' : 'Third paragraph'
-  return bookDocumentFixture({
-    title,
+  return {
+    type: 'document',
+    kind: 'book',
+    metadata: { title },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    chapters: [
+    children: [
       {
-        title,
-        html: `<h1>${title}</h1><p>${one}<span data-note="footnote">${paddedNote(hebrew)}</span></p><p>${two}<span data-note="footnote">${mixedNote(hebrew)}</span></p><p>${three}<span data-note="footnote">${firstChildNote(hebrew)}</span></p>`,
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title,
+            children: [
+              {
+                type: 'flow',
+                html: `<h1>${title}</h1><p>${one}<span data-note="footnote">${paddedNote(hebrew)}</span></p><p>${two}<span data-note="footnote">${mixedNote(hebrew)}</span></p><p>${three}<span data-note="footnote">${firstChildNote(hebrew)}</span></p>`,
+              },
+            ],
+          },
+        ],
       },
     ],
-  })
+  }
 }
