@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
-import { BASE_CSS } from './base-style.ts'
+import { BASE_CSS, LOADING_CANVAS_OPACITY } from './base-style.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { initialDeckState } from './controller-types.ts'
 import { installFramePoolTestDocument, FramePoolTestElement as TestElement } from './frame-pool.test-helper.ts'
@@ -81,8 +81,10 @@ test('a loading incoming canvas is drawn beneath the outgoing canvas and promote
   expect(incoming.dataset.incoming).toBe('')
   expect(incoming.dataset.active).toBeUndefined()
   expect(incoming.inert).toBeTrue()
-  expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){opacity:1;z-index:0}')
-  expect(BASE_CSS).not.toMatch(/\.segnavia-stage__canvas\[data-incoming\][^{]*\{[^}]*(?:opacity:0|display:none)/)
+  expect(LOADING_CANVAS_OPACITY).toBeGreaterThan(0)
+  expect(LOADING_CANVAS_OPACITY).toBeLessThanOrEqual(1 / 255)
+  expect(BASE_CSS).toContain(`.segnavia-stage__canvas[data-incoming]){opacity:${LOADING_CANVAS_OPACITY};z-index:0}`)
+  expect(BASE_CSS).not.toMatch(/\.segnavia-stage__canvas\[data-incoming\][^{]*\{[^}]*(?:opacity:0(?:;|})|display:none)/)
 
   ;(incoming.querySelector('iframe') as unknown as TestElement).dispatch('load')
   frames.shift()?.(0)

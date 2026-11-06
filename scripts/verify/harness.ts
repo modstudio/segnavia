@@ -38,6 +38,7 @@ export async function openHarness(): Promise<Harness> {
     fetch: async (request) => {
       const url = new URL(request.url)
       if (url.pathname === '/held-frame.html') {
+        const background = url.searchParams.has('red') ? 'rgb(255,0,0)' : 'rgb(88,28,135)'
         const encoder = new TextEncoder()
         let heldController: ReadableStreamDefaultController<Uint8Array> | undefined
         return new Response(
@@ -47,7 +48,7 @@ export async function openHarness(): Promise<Harness> {
               heldFrames.add(controller)
               controller.enqueue(
                 encoder.encode(
-                  '<!doctype html><style>html{background:rgb(88,28,135)}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>',
+                  `<!doctype html><style>html{background:${background}}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>`,
                 ),
               )
             },

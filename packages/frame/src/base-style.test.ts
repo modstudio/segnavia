@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BASE_CSS } from './base-style.ts'
+import { BASE_CSS, LOADING_CANVAS_OPACITY } from './base-style.ts'
 import { HEADLESS_ELEMENT_NAMES } from './headless-elements.ts'
 
 // The headless elements promise a host never has to fight their styles: every
@@ -39,7 +39,10 @@ describe('headless base styles', () => {
 
   test('an incoming canvas is drawn beneath the active canvas until its transition starts', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}')
-    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){opacity:1;z-index:0}')
+    expect(LOADING_CANVAS_OPACITY).toBeGreaterThan(0)
+    expect(LOADING_CANVAS_OPACITY).toBeLessThanOrEqual(1 / 255)
+    expect(BASE_CSS).toContain(`.segnavia-stage__canvas[data-incoming]){opacity:${LOADING_CANVAS_OPACITY};z-index:0}`)
+    expect(BASE_CSS).not.toMatch(/\.segnavia-stage__canvas\[data-incoming\][^{]*\{[^}]*(?:opacity:0(?:;|})|display:none)/)
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-entering]){z-index:2}')
   })
 

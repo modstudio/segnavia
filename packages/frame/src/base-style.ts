@@ -20,11 +20,14 @@
 //   --segnavia-board-handle-background the board editing handle fill
 //   --segnavia-board-drop-marker-color the grid insertion marker
 
+// Non-zero keeps Chromium drawing a loading frame; the minimum alpha leaves no visible trace through a transparent active slide.
+export const LOADING_CANVAS_OPACITY = 1 / 255
+
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));opacity:0;pointer-events:none}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}
-:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){opacity:1;z-index:0}
+:where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-incoming]){opacity:${LOADING_CANVAS_OPACITY};z-index:0}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-entering]){z-index:2}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition][data-running]){transition-duration:var(--segnavia-transition-duration);transition-timing-function:ease;transition-property:opacity,translate}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-transition="fade"][data-entering]){opacity:0}
