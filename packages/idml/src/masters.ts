@@ -1,11 +1,11 @@
-import { BOOK_PARENT_NAMES, type BookSectionParents, type LogicalMargin, type ParentPage } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookSectionParents, type LogicalMargin, type ParentPage, type PhysicalMargin } from '@segnavia/format'
 import { logicalMargin } from './margins.ts'
 import { IDML_NONE_MASTER, masterPage, type ParentBuildContext, pageSideForRole, regionHtml } from './master-regions.ts'
 import type { IdmlModel } from './model.ts'
 import type { ReportCollector } from './report.ts'
 import type { StoryHtmlResult } from './stories.ts'
 import type { StyleMapper } from './styles.ts'
-import type { IdmlMargin, IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
+import type { IdmlMasterPage, IdmlMasterSpread, IdmlPage, IdmlStory, IdmlTextVariable } from './types.ts'
 
 export { IDML_NONE_MASTER } from './master-regions.ts'
 
@@ -15,7 +15,7 @@ export interface MasterMapping {
   bookMargin?: LogicalMargin
   parentFor(master: string | undefined, role: 'recto' | 'verso', location: string): string
   mappedStories: Set<string>
-  marginFor(page: IdmlPage, ordinal?: number): IdmlMargin
+  marginFor(page: IdmlPage, ordinal?: number): PhysicalMargin
 }
 
 const slug = (value: string) =>
@@ -160,7 +160,7 @@ export function mapMasters(
     report.addOnce(report.unsupportedElements, `applied master unknown:${masterId}`, location)
     return role === 'recto' ? BOOK_PARENT_NAMES.recto : BOOK_PARENT_NAMES.verso
   }
-  const marginFor = (page: IdmlPage, ordinal?: number): IdmlMargin => {
+  const marginFor = (page: IdmlPage, ordinal?: number): PhysicalMargin => {
     const master = page.appliedMaster ? byId.get(page.appliedMaster) : undefined
     const resolved = master ? masterPage(master, roleFor(page, rtl, ordinal), rtl) : undefined
     return resolved?.margin ?? model.preferences.margin

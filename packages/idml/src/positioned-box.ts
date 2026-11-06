@@ -1,6 +1,6 @@
-import type { TextDirection } from '@segnavia/format'
+import type { PhysicalMargin, TextDirection } from '@segnavia/format'
 import { MM_PER_PT } from '@segnavia/format'
-import type { IdmlBounds, IdmlMargin } from './types.ts'
+import type { IdmlBounds } from './types.ts'
 
 export function formatRoundedNumber(value: number, digits = 2): string {
   const rounded = Number(value.toFixed(digits))
@@ -29,7 +29,7 @@ export function logicalCornerRadii<T>(corners: PhysicalCornerRadii<T>, direction
 
 export interface PositionedBoxOptions {
   pageWidth: number
-  margin: IdmlMargin
+  margin: PhysicalMargin
   rtl: boolean
   blockOrigin: number
   unit: 'pt' | 'mm'

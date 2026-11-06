@@ -11,7 +11,6 @@ export {
 } from './limits.ts'
 export type {
   IdmlDocumentPreferences,
-  IdmlMargin,
   IdmlMasterSpread,
   IdmlModel,
   IdmlPage,
