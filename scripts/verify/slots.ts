@@ -46,6 +46,11 @@ export async function verifySlots(h: Harness) {
     for (let index = 0; index < (await frames.count()); index++) text.push(await frames.nth(index).contentFrame().locator('body').innerText())
     return text
   }
+  await page.locator('#filled-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor({ state: 'attached' })
+  await page.locator('#filled-deck-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
+  await page.locator('#mina iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
+  await page.locator('#noah iframe').first().contentFrame().locator('body').getByText('Noah Kim').waitFor()
+  await page.locator('#unfilled iframe').first().contentFrame().locator('body').getByText('Design Name').waitFor()
   const mina = await frameText('#mina iframe')
   const noah = await frameText('#noah iframe')
   const unfilled = await frameText('#unfilled iframe')
