@@ -1,0 +1,97 @@
+import { z } from 'zod'
+import { BoardProperties } from './board.ts'
+import { BookMode, BookPage, BookRunningHead, BookShape } from './book.ts'
+import { DeckShape } from './deck.ts'
+import { DocumentLimits } from './document-limits.ts'
+import { DocumentMetadata } from './document-metadata.ts'
+import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
+import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { FontReference } from './fonts.ts'
+import { PageSize } from './page.ts'
+import { Print } from './print.ts'
+import { PrintedPageRules } from './printed-pages.ts'
+import { Scripts } from './scripts.ts'
+import { Slots } from './slots.ts'
+
+const DocumentSettings = z.object({ scripts: Scripts.default('refuse'), dir: DeckShape.shape.dir, lang: z.string().optional() })
+const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional() })
+const DocumentData = z.object({ slots: Slots.optional() })
+
+const DocumentShape = z.object({
+  type: z.literal('document'),
+  id: z.string().optional(),
+  kind: z.enum(['deck', 'page', 'printed', 'book', 'board']),
+  metadata: DocumentMetadata.optional(),
+  title: z.string().optional(),
+  brand: z.string().optional(),
+  limits: DocumentLimits.optional(),
+  settings: DocumentSettings.optional(),
+  style: DocumentStyle.optional(),
+  data: DocumentData.optional(),
+  size: PageSize.optional(),
+  print: Print.optional(),
+  direction: BoardProperties.shape.direction.optional(),
+  layout: DeckShape.shape.layout.optional(),
+  fit: DeckShape.shape.fit.optional(),
+  frame: DeckShape.shape.frame.optional(),
+  transition: DeckShape.shape.transition,
+  playback: DeckShape.shape.playback,
+  captions: DeckShape.shape.captions,
+  mode: BookMode.optional(),
+  page: BookPage.optional(),
+  numbering: z.union([BookShape.shape.numbering, z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])]).optional(),
+  footnotes: BookShape.shape.footnotes.optional(),
+  endnotes: BookShape.shape.endnotes.optional(),
+  rectoOpenings: BookShape.shape.rectoOpenings.optional(),
+  orphans: BookShape.shape.orphans.optional(),
+  widows: BookShape.shape.widows.optional(),
+  fragmentation: BookShape.shape.fragmentation.optional(),
+  runningHead: BookRunningHead.optional(),
+  contents: BookShape.shape.contents.optional(),
+  rules: PrintedPageRules.optional(),
+  children: z.array(DocumentNode),
+  parentPages: z.array(ParentPageNode).default([]),
+  templates: z.array(TemplateNode).default([]),
+  noteSeries: z.array(NoteSeriesNode).default([]),
+  variables: z.array(VariableNode).default([]),
+  conditions: z.array(ConditionNode).default([]),
+})
+
+const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
+
+function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
+  nodes.forEach((node, index) => {
+    const nodePath = [...path, index]
+    visit(node, nodePath)
+    if ('children' in node) walk(node.children, visit, [...nodePath, 'children'])
+  })
+}
+
+export const Document = DocumentShape.superRefine((document, ctx) => {
+  const profile = DOCUMENT_PROFILES[document.kind]
+  walk(document.children, (node, path) => {
+    if (!(profile.children as readonly string[]).includes(node.type)) {
+      ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })
+    }
+    if (node.type === 'record') {
+      ctx.addIssue({ code: 'custom', path, message: `record ${node.name} is not yet supported; remove it to clear this refusal` })
+    }
+  })
+  for (const collection of definitionCollections) {
+    const values = document[collection]
+    if (values.length > 0 && !(profile.definitions as readonly string[]).includes(collection)) {
+      ctx.addIssue({ code: 'custom', path: [collection], message: profileRefusal(collection, document.kind, profile.definitions) })
+    }
+  }
+  document.conditions.forEach((condition, index) => {
+    ctx.addIssue({ code: 'custom', path: ['conditions', index], message: `condition ${condition.name} is not yet supported; remove it to clear this refusal` })
+  })
+  if (document.kind === 'page' && (document.children.length !== 1 || document.children[0]?.type !== 'page')) {
+    ctx.addIssue({ code: 'custom', path: ['children'], message: 'a page document needs exactly one page node; provide one page node to clear this refusal' })
+  }
+})
+
+export type Document = z.infer<typeof Document>
+export type DocumentInput = z.input<typeof Document>
+export type { DocumentKind }
