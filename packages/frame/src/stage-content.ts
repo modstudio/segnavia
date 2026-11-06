@@ -1,4 +1,4 @@
-import { type Deck, firstStrongDirection, type Slide } from '@segnavia/format'
+import { type Deck, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -6,10 +6,9 @@ import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
-type CanvasSize = { width: number; height: number }
-const canvasLayouts = new WeakMap<HTMLElement, (size: CanvasSize) => void>()
+const canvasLayouts = new WeakMap<HTMLElement, (size: PixelSize) => void>()
 
-export function layoutStageCanvas(canvas: HTMLElement, size: CanvasSize) {
+export function layoutStageCanvas(canvas: HTMLElement, size: PixelSize) {
   canvas.style.inlineSize = `${size.width}px`
   canvas.style.blockSize = `${size.height}px`
   canvas.style.marginBlockStart = `${-size.height / 2}px`
@@ -69,8 +68,8 @@ export function stageCanvas(
     image.alt = content.kind === 'image' ? content.alt : content.shot.title
     image.dir = firstStrongDirection(image.alt) ?? 'auto'
     image.style.display = 'block'
-    let imageSize: CanvasSize | undefined = content.kind === 'image' ? undefined : content.shot.size
-    let slideSize: CanvasSize = deck.size
+    let imageSize: PixelSize | undefined = content.kind === 'image' ? undefined : content.shot.size
+    let slideSize: PixelSize = deck.size
     const position = () => {
       if (!imageSize) return
       const focus = content.kind === 'shot' ? annotationFocusBox(imageSize, content.shot.annotations) : undefined

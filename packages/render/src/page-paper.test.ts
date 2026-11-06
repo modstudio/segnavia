@@ -10,19 +10,29 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
     const print = Print.parse({ paper: 'a4', safe: 5 })
-    expect(printCss(print)).toBe(':root{--segnavia-bleed:0mm;--segnavia-safe:5mm}')
+    expect(printCss(print, 'ltr')).toBe(':root{--segnavia-bleed:0mm;--segnavia-safe:5mm}')
   })
 
   test('bleed grows the viewport and becomes physical root padding with the margins', () => {
     const print = Print.parse({
       paper: { width: 148, height: 105, unit: 'mm' },
       orientation: 'landscape',
-      margin: { top: 1, right: 2, bottom: 3, left: 4 },
+      margin: { blockStart: 1, blockEnd: 3, inlineStart: 4, inlineEnd: 2 },
       bleed: 3,
     })
-    expect(printCss(print)).toBe(
+    expect(printCss(print, 'ltr')).toBe(
       ':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){box-sizing:border-box!important;position:relative!important;width:154mm!important;height:111mm!important;overflow:clip!important;padding:4mm 5mm 6mm 7mm}:where(body){position:absolute!important;inset:4mm 5mm 6mm 7mm!important;width:auto!important;height:auto!important}',
     )
+  })
+
+  test('mirrors a binding-relative press margin for right-to-left text', () => {
+    const print = Print.parse({
+      paper: { width: 148, height: 105, unit: 'mm' },
+      orientation: 'landscape',
+      margin: { blockStart: 1, blockEnd: 3, inlineStart: 4, inlineEnd: 2 },
+      bleed: 3,
+    })
+    expect(printCss(print, 'rtl')).toContain('padding:4mm 7mm 6mm 5mm')
   })
 
   test('a CSS page size is refused for bleed or marks', () => {

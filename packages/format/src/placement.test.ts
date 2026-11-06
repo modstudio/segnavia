@@ -86,7 +86,12 @@ describe('Placement', () => {
   })
 
   test('publishes media and placement input schemas with their required fields', () => {
-    expect(jsonSchemas().media).toMatchObject({ type: 'object', required: ['format', 'size'] })
+    expect(jsonSchemas().media).toMatchObject({
+      oneOf: [
+        { type: 'object', required: ['format', 'size'] },
+        { type: 'object', required: ['format', 'size'] },
+      ],
+    })
     expect(jsonSchemas().placement).toMatchObject({ type: 'object', required: ['kind', 'address'] })
   })
 

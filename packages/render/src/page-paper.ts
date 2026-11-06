@@ -1,4 +1,4 @@
-import { type Print, paperViewport, printBoxes, printProperties, sheetMm, usesPressLayout } from '@segnavia/format'
+import { type Print, paperViewport, physicalMargins, printBoxes, printProperties, sheetMm, type TextDirection, usesPressLayout } from '@segnavia/format'
 import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -8,11 +8,11 @@ import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 import { pagePdfSize, setPdfPageSize } from './pdf-page-size.ts'
 
-export function printCss(print: Print): string {
+export function printCss(print: Print, direction: TextDirection): string {
   const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
   const { bleedBox } = printBoxes(print)
-  const margin = print.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }
+  const margin = physicalMargins(print.margin ?? { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 }, direction, 'recto')
   const edges = {
     top: margin.top + print.bleed,
     right: margin.right + print.bleed,
@@ -70,11 +70,17 @@ export function pressContentPlacement(source: { width: number; height: number },
   }
 }
 
-export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
+export async function printPage(
+  tab: Tab,
+  print: Print,
+  preferCssPageSize: boolean | undefined,
+  inputIndex: number | undefined,
+  direction: TextDirection,
+): Promise<PrintResult<true>> {
   const pageWidth = paperViewport(print).width
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
-    const margin = print.margin
+    const margin = print.margin ? physicalMargins(print.margin, direction, 'recto') : undefined
     const printed = await printWithOverflow(
       tab,
       pageWidth,

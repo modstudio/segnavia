@@ -23,7 +23,7 @@ test('Book preparation resolves placed media through the book PDF field path', a
   const book = Book.parse({
     title: 'Placed',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
     chapters: [{ title: 'One', html: '<img data-segnavia-media="cover">' }],
   })
   const expanded = await expandFrameBook(book, undefined, signal, placements)
@@ -96,7 +96,7 @@ test('chooses placement widths from print, flowing, fixed, and paginated book vi
   const book = Book.parse({
     title: 'Widths',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
     chapters: [{ title: 'One', html: image }],
   })
   await expandFrameBook(book, undefined, signal, capture)

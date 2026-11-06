@@ -114,7 +114,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       return markerPages
     }
     const parentPages = {
-      parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
+      parents: [{ name: 'body', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }],
       rules: { every: 'body' },
     }
     const viewportFixture = {
@@ -239,7 +239,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
         lang: 'en',
         print: { paper: 'letter' },
         printedPages: {
-          parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
+          parents: [{ name: 'body', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }],
           rules: { every: 'body' },
         },
       }

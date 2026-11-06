@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Direction, resolveDirection, type TextDirection } from './direction.ts'
-import { Box } from './geometry.ts'
+import { Box, PixelSize } from './geometry.ts'
 
 export const MediaFormat = z.enum(['png', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'ai'])
 export type MediaFormat = z.infer<typeof MediaFormat>
@@ -48,19 +48,26 @@ export const MediaPage = z.object({
 })
 export type MediaPage = z.infer<typeof MediaPage>
 
-const MediaShape = z.object({
-  format: MediaFormat,
-  size: z.object({
-    width: z.number().positive('size.width could not be accepted; pass a positive width to clear this refusal'),
-    height: z.number().positive('size.height could not be accepted; pass a positive height to clear this refusal'),
-  }),
+export const PointSize = z.object({
+  width: z.number().positive('size.width could not be accepted; pass a positive width to clear this refusal'),
+  height: z.number().positive('size.height could not be accepted; pass a positive height to clear this refusal'),
+})
+/** An authored vector or document size measured in PostScript points. */
+export type PointSize = z.infer<typeof PointSize>
+
+const mediaFields = {
   pages: z.array(MediaPage).optional(),
   resolution: z.number().positive('resolution could not be accepted; pass a positive resolution to clear this refusal').optional(),
   alt: MediaText.optional(),
   caption: MediaText.optional(),
   credit: MediaText.optional(),
   derivedFrom: z.object({ address: z.string().min(1), page: PageSelector, name: z.string().min(1).optional() }).optional(),
-})
+}
+
+const MediaShape = z.discriminatedUnion('format', [
+  z.object({ format: z.enum(['png', 'jpeg', 'gif', 'webp']), size: PixelSize, ...mediaFields }),
+  z.object({ format: z.enum(['svg', 'pdf', 'ai']), size: PointSize, ...mediaFields }),
+])
 
 export const Media = MediaShape.superRefine((media, ctx) => {
   const capabilities = MEDIA_FORMATS[media.format]

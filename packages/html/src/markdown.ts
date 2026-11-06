@@ -1,4 +1,4 @@
-import { type Page, type PageBody, resolveDirection } from '@segnavia/format'
+import { type Direction, type Page, type PageBody, resolveDirection } from '@segnavia/format'
 import rehypeStringify from 'rehype-stringify'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -41,7 +41,7 @@ export function isDiagramFence(language: string | undefined): boolean {
 
 export interface BodyHtmlOptions {
   alertLabels?: Partial<AlertLabels>
-  dir?: 'ltr' | 'rtl' | 'auto'
+  dir?: Direction
   lang?: string
 }
 

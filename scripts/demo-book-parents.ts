@@ -10,12 +10,12 @@ export const haggadahHeadCss =
 
 export function paginatedParents(footMotifKey?: string): ParentPage[] {
   return [
-    { name: 'deep-opener', basedOn: 'segnavia:opener', margin: { top: 34, bottom: 16, inner: 18, outer: 12 } },
+    { name: 'deep-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     { name: 'haggadah-recto', basedOn: 'segnavia:recto', head: markHead('end') },
     { name: 'haggadah-verso', basedOn: 'segnavia:verso', head: markHead('start') },
-    { name: 'wide-opener', basedOn: 'segnavia:opener', margin: { top: 34, bottom: 16, inner: 24, outer: 18 } },
-    { name: 'wide-recto', basedOn: 'haggadah-recto', margin: { top: 16, bottom: 16, inner: 24, outer: 18 } },
-    { name: 'wide-verso', basedOn: 'haggadah-verso', margin: { top: 16, bottom: 16, inner: 24, outer: 18 } },
+    { name: 'wide-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
+    { name: 'wide-recto', basedOn: 'haggadah-recto', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
+    { name: 'wide-verso', basedOn: 'haggadah-verso', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
     {
       name: 'ornament-foot',
       basedOn: 'segnavia:blank',

@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
+import { Book } from '@segnavia/format'
 import type { BookSectionInfo } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { type BookPdfAdapter, bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
+import { type BookPdfAdapter, bookPageCss, bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
 const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', division: 'front', title: 'Preface' }]
@@ -15,9 +16,22 @@ const destinations = (page: number): Map<string, BookDestination> =>
 const continuousBook = (body: string, front?: string) => ({
   title: 'Book',
   mode: 'continuous' as const,
-  page: { paper: 'a5' as const, margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+  page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
   ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
   chapters: [{ title: 'One', html: body }],
+})
+
+test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
+  const expected =
+    '@page{size:148mm 210mm;margin-top:10mm;margin-bottom:11mm}@page :right{margin-left:30mm;margin-right:5mm}@page :left{margin-left:5mm;margin-right:30mm}'
+  const input = {
+    title: 'Book',
+    mode: 'continuous' as const,
+    page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 11, inlineStart: 30, inlineEnd: 5 } },
+    chapters: [{ title: 'One', html: '<p>Text</p>' }],
+  }
+  expect(bookPageCss(Book.parse({ ...input, dir: 'ltr' }))).toBe(expected)
+  expect(bookPageCss(Book.parse({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
 })
 
 async function printedPart(html: string, overrides: Record<string, number>, pages: number) {
@@ -68,7 +82,7 @@ test('places FontSource CSS before book CSS in the printed document', async () =
       title: 'Book',
       mode: 'paginated',
       css: '.book-rule{color:purple}',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p class="book-rule">Text</p>' }],
     },
     {},
@@ -179,7 +193,7 @@ test('prints a paginated book once then finishes', async () => {
     {
       title: 'Book',
       mode: 'paginated',
-      page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
     },
     {},
@@ -214,7 +228,7 @@ test('corrects every joined book page to the exact trim before finishing', async
     {
       title: 'Book',
       mode: 'continuous',
-      page: { paper: 'letter', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+      page: { paper: 'letter', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
     },
     {},

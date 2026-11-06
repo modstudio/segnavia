@@ -2,7 +2,7 @@
 // markup serves the live viewer (one group shown per cue) and print (all of
 // them). Pure string building: it runs in a browser and on a server alike.
 
-import { type Annotation, firstStrongDirection, type Size } from '@segnavia/format'
+import { type Annotation, firstStrongDirection, type PixelSize } from '@segnavia/format'
 
 export const ANNOTATION_COLOR = '#e5484d'
 
@@ -32,7 +32,7 @@ export function annotationGroup(annotation: Annotation, index: number, color = A
   return `<g data-annotation="${index}">${parts.join('')}</g>`
 }
 
-export function annotationSvg(size: Size, annotations: Annotation[], color = ANNOTATION_COLOR): string {
+export function annotationSvg(size: PixelSize, annotations: Annotation[], color = ANNOTATION_COLOR): string {
   const marker = `<defs><marker id="segnavia-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="${color}"/></marker></defs>`
   return `<svg viewBox="0 0 ${size.width} ${size.height}" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none">${marker}${annotations.map((a, i) => annotationGroup(a, i, color)).join('')}</svg>`
 }

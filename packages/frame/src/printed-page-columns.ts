@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 export interface PrintedPageRect {
   left: number
   right: number
@@ -13,7 +14,7 @@ export interface FragmentColumns {
   last: number
 }
 
-export function fragmentSpan(rect: PrintedPageRect, box: PrintedPageRect, direction: 'ltr' | 'rtl'): FragmentSpan {
+export function fragmentSpan(rect: PrintedPageRect, box: PrintedPageRect, direction: TextDirection): FragmentSpan {
   const start = direction === 'rtl' ? box.right - rect.right : rect.left - box.left
   return { start, end: start + (rect.right - rect.left) }
 }

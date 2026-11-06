@@ -62,7 +62,7 @@ describe('boardShapes', () => {
     const facts: Record<string, BoardItemFact> = {
       deck: { kind: 'deck', deck: { size: { width: 16, height: 10 } } },
       page: { kind: 'page', size: { width: 8, height: 11 } },
-      media: { kind: 'media', width: 640, height: 480 },
+      media: { kind: 'media', size: { width: 640, height: 480 } },
     }
     expect(boardShapes(withItems, facts)).toEqual({
       shapes: {
@@ -99,8 +99,8 @@ describe('boardShapes', () => {
     expect(resolvedShape({ kind: 'page', size: { width: 8, height: 11 } })).toEqual({ width: 8, height: 11 })
     expect(resolvedShape({ kind: 'paper', size: { width: 11, height: 17 } })).toEqual({ width: 11, height: 17 })
     expect(resolvedShape({ kind: 'book', size: { width: 6, height: 9 } })).toEqual({ width: 6, height: 9 })
-    expect(resolvedShape({ kind: 'media', width: 640, height: 480 })).toEqual({ width: 640, height: 480 })
-    expect(resolvedShape({ kind: 'shot', width: 1280, height: 720 })).toEqual({ width: 1280, height: 720 })
+    expect(resolvedShape({ kind: 'media', size: { width: 640, height: 480 } })).toEqual({ width: 640, height: 480 })
+    expect(resolvedShape({ kind: 'shot', size: { width: 1280, height: 720 } })).toEqual({ width: 1280, height: 720 })
   })
 
   test('uses the documented provisional shape for every item kind', () => {

@@ -1,8 +1,10 @@
 import { z } from 'zod'
+import { TextDirection } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
 import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
+import { PhysicalMargin } from './margins.ts'
 import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
-import { Margin, MarkColor } from './print.ts'
+import { MarkColor } from './print.ts'
 
 const ImpositionGap = z.object({
   column: z.number().nonnegative().default(0),
@@ -16,7 +18,7 @@ export const Imposition = z
     paper: Paper,
     orientation: Orientation.default('portrait'),
     unit: PaperUnit.default('mm'),
-    margin: Margin.default({ top: 0, right: 0, bottom: 0, left: 0 }),
+    margin: PhysicalMargin.default({ top: 0, right: 0, bottom: 0, left: 0 }),
     columns: z.number().int().positive().optional(),
     rows: z.number().int().positive().optional(),
     cell: z.object({ width: z.number().positive().optional(), height: z.number().positive() }),
@@ -28,7 +30,7 @@ export const Imposition = z
     sides: z.enum(['one', 'two']).optional(),
     flip: z.enum(['long', 'short']).default('long'),
     skip: z.number().int().nonnegative().default(0),
-    dir: z.enum(['ltr', 'rtl']).default('ltr'),
+    dir: TextDirection.default('ltr'),
     marks: z.boolean().default(false),
     markColor: MarkColor.default('black'),
     cornerMarks: z.boolean().default(false),

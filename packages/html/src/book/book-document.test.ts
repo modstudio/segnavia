@@ -128,7 +128,7 @@ describe('book document', () => {
       Book.parse(
         input({
           mode: 'paginated',
-          page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+          page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
           endnotes: { placement: 'chapter' },
           chapters: [
             { title: 'One', runningHead: 'I', html: '<p>A<span data-note="endnote">first</span></p>' },
@@ -162,7 +162,7 @@ describe('book document', () => {
       Book.parse(
         input({
           mode: 'paginated',
-          page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+          page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
           endnotes: { placement: 'chapter' },
           chapters: [
             { kind: 'designed', title: 'Spread', pages: [{ html: '<p>Art<span data-note="endnote">source</span></p>' }] },
@@ -227,7 +227,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         chapters: [chapter('One', '<p>A<span data-note="footnote">note</span></p>')],
       }),
     )
@@ -262,7 +262,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         frontMatter: [{ kind: 'contents' }],
         chapters: [
           {
@@ -298,7 +298,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         chapters: [chapter('One'), { kind: 'designed', pages: [{ html: '<p>Art</p>' }] }, chapter('Two')],
       }),
     )
@@ -309,7 +309,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         frontMatter: [{ kind: 'contents' }],
         templates: [{ name: 'lesson', html: '<div data-region="heading"></div><div data-region="reading-text"></div>' }],
         chapters: [
@@ -349,7 +349,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         templates: [{ name: 'lesson', html: '<div data-region="reading text"></div>' }],
         chapters: [chapter('One')],
       }),
@@ -368,7 +368,7 @@ describe('book document', () => {
     const book = Book.parse(
       input({
         mode: 'paginated',
-        page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
         templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
         chapters: [
           {

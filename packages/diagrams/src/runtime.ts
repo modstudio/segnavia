@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { firstStrongDirection } from '@segnavia/format'
 
 export function diagramErrorFirstLine(error: unknown): string {
@@ -5,6 +6,6 @@ export function diagramErrorFirstLine(error: unknown): string {
   return message.split(/\r?\n/, 1)[0] || 'Diagram could not be drawn.'
 }
 
-export function diagramLabelDirection(text: string): 'ltr' | 'rtl' {
+export function diagramLabelDirection(text: string): TextDirection {
   return firstStrongDirection(text) ?? 'ltr'
 }

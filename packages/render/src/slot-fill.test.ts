@@ -12,7 +12,7 @@ test('filledBook applies host values to chapters, designed pages, templates and 
   const book = Book.parse({
     title: 'Workbook',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
     slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
     templates: [{ name: 'lesson', html: '<p data-slot-value="school">School</p><div data-region="heading"></div>' }],
     chapters: [
@@ -59,7 +59,7 @@ test('filledBook refuses a missing required slot by name', async () => {
   const book = Book.parse({
     title: 'Workbook',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
     slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
     chapters: [{ title: 'One', html: '<p data-slot-value="school">School</p>' }],
   })
@@ -72,7 +72,7 @@ test('a refuse-overflow key bound in two chapters is marked once per book docume
   const book = Book.parse({
     title: 'Workbook',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 10, bottom: 10, inner: 10, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
     slots: [{ key: 'school', label: 'School', type: 'text', overflow: 'refuse' }],
     chapters: [
       { title: 'One', html: '<p data-slot-value="school">School</p>' },

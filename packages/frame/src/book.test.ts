@@ -124,7 +124,7 @@ describe('book element input', () => {
   test('a paginated frame uses the composer and carries the spread setting', () => {
     const pagination = {
       paper: { width: 148, height: 210 },
-      margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+      margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
       columnGap: 4,
       direction: 'ltr' as const,
       numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
@@ -195,7 +195,7 @@ describe('book fonts', () => {
       fonts: [{ app: 'serif' }],
       pagination: {
         paper: { width: 148, height: 210 },
-        margin: { top: 12, bottom: 12, inner: 15, outer: 10 },
+        margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
         columnGap: 4,
         direction: 'ltr',
         numbering: { frontMatter: 'roman-lower', body: 'arabic' },

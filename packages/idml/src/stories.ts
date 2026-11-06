@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { BOOK_FURNITURE, MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
@@ -24,7 +25,7 @@ interface Token {
 export interface StoryHtmlInput {
   id: string
   root?: IdmlTextNode
-  direction?: 'ltr' | 'rtl'
+  direction?: TextDirection
   frame?: IdmlFramePreference
   textVariables?: IdmlTextVariable[]
   master?: boolean
@@ -36,7 +37,7 @@ export interface StoryHtmlResult {
 }
 
 export interface StoryHtmlOptions {
-  anchored?: (location: string, direction: 'ltr' | 'rtl') => string | undefined
+  anchored?: (location: string, direction: TextDirection) => string | undefined
   inlineParagraphs?: boolean
   tableStyles?: TableStyleMapper
 }
@@ -94,7 +95,7 @@ function reportedChange(node: IdmlTextNode, report: ReportCollector): boolean {
   return true
 }
 
-function contentNodes(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl'): (Text | Element)[] {
+function contentNodes(token: Token, styles: StyleMapper, direction: TextDirection): (Text | Element)[] {
   const character = token.character
   const characterAttributes = rangeAttributes(character)
   const characterStyle = characterAttributes.AppliedCharacterStyle
@@ -115,7 +116,7 @@ const folioFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':folio')
 const markFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':mark'))
 const markWhich = markFurniture?.fields.find((field) => field.key === 'which')
 
-function furnitureClass(token: Token, styles: StyleMapper, direction: 'ltr' | 'rtl'): string | undefined {
+function furnitureClass(token: Token, styles: StyleMapper, direction: TextDirection): string | undefined {
   const characterAttributes = rangeAttributes(token.character)
   const characterStyle = characterAttributes.AppliedCharacterStyle
   return classes(
@@ -145,7 +146,7 @@ function furnitureNode(
   variables: IdmlTextVariable[],
   master: boolean,
   styles: StyleMapper,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
   report: ReportCollector,
 ): Element | undefined {
   const className = furnitureClass(token, styles, direction)
@@ -167,7 +168,7 @@ function paragraphChildren(
   paragraphTokens: Token[],
   styles: StyleMapper,
   report: ReportCollector,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
   variables: IdmlTextVariable[],
   master: boolean,
   options: StoryHtmlOptions,
@@ -220,9 +221,9 @@ function paragraphNode(
   paragraphTokens: Token[],
   styles: StyleMapper,
   report: ReportCollector,
-  bookDirection: 'ltr' | 'rtl',
+  bookDirection: TextDirection,
   bookLanguage: string | undefined,
-  storyDirection: 'ltr' | 'rtl' | undefined,
+  storyDirection: TextDirection | undefined,
   frame: IdmlFramePreference | undefined,
   variables: IdmlTextVariable[],
   master: boolean,
@@ -269,7 +270,7 @@ interface ParagraphRenderContext {
   story: StoryHtmlInput
   styles: StyleMapper
   report: ReportCollector
-  bookDirection: 'ltr' | 'rtl'
+  bookDirection: TextDirection
   bookLanguage: string | undefined
   options: StoryHtmlOptions
 }
@@ -336,7 +337,7 @@ export function storyHtml(
   story: StoryHtmlInput,
   styles: StyleMapper,
   report: ReportCollector,
-  bookDirection: 'ltr' | 'rtl',
+  bookDirection: TextDirection,
   bookLanguage: string | undefined,
   options: StoryHtmlOptions = {},
 ): StoryHtmlResult {

@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import { type Element, isTag } from 'domhandler'
 import type { FontMapper } from './fonts.ts'
 import { paragraphBoxDeclarations } from './paragraph-box.ts'
@@ -178,7 +179,7 @@ export class StyleMapper {
   private readonly used = new Set<string>()
   private readonly overrides = new Map<
     string,
-    { name: string; properties: Record<string, string>; direction: 'ltr' | 'rtl'; location: string; resetShading: boolean }
+    { name: string; properties: Record<string, string>; direction: TextDirection; location: string; resetShading: boolean }
   >()
   private readonly rawOverrides = new Map<string, { name: string; declarations: string }>()
   private nextOverride = 1
@@ -188,7 +189,7 @@ export class StyleMapper {
     styles: IdmlStyle[],
     private readonly swatches: IdmlSwatch[],
     private readonly report: ReportCollector,
-    private readonly bookDirection: 'ltr' | 'rtl',
+    private readonly bookDirection: TextDirection,
     private readonly fonts?: FontMapper,
   ) {
     this.byId = new Map(styles.map((style) => [style.id, style]))
@@ -224,9 +225,9 @@ export class StyleMapper {
   overrideClass(
     values: Record<string, string>,
     base: Record<string, string>,
-    directionValue: 'ltr' | 'rtl',
+    directionValue: TextDirection,
     location: string,
-    styleDirection?: 'ltr' | 'rtl',
+    styleDirection?: TextDirection,
   ): string | undefined {
     let changed = Object.fromEntries(
       Object.entries(values).filter(([name, value]) => stylePropertyMapping(name)?.kind !== 'non-formatting' && value !== base[name]),
@@ -264,11 +265,11 @@ export class StyleMapper {
     return name
   }
 
-  paragraphDirection(properties: Record<string, string>): 'ltr' | 'rtl' | undefined {
+  paragraphDirection(properties: Record<string, string>): TextDirection | undefined {
     return idmlDirection(properties.ParagraphDirection)
   }
 
-  paragraphStyleDirection(properties: Record<string, string>): 'ltr' | 'rtl' {
+  paragraphStyleDirection(properties: Record<string, string>): TextDirection {
     return this.paragraphDirection(properties) ?? this.bookDirection
   }
 
@@ -305,7 +306,7 @@ export class StyleMapper {
     return rules.join('')
   }
 
-  private declarations(values: Record<string, string>, dir: 'ltr' | 'rtl', location: string, unsupported: Map<string, number>, resetShading: boolean): string {
+  private declarations(values: Record<string, string>, dir: TextDirection, location: string, unsupported: Map<string, number>, resetShading: boolean): string {
     const output: string[] = []
     output.push(...(this.fonts?.declarations(values.AppliedFont, values.FontStyle, location) ?? []))
     const mapped = new Set(Object.keys(values).filter((name) => stylePropertyMapping(name)?.kind === 'css'))
@@ -356,7 +357,7 @@ export class StyleMapper {
     }
   }
 
-  private justification(value: string | undefined, dir: 'ltr' | 'rtl', output: string[], location: string, bucket: Map<string, number>): void {
+  private justification(value: string | undefined, dir: TextDirection, output: string[], location: string, bucket: Map<string, number>): void {
     if (!value) return
     const side = (physical: 'left' | 'right') => (physical === (dir === 'rtl' ? 'right' : 'left') ? 'start' : 'end')
     if (value === 'LeftAlign' || value === 'RightAlign') output.push(`text-align:${side(value === 'LeftAlign' ? 'left' : 'right')}`)

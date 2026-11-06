@@ -1,3 +1,4 @@
+import type { TextDirection } from '@segnavia/format'
 import type { DeckTimeline } from './timeline.ts'
 
 export const TRACK_MARKER_WIDTH = 6
@@ -17,7 +18,7 @@ export function trackMsAt(
   position: number,
   width: number,
   timeline: DeckTimeline,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
   markerWidth = TRACK_MARKER_WIDTH,
   gapWidth = TRACK_GAP_WIDTH,
 ): number {
@@ -30,7 +31,7 @@ export function trackTargetAt(
   position: number,
   width: number,
   timeline: DeckTimeline,
-  direction: 'ltr' | 'rtl',
+  direction: TextDirection,
   markerWidth = TRACK_MARKER_WIDTH,
   gapWidth = TRACK_GAP_WIDTH,
 ): TrackTarget {

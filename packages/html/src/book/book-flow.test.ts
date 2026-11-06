@@ -9,7 +9,7 @@ describe('book flow', () => {
     const input = {
       title: 'Book',
       mode: 'paginated' as const,
-      page: { paper: 'a5' as const, margin: { top: 10, bottom: 12, inner: 14, outer: 8 } },
+      page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 12, inlineStart: 14, inlineEnd: 8 } },
       chapters: [{ title: 'One', html: '<h1>Heading</h1><table><tr><td>Row</td></tr></table>' }],
     }
     for (const build of ['galley', 'flow', 'print'] as const) {
@@ -27,7 +27,7 @@ describe('book flow', () => {
     const book = Book.parse({
       title: 'Book',
       mode: 'paginated',
-      page: { paper: 'a5', margin: { top: 10, bottom: 12, inner: 14, outer: 8 }, columnGap: 6 },
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 12, inlineStart: 14, inlineEnd: 8 }, columnGap: 6 },
       frontMatter: [{ kind: 'contents' }],
       templates: [{ name: 'lesson', html: '<header data-region="heading"></header><main data-region="reading"></main>' }],
       chapters: [

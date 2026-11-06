@@ -1,4 +1,4 @@
-import type { FontReferenceInput } from '@segnavia/format'
+import type { FontReferenceInput, PhysicalMargin, TextDirection } from '@segnavia/format'
 import type { IdmlAnswers } from './conversion-types.ts'
 
 export type {
@@ -100,7 +100,7 @@ export interface IdmlFramePreference {
 export interface IdmlStory {
   id: string
   part: string
-  direction?: 'ltr' | 'rtl'
+  direction?: TextDirection
   root?: IdmlTextNode
   frame?: IdmlFramePreference
 }
@@ -130,18 +130,12 @@ export interface IdmlTextVariable {
   location: string
 }
 
-export interface IdmlMargin {
-  top: number
-  bottom: number
-  left: number
-  right: number
-}
 export interface IdmlDocumentPreferences {
   pageWidth: number
   pageHeight: number
   facingPages: boolean
   binding: 'left-to-right' | 'right-to-left'
-  margin: IdmlMargin
+  margin: PhysicalMargin
 }
 export interface IdmlPage {
   id: string
@@ -170,7 +164,7 @@ export interface IdmlMasterFrame {
   bounds: { left: number; top: number; width: number; height: number }
 }
 export interface IdmlMasterPage extends IdmlPage {
-  margin: IdmlMargin
+  margin: PhysicalMargin
   frames: IdmlMasterFrame[]
 }
 export interface IdmlMasterSpread {

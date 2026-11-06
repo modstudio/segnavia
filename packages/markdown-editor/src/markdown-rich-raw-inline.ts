@@ -5,7 +5,7 @@ export const RAW_INLINE_ATTRIBUTE = 'data-raw-inline'
 export const RAW_INLINE_SOURCE_ATTRIBUTE = 'data-raw-source'
 export const RAW_INLINE_DISPLAY_ATTRIBUTE = 'data-raw-display'
 
-const ASCII_PUNCTUATION = String.raw`[!-/:-@\[-` + '{-~]'
+const ASCII_PUNCTUATION = `${String.raw`[!-/:-@\[-`}{-~]`
 const escapePattern = new RegExp(`^\\\\${ASCII_PUNCTUATION}`)
 const entityPattern = /^&(?:[A-Za-z][A-Za-z0-9]+|#[0-9]+|#[xX][0-9A-Fa-f]+);/
 const footnotePattern = /^\[\^[^\]\n]+\]/

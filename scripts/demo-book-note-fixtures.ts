@@ -39,7 +39,7 @@ export function noteCasesFixture(hebrew: boolean): BookInput {
     title,
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     chapters: [
       {
         title,

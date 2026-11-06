@@ -28,7 +28,7 @@ async function selectRichText(page: Harness['page'], text = 'Keyboard target.') 
   await page.evaluate((wanted) => {
     const element = document.getElementById('editor') as unknown as {
       richView: {
-        state: { doc: { descendants(visitor: (node: { isText: boolean; text?: string }, position: number) => boolean | void): void } }
+        state: { doc: { descendants(visitor: (node: { isText: boolean; text?: string }, position: number) => boolean | undefined): void } }
         commands: { setTextSelection(selection: { from: number; to: number }): boolean }
         view: { focus(): void }
       }

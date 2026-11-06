@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import type { TextDirection } from '@segnavia/format'
 import { Deck, type Transition } from '@segnavia/format'
 import { transitionFor } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
-const parsed = (transition: Transition = { kind: 'slide', duration: 450 }, dir: 'ltr' | 'rtl' = 'ltr') =>
+const parsed = (transition: Transition = { kind: 'slide', duration: 450 }, dir: TextDirection = 'ltr') =>
   Deck.parse({
     title: 'Deck',
     dir,

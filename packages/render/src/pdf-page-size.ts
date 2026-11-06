@@ -1,4 +1,4 @@
-import { fromMillimeters } from '@segnavia/format'
+import { fromMillimeters, type PhysicalMargin } from '@segnavia/format'
 import { PDFArray, PDFDict, PDFName, PDFNumber } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { type PdfRectangle, pt } from './pdf-geometry.ts'
@@ -9,13 +9,6 @@ interface MillimeterPageSize {
   height: number
 }
 
-interface PageMargins {
-  top: number
-  right: number
-  bottom: number
-  left: number
-}
-
 const inches = (millimeters: number) => {
   const value = fromMillimeters(millimeters, 'in')
   const nearbyDecimal = Number(value.toFixed(12))
@@ -23,7 +16,7 @@ const inches = (millimeters: number) => {
   return `${exact}in`
 }
 
-export const pagePdfSize = (size: MillimeterPageSize, margin?: PageMargins) => ({
+export const pagePdfSize = (size: MillimeterPageSize, margin?: PhysicalMargin) => ({
   width: inches(size.width),
   height: inches(size.height),
   ...(margin

@@ -1,4 +1,4 @@
-import type { BoardItem } from '@segnavia/format'
+import type { BoardItem, TextDirection } from '@segnavia/format'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import type { BoardItemTitles } from './board-titles.ts'
 import { type BoardLabels, boardLabels } from './labels.ts'
@@ -14,7 +14,7 @@ export class BoardChrome {
     private readonly items: () => readonly BoardItem[],
     private readonly mounted: (id: string) => boolean,
     private readonly name: (id: string) => string,
-    private readonly direction: () => 'ltr' | 'rtl',
+    private readonly direction: () => TextDirection,
   ) {}
 
   render(item: BoardItem) {

@@ -19,7 +19,7 @@ test('expands motifs in a chapter, designed page and templated region before bui
   const book = Book.parse({
     title: 'Motifs',
     mode: 'paginated',
-    page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
     lang: 'en',
     templates: [{ name: 'feature', html: '<main data-region="body"></main>' }],
     chapters: [
@@ -77,7 +77,7 @@ test('matches page missing-source behavior for body and parent-page placements',
   expect(framePageMotifRefusal(resolvePageHtml(bodyPage))).toBeUndefined()
   expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
 
-  const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { top: 1, bottom: 1, inner: 1, outer: 1 } }
+  const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } }
   const parentBook = Book.parse({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
   const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], rules: { every: 'held' } } })
   expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(resolvePageHtml(parentPage))?.message)
@@ -94,7 +94,7 @@ test('preserves library furniture motifs while expanding host motifs around them
       {
         name: 'held',
         head: '<span data-motif="segnavia:folio"></span><span data-motif="ornament"></span>',
-        margin: { top: 1, bottom: 1, inner: 1, outer: 1 },
+        margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
       },
     ],
     chapters: [{ title: 'One', html: '<p></p>' }],
@@ -119,7 +119,7 @@ test('refuses library motifs in chapter and designed-page bodies without a sourc
     const book = Book.parse({
       title: 'Reserved',
       mode: chapter.kind === 'designed' ? 'paginated' : 'continuous',
-      ...(chapter.kind === 'designed' ? { page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } } } : {}),
+      ...(chapter.kind === 'designed' ? { page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } } } : {}),
       chapters: [chapter],
     })
     const expected = framePageMotifRefusal(resolvePageHtml(Page.parse({ html })))?.message

@@ -7,7 +7,7 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { dependencyOriginSet, type Scripts } from '@segnavia/format'
+import { type Direction, dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { keepPassScript } from './keep-pass.ts'
@@ -61,7 +61,7 @@ export interface FrameOptions {
   nonce: string
   // A document that has no library work to run can omit the bridge entirely.
   bridge?: boolean
-  dir?: 'ltr' | 'rtl' | 'auto'
+  dir?: Direction
   lang?: string
   title?: string
   // Styles the host applies to every document it shows, such as its house style.

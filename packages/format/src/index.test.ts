@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { annotationCueIssues, DEFAULT_TRANSITION_DURATION_MS, Deck, MAX_TRANSITION_DURATION_MS, type Narration, parsePlayback } from './index.ts'
+import {
+  annotationCueIssues,
+  DEFAULT_TRANSITION_DURATION_MS,
+  Deck,
+  type Direction,
+  MAX_TRANSITION_DURATION_MS,
+  type Narration,
+  parsePlayback,
+} from './index.ts'
 
 const shot = {
   key: 'a.b',
@@ -225,7 +233,7 @@ describe('direction', () => {
     expect(languageDirection('')).toBeNull()
     expect(languageDirection('yi')).toBe('rtl')
     const embedded = new Function(`return (${textDirection.toString()});`)() as typeof textDirection
-    const run = (dir: 'ltr' | 'rtl' | 'auto' | undefined, lang: string | undefined, sample: string) => embedded(dir, lang, sample) ?? 'ltr'
+    const run = (dir: Direction | undefined, lang: string | undefined, sample: string) => embedded(dir, lang, sample) ?? 'ltr'
     expect(run('ltr', 'he', 'שלום')).toBe(resolveDirection('ltr', 'he', 'שלום'))
     expect(run('auto', 'he-IL', 'Hello')).toBe(resolveDirection('auto', 'he-IL', 'Hello'))
     expect(run(undefined, undefined, 'שלום')).toBe(resolveDirection(undefined, undefined, 'שלום'))

@@ -48,7 +48,7 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   )
 
   const markerHtml = '<div>TOPMARK</div>'
-  const margin = { top: 0, right: 0, bottom: 0, left: 0 }
+  const margin = { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 }
   let raw: Uint8Array<ArrayBufferLike> = new Uint8Array()
   const corrected = await renderer.pagePdf(
     { html: markerHtml, print: { paper: { width: 100, height: 150, unit: 'mm' }, orientation: 'portrait', margin } },

@@ -35,7 +35,7 @@ export function workbookFixture(hebrew: boolean): BookInput {
     title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
     slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }],
     templates: [

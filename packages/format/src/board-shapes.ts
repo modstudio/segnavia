@@ -1,19 +1,19 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
 import type { BoardShapes } from './board-geometry.ts'
-import type { Size } from './deck.ts'
+import type { MeasuredSize, PixelSize } from './deck.ts'
 import { resolveDirection } from './direction.ts'
 import type { AssetKind } from './placement.ts'
 
 export type BoardItemFact =
-  | { kind: 'deck'; deck: { size: Size } }
-  | { kind: 'page'; size: Size }
-  | { kind: 'paper'; size: Size }
-  | { kind: 'book'; size: Size }
-  | { kind: 'media'; width: number; height: number }
-  | { kind: 'shot'; width: number; height: number }
+  | { kind: 'deck'; deck: { size: PixelSize } }
+  | { kind: 'page'; size: PixelSize }
+  | { kind: 'paper'; size: PixelSize }
+  | { kind: 'book'; size: PixelSize }
+  | { kind: 'media'; size: MeasuredSize }
+  | { kind: 'shot'; size: MeasuredSize }
 
 export interface BoardShapesOptions {
-  measureLabel?: (text: string, direction: Board['direction']) => Size | undefined
+  measureLabel?: (text: string, direction: Board['direction']) => MeasuredSize | undefined
 }
 
 export interface ComputedBoardShapes {
@@ -23,26 +23,25 @@ export interface ComputedBoardShapes {
 }
 
 export interface LabelShapeResult {
-  shape: Size
+  shape: MeasuredSize
   source: 'stored' | 'measured' | 'estimated'
 }
 
 // This is the browser-independent fallback for a label whose rendered box is not available.
 export const BOARD_LABEL_ESTIMATE = { widthPerCharacter: 8, height: 19 } as const
 
-export function resolvedShape(fact: BoardItemFact): Size {
+export function resolvedShape(fact: BoardItemFact): MeasuredSize {
   if (fact.kind === 'deck') return fact.deck.size
-  if (fact.kind === 'media' || fact.kind === 'shot') return { width: fact.width, height: fact.height }
   return fact.size
 }
 
-export function provisionalShape(kind: AssetKind): Size {
+export function provisionalShape(kind: AssetKind): MeasuredSize {
   if (kind === 'deck') return { width: 16, height: 9 }
   if (kind === 'page' || kind === 'paper' || kind === 'book') return { width: 1, height: Math.SQRT2 }
   return { width: 4, height: 3 }
 }
 
-function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact>>, provisional: string[]): Size {
+function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact>>, provisional: string[]): MeasuredSize {
   const fact = facts[item.address]
   if (!fact) {
     provisional.push(item.id)
@@ -56,7 +55,7 @@ function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact
   return resolvedShape(fact)
 }
 
-function estimatedLabelShape(text: string): Size {
+function estimatedLabelShape(text: string): MeasuredSize {
   return { width: Math.max(1, text.length * BOARD_LABEL_ESTIMATE.widthPerCharacter), height: BOARD_LABEL_ESTIMATE.height }
 }
 

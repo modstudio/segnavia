@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Book, type BookInput, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
-const page = { paper: 'a5' as const, margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }
+const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
 const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
@@ -149,16 +149,15 @@ describe('book', () => {
   })
 
   test('page margins must leave a text area in both dimensions', () => {
-    const vertical = Book.safeParse(input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, top: 105, bottom: 105 } } }))
+    const vertical = Book.safeParse(input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, blockStart: 105, blockEnd: 105 } } }))
     expect(vertical.error?.issues[0]).toMatchObject({ path: ['page', 'margin'] })
     expect(vertical.error?.issues[0]?.message).toContain('210mm')
     expect(vertical.error?.issues[0]?.message).toContain('210mm high')
 
-    const horizontal = Book.safeParse(input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, inner: 74, outer: 74 } } }))
+    const horizontal = Book.safeParse(input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, inlineStart: 74, inlineEnd: 74 } } }))
     expect(horizontal.error?.issues[0]?.message).toContain('148mm')
     expect(horizontal.error?.issues[0]?.message).toContain('148mm wide')
   })
-
   test('note marker issues require both note kinds and matching markers', () => {
     const same = Book.parse(input({ footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } }))
     const different = Book.parse(input())
@@ -389,7 +388,7 @@ describe('book', () => {
       input({
         mode: 'paginated',
         page,
-        parentPages: [{ name: 'narrow', basedOn: 'segnavia:recto', margin: { top: 10, bottom: 10, inner: 30, outer: 10 } }],
+        parentPages: [{ name: 'narrow', basedOn: 'segnavia:recto', margin: { blockStart: 10, blockEnd: 10, inlineStart: 30, inlineEnd: 10 } }],
         chapters: undefined,
         body: [{ name: 'part', children: [{ title: 'Nested', html: '<p>Text</p>', parents: { recto: 'narrow' } }] }],
       }),

@@ -51,8 +51,8 @@ test('maps document setup and orders placeholder chapters by first page', () => 
     rectoOpenings: true,
     page: { paper: { width: 396, height: 612, unit: 'pt' } },
   })
-  expect(book.page?.margin.inner).toBeCloseTo(40 * (25.4 / 72))
-  expect(book.page?.margin.outer).toBeCloseTo(30 * (25.4 / 72))
+  expect(book.page?.margin.inlineStart).toBeCloseTo(40 * (25.4 / 72))
+  expect(book.page?.margin.inlineEnd).toBeCloseTo(30 * (25.4 / 72))
   expect(book.page?.columnGap).toBeCloseTo(12 * (25.4 / 72))
   expect(report.data().unsupportedElements['differing body frame gutters']).toBe(2)
   expect(report.data().locations['element:differing body frame gutters']).toEqual(['frame-10-a', 'frame-14'])
@@ -79,8 +79,8 @@ test('maps left binding, asymmetric margins, and non-facing pages', () => {
   const book = modelToBook(model)
   expect(book.dir).toBe('ltr')
   expect(book.rectoOpenings).toBe(false)
-  expect(book.page?.margin.inner).toBeCloseTo(30 * (25.4 / 72))
-  expect(book.page?.margin.outer).toBeCloseTo(40 * (25.4 / 72))
+  expect(book.page?.margin.inlineStart).toBeCloseTo(30 * (25.4 / 72))
+  expect(book.page?.margin.inlineEnd).toBeCloseTo(40 * (25.4 / 72))
 })
 
 test('maps RTL master heads, chapter parents, marks, unmapped items, and no-master pages', () => {
@@ -167,7 +167,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   const report = new ReportCollector()
   const book = modelToBook(model, report)
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-haggadah-recto', 'idml-h-haggadah-verso', 'idml-none'])
-  expect(book.parentPages[0]?.margin).toMatchObject({ inner: 13 * (25.4 / 72), outer: 12 * (25.4 / 72) })
+  expect(book.parentPages[0]?.margin).toMatchObject({ inlineStart: 13 * (25.4 / 72), inlineEnd: 12 * (25.4 / 72) })
   expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:mark" data-motif-name="Siman" data-motif-which="last"')
   expect(book.parentPages[0]?.head).toContain('class="idml-master-frame-1"')
   expect(book.parentPages[0]?.head).toContain('class="idml-c-mark idml-o-2"')
@@ -252,7 +252,12 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
   expect(book.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:8.819444mm;inline-size:3.527778mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
-  expect(book.page?.margin).toEqual({ top: 5 * (25.4 / 72), bottom: 10 * (25.4 / 72), inner: 15 * (25.4 / 72), outer: 20 * (25.4 / 72) })
+  expect(book.page?.margin).toEqual({
+    blockStart: 5 * (25.4 / 72),
+    blockEnd: 10 * (25.4 / 72),
+    inlineStart: 15 * (25.4 / 72),
+    inlineEnd: 20 * (25.4 / 72),
+  })
   expect(book.body[0]?.parents).toEqual({ opener: 'idml-a-master-recto', verso: 'idml-a-master-recto' })
 })
 

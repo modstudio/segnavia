@@ -13,7 +13,6 @@ import { compact, decodeXml, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
-
 interface Fixture {
   key: 'english' | 'hebrew'
   book: BookInput
@@ -68,7 +67,7 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
       subject: hebrew ? 'בדיקת מבנה & מידע' : 'Structure & metadata verification',
       mode: 'continuous',
       lang: hebrew ? 'he' : 'en',
-      page: { paper: 'a5', orientation: 'portrait', margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
+      page: { paper: 'a5', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 20, inlineEnd: 12 } },
       rectoOpenings: true,
       frontMatter: [
         {
@@ -299,7 +298,7 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
     subject: hebrew ? 'נושא & תיאור' : 'Subject & description',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
     chapters: [
       { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
@@ -343,10 +342,11 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyPaginatedBookWithoutContents(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
+  const page = { paper: 'a5' as const, orientation: 'portrait' as const, margin: { blockStart: 15, blockEnd: 15, inlineStart: 20, inlineEnd: 12 } }
   const book = {
     title: 'Overflowing book',
     mode: 'continuous' as const,
-    page: { paper: 'a5' as const, orientation: 'portrait' as const, margin: { top: 15, bottom: 15, inner: 20, outer: 12 } },
+    page,
     chapters: [{ title: 'Wide chapter', html: chapterHtml }],
   }
   const baseline = await renderer.bookPdf(book, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
