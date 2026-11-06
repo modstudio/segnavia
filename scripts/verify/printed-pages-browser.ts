@@ -74,6 +74,43 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       printedPages: parentPages,
     })
     check('content that exactly fills three columns prints exactly three papers', exactPapers === 3, `papers=${exactPapers}`)
+    const refusal = await page.evaluate(async () => {
+      const bundle = '/segnavia.js'
+      const { printPages } = (await import(bundle)) as {
+        printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void>
+      }
+      const printedPage = {
+        html: Array.from({ length: 501 }, () => '<div style="block-size:249.4mm"></div>').join(''),
+        lang: 'en',
+        print: { paper: 'letter' },
+        printedPages: {
+          parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
+          rules: { every: 'body' },
+        },
+      }
+      return new Promise<string | null>((resolve) => {
+        const timer = window.setTimeout(() => finish(null), 10_000)
+        const onMessage = (event: MessageEvent) => {
+          if (event.data?.type === 'segnavia:compose-failure') finish(event.data.text)
+        }
+        const finish = (result: string | null) => {
+          window.clearTimeout(timer)
+          window.removeEventListener('message', onMessage)
+          resolve(result)
+        }
+        window.addEventListener('message', onMessage)
+        void printPages(
+          [printedPage],
+          { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
+          { deadlineMs: 9_000 },
+        ).catch(() => {})
+      })
+    })
+    check(
+      'a printed-pages preview reports content above the page limit as a composition refusal',
+      refusal?.includes('above the limit 500') === true,
+      `refusal=${JSON.stringify(refusal)}`,
+    )
     for (const fixture of [
       { name: 'LTR', page: { html: '<table style="inline-size:464.75mm"><tr><td>Wide table</td></tr></table>', lang: 'en' } },
       {

@@ -195,6 +195,7 @@ export function printedPageDocument(
     relayKeys: false,
     reportHeight: options.measure === true,
     readyAfterAttribute: PRINTED_PAGE_COMPOSED_ATTRIBUTE,
+    failureAttribute: PRINTED_PAGE_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
   })
